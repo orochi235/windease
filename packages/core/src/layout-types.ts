@@ -54,4 +54,10 @@ export interface LayoutStrategy<
     event: LayoutEvent,
     context: { container: Size; options: Record<string, unknown> },
   ): TState;
+  /**
+   * Optional hook used by DnD to reject drops the strategy can't lay out.
+   * Receives the prospective post-drop items list. Return false to reject.
+   * Strategies that don't implement it are treated as accept-all.
+   */
+  canAccept?(items: LayoutItem[]): boolean;
 }
