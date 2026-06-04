@@ -2,8 +2,10 @@ import {
   asWindowId,
   asZoneId,
   gridStrategy,
+  HistoryController,
   recursiveSplit,
   type SerializedStore,
+  type SplitNode,
   stackStrategy,
   stripStrategy,
   WindeaseStore,
@@ -11,8 +13,8 @@ import {
   type ZoneId,
 } from '@windease/core';
 import type { Story } from '@ladle/react';
-import { useEffect, useMemo, useState } from 'react';
-import { WindeaseProvider } from '../WindeaseProvider.js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type HistoryHookup, WindeaseProvider } from '../WindeaseProvider.js';
 import { Workspace } from '../Workspace.js';
 import { Zone } from '../Zone.js';
 import { Panel } from './Panel.js';
@@ -27,6 +29,25 @@ const STRATEGIES = {
   stack: stackStrategy,
   strip: stripStrategy,
 };
+
+const INITIAL_WORKSPACE_TREE: SplitNode = {
+  kind: 'split',
+  direction: 'horizontal',
+  ratio: 0.75,
+  a: {
+    kind: 'split',
+    direction: 'vertical',
+    ratio: 0.82,
+    a: { kind: 'leaf', id: MAIN },
+    b: { kind: 'leaf', id: DOCK },
+  },
+  b: { kind: 'leaf', id: SIDEBAR },
+};
+
+interface PlaygroundSnapshot {
+  store: SerializedStore;
+  workspace: SplitNode;
+}
 
 function makeStore(): WindeaseStore {
   const s = new WindeaseStore();
@@ -64,8 +85,56 @@ export const Playground: Story = () => {
   const [selected, setSelected] = useState<WindowId | null>(null);
   const [, setTick] = useState(0);
   const [snapshotText, setSnapshotText] = useState<string>('');
+  const [workspaceState, setWorkspaceState] = useState<SplitNode>(INITIAL_WORKSPACE_TREE);
   // Mutable counters for fresh ids.
   const counters = useMemo(() => ({ panel: 2, widget: 1, tool: 1 }), []);
+
+  const workspaceStateRef = useRef<SplitNode>(workspaceState);
+  useEffect(() => {
+    workspaceStateRef.current = workspaceState;
+  }, [workspaceState]);
+
+  const controller = useMemo(() => new HistoryController<PlaygroundSnapshot>(), []);
+
+  const capture = useCallback(
+    (): PlaygroundSnapshot => ({
+      store: store.snapshot(),
+      workspace: workspaceStateRef.current,
+    }),
+    [store],
+  );
+
+  const restore = useCallback(
+    (snap: PlaygroundSnapshot) => {
+      store.hydrate(snap.store, { strategies: STRATEGIES });
+      setWorkspaceState(snap.workspace);
+    },
+    [store],
+  );
+
+  const historyHookup = useMemo(
+    () => ({ controller, capture, restore }) as unknown as HistoryHookup<unknown>,
+    [controller, capture, restore],
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        const snap = controller.undo();
+        if (snap) restore(snap);
+      } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+        e.preventDefault();
+        const snap = controller.redo();
+        if (snap) restore(snap);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [controller, restore]);
 
   useEffect(() => {
     const bump = () => setTick((n) => n + 1);
@@ -150,9 +219,29 @@ export const Playground: Story = () => {
   );
 
   return (
-    <WindeaseProvider store={store}>
+    <WindeaseProvider store={store} history={historyHookup}>
       <div>
         <div className="story-toolbar">
+          <button
+            type="button"
+            onClick={() => {
+              const s = controller.undo();
+              if (s) restore(s);
+            }}
+            disabled={!controller.canUndo()}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const s = controller.redo();
+              if (s) restore(s);
+            }}
+            disabled={!controller.canRedo()}
+          >
+            Redo
+          </button>
           <button type="button" onClick={() => addTo(MAIN, 'panel')}>
             Add panel
           </button>
@@ -193,19 +282,8 @@ export const Playground: Story = () => {
           <Workspace
             strategy={recursiveSplit}
             items={[{ id: MAIN }, { id: DOCK }, { id: SIDEBAR }]}
-            initialState={{
-              kind: 'split',
-              direction: 'horizontal',
-              ratio: 0.75,
-              a: {
-                kind: 'split',
-                direction: 'vertical',
-                ratio: 0.82,
-                a: { kind: 'leaf', id: MAIN },
-                b: { kind: 'leaf', id: DOCK },
-              },
-              b: { kind: 'leaf', id: SIDEBAR },
-            }}
+            state={workspaceState}
+            onStateChange={setWorkspaceState}
           >
             {(item) => <Zone id={item.id as typeof MAIN}>{renderPanel}</Zone>}
           </Workspace>
