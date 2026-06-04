@@ -17,6 +17,24 @@ export interface PointerDragHandlers {
 
 const DEFAULT_THRESHOLD = 5;
 
+let suppressionDepth = 0;
+let savedUserSelect: string | null = null;
+function suppressSelection(): void {
+  if (suppressionDepth === 0 && typeof document !== 'undefined') {
+    savedUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+  }
+  suppressionDepth += 1;
+}
+function restoreSelection(): void {
+  if (suppressionDepth === 0) return;
+  suppressionDepth -= 1;
+  if (suppressionDepth === 0 && typeof document !== 'undefined') {
+    document.body.style.userSelect = savedUserSelect ?? '';
+    savedUserSelect = null;
+  }
+}
+
 export function usePointerDrag(opts: UsePointerDragOptions): PointerDragHandlers {
   const stateRef = useRef<{
     active: boolean;
@@ -51,6 +69,7 @@ export function usePointerDrag(opts: UsePointerDragOptions): PointerDragHandlers
       if (!s.dragging) {
         if (Math.hypot(dxFromOrigin, dyFromOrigin) < threshold) return;
         s.dragging = true;
+        suppressSelection();
         opts.onDragStart(e.nativeEvent);
       }
       const delta = { dx: e.clientX - s.last.x, dy: e.clientY - s.last.y };
@@ -69,6 +88,7 @@ export function usePointerDrag(opts: UsePointerDragOptions): PointerDragHandlers
       if (e.currentTarget.hasPointerCapture(e.pointerId)) {
         e.currentTarget.releasePointerCapture(e.pointerId);
       }
+      if (didDrag) restoreSelection();
       opts.onDragEnd(e.nativeEvent, didDrag);
     },
     [opts],
