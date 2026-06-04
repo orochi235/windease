@@ -1,6 +1,6 @@
 export type EventMap = Record<string, unknown>;
 
-export class TypedEmitter<M extends EventMap> {
+export class TypedEmitter<M extends object = EventMap> {
   private readonly listeners = new Map<keyof M, Set<(payload: unknown) => void>>();
 
   on<K extends keyof M>(event: K, fn: (payload: M[K]) => void): () => void {
