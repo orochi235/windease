@@ -7,8 +7,8 @@ export function createTransitMachine(): Machine<TransitState, TransitEvent> {
   return new Machine<TransitState, TransitEvent>({
     initial: 'idle',
     transitions: {
-      idle:      { beginClaim: 'claiming', beginRelease: 'releasing' },
-      claiming:  { settle: 'idle' },
+      idle: { beginClaim: 'claiming', beginRelease: 'releasing' },
+      claiming: { settle: 'idle' },
       releasing: { settle: 'idle' },
     },
   });

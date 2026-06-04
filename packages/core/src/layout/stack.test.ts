@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { stackStrategy } from './stack.js';
-import { createWindowRecord, asWindowId, asZoneId } from '../window.js';
+import { describe, expect, it } from 'vitest';
+import { asWindowId, asZoneId, createWindowRecord } from '../window.js';
 import { createZoneRecord } from '../zone.js';
+import { stackStrategy } from './stack.js';
 
 const mkWin = (id: string, preferredH?: number) =>
   createWindowRecord({
@@ -20,7 +20,9 @@ describe('stackStrategy', () => {
     const wins = [mkWin('a', 50), mkWin('b', 30)];
     zone.windowIds = wins.map((w) => w.id);
     const result = stackStrategy.layout({
-      zone, windows: wins, viewport: { w: 200, h: 200 },
+      zone,
+      windows: wins,
+      viewport: { w: 200, h: 200 },
     });
     expect(result.get(asWindowId('a'))).toEqual({ x: 10, y: 10, w: 180, h: 50 });
     expect(result.get(asWindowId('b'))).toEqual({ x: 10, y: 65, w: 180, h: 30 });
@@ -31,7 +33,9 @@ describe('stackStrategy', () => {
     const wins = [mkWin('a'), mkWin('b')];
     zone.windowIds = wins.map((w) => w.id);
     const result = stackStrategy.layout({
-      zone, windows: wins, viewport: { w: 100, h: 100 },
+      zone,
+      windows: wins,
+      viewport: { w: 100, h: 100 },
     });
     expect(result.get(asWindowId('a'))?.h).toBe(50);
     expect(result.get(asWindowId('b'))?.h).toBe(50);

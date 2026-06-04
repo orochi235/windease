@@ -1,5 +1,5 @@
-import { useContext, useSyncExternalStore } from 'react';
 import type { WindeaseStore, WindowId, WindowRecord, ZoneId, ZoneRecord } from '@windease/core';
+import { useContext, useSyncExternalStore } from 'react';
 import { WindeaseContext } from './WindeaseProvider.js';
 
 export function useWindease(): WindeaseStore {

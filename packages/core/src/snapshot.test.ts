@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { gridStrategy } from './layout/grid.js';
 import { WindeaseStore } from './store.js';
 import { asWindowId, asZoneId } from './window.js';
-import { gridStrategy } from './layout/grid.js';
 
 describe('snapshot / hydrate', () => {
   it('round-trips windows, zones, membership, focus, and lifecycle', () => {

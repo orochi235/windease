@@ -1,10 +1,10 @@
 import type { Machine } from './fsm.js';
-import type { LifecycleState, LifecycleEvent } from './machines/lifecycle.js';
-import type { TransitState, TransitEvent } from './machines/transit.js';
-import type { FocusState, FocusEvent } from './machines/focus.js';
-import { createLifecycleMachine } from './machines/lifecycle.js';
-import { createTransitMachine } from './machines/transit.js';
+import type { FocusEvent, FocusState } from './machines/focus.js';
 import { createFocusMachine } from './machines/focus.js';
+import type { LifecycleEvent, LifecycleState } from './machines/lifecycle.js';
+import { createLifecycleMachine } from './machines/lifecycle.js';
+import type { TransitEvent, TransitState } from './machines/transit.js';
+import { createTransitMachine } from './machines/transit.js';
 
 export type WindowId = string & { readonly __brand: 'WindowId' };
 export type ZoneId = string & { readonly __brand: 'ZoneId' };

@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { WindeaseError } from './errors.js';
 import { WindeaseStore } from './store.js';
 import { asWindowId, asZoneId } from './window.js';
-import { WindeaseError } from './errors.js';
 
 describe('WindeaseStore - window lifecycle', () => {
   it('createWindow returns the id and stores the record', () => {
@@ -16,8 +16,9 @@ describe('WindeaseStore - window lifecycle', () => {
   it('createWindow throws DUPLICATE_WINDOW on collision', () => {
     const s = new WindeaseStore();
     s.createWindow({ id: asWindowId('w1'), kind: 'panel' });
-    expect(() => s.createWindow({ id: asWindowId('w1'), kind: 'panel' }))
-      .toThrowError(WindeaseError);
+    expect(() => s.createWindow({ id: asWindowId('w1'), kind: 'panel' })).toThrowError(
+      WindeaseError,
+    );
   });
 
   it('show transitions to visible', () => {
@@ -59,12 +60,12 @@ describe('WindeaseStore - window lifecycle', () => {
     s.createWindow({ id: asWindowId('b'), kind: 'widget' });
     s.createWindow({ id: asWindowId('c'), kind: 'panel' });
     const panels = s.listWindows({ kind: 'panel' });
-    expect(panels.map(w => w.id).sort()).toEqual(['a', 'c']);
+    expect(panels.map((w) => w.id).sort()).toEqual(['a', 'c']);
   });
 });
 
-import { describe as describe2, it as it2, expect as expect2 } from 'vitest';
-import { createZoneRecord, type LayoutStrategy } from './zone.js';
+import { describe as describe2, expect as expect2, it as it2 } from 'vitest';
+import { type LayoutStrategy, createZoneRecord } from './zone.js';
 
 const noopStrategy: LayoutStrategy = {
   name: 'noop',
@@ -184,7 +185,9 @@ describe2('WindeaseStore - ownership', () => {
     const s = setup();
     s.claim(asZoneId('main'), asWindowId('w1'));
     let count = 0;
-    s.subscribe(() => { count++; });
+    s.subscribe(() => {
+      count++;
+    });
     s.moveWindow(asWindowId('w1'), asZoneId('side'));
     await Promise.resolve(); // flush microtask
     expect2(count).toBe(1);

@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { stripStrategy } from './strip.js';
-import { createWindowRecord, asWindowId, asZoneId } from '../window.js';
+import { describe, expect, it } from 'vitest';
+import { asWindowId, asZoneId, createWindowRecord } from '../window.js';
 import { createZoneRecord } from '../zone.js';
+import { stripStrategy } from './strip.js';
 
 const mkWin = (id: string, preferredW?: number) =>
   createWindowRecord({
@@ -20,7 +20,9 @@ describe('stripStrategy', () => {
     const wins = [mkWin('a', 60), mkWin('b', 40)];
     zone.windowIds = wins.map((w) => w.id);
     const result = stripStrategy.layout({
-      zone, windows: wins, viewport: { w: 200, h: 40 },
+      zone,
+      windows: wins,
+      viewport: { w: 200, h: 40 },
     });
     expect(result.get(asWindowId('a'))).toEqual({ x: 8, y: 8, w: 60, h: 24 });
     expect(result.get(asWindowId('b'))).toEqual({ x: 72, y: 8, w: 40, h: 24 });
@@ -37,7 +39,9 @@ describe('stripStrategy', () => {
     wins[1]!.hints = { preferredSize: { w: 0, h: 30 } };
     zone.windowIds = wins.map((w) => w.id);
     const result = stripStrategy.layout({
-      zone, windows: wins, viewport: { w: 50, h: 100 },
+      zone,
+      windows: wins,
+      viewport: { w: 50, h: 100 },
     });
     expect(result.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 50, h: 20 });
     expect(result.get(asWindowId('b'))).toEqual({ x: 0, y: 20, w: 50, h: 30 });

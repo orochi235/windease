@@ -1,6 +1,6 @@
-import * as React from 'react';
-import { createContext, useMemo, type ReactNode } from 'react';
-import { WindeaseStore, type CreateZoneInput } from '@windease/core';
+import { type CreateZoneInput, WindeaseStore } from '@windease/core';
+import type * as React from 'react';
+import { type ReactNode, createContext, useMemo } from 'react';
 
 export const WindeaseContext = createContext<WindeaseStore | null>(null);
 
@@ -23,9 +23,5 @@ export function WindeaseProvider(props: Props): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
-    <WindeaseContext.Provider value={store}>
-      {props.children}
-    </WindeaseContext.Provider>
-  );
+  return <WindeaseContext.Provider value={store}>{props.children}</WindeaseContext.Provider>;
 }

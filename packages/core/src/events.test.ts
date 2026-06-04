@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TypedEmitter } from './events.js';
 
 type E = { ping: { n: number }; pong: { s: string } };
@@ -32,7 +32,9 @@ describe('TypedEmitter', () => {
   it('listener errors do not break other listeners', () => {
     const em = new TypedEmitter<E>();
     const good = vi.fn();
-    em.on('ping', () => { throw new Error('boom'); });
+    em.on('ping', () => {
+      throw new Error('boom');
+    });
     em.on('ping', good);
     expect(() => em.emit('ping', { n: 1 })).not.toThrow();
     expect(good).toHaveBeenCalled();

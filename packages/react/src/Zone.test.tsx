@@ -1,8 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
-import {
-  WindeaseStore, gridStrategy, asWindowId, asZoneId,
-} from '@windease/core';
+import { act, render, screen } from '@testing-library/react';
+import { WindeaseStore, asWindowId, asZoneId, gridStrategy } from '@windease/core';
+import { describe, expect, it } from 'vitest';
 import { WindeaseProvider } from './WindeaseProvider.js';
 import { Zone } from './Zone.js';
 
@@ -25,7 +23,11 @@ describe('<Zone>', () => {
       <WindeaseProvider store={store}>
         <div style={{ width: 400, height: 400 }}>
           <Zone id={asZoneId('main')} viewport={{ w: 400, h: 400 }}>
-            {(w) => <div data-testid={`w-${w.id}`} data-kind={w.kind}>{w.id}</div>}
+            {(w) => (
+              <div data-testid={`w-${w.id}`} data-kind={w.kind}>
+                {w.id}
+              </div>
+            )}
           </Zone>
         </div>
       </WindeaseProvider>,

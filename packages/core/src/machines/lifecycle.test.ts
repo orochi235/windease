@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createLifecycleMachine } from './lifecycle.js';
 
 describe('lifecycle machine', () => {
@@ -32,7 +32,10 @@ describe('lifecycle machine', () => {
     for (const start of ['mounted', 'visible', 'hidden'] as const) {
       const m = createLifecycleMachine();
       if (start === 'visible') m.send('show');
-      if (start === 'hidden') { m.send('show'); m.send('hide'); }
+      if (start === 'hidden') {
+        m.send('show');
+        m.send('hide');
+      }
       expect(m.send('destroy')).toBe(true);
       expect(m.state).toBe('destroyed');
     }

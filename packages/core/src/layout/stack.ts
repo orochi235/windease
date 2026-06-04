@@ -1,5 +1,5 @@
-import type { LayoutInput, LayoutStrategy, Placement } from '../zone.js';
 import type { WindowId } from '../window.js';
+import type { LayoutInput, LayoutStrategy, Placement } from '../zone.js';
 
 interface StackConfig {
   gap?: number;
@@ -22,10 +22,7 @@ export const stackStrategy: LayoutStrategy = {
     const colW = viewport.w - 2 * padding;
     const usableH = viewport.h - 2 * padding - gap * (ordered.length - 1);
 
-    const totalPreferred = ordered.reduce(
-      (sum, w) => sum + (w.hints.preferredSize?.h ?? 0),
-      0,
-    );
+    const totalPreferred = ordered.reduce((sum, w) => sum + (w.hints.preferredSize?.h ?? 0), 0);
     const hasPreferred = totalPreferred > 0;
     const fallbackH = usableH / ordered.length;
 

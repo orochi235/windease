@@ -1,8 +1,6 @@
-import { describe, it, expect } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import {
-  WindeaseStore, asWindowId, asZoneId, gridStrategy,
-} from '@windease/core';
+import { WindeaseStore, asWindowId, asZoneId, gridStrategy } from '@windease/core';
+import { describe, expect, it } from 'vitest';
 import { WindeaseProvider } from './WindeaseProvider.js';
 import { useWindow } from './hooks.js';
 
@@ -24,9 +22,7 @@ describe('useWindow re-render granularity', () => {
         return useWindow(asWindowId('a'));
       },
       {
-        wrapper: ({ children }) => (
-          <WindeaseProvider store={store}>{children}</WindeaseProvider>
-        ),
+        wrapper: ({ children }) => <WindeaseProvider store={store}>{children}</WindeaseProvider>,
       },
     );
     const initial = renderCount;
@@ -49,9 +45,7 @@ describe('useWindow re-render granularity', () => {
         return useWindow(asWindowId('a'));
       },
       {
-        wrapper: ({ children }) => (
-          <WindeaseProvider store={store}>{children}</WindeaseProvider>
-        ),
+        wrapper: ({ children }) => <WindeaseProvider store={store}>{children}</WindeaseProvider>,
       },
     );
     const initial = renderCount;

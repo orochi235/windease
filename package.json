@@ -2,9 +2,7 @@
   "name": "windease-workspace",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
+  "workspaces": ["packages/*"],
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run",

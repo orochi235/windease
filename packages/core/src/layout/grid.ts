@@ -1,5 +1,5 @@
-import type { LayoutInput, LayoutStrategy, Placement } from '../zone.js';
 import type { WindowId } from '../window.js';
+import type { LayoutInput, LayoutStrategy, Placement } from '../zone.js';
 
 interface GridConfig {
   cols?: number;

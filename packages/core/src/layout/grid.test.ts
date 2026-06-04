@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { gridStrategy } from './grid.js';
-import { createWindowRecord, asWindowId, asZoneId } from '../window.js';
+import { describe, expect, it } from 'vitest';
+import { asWindowId, asZoneId, createWindowRecord } from '../window.js';
 import { createZoneRecord } from '../zone.js';
+import { gridStrategy } from './grid.js';
 
 function mkWin(id: string) {
   return createWindowRecord({ id: asWindowId(id), kind: 'panel' });
@@ -33,7 +33,9 @@ describe('gridStrategy', () => {
     const w = mkWin('a');
     zone.windowIds = [w.id];
     const result = gridStrategy.layout({
-      zone, windows: [w], viewport: { w: 100, h: 80 },
+      zone,
+      windows: [w],
+      viewport: { w: 100, h: 80 },
     });
     expect(result.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 80 });
   });

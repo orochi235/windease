@@ -1,8 +1,6 @@
-import * as React from 'react';
-import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
-import type {
-  Placement, WindowId, WindowRecord, ZoneId,
-} from '@windease/core';
+import type { Placement, WindowId, WindowRecord, ZoneId } from '@windease/core';
+import type * as React from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useWindease, useZone } from './hooks.js';
 
 interface ZoneProps {

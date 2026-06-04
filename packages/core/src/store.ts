@@ -1,5 +1,6 @@
 import { WindeaseError } from './errors.js';
 import { TypedEmitter } from './events.js';
+import { type SerializedStore, deserialize, serialize } from './snapshot.js';
 import {
   type CreateWindowInput,
   type WindowId,
@@ -13,7 +14,6 @@ import {
   type ZoneRecord,
   createZoneRecord,
 } from './zone.js';
-import { deserialize, serialize, type SerializedStore } from './snapshot.js';
 
 export interface StoreEvents {
   'window.created': { id: WindowId };
@@ -73,10 +73,7 @@ export class WindeaseStore {
     const w = this.requireWindow(id);
     const prev = w.lifecycle.state;
     if (!w.lifecycle.send('show')) {
-      throw new WindeaseError(
-        'ILLEGAL_TRANSITION',
-        `cannot show window ${id} from ${prev}`,
-      );
+      throw new WindeaseError('ILLEGAL_TRANSITION', `cannot show window ${id} from ${prev}`);
     }
     this.emitTransition(id, 'lifecycle', prev, w.lifecycle.state, 'show');
     this.scheduleNotify();
@@ -86,10 +83,7 @@ export class WindeaseStore {
     const w = this.requireWindow(id);
     const prev = w.lifecycle.state;
     if (!w.lifecycle.send('hide')) {
-      throw new WindeaseError(
-        'ILLEGAL_TRANSITION',
-        `cannot hide window ${id} from ${prev}`,
-      );
+      throw new WindeaseError('ILLEGAL_TRANSITION', `cannot hide window ${id} from ${prev}`);
     }
     this.emitTransition(id, 'lifecycle', prev, w.lifecycle.state, 'hide');
     this.scheduleNotify();

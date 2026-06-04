@@ -9,7 +9,7 @@ export function createLifecycleMachine(): Machine<LifecycleState, LifecycleEvent
     transitions: {
       mounted: { show: 'visible', destroy: 'destroyed' },
       visible: { hide: 'hidden', destroy: 'destroyed' },
-      hidden:  { show: 'visible', destroy: 'destroyed' },
+      hidden: { show: 'visible', destroy: 'destroyed' },
       destroyed: {},
     },
   });

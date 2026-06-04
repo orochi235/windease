@@ -1,17 +1,13 @@
 import { WindeaseError } from './errors.js';
 import {
   type WindowId,
-  type ZoneId,
   type WindowRecord,
+  type ZoneId,
   asWindowId,
   asZoneId,
   createWindowRecord,
 } from './window.js';
-import {
-  type LayoutStrategy,
-  type ZoneRecord,
-  createZoneRecord,
-} from './zone.js';
+import { type LayoutStrategy, type ZoneRecord, createZoneRecord } from './zone.js';
 
 export interface SerializedWindow {
   id: string;
