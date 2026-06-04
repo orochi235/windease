@@ -41,6 +41,24 @@ import { gridStrategy, asZoneId } from '@windease/core';
 If you wrote custom strategies, migrate by following the migration of the
 built-ins (see `packages/core/src/layout/grid.ts`).
 
+## v0.3 additions (no breaking changes)
+
+- `gridStrategy`: new `rows`, `orientation`, `maxCols`, `maxRows` options;
+  auto-balance when neither `cols` nor `rows` is set.
+- `stackStrategy` / `stripStrategy`: new `fill` and `defaultItemSize` options.
+- `LayoutResult.unplaced?: TId[]` — strategies can signal items they couldn't
+  place (e.g. grid overflow past `maxCols × maxRows`). Zone suppresses
+  missing-placement warnings for unplaced items.
+- `LayoutStrategy.canAccept?(items)` — optional hook the DnD layer uses to
+  reject illegal drops. `binarySplit` implements it (`items.length === 2`).
+- `<Workspace>` accepts a controlled `state` prop and fires `onGestureStart`
+  / `onGestureEnd` around its built-in drag gestures.
+- Pointer-driven drag-and-drop: window reorder within / move between zones,
+  recursive-split zone-swap, drop indicators (tinted backgrounds).
+- `HistoryController` for snapshot-based undo/redo with transactions. The
+  Provider accepts a `history` hookup; `<Workspace>` and `<Zone>` auto-wrap
+  their gestures in transactions when history is in context.
+
 ## Develop
 
 ```bash

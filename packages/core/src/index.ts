@@ -58,4 +58,4 @@ export { binarySplit, type BinarySplitState, type BinarySplitMeta } from './layo
 export { recursiveSplit, type SplitNode, type RecursiveSplitMeta } from './layout/recursiveSplit.js';
 export { HistoryController, type HistoryControllerOptions } from './history.js';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
