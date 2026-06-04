@@ -118,7 +118,7 @@ export class WindeaseStore {
       id,
       machine: 'lifecycle',
       from: prev,
-      to: 'destroyed',
+      to: w.lifecycle.state,
       event: 'destroy',
     });
     this.windows.delete(id);
@@ -154,10 +154,5 @@ export class WindeaseStore {
       this.notifyScheduled = false;
       for (const fn of this.subscribers) fn();
     });
-  }
-
-  // Hooks for later tasks to call.
-  protected _internalAccessZones(): Map<ZoneId, ZoneRecord> {
-    return this.zones;
   }
 }
