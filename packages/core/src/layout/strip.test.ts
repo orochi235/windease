@@ -1,49 +1,35 @@
-import { describe, expect, it } from 'vitest';
-import { asWindowId, asZoneId, createWindowRecord } from '../window.js';
-import { createZoneRecord } from '../zone.js';
+import { describe, it, expect } from 'vitest';
 import { stripStrategy } from './strip.js';
+import { asWindowId } from '../window.js';
+import type { LayoutItem } from '../layout-types.js';
 
-const mkWin = (id: string, preferredW?: number) =>
-  createWindowRecord({
-    id: asWindowId(id),
-    kind: 'panel',
-    ...(preferredW ? { hints: { preferredSize: { w: preferredW, h: 0 } } } : {}),
-  });
+const mkItem = (id: string, opts?: { preferredW?: number; preferredH?: number }): LayoutItem => ({
+  id: asWindowId(id),
+  ...(opts?.preferredW || opts?.preferredH
+    ? { hints: { preferredSize: { w: opts?.preferredW ?? 0, h: opts?.preferredH ?? 0 } } }
+    : {}),
+});
 
 describe('stripStrategy', () => {
   it('lays out horizontally by default', () => {
-    const zone = createZoneRecord({
-      id: asZoneId('dock'),
-      strategy: stripStrategy,
-      config: { axis: 'x', gap: 4, padding: 8 },
-    });
-    const wins = [mkWin('a', 60), mkWin('b', 40)];
-    zone.windowIds = wins.map((w) => w.id);
     const result = stripStrategy.layout({
-      zone,
-      windows: wins,
-      viewport: { w: 200, h: 40 },
+      items: [mkItem('a', { preferredW: 60 }), mkItem('b', { preferredW: 40 })],
+      container: { w: 200, h: 40 },
+      state: undefined as void,
+      options: { axis: 'x', gap: 4, padding: 8 },
     });
-    expect(result.get(asWindowId('a'))).toEqual({ x: 8, y: 8, w: 60, h: 24 });
-    expect(result.get(asWindowId('b'))).toEqual({ x: 72, y: 8, w: 40, h: 24 });
+    expect(result.placements.get(asWindowId('a'))).toEqual({ x: 8, y: 8, w: 60, h: 24 });
+    expect(result.placements.get(asWindowId('b'))).toEqual({ x: 72, y: 8, w: 40, h: 24 });
   });
 
   it('axis y lays out vertically', () => {
-    const zone = createZoneRecord({
-      id: asZoneId('rail'),
-      strategy: stripStrategy,
-      config: { axis: 'y', gap: 0, padding: 0 },
-    });
-    const wins = [mkWin('a'), mkWin('b')];
-    wins[0]!.hints = { preferredSize: { w: 0, h: 20 } };
-    wins[1]!.hints = { preferredSize: { w: 0, h: 30 } };
-    zone.windowIds = wins.map((w) => w.id);
     const result = stripStrategy.layout({
-      zone,
-      windows: wins,
-      viewport: { w: 50, h: 100 },
+      items: [mkItem('a', { preferredH: 20 }), mkItem('b', { preferredH: 30 })],
+      container: { w: 50, h: 100 },
+      state: undefined as void,
+      options: { axis: 'y', gap: 0, padding: 0 },
     });
-    expect(result.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 50, h: 20 });
-    expect(result.get(asWindowId('b'))).toEqual({ x: 0, y: 20, w: 50, h: 30 });
+    expect(result.placements.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 50, h: 20 });
+    expect(result.placements.get(asWindowId('b'))).toEqual({ x: 0, y: 20, w: 50, h: 30 });
   });
 });
