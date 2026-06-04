@@ -1,47 +1,42 @@
-import { describe, expect, it } from 'vitest';
-import { asWindowId, asZoneId, createWindowRecord } from '../window.js';
-import { createZoneRecord } from '../zone.js';
+import { describe, it, expect } from 'vitest';
 import { gridStrategy } from './grid.js';
+import { asWindowId } from '../window.js';
 
-function mkWin(id: string) {
-  return createWindowRecord({ id: asWindowId(id), kind: 'panel' });
-}
+const mkItem = (id: string) => ({ id: asWindowId(id) });
 
 describe('gridStrategy', () => {
-  it('lays out windows in a grid with cols, gap, padding', () => {
-    const zone = createZoneRecord({
-      id: asZoneId('main'),
-      strategy: gridStrategy,
-      config: { cols: 2, gap: 10, padding: 20 },
-    });
-    const windows = [mkWin('a'), mkWin('b'), mkWin('c'), mkWin('d')];
-    zone.windowIds = windows.map((w) => w.id);
+  it('lays out items in a grid with cols, gap, padding', () => {
     const result = gridStrategy.layout({
-      zone,
-      windows,
-      viewport: { w: 410, h: 410 },
+      items: [mkItem('a'), mkItem('b'), mkItem('c'), mkItem('d')],
+      container: { w: 410, h: 410 },
+      state: undefined as void,
+      options: { cols: 2, gap: 10, padding: 20 },
     });
-    // Usable: 410 - 2*20 = 370; cellW = (370 - 10) / 2 = 180; same h.
-    expect(result.get(asWindowId('a'))).toEqual({ x: 20, y: 20, w: 180, h: 180 });
-    expect(result.get(asWindowId('b'))).toEqual({ x: 210, y: 20, w: 180, h: 180 });
-    expect(result.get(asWindowId('c'))).toEqual({ x: 20, y: 210, w: 180, h: 180 });
-    expect(result.get(asWindowId('d'))).toEqual({ x: 210, y: 210, w: 180, h: 180 });
+    expect(result.placements.get(asWindowId('a'))).toEqual({ x: 20, y: 20, w: 180, h: 180 });
+    expect(result.placements.get(asWindowId('b'))).toEqual({ x: 210, y: 20, w: 180, h: 180 });
+    expect(result.placements.get(asWindowId('c'))).toEqual({ x: 20, y: 210, w: 180, h: 180 });
+    expect(result.placements.get(asWindowId('d'))).toEqual({ x: 210, y: 210, w: 180, h: 180 });
+    expect(result.affordances).toEqual([]);
   });
 
   it('defaults cols=1, gap=0, padding=0', () => {
-    const zone = createZoneRecord({ id: asZoneId('m'), strategy: gridStrategy });
-    const w = mkWin('a');
-    zone.windowIds = [w.id];
     const result = gridStrategy.layout({
-      zone,
-      windows: [w],
-      viewport: { w: 100, h: 80 },
+      items: [mkItem('a')],
+      container: { w: 100, h: 80 },
+      state: undefined as void,
+      options: {},
     });
-    expect(result.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 80 });
+    expect(result.placements.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 80 });
   });
 
-  it('returns empty for empty zone', () => {
-    const zone = createZoneRecord({ id: asZoneId('m'), strategy: gridStrategy });
-    expect(gridStrategy.layout({ zone, windows: [], viewport: { w: 100, h: 100 } }).size).toBe(0);
+  it('returns empty for empty items', () => {
+    const result = gridStrategy.layout({
+      items: [],
+      container: { w: 100, h: 100 },
+      state: undefined as void,
+      options: {},
+    });
+    expect(result.placements.size).toBe(0);
+    expect(result.affordances).toEqual([]);
   });
 });
