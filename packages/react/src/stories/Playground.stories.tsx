@@ -142,6 +142,10 @@ export const Playground: Story = () => {
       window={w}
       selected={selected === w.id}
       onSelect={(id) => setSelected(id as WindowId)}
+      onClose={(id) => {
+        store.destroy(id as WindowId);
+        if (selected === id) setSelected(null);
+      }}
     />
   );
 

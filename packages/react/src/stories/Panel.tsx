@@ -22,23 +22,45 @@ interface PanelProps {
   label?: string;
   selected?: boolean;
   onSelect?: (id: string) => void;
+  onClose?: (id: string) => void;
 }
 
-export function Panel({ window: w, label, selected, onSelect }: PanelProps): React.JSX.Element {
+export function Panel({ window: w, label, selected, onSelect, onClose }: PanelProps): React.JSX.Element {
   const cls = ['story-panel', colorClassForId(w.id)];
   if (selected) cls.push('is-selected');
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className={cls.join(' ')}
       onClick={() => onSelect?.(w.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect?.(w.id);
+        }
+      }}
       data-testid={`panel-${w.id}`}
     >
+      {onClose && (
+        <button
+          type="button"
+          className="story-panel__close"
+          aria-label={`Close ${label ?? w.id}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose(w.id);
+          }}
+          data-testid={`panel-close-${w.id}`}
+        >
+          ×
+        </button>
+      )}
       <span className="story-panel__title">{label ?? w.id}</span>
       <span className="story-panel__meta">kind: {w.kind}</span>
       <span className="story-panel__meta">lifecycle: {w.lifecycle.state}</span>
       <span className="story-panel__meta">transit: {w.transit.state}</span>
       <span className="story-panel__meta">zone: {w.zoneId ?? '<none>'}</span>
-    </button>
+    </div>
   );
 }
