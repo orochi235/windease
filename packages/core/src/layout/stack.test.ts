@@ -30,4 +30,29 @@ describe('stackStrategy', () => {
     expect(result.placements.get(asWindowId('a'))?.h).toBe(50);
     expect(result.placements.get(asWindowId('b'))?.h).toBe(50);
   });
+
+  it('items without preferredSize share leftover space alongside items that have it', () => {
+    // container h=200, no padding/gap. Item a has preferredH=80; b and c have no hint.
+    // usable = 200; leftover = 200 - 80 = 120; flex per item = 120 / 2 = 60.
+    const result = stackStrategy.layout({
+      items: [mkItem('a', 80), mkItem('b'), mkItem('c')],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: {},
+    });
+    expect(result.placements.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 80 });
+    expect(result.placements.get(asWindowId('b'))).toEqual({ x: 0, y: 80, w: 100, h: 60 });
+    expect(result.placements.get(asWindowId('c'))).toEqual({ x: 0, y: 140, w: 100, h: 60 });
+  });
+
+  it('clamps flex height to zero when preferred items already overflow', () => {
+    const result = stackStrategy.layout({
+      items: [mkItem('a', 200), mkItem('b')],
+      container: { w: 100, h: 100 },
+      state: undefined as void,
+      options: {},
+    });
+    expect(result.placements.get(asWindowId('a'))?.h).toBe(200);
+    expect(result.placements.get(asWindowId('b'))?.h).toBe(0);
+  });
 });

@@ -35,16 +35,15 @@ export const stackStrategy: LayoutStrategy<void, WindowId> = {
     const colW = container.w - 2 * padding;
     const usableH = container.h - 2 * padding - gap * (items.length - 1);
 
-    const totalPreferred = items.reduce(
-      (sum, item) => sum + (item.hints?.preferredSize?.h ?? 0),
-      0,
-    );
-    const hasPreferred = totalPreferred > 0;
-    const fallbackH = usableH / items.length;
+    const preferredH = items.map((item) => item.hints?.preferredSize?.h ?? 0);
+    const totalPreferred = preferredH.reduce((sum, h) => sum + h, 0);
+    const flexCount = preferredH.filter((h) => h === 0).length;
+    const flexH = flexCount > 0 ? Math.max(0, (usableH - totalPreferred) / flexCount) : 0;
 
     let y = padding;
-    for (const item of items) {
-      const h = hasPreferred ? (item.hints?.preferredSize?.h ?? 0) : fallbackH;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!;
+      const h = preferredH[i]! > 0 ? preferredH[i]! : flexH;
       placements.set(item.id as WindowId, { x: colX, y, w: colW, h });
       y += h + gap;
     }
