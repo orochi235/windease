@@ -1,9 +1,12 @@
 .windease-zone {
   position: relative;
   overflow: hidden;
+  width: 100%;
+  height: 100%;
   background: #f4f4f7;
   border: 1px solid #d4d4dc;
   border-radius: 6px;
+  box-sizing: border-box;
 }
 
 .windease-window {
