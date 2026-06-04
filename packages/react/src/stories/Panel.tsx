@@ -23,8 +23,11 @@ interface PanelProps {
   selected?: boolean;
   pinned?: boolean;
   locked?: boolean;
+  /** When false, the pin toggle button is hidden. */
+  pinnable?: boolean;
   onSelect?: (id: string) => void;
   onClose?: (id: string) => void;
+  onTogglePin?: (id: string) => void;
 }
 
 export function Panel({
@@ -33,8 +36,10 @@ export function Panel({
   selected,
   pinned,
   locked,
+  pinnable = true,
   onSelect,
   onClose,
+  onTogglePin,
 }: PanelProps): React.JSX.Element {
   const cls = ['story-panel', colorClassForId(w.id)];
   if (selected) cls.push('is-selected');
@@ -56,24 +61,39 @@ export function Panel({
       data-pinned={pinned ? 'true' : undefined}
       data-locked={locked ? 'true' : undefined}
     >
-      {locked ? (
-        <span className="story-panel__lock" aria-hidden="true">🔒</span>
-      ) : pinned ? (
-        <span className="story-panel__pin" aria-hidden="true">📌</span>
-      ) : null}
-      {!locked && onClose && (
-        <button
-          type="button"
-          className="story-panel__close"
-          aria-label={`Close ${label ?? w.id}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose(w.id);
-          }}
-          data-testid={`panel-close-${w.id}`}
-        >
-          ×
-        </button>
+      {locked && <span className="story-panel__lock" aria-hidden="true">🔒</span>}
+      {!locked && (
+        <div className="story-panel__actions">
+          {pinnable && onTogglePin && (
+            <button
+              type="button"
+              className={`story-panel__pin-btn${pinned ? ' is-pinned' : ''}`}
+              aria-label={`${pinned ? 'Unpin' : 'Pin'} ${label ?? w.id}`}
+              aria-pressed={pinned ? 'true' : 'false'}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePin(w.id);
+              }}
+              data-testid={`panel-pin-${w.id}`}
+            >
+              📌
+            </button>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              className="story-panel__close"
+              aria-label={`Close ${label ?? w.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose(w.id);
+              }}
+              data-testid={`panel-close-${w.id}`}
+            >
+              ×
+            </button>
+          )}
+        </div>
       )}
       <span className="story-panel__title">{label ?? w.id}</span>
       <span className="story-panel__meta">kind: {w.kind}</span>

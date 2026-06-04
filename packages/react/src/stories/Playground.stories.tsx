@@ -64,6 +64,8 @@ function makeStore(): WindeaseStore {
     id: DOCK,
     strategy: stripStrategy,
     config: { axis: 'x', gap: 6, padding: 6, fill: true },
+    // Tools in the dock are a flat strip; pin/unpin would be visual noise.
+    allowsPinning: false,
   });
 
   // Seed the grid-controls widget in the main zone, pinned + locked so it
@@ -234,16 +236,26 @@ export const Playground: Story = () => {
     const meta = zoneId ? store.getItemMeta(zoneId, w.id) : undefined;
     const pinned = Boolean(meta?.pinned);
     const locked = Boolean(meta?.locked);
+    const pinnable = zoneId ? store.getZone(zoneId)?.allowsPinning !== false : false;
     return (
       <Panel
         window={w}
         selected={selected === w.id}
         pinned={pinned}
         locked={locked}
+        pinnable={pinnable}
         onSelect={(id) => setSelected(id as WindowId)}
         onClose={(id) => {
           store.destroy(id as WindowId);
           if (selected === id) setSelected(null);
+        }}
+        onTogglePin={(id) => {
+          const wid = id as WindowId;
+          const ww = store.getWindow(wid);
+          if (!ww?.zoneId) return;
+          if (store.getItemMeta(ww.zoneId, wid)?.locked) return;
+          const cur = Boolean(store.getItemMeta(ww.zoneId, wid)?.pinned);
+          store.patchItemMeta(ww.zoneId, wid, { pinned: cur ? undefined : true });
         }}
       />
     );
