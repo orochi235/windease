@@ -313,17 +313,55 @@ function DragAffordance<TMeta>({
 }) {
   const lastRef = useRef({ x: 0, y: 0 });
   const activeRef = useRef(false);
+  const safetyNetRef = useRef<(() => void) | null>(null);
   const { id, kind } = affordance;
 
+  const endGesture = () => {
+    if (!activeRef.current) return;
+    activeRef.current = false;
+    safetyNetRef.current?.();
+    safetyNetRef.current = null;
+    onGestureEnd();
+  };
+
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
     lastRef.current.x = e.clientX;
     lastRef.current.y = e.clientY;
     activeRef.current = true;
+    // Window-level safety net so we always end the gesture.
+    const pointerId = e.pointerId;
+    const onWindowUp = (we: PointerEvent) => {
+      if (we.pointerId === pointerId) endGesture();
+    };
+    const onWindowCancel = (we: PointerEvent) => {
+      if (we.pointerId === pointerId) endGesture();
+    };
+    const onLostCapture = (we: PointerEvent) => {
+      if (we.pointerId === pointerId) endGesture();
+    };
+    const onBlur = () => endGesture();
+    const onVis = () => { if (document.hidden) endGesture(); };
+    window.addEventListener('pointerup', onWindowUp);
+    window.addEventListener('pointercancel', onWindowCancel);
+    window.addEventListener('lostpointercapture', onLostCapture);
+    window.addEventListener('blur', onBlur);
+    document.addEventListener('visibilitychange', onVis);
+    safetyNetRef.current = () => {
+      window.removeEventListener('pointerup', onWindowUp);
+      window.removeEventListener('pointercancel', onWindowCancel);
+      window.removeEventListener('lostpointercapture', onLostCapture);
+      window.removeEventListener('blur', onBlur);
+      document.removeEventListener('visibilitychange', onVis);
+    };
     onGestureStart();
   };
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    if (!activeRef.current) return;
     const dx = e.clientX - lastRef.current.x;
     const dy = e.clientY - lastRef.current.y;
     lastRef.current.x = e.clientX;
@@ -332,12 +370,9 @@ function DragAffordance<TMeta>({
   };
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
+      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     }
-    if (activeRef.current) {
-      activeRef.current = false;
-      onGestureEnd();
-    }
+    endGesture();
   };
 
   return (

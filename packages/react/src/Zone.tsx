@@ -105,10 +105,13 @@ function WindowItem({ w, p, zoneId, children }: WindowItemProps): React.JSX.Elem
     },
     onDragEnd: (e, didDrag) => {
       const wasMine = dragCoordinator.active() === 'window';
-      if (didDrag && wasMine) handleWindowDrop(e, w.id, zoneId, store);
-      clearAllDropMarkers();
-      if (wasMine && history) history.controller.endTransaction(history.capture());
-      if (wasMine) dragCoordinator.end();
+      try {
+        if (didDrag && wasMine) handleWindowDrop(e, w.id, zoneId, store);
+      } finally {
+        clearAllDropMarkers();
+        if (wasMine && history) history.controller.endTransaction(history.capture());
+        if (wasMine) dragCoordinator.end();
+      }
     },
   });
   const style: CSSProperties = {
