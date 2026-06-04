@@ -30,6 +30,17 @@ import { gridStrategy, asZoneId } from '@windease/core';
 </WindeaseProvider>
 ```
 
+## v0.2 breaking changes
+
+- `LayoutStrategy` now returns `{ placements, affordances }` instead of just
+  a placement map.
+- Strategy inputs renamed: `{ zone, windows, viewport }` → `{ items, container, state, options }`.
+- New `<Workspace>` component for multi-zone layout with draggable splits.
+- New built-in strategies: `binarySplit`, `recursiveSplit`.
+
+If you wrote custom strategies, migrate by following the migration of the
+built-ins (see `packages/core/src/layout/grid.ts`).
+
 ## Develop
 
 ```bash
