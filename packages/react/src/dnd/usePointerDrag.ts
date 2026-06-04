@@ -98,12 +98,10 @@ export function usePointerDrag(opts: UsePointerDragOptions): PointerDragHandlers
       // If somehow a previous drag wasn't cleaned up, force-end it first.
       if (stateRef.current) endDrag(null);
 
+      // Don't call setPointerCapture yet — that redirects pointerup (and the
+      // synthesized click) to this element, breaking clicks on descendants
+      // like close buttons. We capture only once the threshold is crossed.
       const captureEl = e.currentTarget;
-      try {
-        captureEl.setPointerCapture(e.pointerId);
-      } catch {
-        // ignore — capture may not be supported
-      }
 
       // Attach a window-level safety net so we always learn when the drag
       // ends, even if the element never receives pointerup.
@@ -159,6 +157,15 @@ export function usePointerDrag(opts: UsePointerDragOptions): PointerDragHandlers
       if (!s.dragging) {
         if (Math.hypot(dxFromOrigin, dyFromOrigin) < threshold) return;
         s.dragging = true;
+        // Now that we've committed to a drag, capture the pointer so we
+        // keep receiving moves even if the cursor leaves this element.
+        if (s.captureEl) {
+          try {
+            (s.captureEl as Element & { setPointerCapture?(id: number): void }).setPointerCapture?.(s.pointerId);
+          } catch {
+            // ignore
+          }
+        }
         suppressSelection();
         optsRef.current.onDragStart(e.nativeEvent);
       }
