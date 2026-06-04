@@ -20,12 +20,21 @@ export interface ZoneRecord {
   windowIds: WindowId[];
   config: Record<string, unknown>;
   itemMeta: Map<WindowId, ZoneItemMeta>;
+  /**
+   * When false, the zone opts out of the pinned-prefix ordering invariant.
+   * Item meta with `pinned` / `locked` keys can still be set (and `locked`
+   * still suppresses drag in the React layer), but resortByPin no-ops and
+   * windowIds reflects raw insertion / drag order. Defaults to true.
+   */
+  allowsPinning: boolean;
 }
 
 export interface CreateZoneInput {
   id: ZoneId;
   strategy: LayoutStrategy<unknown, WindowId, unknown>;
   config?: Record<string, unknown>;
+  /** See ZoneRecord.allowsPinning. Defaults to true. */
+  allowsPinning?: boolean;
 }
 
 export function createZoneRecord(input: CreateZoneInput): ZoneRecord {
@@ -35,5 +44,6 @@ export function createZoneRecord(input: CreateZoneInput): ZoneRecord {
     windowIds: [],
     config: input.config ?? {},
     itemMeta: new Map(),
+    allowsPinning: input.allowsPinning ?? true,
   };
 }

@@ -28,6 +28,8 @@ export interface SerializedZone {
   config: Record<string, unknown>;
   /** Per-item meta, keyed by windowId. Omitted when empty. */
   itemMeta?: Record<string, Record<string, unknown>>;
+  /** Omitted when allowsPinning is at its default (true). */
+  allowsPinning?: boolean;
 }
 
 export interface SerializedStore {
@@ -64,6 +66,7 @@ export function serialize(
         for (const [wid, bag] of z.itemMeta) itemMeta[wid] = { ...bag };
         out.itemMeta = itemMeta;
       }
+      if (!z.allowsPinning) out.allowsPinning = false;
       return out;
     }),
   };
@@ -108,6 +111,7 @@ export function deserialize(
       id: asZoneId(sz.id),
       strategy,
       config: sz.config,
+      ...(sz.allowsPinning === false ? { allowsPinning: false } : {}),
     });
     z.windowIds = sz.windowIds.map(asWindowId);
     if (sz.itemMeta) {

@@ -250,6 +250,7 @@ export class WindeaseStore {
   private resortByPin(zoneId: ZoneId): void {
     const z = this.zones.get(zoneId);
     if (!z) return;
+    if (!z.allowsPinning) return;
     const pinned: WindowId[] = [];
     const rest: WindowId[] = [];
     for (const wid of z.windowIds) {

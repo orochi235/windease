@@ -327,6 +327,29 @@ describe2('WindeaseStore - item meta', () => {
     expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w1', 'w2']);
   });
 
+  it2('allowsPinning: false disables resortByPin without rejecting meta writes', () => {
+    const s = new WindeaseStore();
+    s.registerZone({ id: asZoneId('flat'), strategy: noopStrategy, allowsPinning: false });
+    s.createWindow({ id: asWindowId('w1'), kind: 'panel' });
+    s.createWindow({ id: asWindowId('w2'), kind: 'panel' });
+    s.claim(asZoneId('flat'), asWindowId('w1'));
+    s.claim(asZoneId('flat'), asWindowId('w2'));
+    s.setItemMeta(asZoneId('flat'), asWindowId('w2'), { pinned: true });
+    // Order untouched.
+    expect2(s.getZone(asZoneId('flat'))?.windowIds).toEqual(['w1', 'w2']);
+    // But the meta is still readable.
+    expect2(s.getItemMeta(asZoneId('flat'), asWindowId('w2'))).toEqual({ pinned: true });
+  });
+
+  it2('snapshot round-trips allowsPinning: false', () => {
+    const s = new WindeaseStore();
+    s.registerZone({ id: asZoneId('flat'), strategy: noopStrategy, allowsPinning: false });
+    const snap = s.snapshot();
+    const s2 = new WindeaseStore();
+    s2.hydrate(snap, { strategies: { noop: noopStrategy } });
+    expect2(s2.getZone(asZoneId('flat'))?.allowsPinning).toBe(false);
+  });
+
   it2('locked items also sort into the pinned-prefix', () => {
     const s = setup();
     s.claim(asZoneId('main'), asWindowId('w1'));
