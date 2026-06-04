@@ -37,3 +37,9 @@
 .windease-insertion-line {
   background: currentColor;
 }
+
+.windease-insertion-outline {
+  border: 2px dashed currentColor;
+  box-sizing: border-box;
+  border-radius: 4px;
+}
