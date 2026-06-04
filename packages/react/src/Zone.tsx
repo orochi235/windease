@@ -1,6 +1,8 @@
-import type { LayoutItem, Rect, WindowId, WindowRecord, ZoneId } from '@windease/core';
+import type { LayoutItem, Rect, WindeaseStore, WindowId, WindowRecord, ZoneId } from '@windease/core';
 import type * as React from 'react';
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
+import { dragCoordinator } from './dnd/dragCoordinator.js';
+import { usePointerDrag } from './dnd/usePointerDrag.js';
 import { useWindease, useZone } from './hooks.js';
 
 interface ZoneProps {
@@ -72,25 +74,236 @@ export function Zone({ id, viewport, children }: ZoneProps): React.JSX.Element {
           }
           return null;
         }
-        const style: CSSProperties = {
-          '--w-x': `${p.x}px`,
-          '--w-y': `${p.y}px`,
-          '--w-w': `${p.w}px`,
-          '--w-h': `${p.h}px`,
-        } as CSSProperties;
         return (
-          <div
-            key={w.id}
-            className="windease-window"
-            data-window-id={w.id}
-            data-window-kind={w.kind}
-            data-window-state={w.lifecycle.state}
-            style={style}
-          >
+          <WindowItem key={w.id} w={w} p={p} zoneId={id}>
             {children(w, p)}
-          </div>
+          </WindowItem>
         );
       })}
     </div>
   );
+}
+
+interface WindowItemProps {
+  w: WindowRecord;
+  p: Rect;
+  zoneId: ZoneId;
+  children: ReactNode;
+}
+
+function WindowItem({ w, p, zoneId, children }: WindowItemProps): React.JSX.Element {
+  const store = useWindease();
+  const handlers = usePointerDrag({
+    onDragStart: () => {
+      dragCoordinator.tryBegin('window');
+    },
+    onDragMove: (e) => {
+      if (dragCoordinator.active() !== 'window') return;
+      handleWindowDragMove(e, w.id, zoneId, store);
+    },
+    onDragEnd: (e, didDrag) => {
+      if (didDrag && dragCoordinator.active() === 'window') {
+        handleWindowDrop(e, w.id, zoneId, store);
+      }
+      clearAllDropMarkers();
+      dragCoordinator.end();
+    },
+  });
+  const style: CSSProperties = {
+    '--w-x': `${p.x}px`,
+    '--w-y': `${p.y}px`,
+    '--w-w': `${p.w}px`,
+    '--w-h': `${p.h}px`,
+  } as CSSProperties;
+  return (
+    <div
+      className="windease-window"
+      data-window-id={w.id}
+      data-window-kind={w.kind}
+      data-window-state={w.lifecycle.state}
+      style={style}
+      {...handlers}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ---- DnD module-scope helpers ----
+
+function handleWindowDragMove(
+  e: PointerEvent,
+  sourceWid: WindowId,
+  sourceZone: ZoneId,
+  store: WindeaseStore,
+): void {
+  const target = findZoneAtPoint(e.clientX, e.clientY);
+  clearAllDropMarkers();
+  if (!target) return;
+  const targetId = target.id as ZoneId;
+  const targetZone = store.getZone(targetId);
+  if (!targetZone) return;
+  const prospective = buildProspectiveItems(
+    targetZone.windowIds,
+    sourceWid,
+    sourceZone,
+    targetId,
+    target.el,
+    e.clientX,
+    e.clientY,
+  );
+  const accepted = targetZone.strategy.canAccept?.(prospective.items) ?? true;
+  if (!accepted) {
+    target.el.setAttribute('data-drop-rejected', 'true');
+    return;
+  }
+  target.el.setAttribute('data-drop-target', 'true');
+  renderInsertionLine(target.el, prospective.insertionRect);
+}
+
+function handleWindowDrop(
+  e: PointerEvent,
+  sourceWid: WindowId,
+  sourceZone: ZoneId,
+  store: WindeaseStore,
+): void {
+  const target = findZoneAtPoint(e.clientX, e.clientY);
+  if (!target) return;
+  const targetId = target.id as ZoneId;
+  const targetZone = store.getZone(targetId);
+  if (!targetZone) return;
+  const prospective = buildProspectiveItems(
+    targetZone.windowIds,
+    sourceWid,
+    sourceZone,
+    targetId,
+    target.el,
+    e.clientX,
+    e.clientY,
+  );
+  const accepted = targetZone.strategy.canAccept?.(prospective.items) ?? true;
+  if (!accepted) return;
+  if (targetId === sourceZone) {
+    store.reorderInZone(sourceZone, prospective.items.map((it) => it.id as WindowId));
+  } else {
+    store.moveWindow(sourceWid, targetId, prospective.indexInTarget);
+  }
+}
+
+function findZoneAtPoint(x: number, y: number): { id: string; el: Element } | null {
+  const els = document.elementsFromPoint(x, y);
+  for (const el of els) {
+    const zone = el.closest('[data-zone-id]');
+    if (zone) {
+      const id = zone.getAttribute('data-zone-id');
+      if (id) return { id, el: zone };
+    }
+  }
+  return null;
+}
+
+function clearAllDropMarkers(): void {
+  for (const el of document.querySelectorAll('[data-drop-target]')) {
+    el.removeAttribute('data-drop-target');
+  }
+  for (const el of document.querySelectorAll('[data-drop-rejected]')) {
+    el.removeAttribute('data-drop-rejected');
+  }
+  for (const el of document.querySelectorAll('.windease-insertion-line')) {
+    el.remove();
+  }
+}
+
+interface ProspectiveResult {
+  items: { id: string }[];
+  indexInTarget: number;
+  insertionRect: { left: number; top: number; width: number; height: number };
+}
+
+function buildProspectiveItems(
+  targetWindowIds: WindowId[],
+  sourceWid: WindowId,
+  sourceZone: ZoneId,
+  targetZoneId: ZoneId,
+  targetEl: Element,
+  x: number,
+  y: number,
+): ProspectiveResult {
+  const sameZone = sourceZone === targetZoneId;
+  const otherIds = sameZone ? targetWindowIds.filter((id) => id !== sourceWid) : targetWindowIds.slice();
+  const children = Array.from(
+    targetEl.querySelectorAll(':scope > .windease-window'),
+  ) as HTMLElement[];
+  const otherChildren = sameZone
+    ? children.filter((el) => el.getAttribute('data-window-id') !== sourceWid)
+    : children;
+
+  let insertionIndex = otherChildren.length;
+  let insertionRect = endRect(targetEl);
+  if (otherChildren.length > 0) {
+    let bestIdx = 0;
+    let bestDist = Number.POSITIVE_INFINITY;
+    let bestCenterX = 0;
+    let bestRect: DOMRect | null = null;
+    for (let i = 0; i < otherChildren.length; i++) {
+      const r = otherChildren[i]!.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const d = Math.hypot(cx - x, cy - y);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+        bestCenterX = cx;
+        bestRect = r;
+      }
+    }
+    const before = x <= bestCenterX;
+    insertionIndex = before ? bestIdx : bestIdx + 1;
+    if (bestRect) {
+      insertionRect = insertionRectFor(targetEl, bestRect, before);
+    }
+  }
+
+  const prospectiveIds = [...otherIds];
+  prospectiveIds.splice(insertionIndex, 0, sourceWid);
+  return {
+    items: prospectiveIds.map((id) => ({ id })),
+    indexInTarget: insertionIndex,
+    insertionRect,
+  };
+}
+
+function endRect(targetEl: Element): { left: number; top: number; width: number; height: number } {
+  const r = targetEl.getBoundingClientRect();
+  return { left: r.left, top: r.bottom - 2, width: r.width, height: 2 };
+}
+
+function insertionRectFor(
+  targetEl: Element,
+  childRect: DOMRect,
+  before: boolean,
+): { left: number; top: number; width: number; height: number } {
+  const r = targetEl.getBoundingClientRect();
+  const x = before ? childRect.left : childRect.right;
+  return { left: x - 1, top: r.top, width: 2, height: r.height };
+}
+
+function renderInsertionLine(
+  targetEl: Element,
+  rect: { left: number; top: number; width: number; height: number },
+): void {
+  const doc = targetEl.ownerDocument;
+  if (!doc) return;
+  let line = doc.body.querySelector('.windease-insertion-line') as HTMLDivElement | null;
+  if (!line) {
+    line = doc.createElement('div');
+    line.className = 'windease-insertion-line';
+    line.style.position = 'fixed';
+    line.style.pointerEvents = 'none';
+    doc.body.appendChild(line);
+  }
+  line.style.left = `${rect.left}px`;
+  line.style.top = `${rect.top}px`;
+  line.style.width = `${rect.width}px`;
+  line.style.height = `${rect.height}px`;
 }
