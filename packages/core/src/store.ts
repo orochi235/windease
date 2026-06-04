@@ -7,7 +7,7 @@ import {
   type ZoneId,
   createWindowRecord,
 } from './window.js';
-import type { CreateZoneInput, ZoneRecord } from './zone.js';
+import { type CreateZoneInput, type ZoneRecord, createZoneRecord } from './zone.js';
 
 export interface StoreEvents {
   'window.created': { id: WindowId };
@@ -123,6 +123,35 @@ export class WindeaseStore {
     });
     this.windows.delete(id);
     this.events.emit('window.destroyed', { id });
+    this.scheduleNotify();
+  }
+
+  // ---- Zone management ----
+  registerZone(input: CreateZoneInput): void {
+    if (this.zones.has(input.id)) {
+      throw new WindeaseError('DUPLICATE_ZONE', `zone ${input.id} already exists`);
+    }
+    this.zones.set(input.id, createZoneRecord(input));
+    this.scheduleNotify();
+  }
+
+  unregisterZone(id: ZoneId, opts?: { orphan?: boolean }): void {
+    const z = this.requireZone(id);
+    if (z.windowIds.length > 0) {
+      if (!opts?.orphan) {
+        throw new WindeaseError(
+          'ZONE_NOT_EMPTY',
+          `zone ${id} still owns ${z.windowIds.length} window(s)`,
+        );
+      }
+      for (const wid of [...z.windowIds]) {
+        const w = this.windows.get(wid);
+        if (w) w.zoneId = null;
+        this.events.emit('zone.released', { zoneId: id, windowId: wid });
+      }
+      z.windowIds.length = 0;
+    }
+    this.zones.delete(id);
     this.scheduleNotify();
   }
 
