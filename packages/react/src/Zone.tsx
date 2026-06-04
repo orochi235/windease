@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import type {
-  Placement, WindowRecord, ZoneId, ZoneRecord,
+  Placement, WindowId, WindowRecord, ZoneId,
 } from '@windease/core';
 import { useWindease, useZone } from './hooks.js';
 
@@ -34,7 +34,7 @@ export function Zone({ id, viewport, children }: ZoneProps): React.JSX.Element {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [viewport]);
+  }, [viewport === undefined]);
 
   const effectiveViewport = viewport ?? measured;
   const visible = zone
@@ -43,18 +43,13 @@ export function Zone({ id, viewport, children }: ZoneProps): React.JSX.Element {
         .filter((w): w is WindowRecord => w?.lifecycle.state === 'visible')
     : [];
 
-  let placements: Map<string, Placement> = new Map();
+  let placements: Map<WindowId, Placement> = new Map();
   if (zone && effectiveViewport && visible.length > 0) {
-    placements = new Map(
-      Array.from(
-        zone.strategy.layout({
-          zone: zone as ZoneRecord,
-          windows: visible,
-          viewport: effectiveViewport,
-        }),
-        ([k, v]) => [k as string, v],
-      ),
-    );
+    placements = zone.strategy.layout({
+      zone,
+      windows: visible,
+      viewport: effectiveViewport,
+    });
   }
 
   return (
