@@ -1,5 +1,12 @@
 import { act, render, screen } from '@testing-library/react';
-import { WindeaseStore, asWindowId, asZoneId, gridStrategy } from '@windease/core';
+import {
+  HistoryController,
+  type SerializedStore,
+  WindeaseStore,
+  asWindowId,
+  asZoneId,
+  gridStrategy,
+} from '@windease/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { dragCoordinator } from './dnd/dragCoordinator.js';
 import { firePointer, installPointerCaptureShim } from './dnd/firePointer.js';
@@ -162,5 +169,64 @@ describe('<Zone>', () => {
     firePointer(w1, 'pointerup', { clientX: 180, clientY: 50 });
 
     expect(reorderSpy).toHaveBeenCalledWith(asZoneId('a'), [asWindowId('w2'), asWindowId('w1')]);
+  });
+
+  it('window-drag wraps drop in a single history transaction', () => {
+    const store = new WindeaseStore();
+    store.registerZone({ id: asZoneId('a'), strategy: gridStrategy, config: {} });
+    store.registerZone({ id: asZoneId('b'), strategy: gridStrategy, config: {} });
+    const wid = asWindowId('w1');
+    store.createWindow({ id: wid, kind: 'panel' });
+    store.show(wid);
+    store.claim(asZoneId('a'), wid);
+
+    const controller = new HistoryController<SerializedStore>();
+    const capture = () => store.snapshot();
+    const restore = (snap: SerializedStore) =>
+      store.hydrate(snap, { strategies: { grid: gridStrategy } });
+
+    const { container } = render(
+      <WindeaseProvider store={store} history={{ controller, capture, restore }}>
+        <div>
+          <Zone id={asZoneId('a')} viewport={{ w: 100, h: 100 }}>
+            {(w) => <div>{w.id}</div>}
+          </Zone>
+          <Zone id={asZoneId('b')} viewport={{ w: 100, h: 100 }}>
+            {(w) => <div>{w.id}</div>}
+          </Zone>
+        </div>
+      </WindeaseProvider>,
+    );
+
+    const zoneA = container.querySelector('[data-zone-id="a"]') as HTMLElement;
+    const zoneB = container.querySelector('[data-zone-id="b"]') as HTMLElement;
+    const panel = container.querySelector('[data-window-id="w1"]') as HTMLElement;
+
+    stubRect(zoneA, { left: 0, top: 0, width: 100, height: 100 });
+    stubRect(zoneB, { left: 200, top: 0, width: 100, height: 100 });
+    stubRect(panel, { left: 0, top: 0, width: 100, height: 100 });
+
+    vi.spyOn(document, 'elementsFromPoint').mockImplementation((x) =>
+      x < 150 ? [zoneA] : [zoneB],
+    );
+
+    // Initial state pushed by provider mount
+    expect(controller.canUndo()).toBe(false);
+
+    firePointer(panel, 'pointerdown', { clientX: 50, clientY: 50 });
+    firePointer(panel, 'pointermove', { clientX: 250, clientY: 50 });
+    firePointer(panel, 'pointerup', { clientX: 250, clientY: 50 });
+
+    expect(controller.canUndo()).toBe(true);
+
+    // Undo: should restore window to zone A
+    const snap = controller.undo();
+    expect(snap).toBeDefined();
+    if (snap) restore(snap);
+    expect(store.getZone(asZoneId('a'))!.windowIds).toContain(wid);
+
+    // Only one drag-produced entry: undoing again returns undefined
+    expect(controller.undo()).toBeUndefined();
+    dragCoordinator.end();
   });
 });

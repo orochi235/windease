@@ -3,7 +3,7 @@ import type * as React from 'react';
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { dragCoordinator } from './dnd/dragCoordinator.js';
 import { usePointerDrag } from './dnd/usePointerDrag.js';
-import { useWindease, useZone } from './hooks.js';
+import { useHistory, useWindease, useZone } from './hooks.js';
 
 interface ZoneProps {
   id: ZoneId;
@@ -93,20 +93,22 @@ interface WindowItemProps {
 
 function WindowItem({ w, p, zoneId, children }: WindowItemProps): React.JSX.Element {
   const store = useWindease();
+  const history = useHistory<unknown>();
   const handlers = usePointerDrag({
     onDragStart: () => {
-      dragCoordinator.tryBegin('window');
+      const ok = dragCoordinator.tryBegin('window');
+      if (ok && history) history.controller.beginTransaction();
     },
     onDragMove: (e) => {
       if (dragCoordinator.active() !== 'window') return;
       handleWindowDragMove(e, w.id, zoneId, store);
     },
     onDragEnd: (e, didDrag) => {
-      if (didDrag && dragCoordinator.active() === 'window') {
-        handleWindowDrop(e, w.id, zoneId, store);
-      }
+      const wasMine = dragCoordinator.active() === 'window';
+      if (didDrag && wasMine) handleWindowDrop(e, w.id, zoneId, store);
       clearAllDropMarkers();
-      dragCoordinator.end();
+      if (wasMine && history) history.controller.endTransaction(history.capture());
+      if (wasMine) dragCoordinator.end();
     },
   });
   const style: CSSProperties = {
