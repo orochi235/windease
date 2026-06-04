@@ -44,5 +44,9 @@ export interface LayoutStrategy<
     state: TState;
     options: Record<string, unknown>;
   }): LayoutResult<TId, TMeta>;
-  reduce?(state: TState, event: LayoutEvent): TState;
+  reduce?(
+    state: TState,
+    event: LayoutEvent,
+    context: { container: Size; options: Record<string, unknown> },
+  ): TState;
 }
