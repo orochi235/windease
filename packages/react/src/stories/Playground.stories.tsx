@@ -17,8 +17,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type HistoryHookup, WindeaseProvider } from '../WindeaseProvider.js';
 import { Workspace } from '../Workspace.js';
 import { Zone } from '../Zone.js';
+import { GridControls } from './GridControls.js';
 import { Panel } from './Panel.js';
 import './windease.css';
+
+const GRID_CONTROLS_ID = asWindowId('grid-controls');
 
 const MAIN = asZoneId('main');
 const SIDEBAR = asZoneId('sidebar');
@@ -59,6 +62,10 @@ function makeStore(): WindeaseStore {
     config: { axis: 'x', gap: 6, padding: 6, fill: true },
   });
 
+  // Seed the grid-controls widget in the main zone.
+  s.createWindow({ id: GRID_CONTROLS_ID, kind: 'widget' });
+  s.show(GRID_CONTROLS_ID);
+  s.claim(MAIN, GRID_CONTROLS_ID);
   // Seed two main-area panels.
   for (let i = 0; i < 2; i++) {
     const id = asWindowId(`panel-${i + 1}`);
@@ -206,17 +213,22 @@ export const Playground: Story = () => {
     setSelected(null);
   };
 
-  const renderPanel = (w: Parameters<Parameters<typeof Zone>[0]['children']>[0]) => (
-    <Panel
-      window={w}
-      selected={selected === w.id}
-      onSelect={(id) => setSelected(id as WindowId)}
-      onClose={(id) => {
-        store.destroy(id as WindowId);
-        if (selected === id) setSelected(null);
-      }}
-    />
-  );
+  const renderPanel = (w: Parameters<Parameters<typeof Zone>[0]['children']>[0]) => {
+    if (w.id === GRID_CONTROLS_ID) {
+      return <GridControls store={store} zoneId={MAIN} onChange={() => setTick((n) => n + 1)} />;
+    }
+    return (
+      <Panel
+        window={w}
+        selected={selected === w.id}
+        onSelect={(id) => setSelected(id as WindowId)}
+        onClose={(id) => {
+          store.destroy(id as WindowId);
+          if (selected === id) setSelected(null);
+        }}
+      />
+    );
+  };
 
   return (
     <WindeaseProvider store={store} history={historyHookup}>
