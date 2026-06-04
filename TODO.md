@@ -54,6 +54,24 @@ Open questions:
 - Inter-zone resize: dragging the gutter between zones is a workspace-level
   concern (see "Strategy for partitioning workspace").
 
+## Groups
+
+A "group" wraps multiple windows so they move, drag, and (potentially) resize
+as a unit. Open questions: is a group a special kind of window, a sibling
+concept to zones, or a layout strategy that nests its own children? Visual
+treatment (tabbed group vs. accordion vs. side-by-side strip) probably wants
+to be a strategy choice on the group itself. Persistence needs a stable group
+id and a way to express membership in snapshots.
+
+## Drag-into (windows ↔ zones ↔ groups)
+
+Once groups exist and drag-and-drop is wired up, dragging a window onto
+another window should be able to *form* a group, dragging into an empty zone
+should claim that zone, and dragging onto a group's drop region should join
+it. Edge cases: rejecting drops a strategy can't accept (e.g. a 2-pane
+binarySplit), insertion-point previews for ordered strategies, and what
+happens to a single-member group when its last sibling leaves.
+
 ## Followups from v0.1
 
 Smaller items surfaced during v0.1 review. Promote to a `[HIGH]` section if
