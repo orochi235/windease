@@ -1,43 +1,33 @@
-import { describe, expect, it } from 'vitest';
-import { asWindowId, asZoneId, createWindowRecord } from '../window.js';
-import { createZoneRecord } from '../zone.js';
+import { describe, it, expect } from 'vitest';
 import { stackStrategy } from './stack.js';
+import { asWindowId } from '../window.js';
+import type { LayoutItem } from '../layout-types.js';
 
-const mkWin = (id: string, preferredH?: number) =>
-  createWindowRecord({
-    id: asWindowId(id),
-    kind: 'panel',
-    ...(preferredH ? { hints: { preferredSize: { w: 0, h: preferredH } } } : {}),
-  });
+const mkItem = (id: string, preferredH?: number): LayoutItem => ({
+  id: asWindowId(id),
+  ...(preferredH ? { hints: { preferredSize: { w: 0, h: preferredH } } } : {}),
+});
 
 describe('stackStrategy', () => {
-  it('stacks windows vertically using preferredSize.h, gap, padding', () => {
-    const zone = createZoneRecord({
-      id: asZoneId('side'),
-      strategy: stackStrategy,
-      config: { gap: 5, padding: 10 },
-    });
-    const wins = [mkWin('a', 50), mkWin('b', 30)];
-    zone.windowIds = wins.map((w) => w.id);
+  it('stacks items vertically using preferredSize.h, gap, padding', () => {
     const result = stackStrategy.layout({
-      zone,
-      windows: wins,
-      viewport: { w: 200, h: 200 },
+      items: [mkItem('a', 50), mkItem('b', 30)],
+      container: { w: 200, h: 200 },
+      state: undefined as void,
+      options: { gap: 5, padding: 10 },
     });
-    expect(result.get(asWindowId('a'))).toEqual({ x: 10, y: 10, w: 180, h: 50 });
-    expect(result.get(asWindowId('b'))).toEqual({ x: 10, y: 65, w: 180, h: 30 });
+    expect(result.placements.get(asWindowId('a'))).toEqual({ x: 10, y: 10, w: 180, h: 50 });
+    expect(result.placements.get(asWindowId('b'))).toEqual({ x: 10, y: 65, w: 180, h: 30 });
   });
 
   it('falls back to equal heights when no preferredSize', () => {
-    const zone = createZoneRecord({ id: asZoneId('s'), strategy: stackStrategy });
-    const wins = [mkWin('a'), mkWin('b')];
-    zone.windowIds = wins.map((w) => w.id);
     const result = stackStrategy.layout({
-      zone,
-      windows: wins,
-      viewport: { w: 100, h: 100 },
+      items: [mkItem('a'), mkItem('b')],
+      container: { w: 100, h: 100 },
+      state: undefined as void,
+      options: {},
     });
-    expect(result.get(asWindowId('a'))?.h).toBe(50);
-    expect(result.get(asWindowId('b'))?.h).toBe(50);
+    expect(result.placements.get(asWindowId('a'))?.h).toBe(50);
+    expect(result.placements.get(asWindowId('b'))?.h).toBe(50);
   });
 });

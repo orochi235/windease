@@ -1,37 +1,53 @@
+import type {
+  LayoutItem,
+  LayoutResult,
+  LayoutStrategy,
+  Rect,
+  Size,
+} from '../layout-types.js';
 import type { WindowId } from '../window.js';
-import type { LayoutInput, LayoutStrategy, Placement } from '../zone.js';
 
 interface StackConfig {
   gap?: number;
   padding?: number;
 }
 
-export const stackStrategy: LayoutStrategy = {
+export const stackStrategy: LayoutStrategy<void, WindowId> = {
   name: 'stack',
-  layout({ zone, windows, viewport }: LayoutInput): Map<WindowId, Placement> {
-    const cfg = zone.config as StackConfig;
+  layout({
+    items,
+    container,
+    options,
+  }: {
+    items: LayoutItem[];
+    container: Size;
+    state: void;
+    options: Record<string, unknown>;
+  }): LayoutResult<WindowId> {
+    const cfg = options as StackConfig;
     const gap = cfg.gap ?? 0;
     const padding = cfg.padding ?? 0;
 
-    const byId = new Map(windows.map((w) => [w.id, w]));
-    const ordered = zone.windowIds.map((id) => byId.get(id)).filter((w) => w !== undefined);
-    const out = new Map<WindowId, Placement>();
-    if (ordered.length === 0) return out;
+    const placements = new Map<WindowId, Rect>();
+    if (items.length === 0) return { placements, affordances: [] };
 
     const colX = padding;
-    const colW = viewport.w - 2 * padding;
-    const usableH = viewport.h - 2 * padding - gap * (ordered.length - 1);
+    const colW = container.w - 2 * padding;
+    const usableH = container.h - 2 * padding - gap * (items.length - 1);
 
-    const totalPreferred = ordered.reduce((sum, w) => sum + (w.hints.preferredSize?.h ?? 0), 0);
+    const totalPreferred = items.reduce(
+      (sum, item) => sum + (item.hints?.preferredSize?.h ?? 0),
+      0,
+    );
     const hasPreferred = totalPreferred > 0;
-    const fallbackH = usableH / ordered.length;
+    const fallbackH = usableH / items.length;
 
     let y = padding;
-    for (const w of ordered) {
-      const h = hasPreferred ? (w.hints.preferredSize?.h ?? 0) : fallbackH;
-      out.set(w.id, { x: colX, y, w: colW, h });
+    for (const item of items) {
+      const h = hasPreferred ? (item.hints?.preferredSize?.h ?? 0) : fallbackH;
+      placements.set(item.id as WindowId, { x: colX, y, w: colW, h });
       y += h + gap;
     }
-    return out;
+    return { placements, affordances: [] };
   },
 };
