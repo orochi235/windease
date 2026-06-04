@@ -31,7 +31,6 @@ export {
   type ZoneRecord,
   type CreateZoneInput,
   type LayoutStrategy,
-  type LayoutInput,
   type Placement,
 } from './zone.js';
 export { WindeaseStore, type StoreEvents } from './store.js';

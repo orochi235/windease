@@ -1,33 +1,20 @@
-import type { WindowId, WindowRecord, ZoneId } from './window.js';
+import type { Rect, LayoutStrategy } from './layout-types.js';
+import type { WindowId, ZoneId } from './window.js';
 
-export interface Placement {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-export interface LayoutInput {
-  zone: ZoneRecord;
-  windows: WindowRecord[];
-  viewport: { w: number; h: number };
-}
-
-export interface LayoutStrategy {
-  name: string;
-  layout(input: LayoutInput): Map<WindowId, Placement>;
-}
+// Re-export Rect as Placement for v0.1 source compatibility within core.
+export type Placement = Rect;
+export type { LayoutStrategy };
 
 export interface ZoneRecord {
   id: ZoneId;
-  strategy: LayoutStrategy;
+  strategy: LayoutStrategy<unknown, WindowId, unknown>;
   windowIds: WindowId[];
   config: Record<string, unknown>;
 }
 
 export interface CreateZoneInput {
   id: ZoneId;
-  strategy: LayoutStrategy;
+  strategy: LayoutStrategy<unknown, WindowId, unknown>;
   config?: Record<string, unknown>;
 }
 
