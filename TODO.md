@@ -3,6 +3,29 @@
 Future work, sectioned by item. Append new ideas here rather than scattering
 them. Tag major items with `[HIGH]`.
 
+## Pinning items within a zone [HIGH]
+
+A pinned window stays in place when the zone reflows: drags reorder around it
+but never displace it, layout strategies treat it as an anchor (fixed cell in
+grid, fixed slot in strip/stack), and snapshots round-trip the pin flag.
+
+Open questions:
+
+- Where does the pin flag live — on `WindowRecord` (a window-intrinsic
+  property) or on the zone's `windowIds` ordering metadata (a per-zone
+  attribute)? The latter handles "pinned in zone A, not pinned in zone B
+  after move" more cleanly.
+- How do strategies opt in? Stack/strip can honor an index pin trivially;
+  grid pinning means a fixed `(col, row)` cell, which the current grid
+  strategy doesn't model. Probably ships first for ordered strategies, with
+  grid following once variable-cell support lands.
+- DnD UX: pinned windows show a different drag affordance, drops over a
+  pinned slot get rejected (or insert adjacent), and the insertion-line
+  preview needs to convey "this slot is anchored."
+- Public API surface: `store.pin(id)` / `store.unpin(id)` + a `pinned`
+  boolean on `WindowRecord`, vs. a more general `setMeta(id, { pinned })`
+  pattern that other future flags can reuse.
+
 ## Strategy for partitioning workspace [HIGH]
 
 Right now consumers compose zones by laying them out in plain CSS (see the
@@ -91,9 +114,9 @@ they grow.
 - Strip strategy returns zero width/height when a window has no
   `preferredSize` — intentional for fixed-size toolbars but worth a doc
   comment.
-- `@windease/react` ships no CSS; consumers must size `.windease-zone`
-  themselves (the Ladle Playground hit this — see commit `60eaa56`). Either
-  ship a minimal stylesheet or document the requirement in the README.
+- README: document the new `@windease/react/styles.css` baseline (structural
+  rules + `container-type: size` on `.windease-window`) and the expected
+  consumer import.
 - Package `package.json` metadata is thin (no `description`, `repository`,
   `license`, `keywords`). Fill before publishing to npm.
 - npm install warns of moderate/critical vulnerabilities in dev deps. Audit
