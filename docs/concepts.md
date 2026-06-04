@@ -68,6 +68,13 @@ Access via `store.getItemMeta(zoneId, id)` / `setItemMeta` / `patchItemMeta`
   for windows that are part of the chrome (e.g. a controls widget that owns
   its slot for the duration of the session).
 
+**Opting out of the pinned-prefix invariant.** Zones whose semantics don't
+benefit from pin-promotion (a tool strip, a tabbed group) can register with
+`allowsPinning: false`. `setItemMeta` / `patchItemMeta` still accept and
+store `pinned` / `locked` keys (so `locked` retains its drag-suppression
+behavior), but `resortByPin` no-ops and `windowIds` reflects raw insertion
+/ drag order. Snapshot round-trips the flag.
+
 ## Layout strategies
 
 A strategy is a pure function of `{ items, container, state, options }` that
