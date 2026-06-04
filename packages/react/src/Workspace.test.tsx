@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { binarySplit } from '@windease/core';
+import { binarySplit, recursiveSplit, type SplitNode } from '@windease/core';
 import { Workspace } from './Workspace.js';
 import { firePointer, installPointerCaptureShim } from './dnd/firePointer.js';
 
@@ -103,5 +103,50 @@ describe('<Workspace>', () => {
       </Workspace>,
     );
     expect(screen.getByTestId('aff-x')).toBeTruthy();
+  });
+
+  it('zone-swap drags one workspace child onto another and swaps leaves', () => {
+    const onStateChange = vi.fn();
+    const initial: SplitNode = {
+      kind: 'split',
+      direction: 'horizontal',
+      ratio: 0.5,
+      a: { kind: 'leaf', id: 'left' },
+      b: { kind: 'leaf', id: 'right' },
+    };
+    render(
+      <Workspace
+        strategy={recursiveSplit}
+        items={[{ id: 'left' }, { id: 'right' }]}
+        initialState={initial}
+        container={{ w: 400, h: 200 }}
+        onStateChange={onStateChange}
+      >
+        {(item) => (
+          <div data-zone-id={item.id} style={{ width: '100%', height: '100%' }} data-testid={`zone-${item.id}`} />
+        )}
+      </Workspace>,
+    );
+    const left = document.querySelector('[data-zone-id="left"]') as HTMLElement;
+    const right = document.querySelector('[data-zone-id="right"]') as HTMLElement;
+
+    vi.spyOn(left, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200, x: 0, y: 0, toJSON: () => ({}) } as DOMRect);
+    vi.spyOn(right, 'getBoundingClientRect').mockReturnValue({ left: 200, top: 0, right: 400, bottom: 200, width: 200, height: 200, x: 200, y: 0, toJSON: () => ({}) } as DOMRect);
+
+    // Stub elementsFromPoint
+    if (!('elementsFromPoint' in document)) {
+      Object.defineProperty(document, 'elementsFromPoint', { value: () => [], configurable: true });
+    }
+    vi.spyOn(document, 'elementsFromPoint').mockImplementation((x: number) => (x < 200 ? [left] : [right]));
+
+    firePointer(left, 'pointerdown', { clientX: 50, clientY: 50 });
+    firePointer(left, 'pointermove', { clientX: 250, clientY: 50 });
+    firePointer(left, 'pointerup', { clientX: 250, clientY: 50 });
+
+    expect(onStateChange).toHaveBeenCalled();
+    const next = onStateChange.mock.calls.at(-1)![0] as SplitNode;
+    if (next.kind !== 'split') throw new Error('expected split');
+    expect((next.a as { kind: string; id: string }).id).toBe('right');
+    expect((next.b as { kind: string; id: string }).id).toBe('left');
   });
 });
