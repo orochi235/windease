@@ -7,7 +7,13 @@ import {
   type ZoneId,
   createWindowRecord,
 } from './window.js';
-import { type CreateZoneInput, type ZoneRecord, createZoneRecord } from './zone.js';
+import {
+  type CreateZoneInput,
+  type LayoutStrategy,
+  type ZoneRecord,
+  createZoneRecord,
+} from './zone.js';
+import { deserialize, serialize, type SerializedStore } from './snapshot.js';
 
 export interface StoreEvents {
   'window.created': { id: WindowId };
@@ -234,6 +240,20 @@ export class WindeaseStore {
     return () => {
       this.subscribers.delete(fn);
     };
+  }
+
+  // ---- Persistence ----
+  snapshot(): SerializedStore {
+    return serialize(this.windows, this.zones);
+  }
+
+  hydrate(snap: SerializedStore, opts: { strategies: Record<string, LayoutStrategy> }): void {
+    const { windows, zones } = deserialize(snap, opts.strategies);
+    this.windows.clear();
+    this.zones.clear();
+    for (const [k, v] of windows) this.windows.set(k, v);
+    for (const [k, v] of zones) this.zones.set(k, v);
+    this.scheduleNotify();
   }
 
   // ---- Internals ----
