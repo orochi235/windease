@@ -45,6 +45,40 @@ describe('stackStrategy', () => {
     expect(result.placements.get(asWindowId('c'))).toEqual({ x: 0, y: 140, w: 100, h: 60 });
   });
 
+  it('fill=false keeps hintless items at height 0', () => {
+    const result = stackStrategy.layout({
+      items: [mkItem('a', 50), mkItem('b')],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: { fill: false },
+    });
+    expect(result.placements.get(asWindowId('a'))?.h).toBe(50);
+    expect(result.placements.get(asWindowId('b'))?.h).toBe(0);
+  });
+
+  it('defaultItemSize sizes hintless items when fill=false', () => {
+    const result = stackStrategy.layout({
+      items: [mkItem('a', 50), mkItem('b'), mkItem('c')],
+      container: { w: 100, h: 300 },
+      state: undefined as void,
+      options: { fill: false, defaultItemSize: 60 },
+    });
+    expect(result.placements.get(asWindowId('a'))?.h).toBe(50);
+    expect(result.placements.get(asWindowId('b'))?.h).toBe(60);
+    expect(result.placements.get(asWindowId('c'))?.h).toBe(60);
+  });
+
+  it('fill=true overrides defaultItemSize (leftover-sharing wins)', () => {
+    const result = stackStrategy.layout({
+      items: [mkItem('a', 100), mkItem('b')],
+      container: { w: 100, h: 300 },
+      state: undefined as void,
+      options: { fill: true, defaultItemSize: 50 },
+    });
+    expect(result.placements.get(asWindowId('a'))?.h).toBe(100);
+    expect(result.placements.get(asWindowId('b'))?.h).toBe(200); // leftover, not the 50 default
+  });
+
   it('clamps flex height to zero when preferred items already overflow', () => {
     const result = stackStrategy.layout({
       items: [mkItem('a', 200), mkItem('b')],

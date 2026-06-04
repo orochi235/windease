@@ -22,6 +22,41 @@ describe('stripStrategy', () => {
     expect(result.placements.get(asWindowId('b'))).toEqual({ x: 72, y: 8, w: 40, h: 24 });
   });
 
+  it('fill=true distributes leftover main-axis space to hintless items', () => {
+    const result = stripStrategy.layout({
+      items: [mkItem('a', { preferredW: 100 }), mkItem('b'), mkItem('c')],
+      container: { w: 300, h: 50 },
+      state: undefined as void,
+      options: { axis: 'x', fill: true },
+    });
+    expect(result.placements.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 50 });
+    expect(result.placements.get(asWindowId('b'))).toEqual({ x: 100, y: 0, w: 100, h: 50 });
+    expect(result.placements.get(asWindowId('c'))).toEqual({ x: 200, y: 0, w: 100, h: 50 });
+  });
+
+  it('fill=false (default) leaves hintless items at w=0', () => {
+    const result = stripStrategy.layout({
+      items: [mkItem('a', { preferredW: 100 }), mkItem('b')],
+      container: { w: 300, h: 50 },
+      state: undefined as void,
+      options: { axis: 'x' },
+    });
+    expect(result.placements.get(asWindowId('a'))?.w).toBe(100);
+    expect(result.placements.get(asWindowId('b'))?.w).toBe(0);
+  });
+
+  it('defaultItemSize gives hintless items a default main-axis size when fill=false', () => {
+    const result = stripStrategy.layout({
+      items: [mkItem('a', { preferredW: 100 }), mkItem('b'), mkItem('c')],
+      container: { w: 500, h: 50 },
+      state: undefined as void,
+      options: { axis: 'x', defaultItemSize: 80 },
+    });
+    expect(result.placements.get(asWindowId('a'))?.w).toBe(100);
+    expect(result.placements.get(asWindowId('b'))?.w).toBe(80);
+    expect(result.placements.get(asWindowId('c'))?.w).toBe(80);
+  });
+
   it('axis y lays out vertically', () => {
     const result = stripStrategy.layout({
       items: [mkItem('a', { preferredH: 20 }), mkItem('b', { preferredH: 30 })],
