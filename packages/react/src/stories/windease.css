@@ -212,17 +212,14 @@
 }
 
 .windease-zone[data-drop-target="true"] {
-  outline: 2px solid #2563eb;
-  outline-offset: -2px;
+  background: #dbeafe;
 }
 .windease-zone[data-drop-rejected="true"] {
-  outline: 2px solid #dc2626;
-  outline-offset: -2px;
+  background: #fee2e2;
   cursor: not-allowed;
 }
 .windease-zone[data-zone-drop-target="true"] {
-  outline: 2px dashed #16a34a;
-  outline-offset: -2px;
+  background: #dcfce7;
 }
 .windease-insertion-line {
   background: #2563eb;

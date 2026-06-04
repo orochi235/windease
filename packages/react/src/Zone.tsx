@@ -159,6 +159,7 @@ function handleWindowDragMove(
     target.el.setAttribute('data-drop-rejected', 'true');
     return;
   }
+  if (prospective.isNoOp) return;
   target.el.setAttribute('data-drop-target', 'true');
   renderInsertionLine(target.el, prospective.insertionRect);
 }
@@ -185,6 +186,7 @@ function handleWindowDrop(
   );
   const accepted = targetZone.strategy.canAccept?.(prospective.items) ?? true;
   if (!accepted) return;
+  if (prospective.isNoOp) return;
   if (targetId === sourceZone) {
     store.reorderInZone(sourceZone, prospective.items.map((it) => it.id as WindowId));
   } else {
@@ -220,6 +222,7 @@ interface ProspectiveResult {
   items: { id: string }[];
   indexInTarget: number;
   insertionRect: { left: number; top: number; width: number; height: number };
+  isNoOp: boolean;
 }
 
 function buildProspectiveItems(
@@ -268,10 +271,14 @@ function buildProspectiveItems(
 
   const prospectiveIds = [...otherIds];
   prospectiveIds.splice(insertionIndex, 0, sourceWid);
+  const isNoOp =
+    prospectiveIds.length === targetWindowIds.length &&
+    prospectiveIds.every((id, i) => id === targetWindowIds[i]);
   return {
     items: prospectiveIds.map((id) => ({ id })),
     indexInTarget: insertionIndex,
     insertionRect,
+    isNoOp,
   };
 }
 
