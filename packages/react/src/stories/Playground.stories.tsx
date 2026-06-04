@@ -54,7 +54,11 @@ interface PlaygroundSnapshot {
 
 function makeStore(): WindeaseStore {
   const s = new WindeaseStore();
-  s.registerZone({ id: MAIN, strategy: gridStrategy, config: { gap: 8, padding: 8 } });
+  s.registerZone({
+    id: MAIN,
+    strategy: gridStrategy,
+    config: { gap: 8, padding: 8, maxCols: 2, maxRows: 2 },
+  });
   s.registerZone({ id: SIDEBAR, strategy: stackStrategy, config: { gap: 6, padding: 6 } });
   s.registerZone({
     id: DOCK,
@@ -62,10 +66,11 @@ function makeStore(): WindeaseStore {
     config: { axis: 'x', gap: 6, padding: 6, fill: true },
   });
 
-  // Seed the grid-controls widget in the main zone.
+  // Seed the grid-controls widget in the main zone, pinned + locked so it
+  // sits at the top of the grid and can't be dragged or destroyed.
   s.createWindow({ id: GRID_CONTROLS_ID, kind: 'widget' });
   s.show(GRID_CONTROLS_ID);
-  s.claim(MAIN, GRID_CONTROLS_ID);
+  s.claim(MAIN, GRID_CONTROLS_ID, undefined, { pinned: true, locked: true });
   // Seed two main-area panels.
   for (let i = 0; i < 2; i++) {
     const id = asWindowId(`panel-${i + 1}`);
@@ -152,6 +157,7 @@ export const Playground: Story = () => {
       store.events.on('zone.claimed', bump),
       store.events.on('zone.released', bump),
       store.events.on('zone.reordered', bump),
+      store.events.on('zone.metaChanged', bump),
     ];
     return () => {
       for (const off of offs) off();
@@ -191,10 +197,17 @@ export const Playground: Story = () => {
   const hide = withSelected((id) => store.hide(id));
   const show = withSelected((id) => store.show(id));
   const destroy = withSelected((id) => {
+    const w = store.getWindow(id);
+    if (w?.zoneId && store.getItemMeta(w.zoneId, id)?.locked) return;
     store.destroy(id);
     setSelected(null);
   });
-  const moveTo = (zone: ZoneId) => withSelected((id) => store.moveWindow(id, zone));
+  const moveTo = (zone: ZoneId) =>
+    withSelected((id) => {
+      const w = store.getWindow(id);
+      if (w?.zoneId && store.getItemMeta(w.zoneId, id)?.locked) return;
+      store.moveWindow(id, zone);
+    });
 
   const doSnapshot = () => {
     const snap = store.snapshot();
@@ -217,10 +230,16 @@ export const Playground: Story = () => {
     if (w.id === GRID_CONTROLS_ID) {
       return <GridControls store={store} zoneId={MAIN} onChange={() => setTick((n) => n + 1)} />;
     }
+    const zoneId = w.zoneId;
+    const meta = zoneId ? store.getItemMeta(zoneId, w.id) : undefined;
+    const pinned = Boolean(meta?.pinned);
+    const locked = Boolean(meta?.locked);
     return (
       <Panel
         window={w}
         selected={selected === w.id}
+        pinned={pinned}
+        locked={locked}
         onSelect={(id) => setSelected(id as WindowId)}
         onClose={(id) => {
           store.destroy(id as WindowId);
@@ -229,6 +248,21 @@ export const Playground: Story = () => {
       />
     );
   };
+
+  const isSelectedLocked = (): boolean => {
+    if (!selected) return false;
+    const w = store.getWindow(selected);
+    if (!w?.zoneId) return false;
+    return Boolean(store.getItemMeta(w.zoneId, selected)?.locked);
+  };
+
+  const togglePin = withSelected((id) => {
+    const w = store.getWindow(id);
+    if (!w?.zoneId) return;
+    if (store.getItemMeta(w.zoneId, id)?.locked) return;
+    const current = Boolean(store.getItemMeta(w.zoneId, id)?.pinned);
+    store.patchItemMeta(w.zoneId, id, { pinned: current ? undefined : true });
+  });
 
   return (
     <WindeaseProvider store={store} history={historyHookup}>
@@ -269,16 +303,19 @@ export const Playground: Story = () => {
           <button type="button" onClick={show} disabled={!selected}>
             Show selected
           </button>
-          <button type="button" onClick={destroy} disabled={!selected}>
+          <button type="button" onClick={destroy} disabled={!selected || isSelectedLocked()}>
             Destroy selected
           </button>
-          <button type="button" onClick={moveTo(MAIN)} disabled={!selected}>
+          <button type="button" onClick={togglePin} disabled={!selected || isSelectedLocked()}>
+            Toggle pin
+          </button>
+          <button type="button" onClick={moveTo(MAIN)} disabled={!selected || isSelectedLocked()}>
             → main
           </button>
-          <button type="button" onClick={moveTo(SIDEBAR)} disabled={!selected}>
+          <button type="button" onClick={moveTo(SIDEBAR)} disabled={!selected || isSelectedLocked()}>
             → sidebar
           </button>
-          <button type="button" onClick={moveTo(DOCK)} disabled={!selected}>
+          <button type="button" onClick={moveTo(DOCK)} disabled={!selected || isSelectedLocked()}>
             → dock
           </button>
           <button type="button" onClick={doSnapshot}>

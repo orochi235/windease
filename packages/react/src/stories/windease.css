@@ -40,6 +40,25 @@
   outline-offset: -2px;
 }
 
+.story-panel.is-pinned {
+  box-shadow: inset 0 0 0 2px #f59e0b;
+}
+
+.story-panel__pin,
+.story-panel__lock {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.story-panel.is-locked {
+  box-shadow: inset 0 0 0 2px #64748b;
+  cursor: default;
+}
+
 .story-panel {
   position: relative;
 }
@@ -212,7 +231,8 @@
 .windease-zone[data-zone-drop-target="true"] {
   background: #dcfce7;
 }
-.windease-insertion-line {
+.windease-insertion-line,
+.windease-insertion-outline {
   color: #2563eb;
 }
 

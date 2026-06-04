@@ -21,13 +21,25 @@ interface PanelProps {
   window: WindowRecord;
   label?: string;
   selected?: boolean;
+  pinned?: boolean;
+  locked?: boolean;
   onSelect?: (id: string) => void;
   onClose?: (id: string) => void;
 }
 
-export function Panel({ window: w, label, selected, onSelect, onClose }: PanelProps): React.JSX.Element {
+export function Panel({
+  window: w,
+  label,
+  selected,
+  pinned,
+  locked,
+  onSelect,
+  onClose,
+}: PanelProps): React.JSX.Element {
   const cls = ['story-panel', colorClassForId(w.id)];
   if (selected) cls.push('is-selected');
+  if (pinned) cls.push('is-pinned');
+  if (locked) cls.push('is-locked');
   return (
     <div
       role="button"
@@ -41,8 +53,15 @@ export function Panel({ window: w, label, selected, onSelect, onClose }: PanelPr
         }
       }}
       data-testid={`panel-${w.id}`}
+      data-pinned={pinned ? 'true' : undefined}
+      data-locked={locked ? 'true' : undefined}
     >
-      {onClose && (
+      {locked ? (
+        <span className="story-panel__lock" aria-hidden="true">🔒</span>
+      ) : pinned ? (
+        <span className="story-panel__pin" aria-hidden="true">📌</span>
+      ) : null}
+      {!locked && onClose && (
         <button
           type="button"
           className="story-panel__close"
