@@ -212,6 +212,22 @@ export class WindeaseStore {
     this.scheduleNotify();
   }
 
+  // ---- Focus ----
+  focus(id: WindowId): void {
+    const target = this.requireWindow(id);
+    if (target.focus.state === 'focused') return;
+    for (const w of this.windows.values()) {
+      if (w.id === id) continue;
+      if (w.focus.state === 'focused') {
+        w.focus.send('blur');
+        this.emitTransition(w.id, 'focus', 'focused', 'blurred', 'blur');
+      }
+    }
+    target.focus.send('focus');
+    this.emitTransition(id, 'focus', 'blurred', 'focused', 'focus');
+    this.scheduleNotify();
+  }
+
   // ---- Reactive ----
   subscribe(fn: () => void): () => void {
     this.subscribers.add(fn);

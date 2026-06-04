@@ -209,3 +209,24 @@ describe2('WindeaseStore - ownership', () => {
     }
   });
 });
+
+describe2('WindeaseStore - focus', () => {
+  it2('focus(id) marks window focused and blurs others', () => {
+    const s = new WindeaseStore();
+    s.createWindow({ id: asWindowId('w1'), kind: 'panel' });
+    s.createWindow({ id: asWindowId('w2'), kind: 'panel' });
+    s.focus(asWindowId('w1'));
+    expect2(s.getWindow(asWindowId('w1'))?.focus.state).toBe('focused');
+    s.focus(asWindowId('w2'));
+    expect2(s.getWindow(asWindowId('w1'))?.focus.state).toBe('blurred');
+    expect2(s.getWindow(asWindowId('w2'))?.focus.state).toBe('focused');
+  });
+
+  it2('focus on already-focused is a no-op', () => {
+    const s = new WindeaseStore();
+    s.createWindow({ id: asWindowId('w1'), kind: 'panel' });
+    s.focus(asWindowId('w1'));
+    expect2(() => s.focus(asWindowId('w1'))).not.toThrow();
+    expect2(s.getWindow(asWindowId('w1'))?.focus.state).toBe('focused');
+  });
+});
