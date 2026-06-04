@@ -149,4 +149,63 @@ describe('<Workspace>', () => {
     expect((next.a as { kind: string; id: string }).id).toBe('right');
     expect((next.b as { kind: string; id: string }).id).toBe('left');
   });
+
+  it('controlled mode: external state prop drives layout', () => {
+    const initial: SplitNode = {
+      kind: 'split',
+      direction: 'horizontal',
+      ratio: 0.5,
+      a: { kind: 'leaf', id: 'a' },
+      b: { kind: 'leaf', id: 'b' },
+    };
+    render(
+      <Workspace
+        strategy={recursiveSplit}
+        items={[{ id: 'a' }, { id: 'b' }]}
+        state={initial}
+        container={{ w: 200, h: 100 }}
+      >
+        {(item) => <div data-zone-id={item.id} data-testid={`z-${item.id}`} />}
+      </Workspace>,
+    );
+    expect(document.querySelector('[data-zone-id="a"]')).toBeTruthy();
+    expect(document.querySelector('[data-zone-id="b"]')).toBeTruthy();
+  });
+
+  it('zone-swap drag fires onGestureStart and onGestureEnd exactly once', () => {
+    const onGestureStart = vi.fn();
+    const onGestureEnd = vi.fn();
+    const initial: SplitNode = {
+      kind: 'split',
+      direction: 'horizontal',
+      ratio: 0.5,
+      a: { kind: 'leaf', id: 'a' },
+      b: { kind: 'leaf', id: 'b' },
+    };
+    render(
+      <Workspace
+        strategy={recursiveSplit}
+        items={[{ id: 'a' }, { id: 'b' }]}
+        initialState={initial}
+        container={{ w: 400, h: 200 }}
+        onGestureStart={onGestureStart}
+        onGestureEnd={onGestureEnd}
+      >
+        {(item) => <div data-zone-id={item.id} style={{ width: '100%', height: '100%' }} />}
+      </Workspace>,
+    );
+    const left = document.querySelector('[data-zone-id="a"]') as HTMLElement;
+    const right = document.querySelector('[data-zone-id="b"]') as HTMLElement;
+    vi.spyOn(left, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200, x: 0, y: 0, toJSON: () => ({}) } as DOMRect);
+    vi.spyOn(right, 'getBoundingClientRect').mockReturnValue({ left: 200, top: 0, right: 400, bottom: 200, width: 200, height: 200, x: 200, y: 0, toJSON: () => ({}) } as DOMRect);
+    if (!('elementsFromPoint' in document)) {
+      Object.defineProperty(document, 'elementsFromPoint', { value: () => [], configurable: true });
+    }
+    vi.spyOn(document, 'elementsFromPoint').mockImplementation((x: number) => (x < 200 ? [left] : [right]));
+    firePointer(left, 'pointerdown', { clientX: 50, clientY: 50 });
+    firePointer(left, 'pointermove', { clientX: 250, clientY: 50 });
+    firePointer(left, 'pointerup', { clientX: 250, clientY: 50 });
+    expect(onGestureStart).toHaveBeenCalledTimes(1);
+    expect(onGestureEnd).toHaveBeenCalledTimes(1);
+  });
 });

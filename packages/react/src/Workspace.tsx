@@ -22,15 +22,20 @@ import type {
 import { WindeaseError } from '@windease/core';
 import { dragCoordinator } from './dnd/dragCoordinator.js';
 import { usePointerDrag } from './dnd/usePointerDrag.js';
+import { useHistory } from './hooks.js';
 
 interface WorkspaceProps<TState, TMeta> {
   strategy: LayoutStrategy<TState, ItemId, TMeta>;
   items: LayoutItem[];
   options?: Record<string, unknown>;
   initialState?: TState;
+  /** Controlled layout state. When provided, the Workspace becomes controlled. */
+  state?: TState;
   /** Skips ResizeObserver when provided. */
   container?: Size;
   onStateChange?(state: TState): void;
+  onGestureStart?(): void;
+  onGestureEnd?(): void;
   children: (item: LayoutItem, placement: Rect) => ReactNode;
   affordanceRenderers?: Record<
     string,
@@ -41,10 +46,23 @@ interface WorkspaceProps<TState, TMeta> {
 const BUILTIN_KINDS = new Set(['drag-x', 'drag-y', 'drag-xy', 'click', 'keypress']);
 
 export function Workspace<TState, TMeta>(props: WorkspaceProps<TState, TMeta>): React.JSX.Element {
-  const { strategy, items, options, container, onStateChange, children, affordanceRenderers } = props;
+  const {
+    strategy,
+    items,
+    options,
+    container,
+    onStateChange,
+    onGestureStart,
+    onGestureEnd,
+    children,
+    affordanceRenderers,
+  } = props;
   const opts = options ?? {};
 
   const initial = useMemo<TState>(() => {
+    if ('state' in props && props.state !== undefined) {
+      return props.state as TState;
+    }
     if ('initialState' in props && props.initialState !== undefined) {
       return props.initialState as TState;
     }
@@ -55,7 +73,39 @@ export function Workspace<TState, TMeta>(props: WorkspaceProps<TState, TMeta>): 
     );
     // biome-ignore lint/correctness/useExhaustiveDependencies: initial state should only be computed once on mount
   }, []);
-  const [state, setState] = useState<TState>(initial);
+
+  const isControlled = props.state !== undefined;
+  const [internalState, setInternalState] = useState<TState>(initial);
+  const state: TState = isControlled ? (props.state as TState) : internalState;
+
+  const stateRef = useRef<TState>(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const applyState = useCallback(
+    (updater: TState | ((prev: TState) => TState)) => {
+      const next =
+        typeof updater === 'function'
+          ? (updater as (p: TState) => TState)(stateRef.current)
+          : updater;
+      if (!isControlled) setInternalState(next);
+      if (onStateChange) onStateChange(next);
+    },
+    [isControlled, onStateChange],
+  );
+
+  const history = useHistory<unknown>();
+
+  const gestureStart = useCallback(() => {
+    history?.controller.beginTransaction();
+    onGestureStart?.();
+  }, [history, onGestureStart]);
+
+  const gestureEnd = useCallback(() => {
+    if (history) history.controller.endTransaction(history.capture());
+    onGestureEnd?.();
+  }, [history, onGestureEnd]);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [measured, setMeasured] = useState<Size | null>(null);
@@ -77,13 +127,9 @@ export function Workspace<TState, TMeta>(props: WorkspaceProps<TState, TMeta>): 
     (event: LayoutEvent) => {
       if (!strategy.reduce) return;
       if (!size) return;
-      setState((prev) => {
-        const next = strategy.reduce!(prev, event, { container: size, options: opts });
-        if (onStateChange) onStateChange(next);
-        return next;
-      });
+      applyState((prev) => strategy.reduce!(prev, event, { container: size, options: opts }));
     },
-    [strategy, size, opts, onStateChange],
+    [strategy, size, opts, applyState],
   );
 
   const result = useMemo(() => {
@@ -97,7 +143,9 @@ export function Workspace<TState, TMeta>(props: WorkspaceProps<TState, TMeta>): 
     onDragStart: () => {
       if (!dragCoordinator.tryBegin('zone')) {
         zoneDragSourceRef.current = null;
+        return;
       }
+      gestureStart();
     },
     onDragMove: (e) => {
       if (dragCoordinator.active() !== 'zone') return;
@@ -113,17 +161,18 @@ export function Workspace<TState, TMeta>(props: WorkspaceProps<TState, TMeta>): 
       clearZoneDropMarkers();
       const wasZoneDrag = dragCoordinator.active() === 'zone';
       dragCoordinator.end();
-      if (!didDrag || !source || !wasZoneDrag) return;
-      if (strategy.name !== 'recursiveSplit') return;
-      const target = findPeerZone(e.clientX, e.clientY, rootRef.current, source);
-      if (!target) return;
-      const targetId = target.getAttribute('data-zone-id');
-      if (!targetId) return;
-      setState((prev) => {
-        const next = swapLeaves(prev as unknown as SplitNode, source, targetId) as unknown as TState;
-        if (onStateChange) onStateChange(next);
-        return next;
-      });
+      if (!wasZoneDrag) return;
+      try {
+        if (!didDrag || !source) return;
+        if (strategy.name !== 'recursiveSplit') return;
+        const target = findPeerZone(e.clientX, e.clientY, rootRef.current, source);
+        if (!target) return;
+        const targetId = target.getAttribute('data-zone-id');
+        if (!targetId) return;
+        applyState((prev) => swapLeaves(prev as unknown as SplitNode, source, targetId) as unknown as TState);
+      } finally {
+        gestureEnd();
+      }
     },
   });
 
@@ -184,6 +233,8 @@ export function Workspace<TState, TMeta>(props: WorkspaceProps<TState, TMeta>): 
             affordance={aff as Affordance<TMeta>}
             dispatch={dispatch}
             customRenderers={affordanceRenderers}
+            onGestureStart={gestureStart}
+            onGestureEnd={gestureEnd}
           />
         ))}
     </div>
@@ -196,12 +247,16 @@ interface AffordanceViewProps<TMeta> {
   customRenderers?:
     | Record<string, (a: Affordance<TMeta>, d: (e: LayoutEvent) => void) => ReactNode>
     | undefined;
+  onGestureStart: () => void;
+  onGestureEnd: () => void;
 }
 
 function AffordanceView<TMeta>({
   affordance,
   dispatch,
   customRenderers,
+  onGestureStart,
+  onGestureEnd,
 }: AffordanceViewProps<TMeta>) {
   const isBuiltin = BUILTIN_KINDS.has(affordance.kind);
   if (!isBuiltin) {
@@ -217,7 +272,14 @@ function AffordanceView<TMeta>({
 
   const { kind } = affordance;
   if (kind === 'drag-x' || kind === 'drag-y' || kind === 'drag-xy') {
-    return <DragAffordance affordance={affordance} dispatch={dispatch} />;
+    return (
+      <DragAffordance
+        affordance={affordance}
+        dispatch={dispatch}
+        onGestureStart={onGestureStart}
+        onGestureEnd={onGestureEnd}
+      />
+    );
   }
   if (kind === 'click') {
     return <ClickAffordance affordance={affordance} dispatch={dispatch} />;
@@ -241,17 +303,24 @@ function baseAffordanceStyle<TMeta>(a: Affordance<TMeta>): CSSProperties {
 function DragAffordance<TMeta>({
   affordance,
   dispatch,
+  onGestureStart,
+  onGestureEnd,
 }: {
   affordance: Affordance<TMeta>;
   dispatch: (event: LayoutEvent) => void;
+  onGestureStart: () => void;
+  onGestureEnd: () => void;
 }) {
   const lastRef = useRef({ x: 0, y: 0 });
+  const activeRef = useRef(false);
   const { id, kind } = affordance;
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     lastRef.current.x = e.clientX;
     lastRef.current.y = e.clientY;
+    activeRef.current = true;
+    onGestureStart();
   };
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
@@ -264,6 +333,10 @@ function DragAffordance<TMeta>({
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    if (activeRef.current) {
+      activeRef.current = false;
+      onGestureEnd();
     }
   };
 
