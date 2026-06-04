@@ -23,6 +23,7 @@ export function Zone({ id, viewport, children }: ZoneProps): React.JSX.Element {
   const ref = useRef<HTMLDivElement | null>(null);
   const [measured, setMeasured] = useState<{ w: number; h: number } | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Depend on whether viewport is provided, not on its identity — consumers commonly pass inline-literal viewport props.
   useEffect(() => {
     if (viewport || !ref.current) return;
     const el = ref.current;
