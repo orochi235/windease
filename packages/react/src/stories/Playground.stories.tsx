@@ -30,7 +30,7 @@ const STRATEGIES = {
 
 function makeStore(): WindeaseStore {
   const s = new WindeaseStore();
-  s.registerZone({ id: MAIN, strategy: gridStrategy, config: { cols: 2, gap: 8, padding: 8 } });
+  s.registerZone({ id: MAIN, strategy: gridStrategy, config: { gap: 8, padding: 8 } });
   s.registerZone({ id: SIDEBAR, strategy: stackStrategy, config: { gap: 6, padding: 6 } });
   s.registerZone({
     id: DOCK,

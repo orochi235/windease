@@ -23,6 +23,11 @@ export interface Affordance<TMeta = unknown> {
 export interface LayoutResult<TId extends string = string, TMeta = unknown> {
   placements: Map<TId, Rect>;
   affordances: Affordance<TMeta>[];
+  /**
+   * Items the strategy chose not to place (e.g. grid overflow when capacity
+   * is capped). Consumers may render these in an overflow tray or hide them.
+   */
+  unplaced?: TId[];
 }
 
 export interface LayoutEvent {

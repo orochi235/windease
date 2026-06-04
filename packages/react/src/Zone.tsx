@@ -43,6 +43,7 @@ export function Zone({ id, viewport, children }: ZoneProps): React.JSX.Element {
     : [];
 
   let placements: Map<WindowId, Rect> = new Map();
+  let unplaced: Set<WindowId> = new Set();
   if (zone && effectiveViewport && visible.length > 0) {
     const items: LayoutItem[] = visible.map((w) => ({
       id: w.id,
@@ -55,6 +56,7 @@ export function Zone({ id, viewport, children }: ZoneProps): React.JSX.Element {
       options: zone.config,
     });
     placements = result.placements as Map<WindowId, Rect>;
+    if (result.unplaced) unplaced = new Set(result.unplaced as WindowId[]);
   }
 
   return (
@@ -62,10 +64,12 @@ export function Zone({ id, viewport, children }: ZoneProps): React.JSX.Element {
       {visible.map((w) => {
         const p = placements.get(w.id);
         if (!p) {
-          warnOnce(
-            `${id}:${w.id}`,
-            `[windease] zone "${id}" strategy "${zone?.strategy.name}" produced no placement for window "${w.id}"`,
-          );
+          if (!unplaced.has(w.id)) {
+            warnOnce(
+              `${id}:${w.id}`,
+              `[windease] zone "${id}" strategy "${zone?.strategy.name}" produced no placement for window "${w.id}"`,
+            );
+          }
           return null;
         }
         const style: CSSProperties = {

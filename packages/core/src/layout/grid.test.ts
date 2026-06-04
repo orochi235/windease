@@ -19,7 +19,7 @@ describe('gridStrategy', () => {
     expect(result.affordances).toEqual([]);
   });
 
-  it('defaults cols=1, gap=0, padding=0', () => {
+  it('single item fills the container with default options', () => {
     const result = gridStrategy.layout({
       items: [mkItem('a')],
       container: { w: 100, h: 80 },
@@ -27,6 +27,53 @@ describe('gridStrategy', () => {
       options: {},
     });
     expect(result.placements.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 80 });
+  });
+
+  it('auto-balances cols to stay as square as possible (wide bias)', () => {
+    // 3 items: ceil(sqrt(3)) = 2 cols, ceil(3/2) = 2 rows
+    const r3 = gridStrategy.layout({
+      items: [mkItem('a'), mkItem('b'), mkItem('c')],
+      container: { w: 200, h: 200 },
+      state: undefined as void,
+      options: {},
+    });
+    expect(r3.placements.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 100 });
+    expect(r3.placements.get(asWindowId('b'))).toEqual({ x: 100, y: 0, w: 100, h: 100 });
+    expect(r3.placements.get(asWindowId('c'))).toEqual({ x: 0, y: 100, w: 100, h: 100 });
+
+    // 7 items: ceil(sqrt(7)) = 3 cols, ceil(7/3) = 3 rows — adds a col before a row
+    const r7 = gridStrategy.layout({
+      items: Array.from({ length: 7 }, (_, i) => mkItem(`p${i}`)),
+      container: { w: 300, h: 300 },
+      state: undefined as void,
+      options: {},
+    });
+    expect(r7.placements.get(asWindowId('p6'))).toEqual({ x: 0, y: 200, w: 100, h: 100 });
+  });
+
+  it('tall orientation biases toward more rows', () => {
+    // 3 items, tall: floor(sqrt(3)) = 1 col, 3 rows
+    const result = gridStrategy.layout({
+      items: [mkItem('a'), mkItem('b'), mkItem('c')],
+      container: { w: 100, h: 300 },
+      state: undefined as void,
+      options: { orientation: 'tall' },
+    });
+    expect(result.placements.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 100 });
+    expect(result.placements.get(asWindowId('b'))).toEqual({ x: 0, y: 100, w: 100, h: 100 });
+    expect(result.placements.get(asWindowId('c'))).toEqual({ x: 0, y: 200, w: 100, h: 100 });
+  });
+
+  it('rows option derives cols from item count', () => {
+    // 5 items in 2 rows → ceil(5/2) = 3 cols
+    const result = gridStrategy.layout({
+      items: Array.from({ length: 5 }, (_, i) => mkItem(`p${i}`)),
+      container: { w: 300, h: 200 },
+      state: undefined as void,
+      options: { rows: 2 },
+    });
+    expect(result.placements.get(asWindowId('p0'))).toEqual({ x: 0, y: 0, w: 100, h: 100 });
+    expect(result.placements.get(asWindowId('p4'))).toEqual({ x: 100, y: 100, w: 100, h: 100 });
   });
 
   it('returns empty for empty items', () => {
@@ -38,5 +85,151 @@ describe('gridStrategy', () => {
     });
     expect(result.placements.size).toBe(0);
     expect(result.affordances).toEqual([]);
+    expect(result.unplaced).toBeUndefined();
+  });
+
+  it('omits unplaced field when everything fits', () => {
+    const result = gridStrategy.layout({
+      items: [mkItem('a'), mkItem('b')],
+      container: { w: 200, h: 100 },
+      state: undefined as void,
+      options: { cols: 2 },
+    });
+    expect(result.unplaced).toBeUndefined();
+  });
+
+  describe('maxCols / maxRows', () => {
+    it('maxCols caps auto-balanced cols, rows grow unbounded', () => {
+      // 10 items: ideal cols = ceil(sqrt(10)) = 4, but capped at 2 → 5 rows
+      const result = gridStrategy.layout({
+        items: Array.from({ length: 10 }, (_, i) => mkItem(`p${i}`)),
+        container: { w: 200, h: 500 },
+        state: undefined as void,
+        options: { maxCols: 2 },
+      });
+      expect(result.placements.size).toBe(10);
+      expect(result.unplaced).toBeUndefined();
+      // 2 cols × 5 rows, cell 100×100
+      expect(result.placements.get(asWindowId('p0'))).toEqual({ x: 0, y: 0, w: 100, h: 100 });
+      expect(result.placements.get(asWindowId('p9'))).toEqual({ x: 100, y: 400, w: 100, h: 100 });
+    });
+
+    it('maxCols does not constrain when ideal cols is below the cap', () => {
+      // 4 items: ideal ceil(sqrt(4)) = 2; maxCols=5 should not interfere
+      const result = gridStrategy.layout({
+        items: [mkItem('a'), mkItem('b'), mkItem('c'), mkItem('d')],
+        container: { w: 200, h: 200 },
+        state: undefined as void,
+        options: { maxCols: 5 },
+      });
+      expect(result.placements.get(asWindowId('d'))).toEqual({ x: 100, y: 100, w: 100, h: 100 });
+    });
+
+    it('maxRows caps auto-balanced rows when used with tall orientation', () => {
+      // 10 items tall: ideal cols = floor(sqrt(10)) = 3, rows = ceil(10/3) = 4
+      // maxRows=4 fits exactly, no overflow
+      const result = gridStrategy.layout({
+        items: Array.from({ length: 10 }, (_, i) => mkItem(`p${i}`)),
+        container: { w: 300, h: 400 },
+        state: undefined as void,
+        options: { orientation: 'tall', maxRows: 4 },
+      });
+      expect(result.placements.size).toBe(10);
+      expect(result.unplaced).toBeUndefined();
+    });
+
+    it('overflows to unplaced when both maxCols and maxRows are set', () => {
+      // capacity = 2 × 2 = 4; 6 items → 4 placed, 2 unplaced
+      const result = gridStrategy.layout({
+        items: Array.from({ length: 6 }, (_, i) => mkItem(`p${i}`)),
+        container: { w: 200, h: 200 },
+        state: undefined as void,
+        options: { maxCols: 2, maxRows: 2 },
+      });
+      expect(result.placements.size).toBe(4);
+      expect(result.unplaced).toEqual([asWindowId('p4'), asWindowId('p5')]);
+      // Cells are sized based on the placed (2×2) layout, not the full 6-item count
+      expect(result.placements.get(asWindowId('p0'))).toEqual({ x: 0, y: 0, w: 100, h: 100 });
+      expect(result.placements.get(asWindowId('p3'))).toEqual({ x: 100, y: 100, w: 100, h: 100 });
+    });
+
+    it('explicit cols ignores maxCols but respects maxRows for overflow', () => {
+      // cols=3 (explicit), maxRows=2 → capacity 6; 8 items → 2 unplaced
+      const result = gridStrategy.layout({
+        items: Array.from({ length: 8 }, (_, i) => mkItem(`p${i}`)),
+        container: { w: 300, h: 200 },
+        state: undefined as void,
+        options: { cols: 3, maxCols: 1, maxRows: 2 },
+      });
+      expect(result.placements.size).toBe(6);
+      expect(result.unplaced).toEqual([asWindowId('p6'), asWindowId('p7')]);
+    });
+
+    it('explicit rows ignores maxRows but respects maxCols', () => {
+      // rows=2 (explicit), 10 items, maxCols=3 → cols = min(3, ceil(10/2)=5) = 3,
+      // capacity = 3*2 = 6, overflow = 4
+      const result = gridStrategy.layout({
+        items: Array.from({ length: 10 }, (_, i) => mkItem(`p${i}`)),
+        container: { w: 300, h: 200 },
+        state: undefined as void,
+        options: { rows: 2, maxCols: 3, maxRows: 99 },
+      });
+      expect(result.placements.size).toBe(6);
+      expect(result.unplaced).toHaveLength(4);
+      expect(result.unplaced?.[0]).toBe(asWindowId('p6'));
+    });
+
+    it('preserves item order in unplaced', () => {
+      const result = gridStrategy.layout({
+        items: [mkItem('first'), mkItem('a'), mkItem('b'), mkItem('c'), mkItem('last')],
+        container: { w: 100, h: 100 },
+        state: undefined as void,
+        options: { maxCols: 1, maxRows: 1 },
+      });
+      expect(result.placements.size).toBe(1);
+      expect(result.placements.has(asWindowId('first'))).toBe(true);
+      expect(result.unplaced).toEqual([
+        asWindowId('a'),
+        asWindowId('b'),
+        asWindowId('c'),
+        asWindowId('last'),
+      ]);
+    });
+
+    it('clamps maxCols and maxRows to at least 1', () => {
+      const result = gridStrategy.layout({
+        items: [mkItem('a'), mkItem('b'), mkItem('c')],
+        container: { w: 100, h: 100 },
+        state: undefined as void,
+        options: { maxCols: 0, maxRows: -3 },
+      });
+      // Both treated as 1; capacity 1; 2 unplaced
+      expect(result.placements.size).toBe(1);
+      expect(result.unplaced).toEqual([asWindowId('b'), asWindowId('c')]);
+    });
+
+    it('items fit exactly at capacity → no overflow', () => {
+      const result = gridStrategy.layout({
+        items: Array.from({ length: 4 }, (_, i) => mkItem(`p${i}`)),
+        container: { w: 200, h: 200 },
+        state: undefined as void,
+        options: { maxCols: 2, maxRows: 2 },
+      });
+      expect(result.placements.size).toBe(4);
+      expect(result.unplaced).toBeUndefined();
+    });
+
+    it('cell size reflects placed-count layout, not capacity', () => {
+      // maxCols=2 maxRows=2 = cap 4, but only 2 items → 1 row 2 cols (auto-balance under cap)
+      // Items fit in a 2×1 arrangement, not 2×2 with empty cells
+      const result = gridStrategy.layout({
+        items: [mkItem('a'), mkItem('b')],
+        container: { w: 200, h: 100 },
+        state: undefined as void,
+        options: { maxCols: 2, maxRows: 2 },
+      });
+      expect(result.placements.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 100 });
+      expect(result.placements.get(asWindowId('b'))).toEqual({ x: 100, y: 0, w: 100, h: 100 });
+    });
   });
 });
