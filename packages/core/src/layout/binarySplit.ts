@@ -105,4 +105,7 @@ export const binarySplit: LayoutStrategy<BinarySplitState, string, BinarySplitMe
     if (total === 0) return state;
     return { ratio: clamp(state.ratio + delta / total, minR, maxR) };
   },
+  canAccept(items) {
+    return items.length === 2;
+  },
 };

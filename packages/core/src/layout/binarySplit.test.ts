@@ -77,4 +77,14 @@ describe('binarySplit', () => {
     );
     expect(next.ratio).toBe(0.95);
   });
+
+  it('canAccept returns true for exactly 2 items', () => {
+    expect(binarySplit.canAccept?.([{ id: 'a' }, { id: 'b' }])).toBe(true);
+  });
+
+  it('canAccept returns false for not-2 items', () => {
+    expect(binarySplit.canAccept?.([])).toBe(false);
+    expect(binarySplit.canAccept?.([{ id: 'a' }])).toBe(false);
+    expect(binarySplit.canAccept?.([{ id: 'a' }, { id: 'b' }, { id: 'c' }])).toBe(false);
+  });
 });
