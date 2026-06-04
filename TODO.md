@@ -3,28 +3,25 @@
 Future work, sectioned by item. Append new ideas here rather than scattering
 them. Tag major items with `[HIGH]`.
 
-## Pinning items within a zone [HIGH]
+## Pinning items within a zone
 
-A pinned window stays in place when the zone reflows: drags reorder around it
-but never displace it, layout strategies treat it as an anchor (fixed cell in
-grid, fixed slot in strip/stack), and snapshots round-trip the pin flag.
+Baseline shipped: `itemMeta.pinned: true` promotes a window to the
+pinned-prefix of `zone.windowIds` via `resortByPin`. Strategies see the
+flag through `LayoutItem.meta.pinned` if they want extra behavior. Snapshot
+round-trips, undo works (history captures full store state).
 
-Open questions:
+Followups:
 
-- Where does the pin flag live — on `WindowRecord` (a window-intrinsic
-  property) or on the zone's `windowIds` ordering metadata (a per-zone
-  attribute)? The latter handles "pinned in zone A, not pinned in zone B
-  after move" more cleanly.
-- How do strategies opt in? Stack/strip can honor an index pin trivially;
-  grid pinning means a fixed `(col, row)` cell, which the current grid
-  strategy doesn't model. Probably ships first for ordered strategies, with
-  grid following once variable-cell support lands.
-- DnD UX: pinned windows show a different drag affordance, drops over a
-  pinned slot get rejected (or insert adjacent), and the insertion-line
-  preview needs to convey "this slot is anchored."
-- Public API surface: `store.pin(id)` / `store.unpin(id)` + a `pinned`
-  boolean on `WindowRecord`, vs. a more general `setMeta(id, { pinned })`
-  pattern that other future flags can reuse.
+- Strategy-specific pin behavior beyond ordering: grid pinning could mean a
+  fixed `(col, row)` cell once variable-cell layout lands; strip/stack
+  already get correct behavior for free via the prefix.
+- DnD affordance: drag-handle hint or refusal animation when trying to
+  drop *above* a pinned window in the unpinned section (currently the
+  reorder snaps silently — fine, but a hint would be friendlier).
+- Pin-while-dragging: today the in-flight item is excluded from the
+  destination's prospective list, so pin-prefix calculation during hover
+  ignores it; verify this matches user expectations once a real consumer
+  ships pinning UI.
 
 ## Strategy for partitioning workspace [HIGH]
 
