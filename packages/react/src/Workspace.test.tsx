@@ -1,38 +1,10 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { binarySplit } from '@windease/core';
 import { Workspace } from './Workspace.js';
+import { firePointer, installPointerCaptureShim } from './dnd/firePointer.js';
 
-// jsdom lacks pointer capture; shim for drag tests.
-beforeAll(() => {
-  if (!('setPointerCapture' in Element.prototype)) {
-    Element.prototype.setPointerCapture = () => {};
-  }
-  if (!('releasePointerCapture' in Element.prototype)) {
-    Element.prototype.releasePointerCapture = () => {};
-  }
-  if (!('hasPointerCapture' in Element.prototype)) {
-    Element.prototype.hasPointerCapture = () => true;
-  }
-});
-
-// jsdom's PointerEvent doesn't propagate clientX/clientY from init; fall back to MouseEvent
-// (which does) and label it as a pointer event for React's synthetic event dispatcher.
-function firePointer(
-  el: Element,
-  type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
-  init: { clientX: number; clientY: number; pointerId?: number },
-): void {
-  const evt = new MouseEvent(type, {
-    bubbles: true,
-    cancelable: true,
-    clientX: init.clientX,
-    clientY: init.clientY,
-  });
-  Object.defineProperty(evt, 'pointerId', { value: init.pointerId ?? 1 });
-  Object.defineProperty(evt, 'pointerType', { value: 'mouse' });
-  el.dispatchEvent(evt);
-}
+installPointerCaptureShim();
 
 describe('<Workspace>', () => {
   it('renders one wrapper per item with CSS custom props', () => {
