@@ -5,7 +5,10 @@ export type WindeaseErrorCode =
   | 'DUPLICATE_ZONE'
   | 'DUPLICATE_WINDOW'
   | 'ZONE_NOT_EMPTY'
-  | 'UNKNOWN_STRATEGY';
+  | 'UNKNOWN_STRATEGY'
+  | 'WRONG_ITEM_COUNT'
+  | 'UNKNOWN_AFFORDANCE_KIND'
+  | 'NO_INITIAL_STATE';
 
 export class WindeaseError extends Error {
   readonly code: WindeaseErrorCode;
