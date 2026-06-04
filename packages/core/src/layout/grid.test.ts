@@ -219,6 +219,62 @@ describe('gridStrategy', () => {
       expect(result.unplaced).toBeUndefined();
     });
 
+    it('maxItems caps placement count regardless of cols/rows auto-balance', () => {
+      const result = gridStrategy.layout({
+        items: Array.from({ length: 6 }, (_, i) => mkItem(`p${i}`)),
+        container: { w: 200, h: 200 },
+        state: undefined as void,
+        options: { maxItems: 3 },
+      });
+      expect(result.placements.size).toBe(3);
+      expect(result.unplaced).toEqual(['p3', 'p4', 'p5']);
+    });
+
+    it('canAccept honors maxItems independently of grid caps', () => {
+      expect(
+        gridStrategy.canAccept?.(
+          Array.from({ length: 4 }, (_, i) => mkItem(`p${i}`)),
+          { maxItems: 3 },
+        ),
+      ).toBe(false);
+      expect(
+        gridStrategy.canAccept?.(
+          Array.from({ length: 3 }, (_, i) => mkItem(`p${i}`)),
+          { maxItems: 3 },
+        ),
+      ).toBe(true);
+    });
+
+    it('maxItems combined with maxCols/maxRows throws', () => {
+      expect(() =>
+        gridStrategy.layout({
+          items: [mkItem('a')],
+          container: { w: 100, h: 100 },
+          state: undefined as void,
+          options: { maxItems: 4, maxCols: 2 },
+        }),
+      ).toThrow(/mutually exclusive/);
+      expect(() =>
+        gridStrategy.canAccept?.([mkItem('a')], { maxItems: 4, maxRows: 2 }),
+      ).toThrow(/mutually exclusive/);
+    });
+
+    it('canAccept rejects prospective lists that would overflow capacity', () => {
+      // 2×2 cap = 4 items; 5 is too many.
+      expect(
+        gridStrategy.canAccept?.(
+          Array.from({ length: 5 }, (_, i) => mkItem(`p${i}`)),
+          { maxCols: 2, maxRows: 2 },
+        ),
+      ).toBe(false);
+      expect(
+        gridStrategy.canAccept?.(
+          Array.from({ length: 4 }, (_, i) => mkItem(`p${i}`)),
+          { maxCols: 2, maxRows: 2 },
+        ),
+      ).toBe(true);
+    });
+
     it('cell size reflects placed-count layout, not capacity', () => {
       // maxCols=2 maxRows=2 = cap 4, but only 2 items → 1 row 2 cols (auto-balance under cap)
       // Items fit in a 2×1 arrangement, not 2×2 with empty cells
