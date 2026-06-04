@@ -1,0 +1,39 @@
+/*
+ * @windease/react baseline stylesheet.
+ *
+ * Ships the structural rules the library's React components depend on:
+ *   - .windease-zone is positioned and fills its parent so absolute children
+ *     render relative to it and clip on overflow.
+ *   - .windease-window reads the --w-x/y/w/h custom properties the library
+ *     writes per-instance, and exposes itself as a named CSS size container
+ *     so widgets can adapt with @container queries.
+ *   - .windease-insertion-line gets a subtle default appearance.
+ *
+ * Cosmetics (colors, borders, transitions, drop-state styling) are left to
+ * consumers — style off [data-drop-target], [data-drop-rejected], etc.
+ *
+ * Import:  import '@windease/react/styles.css';
+ */
+
+.windease-zone {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.windease-window {
+  position: absolute;
+  left: var(--w-x);
+  top: var(--w-y);
+  width: var(--w-w);
+  height: var(--w-h);
+  box-sizing: border-box;
+  container-type: size;
+  container-name: windease-window;
+}
+
+.windease-insertion-line {
+  background: currentColor;
+}

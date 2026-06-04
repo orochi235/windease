@@ -253,12 +253,13 @@ function buildProspectiveItems(
     ? children.filter((el) => el.getAttribute('data-window-id') !== sourceWid)
     : children;
 
+  const axis = inferAxis(otherChildren, targetEl);
   let insertionIndex = otherChildren.length;
-  let insertionRect = endRect(targetEl);
+  let insertionRect = endRect(targetEl, axis);
   if (otherChildren.length > 0) {
     let bestIdx = 0;
     let bestDist = Number.POSITIVE_INFINITY;
-    let bestCenterX = 0;
+    let bestCenterMain = 0;
     let bestRect: DOMRect | null = null;
     for (let i = 0; i < otherChildren.length; i++) {
       const r = otherChildren[i]!.getBoundingClientRect();
@@ -268,14 +269,15 @@ function buildProspectiveItems(
       if (d < bestDist) {
         bestDist = d;
         bestIdx = i;
-        bestCenterX = cx;
+        bestCenterMain = axis === 'x' ? cx : cy;
         bestRect = r;
       }
     }
-    const before = x <= bestCenterX;
+    const pointerMain = axis === 'x' ? x : y;
+    const before = pointerMain <= bestCenterMain;
     insertionIndex = before ? bestIdx : bestIdx + 1;
     if (bestRect) {
-      insertionRect = insertionRectFor(targetEl, bestRect, before);
+      insertionRect = insertionRectFor(targetEl, bestRect, before, axis);
     }
   }
 
@@ -292,8 +294,14 @@ function buildProspectiveItems(
   };
 }
 
-function endRect(targetEl: Element): { left: number; top: number; width: number; height: number } {
+function endRect(
+  targetEl: Element,
+  axis: 'x' | 'y',
+): { left: number; top: number; width: number; height: number } {
   const r = targetEl.getBoundingClientRect();
+  if (axis === 'x') {
+    return { left: r.right - 2, top: r.top, width: 2, height: r.height };
+  }
   return { left: r.left, top: r.bottom - 2, width: r.width, height: 2 };
 }
 
@@ -301,10 +309,36 @@ function insertionRectFor(
   targetEl: Element,
   childRect: DOMRect,
   before: boolean,
+  axis: 'x' | 'y',
 ): { left: number; top: number; width: number; height: number } {
   const r = targetEl.getBoundingClientRect();
-  const x = before ? childRect.left : childRect.right;
-  return { left: x - 1, top: r.top, width: 2, height: r.height };
+  if (axis === 'x') {
+    const x = before ? childRect.left : childRect.right;
+    return { left: x - 1, top: r.top, width: 2, height: r.height };
+  }
+  const yPos = before ? childRect.top : childRect.bottom;
+  return { left: r.left, top: yPos - 1, width: r.width, height: 2 };
+}
+
+/**
+ * Infer the primary layout axis from sibling positions. With 2+ children we
+ * use the dominant axis of separation between adjacent (in DOM order) siblings.
+ * With 0–1 children we fall back to the zone's aspect ratio.
+ */
+function inferAxis(children: HTMLElement[], targetEl: Element): 'x' | 'y' {
+  if (children.length >= 2) {
+    let dx = 0;
+    let dy = 0;
+    for (let i = 1; i < children.length; i++) {
+      const a = children[i - 1]!.getBoundingClientRect();
+      const b = children[i]!.getBoundingClientRect();
+      dx += Math.abs((b.left + b.width / 2) - (a.left + a.width / 2));
+      dy += Math.abs((b.top + b.height / 2) - (a.top + a.height / 2));
+    }
+    return dx >= dy ? 'x' : 'y';
+  }
+  const r = targetEl.getBoundingClientRect();
+  return r.width >= r.height ? 'x' : 'y';
 }
 
 function renderInsertionLine(
