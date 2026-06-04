@@ -163,6 +163,26 @@
   grid-row: 2;
 }
 
+.windease-workspace {
+  background: #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.windease-affordance {
+  background: #94a3b8;
+  transition: background 0.1s;
+}
+.windease-affordance:hover {
+  background: #475569;
+}
+.windease-affordance[data-kind="drag-x"] {
+  background: linear-gradient(90deg, transparent, #475569 50%, transparent);
+}
+.windease-affordance[data-kind="drag-y"] {
+  background: linear-gradient(0deg, transparent, #475569 50%, transparent);
+}
+
 .story-snapshot {
   margin-top: 12px;
   padding: 8px;

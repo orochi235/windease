@@ -2,6 +2,7 @@ import {
   asWindowId,
   asZoneId,
   gridStrategy,
+  recursiveSplit,
   type SerializedStore,
   stackStrategy,
   stripStrategy,
@@ -12,6 +13,7 @@ import {
 import type { Story } from '@ladle/react';
 import { useEffect, useMemo, useState } from 'react';
 import { WindeaseProvider } from '../WindeaseProvider.js';
+import { Workspace } from '../Workspace.js';
 import { Zone } from '../Zone.js';
 import { Panel } from './Panel.js';
 import './windease.css';
@@ -183,27 +185,26 @@ export const Playground: Story = () => {
           <span className="story-toolbar__selected">selected: {selected ?? '<none>'}</span>
         </div>
 
-        <div className="story-playground">
-          <div className="story-playground__main">
-            <div className="story-zone-label">main (grid)</div>
-            <div style={{ width: '100%', height: 360 }}>
-              <Zone id={MAIN}>{renderPanel}</Zone>
-            </div>
-          </div>
-
-          <div className="story-playground__sidebar">
-            <div className="story-zone-label">sidebar (stack)</div>
-            <div style={{ width: '100%', height: 540 }}>
-              <Zone id={SIDEBAR}>{renderPanel}</Zone>
-            </div>
-          </div>
-
-          <div className="story-playground__dock">
-            <div className="story-zone-label">dock (strip-x)</div>
-            <div style={{ width: '100%', height: 120 }}>
-              <Zone id={DOCK}>{renderPanel}</Zone>
-            </div>
-          </div>
+        <div style={{ width: '100%', height: 600 }}>
+          <Workspace
+            strategy={recursiveSplit}
+            items={[{ id: MAIN }, { id: DOCK }, { id: SIDEBAR }]}
+            initialState={{
+              kind: 'split',
+              direction: 'horizontal',
+              ratio: 0.75,
+              a: {
+                kind: 'split',
+                direction: 'vertical',
+                ratio: 0.82,
+                a: { kind: 'leaf', id: MAIN },
+                b: { kind: 'leaf', id: DOCK },
+              },
+              b: { kind: 'leaf', id: SIDEBAR },
+            }}
+          >
+            {(item) => <Zone id={item.id as typeof MAIN}>{renderPanel}</Zone>}
+          </Workspace>
         </div>
 
         {snapshotText && (
