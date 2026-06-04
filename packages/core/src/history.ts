@@ -1,3 +1,5 @@
+import { trace } from './trace.js';
+
 export interface HistoryControllerOptions {
   capacity?: number;
 }
@@ -15,19 +17,30 @@ export class HistoryController<TSnapshot> {
   }
 
   push(snapshot: TSnapshot): void {
-    if (this.txnDepth > 0) return;
+    if (this.txnDepth > 0) {
+      trace('history', `push deferred (txnDepth=${this.txnDepth})`);
+      return;
+    }
     this.commit(snapshot);
   }
 
   undo(): TSnapshot | undefined {
-    if (this.cursor <= 0) return undefined;
+    if (this.cursor <= 0) {
+      trace('history', 'undo: nothing to undo');
+      return undefined;
+    }
     this.cursor -= 1;
+    trace('history', `undo → cursor ${this.cursor}/${this.stack.length - 1}`);
     return this.stack[this.cursor];
   }
 
   redo(): TSnapshot | undefined {
-    if (this.cursor >= this.stack.length - 1) return undefined;
+    if (this.cursor >= this.stack.length - 1) {
+      trace('history', 'redo: nothing to redo');
+      return undefined;
+    }
     this.cursor += 1;
+    trace('history', `redo → cursor ${this.cursor}/${this.stack.length - 1}`);
     return this.stack[this.cursor];
   }
 
@@ -41,11 +54,16 @@ export class HistoryController<TSnapshot> {
 
   beginTransaction(): void {
     this.txnDepth += 1;
+    trace('history', `beginTransaction (depth now ${this.txnDepth})`);
   }
 
   endTransaction(snapshot: TSnapshot): void {
-    if (this.txnDepth === 0) return;
+    if (this.txnDepth === 0) {
+      trace('history', 'endTransaction: no active transaction');
+      return;
+    }
     this.txnDepth -= 1;
+    trace('history', `endTransaction (depth now ${this.txnDepth})`);
     if (this.txnDepth === 0) {
       this.commit(snapshot);
     }
@@ -62,14 +80,21 @@ export class HistoryController<TSnapshot> {
   }
 
   private commit(snapshot: TSnapshot): void {
-    if (this.cursor < this.stack.length - 1) {
+    const truncated = this.cursor < this.stack.length - 1;
+    if (truncated) {
       this.stack.length = this.cursor + 1;
     }
     this.stack.push(snapshot);
     this.cursor = this.stack.length - 1;
+    let evicted = 0;
     while (this.stack.length > this.capacity) {
       this.stack.shift();
       this.cursor -= 1;
+      evicted += 1;
     }
+    trace(
+      'history',
+      `commit → cursor ${this.cursor}/${this.stack.length - 1}${truncated ? ' (truncated redo tail)' : ''}${evicted > 0 ? ` (evicted ${evicted})` : ''}`,
+    );
   }
 }

@@ -57,5 +57,12 @@ export { stripStrategy } from './layout/strip.js';
 export { binarySplit, type BinarySplitState, type BinarySplitMeta } from './layout/binarySplit.js';
 export { recursiveSplit, type SplitNode, type RecursiveSplitMeta } from './layout/recursiveSplit.js';
 export { HistoryController, type HistoryControllerOptions } from './history.js';
+export {
+  configureTrace,
+  isTraceEnabled,
+  trace,
+  TRACE_CATEGORIES,
+  type TraceCategory,
+} from './trace.js';
 
 export const VERSION = '0.3.0';

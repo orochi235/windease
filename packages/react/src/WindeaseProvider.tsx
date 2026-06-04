@@ -1,4 +1,4 @@
-import { type CreateZoneInput, type HistoryController, WindeaseStore } from '@windease/core';
+import { type CreateZoneInput, type HistoryController, trace, WindeaseStore } from '@windease/core';
 import type * as React from 'react';
 import { type ReactNode, createContext, useEffect, useMemo } from 'react';
 
@@ -34,16 +34,20 @@ export function WindeaseProvider(props: Props): React.JSX.Element {
 
   useEffect(() => {
     if (!history) return;
+    trace('history', 'provider: pushing initial snapshot');
     history.controller.push(history.capture());
     const evt = store.events;
-    const push = () => history.controller.push(history.capture());
+    const pushFor = (name: string) => () => {
+      trace('store', `event: ${name} → history push`);
+      history.controller.push(history.capture());
+    };
     const offs = [
-      evt.on('window.created', push),
-      evt.on('window.destroyed', push),
-      evt.on('window.transitioned', push),
-      evt.on('zone.claimed', push),
-      evt.on('zone.released', push),
-      evt.on('zone.reordered', push),
+      evt.on('window.created', pushFor('window.created')),
+      evt.on('window.destroyed', pushFor('window.destroyed')),
+      evt.on('window.transitioned', pushFor('window.transitioned')),
+      evt.on('zone.claimed', pushFor('zone.claimed')),
+      evt.on('zone.released', pushFor('zone.released')),
+      evt.on('zone.reordered', pushFor('zone.reordered')),
     ];
     return () => {
       for (const off of offs) off();

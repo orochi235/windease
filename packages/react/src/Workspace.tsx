@@ -19,7 +19,7 @@ import type {
   Size,
   SplitNode,
 } from '@windease/core';
-import { WindeaseError } from '@windease/core';
+import { trace, WindeaseError } from '@windease/core';
 import { dragCoordinator } from './dnd/dragCoordinator.js';
 import { usePointerDrag } from './dnd/usePointerDrag.js';
 import { useHistory } from './hooks.js';
@@ -169,6 +169,7 @@ export function Workspace<TState, TMeta>(props: WorkspaceProps<TState, TMeta>): 
         if (!target) return;
         const targetId = target.getAttribute('data-zone-id');
         if (!targetId) return;
+        trace('workspace', `zone-swap: ${source} ↔ ${targetId}`);
         applyState((prev) => swapLeaves(prev as unknown as SplitNode, source, targetId) as unknown as TState);
       } finally {
         gestureEnd();

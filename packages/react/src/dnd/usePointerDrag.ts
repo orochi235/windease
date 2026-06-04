@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { trace } from '@windease/core';
 
 export interface UsePointerDragOptions {
   threshold?: number;
@@ -63,11 +64,13 @@ export function usePointerDrag(opts: UsePointerDragOptions): PointerDragHandlers
         const { dx, dy } = opts.synthesizeEndMove;
         if (Math.hypot(dx, dy) >= threshold) {
           didDrag = true;
+          trace('dnd', `pointer: quick-flick rescue (Δ=${dx.toFixed(1)},${dy.toFixed(1)})`);
           suppressSelection();
           o.onDragStart(nativeEvent);
           o.onDragMove(nativeEvent, { dx, dy });
         }
       }
+      trace('dnd', `pointer: end (didDrag=${didDrag})`);
       // Snapshot and clear state before invoking user code so re-entrant
       // callbacks see a clean slate.
       const captureEl = s.captureEl;
@@ -144,6 +147,7 @@ export function usePointerDrag(opts: UsePointerDragOptions): PointerDragHandlers
         captureEl,
         detachSafetyNet,
       };
+      trace('dnd', `pointer: down @ ${e.clientX},${e.clientY} (pointerId=${pointerId})`);
     },
     [endDrag],
   );
@@ -157,6 +161,7 @@ export function usePointerDrag(opts: UsePointerDragOptions): PointerDragHandlers
       if (!s.dragging) {
         if (Math.hypot(dxFromOrigin, dyFromOrigin) < threshold) return;
         s.dragging = true;
+        trace('dnd', `pointer: threshold crossed (Δ=${dxFromOrigin.toFixed(1)},${dyFromOrigin.toFixed(1)}) → drag start`);
         // Now that we've committed to a drag, capture the pointer so we
         // keep receiving moves even if the cursor leaves this element.
         if (s.captureEl) {

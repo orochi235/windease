@@ -1,4 +1,4 @@
-import type { LayoutItem, Rect, WindeaseStore, WindowId, WindowRecord, ZoneId } from '@windease/core';
+import { trace, type LayoutItem, type Rect, type WindeaseStore, type WindowId, type WindowRecord, type ZoneId } from '@windease/core';
 import type * as React from 'react';
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { dragCoordinator } from './dnd/dragCoordinator.js';
@@ -159,10 +159,15 @@ function handleWindowDragMove(
   );
   const accepted = targetZone.strategy.canAccept?.(prospective.items) ?? true;
   if (!accepted) {
+    trace('dnd', `move: ${sourceWid} over ${targetId} REJECTED by canAccept`);
     target.el.setAttribute('data-drop-rejected', 'true');
     return;
   }
-  if (prospective.isNoOp) return;
+  if (prospective.isNoOp) {
+    trace('dnd', `move: ${sourceWid} over ${targetId} is no-op (no indicator)`);
+    return;
+  }
+  trace('dnd', `move: ${sourceWid} → ${targetId}@${prospective.indexInTarget}`);
   target.el.setAttribute('data-drop-target', 'true');
   renderInsertionLine(target.el, prospective.insertionRect);
 }
@@ -191,8 +196,10 @@ function handleWindowDrop(
   if (!accepted) return;
   if (prospective.isNoOp) return;
   if (targetId === sourceZone) {
+    trace('dnd', `drop: reorder in ${sourceZone}`);
     store.reorderInZone(sourceZone, prospective.items.map((it) => it.id as WindowId));
   } else {
+    trace('dnd', `drop: move ${sourceWid} ${sourceZone}→${targetId}@${prospective.indexInTarget}`);
     store.moveWindow(sourceWid, targetId, prospective.indexInTarget);
   }
 }
