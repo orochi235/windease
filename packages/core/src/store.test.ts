@@ -123,3 +123,89 @@ describe2('WindeaseStore - zones', () => {
     expect2(s.getWindow(asWindowId('w1'))?.zoneId).toBeNull();
   });
 });
+
+describe2('WindeaseStore - ownership', () => {
+  function setup() {
+    const s = new WindeaseStore();
+    s.registerZone({ id: asZoneId('main'), strategy: noopStrategy });
+    s.registerZone({ id: asZoneId('side'), strategy: noopStrategy });
+    s.createWindow({ id: asWindowId('w1'), kind: 'panel' });
+    s.createWindow({ id: asWindowId('w2'), kind: 'panel' });
+    return s;
+  }
+
+  it2('claim assigns zoneId and appends to zone order', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    expect2(s.getWindow(asWindowId('w1'))?.zoneId).toBe('main');
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w1']);
+  });
+
+  it2('claim with index inserts at position', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    s.claim(asZoneId('main'), asWindowId('w2'), 0);
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w2', 'w1']);
+  });
+
+  it2('claim drives transit machine through claiming → idle', () => {
+    const s = setup();
+    const seen: string[] = [];
+    s.events.on('window.transitioned', (e) => {
+      if (e.machine === 'transit') seen.push(`${e.from}→${e.to}`);
+    });
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    expect2(seen).toEqual(['idle→claiming', 'claiming→idle']);
+  });
+
+  it2('release clears zoneId and removes from zone', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    s.release(asWindowId('w1'));
+    expect2(s.getWindow(asWindowId('w1'))?.zoneId).toBeNull();
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual([]);
+  });
+
+  it2('release of unowned window is a no-op', () => {
+    const s = setup();
+    expect2(() => s.release(asWindowId('w1'))).not.toThrow();
+  });
+
+  it2('moveWindow releases from old zone and claims into new', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    s.moveWindow(asWindowId('w1'), asZoneId('side'));
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual([]);
+    expect2(s.getZone(asZoneId('side'))?.windowIds).toEqual(['w1']);
+    expect2(s.getWindow(asWindowId('w1'))?.zoneId).toBe('side');
+  });
+
+  it2('moveWindow notifies subscribers once via microtask batch', async () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    let count = 0;
+    s.subscribe(() => { count++; });
+    s.moveWindow(asWindowId('w1'), asZoneId('side'));
+    await Promise.resolve(); // flush microtask
+    expect2(count).toBe(1);
+  });
+
+  it2('reorderInZone reorders membership', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    s.claim(asZoneId('main'), asWindowId('w2'));
+    s.reorderInZone(asZoneId('main'), [asWindowId('w2'), asWindowId('w1')]);
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w2', 'w1']);
+  });
+
+  it2('reorderInZone throws if order set does not match membership', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    try {
+      s.reorderInZone(asZoneId('main'), [asWindowId('w2')]);
+      expect2.fail('should have thrown');
+    } catch (e) {
+      expect2((e as WindeaseError).code).toBe('ILLEGAL_TRANSITION');
+    }
+  });
+});

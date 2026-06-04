@@ -155,6 +155,103 @@ export class WindeaseStore {
     this.scheduleNotify();
   }
 
+  // ---- Ownership ----
+  claim(zoneId: ZoneId, windowId: WindowId, at?: number): void {
+    const z = this.requireZone(zoneId);
+    const w = this.requireWindow(windowId);
+    if (w.zoneId !== null) this.release(windowId);
+
+    const fromTransit = w.transit.state;
+    if (!w.transit.send('beginClaim')) {
+      throw new WindeaseError(
+        'ILLEGAL_TRANSITION',
+        `cannot claim window ${windowId} while transit=${fromTransit}`,
+      );
+    }
+    this.events.emit('window.transitioned', {
+      id: windowId,
+      machine: 'transit',
+      from: fromTransit,
+      to: 'claiming',
+      event: 'beginClaim',
+    });
+
+    w.zoneId = zoneId;
+    if (at === undefined || at < 0 || at > z.windowIds.length) {
+      z.windowIds.push(windowId);
+    } else {
+      z.windowIds.splice(at, 0, windowId);
+    }
+    this.events.emit('zone.claimed', { zoneId, windowId });
+
+    w.transit.send('settle');
+    this.events.emit('window.transitioned', {
+      id: windowId,
+      machine: 'transit',
+      from: 'claiming',
+      to: 'idle',
+      event: 'settle',
+    });
+
+    this.scheduleNotify();
+  }
+
+  release(windowId: WindowId): void {
+    const w = this.requireWindow(windowId);
+    if (w.zoneId === null) return;
+    const z = this.zones.get(w.zoneId);
+
+    const fromTransit = w.transit.state;
+    if (!w.transit.send('beginRelease')) {
+      throw new WindeaseError(
+        'ILLEGAL_TRANSITION',
+        `cannot release window ${windowId} while transit=${fromTransit}`,
+      );
+    }
+    this.events.emit('window.transitioned', {
+      id: windowId,
+      machine: 'transit',
+      from: fromTransit,
+      to: 'releasing',
+      event: 'beginRelease',
+    });
+
+    const oldZone = w.zoneId;
+    if (z) z.windowIds = z.windowIds.filter((id) => id !== windowId);
+    w.zoneId = null;
+    this.events.emit('zone.released', { zoneId: oldZone, windowId });
+
+    w.transit.send('settle');
+    this.events.emit('window.transitioned', {
+      id: windowId,
+      machine: 'transit',
+      from: 'releasing',
+      to: 'idle',
+      event: 'settle',
+    });
+
+    this.scheduleNotify();
+  }
+
+  moveWindow(windowId: WindowId, toZoneId: ZoneId, at?: number): void {
+    this.release(windowId);
+    this.claim(toZoneId, windowId, at);
+  }
+
+  reorderInZone(zoneId: ZoneId, order: WindowId[]): void {
+    const z = this.requireZone(zoneId);
+    const current = new Set(z.windowIds);
+    if (order.length !== current.size || order.some((id) => !current.has(id))) {
+      throw new WindeaseError(
+        'ILLEGAL_TRANSITION',
+        `reorder set does not match zone ${zoneId} membership`,
+      );
+    }
+    z.windowIds = [...order];
+    this.events.emit('zone.reordered', { zoneId });
+    this.scheduleNotify();
+  }
+
   // ---- Reactive ----
   subscribe(fn: () => void): () => void {
     this.subscribers.add(fn);
