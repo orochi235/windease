@@ -72,13 +72,7 @@ export class WindeaseStore {
         `cannot show window ${id} from ${prev}`,
       );
     }
-    this.events.emit('window.transitioned', {
-      id,
-      machine: 'lifecycle',
-      from: prev,
-      to: w.lifecycle.state,
-      event: 'show',
-    });
+    this.emitTransition(id, 'lifecycle', prev, w.lifecycle.state, 'show');
     this.scheduleNotify();
   }
 
@@ -91,13 +85,7 @@ export class WindeaseStore {
         `cannot hide window ${id} from ${prev}`,
       );
     }
-    this.events.emit('window.transitioned', {
-      id,
-      machine: 'lifecycle',
-      from: prev,
-      to: w.lifecycle.state,
-      event: 'hide',
-    });
+    this.emitTransition(id, 'lifecycle', prev, w.lifecycle.state, 'hide');
     this.scheduleNotify();
   }
 
@@ -114,13 +102,7 @@ export class WindeaseStore {
     }
     const prev = w.lifecycle.state;
     w.lifecycle.send('destroy');
-    this.events.emit('window.transitioned', {
-      id,
-      machine: 'lifecycle',
-      from: prev,
-      to: w.lifecycle.state,
-      event: 'destroy',
-    });
+    this.emitTransition(id, 'lifecycle', prev, w.lifecycle.state, 'destroy');
     this.windows.delete(id);
     this.events.emit('window.destroyed', { id });
     this.scheduleNotify();
@@ -159,6 +141,8 @@ export class WindeaseStore {
   claim(zoneId: ZoneId, windowId: WindowId, at?: number): void {
     const z = this.requireZone(zoneId);
     const w = this.requireWindow(windowId);
+    // If already in a zone, release first. This relies on transit settling
+    // back to 'idle' so the subsequent beginClaim is always legal.
     if (w.zoneId !== null) this.release(windowId);
 
     const fromTransit = w.transit.state;
@@ -168,13 +152,7 @@ export class WindeaseStore {
         `cannot claim window ${windowId} while transit=${fromTransit}`,
       );
     }
-    this.events.emit('window.transitioned', {
-      id: windowId,
-      machine: 'transit',
-      from: fromTransit,
-      to: 'claiming',
-      event: 'beginClaim',
-    });
+    this.emitTransition(windowId, 'transit', fromTransit, 'claiming', 'beginClaim');
 
     w.zoneId = zoneId;
     if (at === undefined || at < 0 || at > z.windowIds.length) {
@@ -185,13 +163,7 @@ export class WindeaseStore {
     this.events.emit('zone.claimed', { zoneId, windowId });
 
     w.transit.send('settle');
-    this.events.emit('window.transitioned', {
-      id: windowId,
-      machine: 'transit',
-      from: 'claiming',
-      to: 'idle',
-      event: 'settle',
-    });
+    this.emitTransition(windowId, 'transit', 'claiming', 'idle', 'settle');
 
     this.scheduleNotify();
   }
@@ -208,13 +180,7 @@ export class WindeaseStore {
         `cannot release window ${windowId} while transit=${fromTransit}`,
       );
     }
-    this.events.emit('window.transitioned', {
-      id: windowId,
-      machine: 'transit',
-      from: fromTransit,
-      to: 'releasing',
-      event: 'beginRelease',
-    });
+    this.emitTransition(windowId, 'transit', fromTransit, 'releasing', 'beginRelease');
 
     const oldZone = w.zoneId;
     if (z) z.windowIds = z.windowIds.filter((id) => id !== windowId);
@@ -222,13 +188,7 @@ export class WindeaseStore {
     this.events.emit('zone.released', { zoneId: oldZone, windowId });
 
     w.transit.send('settle');
-    this.events.emit('window.transitioned', {
-      id: windowId,
-      machine: 'transit',
-      from: 'releasing',
-      to: 'idle',
-      event: 'settle',
-    });
+    this.emitTransition(windowId, 'transit', 'releasing', 'idle', 'settle');
 
     this.scheduleNotify();
   }
@@ -271,6 +231,16 @@ export class WindeaseStore {
     const z = this.zones.get(id);
     if (!z) throw new WindeaseError('UNKNOWN_ZONE', `no zone with id ${id}`);
     return z;
+  }
+
+  private emitTransition(
+    id: WindowId,
+    machine: 'lifecycle' | 'transit' | 'focus',
+    from: string,
+    to: string,
+    event: string,
+  ): void {
+    this.events.emit('window.transitioned', { id, machine, from, to, event });
   }
 
   private scheduleNotify(): void {
