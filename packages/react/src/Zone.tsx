@@ -1,4 +1,4 @@
-import type { Placement, WindowId, WindowRecord, ZoneId } from '@windease/core';
+import type { LayoutItem, Rect, WindowId, WindowRecord, ZoneId } from '@windease/core';
 import type * as React from 'react';
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useWindease, useZone } from './hooks.js';
@@ -7,7 +7,7 @@ interface ZoneProps {
   id: ZoneId;
   /** If provided, skips ResizeObserver measurement and uses this viewport. */
   viewport?: { w: number; h: number };
-  children: (window: WindowRecord, placement: Placement) => ReactNode;
+  children: (window: WindowRecord, placement: Rect) => ReactNode;
 }
 
 const warned = new Set<string>();
@@ -36,19 +36,25 @@ export function Zone({ id, viewport, children }: ZoneProps): React.JSX.Element {
   }, [viewport === undefined]);
 
   const effectiveViewport = viewport ?? measured;
-  const visible = zone
+  const visible: WindowRecord[] = zone
     ? zone.windowIds
         .map((wid) => store.getWindow(wid))
         .filter((w): w is WindowRecord => w?.lifecycle.state === 'visible')
     : [];
 
-  let placements: Map<WindowId, Placement> = new Map();
+  let placements: Map<WindowId, Rect> = new Map();
   if (zone && effectiveViewport && visible.length > 0) {
-    placements = zone.strategy.layout({
-      zone,
-      windows: visible,
-      viewport: effectiveViewport,
+    const items: LayoutItem[] = visible.map((w) => ({
+      id: w.id,
+      ...(w.hints && Object.keys(w.hints).length > 0 ? { hints: w.hints } : {}),
+    }));
+    const result = zone.strategy.layout({
+      items,
+      container: effectiveViewport,
+      state: undefined as never,
+      options: zone.config,
     });
+    placements = result.placements as Map<WindowId, Rect>;
   }
 
   return (

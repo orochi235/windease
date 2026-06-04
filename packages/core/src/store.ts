@@ -8,9 +8,9 @@ import {
   type ZoneId,
   createWindowRecord,
 } from './window.js';
+import type { LayoutStrategy } from './layout-types.js';
 import {
   type CreateZoneInput,
-  type LayoutStrategy,
   type ZoneRecord,
   createZoneRecord,
 } from './zone.js';
@@ -241,7 +241,10 @@ export class WindeaseStore {
     return serialize(this.windows, this.zones);
   }
 
-  hydrate(snap: SerializedStore, opts: { strategies: Record<string, LayoutStrategy> }): void {
+  hydrate(
+    snap: SerializedStore,
+    opts: { strategies: Record<string, LayoutStrategy<unknown, WindowId, unknown>> },
+  ): void {
     const { windows, zones } = deserialize(snap, opts.strategies);
     this.windows.clear();
     this.zones.clear();

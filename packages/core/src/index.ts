@@ -30,9 +30,19 @@ export {
   createZoneRecord,
   type ZoneRecord,
   type CreateZoneInput,
-  type LayoutStrategy,
   type Placement,
 } from './zone.js';
+export type {
+  ItemId,
+  Rect,
+  Size,
+  LayoutItem,
+  LayoutResult,
+  LayoutEvent,
+  LayoutStrategy,
+  Affordance,
+  BuiltinAffordanceKind,
+} from './layout-types.js';
 export { WindeaseStore, type StoreEvents } from './store.js';
 export {
   serialize,

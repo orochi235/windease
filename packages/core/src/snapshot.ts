@@ -7,7 +7,8 @@ import {
   asZoneId,
   createWindowRecord,
 } from './window.js';
-import { type LayoutStrategy, type ZoneRecord, createZoneRecord } from './zone.js';
+import type { LayoutStrategy } from './layout-types.js';
+import { type ZoneRecord, createZoneRecord } from './zone.js';
 
 export interface SerializedWindow {
   id: string;
@@ -60,7 +61,7 @@ export function serialize(
 
 export function deserialize(
   snap: SerializedStore,
-  strategies: Record<string, LayoutStrategy>,
+  strategies: Record<string, LayoutStrategy<unknown, WindowId, unknown>>,
 ): { windows: Map<WindowId, WindowRecord>; zones: Map<ZoneId, ZoneRecord> } {
   const windows = new Map<WindowId, WindowRecord>();
   for (const sw of snap.windows) {
