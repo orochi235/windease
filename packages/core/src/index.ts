@@ -54,5 +54,7 @@ export {
 export { gridStrategy } from './layout/grid.js';
 export { stackStrategy } from './layout/stack.js';
 export { stripStrategy } from './layout/strip.js';
+export { binarySplit, type BinarySplitState, type BinarySplitMeta } from './layout/binarySplit.js';
+export { recursiveSplit, type SplitNode, type RecursiveSplitMeta } from './layout/recursiveSplit.js';
 
 export const VERSION = '0.1.0';
