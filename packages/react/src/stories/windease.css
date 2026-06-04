@@ -211,6 +211,23 @@
   background: linear-gradient(0deg, transparent, #475569 50%, transparent);
 }
 
+.windease-zone[data-drop-target="true"] {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+.windease-zone[data-drop-rejected="true"] {
+  outline: 2px solid #dc2626;
+  outline-offset: -2px;
+  cursor: not-allowed;
+}
+.windease-zone[data-zone-drop-target="true"] {
+  outline: 2px dashed #16a34a;
+  outline-offset: -2px;
+}
+.windease-insertion-line {
+  background: #2563eb;
+}
+
 .story-snapshot {
   margin-top: 12px;
   padding: 8px;
