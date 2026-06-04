@@ -56,7 +56,7 @@ function makeStore(): WindeaseStore {
   s.registerZone({
     id: DOCK,
     strategy: stripStrategy,
-    config: { axis: 'x', gap: 6, padding: 6 },
+    config: { axis: 'x', gap: 6, padding: 6, fill: true },
   });
 
   // Seed two main-area panels.
