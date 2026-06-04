@@ -12,6 +12,7 @@ import type { LayoutStrategy } from './layout-types.js';
 import {
   type CreateZoneInput,
   type ZoneRecord,
+  type ZoneItemMeta,
   createZoneRecord,
 } from './zone.js';
 
@@ -28,6 +29,7 @@ export interface StoreEvents {
   'zone.claimed': { zoneId: ZoneId; windowId: WindowId };
   'zone.released': { zoneId: ZoneId; windowId: WindowId };
   'zone.reordered': { zoneId: ZoneId };
+  'zone.metaChanged': { zoneId: ZoneId; windowId: WindowId; meta: ZoneItemMeta };
 }
 
 export class WindeaseStore {
@@ -47,7 +49,25 @@ export class WindeaseStore {
   listZones(): ZoneRecord[] {
     return [...this.zones.values()];
   }
+  /**
+   * List window records, optionally filtered by zone or kind. When a
+   * non-null `zoneId` filter is given, results are returned in the zone's
+   * `windowIds` order (which honors the pinned-prefix invariant). Otherwise
+   * results are in store insertion order.
+   */
   listWindows(filter?: { zoneId?: ZoneId | null; kind?: string }): WindowRecord[] {
+    if (filter && 'zoneId' in filter && filter.zoneId != null) {
+      const z = this.zones.get(filter.zoneId);
+      if (!z) return [];
+      const out: WindowRecord[] = [];
+      for (const wid of z.windowIds) {
+        const w = this.windows.get(wid);
+        if (!w) continue;
+        if (filter.kind !== undefined && w.kind !== filter.kind) continue;
+        out.push(w);
+      }
+      return out;
+    }
     const out: WindowRecord[] = [];
     for (const w of this.windows.values()) {
       if (filter?.kind !== undefined && w.kind !== filter.kind) continue;
@@ -138,7 +158,7 @@ export class WindeaseStore {
   }
 
   // ---- Ownership ----
-  claim(zoneId: ZoneId, windowId: WindowId, at?: number): void {
+  claim(zoneId: ZoneId, windowId: WindowId, at?: number, meta?: ZoneItemMeta): void {
     const z = this.requireZone(zoneId);
     const w = this.requireWindow(windowId);
     // If already in a zone, release first. This relies on transit settling
@@ -160,7 +180,9 @@ export class WindeaseStore {
     } else {
       z.windowIds.splice(at, 0, windowId);
     }
+    if (meta !== undefined) z.itemMeta.set(windowId, { ...meta });
     this.events.emit('zone.claimed', { zoneId, windowId });
+    this.resortByPin(zoneId);
 
     w.transit.send('settle');
     this.emitTransition(windowId, 'transit', 'claiming', 'idle', 'settle');
@@ -183,7 +205,10 @@ export class WindeaseStore {
     this.emitTransition(windowId, 'transit', fromTransit, 'releasing', 'beginRelease');
 
     const oldZone = w.zoneId;
-    if (z) z.windowIds = z.windowIds.filter((id) => id !== windowId);
+    if (z) {
+      z.windowIds = z.windowIds.filter((id) => id !== windowId);
+      z.itemMeta.delete(windowId);
+    }
     w.zoneId = null;
     this.events.emit('zone.released', { zoneId: oldZone, windowId });
 
@@ -209,7 +234,80 @@ export class WindeaseStore {
     }
     z.windowIds = [...order];
     this.events.emit('zone.reordered', { zoneId });
+    // A reorder request that interleaves pinned/unpinned is silently snapped
+    // back to the pinned-prefix invariant — drops near the pinned section
+    // still land in a sensible spot for the user.
+    this.resortByPin(zoneId);
     this.scheduleNotify();
+  }
+
+  /**
+   * Stable-partition windowIds so all items whose itemMeta.pinned or
+   * itemMeta.locked is truthy occupy a contiguous prefix. Locked items imply
+   * pinned for layout purposes; they additionally resist drag/destroy in the
+   * React layer. No-ops if the ordering is already correct.
+   */
+  private resortByPin(zoneId: ZoneId): void {
+    const z = this.zones.get(zoneId);
+    if (!z) return;
+    const pinned: WindowId[] = [];
+    const rest: WindowId[] = [];
+    for (const wid of z.windowIds) {
+      const m = z.itemMeta.get(wid);
+      if (m?.pinned || m?.locked) pinned.push(wid);
+      else rest.push(wid);
+    }
+    const next = [...pinned, ...rest];
+    let changed = false;
+    for (let i = 0; i < next.length; i++) {
+      if (next[i] !== z.windowIds[i]) {
+        changed = true;
+        break;
+      }
+    }
+    if (!changed) return;
+    z.windowIds = next;
+    this.events.emit('zone.reordered', { zoneId });
+  }
+
+  // ---- Per-item meta ----
+  getItemMeta(zoneId: ZoneId, windowId: WindowId): ZoneItemMeta | undefined {
+    return this.zones.get(zoneId)?.itemMeta.get(windowId);
+  }
+
+  /**
+   * Replace the item-meta bag for a windowId's membership in zoneId. Throws
+   * if the window isn't currently a member of that zone — the bag is keyed
+   * on the membership, not the window. Pass an empty object to clear.
+   */
+  setItemMeta(zoneId: ZoneId, windowId: WindowId, meta: ZoneItemMeta): void {
+    const z = this.requireZone(zoneId);
+    const w = this.requireWindow(windowId);
+    if (w.zoneId !== zoneId) {
+      throw new WindeaseError(
+        'ILLEGAL_TRANSITION',
+        `window ${windowId} is not a member of zone ${zoneId}`,
+      );
+    }
+    const next: ZoneItemMeta = { ...meta };
+    z.itemMeta.set(windowId, next);
+    this.events.emit('zone.metaChanged', { zoneId, windowId, meta: next });
+    this.resortByPin(zoneId);
+    this.scheduleNotify();
+  }
+
+  /**
+   * Merge-patch the item-meta bag. Keys set to `undefined` are deleted.
+   * Throws if the window isn't currently a member of zoneId.
+   */
+  patchItemMeta(zoneId: ZoneId, windowId: WindowId, patch: ZoneItemMeta): void {
+    const current = this.getItemMeta(zoneId, windowId) ?? {};
+    const next: ZoneItemMeta = { ...current };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === undefined) delete next[k];
+      else next[k] = v;
+    }
+    this.setItemMeta(zoneId, windowId, next);
   }
 
   // ---- Focus ----

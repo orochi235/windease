@@ -8,6 +8,12 @@ export interface LayoutItem {
     minSize?: Size;
     preferredSize?: Size;
   };
+  /**
+   * Free-form per-item meta carried over from the zone's `itemMeta` map.
+   * Strategies can read flags like `pinned` here; consumers set values via
+   * `store.setItemMeta` / `store.patchItemMeta`.
+   */
+  meta?: Record<string, unknown>;
 }
 
 export type BuiltinAffordanceKind = 'drag-x' | 'drag-y' | 'drag-xy' | 'click' | 'keypress';
@@ -59,5 +65,5 @@ export interface LayoutStrategy<
    * Receives the prospective post-drop items list. Return false to reject.
    * Strategies that don't implement it are treated as accept-all.
    */
-  canAccept?(items: LayoutItem[]): boolean;
+  canAccept?(items: LayoutItem[], options: Record<string, unknown>): boolean;
 }

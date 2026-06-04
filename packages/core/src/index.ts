@@ -31,6 +31,7 @@ export {
   type ZoneRecord,
   type CreateZoneInput,
   type Placement,
+  type ZoneItemMeta,
 } from './zone.js';
 export type {
   ItemId,

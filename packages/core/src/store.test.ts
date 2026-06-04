@@ -54,6 +54,22 @@ describe('WindeaseStore - window lifecycle', () => {
     }
   });
 
+  it('listWindows({ zoneId }) returns records in zone.windowIds order', () => {
+    const s = new WindeaseStore();
+    s.registerZone({ id: asZoneId('main'), strategy: noopStrategy });
+    s.createWindow({ id: asWindowId('w1'), kind: 'panel' });
+    s.createWindow({ id: asWindowId('w2'), kind: 'panel' });
+    s.createWindow({ id: asWindowId('w3'), kind: 'panel' });
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    s.claim(asZoneId('main'), asWindowId('w2'));
+    s.claim(asZoneId('main'), asWindowId('w3'), undefined, { pinned: true });
+    expect(s.listWindows({ zoneId: asZoneId('main') }).map((w) => w.id)).toEqual([
+      'w3',
+      'w1',
+      'w2',
+    ]);
+  });
+
   it('listWindows filters by kind', () => {
     const s = new WindeaseStore();
     s.createWindow({ id: asWindowId('a'), kind: 'panel' });
@@ -210,6 +226,123 @@ describe2('WindeaseStore - ownership', () => {
     } catch (e) {
       expect2((e as WindeaseError).code).toBe('ILLEGAL_TRANSITION');
     }
+  });
+});
+
+describe2('WindeaseStore - item meta', () => {
+  function setup() {
+    const s = new WindeaseStore();
+    s.registerZone({ id: asZoneId('main'), strategy: noopStrategy });
+    s.registerZone({ id: asZoneId('side'), strategy: noopStrategy });
+    s.createWindow({ id: asWindowId('w1'), kind: 'panel' });
+    s.createWindow({ id: asWindowId('w2'), kind: 'panel' });
+    return s;
+  }
+
+  it2('claim accepts an initial meta bag', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'), undefined, { pinned: true });
+    expect2(s.getItemMeta(asZoneId('main'), asWindowId('w1'))).toEqual({ pinned: true });
+  });
+
+  it2('setItemMeta replaces and emits zone.metaChanged', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    const events: unknown[] = [];
+    s.events.on('zone.metaChanged', (e) => events.push(e));
+    s.setItemMeta(asZoneId('main'), asWindowId('w1'), { pinned: true, label: 'a' });
+    s.setItemMeta(asZoneId('main'), asWindowId('w1'), { label: 'b' });
+    expect2(s.getItemMeta(asZoneId('main'), asWindowId('w1'))).toEqual({ label: 'b' });
+    expect2(events.length).toBe(2);
+  });
+
+  it2('patchItemMeta merges and deletes via undefined', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'), undefined, { pinned: true, label: 'a' });
+    s.patchItemMeta(asZoneId('main'), asWindowId('w1'), { label: 'b', extra: 1 });
+    expect2(s.getItemMeta(asZoneId('main'), asWindowId('w1'))).toEqual({
+      pinned: true,
+      label: 'b',
+      extra: 1,
+    });
+    s.patchItemMeta(asZoneId('main'), asWindowId('w1'), { pinned: undefined });
+    expect2(s.getItemMeta(asZoneId('main'), asWindowId('w1'))).toEqual({ label: 'b', extra: 1 });
+  });
+
+  it2('release clears item meta', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'), undefined, { pinned: true });
+    s.release(asWindowId('w1'));
+    expect2(s.getItemMeta(asZoneId('main'), asWindowId('w1'))).toBeUndefined();
+  });
+
+  it2('moveWindow does not carry meta to the new zone', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'), undefined, { pinned: true });
+    s.moveWindow(asWindowId('w1'), asZoneId('side'));
+    expect2(s.getItemMeta(asZoneId('main'), asWindowId('w1'))).toBeUndefined();
+    expect2(s.getItemMeta(asZoneId('side'), asWindowId('w1'))).toBeUndefined();
+  });
+
+  it2('setItemMeta throws when window is not a member of zone', () => {
+    const s = setup();
+    s.claim(asZoneId('side'), asWindowId('w1'));
+    try {
+      s.setItemMeta(asZoneId('main'), asWindowId('w1'), { pinned: true });
+      expect2.fail('should have thrown');
+    } catch (e) {
+      expect2((e as WindeaseError).code).toBe('ILLEGAL_TRANSITION');
+    }
+  });
+
+  it2('pinning promotes a window to the pinned-prefix of windowIds', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    s.claim(asZoneId('main'), asWindowId('w2'));
+    s.setItemMeta(asZoneId('main'), asWindowId('w2'), { pinned: true });
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w2', 'w1']);
+  });
+
+  it2('unpinning relegates to the head of the unpinned section', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'), undefined, { pinned: true });
+    s.claim(asZoneId('main'), asWindowId('w2'));
+    s.patchItemMeta(asZoneId('main'), asWindowId('w1'), { pinned: undefined });
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w1', 'w2']);
+  });
+
+  it2('claim with initial pinned=true lands in the pinned-prefix', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    s.claim(asZoneId('main'), asWindowId('w2'), undefined, { pinned: true });
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w2', 'w1']);
+  });
+
+  it2('reorderInZone interleaving pinned/unpinned snaps back to invariant', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'), undefined, { pinned: true });
+    s.claim(asZoneId('main'), asWindowId('w2'));
+    // User requests [w2, w1] — but w1 is pinned, so it gets pulled back to the front.
+    s.reorderInZone(asZoneId('main'), [asWindowId('w2'), asWindowId('w1')]);
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w1', 'w2']);
+  });
+
+  it2('locked items also sort into the pinned-prefix', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    s.claim(asZoneId('main'), asWindowId('w2'), undefined, { locked: true });
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w2', 'w1']);
+  });
+
+  it2('snapshot round-trips item meta', () => {
+    const s = setup();
+    s.claim(asZoneId('main'), asWindowId('w1'), undefined, { pinned: true });
+    s.claim(asZoneId('main'), asWindowId('w2'), undefined, { label: 'two' });
+    const snap = s.snapshot();
+    const s2 = new WindeaseStore();
+    s2.hydrate(snap, { strategies: { noop: noopStrategy } });
+    expect2(s2.getItemMeta(asZoneId('main'), asWindowId('w1'))).toEqual({ pinned: true });
+    expect2(s2.getItemMeta(asZoneId('main'), asWindowId('w2'))).toEqual({ label: 'two' });
   });
 });
 

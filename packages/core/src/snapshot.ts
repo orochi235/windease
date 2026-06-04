@@ -26,6 +26,8 @@ export interface SerializedZone {
   strategyName: string;
   windowIds: string[];
   config: Record<string, unknown>;
+  /** Per-item meta, keyed by windowId. Omitted when empty. */
+  itemMeta?: Record<string, Record<string, unknown>>;
 }
 
 export interface SerializedStore {
@@ -50,12 +52,20 @@ export function serialize(
       hints: w.hints,
       meta: w.meta,
     })),
-    zones: [...zones.values()].map((z) => ({
-      id: z.id,
-      strategyName: z.strategy.name,
-      windowIds: [...z.windowIds],
-      config: z.config,
-    })),
+    zones: [...zones.values()].map((z) => {
+      const out: SerializedZone = {
+        id: z.id,
+        strategyName: z.strategy.name,
+        windowIds: [...z.windowIds],
+        config: z.config,
+      };
+      if (z.itemMeta.size > 0) {
+        const itemMeta: Record<string, Record<string, unknown>> = {};
+        for (const [wid, bag] of z.itemMeta) itemMeta[wid] = { ...bag };
+        out.itemMeta = itemMeta;
+      }
+      return out;
+    }),
   };
 }
 
@@ -100,6 +110,11 @@ export function deserialize(
       config: sz.config,
     });
     z.windowIds = sz.windowIds.map(asWindowId);
+    if (sz.itemMeta) {
+      for (const [wid, bag] of Object.entries(sz.itemMeta)) {
+        z.itemMeta.set(asWindowId(wid), { ...bag });
+      }
+    }
     zones.set(z.id, z);
   }
   return { windows, zones };
