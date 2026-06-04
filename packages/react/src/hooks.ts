@@ -1,6 +1,6 @@
 import type { WindeaseStore, WindowId, WindowRecord, ZoneId, ZoneRecord } from '@windease/core';
 import { useContext, useSyncExternalStore } from 'react';
-import { WindeaseContext } from './WindeaseProvider.js';
+import { HistoryHookupContext, type HistoryHookup, WindeaseContext } from './WindeaseProvider.js';
 
 export function useWindease(): WindeaseStore {
   const s = useContext(WindeaseContext);
@@ -30,4 +30,8 @@ export function useWindowsByZone(id: ZoneId): WindowRecord[] {
     (cb) => store.subscribe(cb),
     () => store.listWindows({ zoneId: id }),
   );
+}
+
+export function useHistory<T = unknown>(): HistoryHookup<T> | null {
+  return useContext(HistoryHookupContext) as HistoryHookup<T> | null;
 }
