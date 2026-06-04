@@ -4,5 +4,6 @@ dist
 *.tsbuildinfo
 coverage
 .ladle/.cache
+build
 pnpm-lock.yaml
 yarn.lock
