@@ -25,6 +25,15 @@ interface GridConfig {
    */
   maxItems?: number;
   /**
+   * When true (default), cells expand to fill the container even when items
+   * don't occupy every slot — e.g. 2 items in a maxCols=2/maxRows=2 grid use
+   * a 2×1 layout, each filling half the container's width and the full
+   * height. When false, the grid keeps the full configured (or max)
+   * dimensions, leaving empty cells when underfilled. Has no effect when
+   * neither cfg.cols/cfg.rows nor maxCols/maxRows is set.
+   */
+  fill?: boolean;
+  /**
    * When neither cols nor rows is set, auto-balance the grid so it stays as
    * square as possible. 'wide' (default) biases toward more columns when the
    * count isn't a perfect square; 'tall' biases toward more rows.
@@ -97,20 +106,27 @@ export const gridStrategy: LayoutStrategy<void, WindowId> = {
     }
     const maxCols = cfg.maxCols !== undefined ? Math.max(1, cfg.maxCols) : undefined;
     const maxRows = cfg.maxRows !== undefined ? Math.max(1, cfg.maxRows) : undefined;
+    const fill = cfg.fill ?? true;
 
     let cols: number;
     let rowCap: number | undefined;
     if (cfg.cols !== undefined) {
-      // Explicit cols wins; maxCols is ignored. maxRows still caps row count.
       cols = Math.max(1, cfg.cols);
       rowCap = maxRows;
     } else if (cfg.rows !== undefined) {
-      // Explicit rows wins; maxRows is ignored. maxCols still caps col count.
       const fixedRows = Math.max(1, cfg.rows);
-      const needed = Math.ceil(items.length / fixedRows);
-      cols = maxCols !== undefined ? Math.min(maxCols, needed) : needed;
+      if (fill) {
+        const needed = Math.ceil(items.length / fixedRows);
+        cols = maxCols !== undefined ? Math.min(maxCols, needed) : needed;
+      } else {
+        cols = maxCols ?? Math.max(1, Math.ceil(items.length / fixedRows));
+      }
       cols = Math.max(1, cols);
       rowCap = fixedRows;
+    } else if (!fill && maxCols !== undefined) {
+      // fill=false with max dimensions: lock to the full max grid.
+      cols = maxCols;
+      rowCap = maxRows;
     } else {
       const root = Math.sqrt(items.length);
       const ideal =
@@ -124,7 +140,10 @@ export const gridStrategy: LayoutStrategy<void, WindowId> = {
     const itemCap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
     const capacity = Math.min(gridCap, itemCap);
     const placedCount = Math.min(items.length, capacity);
-    const rows = Math.max(1, Math.ceil(placedCount / cols));
+    const rows =
+      !fill && rowCap !== undefined
+        ? rowCap
+        : Math.max(1, Math.ceil(placedCount / cols));
 
     const usableW = container.w - 2 * padding;
     const usableH = container.h - 2 * padding;

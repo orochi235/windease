@@ -219,6 +219,30 @@ describe('gridStrategy', () => {
       expect(result.unplaced).toBeUndefined();
     });
 
+    it('fill: false reserves the full maxCols/maxRows grid even when underfilled', () => {
+      const result = gridStrategy.layout({
+        items: [mkItem('a'), mkItem('b'), mkItem('c')],
+        container: { w: 200, h: 200 },
+        state: undefined as void,
+        options: { maxCols: 2, maxRows: 2, fill: false },
+      });
+      // Each cell is 100×100, three items in (0,0)(1,0)(0,1), (1,1) empty.
+      expect(result.placements.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 100 });
+      expect(result.placements.get(asWindowId('b'))).toEqual({ x: 100, y: 0, w: 100, h: 100 });
+      expect(result.placements.get(asWindowId('c'))).toEqual({ x: 0, y: 100, w: 100, h: 100 });
+    });
+
+    it('fill: true (default) lets 2 items in a 2×2 max grid use a 2×1 layout filling the height', () => {
+      const result = gridStrategy.layout({
+        items: [mkItem('a'), mkItem('b')],
+        container: { w: 200, h: 200 },
+        state: undefined as void,
+        options: { maxCols: 2, maxRows: 2 },
+      });
+      expect(result.placements.get(asWindowId('a'))).toEqual({ x: 0, y: 0, w: 100, h: 200 });
+      expect(result.placements.get(asWindowId('b'))).toEqual({ x: 100, y: 0, w: 100, h: 200 });
+    });
+
     it('maxItems caps placement count regardless of cols/rows auto-balance', () => {
       const result = gridStrategy.layout({
         items: Array.from({ length: 6 }, (_, i) => mkItem(`p${i}`)),
