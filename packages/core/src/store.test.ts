@@ -327,6 +327,44 @@ describe2('WindeaseStore - item meta', () => {
     expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w1', 'w2']);
   });
 
+  it2('updateZoneConfig merges and emits zone.configChanged', () => {
+    const s = new WindeaseStore();
+    s.registerZone({ id: asZoneId('main'), strategy: noopStrategy, config: { cols: 2 } });
+    const events: unknown[] = [];
+    s.events.on('zone.configChanged', (e) => events.push(e));
+    s.updateZoneConfig(asZoneId('main'), { rows: 3, maxItems: undefined });
+    expect2(s.getZone(asZoneId('main'))?.config).toEqual({ cols: 2, rows: 3 });
+    expect2(events.length).toBe(1);
+  });
+
+  it2('setZoneAllowsPinning(false) clears pinned flags but leaves locked', () => {
+    const s = new WindeaseStore();
+    s.registerZone({ id: asZoneId('main'), strategy: noopStrategy });
+    s.createWindow({ id: asWindowId('w1'), kind: 'panel' });
+    s.createWindow({ id: asWindowId('w2'), kind: 'panel' });
+    s.claim(asZoneId('main'), asWindowId('w1'), undefined, { pinned: true, label: 'a' });
+    s.claim(asZoneId('main'), asWindowId('w2'), undefined, { locked: true });
+    s.setZoneAllowsPinning(asZoneId('main'), false);
+    // pinned cleared; sibling keys preserved.
+    expect2(s.getItemMeta(asZoneId('main'), asWindowId('w1'))).toEqual({ label: 'a' });
+    // locked left in place.
+    expect2(s.getItemMeta(asZoneId('main'), asWindowId('w2'))).toEqual({ locked: true });
+  });
+
+  it2('setZoneAllowsPinning flipping true re-runs resortByPin', () => {
+    const s = new WindeaseStore();
+    s.registerZone({ id: asZoneId('main'), strategy: noopStrategy, allowsPinning: false });
+    s.createWindow({ id: asWindowId('w1'), kind: 'panel' });
+    s.createWindow({ id: asWindowId('w2'), kind: 'panel' });
+    s.claim(asZoneId('main'), asWindowId('w1'));
+    s.claim(asZoneId('main'), asWindowId('w2'), undefined, { pinned: true });
+    // While disabled, w2 stays at insertion order.
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w1', 'w2']);
+    // Enable → resortByPin runs → w2 moves to the front.
+    s.setZoneAllowsPinning(asZoneId('main'), true);
+    expect2(s.getZone(asZoneId('main'))?.windowIds).toEqual(['w2', 'w1']);
+  });
+
   it2('allowsPinning: false disables resortByPin without rejecting meta writes', () => {
     const s = new WindeaseStore();
     s.registerZone({ id: asZoneId('flat'), strategy: noopStrategy, allowsPinning: false });

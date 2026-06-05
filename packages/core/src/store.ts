@@ -30,6 +30,7 @@ export interface StoreEvents {
   'zone.released': { zoneId: ZoneId; windowId: WindowId };
   'zone.reordered': { zoneId: ZoneId };
   'zone.metaChanged': { zoneId: ZoneId; windowId: WindowId; meta: ZoneItemMeta };
+  'zone.configChanged': { zoneId: ZoneId; config: Record<string, unknown> };
 }
 
 export class WindeaseStore {
@@ -269,6 +270,48 @@ export class WindeaseStore {
     if (!changed) return;
     z.windowIds = next;
     this.events.emit('zone.reordered', { zoneId });
+  }
+
+  /**
+   * Merge-patch a zone's strategy config. Keys set to `undefined` are
+   * deleted. Emits `zone.configChanged` and schedules a notify so React
+   * consumers re-read. Replaces direct mutation of `zone.config`, which
+   * doesn't notify and silently bypasses history transactions.
+   */
+  updateZoneConfig(zoneId: ZoneId, patch: Record<string, unknown>): void {
+    const z = this.requireZone(zoneId);
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === undefined) delete z.config[k];
+      else z.config[k] = v;
+    }
+    this.events.emit('zone.configChanged', { zoneId, config: z.config });
+    this.scheduleNotify();
+  }
+
+  /**
+   * Flip a zone's pinned-prefix opt-in. When set true after being false,
+   * re-runs resortByPin so existing pinned/locked items move to the front.
+   */
+  setZoneAllowsPinning(zoneId: ZoneId, allows: boolean): void {
+    const z = this.requireZone(zoneId);
+    if (z.allowsPinning === allows) return;
+    z.allowsPinning = allows;
+    this.events.emit('zone.configChanged', { zoneId, config: z.config });
+    if (!allows) {
+      // Disabling pinning clears any pending pin flags so consumers don't
+      // carry inert state. `locked` is left in place — it semantically
+      // means "system chrome" and still suppresses drag in the React layer.
+      for (const [wid, meta] of z.itemMeta) {
+        if (!('pinned' in meta)) continue;
+        const next = { ...meta };
+        delete next.pinned;
+        z.itemMeta.set(wid, next);
+        this.events.emit('zone.metaChanged', { zoneId, windowId: wid, meta: next });
+      }
+    } else {
+      this.resortByPin(zoneId);
+    }
+    this.scheduleNotify();
   }
 
   // ---- Per-item meta ----
