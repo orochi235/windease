@@ -160,6 +160,7 @@ export const Playground: Story = () => {
       store.events.on('zone.released', bump),
       store.events.on('zone.reordered', bump),
       store.events.on('zone.metaChanged', bump),
+      store.events.on('zone.configChanged', bump),
     ];
     return () => {
       for (const off of offs) off();
@@ -230,7 +231,7 @@ export const Playground: Story = () => {
 
   const renderPanel = (w: Parameters<Parameters<typeof Zone>[0]['children']>[0]) => {
     if (w.id === GRID_CONTROLS_ID) {
-      return <GridControls store={store} zoneId={MAIN} onChange={() => setTick((n) => n + 1)} />;
+      return <GridControls store={store} zoneId={MAIN} />;
     }
     const zoneId = w.zoneId;
     const meta = zoneId ? store.getItemMeta(zoneId, w.id) : undefined;
@@ -278,7 +279,7 @@ export const Playground: Story = () => {
 
   return (
     <WindeaseProvider store={store} history={historyHookup}>
-      <div>
+      <div className="story-playground-root">
         <div className="story-toolbar">
           <button
             type="button"
@@ -339,7 +340,7 @@ export const Playground: Story = () => {
           <span className="story-toolbar__selected">selected: {selected ?? '<none>'}</span>
         </div>
 
-        <div style={{ width: '100%', height: 600 }}>
+        <div className="story-playground__workspace">
           <Workspace
             strategy={recursiveSplit}
             items={[{ id: MAIN }, { id: DOCK }, { id: SIDEBAR }]}

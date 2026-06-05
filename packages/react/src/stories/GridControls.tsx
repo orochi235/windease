@@ -4,7 +4,6 @@ import type * as React from 'react';
 interface GridControlsProps {
   store: WindeaseStore;
   zoneId: ZoneId;
-  onChange: () => void;
 }
 
 interface GridConfig {
@@ -12,27 +11,26 @@ interface GridConfig {
   rows?: number;
   maxCols?: number;
   maxRows?: number;
+  fill?: boolean;
   [k: string]: unknown;
 }
 
 const FIELDS = ['cols', 'rows', 'maxCols', 'maxRows'] as const;
 
-export function GridControls({ store, zoneId, onChange }: GridControlsProps): React.JSX.Element {
+export function GridControls({ store, zoneId }: GridControlsProps): React.JSX.Element {
   const zone = store.getZone(zoneId);
   const cfg = (zone?.config ?? {}) as GridConfig;
+  const allowsPinning = zone?.allowsPinning !== false;
+  const fill = cfg.fill !== false;
 
   const update = (key: (typeof FIELDS)[number], raw: string) => {
-    const z = store.getZone(zoneId);
-    if (!z) return;
-    const c = z.config as GridConfig;
     if (raw === '') {
-      delete c[key];
-    } else {
-      const n = Number(raw);
-      if (!Number.isFinite(n) || n < 1) return;
-      c[key] = Math.floor(n);
+      store.updateZoneConfig(zoneId, { [key]: undefined });
+      return;
     }
-    onChange();
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 1) return;
+    store.updateZoneConfig(zoneId, { [key]: Math.floor(n) });
   };
 
   return (
@@ -54,6 +52,24 @@ export function GridControls({ store, zoneId, onChange }: GridControlsProps): Re
           />
         </label>
       ))}
+      <label className="story-grid-controls__check">
+        <input
+          type="checkbox"
+          checked={allowsPinning}
+          onChange={(e) => store.setZoneAllowsPinning(zoneId, e.target.checked)}
+        />
+        <span>allow pinning</span>
+      </label>
+      <label className="story-grid-controls__check">
+        <input
+          type="checkbox"
+          checked={fill}
+          onChange={(e) =>
+            store.updateZoneConfig(zoneId, { fill: e.target.checked ? undefined : false })
+          }
+        />
+        <span>expand to fill</span>
+      </label>
     </div>
   );
 }
