@@ -1,3 +1,5 @@
+export default { title: 'v0.2 / Stack' };
+
 import {
   asNodeId,
   createPanel,
