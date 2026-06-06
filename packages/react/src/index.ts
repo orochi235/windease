@@ -20,4 +20,17 @@ export {
   type ChromeMap,
   type NodeRendererProps,
   type WindeaseNodeRootProps,
+  // DnD
+  NodeDragController,
+  type DragState,
+  type DragCancelReason,
+  NodeDragProvider,
+  NodeDragContext,
+  useNodeDragController,
+  useNodeDragHandle,
+  type NodeDragHandleHandlers,
+  NodeDragHandle,
+  type NodeDragHandleProps,
+  useNodeDropTarget,
+  useNodeDragState,
 } from './v2/index.js';
