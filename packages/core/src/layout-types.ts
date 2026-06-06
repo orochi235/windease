@@ -16,6 +16,24 @@ export interface LayoutItem {
   meta?: Record<string, unknown>;
 }
 
+/**
+ * v0.2 shape strategies see when running over `WindeaseNodeStore` nodes.
+ * Built from a Node via `nodeToLayoutItem` / `getLayoutNodes`. `placement`
+ * carries the per-membership bag (pinned/locked etc.); `meta` is intrinsic.
+ */
+export interface LayoutNode {
+  id: string;
+  kind: 'panel' | 'group' | 'zone';
+  hints: {
+    minSize?: Size;
+    preferredSize?: Size;
+    order?: number;
+  };
+  meta: Record<string, unknown>;
+  placement: Record<string, unknown>;
+  isContainer: boolean;
+}
+
 export type BuiltinAffordanceKind = 'drag-x' | 'drag-y' | 'drag-xy' | 'click' | 'keypress';
 
 export interface Affordance<TMeta = unknown> {

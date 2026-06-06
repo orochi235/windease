@@ -100,5 +100,12 @@ export {
   InvariantViolationError,
 } from './errors.js';
 export { WindeaseNodeStore, type NodeStoreEvents } from './store-v2.js';
+export type { LayoutNode } from './layout-types.js';
+export {
+  nodeToLayoutItem,
+  nodeToLayoutNode,
+  getLayoutNodes,
+  runStrategyForContainer,
+} from './layout-node-adapter.js';
 
 export const VERSION = '0.3.0';
