@@ -99,5 +99,6 @@ export {
   StrategyRejectionError,
   InvariantViolationError,
 } from './errors.js';
+export { WindeaseNodeStore, type NodeStoreEvents } from './store-v2.js';
 
 export const VERSION = '0.3.0';
