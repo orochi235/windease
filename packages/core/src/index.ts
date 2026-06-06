@@ -100,6 +100,13 @@ export {
   InvariantViolationError,
 } from './errors.js';
 export { WindeaseNodeStore, type NodeStoreEvents } from './store-v2.js';
+export {
+  serializeNodes,
+  deserializeToNodeStore,
+  migrateV1ToV2,
+  type SerializedNodeV2,
+  type SerializedStoreV2,
+} from './snapshot-v2.js';
 export type { LayoutNode } from './layout-types.js';
 export {
   nodeToLayoutItem,
