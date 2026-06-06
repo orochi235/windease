@@ -71,3 +71,11 @@ export function useRootNodes(): readonly Node[] {
     // biome-ignore lint/correctness/useExhaustiveDependencies: rootKey is the snapshot signal.
   }, [store, rootKey]);
 }
+
+export function useActivity(id: NodeId): Record<string, unknown> | undefined {
+  const store = useNodeStore();
+  return useSyncExternalStore(
+    (cb) => store.subscribe(cb),
+    () => store.getNode(id)?.activity,
+  );
+}

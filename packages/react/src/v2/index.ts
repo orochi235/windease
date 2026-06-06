@@ -5,6 +5,7 @@ export {
   useChildren,
   useFocusedNode,
   useRootNodes,
+  useActivity,
 } from './hooks.js';
 export {
   NodeRenderer,
