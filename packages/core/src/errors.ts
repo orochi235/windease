@@ -91,7 +91,7 @@ export class CycleError extends WindeaseError {
 
 export class StrategyRejectionError extends WindeaseError {
   readonly parentId: NodeId;
-  readonly reason?: string;
+  readonly reason: string | undefined;
   constructor(parentId: NodeId, reason?: string) {
     super('strategy-rejected', `Container ${parentId} rejected: ${reason ?? 'no reason given'}`);
     this.name = 'StrategyRejectionError';

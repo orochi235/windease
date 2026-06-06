@@ -66,4 +66,38 @@ export {
   type TraceCategory,
 } from './trace.js';
 
+// v0.2 unified node model — additive in Phase 1; not yet wired into store/snapshot.
+export {
+  asNodeId,
+  type Node,
+  type NodeId,
+  type NodeKind,
+  type NodeHints,
+  type ContainerCap,
+  type SlotCap,
+  type FocusCap,
+  type LifecycleCap,
+  type TransitCap,
+} from './node.js';
+export {
+  createZone,
+  createGroup,
+  createPanel,
+  // CreateZoneInput collides with v0.1's existing export; re-export under
+  // disambiguated names. The internal constructor file keeps the spec names.
+  type CreateZoneInput as CreateZoneNodeInput,
+  type CreateGroupInput,
+  type CreatePanelInput,
+} from './constructors.js';
+export { validateKindShape } from './validators.js';
+export {
+  NodeNotFoundError,
+  DuplicateNodeError,
+  KindShapeError,
+  CapabilityMissingError,
+  CycleError,
+  StrategyRejectionError,
+  InvariantViolationError,
+} from './errors.js';
+
 export const VERSION = '0.3.0';

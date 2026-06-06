@@ -13,11 +13,9 @@ export interface CreateZoneInput {
 }
 
 export function createZone(input: CreateZoneInput): Node {
-  return {
+  const node: Node = {
     id: input.id,
     kind: 'zone',
-    meta: input.meta,
-    hints: input.hints,
     lifecycle: createLifecycleMachine(),
     container: {
       strategyId: input.strategyId,
@@ -26,6 +24,9 @@ export function createZone(input: CreateZoneInput): Node {
       allowsPinning: input.allowsPinning ?? true,
     },
   };
+  if (input.meta !== undefined) node.meta = input.meta;
+  if (input.hints !== undefined) node.hints = input.hints;
+  return node;
 }
 
 export interface CreateGroupInput {
@@ -40,11 +41,9 @@ export interface CreateGroupInput {
 }
 
 export function createGroup(input: CreateGroupInput): Node {
-  return {
+  const node: Node = {
     id: input.id,
     kind: 'group',
-    meta: input.meta,
-    hints: input.hints,
     lifecycle: createLifecycleMachine(),
     container: {
       strategyId: input.strategyId,
@@ -58,6 +57,9 @@ export function createGroup(input: CreateGroupInput): Node {
       transit: createTransitMachine(),
     },
   };
+  if (input.meta !== undefined) node.meta = input.meta;
+  if (input.hints !== undefined) node.hints = input.hints;
+  return node;
 }
 
 export interface CreatePanelInput {
@@ -77,8 +79,6 @@ export function createPanel(input: CreatePanelInput): Node {
   const node: Node = {
     id: input.id,
     kind: 'panel',
-    meta: input.meta,
-    hints: input.hints,
     lifecycle: createLifecycleMachine(),
     slot: {
       parentId: input.parentId,
@@ -87,6 +87,8 @@ export function createPanel(input: CreatePanelInput): Node {
     },
     focus: createFocusMachine(),
   };
+  if (input.meta !== undefined) node.meta = input.meta;
+  if (input.hints !== undefined) node.hints = input.hints;
   if (input.container) {
     node.container = {
       strategyId: input.container.strategyId,
