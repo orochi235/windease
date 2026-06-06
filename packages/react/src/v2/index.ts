@@ -31,3 +31,13 @@ export { useNodeDragHandle, type NodeDragHandleHandlers } from './dnd/useNodeDra
 export { NodeDragHandle, type NodeDragHandleProps } from './dnd/NodeDragHandle.js';
 export { useNodeDropTarget } from './dnd/useNodeDropTarget.js';
 export { useNodeDragState } from './dnd/useNodeDragState.js';
+
+// Strategy + layout
+export {
+  StrategyRegistryProvider,
+  useStrategyRegistry,
+  type StrategyRegistry,
+  type StrategyRegistryProviderProps,
+} from './strategies.js';
+export { useContainerLayout, type ContainerLayout } from './useContainerLayout.js';
+export { NodeContainer, type NodeContainerProps } from './NodeContainer.js';

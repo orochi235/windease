@@ -33,4 +33,13 @@ export {
   type NodeDragHandleProps,
   useNodeDropTarget,
   useNodeDragState,
+  // Strategy + layout
+  StrategyRegistryProvider,
+  useStrategyRegistry,
+  type StrategyRegistry,
+  type StrategyRegistryProviderProps,
+  useContainerLayout,
+  type ContainerLayout,
+  NodeContainer,
+  type NodeContainerProps,
 } from './v2/index.js';
