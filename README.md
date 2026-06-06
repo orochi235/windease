@@ -3,99 +3,116 @@
 Browser-based window manager. Framework-agnostic core (`@windease/core`) plus
 a React binding (`@windease/react`).
 
-- **Zones** are first-class containers. Each visible window lives in exactly
-  one zone (or is unowned, `zoneId: null`).
-- **Per-window FSMs.** Each window carries three small typed state machines:
-  `lifecycle` (mounted/visible/hidden/destroyed), `transit` (idle/claiming/
-  releasing), and `focus` (focused/blurred).
+> **v0.5 ships the unified node model.** The library now exposes a single
+> `Node` type with capability records and three named primitives (`Panel`,
+> `Group`, `Zone`), with recursive zones as a first-class case (panels
+> hosting their own children). The v0.1/v0.4 surface remains exported as
+> `@deprecated`. New code should target the v0.2 node API documented
+> below. See [`docs/concepts.md`](docs/concepts.md) for the canonical
+> reference.
+
+- **Three named primitives** — `createZone`, `createGroup`, `createPanel`
+  — produce typed nodes with the right capability shape for their role.
+- **Recursive zones** — a `Panel` can host a `container`, making "tray
+  inside a window" a one-call composition.
+- **Universal lifecycle.** Every node carries an FSM
+  (`mounted → visible ↔ hidden → destroyed`); panels additionally carry
+  `transit` (atomic moves) and `focus` (single-focus invariant).
+- **Record replacement.** Every store mutation produces a fresh `Node`
+  reference; React's `useSyncExternalStore` invalidates correctly by
+  default.
+- **Snapshot v2** with one-way migration from the v0.1 format.
 - **Layout strategies** are pure functions. Built-ins: `grid`, `stack`,
-  `strip`. Custom strategies are a plain object.
-- **No persistence baked in.** `snapshot()` + `hydrate()` let the consumer
-  choose storage.
+  `strip`, `binarySplit`, `recursiveSplit`. Strategies work unchanged on
+  recursive trees via the `LayoutNode` adapter.
 
-- **Per-membership meta.** `ZoneItemMeta` — free-form key/value bag attached
-  to a window *while it's a member of a particular zone*. Reserved keys:
-  `pinned` (promotes to the zone's pinned-prefix) and `locked` (pinned +
-  refuses drag/destroy in the React layer).
-
-See **[`docs/concepts.md`](docs/concepts.md)** for the canonical
-terminology + mental model. Design notes:
-`docs/superpowers/specs/2026-06-04-windease-design.md`.
-
-## Usage
+## Usage (v0.2 / current)
 
 ```tsx
-import { WindeaseProvider, Zone, useWindowsByZone } from '@windease/react';
-import { gridStrategy, asZoneId } from '@windease/core';
+import {
+  asNodeId,
+  createZone,
+  createPanel,
+  gridStrategy,
+  stackStrategy,
+  WindeaseNodeStore,
+} from '@windease/core';
+import {
+  NodeContainer,
+  StrategyRegistryProvider,
+  WindeaseNodeProvider,
+} from '@windease/react';
 
-<WindeaseProvider
-  zones={[{ id: asZoneId('main'), strategy: gridStrategy, config: { cols: 3 } }]}
->
-  <Zone id={asZoneId('main')}>
-    {(window, placement) => <YourPanel window={window} />}
-  </Zone>
-</WindeaseProvider>
+const store = new WindeaseNodeStore();
+store.registerNode(createZone({
+  id: asNodeId('z'),
+  strategyId: 'grid',
+  config: { cols: 2, gap: 12 },
+}));
+store.registerNode(createPanel({
+  id: asNodeId('tray'),
+  parentId: asNodeId('z'),
+  meta: { title: 'Tray' },
+  container: { strategyId: 'stack', config: { axis: 'vertical' } },
+}));
+store.registerNode(createPanel({
+  id: asNodeId('leaf'),
+  parentId: asNodeId('tray'),
+}));
+store.showNode(asNodeId('tray'));
+store.showNode(asNodeId('leaf'));
+
+const chrome = {
+  zone: ({ children }) => <div className="my-zone">{children}</div>,
+  group: ({ node, children }) => <div className="my-group">{children}</div>,
+  panel: ({ node, children }) =>
+    node.container
+      ? <div className="my-tray">
+          <h4>{String(node.meta?.title)}</h4>
+          <NodeContainer parentId={node.id} chrome={chrome} />
+        </div>
+      : <div className="my-leaf">{String(node.meta?.title ?? node.id)}</div>,
+};
+
+<WindeaseNodeProvider store={store}>
+  <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
+    <NodeContainer parentId={asNodeId('z')} chrome={chrome} viewport={{ w: 720, h: 480 }} />
+  </StrategyRegistryProvider>
+</WindeaseNodeProvider>
 ```
 
-## v0.2 breaking changes
+See the **Recursive Zones** Ladle story for a working example you can
+manipulate live.
 
-- `LayoutStrategy` now returns `{ placements, affordances }` instead of just
-  a placement map.
-- Strategy inputs renamed: `{ zone, windows, viewport }` → `{ items, container, state, options }`.
-- New `<Workspace>` component for multi-zone layout with draggable splits.
-- New built-in strategies: `binarySplit`, `recursiveSplit`.
+## Migrating from v0.1
 
-If you wrote custom strategies, migrate by following the migration of the
-built-ins (see `packages/core/src/layout/grid.ts`).
+The v0.1 API (`WindeaseStore`, `WindowRecord`, `ZoneRecord`, `Zone`,
+`Workspace`, `useWindow`, etc.) remains exported under `@deprecated` and
+works unchanged. The v0.2 mapping:
 
-## v0.3 additions (no breaking changes)
+| v0.1                          | v0.2                                            |
+| ----------------------------- | ----------------------------------------------- |
+| `WindeaseStore`               | `WindeaseNodeStore`                             |
+| `WindowRecord` / `WindowId`   | `Node` (kind `'panel'`) / `NodeId`              |
+| `ZoneRecord` / `ZoneId`       | `Node` (kind `'zone'`) / `NodeId`               |
+| `WindowRecord.meta`           | `node.meta` (intrinsic, survives `moveNode`)    |
+| `ZoneItemMeta`                | `node.slot.placement` (per-membership)          |
+| `registerZone(input)`         | `registerNode(createZone(args))`                |
+| `createWindow` + `claim`      | `registerNode(createPanel(args))`               |
+| `moveWindow(id, zoneId, at?)` | `moveNode(id, parentId, at?)`                   |
+| `reorderInZone(id, order)`    | `reorderInParent(id, at)`                       |
+| `setItemMeta` / `patchItemMeta` | `setPlacement` / `patchPlacement`             |
+| `updateZoneConfig`            | `updateContainerConfig`                         |
+| `setZoneAllowsPinning`        | `setAllowsPinning`                              |
+| `useWindow(id)`               | `useNode(id)` (fixes FSM re-render bug)         |
+| `useZone(id)`                 | `useNode(id)`                                   |
+| `useItemMeta(z, w)`           | `useNodeSelector(id, n => n.slot?.placement)`   |
+| `useWindowsByZone(zoneId)`    | `useChildren(parentId)`                         |
+| `Workspace` / `Zone`          | `NodeContainer` + chrome map                    |
 
-- `gridStrategy`: new `rows`, `orientation`, `maxCols`, `maxRows` options;
-  auto-balance when neither `cols` nor `rows` is set.
-- `stackStrategy` / `stripStrategy`: new `fill` and `defaultItemSize` options.
-- `LayoutResult.unplaced?: TId[]` — strategies can signal items they couldn't
-  place (e.g. grid overflow past `maxCols × maxRows`). Zone suppresses
-  missing-placement warnings for unplaced items.
-- `LayoutStrategy.canAccept?(items)` — optional hook the DnD layer uses to
-  reject illegal drops. `binarySplit` implements it (`items.length === 2`).
-- `<Workspace>` accepts a controlled `state` prop and fires `onGestureStart`
-  / `onGestureEnd` around its built-in drag gestures.
-- Pointer-driven drag-and-drop: window reorder within / move between zones,
-  recursive-split zone-swap, drop indicators (tinted backgrounds).
-- `HistoryController` for snapshot-based undo/redo with transactions. The
-  Provider accepts a `history` hookup; `<Workspace>` and `<Zone>` auto-wrap
-  their gestures in transactions when history is in context.
-
-## v0.4 additions
-
-- **Per-membership meta** — new `ZoneItemMeta` (`ZoneRecord.itemMeta:
-  Map<WindowId, Record<string, unknown>>`). Set via `store.setItemMeta` /
-  `patchItemMeta`; read via `getItemMeta` or the `useItemMeta` hook. Cleared
-  on `release`, not carried by `moveWindow`. Round-trips through
-  snapshot/hydrate.
-- **Pinning.** `itemMeta.pinned: true` promotes a window to the
-  pinned-prefix of `zone.windowIds` via a stable partition; reorder requests
-  that interleave pinned/unpinned snap back to the invariant. Strategies see
-  the flag via `LayoutItem.meta?.pinned`.
-- **Locking.** `itemMeta.locked: true` implies pinned at the layout layer
-  and additionally tells the React layer to skip drag handlers (locked
-  windows stamp `data-window-locked="true"`).
-- **`gridStrategy`: new `maxItems`** — absolute cap on accepted items.
-  Mutually exclusive with `maxCols`/`maxRows` (throws).
-- **`canAccept(items, options)`** — strategies now receive options too.
-  `gridStrategy.canAccept` rejects prospective drops that overflow capacity
-  (the configured grid cap or `maxItems`).
-- **Axis-aware drop indicators** — Zone DnD infers the target zone's primary
-  axis from sibling geometry; the insertion line orients along it and is
-  sized to the nearest child's cross-axis extent.
-- **Shipped stylesheet** — `import '@windease/react/styles.css'` for the
-  structural rules + `container-type: size` on `.windease-window`
-  (`container-name: windease-window`). Lets widgets adapt with `@container`
-  queries.
-
-If you wrote custom strategies and rely on `canAccept`, the signature is now
-`canAccept(items, options)`. Existing impls that ignore the second arg
-continue to work unchanged.
+Snapshots round-trip: `deserializeToNodeStore(snap)` accepts both v1 and
+v2 shapes. Unowned v1 windows are dropped on migration with a
+`console.warn`.
 
 ## Develop
 
@@ -104,4 +121,8 @@ npm install
 npm test
 npm run build
 npm run lint
+npm run ladle    # opens the playground at http://localhost:61000/
 ```
+
+Design / planning docs live under `docs/superpowers/`. Canonical reference:
+[`docs/concepts.md`](docs/concepts.md).
