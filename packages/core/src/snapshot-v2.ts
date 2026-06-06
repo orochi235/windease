@@ -1,12 +1,9 @@
 import { createPanel } from './constructors.js';
-import {
-  InvariantViolationError,
-  WindeaseError,
-} from './errors.js';
+import { InvariantViolationError, WindeaseError } from './errors.js';
 import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
-import { asNodeId, type Node, type NodeId, type NodeKind } from './node.js';
+import { type Node, type NodeId, type NodeKind, asNodeId } from './node.js';
 import type { SerializedStore } from './snapshot.js';
 import { WindeaseNodeStore } from './store-v2.js';
 import { trace } from './trace.js';
@@ -15,7 +12,11 @@ export interface SerializedNodeV2 {
   id: string;
   kind: NodeKind;
   meta?: Record<string, unknown>;
-  hints?: { minSize?: { w: number; h: number }; preferredSize?: { w: number; h: number }; order?: number };
+  hints?: {
+    minSize?: { w: number; h: number };
+    preferredSize?: { w: number; h: number };
+    order?: number;
+  };
   lifecycle: 'mounted' | 'visible' | 'hidden';
   container?: {
     strategyId: string;
@@ -197,10 +198,7 @@ function hydrateFromV2(snap: SerializedStoreV2): WindeaseNodeStore {
   return store;
 }
 
-function buildNodeFromSerialized(
-  sn: SerializedNodeV2,
-  opts: { emptyChildIds: boolean },
-): Node {
+function buildNodeFromSerialized(sn: SerializedNodeV2, opts: { emptyChildIds: boolean }): Node {
   const lifecycle = createLifecycleMachine();
   if (sn.lifecycle === 'visible') lifecycle.send('show');
   else if (sn.lifecycle === 'hidden') {
@@ -285,9 +283,7 @@ export function migrateV1ToV2(v1: SerializedStore): SerializedStoreV2 {
     const sz = zoneById.get(parentId);
     const placement = sz?.itemMeta?.[sw.id] ?? {};
     const lifecycle: 'mounted' | 'visible' | 'hidden' =
-      sw.lifecycle === 'visible' || sw.lifecycle === 'hidden'
-        ? sw.lifecycle
-        : 'mounted';
+      sw.lifecycle === 'visible' || sw.lifecycle === 'hidden' ? sw.lifecycle : 'mounted';
     const out: SerializedNodeV2 = {
       id: sw.id,
       kind: 'panel',

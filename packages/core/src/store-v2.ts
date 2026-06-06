@@ -6,13 +6,7 @@ import {
   NodeNotFoundError,
 } from './errors.js';
 import { TypedEmitter } from './events.js';
-import type {
-  ContainerCap,
-  FocusCap,
-  Node,
-  NodeId,
-  SlotCap,
-} from './node.js';
+import type { ContainerCap, FocusCap, Node, NodeId, SlotCap } from './node.js';
 import { trace } from './trace.js';
 import { validateKindShape } from './validators.js';
 
@@ -186,10 +180,7 @@ export class WindeaseNodeStore {
     }
     if (descendantIds.length > 0) {
       this.events.emit('node.cascadeDestroyed', { parentId: id, descendantIds });
-      trace(
-        'store',
-        `destroy cascade: ${id} → ${descendantIds.length} descendants`,
-      );
+      trace('store', `destroy cascade: ${id} → ${descendantIds.length} descendants`);
     }
 
     if (this.focusedIdValue === id) this.focusedIdValue = null;
@@ -236,11 +227,9 @@ export class WindeaseNodeStore {
   moveNode(id: NodeId, newParentId: NodeId, at?: number): void {
     const node = this.requireNode(id);
     if (!node.slot) {
-      throw new InvariantViolationError(
-        'move-unslotted',
-        `cannot move unslotted node ${id}`,
-        { id },
-      );
+      throw new InvariantViolationError('move-unslotted', `cannot move unslotted node ${id}`, {
+        id,
+      });
     }
     const newParent = this.requireNode(newParentId);
     if (id === newParentId || this.isDescendantOf(newParentId, id)) {
@@ -470,12 +459,7 @@ export class WindeaseNodeStore {
     // For object-shaped configs, merge-patch with undefined-deletes.
     // For non-object configs, the patch replaces.
     let next: unknown;
-    if (
-      typeof from === 'object' &&
-      from !== null &&
-      typeof patch === 'object' &&
-      patch !== null
-    ) {
+    if (typeof from === 'object' && from !== null && typeof patch === 'object' && patch !== null) {
       const merged: Record<string, unknown> = { ...(from as Record<string, unknown>) };
       for (const [k, v] of Object.entries(patch as Record<string, unknown>)) {
         if (v === undefined) delete merged[k];

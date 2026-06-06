@@ -1,5 +1,5 @@
 import type { WindeaseNodeStore } from '@windease/core';
-import { createContext, type ReactNode, useContext } from 'react';
+import { type ReactNode, createContext, useContext } from 'react';
 
 export const WindeaseNodeContext = createContext<WindeaseNodeStore | null>(null);
 
@@ -9,11 +9,7 @@ export interface WindeaseNodeProviderProps {
 }
 
 export function WindeaseNodeProvider({ store, children }: WindeaseNodeProviderProps) {
-  return (
-    <WindeaseNodeContext.Provider value={store}>
-      {children}
-    </WindeaseNodeContext.Provider>
-  );
+  return <WindeaseNodeContext.Provider value={store}>{children}</WindeaseNodeContext.Provider>;
 }
 
 export function useNodeStore(): WindeaseNodeStore {

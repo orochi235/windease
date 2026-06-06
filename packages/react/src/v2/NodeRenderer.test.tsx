@@ -1,15 +1,7 @@
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  WindeaseNodeStore,
-} from '@windease/core';
 import { render } from '@testing-library/react';
+import { WindeaseNodeStore, asNodeId, createPanel, createZone } from '@windease/core';
 import { describe, expect, it } from 'vitest';
-import {
-  type ChromeMap,
-  WindeaseNodeRoot,
-} from './NodeRenderer.js';
+import { type ChromeMap, WindeaseNodeRoot } from './NodeRenderer.js';
 
 const chrome: ChromeMap = {
   zone: ({ node, children }) => (

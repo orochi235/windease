@@ -1,7 +1,7 @@
 import type { Node, NodeId, NodeKind, WindeaseNodeStore } from '@windease/core';
 import { Fragment, type ReactNode } from 'react';
-import { useChildren, useNode, useRootNodes } from './hooks.js';
 import { WindeaseNodeProvider } from './NodeProvider.js';
+import { useChildren, useNode, useRootNodes } from './hooks.js';
 
 export interface ChromeArgs {
   node: Node;
@@ -27,15 +27,13 @@ export function NodeRenderer({ id, chrome }: NodeRendererProps) {
   if (node.lifecycle.state === 'hidden' || node.lifecycle.state === 'destroyed') {
     return null;
   }
-  const subtree: ReactNode | null = node.container
-    ? (
-        <>
-          {children.map((c) => (
-            <NodeRenderer key={c.id} id={c.id} chrome={chrome} />
-          ))}
-        </>
-      )
-    : null;
+  const subtree: ReactNode | null = node.container ? (
+    <>
+      {children.map((c) => (
+        <NodeRenderer key={c.id} id={c.id} chrome={chrome} />
+      ))}
+    </>
+  ) : null;
   const handler = chrome[node.kind];
   return <Fragment>{handler({ node, children: subtree })}</Fragment>;
 }

@@ -1,9 +1,5 @@
 import type { NodeId } from '@windease/core';
-import {
-  type PointerEvent as ReactPointerEvent,
-  useCallback,
-  useRef,
-} from 'react';
+import { type PointerEvent as ReactPointerEvent, useCallback, useRef } from 'react';
 import { useNode } from '../hooks.js';
 import { useNodeDragController } from './NodeDragProvider.js';
 

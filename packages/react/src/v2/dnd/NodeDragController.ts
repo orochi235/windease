@@ -21,7 +21,10 @@ type Listener = (state: DragState | null) => void;
 export class NodeDragController {
   private active: DragState | null = null;
   private readonly listeners = new Set<Listener>();
-  private readonly dropTargets = new Map<NodeId, { el: Element; canAccept?: (sourceId: NodeId) => boolean }>();
+  private readonly dropTargets = new Map<
+    NodeId,
+    { el: Element; canAccept?: (sourceId: NodeId) => boolean }
+  >();
   private escapeBound = false;
 
   constructor(private readonly store: WindeaseNodeStore) {}
@@ -158,10 +161,7 @@ function ancestorDepth(el: Element): number {
   return n;
 }
 
-function sameHover(
-  a: DragState['hover'],
-  b: DragState['hover'],
-): boolean {
+function sameHover(a: DragState['hover'], b: DragState['hover']): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
   return a.targetId === b.targetId && a.accepted === b.accepted;

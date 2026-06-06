@@ -1,9 +1,4 @@
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  WindeaseNodeStore,
-} from '@windease/core';
+import { WindeaseNodeStore, asNodeId, createPanel, createZone } from '@windease/core';
 import { describe, expect, it, vi } from 'vitest';
 import { NodeDragController } from './NodeDragController.js';
 
