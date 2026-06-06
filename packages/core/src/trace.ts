@@ -17,7 +17,8 @@ export const TRACE_CATEGORIES = [
   'layout',
   'store',
   'workspace',
-  'zone',
+  'zone', // deprecated alias for 'container'; remove in v0.3
+  'container',
 ] as const;
 export type TraceCategory = (typeof TRACE_CATEGORIES)[number];
 
