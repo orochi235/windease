@@ -33,6 +33,14 @@ export interface StoreEvents {
   'zone.configChanged': { zoneId: ZoneId; config: Record<string, unknown> };
 }
 
+/**
+ * @deprecated v0.1 store — use `WindeaseNodeStore` from the v0.2 node model.
+ *
+ * The v0.2 store unifies windows and zones into a single `Node` type with
+ * capability records, fixes the `useWindow` re-render bug structurally via
+ * record replacement, and supports recursive zones (panels hosting their
+ * own children). See `docs/superpowers/specs/2026-06-06-unified-node-model-design.md`.
+ */
 export class WindeaseStore {
   readonly events = new TypedEmitter<StoreEvents>();
   private readonly windows = new Map<WindowId, WindowRecord>();

@@ -12,8 +12,10 @@ export type { LayoutStrategy };
  * that lives at the window-in-zone joint rather than on the window itself
  * (see `WindowRecord.meta` for window-intrinsic meta).
  */
+/** @deprecated v0.1 — use `node.slot.placement` from the v0.2 node model. */
 export type ZoneItemMeta = Record<string, unknown>;
 
+/** @deprecated v0.1 record — use the v0.2 `Node` type with `createZone`/`createGroup`. */
 export interface ZoneRecord {
   id: ZoneId;
   strategy: LayoutStrategy<unknown, WindowId, unknown>;
@@ -37,6 +39,7 @@ export interface CreateZoneInput {
   allowsPinning?: boolean;
 }
 
+/** @deprecated v0.1 — use `createZone` from the v0.2 node model. */
 export function createZoneRecord(input: CreateZoneInput): ZoneRecord {
   return {
     id: input.id,
