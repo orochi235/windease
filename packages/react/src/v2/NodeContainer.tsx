@@ -13,10 +13,18 @@ export interface NodeContainerProps {
   style?: CSSProperties;
   /** Render slot for overlays (drop indicators, etc.). */
   overlay?: ReactNode;
+  /**
+   * Settle animation duration in ms for children moving between placements.
+   * Set to 0 to disable. Default 150ms. The library only animates position
+   * (left/top/width/height); chrome handlers can layer their own.
+   */
+  settleMs?: number;
 }
 
 const CONTAINER_BASE: CSSProperties = { position: 'relative' };
 const CHILD_BASE: CSSProperties = { position: 'absolute' };
+
+const DEFAULT_SETTLE_MS = 150;
 
 /**
  * Renders a container node's visible children at the placements produced by
@@ -34,6 +42,7 @@ export function NodeContainer({
   className,
   style,
   overlay,
+  settleMs = DEFAULT_SETTLE_MS,
 }: NodeContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const parent = useNode(parentId);
@@ -73,6 +82,9 @@ export function NodeContainer({
           width: rect.w,
           height: rect.h,
         };
+        if (settleMs > 0) {
+          childStyle.transition = `left ${settleMs}ms ease, top ${settleMs}ms ease, width ${settleMs}ms ease, height ${settleMs}ms ease`;
+        }
         return (
           <div key={child.id} style={childStyle} data-node={child.id}>
             <NodeRenderer id={child.id} chrome={chrome} />
