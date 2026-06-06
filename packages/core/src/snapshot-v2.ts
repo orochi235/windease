@@ -12,6 +12,7 @@ export interface SerializedNodeV2 {
   id: string;
   kind: NodeKind;
   meta?: Record<string, unknown>;
+  activity?: Record<string, unknown>;
   hints?: {
     minSize?: { w: number; h: number };
     preferredSize?: { w: number; h: number };
@@ -53,6 +54,7 @@ export function serializeNodes(store: WindeaseNodeStore): SerializedStoreV2 {
       lifecycle: node.lifecycle.state as 'mounted' | 'visible' | 'hidden',
     };
     if (node.meta && Object.keys(node.meta).length > 0) out.meta = { ...node.meta };
+    if (node.activity && Object.keys(node.activity).length > 0) out.activity = { ...node.activity };
     if (node.hints && Object.keys(node.hints).length > 0) out.hints = { ...node.hints };
     if (node.container) {
       const c: SerializedNodeV2['container'] = {
@@ -212,6 +214,7 @@ function buildNodeFromSerialized(sn: SerializedNodeV2, opts: { emptyChildIds: bo
     lifecycle,
   };
   if (sn.meta) node.meta = { ...sn.meta };
+  if (sn.activity) node.activity = { ...sn.activity };
   if (sn.hints) node.hints = { ...sn.hints };
   if (sn.container) {
     node.container = {

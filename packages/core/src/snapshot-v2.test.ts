@@ -9,6 +9,7 @@ import {
   serializeNodes,
   type SerializedStoreV2,
 } from './snapshot-v2.js';
+import type { SerializedStore, SerializedWindow } from './snapshot.js';
 import { WindeaseStore } from './store.js';
 import { WindeaseNodeStore } from './store-v2.js';
 import { asWindowId, asZoneId } from './window.js';
@@ -141,6 +142,66 @@ describe('deserializeToNodeStore — v1 input flows through migration', () => {
     const restored = deserializeToNodeStore(v1);
     expect(restored.getContainerView(asNodeId('z'))?.childIds).toEqual(['p']);
     expect(restored.getNode(asNodeId('p'))?.kind).toBe('panel');
+  });
+});
+
+describe('snapshot v2 — activity', () => {
+  it('round-trips activity verbatim', () => {
+    const store = new WindeaseNodeStore();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.patchActivity(asNodeId('p'), { busy: true, lastAt: 1234 });
+    const snap = serializeNodes(store);
+    const pSerialized = snap.nodes.find((n) => n.id === 'p')!;
+    expect(pSerialized.activity).toEqual({ busy: true, lastAt: 1234 });
+
+    const hydrated = deserializeToNodeStore(snap);
+    expect(hydrated.getActivity(asNodeId('p'))).toEqual({ busy: true, lastAt: 1234 });
+  });
+
+  it('omits activity from snapshot when empty', () => {
+    const store = new WindeaseNodeStore();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    const snap = serializeNodes(store);
+    expect(snap.nodes.find((n) => n.id === 'p')!.activity).toBeUndefined();
+  });
+
+  it('omits activity after setActivity({}) clears it', () => {
+    const store = new WindeaseNodeStore();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.patchActivity(asNodeId('p'), { busy: true });
+    store.setActivity(asNodeId('p'), {});
+    const snap = serializeNodes(store);
+    expect(snap.nodes.find((n) => n.id === 'p')!.activity).toBeUndefined();
+  });
+
+  it('v1 → v2 migration leaves activity absent', () => {
+    const v1: SerializedStore = {
+      version: 1,
+      zones: [
+        {
+          id: 'z',
+          strategyName: 'grid',
+          config: {},
+          windowIds: ['p'],
+          allowsPinning: true,
+          itemMeta: {},
+        },
+      ],
+      windows: [
+        {
+          id: 'p',
+          zoneId: 'z',
+          lifecycle: 'visible',
+          focus: 'blurred',
+        } as SerializedWindow,
+      ],
+    };
+    const migrated = migrateV1ToV2(v1);
+    const p = migrated.nodes.find((n) => n.id === 'p')!;
+    expect(p.activity).toBeUndefined();
   });
 });
 
