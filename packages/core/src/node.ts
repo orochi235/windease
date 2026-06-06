@@ -37,6 +37,7 @@ export interface Node {
   id: NodeId;
   kind: NodeKind;
   meta?: Record<string, unknown>;
+  activity?: Record<string, unknown>;
   hints?: NodeHints;
   lifecycle: LifecycleCap;
 
