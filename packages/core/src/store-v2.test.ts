@@ -418,6 +418,102 @@ describe('WindeaseNodeStore — subscribe', () => {
   });
 });
 
+describe('WindeaseNodeStore — activity', () => {
+  it('getActivity returns {} when unset', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    expect(s.getActivity(id('z'))).toEqual({});
+  });
+
+  it('setActivity replaces the entire bag and emits a single event', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.patchActivity(id('z'), { busy: true, count: 1 });
+    const cb = vi.fn();
+    s.events.on('node.activityChanged', cb);
+    s.setActivity(id('z'), { lastAt: 1000 });
+    expect(s.getActivity(id('z'))).toEqual({ lastAt: 1000 });
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb.mock.calls[0]?.[0]).toEqual({
+      id: id('z'),
+      changes: {
+        busy: { from: true, to: undefined },
+        count: { from: 1, to: undefined },
+        lastAt: { from: undefined, to: 1000 },
+      },
+    });
+  });
+
+  it('setActivity({}) clears the bag', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.patchActivity(id('z'), { busy: true });
+    s.setActivity(id('z'), {});
+    expect(s.getActivity(id('z'))).toEqual({});
+    expect(s.getNode(id('z'))?.activity).toBeUndefined();
+  });
+
+  it('patchActivity merges; undefined keys delete', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    const cb = vi.fn();
+    s.events.on('node.activityChanged', cb);
+    s.patchActivity(id('z'), { busy: true, count: 1 });
+    expect(s.getActivity(id('z'))).toEqual({ busy: true, count: 1 });
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb.mock.calls[0]?.[0].changes).toEqual({
+      busy: { from: undefined, to: true },
+      count: { from: undefined, to: 1 },
+    });
+    s.patchActivity(id('z'), { busy: undefined });
+    expect(s.getActivity(id('z'))).toEqual({ count: 1 });
+    expect(cb).toHaveBeenCalledTimes(2);
+    expect(cb.mock.calls[1]?.[0].changes).toEqual({
+      busy: { from: true, to: undefined },
+    });
+  });
+
+  it('no-op patches do not emit', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.patchActivity(id('z'), { busy: true });
+    const cb = vi.fn();
+    s.events.on('node.activityChanged', cb);
+    s.patchActivity(id('z'), { busy: true });
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('no-op setActivity (same keys + values) does not emit', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.setActivity(id('z'), { busy: true });
+    const cb = vi.fn();
+    s.events.on('node.activityChanged', cb);
+    s.setActivity(id('z'), { busy: true });
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('produces a fresh Node reference on change', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    const before = s.getNode(id('z'));
+    s.patchActivity(id('z'), { busy: true });
+    const after = s.getNode(id('z'));
+    expect(after).not.toBe(before);
+  });
+
+  it('throws NodeNotFoundError when node is missing', () => {
+    const s = fresh();
+    expect(() => s.setActivity(id('missing'), { x: 1 })).toThrow(NodeNotFoundError);
+    expect(() => s.patchActivity(id('missing'), { x: 1 })).toThrow(NodeNotFoundError);
+  });
+
+  it('getActivity on a missing node returns {}', () => {
+    const s = fresh();
+    expect(s.getActivity(id('missing'))).toEqual({});
+  });
+});
+
 describe('WindeaseNodeStore — integration', () => {
   it('builds and rearranges a 3-level tree', () => {
     const s = fresh();

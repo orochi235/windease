@@ -40,6 +40,10 @@ export interface NodeStoreEvents {
     id: NodeId;
     changes: Record<string, { from: unknown; to: unknown }>;
   };
+  'node.activityChanged': {
+    id: NodeId;
+    changes: Record<string, { from: unknown; to: unknown }>;
+  };
   'node.cascadeDestroyed': {
     parentId: NodeId;
     descendantIds: readonly NodeId[];
@@ -446,6 +450,65 @@ export class WindeaseNodeStore {
 
   getMeta(id: NodeId): Record<string, unknown> {
     return this.nodesMap.get(id)?.meta ?? {};
+  }
+
+  // ===== Activity =====
+
+  setActivity(id: NodeId, value: Record<string, unknown>): void {
+    const node = this.requireNode(id);
+    const prev = node.activity ?? {};
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    for (const k of Object.keys(prev)) {
+      if (!(k in value)) changes[k] = { from: prev[k], to: undefined };
+    }
+    for (const [k, v] of Object.entries(value)) {
+      if (prev[k] !== v) changes[k] = { from: prev[k], to: v };
+    }
+    if (Object.keys(changes).length === 0) return;
+    const nextActivity = Object.keys(value).length === 0 ? undefined : { ...value };
+    this.replaceNode(id, (n) => {
+      const next = { ...n };
+      if (nextActivity === undefined) delete next.activity;
+      else next.activity = nextActivity;
+      return next;
+    });
+    this.events.emit('node.activityChanged', { id, changes });
+    trace('store', `activity: ${id} changed: ${Object.keys(changes).join(',')}`);
+    this.scheduleNotify();
+  }
+
+  patchActivity(id: NodeId, patch: Record<string, unknown>): void {
+    const node = this.requireNode(id);
+    const prev = node.activity ?? {};
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    const next: Record<string, unknown> = { ...prev };
+    for (const [k, v] of Object.entries(patch)) {
+      const from = prev[k];
+      if (v === undefined) {
+        if (k in next) {
+          delete next[k];
+          changes[k] = { from, to: undefined };
+        }
+      } else if (from !== v) {
+        next[k] = v;
+        changes[k] = { from, to: v };
+      }
+    }
+    if (Object.keys(changes).length === 0) return;
+    const nextActivity = Object.keys(next).length === 0 ? undefined : next;
+    this.replaceNode(id, (n) => {
+      const out = { ...n };
+      if (nextActivity === undefined) delete out.activity;
+      else out.activity = nextActivity;
+      return out;
+    });
+    this.events.emit('node.activityChanged', { id, changes });
+    trace('store', `activity: ${id} changed: ${Object.keys(changes).join(',')}`);
+    this.scheduleNotify();
+  }
+
+  getActivity(id: NodeId): Record<string, unknown> {
+    return this.nodesMap.get(id)?.activity ?? {};
   }
 
   // ===== Container config =====
