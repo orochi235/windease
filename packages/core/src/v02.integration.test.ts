@@ -5,6 +5,8 @@ import {
   createPanel,
   createZone,
   validateKindShape,
+  WindeaseNodeStore,
+  getLayoutNodes,
 } from './index.js';
 
 describe('v0.2 node model — integration', () => {
@@ -41,5 +43,30 @@ describe('v0.2 node model — integration', () => {
     expect(group.container?.strategyId).toBe('strip');
     expect(group.slot?.parentId).toBe('z');
     expect(group.focus).toBeUndefined();
+  });
+});
+
+describe('integration: activity-aware consumer strategy', () => {
+  it('sorts children by activity.lastAt descending', () => {
+    const store = new WindeaseNodeStore();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('c'), parentId: asNodeId('z') }));
+    store.showNode(asNodeId('a'));
+    store.showNode(asNodeId('b'));
+    store.showNode(asNodeId('c'));
+
+    store.patchActivity(asNodeId('a'), { lastAt: 10 });
+    store.patchActivity(asNodeId('b'), { lastAt: 30 });
+    store.patchActivity(asNodeId('c'), { lastAt: 20 });
+
+    const layoutNodes = getLayoutNodes(store, asNodeId('z'));
+    const sorted = [...layoutNodes].sort((x, y) => {
+      const xt = (x.activity.lastAt as number) ?? 0;
+      const yt = (y.activity.lastAt as number) ?? 0;
+      return yt - xt;
+    });
+    expect(sorted.map((n) => n.id)).toEqual(['b', 'c', 'a']);
   });
 });
