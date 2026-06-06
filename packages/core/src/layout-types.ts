@@ -32,6 +32,7 @@ export interface LayoutNode {
   meta: Record<string, unknown>;
   placement: Record<string, unknown>;
   isContainer: boolean;
+  activity: Record<string, unknown>;
 }
 
 export type BuiltinAffordanceKind = 'drag-x' | 'drag-y' | 'drag-xy' | 'click' | 'keypress';

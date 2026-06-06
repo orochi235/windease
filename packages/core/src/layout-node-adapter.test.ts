@@ -81,6 +81,32 @@ describe('getLayoutNodes', () => {
   });
 });
 
+describe('layout-node-adapter — activity passthrough', () => {
+  it('nodeToLayoutNode populates activity (defaults to {})', () => {
+    const store = new WindeaseNodeStore();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    const before = nodeToLayoutNode(store.getNode(asNodeId('p'))!);
+    expect(before.activity).toEqual({});
+
+    store.patchActivity(asNodeId('p'), { busy: true, lastAt: 42 });
+    const after = nodeToLayoutNode(store.getNode(asNodeId('p'))!);
+    expect(after.activity).toEqual({ busy: true, lastAt: 42 });
+  });
+
+  it('runStrategyForContainer exposes activity to LayoutNodes (via getLayoutNodes)', () => {
+    const store = new WindeaseNodeStore();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('p2'), parentId: asNodeId('z') }));
+    store.showNode(asNodeId('p1'));
+    store.showNode(asNodeId('p2'));
+    store.patchActivity(asNodeId('p2'), { lastAt: 100 });
+    const nodes = getLayoutNodes(store, asNodeId('z'));
+    expect(nodes.map((n) => n.activity)).toEqual([{}, { lastAt: 100 }]);
+  });
+});
+
 describe('runStrategyForContainer', () => {
   it('runs stackStrategy on a container, returns NodeId-keyed placements', () => {
     const s = new WindeaseNodeStore();

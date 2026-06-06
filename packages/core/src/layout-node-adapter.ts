@@ -33,6 +33,7 @@ export function nodeToLayoutNode(node: Node): LayoutNode {
     meta: { ...(node.meta ?? {}) },
     placement: { ...(node.slot?.placement ?? {}) },
     isContainer: !!node.container,
+    activity: { ...(node.activity ?? {}) },
   };
 }
 
