@@ -82,22 +82,58 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     const cap = gridCapacity(options as GridConfig, items.length);
     return items.length <= cap;
   },
+  getDropPreview({ items, container, options, insertId, insertIndex, cursor: _cursor }) {
+    const cfg = options as GridConfig;
+    // Splice ghost in if not already present.
+    const ghostAt = items.findIndex((it) => it.id === insertId);
+    const projected: LayoutItem[] =
+      ghostAt >= 0
+        ? items
+        : insertIndex !== undefined && insertIndex >= 0 && insertIndex <= items.length
+          ? [...items.slice(0, insertIndex), { id: insertId }, ...items.slice(insertIndex)]
+          : [...items, { id: insertId }];
+    const cap = gridCapacity(cfg, projected.length);
+    if (projected.length > cap) {
+      // Still produce placements (using normal layout) so the host can show
+      // the rejection overlay against the current grid.
+      const fallback = gridStrategy.layout({
+        items,
+        container,
+        state: undefined,
+        options,
+      });
+      return { placements: fallback.placements, accepted: false };
+    }
+    const lay = gridStrategy.layout({
+      items: projected,
+      container,
+      state: undefined,
+      options,
+    });
+    return { placements: lay.placements, accepted: true };
+  },
   layout({
     items,
     container,
     options,
+    preview,
   }: {
     items: LayoutItem[];
     container: Size;
     state: void;
     options: Record<string, unknown>;
+    preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } };
   }): LayoutResult<string> {
     const cfg = options as GridConfig;
     const gap = cfg.gap ?? 0;
     const padding = cfg.padding ?? 0;
 
     const placements = new Map<string, Rect>();
-    if (items.length === 0) return { placements, affordances: [] };
+    if (items.length === 0) {
+      const empty: LayoutResult<string> = { placements, affordances: [] };
+      if (preview) empty.isPreview = true;
+      return empty;
+    }
 
     const hasGridCap = cfg.maxCols !== undefined || cfg.maxRows !== undefined;
     if (cfg.maxItems !== undefined && hasGridCap) {
@@ -170,6 +206,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
 
     const result: LayoutResult<string> = { placements, affordances: [] };
     if (unplaced.length > 0) result.unplaced = unplaced;
+    if (preview) result.isPreview = true;
     return result;
   },
 };

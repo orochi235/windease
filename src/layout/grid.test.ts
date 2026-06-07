@@ -313,3 +313,44 @@ describe('gridStrategy', () => {
     });
   });
 });
+
+describe('gridStrategy — preview', () => {
+  it('marks isPreview=true when preview is set on layout()', () => {
+    const result = gridStrategy.layout({
+      items: [{ id: 'a' }, { id: 'ghost' }, { id: 'b' }],
+      container: { w: 300, h: 200 },
+      state: undefined,
+      options: { cols: 3 },
+      preview: { insertId: 'ghost', insertIndex: 1, cursor: { x: 150, y: 100 } },
+    });
+    expect(result.isPreview).toBe(true);
+    expect(result.placements.get('ghost')).toBeDefined();
+  });
+
+  it('getDropPreview returns placements that include the insertId', () => {
+    const out = gridStrategy.getDropPreview!({
+      items: [{ id: 'a' }, { id: 'b' }],
+      container: { w: 200, h: 200 },
+      options: { cols: 2 },
+      insertId: 'ghost',
+      insertIndex: 1,
+      cursor: { x: 100, y: 50 },
+    });
+    expect(out).not.toBeNull();
+    expect(out!.accepted).toBe(true);
+    expect(out!.placements.has('ghost')).toBe(true);
+  });
+
+  it('getDropPreview returns accepted=false when it would overflow maxItems', () => {
+    const out = gridStrategy.getDropPreview!({
+      items: [{ id: 'a' }, { id: 'b' }],
+      container: { w: 200, h: 200 },
+      options: { maxItems: 2 },
+      insertId: 'ghost',
+      insertIndex: 2,
+      cursor: { x: 100, y: 50 },
+    });
+    expect(out).not.toBeNull();
+    expect(out!.accepted).toBe(false);
+  });
+});
