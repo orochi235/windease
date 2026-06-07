@@ -20,6 +20,19 @@ export {
 
 // Preset components
 export { Panel, Group, Zone } from './presets.js';
+export type { PanelProps, GroupProps, ZoneProps } from './presets.js';
+
+// Declarative tree binding
+export { ParentContext, ParentScope, useParentId } from './ParentContext.js';
+export { defaultChildSort, type ChildSort, type ChildSortEntry } from './childSort.js';
+export {
+  LayoutContext,
+  LayoutScope,
+  useLayoutContext,
+  useLayoutForSelf,
+  type LayoutInfo,
+  type Rect,
+} from './LayoutContext.js';
 
 // DnD
 export {
