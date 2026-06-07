@@ -51,6 +51,20 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
     opts.id ??
     (`${opts.kindHintForAutoId ?? 'node'}-${reactId.replace(/:/g, '')}` as NodeId);
 
+  // Detect id changes across renders. React reuses the component instance when
+  // only props change, so if a consumer writes `<Panel id={dynamicId} />` and
+  // `dynamicId` flips without a `key={dynamicId}`, the render-time registration
+  // guard never re-fires for the new id and the unmount cleanup later wipes
+  // nodes the parent reconciler just ordered. Throw with clear guidance.
+  const lastIdRef = useRef<NodeId | null>(null);
+  if (lastIdRef.current !== null && lastIdRef.current !== id) {
+    throw new Error(
+      `windease: <${opts.kindHintForAutoId ?? 'preset'}> id changed from "${lastIdRef.current}" to "${id}" without a key. ` +
+        `Add key={id} to your JSX element so React remounts the component when the id changes.`,
+    );
+  }
+  lastIdRef.current = id;
+
   // Per-mount ownership token. Distinct for every component instance so we can
   // tell our own registration apart from an imperative one with the same id.
   const ownerRef = useRef<symbol | null>(null);

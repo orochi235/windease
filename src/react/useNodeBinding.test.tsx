@@ -1,5 +1,5 @@
 import { render, cleanup } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StrictMode } from 'react';
 import { Store, asNodeId, createPanel, createZone } from '../index.js';
 import { Provider } from './Provider.js';
@@ -92,6 +92,19 @@ describe('useNodeBinding', () => {
     expect(store.getNode(asNodeId('a'))).toBeTruthy();
     const childOrder = store.getContainerView(asNodeId('root'))?.childOrder ?? [];
     expect(childOrder.filter((id) => id === asNodeId('a')).length).toBe(1);
+  });
+
+  it('throws when id prop changes without a key', () => {
+    const store = setupStore();
+    const Tree = ({ id }: { id: string }) => (
+      <Provider store={store}>
+        <TestPanel id={id} parentId="root" />
+      </Provider>
+    );
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { rerender } = render(<Tree id="a" />);
+    expect(() => rerender(<Tree id="b" />)).toThrow(/id changed.*without a key/);
+    spy.mockRestore();
   });
 
   it('reconciles current props on the StrictMode recovery remount', () => {
