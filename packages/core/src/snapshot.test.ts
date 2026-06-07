@@ -33,4 +33,18 @@ describe('snapshot / hydrate', () => {
     const b = new WindeaseStore();
     expect(() => b.hydrate(snap, { strategies: {} })).toThrow();
   });
+
+  it('hydrate throws on missing version field', () => {
+    const b = new WindeaseStore();
+    expect(() =>
+      b.hydrate({ windows: [], zones: [] } as never, { strategies: {} }),
+    ).toThrow(/version/);
+  });
+
+  it('hydrate throws on unknown version (e.g. v2 snapshot)', () => {
+    const b = new WindeaseStore();
+    expect(() =>
+      b.hydrate({ version: 2, windows: [], zones: [] } as never, { strategies: {} }),
+    ).toThrow(/version 2/);
+  });
 });

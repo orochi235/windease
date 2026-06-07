@@ -104,8 +104,6 @@ they grow.
   record replacement on mutation, or an `events`-derived hook.
 - `snapshot()` serializes `transit` state but `hydrate()` ignores it.
   Either drop the field or honor it.
-- `hydrate()` doesn't validate `version` field — silent corruption risk when
-  v2 ships.
 - Layout strategies cast `zone.config as XConfig` unchecked. Typos at
   registration time become silent runtime quirks.
 - Strip strategy returns zero width/height when a window has no

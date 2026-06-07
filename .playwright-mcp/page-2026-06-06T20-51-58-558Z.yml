@@ -1,0 +1,62 @@
+- generic [ref=e3]:
+  - main [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Story not found" [level=1] [ref=e6]
+      - paragraph [ref=e7]:
+        - text: The story id
+        - code [ref=e8]: recursive-zones--recursive-zones
+        - text: you are trying to open does not exist. Typo?
+      - paragraph [ref=e9]:
+        - link "Back to home" [ref=e10] [cursor=pointer]:
+          - /url: /
+      - paragraph [ref=e11]:
+        - link "GitHub" [ref=e12] [cursor=pointer]:
+          - /url: https://github.com/tajo/ladle
+      - paragraph [ref=e13]:
+        - link "Docs" [ref=e14] [cursor=pointer]:
+          - /url: https://www.ladle.dev
+  - separator [ref=e15]
+  - navigation [ref=e16]:
+    - textbox "Search stories" [ref=e17]:
+      - /placeholder: Search
+    - tree [ref=e18]:
+      - treeitem "Grid" [ref=e19]:
+        - generic "Grid" [ref=e20] [cursor=pointer]:
+          - img [ref=e22]
+          - generic [ref=e25]: Grid
+      - treeitem "Playground" [ref=e26]:
+        - generic "Playground" [ref=e27] [cursor=pointer]:
+          - img [ref=e29]
+          - generic [ref=e32]: Playground
+      - treeitem "Stack" [ref=e33]:
+        - generic "Stack" [ref=e34] [cursor=pointer]:
+          - img [ref=e36]
+          - generic [ref=e39]: Stack
+      - treeitem "Strip" [ref=e40]:
+        - generic "Strip" [ref=e41] [cursor=pointer]:
+          - img [ref=e43]
+          - generic [ref=e46]: Strip
+      - treeitem "Workspace" [ref=e47]:
+        - generic "Workspace" [ref=e48] [cursor=pointer]:
+          - img [ref=e50]
+          - generic [ref=e53]: Workspace
+  - banner [ref=e54]:
+    - list [ref=e55]:
+      - listitem [ref=e56]:
+        - button "Switch to dark theme." [ref=e57] [cursor=pointer]:
+          - img [ref=e58]
+      - listitem [ref=e62]:
+        - button "Open fullscreen mode. Can be toggled by pressing f." [ref=e63] [cursor=pointer]:
+          - img [ref=e64]
+      - listitem [ref=e67]:
+        - button "Change the story viewport." [ref=e68] [cursor=pointer]:
+          - img [ref=e69]
+      - listitem [ref=e73]:
+        - button "Switch text direction to right to left." [ref=e74] [cursor=pointer]:
+          - img [ref=e75]
+      - listitem [ref=e78]:
+        - button "Show the story source code." [ref=e79] [cursor=pointer]:
+          - img [ref=e80]
+      - listitem [ref=e83]:
+        - button "Get more information about Ladle." [ref=e84] [cursor=pointer]:
+          - img [ref=e85]

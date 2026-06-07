@@ -1,0 +1,74 @@
+- generic [ref=e3]:
+  - main [ref=e4]
+  - separator [ref=e5]
+  - navigation [ref=e6]:
+    - textbox "Search stories" [ref=e7]:
+      - /placeholder: Search
+    - tree [ref=e8]:
+      - treeitem "Grid" [ref=e9]:
+        - generic "Grid" [ref=e10] [cursor=pointer]:
+          - img [ref=e12]
+          - generic [ref=e15]: Grid
+      - treeitem "Playground" [ref=e16]:
+        - generic "Playground" [ref=e17] [cursor=pointer]:
+          - img [ref=e19]
+          - generic [ref=e22]: Playground
+      - treeitem "Stack" [ref=e23]:
+        - generic "Stack" [ref=e24] [cursor=pointer]:
+          - img [ref=e26]
+          - generic [ref=e29]: Stack
+      - treeitem "Strip" [ref=e30]:
+        - generic "Strip" [ref=e31] [cursor=pointer]:
+          - img [ref=e33]
+          - generic [ref=e36]: Strip
+      - treeitem "V0 2" [expanded] [ref=e37]:
+        - generic "V0 2" [ref=e38] [cursor=pointer]:
+          - img [ref=e40]
+          - generic [ref=e43]: V0 2
+        - group [ref=e44]:
+          - treeitem "Grid" [expanded] [ref=e45]:
+            - generic "Grid" [ref=e46] [cursor=pointer]:
+              - img [ref=e48]
+              - generic [ref=e51]: Grid
+            - group [ref=e52]:
+              - treeitem "Grid" [expanded] [ref=e53]:
+                - generic [ref=e54]:
+                  - img [ref=e56]
+                  - link "Grid" [ref=e58] [cursor=pointer]:
+                    - /url: "?story=v0-2--grid--grid"
+          - treeitem "Recursive zones" [ref=e59]:
+            - generic "Recursive zones" [ref=e60] [cursor=pointer]:
+              - img [ref=e62]
+              - generic [ref=e65]: Recursive zones
+          - treeitem "Stack" [ref=e66]:
+            - generic "Stack" [ref=e67] [cursor=pointer]:
+              - img [ref=e69]
+              - generic [ref=e72]: Stack
+          - treeitem "Strip" [ref=e73]:
+            - generic "Strip" [ref=e74] [cursor=pointer]:
+              - img [ref=e76]
+              - generic [ref=e79]: Strip
+      - treeitem "Workspace" [ref=e80]:
+        - generic "Workspace" [ref=e81] [cursor=pointer]:
+          - img [ref=e83]
+          - generic [ref=e86]: Workspace
+  - banner [ref=e87]:
+    - list [ref=e88]:
+      - listitem [ref=e89]:
+        - button "Switch to dark theme." [ref=e90] [cursor=pointer]:
+          - img [ref=e91]
+      - listitem [ref=e95]:
+        - button "Open fullscreen mode. Can be toggled by pressing f." [ref=e96] [cursor=pointer]:
+          - img [ref=e97]
+      - listitem [ref=e100]:
+        - button "Change the story viewport." [ref=e101] [cursor=pointer]:
+          - img [ref=e102]
+      - listitem [ref=e106]:
+        - button "Switch text direction to right to left." [ref=e107] [cursor=pointer]:
+          - img [ref=e108]
+      - listitem [ref=e111]:
+        - button "Show the story source code." [ref=e112] [cursor=pointer]:
+          - img [ref=e113]
+      - listitem [ref=e116]:
+        - button "Get more information about Ladle." [ref=e117] [cursor=pointer]:
+          - img [ref=e118]

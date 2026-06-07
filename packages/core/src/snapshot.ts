@@ -76,6 +76,19 @@ export function deserialize(
   snap: SerializedStore,
   strategies: Record<string, LayoutStrategy<unknown, WindowId, unknown>>,
 ): { windows: Map<WindowId, WindowRecord>; zones: Map<ZoneId, ZoneRecord> } {
+  const versioned = snap as { version?: unknown } | null | undefined;
+  if (!versioned || typeof versioned !== 'object' || typeof versioned.version !== 'number') {
+    throw new WindeaseError(
+      'unsupported-snapshot-version',
+      'snapshot is missing a numeric version field',
+    );
+  }
+  if (versioned.version !== 1) {
+    throw new WindeaseError(
+      'unsupported-snapshot-version',
+      `deserialize() only accepts v1 snapshots; got version ${versioned.version}. Use deserializeToNodeStore() for v2.`,
+    );
+  }
   const windows = new Map<WindowId, WindowRecord>();
   for (const sw of snap.windows) {
     const w = createWindowRecord({
