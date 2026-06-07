@@ -24,8 +24,12 @@ export interface NodeBindingResult {
 
 /**
  * Marker stored on `node.meta[JSX_OWNER_META_KEY]` so collisions with
- * imperative registrations can be detected. The value is a Symbol unique to
- * each component mount.
+ * imperative registrations can be detected. The value is a string token
+ * derived from React's `useId()` — stable for a given JSX position even
+ * across React 19 render-retry cycles (which reset refs but reuse the same
+ * fiber id). This stability is what keeps a child's render-time error from
+ * masking itself as a phantom "already mounted by another preset" collision
+ * on the parent's retry pass.
  */
 export const JSX_OWNER_META_KEY = '__windease_jsxOwner';
 
@@ -65,10 +69,12 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   }
   lastIdRef.current = id;
 
-  // Per-mount ownership token. Distinct for every component instance so we can
-  // tell our own registration apart from an imperative one with the same id.
-  const ownerRef = useRef<symbol | null>(null);
-  if (ownerRef.current === null) ownerRef.current = Symbol(`jsx:${id}`);
+  // Ownership token. Uses `useId()` so the token is deterministic for a given
+  // JSX position — survives React 19's render-retry cycle (which resets refs
+  // but reuses the same fiber id). A per-mount Symbol would mint a fresh value
+  // on retry, causing the collision check below to misreport a descendant's
+  // real error as "already mounted by another preset".
+  const ownerToken = `jsx:${reactId}`;
 
   // Keep latest opts/parentId reachable from the unmount-recovery effect,
   // whose deps are deliberately minimal (`[id]`). React already invokes the
@@ -81,7 +87,7 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   function registerWithOwner(factory: NodeBindingOptions['factory'], parent: NodeId | null): void {
     const node = factory(id, parent);
     const existingMeta = (node.meta ?? {}) as Record<string, unknown>;
-    const mergedMeta = { ...existingMeta, [JSX_OWNER_META_KEY]: ownerRef.current };
+    const mergedMeta = { ...existingMeta, [JSX_OWNER_META_KEY]: ownerToken };
     store.registerNode({ ...node, meta: mergedMeta });
   }
 
@@ -99,7 +105,7 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
             `registerNode call or change the ${opts.kindHintForAutoId ?? 'preset'}'s id.`,
         );
       }
-      if (owner !== ownerRef.current) {
+      if (owner !== ownerToken) {
         throw new Error(
           `windease: node "${id}" is already mounted by another ${opts.kindHintForAutoId ?? 'preset'}; ` +
             `ids must be unique within a Provider.`,
