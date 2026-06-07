@@ -30,11 +30,13 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     items,
     container,
     options,
+    preview,
   }: {
     items: LayoutItem[];
     container: Size;
     state: void;
     options: Record<string, unknown>;
+    preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } };
   }): LayoutResult<string> {
     const cfg = options as StripConfig;
     const axis = cfg.axis ?? 'x';
@@ -44,7 +46,11 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const defaultItemSize = cfg.defaultItemSize ?? 0;
 
     const placements = new Map<string, Rect>();
-    if (items.length === 0) return { placements, affordances: [] };
+    if (items.length === 0) {
+      const empty: LayoutResult<string> = { placements, affordances: [] };
+      if (preview) empty.isPreview = true;
+      return empty;
+    }
 
     const main = axis === 'x' ? container.w : container.h;
     const preferred = items.map((item) =>
@@ -77,6 +83,8 @@ export const stripStrategy: LayoutStrategy<void, string> = {
         y += h + gap;
       }
     }
-    return { placements, affordances: [] };
+    const result: LayoutResult<string> = { placements, affordances: [] };
+    if (preview) result.isPreview = true;
+    return result;
   },
 };

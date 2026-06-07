@@ -68,3 +68,35 @@ describe('stripStrategy', () => {
     expect(result.placements.get('b')).toEqual({ x: 0, y: 20, w: 50, h: 30 });
   });
 });
+
+describe('stripStrategy — preview', () => {
+  it('places the ghost between siblings on the x axis (insertIndex=1 of 3)', () => {
+    const result = stripStrategy.layout({
+      items: [{ id: 'a' }, { id: 'ghost' }, { id: 'b' }],
+      container: { w: 300, h: 100 },
+      state: undefined,
+      options: { fill: true },
+      preview: { insertId: 'ghost', insertIndex: 1, cursor: { x: 150, y: 50 } },
+    });
+    expect(result.isPreview).toBe(true);
+    const a = result.placements.get('a')!;
+    const ghost = result.placements.get('ghost')!;
+    const b = result.placements.get('b')!;
+    expect(a.x).toBeLessThan(ghost.x);
+    expect(ghost.x).toBeLessThan(b.x);
+  });
+
+  it('places the ghost between siblings on the y axis when axis=y', () => {
+    const result = stripStrategy.layout({
+      items: [{ id: 'a' }, { id: 'ghost' }],
+      container: { w: 100, h: 200 },
+      state: undefined,
+      options: { axis: 'y', fill: true },
+      preview: { insertId: 'ghost', insertIndex: 1, cursor: { x: 50, y: 150 } },
+    });
+    const a = result.placements.get('a')!;
+    const ghost = result.placements.get('ghost')!;
+    expect(ghost.y).toBeGreaterThan(a.y);
+    expect(result.isPreview).toBe(true);
+  });
+});
