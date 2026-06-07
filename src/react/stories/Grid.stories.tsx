@@ -1,22 +1,22 @@
-export default { title: 'v0.2 / Grid' };
+export default { title: 'Grid' };
 
 import {
   asNodeId,
   createPanel,
   createZone,
   gridStrategy,
-  WindeaseNodeStore,
-} from '../../../index.js';
+  WindeaseStore,
+} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
   NodeContainer,
   StrategyRegistryProvider,
-  WindeaseNodeProvider,
-} from '../../v2/index.js';
-import '../windease.css';
-import { colorClassForId } from '../Panel.js';
+  WindeaseProvider,
+} from '../index.js';
+import './windease.css';
+import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   grid: gridStrategy as never,
@@ -33,7 +33,7 @@ interface Args {
 
 export const Grid: Story<Args> = ({ cols, gap, padding, panelCount }) => {
   const store = useMemo(() => {
-    const s = new WindeaseNodeStore();
+    const s = new WindeaseStore();
     s.registerNode(
       createZone({
         id: ZONE_ID,
@@ -66,7 +66,7 @@ export const Grid: Story<Args> = ({ cols, gap, padding, panelCount }) => {
   );
 
   return (
-    <WindeaseNodeProvider store={store}>
+    <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 480, height: 360 }}>
           <NodeContainer
@@ -77,7 +77,7 @@ export const Grid: Story<Args> = ({ cols, gap, padding, panelCount }) => {
           />
         </div>
       </StrategyRegistryProvider>
-    </WindeaseNodeProvider>
+    </WindeaseProvider>
   );
 };
 

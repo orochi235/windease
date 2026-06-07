@@ -1,9 +1,9 @@
-import type { Node, NodeId } from '../../index.js';
+import type { Node, NodeId } from '../index.js';
 import { useMemo, useSyncExternalStore } from 'react';
-import { useNodeStore } from './NodeProvider.js';
+import { useStore } from './WindeaseProvider.js';
 
 export function useNode(id: NodeId): Node | undefined {
-  const store = useNodeStore();
+  const store = useStore();
   return useSyncExternalStore(
     (cb) => store.subscribe(cb),
     () => store.getNode(id),
@@ -11,7 +11,7 @@ export function useNode(id: NodeId): Node | undefined {
 }
 
 export function useNodeSelector<T>(id: NodeId, select: (n: Node) => T): T | undefined {
-  const store = useNodeStore();
+  const store = useStore();
   return useSyncExternalStore(
     (cb) => store.subscribe(cb),
     () => {
@@ -26,7 +26,7 @@ export function useChildren(parentId: NodeId): readonly Node[] {
   // container.childIds via useMemo so the array is stable until childIds
   // actually changes. (getChildren() would allocate a new array per call
   // and cause useSyncExternalStore to loop.)
-  const store = useNodeStore();
+  const store = useStore();
   const parent = useNode(parentId);
   const childIds = parent?.container?.childIds;
   return useMemo(() => {
@@ -41,7 +41,7 @@ export function useChildren(parentId: NodeId): readonly Node[] {
 }
 
 export function useFocusedNode(): Node | undefined {
-  const store = useNodeStore();
+  const store = useStore();
   const focusedId = useSyncExternalStore(
     (cb) => store.subscribe(cb),
     () => store.focusedId,
@@ -50,7 +50,7 @@ export function useFocusedNode(): Node | undefined {
 }
 
 export function useRootNodes(): readonly Node[] {
-  const store = useNodeStore();
+  const store = useStore();
   // Subscribe to a stable snapshot of rootIds. We rely on the store
   // mutating rootIds in place (push/splice) only on register/unregister,
   // and recompute children only when the array length differs or any
@@ -73,7 +73,7 @@ export function useRootNodes(): readonly Node[] {
 }
 
 export function useActivity(id: NodeId): Record<string, unknown> | undefined {
-  const store = useNodeStore();
+  const store = useStore();
   return useSyncExternalStore(
     (cb) => store.subscribe(cb),
     () => store.getNode(id)?.activity,

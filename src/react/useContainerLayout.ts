@@ -1,7 +1,7 @@
-import type { Affordance, LayoutEvent, LayoutResult, NodeId, Rect } from '../../index.js';
-import { runStrategyForContainer } from '../../index.js';
+import type { Affordance, LayoutEvent, LayoutResult, NodeId, Rect } from '../index.js';
+import { runStrategyForContainer } from '../index.js';
 import { type RefObject, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNodeStore } from './NodeProvider.js';
+import { useStore } from './WindeaseProvider.js';
 import { useNode } from './hooks.js';
 import { useStrategyRegistry } from './strategies.js';
 
@@ -30,7 +30,7 @@ export function useContainerLayout(
   viewportRef: RefObject<Element | null> | null,
   fixedViewport?: { w: number; h: number },
 ): ContainerLayout {
-  const store = useNodeStore();
+  const store = useStore();
   const node = useNode(parentId);
   const registry = useStrategyRegistry();
   const [measured, setMeasured] = useState<{ w: number; h: number } | null>(

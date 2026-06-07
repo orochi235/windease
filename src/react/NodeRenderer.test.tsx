@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
-import { WindeaseNodeStore, asNodeId, createPanel, createZone } from '../../index.js';
+import { WindeaseStore, asNodeId, createPanel, createZone } from '../index.js';
 import { describe, expect, it } from 'vitest';
-import { type ChromeMap, WindeaseNodeRoot } from './NodeRenderer.js';
+import { type ChromeMap, WindeaseRoot } from './NodeRenderer.js';
 
 const chrome: ChromeMap = {
   zone: ({ node, children }) => (
@@ -22,9 +22,9 @@ const chrome: ChromeMap = {
   ),
 };
 
-describe('WindeaseNodeRoot', () => {
+describe('WindeaseRoot', () => {
   it('renders a zone with two panels via chrome dispatch', () => {
-    const store = new WindeaseNodeStore();
+    const store = new WindeaseStore();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
       createPanel({ id: asNodeId('a'), parentId: asNodeId('z'), meta: { title: 'A' } }),
@@ -32,14 +32,14 @@ describe('WindeaseNodeRoot', () => {
     store.registerNode(
       createPanel({ id: asNodeId('b'), parentId: asNodeId('z'), meta: { title: 'B' } }),
     );
-    const { getByTestId } = render(<WindeaseNodeRoot store={store} chrome={chrome} />);
+    const { getByTestId } = render(<WindeaseRoot store={store} chrome={chrome} />);
     expect(getByTestId('zone-z')).toBeDefined();
     expect(getByTestId('panel-a').textContent).toContain('A');
     expect(getByTestId('panel-b').textContent).toContain('B');
   });
 
   it('recursive panel renders children inside its chrome', () => {
-    const store = new WindeaseNodeStore();
+    const store = new WindeaseStore();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
       createPanel({
@@ -52,21 +52,21 @@ describe('WindeaseNodeRoot', () => {
     store.registerNode(
       createPanel({ id: asNodeId('leaf'), parentId: asNodeId('tray'), meta: { title: 'Leaf' } }),
     );
-    const { getByTestId } = render(<WindeaseNodeRoot store={store} chrome={chrome} />);
+    const { getByTestId } = render(<WindeaseRoot store={store} chrome={chrome} />);
     const tray = getByTestId('panel-tray');
     expect(tray).toBeDefined();
     expect(tray.textContent).toContain('Leaf');
   });
 
   it('hidden nodes do not render', () => {
-    const store = new WindeaseNodeStore();
+    const store = new WindeaseStore();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
     store.showNode(asNodeId('a'));
     store.showNode(asNodeId('b'));
     store.hideNode(asNodeId('b'));
-    const { queryByTestId } = render(<WindeaseNodeRoot store={store} chrome={chrome} />);
+    const { queryByTestId } = render(<WindeaseRoot store={store} chrome={chrome} />);
     expect(queryByTestId('panel-a')).not.toBeNull();
     expect(queryByTestId('panel-b')).toBeNull();
   });

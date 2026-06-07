@@ -17,7 +17,7 @@ export interface LayoutItem {
 }
 
 /**
- * v0.2 shape strategies see when running over `WindeaseNodeStore` nodes.
+ * shape strategies see when running over `WindeaseStore` nodes.
  * Built from a Node via `nodeToLayoutItem` / `getLayoutNodes`. `placement`
  * carries the per-membership bag (pinned/locked etc.); `meta` is intrinsic.
  */

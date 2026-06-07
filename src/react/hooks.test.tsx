@@ -1,16 +1,16 @@
 import { act, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, WindeaseNodeStore } from '../../index.js';
-import { WindeaseNodeProvider } from './NodeProvider.js';
+import { asNodeId, createPanel, createZone, WindeaseStore } from '../index.js';
+import { WindeaseProvider } from './WindeaseProvider.js';
 import { useActivity } from './hooks.js';
 
-function withStore(store: WindeaseNodeStore, ui: React.ReactNode) {
-  return <WindeaseNodeProvider store={store}>{ui}</WindeaseNodeProvider>;
+function withStore(store: WindeaseStore, ui: React.ReactNode) {
+  return <WindeaseProvider store={store}>{ui}</WindeaseProvider>;
 }
 
 describe('useActivity', () => {
   it('returns undefined when no activity is set', () => {
-    const store = new WindeaseNodeStore();
+    const store = new WindeaseStore();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
     let observed: Record<string, unknown> | undefined = { sentinel: true };
@@ -23,7 +23,7 @@ describe('useActivity', () => {
   });
 
   it('returns the activity bag and re-renders on change', async () => {
-    const store = new WindeaseNodeStore();
+    const store = new WindeaseStore();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
     const seen: Array<Record<string, unknown> | undefined> = [];

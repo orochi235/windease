@@ -1,22 +1,22 @@
-export default { title: 'v0.2 / Binary split (resize)' };
+export default { title: 'Binary split (resize)' };
 
 import {
   asNodeId,
   binarySplit,
   createPanel,
   createZone,
-  WindeaseNodeStore,
-} from '../../../index.js';
+  WindeaseStore,
+} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
   NodeContainer,
   StrategyRegistryProvider,
-  WindeaseNodeProvider,
-} from '../../v2/index.js';
-import '../windease.css';
-import { colorClassForId } from '../Panel.js';
+  WindeaseProvider,
+} from '../index.js';
+import './windease.css';
+import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   binarySplit: binarySplit as never,
@@ -29,7 +29,7 @@ interface Args {
 
 export const BinarySplit: Story<Args> = ({ direction, gutterSize }) => {
   const store = useMemo(() => {
-    const s = new WindeaseNodeStore();
+    const s = new WindeaseStore();
     s.registerNode(
       createZone({
         id: asNodeId('split'),
@@ -64,7 +64,7 @@ export const BinarySplit: Story<Args> = ({ direction, gutterSize }) => {
   );
 
   return (
-    <WindeaseNodeProvider store={store}>
+    <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 600, height: 360, background: '#0f172a08', borderRadius: 8 }}>
           <NodeContainer
@@ -80,7 +80,7 @@ export const BinarySplit: Story<Args> = ({ direction, gutterSize }) => {
           side-channel (not snapshotted, not in undo history).
         </p>
       </StrategyRegistryProvider>
-    </WindeaseNodeProvider>
+    </WindeaseProvider>
   );
 };
 

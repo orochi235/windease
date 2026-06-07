@@ -1,22 +1,22 @@
-export default { title: 'v0.2 / Stack' };
+export default { title: 'Stack' };
 
 import {
   asNodeId,
   createPanel,
   createZone,
   stackStrategy,
-  WindeaseNodeStore,
-} from '../../../index.js';
+  WindeaseStore,
+} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
   NodeContainer,
   StrategyRegistryProvider,
-  WindeaseNodeProvider,
-} from '../../v2/index.js';
-import '../windease.css';
-import { colorClassForId } from '../Panel.js';
+  WindeaseProvider,
+} from '../index.js';
+import './windease.css';
+import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   stack: stackStrategy as never,
@@ -31,7 +31,7 @@ interface Args {
 
 export const Stack: Story<Args> = ({ gap, padding }) => {
   const store = useMemo(() => {
-    const s = new WindeaseNodeStore();
+    const s = new WindeaseStore();
     s.registerNode(
       createZone({
         id: ZONE_ID,
@@ -70,7 +70,7 @@ export const Stack: Story<Args> = ({ gap, padding }) => {
   );
 
   return (
-    <WindeaseNodeProvider store={store}>
+    <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 260, height: 500 }}>
           <NodeContainer
@@ -81,7 +81,7 @@ export const Stack: Story<Args> = ({ gap, padding }) => {
           />
         </div>
       </StrategyRegistryProvider>
-    </WindeaseNodeProvider>
+    </WindeaseProvider>
   );
 };
 

@@ -1,6 +1,6 @@
 import type { LayoutItem, LayoutNode, LayoutResult, LayoutStrategy, Size } from './layout-types.js';
 import type { Node, NodeId } from './node.js';
-import type { WindeaseNodeStore } from './store-v2.js';
+import type { WindeaseStore } from './store.js';
 
 /**
  * Convert a Node into the legacy LayoutItem shape consumed by existing
@@ -8,7 +8,7 @@ import type { WindeaseNodeStore } from './store-v2.js';
  * is the field strategies read for flags like `pinned`/`locked` today.
  *
  * Phase 7 may collapse LayoutItem and LayoutNode; until then this adapter
- * lets v0.2 nodes flow through unchanged v0.1 strategy code.
+ * lets nodes flow through unchanged strategy code.
  */
 export function nodeToLayoutItem(node: Node): LayoutItem {
   const item: LayoutItem = { id: node.id };
@@ -24,7 +24,7 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
   return item;
 }
 
-/** Convert a Node into the v0.2 LayoutNode shape. */
+/** Convert a Node into the LayoutNode shape. */
 export function nodeToLayoutNode(node: Node): LayoutNode {
   return {
     id: node.id,
@@ -41,7 +41,7 @@ export function nodeToLayoutNode(node: Node): LayoutNode {
  * Collect visible children of `parentId` as LayoutNodes in childIds order.
  * Hidden children (lifecycle.state === 'hidden') are excluded.
  */
-export function getLayoutNodes(store: WindeaseNodeStore, parentId: NodeId): LayoutNode[] {
+export function getLayoutNodes(store: WindeaseStore, parentId: NodeId): LayoutNode[] {
   const children = store.getChildren(parentId);
   const out: LayoutNode[] = [];
   for (const child of children) {
@@ -52,12 +52,12 @@ export function getLayoutNodes(store: WindeaseNodeStore, parentId: NodeId): Layo
 }
 
 /**
- * Run a v0.1 LayoutStrategy against the visible children of `parentId`.
+ * Run a LayoutStrategy against the visible children of `parentId`.
  * Returns a LayoutResult keyed by NodeId. State is opaque to this helper;
  * callers manage it (typically via a per-container state slot).
  */
 export function runStrategyForContainer<TState>(
-  store: WindeaseNodeStore,
+  store: WindeaseStore,
   parentId: NodeId,
   viewport: Size,
   strategy: LayoutStrategy<TState, string, unknown>,

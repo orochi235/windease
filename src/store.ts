@@ -10,7 +10,7 @@ import type { ContainerCap, FocusCap, Node, NodeId, SlotCap } from './node.js';
 import { trace } from './trace.js';
 import { validateKindShape } from './validators.js';
 
-export interface NodeStoreEvents {
+export interface StoreEvents {
   'node.registered': { id: NodeId };
   'node.unregistered': { id: NodeId };
   'node.transitioned': {
@@ -62,15 +62,15 @@ export interface NodeStoreEvents {
 }
 
 /**
- * WindeaseNodeStore — the v0.2 unified-node-model store.
+ * WindeaseStore — the unified-node-model store.
  *
  * Single `nodes` map; every mutation that touches a node produces a fresh
  * Node object (record replacement) so React's useSyncExternalStore detects
  * the change via referential equality. FSM transitions are paired with a
  * node-record swap.
  */
-export class WindeaseNodeStore {
-  readonly events = new TypedEmitter<NodeStoreEvents>();
+export class WindeaseStore {
+  readonly events = new TypedEmitter<StoreEvents>();
   private readonly nodesMap = new Map<NodeId, Node>();
   private readonly rootIdsArr: NodeId[] = [];
   private focusedIdValue: NodeId | null = null;

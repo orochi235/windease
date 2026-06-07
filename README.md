@@ -28,7 +28,7 @@ layout and DnD).
 - **Record replacement.** Every store mutation produces a fresh `Node`
   reference; React's `useSyncExternalStore` invalidates correctly by
   default.
-- **Snapshot v2** with one-way migration from the v0.1 format.
+- **JSON-safe snapshots** via `serialize(store)` / `deserialize(snap)`.
 - **Layout strategies** are pure functions. Built-ins: `grid`, `stack`,
   `strip`, `binarySplit`, `recursiveSplit`. Strategies work unchanged on
   recursive trees via the `LayoutNode` adapter.
@@ -42,15 +42,15 @@ import {
   createPanel,
   gridStrategy,
   stackStrategy,
-  WindeaseNodeStore,
+  WindeaseStore,
 } from 'windease';
 import {
   NodeContainer,
   StrategyRegistryProvider,
-  WindeaseNodeProvider,
+  WindeaseProvider,
 } from 'windease/react';
 
-const store = new WindeaseNodeStore();
+const store = new WindeaseStore();
 store.registerNode(createZone({
   id: asNodeId('z'),
   strategyId: 'grid',
@@ -81,11 +81,11 @@ const chrome = {
       : <div className="my-leaf">{String(node.meta?.title ?? node.id)}</div>,
 };
 
-<WindeaseNodeProvider store={store}>
+<WindeaseProvider store={store}>
   <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
     <NodeContainer parentId={asNodeId('z')} chrome={chrome} viewport={{ w: 720, h: 480 }} />
   </StrategyRegistryProvider>
-</WindeaseNodeProvider>
+</WindeaseProvider>
 ```
 
 See the **Recursive Zones** Ladle story for a working example you can
@@ -102,9 +102,9 @@ the insertion-line affordance default. All visual styling is yours.
 
 ## Drag and drop
 
-DnD is opt-in. Wrap your panel chrome in `<NodeDragHandle>`, register each
-container as a drop target with `useNodeDropTarget(zoneId, ref)`, and put
-the tree under `<NodeDragProvider>`. The drag controller honors:
+DnD is opt-in. Wrap your panel chrome in `<DragHandle>`, register each
+container as a drop target with `useDropTarget(zoneId, ref)`, and put
+the tree under `<DragProvider>`. The drag controller honors:
 
 - `slot.placement.locked` — per-child drag suppression.
 - `container.allowsDragOut` — zone-level drag suppression.

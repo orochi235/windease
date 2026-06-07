@@ -8,7 +8,7 @@ import {
   runStrategyForContainer,
 } from './layout-node-adapter.js';
 import { asNodeId } from './node.js';
-import { WindeaseNodeStore } from './store-v2.js';
+import { WindeaseStore } from './store.js';
 
 describe('nodeToLayoutItem', () => {
   it('converts hints', () => {
@@ -67,7 +67,7 @@ describe('nodeToLayoutNode', () => {
 
 describe('getLayoutNodes', () => {
   it('returns visible children in childIds order, excludes hidden', () => {
-    const s = new WindeaseNodeStore();
+    const s = new WindeaseStore();
     s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
@@ -83,7 +83,7 @@ describe('getLayoutNodes', () => {
 
 describe('layout-node-adapter — activity passthrough', () => {
   it('nodeToLayoutNode populates activity (defaults to {})', () => {
-    const store = new WindeaseNodeStore();
+    const store = new WindeaseStore();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
     const before = nodeToLayoutNode(store.getNode(asNodeId('p'))!);
@@ -95,7 +95,7 @@ describe('layout-node-adapter — activity passthrough', () => {
   });
 
   it('runStrategyForContainer exposes activity to LayoutNodes (via getLayoutNodes)', () => {
-    const store = new WindeaseNodeStore();
+    const store = new WindeaseStore();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
     store.registerNode(createPanel({ id: asNodeId('p2'), parentId: asNodeId('z') }));
@@ -109,7 +109,7 @@ describe('layout-node-adapter — activity passthrough', () => {
 
 describe('runStrategyForContainer', () => {
   it('runs stackStrategy on a container, returns NodeId-keyed placements', () => {
-    const s = new WindeaseNodeStore();
+    const s = new WindeaseStore();
     s.registerNode(
       createZone({
         id: asNodeId('z'),

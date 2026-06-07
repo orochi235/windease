@@ -33,7 +33,7 @@ describe2('WindeaseError - workspace codes', () => {
   }
 });
 
-describe('v0.2 error subclasses', () => {
+describe('error subclasses', () => {
   it('NodeNotFoundError carries the id and is a WindeaseError', () => {
     const err = new NodeNotFoundError(asNodeId('n1'));
     expect(err).toBeInstanceOf(WindeaseError);

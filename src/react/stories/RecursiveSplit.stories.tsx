@@ -1,4 +1,4 @@
-export default { title: 'v0.2 / Recursive split (resize)' };
+export default { title: 'Recursive split (resize)' };
 
 import {
   asNodeId,
@@ -6,18 +6,18 @@ import {
   createZone,
   recursiveSplit,
   type SplitNode,
-  WindeaseNodeStore,
-} from '../../../index.js';
+  WindeaseStore,
+} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
   NodeContainer,
   StrategyRegistryProvider,
-  WindeaseNodeProvider,
-} from '../../v2/index.js';
-import '../windease.css';
-import { colorClassForId } from '../Panel.js';
+  WindeaseProvider,
+} from '../index.js';
+import './windease.css';
+import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   recursiveSplit: recursiveSplit as never,
@@ -46,7 +46,7 @@ const TREE: SplitNode = {
 
 export const RecursiveSplit: Story = () => {
   const store = useMemo(() => {
-    const s = new WindeaseNodeStore();
+    const s = new WindeaseStore();
     s.registerNode(
       createZone({
         id: asNodeId('rs'),
@@ -79,7 +79,7 @@ export const RecursiveSplit: Story = () => {
   );
 
   return (
-    <WindeaseNodeProvider store={store}>
+    <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 720, height: 440, background: '#0f172a08', borderRadius: 8 }}>
           <NodeContainer
@@ -95,6 +95,6 @@ export const RecursiveSplit: Story = () => {
           via <code>node.container.state</code>.
         </p>
       </StrategyRegistryProvider>
-    </WindeaseNodeProvider>
+    </WindeaseProvider>
   );
 };

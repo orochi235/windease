@@ -4,21 +4,21 @@ import {
   createGroup,
   createPanel,
   createZone,
-  deserializeToNodeStore,
-  serializeNodes,
-  WindeaseNodeStore,
+  deserialize,
+  serialize,
+  WindeaseStore,
 } from './index.js';
 
 /**
- * Headline end-to-end test for the v0.2 unified node model.
+ * Headline end-to-end test for the unified node model.
  *
  * Exercises: store mutation → snapshot → re-hydrate → identical tree shape →
- * mutation again after rehydrate. If this test breaks, the public v0.2
+ * mutation again after rehydrate. If this test breaks, the public
  * contract has regressed.
  */
-describe('v0.2 unified node model — headline end-to-end', () => {
+describe('headline end-to-end', () => {
   it('builds, snapshots, rehydrates, and continues mutating a 3-level tree', () => {
-    const store = new WindeaseNodeStore();
+    const store = new WindeaseStore();
 
     // Build:
     //   z (zone, grid)
@@ -51,9 +51,9 @@ describe('v0.2 unified node model — headline end-to-end', () => {
     store.focusNode(asNodeId('leafA'));
 
     // Snapshot + rehydrate.
-    const snap = serializeNodes(store);
+    const snap = serialize(store);
     expect(snap.version).toBe(2);
-    const rehydrated = deserializeToNodeStore(snap);
+    const rehydrated = deserialize(snap);
 
     // Tree structure preserved (with pinned 'solo' promoted to prefix).
     const zoneChildren = rehydrated.getContainerView(asNodeId('z'))?.childIds ?? [];

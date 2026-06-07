@@ -1,4 +1,4 @@
-export default { title: 'v0.2 / Recursive zones' };
+export default { title: 'Recursive zones' };
 
 import {
   asNodeId,
@@ -6,18 +6,18 @@ import {
   createZone,
   gridStrategy,
   stackStrategy,
-  WindeaseNodeStore,
-} from '../../../index.js';
+  WindeaseStore,
+} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
   NodeContainer,
   StrategyRegistryProvider,
-  WindeaseNodeProvider,
-} from '../../v2/index.js';
-import '../windease.css';
-import { colorClassForId } from '../Panel.js';
+  WindeaseProvider,
+} from '../index.js';
+import './windease.css';
+import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   grid: gridStrategy as never,
@@ -31,13 +31,13 @@ interface Args {
 }
 
 /**
- * Headline v0.2 demo: a zone hosting two recursive panels, each of which
+ * Headline demo: a zone hosting two recursive panels, each of which
  * hosts its own children via the `container` capability. Demonstrates
  * arbitrary-depth recursion using the same primitives.
  */
 export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
   const store = useMemo(() => {
-    const s = new WindeaseNodeStore();
+    const s = new WindeaseStore();
     s.registerNode(
       createZone({
         id: asNodeId('z'),
@@ -137,7 +137,7 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
   );
 
   return (
-    <WindeaseNodeProvider store={store}>
+    <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 720, height: 480 }}>
           <NodeContainer
@@ -148,7 +148,7 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
           />
         </div>
       </StrategyRegistryProvider>
-    </WindeaseNodeProvider>
+    </WindeaseProvider>
   );
 };
 

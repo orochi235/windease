@@ -1,7 +1,7 @@
-import type { LayoutStrategy, NodeId, WindeaseNodeStore } from '../../../index.js';
-import { trace } from '../../../index.js';
+import type { LayoutStrategy, NodeId, WindeaseStore } from '../../index.js';
+import { trace } from '../../index.js';
 
-/** Looks up a strategy by id. NodeDragController uses it to consult
+/** Looks up a strategy by id. DragController uses it to consult
  *  `strategy.canAccept` on the prospective post-drop child list. */
 export type StrategyLookup = (id: string) => LayoutStrategy<unknown, string, unknown> | undefined;
 
@@ -16,13 +16,13 @@ type Listener = (state: DragState | null) => void;
 
 /**
  * Tracks the active drag and dispatches store.moveNode on drop.
- * One controller per <WindeaseNodeDragProvider>; consumers subscribe via
- * useNodeDragState. Hit-testing is consumer-driven: useNodeDropTarget
+ * One controller per <WindeaseDragProvider>; consumers subscribe via
+ * useDragState. Hit-testing is consumer-driven: useDropTarget
  * registers element rects, and pointermove walks the registry to find the
  * deepest match. Innermost-wins is implemented by sorting registrations
  * by DOM depth at registration time.
  */
-export class NodeDragController {
+export class DragController {
   private active: DragState | null = null;
   private readonly listeners = new Set<Listener>();
   private readonly dropTargets = new Map<
@@ -32,7 +32,7 @@ export class NodeDragController {
   private escapeBound = false;
 
   constructor(
-    private readonly store: WindeaseNodeStore,
+    private readonly store: WindeaseStore,
     private readonly getStrategy?: StrategyLookup,
   ) {}
 

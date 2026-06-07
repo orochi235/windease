@@ -1,6 +1,6 @@
-import type { NodeId } from '../../../index.js';
+import type { NodeId } from '../../index.js';
 import { type RefObject, useEffect } from 'react';
-import { useNodeDragController } from './NodeDragProvider.js';
+import { useDragController } from './DragProvider.js';
 
 /**
  * Register `nodeId`'s element as a drop target. On drop within the element's
@@ -9,12 +9,12 @@ import { useNodeDragController } from './NodeDragProvider.js';
  * Pass an optional `canAccept(sourceId)` predicate to reject specific sources
  * (e.g. forbid drops from outside a particular sub-tree).
  */
-export function useNodeDropTarget(
+export function useDropTarget(
   nodeId: NodeId,
   ref: RefObject<Element | null>,
   canAccept?: (sourceId: NodeId) => boolean,
 ): void {
-  const controller = useNodeDragController();
+  const controller = useDragController();
   useEffect(() => {
     const el = ref.current;
     if (!el) return;

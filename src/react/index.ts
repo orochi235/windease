@@ -1,39 +1,40 @@
+export { WindeaseProvider, WindeaseContext, useStore } from './WindeaseProvider.js';
 export {
-  WindeaseNodeProvider,
-  WindeaseNodeContext,
-  useNodeStore,
   useNode,
   useNodeSelector,
   useChildren,
   useFocusedNode,
   useRootNodes,
+  useActivity,
+} from './hooks.js';
+export {
   NodeRenderer,
-  WindeaseNodeRoot,
+  WindeaseRoot,
   type ChromeArgs,
   type ChromeHandler,
   type ChromeMap,
   type NodeRendererProps,
-  type WindeaseNodeRootProps,
-  // DnD
-  NodeDragController,
+  type WindeaseRootProps,
+} from './NodeRenderer.js';
+
+// DnD
+export {
+  DragController,
   type DragState,
   type DragCancelReason,
-  NodeDragProvider,
-  NodeDragContext,
-  useNodeDragController,
-  useNodeDragHandle,
-  type NodeDragHandleHandlers,
-  NodeDragHandle,
-  type NodeDragHandleProps,
-  useNodeDropTarget,
-  useNodeDragState,
-  // Strategy + layout
+} from './dnd/DragController.js';
+export { DragProvider, DragContext, useDragController } from './dnd/DragProvider.js';
+export { useDragHandle, type DragHandleHandlers } from './dnd/useDragHandle.js';
+export { DragHandle, type DragHandleProps } from './dnd/DragHandle.js';
+export { useDropTarget } from './dnd/useDropTarget.js';
+export { useDragState } from './dnd/useDragState.js';
+
+// Strategy + layout
+export {
   StrategyRegistryProvider,
   useStrategyRegistry,
   type StrategyRegistry,
   type StrategyRegistryProviderProps,
-  useContainerLayout,
-  type ContainerLayout,
-  NodeContainer,
-  type NodeContainerProps,
-} from './v2/index.js';
+} from './strategies.js';
+export { useContainerLayout, type ContainerLayout } from './useContainerLayout.js';
+export { NodeContainer, type NodeContainerProps } from './NodeContainer.js';

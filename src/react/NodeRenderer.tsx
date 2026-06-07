@@ -1,6 +1,6 @@
-import type { Node, NodeId, NodeKind, WindeaseNodeStore } from '../../index.js';
+import type { Node, NodeId, NodeKind, WindeaseStore } from '../index.js';
 import { Fragment, type ReactNode } from 'react';
-import { WindeaseNodeProvider } from './NodeProvider.js';
+import { WindeaseProvider } from './WindeaseProvider.js';
 import { useChildren, useNode, useRootNodes } from './hooks.js';
 
 export interface ChromeArgs {
@@ -38,16 +38,16 @@ export function NodeRenderer({ id, chrome }: NodeRendererProps) {
   return <Fragment>{handler({ node, children: subtree })}</Fragment>;
 }
 
-export interface WindeaseNodeRootProps {
-  store: WindeaseNodeStore;
+export interface WindeaseRootProps {
+  store: WindeaseStore;
   chrome: ChromeMap;
 }
 
-export function WindeaseNodeRoot({ store, chrome }: WindeaseNodeRootProps) {
+export function WindeaseRoot({ store, chrome }: WindeaseRootProps) {
   return (
-    <WindeaseNodeProvider store={store}>
+    <WindeaseProvider store={store}>
       <RootList chrome={chrome} />
-    </WindeaseNodeProvider>
+    </WindeaseProvider>
   );
 }
 

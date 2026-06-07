@@ -72,13 +72,13 @@ export {
   StrategyRejectionError,
   InvariantViolationError,
 } from './errors.js';
-export { WindeaseNodeStore, type NodeStoreEvents } from './store-v2.js';
+export { WindeaseStore, type StoreEvents } from './store.js';
 export {
-  serializeNodes,
-  deserializeToNodeStore,
-  type SerializedNodeV2,
-  type SerializedStoreV2,
-} from './snapshot-v2.js';
+  serialize,
+  deserialize,
+  type SerializedNode,
+  type SerializedStore,
+} from './snapshot.js';
 export type { LayoutNode } from './layout-types.js';
 export {
   nodeToLayoutItem,

@@ -1,29 +1,29 @@
-export default { title: 'v0.2 / Strip' };
+export default { title: 'Strip' };
 
 import {
   asNodeId,
   createPanel,
   createZone,
   stripStrategy,
-  WindeaseNodeStore,
-} from '../../../index.js';
+  WindeaseStore,
+} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
   NodeContainer,
   StrategyRegistryProvider,
-  WindeaseNodeProvider,
-} from '../../v2/index.js';
-import '../windease.css';
-import { colorClassForId } from '../Panel.js';
+  WindeaseProvider,
+} from '../index.js';
+import './windease.css';
+import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   strip: stripStrategy as never,
 };
 
-function makeStripStore(axis: 'x' | 'y', sizes: number[]): WindeaseNodeStore {
-  const s = new WindeaseNodeStore();
+function makeStripStore(axis: 'x' | 'y', sizes: number[]): WindeaseStore {
+  const s = new WindeaseStore();
   const zoneId = asNodeId(`strip-${axis}`);
   s.registerNode(
     createZone({
@@ -63,7 +63,7 @@ const chrome: ChromeMap = {
 export const HorizontalStrip: Story = () => {
   const store = useMemo(() => makeStripStore('x', [80, 120, 160, 100]), []);
   return (
-    <WindeaseNodeProvider store={store}>
+    <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 600, height: 100 }}>
           <NodeContainer
@@ -74,14 +74,14 @@ export const HorizontalStrip: Story = () => {
           />
         </div>
       </StrategyRegistryProvider>
-    </WindeaseNodeProvider>
+    </WindeaseProvider>
   );
 };
 
 export const VerticalStrip: Story = () => {
   const store = useMemo(() => makeStripStore('y', [60, 90, 60, 120]), []);
   return (
-    <WindeaseNodeProvider store={store}>
+    <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 220, height: 420 }}>
           <NodeContainer
@@ -92,6 +92,6 @@ export const VerticalStrip: Story = () => {
           />
         </div>
       </StrategyRegistryProvider>
-    </WindeaseNodeProvider>
+    </WindeaseProvider>
   );
 };

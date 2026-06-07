@@ -3,9 +3,9 @@ import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
 import { type Node, type NodeKind, asNodeId } from './node.js';
-import { WindeaseNodeStore } from './store-v2.js';
+import { WindeaseStore } from './store.js';
 
-export interface SerializedNodeV2 {
+export interface SerializedNode {
   id: string;
   kind: NodeKind;
   meta?: Record<string, unknown>;
@@ -34,22 +34,22 @@ export interface SerializedNodeV2 {
   focus?: { state: 'focused' | 'blurred' };
 }
 
-export interface SerializedStoreV2 {
+export interface SerializedStore {
   version: 2;
-  nodes: SerializedNodeV2[];
+  nodes: SerializedNode[];
   rootIds: string[];
   focusedId: string | null;
 }
 
 /**
- * Serialize a WindeaseNodeStore into a v2 snapshot. Destroyed nodes and
+ * Serialize a WindeaseStore into a v2 snapshot. Destroyed nodes and
  * transit state are deliberately not included — see spec section 8.
  */
-export function serializeNodes(store: WindeaseNodeStore): SerializedStoreV2 {
-  const nodes: SerializedNodeV2[] = [];
+export function serialize(store: WindeaseStore): SerializedStore {
+  const nodes: SerializedNode[] = [];
   for (const node of store.nodes.values()) {
     if (node.lifecycle.state === 'destroyed') continue;
-    const out: SerializedNodeV2 = {
+    const out: SerializedNode = {
       id: node.id,
       kind: node.kind,
       lifecycle: node.lifecycle.state as 'mounted' | 'visible' | 'hidden',
@@ -58,7 +58,7 @@ export function serializeNodes(store: WindeaseNodeStore): SerializedStoreV2 {
     if (node.activity && Object.keys(node.activity).length > 0) out.activity = { ...node.activity };
     if (node.hints && Object.keys(node.hints).length > 0) out.hints = { ...node.hints };
     if (node.container) {
-      const c: SerializedNodeV2['container'] = {
+      const c: SerializedNode['container'] = {
         strategyId: node.container.strategyId,
         config: node.container.config,
         childIds: [...node.container.childIds],
@@ -88,8 +88,8 @@ export function serializeNodes(store: WindeaseNodeStore): SerializedStoreV2 {
   };
 }
 
-/** Hydrate a fresh WindeaseNodeStore from a v2 snapshot. */
-export function deserializeToNodeStore(snap: unknown): WindeaseNodeStore {
+/** Hydrate a fresh WindeaseStore from a v2 snapshot. */
+export function deserialize(snap: unknown): WindeaseStore {
   const versioned = snap as { version?: number };
   if (!versioned || typeof versioned !== 'object' || typeof versioned.version !== 'number') {
     throw new WindeaseError(
@@ -98,7 +98,7 @@ export function deserializeToNodeStore(snap: unknown): WindeaseNodeStore {
     );
   }
   if (versioned.version === 2) {
-    return hydrateFromV2(snap as SerializedStoreV2);
+    return hydrateFromV2(snap as SerializedStore);
   }
   throw new WindeaseError(
     'unsupported-snapshot-version',
@@ -106,9 +106,9 @@ export function deserializeToNodeStore(snap: unknown): WindeaseNodeStore {
   );
 }
 
-function hydrateFromV2(snap: SerializedStoreV2): WindeaseNodeStore {
+function hydrateFromV2(snap: SerializedStore): WindeaseStore {
   // Build a lookup so we can validate links + multi-focus before mutating.
-  const byId = new Map<string, SerializedNodeV2>();
+  const byId = new Map<string, SerializedNode>();
   for (const sn of snap.nodes) byId.set(sn.id, sn);
 
   // Validate bidirectional link.
@@ -153,7 +153,7 @@ function hydrateFromV2(snap: SerializedStoreV2): WindeaseNodeStore {
     }
   }
 
-  const store = new WindeaseNodeStore();
+  const store = new WindeaseStore();
 
   // Visit nodes in tree order: each root, then DFS through its childIds,
   // which preserves both insertion order and the snapshot's intended child
@@ -196,7 +196,7 @@ function hydrateFromV2(snap: SerializedStoreV2): WindeaseNodeStore {
   return store;
 }
 
-function buildNodeFromSerialized(sn: SerializedNodeV2, opts: { emptyChildIds: boolean }): Node {
+function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildIds: boolean }): Node {
   const lifecycle = createLifecycleMachine();
   if (sn.lifecycle === 'visible') lifecycle.send('show');
   else if (sn.lifecycle === 'hidden') {

@@ -1,27 +1,27 @@
-import type { NodeId } from '../../../index.js';
+import type { NodeId } from '../../index.js';
 import { type PointerEvent as ReactPointerEvent, useCallback, useRef } from 'react';
-import { useNodeStore } from '../NodeProvider.js';
+import { useStore } from '../WindeaseProvider.js';
 import { useNode } from '../hooks.js';
-import { useNodeDragController } from './NodeDragProvider.js';
+import { useDragController } from './DragProvider.js';
 
-export interface NodeDragHandleHandlers {
+export interface DragHandleHandlers {
   onPointerDown: (e: ReactPointerEvent<Element>) => void;
   onPointerMove: (e: ReactPointerEvent<Element>) => void;
   onPointerUp: (e: ReactPointerEvent<Element>) => void;
   onPointerCancel: (e: ReactPointerEvent<Element>) => void;
 }
 
-const NOOP_HANDLERS: NodeDragHandleHandlers = {
+const NOOP_HANDLERS: DragHandleHandlers = {
   onPointerDown: () => {},
   onPointerMove: () => {},
   onPointerUp: () => {},
   onPointerCancel: () => {},
 };
 
-export function useNodeDragHandle(nodeId: NodeId): NodeDragHandleHandlers {
-  const controller = useNodeDragController();
+export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
+  const controller = useDragController();
   const node = useNode(nodeId);
-  const store = useNodeStore();
+  const store = useStore();
   const draggingRef = useRef(false);
 
   const onPointerDown = useCallback(

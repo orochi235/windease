@@ -1,16 +1,16 @@
-import type { NodeId } from '../../../index.js';
+import type { NodeId } from '../../index.js';
 import type { CSSProperties, ReactNode } from 'react';
-import { useNodeDragHandle } from './useNodeDragHandle.js';
+import { useDragHandle } from './useDragHandle.js';
 
-export interface NodeDragHandleProps {
+export interface DragHandleProps {
   nodeId: NodeId;
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
 }
 
-export function NodeDragHandle({ nodeId, children, className, style }: NodeDragHandleProps) {
-  const handlers = useNodeDragHandle(nodeId);
+export function DragHandle({ nodeId, children, className, style }: DragHandleProps) {
+  const handlers = useDragHandle(nodeId);
   return (
     <span
       className={className}

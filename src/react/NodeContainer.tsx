@@ -1,4 +1,4 @@
-import type { NodeId } from '../../index.js';
+import type { NodeId } from '../index.js';
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -62,7 +62,7 @@ const DEFAULT_SETTLE_MS = 150;
  * container at the strategy's rect; the chrome handler for the child's
  * kind decides the actual contents.
  *
- * Pair with `<WindeaseNodeRoot>` for top-level layout, or use directly for
+ * Pair with `<WindeaseRoot>` for top-level layout, or use directly for
  * a container nested inside another component.
  */
 export function NodeContainer({
@@ -144,7 +144,7 @@ export function NodeContainer({
 }
 
 interface AffordanceHandleProps {
-  affordance: import('../../index.js').Affordance;
+  affordance: import('../index.js').Affordance;
   dispatch: ContainerLayout['dispatchAffordance'];
   hitPad: number;
   onActiveChange: (active: boolean) => void;

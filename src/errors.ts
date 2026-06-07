@@ -1,7 +1,7 @@
 import type { NodeId, NodeKind } from './node.js';
 
 export type WindeaseErrorCode =
-  // v0.1 codes (still used by existing store/window/zone)
+  // codes (still used by existing store/window/zone)
   | 'UNKNOWN_WINDOW'
   | 'UNKNOWN_ZONE'
   | 'ILLEGAL_TRANSITION'
@@ -12,7 +12,7 @@ export type WindeaseErrorCode =
   | 'WRONG_ITEM_COUNT'
   | 'UNKNOWN_AFFORDANCE_KIND'
   | 'NO_INITIAL_STATE'
-  // v0.2 codes (unified node model)
+  // codes (unified node model)
   | 'unknown-node'
   | 'duplicate-id'
   | 'kind-shape-mismatch'

@@ -1,27 +1,27 @@
-export default { title: 'v0.2 / Parallel zones (drag between)' };
+export default { title: 'Parallel zones (drag between)' };
 
 import {
   asNodeId,
   createPanel,
   createZone,
   stackStrategy,
-  WindeaseNodeStore,
-} from '../../../index.js';
+  WindeaseStore,
+} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { type RefObject, useMemo, useRef } from 'react';
 import {
   type ChromeMap,
   NodeContainer,
-  NodeDragHandle,
-  NodeDragProvider,
+  DragHandle,
+  DragProvider,
   StrategyRegistryProvider,
-  useNodeDragState,
-  useNodeDropTarget,
-  WindeaseNodeProvider,
-} from '../../v2/index.js';
-import '../windease.css';
+  useDragState,
+  useDropTarget,
+  WindeaseProvider,
+} from '../index.js';
+import './windease.css';
 import './parallel-zones-dnd.css';
-import { colorClassForId } from '../Panel.js';
+import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   stack: stackStrategy as never,
@@ -30,8 +30,8 @@ const STRATEGIES = {
 const LEFT = asNodeId('left-zone');
 const RIGHT = asNodeId('right-zone');
 
-function makeStore(): WindeaseNodeStore {
-  const s = new WindeaseNodeStore();
+function makeStore(): WindeaseStore {
+  const s = new WindeaseStore();
   for (const zid of [LEFT, RIGHT]) {
     s.registerNode(
       createZone({
@@ -66,8 +66,8 @@ function ZoneShell({
   chrome: ChromeMap;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  useNodeDropTarget(zoneId, ref as RefObject<Element | null>);
-  const drag = useNodeDragState();
+  useDropTarget(zoneId, ref as RefObject<Element | null>);
+  const drag = useDragState();
   const isTarget = drag?.hover?.targetId === zoneId;
   const accepted = isTarget && drag?.hover?.accepted === true;
   const className = [
@@ -98,19 +98,19 @@ export const ParallelZonesDnd: Story = () => {
         <div className={`story-panel ${colorClassForId(node.id)}`}>{children}</div>
       ),
       panel: ({ node }) => (
-        <NodeDragHandle nodeId={node.id} className={`story-panel ${colorClassForId(node.id)} pz-panel`}>
+        <DragHandle nodeId={node.id} className={`story-panel ${colorClassForId(node.id)} pz-panel`}>
           <span className="story-panel__title">{String(node.meta?.title ?? node.id)}</span>
           <span className="pz-panel__grip" aria-hidden="true">⋮⋮</span>
-        </NodeDragHandle>
+        </DragHandle>
       ),
     }),
     [],
   );
 
   return (
-    <WindeaseNodeProvider store={store}>
+    <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
-        <NodeDragProvider>
+        <DragProvider>
           <div className="pz-row">
             <ZoneShell zoneId={LEFT} label="Left zone" chrome={chrome} />
             <ZoneShell zoneId={RIGHT} label="Right zone" chrome={chrome} />
@@ -118,8 +118,8 @@ export const ParallelZonesDnd: Story = () => {
           <p className="pz-hint">
             Drag any panel by its grip into the other zone. Escape cancels.
           </p>
-        </NodeDragProvider>
+        </DragProvider>
       </StrategyRegistryProvider>
-    </WindeaseNodeProvider>
+    </WindeaseProvider>
   );
 };

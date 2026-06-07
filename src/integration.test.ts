@@ -5,11 +5,11 @@ import {
   createPanel,
   createZone,
   validateKindShape,
-  WindeaseNodeStore,
+  WindeaseStore,
   getLayoutNodes,
 } from './index.js';
 
-describe('v0.2 node model — integration', () => {
+describe('node model — integration', () => {
   it('builds a 3-level tree of zone → recursive panel → leaf panel', () => {
     const zone = createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 2 } });
     const trayHost = createPanel({
@@ -48,7 +48,7 @@ describe('v0.2 node model — integration', () => {
 
 describe('integration: activity-aware consumer strategy', () => {
   it('sorts children by activity.lastAt descending', () => {
-    const store = new WindeaseNodeStore();
+    const store = new WindeaseStore();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
