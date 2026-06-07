@@ -121,6 +121,52 @@ import 'windease/styles.css';
 It supplies the structural rules `.windease-zone`, `.windease-window`, and
 the insertion-line affordance default. All visual styling is yours.
 
+## State machines
+
+Every node carries up to three FSMs, all defined in `src/machines/` and run
+through a tiny `Machine<State, Event>` runtime in `src/fsm.ts`. Snapshots
+serialize the current state name; deserialize rebuilds a fresh machine
+in that state.
+
+**Lifecycle** (every node). Drives `node.lifecycle.state`. `show` / `hide`
+are idempotent on their target state; `destroy` is terminal.
+
+```mermaid
+stateDiagram-v2
+    [*] --> mounted
+    mounted --> visible: show
+    mounted --> destroyed: destroy
+    visible --> hidden: hide
+    hidden --> visible: show
+    visible --> destroyed: destroy
+    hidden --> destroyed: destroy
+    destroyed --> [*]
+```
+
+**Transit** (slotted nodes during `moveNode`). Provides an atomic
+release-then-claim envelope around reparenting so transition listeners
+can stage CSS/animation around the move. `settle` returns to `idle`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> idle
+    idle --> claiming: beginClaim
+    idle --> releasing: beginRelease
+    claiming --> idle: settle
+    releasing --> idle: settle
+```
+
+**Focus** (nodes that opt into the focus capability). Enforces the
+single-focus invariant per store: focusing one node automatically blurs
+the previous focus holder.
+
+```mermaid
+stateDiagram-v2
+    [*] --> blurred
+    blurred --> focused: focus
+    focused --> blurred: blur
+```
+
 ## Drag and drop
 
 DnD is opt-in. Wrap your panel chrome in `<DragHandle>`, register each
