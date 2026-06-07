@@ -5,7 +5,7 @@ import {
   createPanel,
   createZone,
   stripStrategy,
-  WindeaseStore,
+  Store,
 } from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
@@ -14,7 +14,7 @@ import {
   Container,
   Panel,
   StrategyRegistryProvider,
-  WindeaseProvider,
+  Provider,
 } from '../index.js';
 import './windease.css';
 
@@ -22,8 +22,8 @@ const STRATEGIES = {
   strip: stripStrategy as never,
 };
 
-function makeStripStore(axis: 'x' | 'y', sizes: number[]): WindeaseStore {
-  const s = new WindeaseStore();
+function makeStripStore(axis: 'x' | 'y', sizes: number[]): Store {
+  const s = new Store();
   const zoneId = asNodeId(`strip-${axis}`);
   s.registerNode(
     createZone({
@@ -57,7 +57,7 @@ const chrome: ChromeMap = {
 export const HorizontalStrip: Story = () => {
   const store = useMemo(() => makeStripStore('x', [80, 120, 160, 100]), []);
   return (
-    <WindeaseProvider store={store}>
+    <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 600, height: 100 }}>
           <Container
@@ -68,14 +68,14 @@ export const HorizontalStrip: Story = () => {
           />
         </div>
       </StrategyRegistryProvider>
-    </WindeaseProvider>
+    </Provider>
   );
 };
 
 export const VerticalStrip: Story = () => {
   const store = useMemo(() => makeStripStore('y', [60, 90, 60, 120]), []);
   return (
-    <WindeaseProvider store={store}>
+    <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 220, height: 420 }}>
           <Container
@@ -86,6 +86,6 @@ export const VerticalStrip: Story = () => {
           />
         </div>
       </StrategyRegistryProvider>
-    </WindeaseProvider>
+    </Provider>
   );
 };

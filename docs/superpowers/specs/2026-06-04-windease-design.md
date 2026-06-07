@@ -50,7 +50,7 @@ Out of scope (v1):
    `transit` (`idle` / `claiming` / `releasing`), `focus` (`focused` /
    `blurred`). Hand-rolled typed transition tables (~60 LOC helper). No
    external FSM dependency.
-4. **Core architecture.** A vanilla `WindeaseStore` class exposes typed
+4. **Core architecture.** A vanilla `Store` class exposes typed
    mutation methods and a single coarse `subscribe()` for React via
    `useSyncExternalStore`. A typed `events` emitter on the side fires per
    FSM transition for instrumentation, devtools, and animation hooks.
@@ -59,7 +59,7 @@ Out of scope (v1):
 5. **Persistence.** Not windease's concern. `snapshot()` returns a JSON-safe
    structure; `hydrate(snap, { strategies })` rebuilds the store. Strategies
    can't round-trip JSON, so callers supply them by name.
-6. **React surface.** `<WindeaseProvider>` holds the store. `<Zone id="…">`
+6. **React surface.** `<Provider>` holds the store. `<Zone id="…">`
    measures its container, runs the zone's strategy against the current
    viewport, and yields `(window, placement)` pairs via a render prop.
    Hooks: `useWindease`, `useWindow(id)`, `useZone(id)`, `useWindowsByZone`.
@@ -98,7 +98,7 @@ windease/
     │       └── index.ts
     └── react/              # @windease/react — thin binding
         └── src/
-            ├── WindeaseProvider.tsx
+            ├── Provider.tsx
             ├── Zone.tsx
             ├── hooks.ts
             └── index.ts
@@ -171,7 +171,7 @@ throwing, because event delivery is the lower-level primitive and a routine
 ## Store API
 
 ```ts
-class WindeaseStore {
+class Store {
   // Read
   getWindow(id: WindowId): WindowRecord | undefined;
   getZone(id: ZoneId):     ZoneRecord   | undefined;
@@ -223,7 +223,7 @@ batched into one microtask flush so the React layer renders once.
 ## React surface
 
 ```tsx
-<WindeaseProvider
+<Provider
   zones={[
     { id: 'main',    strategy: gridStrategy,  config: { cols: 3, gap: 8 } },
     { id: 'sidebar', strategy: stackStrategy, config: { gap: 4 } },
@@ -247,7 +247,7 @@ batched into one microtask flush so the React layer renders once.
       </div>
     )}
   </Zone>
-</WindeaseProvider>
+</Provider>
 ```
 
 `<Zone>` measures its container via `ResizeObserver`, runs the strategy each
@@ -283,13 +283,13 @@ similar.
 - `@windease/core` unit tests (Vitest):
   - FSM helper: legal/illegal transitions, `onEnter` ordering, subscribe.
   - Each machine: exhaustive transition table.
-  - `WindeaseStore`: table-driven arrange/act/assert.
+  - `Store`: table-driven arrange/act/assert.
   - Layout strategies: pure-function checks against fixture inputs.
   - `snapshot`/`hydrate` round-trip.
 - `@windease/react` tests:
   - Hook re-render counts under `act()` (selector granularity).
   - `<Zone>` render-prop pairs match expected placements.
-  - `<WindeaseProvider>` hydration round-trip.
+  - `<Provider>` hydration round-trip.
 - Ladle stories (parity with brainhouse) per layout strategy, rendering the
   same window set arranged three ways. Doubles as visual regression and as
   living documentation.

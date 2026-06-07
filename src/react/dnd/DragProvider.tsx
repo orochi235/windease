@@ -1,5 +1,5 @@
 import { type ReactNode, createContext, useContext, useMemo } from 'react';
-import { useStore } from '../WindeaseProvider.js';
+import { useStore } from '../Provider.js';
 import { useOptionalStrategyRegistry } from '../strategies.js';
 import { DragController } from './DragController.js';
 

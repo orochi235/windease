@@ -81,7 +81,7 @@ invariant (a tool strip, a tabbed group). `locked` still suppresses drag.
 
 ## Store API
 
-`WindeaseStore` exposes one map (`nodes: Map<NodeId, Node>`) and
+`Store` exposes one map (`nodes: Map<NodeId, Node>`) and
 record-replacement mutations — every change produces a fresh `Node`
 reference so React's `useSyncExternalStore` invalidates correctly. Key
 methods:
@@ -123,8 +123,8 @@ a node tree onto the strategy signature.
 children it's handed. When a child is itself a container
 (`isContainer: true`), the strategy treats it as any other slotted item.
 The React `NodeRenderer` then mounts the child's own strategy inside the
-placement rect. Built-in strategies (grid, stack, strip, binarySplit,
-recursiveSplit) work unchanged on recursive trees.
+placement rect. Built-in strategies (grid, stack, strip, split) work
+unchanged on recursive trees.
 
 Built-ins:
 
@@ -133,13 +133,15 @@ Built-ins:
   `maxCols`/`maxRows`.
 - **`stackStrategy`** / **`stripStrategy`** — main-axis stacks with
   `fill`, `defaultItemSize`, `axis` (strip only), `gap`, `padding`.
-- **`binarySplit`** / **`recursiveSplit`** — workspace-level splits with
-  draggable gutters. Honor child `hints.minSize` as a pixel floor.
+- **`splitStrategy`** — workspace-level splits with draggable gutters.
+  Default behavior accepts any N≥2 items; pass `recursive: false` in
+  config to require exactly 2 items. Honors child `hints.minSize` as a
+  pixel floor.
 
 ## React layer
 
 ```tsx
-<WindeaseProvider store={store}>
+<Provider store={store}>
   <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
     <Container
       parentId={asNodeId('z')}
@@ -147,7 +149,7 @@ Built-ins:
       viewport={{ w: 720, h: 480 }}
     />
   </StrategyRegistryProvider>
-</WindeaseProvider>
+</Provider>
 ```
 
 `chrome` is either a `Record<string, ChromeHandler>` keyed by
@@ -194,7 +196,7 @@ One bus on the store (`store.events`); DnD events fire from the controller.
 ## Snapshot
 
 `serialize(store)` produces a v2 snapshot. `deserialize(snap)` validates the
-version and returns a fresh `WindeaseStore`. Transit state is not
+version and returns a fresh `Store`. Transit state is not
 serialized; hydrate always initializes to `'idle'`. Hydrate validates
 bidirectional parent-child links, multi-focus, cycles.
 

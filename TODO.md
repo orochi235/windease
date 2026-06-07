@@ -109,6 +109,23 @@ it. Edge cases: rejecting drops a strategy can't accept (e.g. a 2-pane
 binarySplit), insertion-point previews for ordered strategies, and what
 happens to a single-member group when its last sibling leaves.
 
+## API reference docs on GH Pages
+
+Generate TypeDoc HTML from the public surface and publish alongside the
+Ladle playground:
+
+- Add `typedoc` + `typedoc-plugin-markdown` (or stay HTML) as dev deps.
+- `typedoc.json` pointing at `src/index.ts` and `src/react/index.ts`,
+  `entryPointStrategy: 'expand'`. Output to `docs-build/`.
+- Extend `.github/workflows/ladle-pages.yml` to also run `npx typedoc`
+  before the artifact upload, mounting the typedoc output under
+  `build/api/`.
+- Link from README and the Ladle nav (Ladle supports an external link
+  via config) to `/api/`.
+
+Medium priority; ship before the next minor bump so consumers have a
+reference.
+
 ## Playwright e2e suite
 
 The vitest suite + jsdom covers store logic and React component output,

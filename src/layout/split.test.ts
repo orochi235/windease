@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { recursiveSplit, type SplitNode } from './recursiveSplit.js';
+import { splitStrategy, type SplitNode } from './split.js';
 
 const leaf = (id: string): SplitNode => ({ kind: 'leaf', id });
 const split = (
@@ -9,9 +9,9 @@ const split = (
   b: SplitNode,
 ): SplitNode => ({ kind: 'split', direction, ratio, a, b });
 
-describe('recursiveSplit', () => {
+describe('splitStrategy', () => {
   it('initialState produces equal-ratio right-leaning tree', () => {
-    const state = recursiveSplit.initialState!([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+    const state = splitStrategy.initialState!([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
     expect(state).toEqual({
       kind: 'split',
       direction: 'horizontal',
@@ -22,12 +22,12 @@ describe('recursiveSplit', () => {
   });
 
   it('initialState with 1 item returns single leaf', () => {
-    const state = recursiveSplit.initialState!([{ id: 'a' }]);
+    const state = splitStrategy.initialState!([{ id: 'a' }]);
     expect(state).toEqual(leaf('a'));
   });
 
   it('layout places a single leaf to fill the container', () => {
-    const result = recursiveSplit.layout({
+    const result = splitStrategy.layout({
       items: [{ id: 'a' }],
       container: { w: 100, h: 100 },
       state: leaf('a'),
@@ -39,7 +39,7 @@ describe('recursiveSplit', () => {
 
   it('layout for one horizontal split emits one drag-x affordance', () => {
     const state = split('horizontal', 0.5, leaf('a'), leaf('b'));
-    const result = recursiveSplit.layout({
+    const result = splitStrategy.layout({
       items: [{ id: 'a' }, { id: 'b' }],
       container: { w: 200, h: 100 },
       state,
@@ -54,7 +54,7 @@ describe('recursiveSplit', () => {
 
   it('nested splits emit per-split affordances with distinct paths', () => {
     const state = split('horizontal', 0.5, split('vertical', 0.5, leaf('a'), leaf('b')), leaf('c'));
-    const result = recursiveSplit.layout({
+    const result = splitStrategy.layout({
       items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
       container: { w: 200, h: 200 },
       state,
@@ -67,14 +67,14 @@ describe('recursiveSplit', () => {
 
   it('reduce updates the ratio at the targeted path', () => {
     const state = split('horizontal', 0.5, leaf('a'), leaf('b'));
-    const result = recursiveSplit.layout({
+    const result = splitStrategy.layout({
       items: [{ id: 'a' }, { id: 'b' }],
       container: { w: 200, h: 100 },
       state,
       options: {},
     });
     const aff = result.affordances[0]!;
-    const next = recursiveSplit.reduce!(
+    const next = splitStrategy.reduce!(
       state,
       { affordanceId: aff.id, kind: 'drag', payload: { dx: 20, dy: 0 } },
       { container: { w: 200, h: 100 }, options: {}, items: [{ id: 'a' }, { id: 'b' }] },
@@ -89,7 +89,7 @@ describe('recursiveSplit', () => {
       { id: 'a', hints: { minSize: { w: 80, h: 0 } } },
       { id: 'b' },
     ];
-    const next = recursiveSplit.reduce!(
+    const next = splitStrategy.reduce!(
       state,
       { affordanceId: 'split-', kind: 'drag', payload: { dx: -1000, dy: 0 } },
       { container: { w: 200, h: 100 }, options: {}, items },
@@ -112,7 +112,7 @@ describe('recursiveSplit', () => {
       { id: 'c', hints: { minSize: { w: 30, h: 0 } } },
       { id: 'd', hints: { minSize: { w: 30, h: 0 } } },
     ];
-    const next = recursiveSplit.reduce!(
+    const next = splitStrategy.reduce!(
       state,
       { affordanceId: 'split-', kind: 'drag', payload: { dx: 1000, dy: 0 } },
       { container: { w: 200, h: 100 }, options: {}, items },
@@ -127,7 +127,7 @@ describe('recursiveSplit', () => {
     console.warn = (m: string) => warns.push(m);
     try {
       const state = split('horizontal', 0.5, leaf('a'), leaf('orphan'));
-      const result = recursiveSplit.layout({
+      const result = splitStrategy.layout({
         items: [{ id: 'a' }],
         container: { w: 100, h: 100 },
         state,

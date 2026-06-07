@@ -18,15 +18,18 @@ export type SplitNode =
       b: SplitNode;
     };
 
-export interface RecursiveSplitMeta {
+export interface SplitMeta {
   path: number[];
   direction: 'horizontal' | 'vertical';
 }
 
-interface RecursiveSplitOptions {
+export interface SplitOptions {
   gutterSize?: number;
   minRatio?: number;
   maxRatio?: number;
+  /** When false, the strategy refuses anything but exactly 2 items —
+   *  mirrors the old binarySplit strict-pair behavior. Default true. */
+  recursive?: boolean;
 }
 
 const DEFAULT_MIN = 0.05;
@@ -64,7 +67,7 @@ function walk(
   path: number[],
   gutter: number,
   placements: Map<string, Rect>,
-  affordances: Affordance<RecursiveSplitMeta>[],
+  affordances: Affordance<SplitMeta>[],
   validIds: Set<string>,
 ): void {
   if (node.kind === 'leaf') {
@@ -72,7 +75,7 @@ function walk(
       const key = `orphan:${node.id}`;
       if (!warned.has(key)) {
         warned.add(key);
-        console.warn(`[windease] recursiveSplit: leaf "${node.id}" not in items; dropping`);
+        console.warn(`[windease] splitStrategy: leaf "${node.id}" not in items; dropping`);
       }
       return;
     }
@@ -129,6 +132,20 @@ function nodeAtPath(node: SplitNode, path: number[]): SplitNode | undefined {
   return undefined;
 }
 
+/** Build a leftward-leaning chain of horizontal splits from N items. */
+function buildTree(items: LayoutItem[], _direction: 'horizontal' | 'vertical'): SplitNode {
+  if (items.length === 0) return { kind: 'leaf', id: '' };
+  if (items.length === 1) return { kind: 'leaf', id: items[0]!.id };
+  const [head, ...rest] = items;
+  return {
+    kind: 'split',
+    direction: _direction,
+    ratio: 0.5,
+    a: { kind: 'leaf', id: head!.id },
+    b: buildTree(rest, _direction),
+  };
+}
+
 function rectAtPath(root: SplitNode, path: number[], container: Rect, gutter: number): Rect | undefined {
   let node = root;
   let rect = container;
@@ -151,27 +168,27 @@ function rectAtPath(root: SplitNode, path: number[], container: Rect, gutter: nu
   return rect;
 }
 
-export const recursiveSplit: LayoutStrategy<SplitNode, string, RecursiveSplitMeta> = {
-  name: 'recursiveSplit',
+/**
+ * Generalized split layout. Default behavior is the recursive case (binary
+ * tree of splits, N items). Pass `recursive: false` in config to enforce
+ * exactly 2 items (the old splitStrategy semantics). `direction` in config
+ * picks the root-split direction when initialState builds the tree.
+ */
+export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
+  name: 'split',
   initialState(items: LayoutItem[]): SplitNode {
-    if (items.length === 0) {
-      return { kind: 'leaf', id: '' };
-    }
-    if (items.length === 1) return { kind: 'leaf', id: items[0]!.id };
-    const [head, ...rest] = items;
-    return {
-      kind: 'split',
-      direction: 'horizontal',
-      ratio: 0.5,
-      a: { kind: 'leaf', id: head!.id },
-      b: recursiveSplit.initialState!(rest),
-    };
+    return buildTree(items, 'horizontal');
   },
-  layout({ items, container, state, options }): LayoutResult<string, RecursiveSplitMeta> {
-    const cfg = options as RecursiveSplitOptions;
+  canAccept(items, options): boolean {
+    const cfg = (options ?? {}) as SplitOptions;
+    if (cfg.recursive === false) return items.length === 2;
+    return items.length >= 2;
+  },
+  layout({ items, container, state, options }): LayoutResult<string, SplitMeta> {
+    const cfg = options as SplitOptions;
     const gutter = cfg.gutterSize ?? 4;
     const placements = new Map<string, Rect>();
-    const affordances: Affordance<RecursiveSplitMeta>[] = [];
+    const affordances: Affordance<SplitMeta>[] = [];
     const validIds = new Set(items.map((it) => it.id));
     walk(state, { x: 0, y: 0, w: container.w, h: container.h }, [], gutter, placements, affordances, validIds);
     return { placements, affordances };
@@ -184,7 +201,7 @@ export const recursiveSplit: LayoutStrategy<SplitNode, string, RecursiveSplitMet
     const path = pathStr === '' ? [] : pathStr.split('.').map(Number);
     const target = nodeAtPath(state, path);
     if (!target || target.kind !== 'split') return state;
-    const cfg = (context.options ?? {}) as RecursiveSplitOptions;
+    const cfg = (context.options ?? {}) as SplitOptions;
     const gutter = cfg.gutterSize ?? 4;
     let minR = cfg.minRatio ?? DEFAULT_MIN;
     let maxR = cfg.maxRatio ?? DEFAULT_MAX;

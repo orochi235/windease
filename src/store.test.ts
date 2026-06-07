@@ -7,17 +7,17 @@ import {
   NodeNotFoundError,
 } from './errors.js';
 import { asNodeId, type NodeId } from './node.js';
-import { WindeaseStore, type StoreEvents } from './store.js';
+import { Store, type StoreEvents } from './store.js';
 
-function fresh(): WindeaseStore {
-  return new WindeaseStore();
+function fresh(): Store {
+  return new Store();
 }
 
 function id(s: string): NodeId {
   return asNodeId(s);
 }
 
-describe('WindeaseStore — register / unregister', () => {
+describe('Store — register / unregister', () => {
   it('registers a zone as a root node', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
@@ -101,8 +101,8 @@ describe('WindeaseStore — register / unregister', () => {
   });
 });
 
-describe('WindeaseStore — moveNode', () => {
-  function buildTwoZones(): WindeaseStore {
+describe('Store — moveNode', () => {
+  function buildTwoZones(): Store {
     const s = fresh();
     s.registerNode(createZone({ id: id('z1'), strategyId: 'grid', config: {} }));
     s.registerNode(createZone({ id: id('z2'), strategyId: 'grid', config: {} }));
@@ -196,7 +196,7 @@ describe('WindeaseStore — moveNode', () => {
   });
 });
 
-describe('WindeaseStore — reorder + pinned prefix', () => {
+describe('Store — reorder + pinned prefix', () => {
   it('reorderInParent emits node.reordered with from/to indices', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
@@ -250,7 +250,7 @@ describe('WindeaseStore — reorder + pinned prefix', () => {
   });
 });
 
-describe('WindeaseStore — placement / meta', () => {
+describe('Store — placement / meta', () => {
   it('patchPlacement merges and undefined deletes; emits batched changes', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
@@ -286,7 +286,7 @@ describe('WindeaseStore — placement / meta', () => {
   });
 });
 
-describe('WindeaseStore — container config', () => {
+describe('Store — container config', () => {
   it('merge-patches object configs; emits configChanged', () => {
     const s = fresh();
     s.registerNode(
@@ -308,7 +308,7 @@ describe('WindeaseStore — container config', () => {
   });
 });
 
-describe('WindeaseStore — lifecycle', () => {
+describe('Store — lifecycle', () => {
   it('show / hide transition lifecycle FSM', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
@@ -321,7 +321,7 @@ describe('WindeaseStore — lifecycle', () => {
   });
 });
 
-describe('WindeaseStore — focus', () => {
+describe('Store — focus', () => {
   it('focusNode blurs previous before focusing new', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
@@ -357,7 +357,7 @@ describe('WindeaseStore — focus', () => {
   });
 });
 
-describe('WindeaseStore — selectors', () => {
+describe('Store — selectors', () => {
   it('getChildren returns nodes in childIds order', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
@@ -406,7 +406,7 @@ describe('WindeaseStore — selectors', () => {
   });
 });
 
-describe('WindeaseStore — subscribe', () => {
+describe('Store — subscribe', () => {
   it('fires subscribers on microtask after mutation', async () => {
     const s = fresh();
     const cb = vi.fn();
@@ -418,7 +418,7 @@ describe('WindeaseStore — subscribe', () => {
   });
 });
 
-describe('WindeaseStore — activity', () => {
+describe('Store — activity', () => {
   it('getActivity returns {} when unset', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
@@ -514,7 +514,7 @@ describe('WindeaseStore — activity', () => {
   });
 });
 
-describe('WindeaseStore — integration', () => {
+describe('Store — integration', () => {
   it('builds and rearranges a 3-level tree', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
@@ -540,10 +540,10 @@ describe('WindeaseStore — integration', () => {
   });
 });
 
-describe('WindeaseStore — container state (side-channel)', () => {
+describe('Store — container state (side-channel)', () => {
   it('round-trips state via get/setContainerState', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
     expect(s.getContainerState(id('z'))).toBeUndefined();
     s.setContainerState(id('z'), { ratio: 0.7 });
     expect(s.getContainerState(id('z'))).toEqual({ ratio: 0.7 });
@@ -551,7 +551,7 @@ describe('WindeaseStore — container state (side-channel)', () => {
 
   it('emits container.stateChanged on write', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
     const spy = vi.fn();
     s.events.on('container.stateChanged', spy);
     s.setContainerState(id('z'), { ratio: 0.4 });
@@ -560,7 +560,7 @@ describe('WindeaseStore — container state (side-channel)', () => {
 
   it('skips emit + notify when state reference is unchanged', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
     const state = { ratio: 0.5 };
     s.setContainerState(id('z'), state);
     const spy = vi.fn();
@@ -578,22 +578,22 @@ describe('WindeaseStore — container state (side-channel)', () => {
 
   it('clears state when the container is unregistered', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
     s.setContainerState(id('z'), { ratio: 0.7 });
     s.unregisterNode(id('z'));
-    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
     expect(s.getContainerState(id('z'))).toBeUndefined();
   });
 
   it('stores state on node.container.state (so snapshot picks it up)', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
     s.setContainerState(id('z'), { ratio: 0.3 });
     expect(s.getNode(id('z'))?.container?.state).toEqual({ ratio: 0.3 });
   });
 });
 
-describe('WindeaseStore — allowsDrop / allowsDragOut', () => {
+describe('Store — allowsDrop / allowsDragOut', () => {
   it('default to true on createZone', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'stack', config: {} }));

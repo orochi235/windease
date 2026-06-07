@@ -1,7 +1,7 @@
 import type { Affordance, LayoutEvent, LayoutResult, NodeId, Rect } from '../index.js';
 import { runStrategyForContainer } from '../index.js';
 import { type RefObject, useCallback, useEffect, useMemo, useState } from 'react';
-import { useStore } from './WindeaseProvider.js';
+import { useStore } from './Provider.js';
 import { useNode } from './hooks.js';
 import { useStrategyRegistry } from './strategies.js';
 
@@ -56,7 +56,7 @@ export function useContainerLayout(
   const viewport = fixedViewport ?? measured;
 
   // Subscribe to container.stateChanged so layout re-runs when the persisted
-  // strategy state (e.g. binarySplit ratio) is updated via dispatchAffordance.
+  // strategy state (e.g. splitStrategy ratio) is updated via dispatchAffordance.
   const [stateTick, setStateTick] = useState(0);
   useEffect(() => {
     return store.events.on('container.stateChanged', (e) => {

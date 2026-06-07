@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
-import { WindeaseStore, asNodeId, createPanel, createZone } from '../index.js';
+import { Store, asNodeId, createPanel, createZone } from '../index.js';
 import { describe, expect, it } from 'vitest';
-import { type ChromeMap, WindeaseRoot } from './NodeRenderer.js';
+import { type ChromeMap, Root } from './NodeRenderer.js';
 
 const chrome: ChromeMap = {
   zone: ({ node, children }) => (
@@ -22,9 +22,9 @@ const chrome: ChromeMap = {
   ),
 };
 
-describe('WindeaseRoot', () => {
+describe('Root', () => {
   it('renders a zone with two panels via chrome dispatch', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
       createPanel({ id: asNodeId('a'), parentId: asNodeId('z'), meta: { title: 'A' } }),
@@ -32,14 +32,14 @@ describe('WindeaseRoot', () => {
     store.registerNode(
       createPanel({ id: asNodeId('b'), parentId: asNodeId('z'), meta: { title: 'B' } }),
     );
-    const { getByTestId } = render(<WindeaseRoot store={store} chrome={chrome} />);
+    const { getByTestId } = render(<Root store={store} chrome={chrome} />);
     expect(getByTestId('zone-z')).toBeDefined();
     expect(getByTestId('panel-a').textContent).toContain('A');
     expect(getByTestId('panel-b').textContent).toContain('B');
   });
 
   it('recursive panel renders children inside its chrome', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
       createPanel({
@@ -52,39 +52,39 @@ describe('WindeaseRoot', () => {
     store.registerNode(
       createPanel({ id: asNodeId('leaf'), parentId: asNodeId('tray'), meta: { title: 'Leaf' } }),
     );
-    const { getByTestId } = render(<WindeaseRoot store={store} chrome={chrome} />);
+    const { getByTestId } = render(<Root store={store} chrome={chrome} />);
     const tray = getByTestId('panel-tray');
     expect(tray).toBeDefined();
     expect(tray.textContent).toContain('Leaf');
   });
 
   it('hidden nodes do not render', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
     store.showNode(asNodeId('a'));
     store.showNode(asNodeId('b'));
     store.hideNode(asNodeId('b'));
-    const { queryByTestId } = render(<WindeaseRoot store={store} chrome={chrome} />);
+    const { queryByTestId } = render(<Root store={store} chrome={chrome} />);
     expect(queryByTestId('panel-a')).not.toBeNull();
     expect(queryByTestId('panel-b')).toBeNull();
   });
 
   it('chrome can be a single function instead of a kind-keyed map', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     const single = ({ node, children }: import('./NodeRenderer.js').ChromeArgs) => (
       <div data-testid={`x-${node.id}`}>{children}</div>
     );
-    const { getByTestId } = render(<WindeaseRoot store={store} chrome={single} />);
+    const { getByTestId } = render(<Root store={store} chrome={single} />);
     expect(getByTestId('x-z')).toBeDefined();
     expect(getByTestId('x-a')).toBeDefined();
   });
 
   it('map chrome falls back to "default" when no kind handler matches', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     const onlyDefault: ChromeMap = {
@@ -92,7 +92,7 @@ describe('WindeaseRoot', () => {
         <div data-testid={`d-${node.id}`}>{children}</div>
       ),
     };
-    const { getByTestId } = render(<WindeaseRoot store={store} chrome={onlyDefault} />);
+    const { getByTestId } = render(<Root store={store} chrome={onlyDefault} />);
     expect(getByTestId('d-z')).toBeDefined();
     expect(getByTestId('d-a')).toBeDefined();
   });

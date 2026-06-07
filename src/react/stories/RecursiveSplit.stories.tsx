@@ -1,27 +1,26 @@
-export default { title: 'Recursive split (resize)' };
+export default { title: 'Recursive zones / Split (resize)' };
 
 import {
   asNodeId,
   createPanel,
   createZone,
-  recursiveSplit,
+  splitStrategy,
   type SplitNode,
-  WindeaseStore,
+  Store,
 } from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
   Container,
-  Group,
   Panel,
   StrategyRegistryProvider,
-  WindeaseProvider,
+  Provider,
 } from '../index.js';
 import './windease.css';
 
 const STRATEGIES = {
-  recursiveSplit: recursiveSplit as never,
+  split: splitStrategy as never,
 };
 
 // Three nested splits — exercises every gutter direction.
@@ -47,11 +46,11 @@ const TREE: SplitNode = {
 
 export const RecursiveSplit: Story = () => {
   const store = useMemo(() => {
-    const s = new WindeaseStore();
+    const s = new Store();
     s.registerNode(
       createZone({
         id: asNodeId('rs'),
-        strategyId: 'recursiveSplit',
+        strategyId: 'split',
         config: { gutterSize: 6 },
       }),
     );
@@ -67,29 +66,26 @@ export const RecursiveSplit: Story = () => {
   const chrome: ChromeMap = useMemo(
     () => ({
       zone: ({ children }) => <>{children}</>,
-      group: ({ node, children }) => <Group title={String(node.meta?.title ?? node.id)}>{children}</Group>,
       panel: ({ node }) => <Panel title={String(node.meta?.title ?? node.id)} />,
     }),
     [],
   );
 
   return (
-    <WindeaseProvider store={store}>
+    <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
-        <div style={{ width: 720, height: 440, background: '#0f172a08', borderRadius: 8 }}>
-          <Container
-            parentId={asNodeId('rs')}
-            chrome={chrome}
-            viewport={{ w: 720, h: 440 }}
-            className="windease-zone"
-            affordances
-          />
-        </div>
+        <Container
+          parentId={asNodeId('rs')}
+          chrome={chrome}
+          viewport={{ w: 720, h: 440 }}
+          className="windease-zone"
+          affordances
+        />
         <p style={{ marginTop: 12, font: '12px/1.4 system-ui, sans-serif', color: '#64748b' }}>
-          Three nested splits. Each gutter resizes independently. State survives snapshot/hydrate
-          via <code>node.container.state</code>.
+          Three nested splits. Each gutter resizes independently. State persists on{' '}
+          <code>node.container.state</code>.
         </p>
       </StrategyRegistryProvider>
-    </WindeaseProvider>
+    </Provider>
   );
 };

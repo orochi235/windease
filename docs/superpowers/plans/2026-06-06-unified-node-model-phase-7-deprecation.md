@@ -10,7 +10,7 @@
 
 ### Task 1: Annotate v0.1 exports with `@deprecated`
 
-- [ ] Add JSDoc to: `WindeaseStore`, `WindowRecord`, `ZoneRecord`, `WindowId`, `ZoneId`, `asWindowId`, `asZoneId`, `createWindowRecord`, `createZoneRecord`, v0.1 React hooks (`useWindow`, `useZone`, `useWindowsByZone`, `useItemMeta`, `useWindease`), `Workspace`, `Zone`, `WindeaseProvider`.
+- [ ] Add JSDoc to: `Store`, `WindowRecord`, `ZoneRecord`, `WindowId`, `ZoneId`, `asWindowId`, `asZoneId`, `createWindowRecord`, `createZoneRecord`, v0.1 React hooks (`useWindow`, `useZone`, `useWindowsByZone`, `useItemMeta`, `useWindease`), `Workspace`, `Zone`, `Provider`.
 - [ ] Commit `chore(core,react): mark v0.1 surface as @deprecated for v0.2 migration`.
 
 ### Task 2: Headline integration test

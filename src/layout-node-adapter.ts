@@ -1,6 +1,6 @@
 import type { LayoutItem, LayoutNode, LayoutResult, LayoutStrategy, Size } from './layout-types.js';
 import type { Node, NodeId } from './node.js';
-import type { WindeaseStore } from './store.js';
+import type { Store } from './store.js';
 
 /**
  * Convert a Node into the legacy LayoutItem shape consumed by existing
@@ -42,7 +42,7 @@ export function nodeToLayoutNode(node: Node): LayoutNode {
  * Collect visible children of `parentId` as LayoutNodes in childIds order.
  * Hidden children (lifecycle.state === 'hidden') are excluded.
  */
-export function getLayoutNodes(store: WindeaseStore, parentId: NodeId): LayoutNode[] {
+export function getLayoutNodes(store: Store, parentId: NodeId): LayoutNode[] {
   const children = store.getChildren(parentId);
   const out: LayoutNode[] = [];
   for (const child of children) {
@@ -58,7 +58,7 @@ export function getLayoutNodes(store: WindeaseStore, parentId: NodeId): LayoutNo
  * callers manage it (typically via a per-container state slot).
  */
 export function runStrategyForContainer<TState>(
-  store: WindeaseStore,
+  store: Store,
   parentId: NodeId,
   viewport: Size,
   strategy: LayoutStrategy<TState, string, unknown>,

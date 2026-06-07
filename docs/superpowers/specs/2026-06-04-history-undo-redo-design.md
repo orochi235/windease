@@ -51,11 +51,11 @@ Pure data structure: no event subscriptions, no DOM, no side effects.
 
 ### `@windease/react`: Provider context
 
-`<WindeaseProvider>` gains an optional `history` slot:
+`<Provider>` gains an optional `history` slot:
 
 ```ts
-interface WindeaseProviderProps {
-  store: WindeaseStore;
+interface ProviderProps {
+  store: Store;
   children: ReactNode;
   history?: HistoryHookup<unknown>;
 }
@@ -117,7 +117,7 @@ Playground story:
 1. `useMemo` to construct `HistoryController`.
 2. `useState` for the Workspace tree (controlled).
 3. `capture` and `restore` closures defined inline.
-4. Provider: `<WindeaseProvider store={store} history={{ controller, capture, restore }}>`.
+4. Provider: `<Provider store={store} history={{ controller, capture, restore }}>`.
 5. `useEffect` for keybinds:
    - `Cmd/Ctrl-Z` → `const snap = controller.undo(); if (snap) restore(snap);`
    - `Cmd/Ctrl-Shift-Z` (or `Cmd/Ctrl-Y`) → same with `redo`.

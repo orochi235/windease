@@ -1,16 +1,16 @@
 import {
   type LayoutStrategy,
-  WindeaseStore,
+  Store,
   asNodeId,
-  binarySplit,
+  splitStrategy,
   createPanel,
   createZone,
 } from '../../index.js';
 import { describe, expect, it, vi } from 'vitest';
 import { DragController } from './DragController.js';
 
-function buildStore(): WindeaseStore {
-  const s = new WindeaseStore();
+function buildStore(): Store {
+  const s = new Store();
   s.registerNode(createZone({ id: asNodeId('z1'), strategyId: 'stack', config: {} }));
   s.registerNode(createZone({ id: asNodeId('z2'), strategyId: 'stack', config: {} }));
   s.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z1') }));
@@ -82,16 +82,18 @@ describe('DragController', () => {
   });
 
   it('strategy canAccept rejects drops the strategy can\'t lay out', () => {
-    // binarySplit requires exactly 2 items; z2 already has 2, drop of a third
-    // should be rejected.
-    const s = new WindeaseStore();
+    // splitStrategy with recursive:false enforces exactly 2 items; z2 already
+    // has 2, drop of a third should be rejected.
+    const s = new Store();
     s.registerNode(createZone({ id: asNodeId('z1'), strategyId: 'stack', config: {} }));
-    s.registerNode(createZone({ id: asNodeId('z2'), strategyId: 'binarySplit', config: {} }));
+    s.registerNode(
+      createZone({ id: asNodeId('z2'), strategyId: 'split', config: { recursive: false } }),
+    );
     s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z2') }));
     s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z2') }));
     s.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z1') }));
     const getStrategy = (sid: string): LayoutStrategy<unknown, string, unknown> | undefined =>
-      sid === 'binarySplit' ? (binarySplit as never) : undefined;
+      sid === 'split' ? (splitStrategy as never) : undefined;
     const c = new DragController(s, getStrategy);
     c.tryBegin(asNodeId('p'));
     c.registerDropTarget(asNodeId('z2'), makeFakeElement(0, 0, 100, 100));

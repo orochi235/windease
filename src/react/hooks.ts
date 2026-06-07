@@ -1,6 +1,6 @@
 import type { Node, NodeId } from '../index.js';
 import { useMemo, useSyncExternalStore } from 'react';
-import { useStore } from './WindeaseProvider.js';
+import { useStore } from './Provider.js';
 
 export function useNode(id: NodeId): Node | undefined {
   const store = useStore();

@@ -33,9 +33,10 @@ layout and DnD).
   reference; React's `useSyncExternalStore` invalidates correctly by
   default.
 - **JSON-safe snapshots** via `serialize(store)` / `deserialize(snap)`.
-- **Layout strategies** are pure functions. Built-ins: `grid`, `stack`,
-  `strip`, `binarySplit`, `recursiveSplit`. Strategies work unchanged on
-  recursive trees via the `LayoutNode` adapter.
+- **Layout strategies** are pure functions. Built-ins: `gridStrategy`,
+  `stackStrategy`, `stripStrategy`, `splitStrategy` (binary by default,
+  recursive when `recursive: true` in config). Strategies work unchanged
+  on recursive trees via the `LayoutNode` adapter.
 
 ## Usage
 
@@ -46,17 +47,17 @@ import {
   createZone,
   gridStrategy,
   stackStrategy,
-  WindeaseStore,
+  Store,
 } from 'windease';
 import {
   Container,
   Panel,
   StrategyRegistryProvider,
-  WindeaseProvider,
+  Provider,
   Zone,
 } from 'windease/react';
 
-const store = new WindeaseStore();
+const store = new Store();
 store.registerNode(createZone({
   id: asNodeId('z'),
   strategyId: 'grid',
@@ -93,11 +94,11 @@ const chrome = {
   },
 };
 
-<WindeaseProvider store={store}>
+<Provider store={store}>
   <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
     <Container parentId={asNodeId('z')} chrome={chrome} viewport={{ w: 720, h: 480 }} />
   </StrategyRegistryProvider>
-</WindeaseProvider>
+</Provider>
 ```
 
 `<Panel>`, `<Group>`, `<Zone>` are minimal styled wrappers — pass
@@ -127,7 +128,8 @@ the tree under `<DragProvider>`. The drag controller honors:
 - `container.allowsDragOut` — zone-level drag suppression.
 - `container.allowsDrop` — zone-level drop refusal.
 - The destination strategy's `canAccept(prospective-items, options)` — e.g.
-  `binarySplit` refuses anything that wouldn't leave exactly two children.
+  `splitStrategy` with `recursive: false` refuses anything that wouldn't
+  leave exactly two children.
 - An optional consumer-supplied `canAccept(sourceId)` on the drop target.
 
 See the **Parallel zones / Drag between** story for the canonical setup.
@@ -135,11 +137,12 @@ See the **Parallel zones / Drag between** story for the canonical setup.
 ## Resize
 
 Pass `affordances` to `<Container>` to render the strategy's interactive
-gutters. `binarySplit` and `recursiveSplit` ship draggable gutters out of
-the box; their state persists on `node.container.state` and survives
-snapshot/hydrate. Per-child `hints.minSize` is honored as a pixel floor so
-manual gutter drags can't push a panel below its declared minimum. The
-default 4px gutter ships with an 8px-wide hit area (`affordanceHitPad`).
+gutters. `splitStrategy` ships draggable gutters out of the box (binary
+by default; pass `recursive: true` for arbitrary trees). State persists
+on `node.container.state` and survives snapshot/hydrate. Per-child
+`hints.minSize` is honored as a pixel floor so manual gutter drags can't
+push a panel below its declared minimum. The default 4px gutter ships
+with an 8px-wide hit area (`affordanceHitPad`).
 
 ## Develop
 

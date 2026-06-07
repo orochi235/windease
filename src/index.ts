@@ -30,8 +30,12 @@ export type {
 export { gridStrategy } from './layout/grid.js';
 export { stackStrategy } from './layout/stack.js';
 export { stripStrategy } from './layout/strip.js';
-export { binarySplit, type BinarySplitState, type BinarySplitMeta } from './layout/binarySplit.js';
-export { recursiveSplit, type SplitNode, type RecursiveSplitMeta } from './layout/recursiveSplit.js';
+export {
+  splitStrategy,
+  type SplitNode,
+  type SplitMeta,
+  type SplitOptions,
+} from './layout/split.js';
 export { HistoryController, type HistoryControllerOptions } from './history.js';
 export {
   configureTrace,
@@ -70,7 +74,7 @@ export {
   StrategyRejectionError,
   InvariantViolationError,
 } from './errors.js';
-export { WindeaseStore, type StoreEvents } from './store.js';
+export { Store, type StoreEvents } from './store.js';
 export {
   serialize,
   deserialize,

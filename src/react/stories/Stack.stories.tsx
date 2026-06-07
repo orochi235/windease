@@ -5,7 +5,7 @@ import {
   createPanel,
   createZone,
   stackStrategy,
-  WindeaseStore,
+  Store,
 } from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
@@ -14,7 +14,7 @@ import {
   Container,
   Panel,
   StrategyRegistryProvider,
-  WindeaseProvider,
+  Provider,
 } from '../index.js';
 import './windease.css';
 
@@ -31,7 +31,7 @@ interface Args {
 
 export const Stack: Story<Args> = ({ gap, padding }) => {
   const store = useMemo(() => {
-    const s = new WindeaseStore();
+    const s = new Store();
     s.registerNode(
       createZone({
         id: ZONE_ID,
@@ -64,7 +64,7 @@ export const Stack: Story<Args> = ({ gap, padding }) => {
   );
 
   return (
-    <WindeaseProvider store={store}>
+    <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 260, height: 500 }}>
           <Container
@@ -75,7 +75,7 @@ export const Stack: Story<Args> = ({ gap, padding }) => {
           />
         </div>
       </StrategyRegistryProvider>
-    </WindeaseProvider>
+    </Provider>
   );
 };
 

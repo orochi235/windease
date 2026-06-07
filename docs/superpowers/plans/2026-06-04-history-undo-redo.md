@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a generic `HistoryController` in `@windease/core`, wire `<WindeaseProvider>` / `<Workspace>` / `<Zone>` to use it via React context when present, and demonstrate it in the Playground story with Cmd/Ctrl-Z keybinds.
+**Goal:** Ship a generic `HistoryController` in `@windease/core`, wire `<Provider>` / `<Workspace>` / `<Zone>` to use it via React context when present, and demonstrate it in the Playground story with Cmd/Ctrl-Z keybinds.
 
-**Architecture:** `HistoryController` is a snapshot stack with transaction coalescing — knows nothing about windease specifics. `WindeaseProvider` accepts an optional `history` hookup `{ controller, capture, restore }` and subscribes to store events to auto-push. `<Workspace>` and `<Zone>` consume the hookup via context and wrap their gestures in transactions. The story owns snapshot shape + keybinds.
+**Architecture:** `HistoryController` is a snapshot stack with transaction coalescing — knows nothing about windease specifics. `Provider` accepts an optional `history` hookup `{ controller, capture, restore }` and subscribes to store events to auto-push. `<Workspace>` and `<Zone>` consume the hookup via context and wrap their gestures in transactions. The story owns snapshot shape + keybinds.
 
 **Tech Stack:** TypeScript 5, React 19, Vitest. No new runtime deps.
 
@@ -21,8 +21,8 @@ packages/core/src/
 └── index.ts                        # MODIFY — export HistoryController + types
 
 packages/react/src/
-├── WindeaseProvider.tsx            # MODIFY — accept history prop, wire store event subscription
-├── WindeaseProvider.test.tsx       # MODIFY — integration test
+├── Provider.tsx            # MODIFY — accept history prop, wire store event subscription
+├── Provider.test.tsx       # MODIFY — integration test
 ├── hooks.ts                        # MODIFY — add useHistory()
 ├── Workspace.tsx                   # MODIFY — controlled state + gesture transactions
 ├── Workspace.test.tsx              # MODIFY — controlled-mode + transaction tests
@@ -224,23 +224,23 @@ git -c commit.gpgsign=false commit -m "feat(core): HistoryController with transa
 
 ---
 
-## Task 2: `WindeaseProvider` accepts `history`, auto-pushes on store events; `useHistory()` hook
+## Task 2: `Provider` accepts `history`, auto-pushes on store events; `useHistory()` hook
 
 **Files:**
-- Modify: `packages/react/src/WindeaseProvider.tsx`
+- Modify: `packages/react/src/Provider.tsx`
 - Modify: `packages/react/src/hooks.ts`
-- Modify: `packages/react/src/WindeaseProvider.test.tsx`
+- Modify: `packages/react/src/Provider.test.tsx`
 
 ### Step 1: Read current state
 
-Read `packages/react/src/WindeaseProvider.tsx` and `hooks.ts`. The current Provider exposes a context with the store; `useWindease()` returns it.
+Read `packages/react/src/Provider.tsx` and `hooks.ts`. The current Provider exposes a context with the store; `useWindease()` returns it.
 
 ### Step 2: Add a history-hookup context
 
 Define a separate React context for the history hookup (so consumers don't pay re-render cost when only store changes):
 
 ```ts
-// In WindeaseProvider.tsx (or a sibling file — adapt to existing structure)
+// In Provider.tsx (or a sibling file — adapt to existing structure)
 import type { HistoryController } from '@windease/core';
 
 export interface HistoryHookup<T = unknown> {
@@ -252,7 +252,7 @@ export interface HistoryHookup<T = unknown> {
 export const HistoryHookupContext = createContext<HistoryHookup<unknown> | null>(null);
 ```
 
-### Step 3: Update `WindeaseProvider` props and behavior
+### Step 3: Update `Provider` props and behavior
 
 Add `history?: HistoryHookup` to props. In the component, wrap children in `<HistoryHookupContext.Provider value={history ?? null}>`.
 
@@ -284,31 +284,31 @@ useEffect(() => {
 
 ```ts
 import { useContext } from 'react';
-import { HistoryHookupContext, type HistoryHookup } from './WindeaseProvider.js';
+import { HistoryHookupContext, type HistoryHookup } from './Provider.js';
 
 export function useHistory<T = unknown>(): HistoryHookup<T> | null {
   return useContext(HistoryHookupContext) as HistoryHookup<T> | null;
 }
 ```
 
-### Step 5: Write test in `WindeaseProvider.test.tsx`
+### Step 5: Write test in `Provider.test.tsx`
 
 Append:
 
 ```tsx
-import { HistoryController, type SerializedStore, WindeaseStore, asWindowId, gridStrategy, asZoneId } from '@windease/core';
+import { HistoryController, type SerializedStore, Store, asWindowId, gridStrategy, asZoneId } from '@windease/core';
 
 it('history hookup pushes initial snapshot and on store events', () => {
-  const store = new WindeaseStore();
+  const store = new Store();
   store.registerZone({ id: asZoneId('z'), strategy: gridStrategy, config: {} });
   const controller = new HistoryController<SerializedStore>();
   const capture = () => store.snapshot();
   const restore = (snap: SerializedStore) => store.hydrate(snap, { strategies: { grid: gridStrategy } });
 
   render(
-    <WindeaseProvider store={store} history={{ controller, capture, restore }}>
+    <Provider store={store} history={{ controller, capture, restore }}>
       <div />
-    </WindeaseProvider>,
+    </Provider>,
   );
 
   // Initial push happened
@@ -328,12 +328,12 @@ it('history hookup pushes initial snapshot and on store events', () => {
 ```
 
 ### Step 6: Build + test
-`npx tsc -b && npx vitest run packages/react/src/WindeaseProvider.test.tsx`
+`npx tsc -b && npx vitest run packages/react/src/Provider.test.tsx`
 
 ### Step 7: Commit
 ```
-git add packages/react/src/WindeaseProvider.tsx packages/react/src/WindeaseProvider.test.tsx packages/react/src/hooks.ts
-git -c commit.gpgsign=false commit -m "feat(react): WindeaseProvider history hookup + useHistory hook"
+git add packages/react/src/Provider.tsx packages/react/src/Provider.test.tsx packages/react/src/hooks.ts
+git -c commit.gpgsign=false commit -m "feat(react): Provider history hookup + useHistory hook"
 ```
 
 ---
@@ -519,7 +519,7 @@ Add to `Zone.test.tsx`:
 it('window-drag wraps drop in a transaction (single history entry)', () => {
   // Set up store with two zones, controller with capture/restore.
   // After a drag, controller should have exactly one extra entry beyond initial.
-  // Use HistoryController + WindeaseProvider with history hookup.
+  // Use HistoryController + Provider with history hookup.
 });
 ```
 
@@ -576,7 +576,7 @@ const restore = useCallback((snap: PlaygroundSnapshot) => {
 Pass to provider:
 
 ```tsx
-<WindeaseProvider store={store} history={{ controller, capture, restore }}>
+<Provider store={store} history={{ controller, capture, restore }}>
 ```
 
 Pass `state` + `onStateChange` to `Workspace` (controlled mode):

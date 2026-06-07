@@ -1,23 +1,23 @@
 import { act, render } from '@testing-library/react';
 import {
   asNodeId,
-  binarySplit,
+  splitStrategy,
   createPanel,
   createZone,
   gridStrategy,
-  WindeaseStore,
+  Store,
 } from '../index.js';
 import { describe, expect, it } from 'vitest';
 import { Container, type ChromeMap } from './index.js';
 import { StrategyRegistryProvider } from './strategies.js';
-import { WindeaseProvider } from './WindeaseProvider.js';
+import { Provider } from './Provider.js';
 
 const PANEL_CHROME: ChromeMap = {
   panel: ({ node }) => <div data-testid={`p-${node.id}`}>{String(node.id)}</div>,
 };
 
-function makeGridStore(): WindeaseStore {
-  const s = new WindeaseStore();
+function makeGridStore(): Store {
+  const s = new Store();
   s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 2 } }));
   s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
   s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
@@ -26,13 +26,13 @@ function makeGridStore(): WindeaseStore {
   return s;
 }
 
-function withProviders(store: WindeaseStore, strategies: Record<string, unknown>, ui: React.ReactNode) {
+function withProviders(store: Store, strategies: Record<string, unknown>, ui: React.ReactNode) {
   return (
-    <WindeaseProvider store={store}>
+    <Provider store={store}>
       <StrategyRegistryProvider strategies={strategies as never}>
         {ui}
       </StrategyRegistryProvider>
-    </WindeaseProvider>
+    </Provider>
   );
 }
 
@@ -92,9 +92,9 @@ describe('Container — overlay callback', () => {
 
 describe('Container — affordances callback', () => {
   it('custom affordance renderer replaces the default per affordance', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('s'), strategyId: 'binarySplit', config: {} }),
+      createZone({ id: asNodeId('s'), strategyId: 'split', config: {} }),
     );
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('s') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('s') }));
@@ -103,7 +103,7 @@ describe('Container — affordances callback', () => {
     const { container } = render(
       withProviders(
         store,
-        { binarySplit },
+        { split: splitStrategy },
         <Container
           parentId={asNodeId('s')}
           chrome={PANEL_CHROME}
@@ -115,14 +115,14 @@ describe('Container — affordances callback', () => {
       ),
     );
     // Custom marker present; the default [data-affordance-hit] outer div is not.
-    expect(container.querySelector('[data-testid="custom-split-0"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="custom-split-"]')).not.toBeNull();
     expect(container.querySelector('[data-affordance-hit]')).toBeNull();
   });
 
   it('custom affordance dispatch updates persisted container state', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('s'), strategyId: 'binarySplit', config: {} }),
+      createZone({ id: asNodeId('s'), strategyId: 'split', config: {} }),
     );
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('s') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('s') }));
@@ -132,7 +132,7 @@ describe('Container — affordances callback', () => {
     render(
       withProviders(
         store,
-        { binarySplit },
+        { split: splitStrategy },
         <Container
           parentId={asNodeId('s')}
           chrome={PANEL_CHROME}
@@ -146,8 +146,10 @@ describe('Container — affordances callback', () => {
     );
     expect(capturedDispatch).not.toBeNull();
     act(() => {
-      capturedDispatch?.({ affordanceId: 'split-0', kind: 'drag', payload: { dx: 40 } });
+      capturedDispatch?.({ affordanceId: 'split-', kind: 'drag', payload: { dx: 40 } });
     });
-    expect(store.getContainerState(asNodeId('s'))).toEqual({ ratio: 0.5 + 40 / 200 });
+    const state = store.getContainerState(asNodeId('s')) as { kind: string; ratio?: number };
+    expect(state.kind).toBe('split');
+    expect(state.ratio).toBeCloseTo(0.5 + 40 / 200, 5);
   });
 });

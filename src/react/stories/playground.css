@@ -1,0 +1,66 @@
+.pg-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  font: 12px/1.4 system-ui, sans-serif;
+}
+
+.pg-toolbar button {
+  padding: 4px 10px;
+  border: 1px solid #d4d4dc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.pg-toolbar button:hover {
+  background: #f1f5f9;
+}
+
+.pg-canvas {
+  width: 900px;
+  height: 540px;
+  background: #0f172a05;
+  border-radius: 8px;
+}
+
+.pg-zone-shell {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.pg-zone-inner {
+  width: 100%;
+  height: 100%;
+}
+
+.pg-drag {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.pg-drag:active {
+  cursor: grabbing;
+}
+
+.pg-hint {
+  margin: 12px 0 0;
+  font: 12px/1.4 system-ui, sans-serif;
+  color: #64748b;
+}
+
+.pg-snap {
+  display: block;
+  margin-top: 12px;
+  width: 900px;
+  height: 200px;
+  font: 11px/1.35 ui-monospace, monospace;
+  background: #0f172a05;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px;
+}

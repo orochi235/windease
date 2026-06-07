@@ -6,7 +6,7 @@ import {
   createZone,
   deserialize,
   serialize,
-  WindeaseStore,
+  Store,
 } from './index.js';
 
 /**
@@ -18,7 +18,7 @@ import {
  */
 describe('headline end-to-end', () => {
   it('builds, snapshots, rehydrates, and continues mutating a 3-level tree', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
 
     // Build:
     //   z (zone, grid)

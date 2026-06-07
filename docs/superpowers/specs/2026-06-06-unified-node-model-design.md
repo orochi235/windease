@@ -445,17 +445,17 @@ the explicit migration policy.
 ### Components
 
 ```tsx
-<WindeaseRoot store={store} chrome={{ panel, group, zone }} />
+<Root store={store} chrome={{ panel, group, zone }} />
 <NodeRenderer id={nodeId} />
 ```
 
-`<WindeaseRoot>` renders `rootIds`, dispatching to chrome by kind.
+`<Root>` renders `rootIds`, dispatching to chrome by kind.
 `<NodeRenderer>` is the internal recursion primitive — looks up the node,
 dispatches to registered chrome, renders container children if present.
 
 ### Chrome registration
 
-Top-level map on `<WindeaseRoot>`. Each kind has one handler for the whole
+Top-level map on `<Root>`. Each kind has one handler for the whole
 tree. Consumers extend the map; library doesn't ship default chromes.
 
 ```tsx

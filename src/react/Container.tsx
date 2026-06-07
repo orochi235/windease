@@ -52,7 +52,7 @@ export interface ContainerProps {
    */
   settleMs?: number;
   /**
-   * Render the strategy's affordances (e.g. binarySplit's gutter) as
+   * Render the strategy's affordances (e.g. splitStrategy's gutter) as
    * interactive elements. `true` ships the default rect renderer with a
    * widened hit area and auto-suppresses the settle animation during drag.
    *
@@ -94,7 +94,7 @@ const DEFAULT_SETTLE_MS = 150;
  * container at the strategy's rect; the chrome handler for the child's
  * kind decides the actual contents.
  *
- * Pair with `<WindeaseRoot>` for top-level layout, or use directly for
+ * Pair with `<Root>` for top-level layout, or use directly for
  * a container nested inside another component.
  */
 export function Container({

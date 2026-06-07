@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build `WindeaseNodeStore` — net-new class implementing the unified node model. Lives alongside the existing `WindeaseStore`; no v0.1 wrappers in this phase (Phase 7 deprecates the old one). All mutations use record replacement so React's `useSyncExternalStore` re-renders correctly.
+**Goal:** Build `WindeaseNodeStore` — net-new class implementing the unified node model. Lives alongside the existing `Store`; no v0.1 wrappers in this phase (Phase 7 deprecates the old one). All mutations use record replacement so React's `useSyncExternalStore` re-renders correctly.
 
 **Architecture:** New file `store-v2.ts`. Single `nodes: Map<NodeId, Node>`. Every mutation that touches a node produces a fresh `Node` object via shallow spread. FSMs use Machine instances internally; the containing Node is replaced when the FSM transitions. Events on a `TypedEmitter` keyed by `v0.2 Event` types.
 

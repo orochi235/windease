@@ -5,7 +5,7 @@ import {
   createPanel,
   createZone,
   gridStrategy,
-  WindeaseStore,
+  Store,
 } from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
@@ -14,7 +14,7 @@ import {
   Container,
   Panel,
   StrategyRegistryProvider,
-  WindeaseProvider,
+  Provider,
 } from '../index.js';
 import './windease.css';
 
@@ -33,7 +33,7 @@ interface Args {
 
 export const Grid: Story<Args> = ({ cols, gap, padding, panelCount }) => {
   const store = useMemo(() => {
-    const s = new WindeaseStore();
+    const s = new Store();
     s.registerNode(
       createZone({
         id: ZONE_ID,
@@ -62,7 +62,7 @@ export const Grid: Story<Args> = ({ cols, gap, padding, panelCount }) => {
   );
 
   return (
-    <WindeaseProvider store={store}>
+    <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 480, height: 360 }}>
           <Container
@@ -73,7 +73,7 @@ export const Grid: Story<Args> = ({ cols, gap, padding, panelCount }) => {
           />
         </div>
       </StrategyRegistryProvider>
-    </WindeaseProvider>
+    </Provider>
   );
 };
 

@@ -1,4 +1,4 @@
-export { WindeaseProvider, WindeaseContext, useStore } from './WindeaseProvider.js';
+export { Provider, Context, useStore } from './Provider.js';
 export {
   useNode,
   useNodeSelector,
@@ -9,13 +9,13 @@ export {
 } from './hooks.js';
 export {
   NodeRenderer,
-  WindeaseRoot,
+  Root,
   type Chrome,
   type ChromeArgs,
   type ChromeHandler,
   type ChromeMap,
   type NodeRendererProps,
-  type WindeaseRootProps,
+  type RootProps,
 } from './NodeRenderer.js';
 
 // Preset components

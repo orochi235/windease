@@ -1,4 +1,4 @@
-import type { LayoutStrategy, NodeId, WindeaseStore } from '../../index.js';
+import type { LayoutStrategy, NodeId, Store } from '../../index.js';
 import { trace } from '../../index.js';
 
 /** Looks up a strategy by id. DragController uses it to consult
@@ -32,7 +32,7 @@ export class DragController {
   private escapeBound = false;
 
   constructor(
-    private readonly store: WindeaseStore,
+    private readonly store: Store,
     private readonly getStrategy?: StrategyLookup,
   ) {}
 
@@ -99,7 +99,7 @@ export class DragController {
     const targetNode = this.store.getNode(targetId);
     if (targetNode?.container?.allowsDrop === false) return false;
 
-    // Strategy-level constraint: e.g. binarySplit refuses anything but 2 items.
+    // Strategy-level constraint: e.g. splitStrategy refuses anything but 2 items.
     if (targetNode?.container && this.getStrategy) {
       const strategy = this.getStrategy(targetNode.container.strategyId);
       if (strategy?.canAccept) {

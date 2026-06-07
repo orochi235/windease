@@ -1,4 +1,4 @@
-export default { title: 'Recursive zones' };
+export default { title: 'Recursive zones / Trays' };
 
 import {
   asNodeId,
@@ -6,7 +6,7 @@ import {
   createZone,
   gridStrategy,
   stackStrategy,
-  WindeaseStore,
+  Store,
 } from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
@@ -15,7 +15,7 @@ import {
   Container,
   Panel,
   StrategyRegistryProvider,
-  WindeaseProvider,
+  Provider,
   Zone,
 } from '../index.js';
 import './windease.css';
@@ -38,7 +38,7 @@ interface Args {
  */
 export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
   const store = useMemo(() => {
-    const s = new WindeaseStore();
+    const s = new Store();
     s.registerNode(
       createZone({
         id: asNodeId('z'),
@@ -118,7 +118,7 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
   );
 
   return (
-    <WindeaseProvider store={store}>
+    <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 720, height: 480 }}>
           <Container
@@ -129,7 +129,7 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
           />
         </div>
       </StrategyRegistryProvider>
-    </WindeaseProvider>
+    </Provider>
   );
 };
 

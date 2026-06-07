@@ -4,7 +4,7 @@ import {
   createGroup,
   createPanel,
   createZone,
-  WindeaseStore,
+  Store,
   getLayoutNodes,
 } from './index.js';
 
@@ -39,7 +39,7 @@ describe('preset constructors — capability shape', () => {
 
 describe('integration: activity-aware consumer strategy', () => {
   it('sorts children by activity.lastAt descending', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));

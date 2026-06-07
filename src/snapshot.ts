@@ -3,7 +3,7 @@ import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
 import { type Node, type NodeKind, asNodeId } from './node.js';
-import { WindeaseStore } from './store.js';
+import { Store } from './store.js';
 
 export interface SerializedNode {
   id: string;
@@ -42,10 +42,10 @@ export interface SerializedStore {
 }
 
 /**
- * Serialize a WindeaseStore into a v2 snapshot. Destroyed nodes and
+ * Serialize a Store into a v2 snapshot. Destroyed nodes and
  * transit state are deliberately not included — see spec section 8.
  */
-export function serialize(store: WindeaseStore): SerializedStore {
+export function serialize(store: Store): SerializedStore {
   const nodes: SerializedNode[] = [];
   for (const node of store.nodes.values()) {
     if (node.lifecycle.state === 'destroyed') continue;
@@ -88,8 +88,8 @@ export function serialize(store: WindeaseStore): SerializedStore {
   };
 }
 
-/** Hydrate a fresh WindeaseStore from a v2 snapshot. */
-export function deserialize(snap: unknown): WindeaseStore {
+/** Hydrate a fresh Store from a v2 snapshot. */
+export function deserialize(snap: unknown): Store {
   const versioned = snap as { version?: number };
   if (!versioned || typeof versioned !== 'object' || typeof versioned.version !== 'number') {
     throw new WindeaseError(
@@ -106,7 +106,7 @@ export function deserialize(snap: unknown): WindeaseStore {
   );
 }
 
-function hydrateFromV2(snap: SerializedStore): WindeaseStore {
+function hydrateFromV2(snap: SerializedStore): Store {
   // Build a lookup so we can validate links + multi-focus before mutating.
   const byId = new Map<string, SerializedNode>();
   for (const sn of snap.nodes) byId.set(sn.id, sn);
@@ -153,7 +153,7 @@ function hydrateFromV2(snap: SerializedStore): WindeaseStore {
     }
   }
 
-  const store = new WindeaseStore();
+  const store = new Store();
 
   // Visit nodes in tree order: each root, then DFS through its childIds,
   // which preserves both insertion order and the snapshot's intended child

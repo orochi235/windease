@@ -52,7 +52,7 @@ export interface StoreEvents {
   'container.allowsDropChanged': { id: NodeId; from: boolean; to: boolean };
   'container.allowsDragOutChanged': { id: NodeId; from: boolean; to: boolean };
   /**
-   * Per-container strategy state (e.g. binarySplit ratio) changed. Stored on
+   * Per-container strategy state (e.g. splitStrategy ratio) changed. Stored on
    * `node.container.state`; round-trips through snapshot. By design this
    * field should NOT participate in undo/redo when v2 history lands —
    * resize gestures shouldn't pollute the timeline.
@@ -61,14 +61,14 @@ export interface StoreEvents {
 }
 
 /**
- * WindeaseStore — the unified-node-model store.
+ * Store — the unified-node-model store.
  *
  * Single `nodes` map; every mutation that touches a node produces a fresh
  * Node object (record replacement) so React's useSyncExternalStore detects
  * the change via referential equality. FSM transitions are paired with a
  * node-record swap.
  */
-export class WindeaseStore {
+export class Store {
   readonly events = new TypedEmitter<StoreEvents>();
   private readonly nodesMap = new Map<NodeId, Node>();
   private readonly rootIdsArr: NodeId[] = [];
@@ -545,7 +545,7 @@ export class WindeaseStore {
   }
 
   /**
-   * Read the persisted strategy state for `id`'s container (e.g. binarySplit
+   * Read the persisted strategy state for `id`'s container (e.g. splitStrategy
    * ratio), or undefined if nothing has been written yet — in which case the
    * consumer initializes via `strategy.initialState`. Lives on
    * `node.container.state`, round-trips through snapshot/hydrate.

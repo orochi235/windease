@@ -1236,4 +1236,4 @@ Exit criteria:
 - `'container'` trace category added alongside `'zone'` (deprecated alias).
 - All existing tests still pass; no public-API regression.
 
-Next plan: Phase 2 — port `WindeaseStore` to use a unified `nodes` map, preserving v0.1 API as deprecated wrappers.
+Next plan: Phase 2 — port `Store` to use a unified `nodes` map, preserving v0.1 API as deprecated wrappers.

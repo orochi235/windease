@@ -1,6 +1,6 @@
 import type { NodeId } from '../../index.js';
 import { type PointerEvent as ReactPointerEvent, useCallback, useRef } from 'react';
-import { useStore } from '../WindeaseProvider.js';
+import { useStore } from '../Provider.js';
 import { useNode } from '../hooks.js';
 import { useDragController } from './DragProvider.js';
 

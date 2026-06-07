@@ -7,10 +7,10 @@ import {
   serialize,
   type SerializedStore,
 } from './snapshot.js';
-import { WindeaseStore } from './store.js';
+import { Store } from './store.js';
 
-function buildSampleStore(): WindeaseStore {
-  const s = new WindeaseStore();
+function buildSampleStore(): Store {
+  const s = new Store();
   s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'vertical' } }));
   s.registerNode(
     createPanel({
@@ -45,7 +45,7 @@ describe('serialize / deserialize — v2 round-trip', () => {
   });
 
   it('round-trips focus', () => {
-    const s = new WindeaseStore();
+    const s = new Store();
     s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     s.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
     s.focusNode(asNodeId('p'));
@@ -57,7 +57,7 @@ describe('serialize / deserialize — v2 round-trip', () => {
   });
 
   it('round-trips allowsDrop / allowsDragOut, omits when default true', () => {
-    const s = new WindeaseStore();
+    const s = new Store();
     s.registerNode(createZone({ id: asNodeId('open'), strategyId: 'stack', config: {} }));
     s.registerNode(createZone({ id: asNodeId('sealed'), strategyId: 'stack', config: {} }));
     s.setAllowsDrop(asNodeId('sealed'), false);
@@ -75,9 +75,9 @@ describe('serialize / deserialize — v2 round-trip', () => {
     expect(restored.getNode(asNodeId('sealed'))?.container?.allowsDragOut).toBe(false);
   });
 
-  it('round-trips container state (e.g. binarySplit ratio)', () => {
-    const s = new WindeaseStore();
-    s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'binarySplit', config: {} }));
+  it('round-trips container state (e.g. splitStrategy ratio)', () => {
+    const s = new Store();
+    s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'split', config: {} }));
     s.setContainerState(asNodeId('z'), { ratio: 0.7 });
     const snap = serialize(s);
     const zoneSnap = snap.nodes.find((n) => n.id === 'z');
@@ -128,7 +128,7 @@ describe('deserialize — rejects v1 snapshots', () => {
 
 describe('snapshot v2 — activity', () => {
   it('round-trips activity verbatim', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
     store.patchActivity(asNodeId('p'), { busy: true, lastAt: 1234 });
@@ -141,7 +141,7 @@ describe('snapshot v2 — activity', () => {
   });
 
   it('omits activity from snapshot when empty', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
     const snap = serialize(store);
@@ -149,7 +149,7 @@ describe('snapshot v2 — activity', () => {
   });
 
   it('omits activity after setActivity({}) clears it', () => {
-    const store = new WindeaseStore();
+    const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
     store.patchActivity(asNodeId('p'), { busy: true });
@@ -162,7 +162,7 @@ describe('snapshot v2 — activity', () => {
 
 describe('serialize — groups + recursion', () => {
   it('serializes a group inside a zone', () => {
-    const s = new WindeaseStore();
+    const s = new Store();
     s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     s.registerNode(
       createGroup({

@@ -5,7 +5,7 @@ import {
   createPanel,
   createZone,
   stackStrategy,
-  WindeaseStore,
+  Store,
 } from '../../index.js';
 import type { Story } from '@ladle/react';
 import { type RefObject, useMemo, useRef } from 'react';
@@ -18,7 +18,7 @@ import {
   StrategyRegistryProvider,
   useDragState,
   useDropTarget,
-  WindeaseProvider,
+  Provider,
 } from '../index.js';
 import './windease.css';
 import './parallel-zones-dnd.css';
@@ -30,8 +30,8 @@ const STRATEGIES = {
 const LEFT = asNodeId('left-zone');
 const RIGHT = asNodeId('right-zone');
 
-function makeStore(): WindeaseStore {
-  const s = new WindeaseStore();
+function makeStore(): Store {
+  const s = new Store();
   for (const zid of [LEFT, RIGHT]) {
     s.registerNode(
       createZone({
@@ -105,7 +105,7 @@ export const ParallelZonesDnd: Story = () => {
   );
 
   return (
-    <WindeaseProvider store={store}>
+    <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <DragProvider>
           <div className="pz-row">
@@ -117,6 +117,6 @@ export const ParallelZonesDnd: Story = () => {
           </p>
         </DragProvider>
       </StrategyRegistryProvider>
-    </WindeaseProvider>
+    </Provider>
   );
 };
