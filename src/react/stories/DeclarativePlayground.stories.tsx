@@ -7,6 +7,7 @@ import {
   Store,
 } from '../../index.js';
 import {
+  DragProvider,
   Panel,
   Provider,
   StrategyRegistryProvider,
@@ -51,11 +52,13 @@ export const MixedProvenance: Story = () => {
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={{ grid: gridStrategy }}>
+        <DragProvider>
         <Zone
           id={asNodeId('root')}
           strategyId="grid"
           config={{ cols: 3 }}
           viewport={{ w: 900, h: 540 }}
+          acceptsDrops
           renderImperative={(node) => (
             <div
               className="windease-panel"
@@ -67,9 +70,9 @@ export const MixedProvenance: Story = () => {
             </div>
           )}
         >
-          <Panel id={asNodeId('jsx-a')} meta={{ title: 'jsx-a' }} />
-          <Panel id={asNodeId('jsx-b')} meta={{ title: 'jsx-b' }} order={10} />
-          <Panel id={asNodeId('jsx-c')} meta={{ title: 'jsx-c' }} />
+          <Panel id={asNodeId('jsx-a')} meta={{ title: 'jsx-a' }} draggable />
+          <Panel id={asNodeId('jsx-b')} meta={{ title: 'jsx-b' }} order={10} draggable />
+          <Panel id={asNodeId('jsx-c')} meta={{ title: 'jsx-c' }} draggable />
         </Zone>
         <ImperativeControls
           onAdd={() => {
@@ -116,6 +119,7 @@ export const MixedProvenance: Story = () => {
             store.setMeta(asNodeId('imp-1'), { title: 'mutated-imp-1' });
           }}
         />
+        </DragProvider>
       </StrategyRegistryProvider>
     </Provider>
   );

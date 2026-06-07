@@ -11,6 +11,8 @@ import {
 import { ChildRegistryContext, ParentScope, useChildRegistry } from './ParentContext.js';
 import { useStore } from './Provider.js';
 import { type ChildSort, defaultChildSort } from './childSort.js';
+import { DragHandle } from './dnd/DragHandle.js';
+import { useDropTarget } from './dnd/useDropTarget.js';
 import { useChildren } from './hooks.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
 import { useContainerLayout } from './useContainerLayout.js';
@@ -23,6 +25,10 @@ interface CommonBindingProps {
   meta?: Record<string, unknown>;
   placement?: Record<string, unknown>;
   hidden?: boolean;
+  /** When true, registers this preset's wrapper element as a drop target so
+   *  consumers can drag items into it. The element must have a container
+   *  capability (Zone and Group always do; Panel needs the `container` prop). */
+  acceptsDrops?: boolean;
 }
 
 interface PresentationalProps {
@@ -56,6 +62,9 @@ export interface PanelProps extends CommonBindingProps, PresentationalProps {
    *  nested presets (`<Panel container={...}><Panel /></Panel>`). When absent,
    *  Panel is a leaf — nested presets will fail with "parent has no container". */
   container?: { strategyId: string; config?: unknown };
+  /** When true, wraps the panel's rendered content in a DragHandle so the
+   *  user can drag this panel to another acceptsDrops target. */
+  draggable?: boolean;
 }
 
 /** @group Components */
@@ -109,8 +118,9 @@ export function Panel(props: PanelProps) {
       style={props.style}
       title={props.title}
       testId={props['data-testid']}
+      acceptsDrops={props.acceptsDrops}
     >
-      {props.children}
+      {props.draggable ? <DragHandle nodeId={id}>{props.children}</DragHandle> : props.children}
     </PresetShell>
   );
 }
@@ -147,8 +157,9 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         title={props.title}
         testId={props['data-testid']}
         innerRef={ref}
+        acceptsDrops={props.acceptsDrops}
       >
-        {props.children}
+        {props.draggable ? <DragHandle nodeId={props.id}>{props.children}</DragHandle> : props.children}
       </PresetShell>
     </LayoutScope>
   );
@@ -159,6 +170,9 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
 export interface GroupProps extends CommonBindingProps, PresentationalProps {
   strategyId?: string;
   config?: unknown;
+  /** When true, wraps the group's rendered content in a DragHandle so the
+   *  user can drag this group to another acceptsDrops target. */
+  draggable?: boolean;
 }
 
 /** @group Components */
@@ -198,8 +212,9 @@ export function Group(props: GroupProps) {
       style={props.style}
       title={props.title}
       testId={props['data-testid']}
+      acceptsDrops={props.acceptsDrops}
     >
-      {props.children}
+      {props.draggable ? <DragHandle nodeId={id}>{props.children}</DragHandle> : props.children}
     </PresetShell>
   );
 }
@@ -278,6 +293,7 @@ export function Zone(props: ZoneProps) {
       title={props.title}
       testId={props['data-testid']}
       sort={props.sort}
+      acceptsDrops={props.acceptsDrops}
     >
       {props.children}
     </PresetShell>
@@ -352,6 +368,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         testId={props['data-testid']}
         sort={props.sort}
         innerRef={ref}
+        acceptsDrops={props.acceptsDrops}
       >
         {props.children}
         {imperativeRenders && <Fragment>{imperativeRenders}</Fragment>}
@@ -394,6 +411,10 @@ interface PresetShellProps {
   /** Optional ref attached to the wrapper div — used by ZoneWithLayout to
    *  measure the container viewport. */
   innerRef?: RefObject<HTMLDivElement | null> | undefined;
+  /** When true, registers the wrapper div as a drop target via
+   *  `useDropTarget`. The hook is always called (to preserve hook order);
+   *  registration is conditional on this flag. */
+  acceptsDrops?: boolean | undefined;
 }
 
 /** Wrapper div + ChildRegistry host + ParentContext + sibling-order reconciliation. */
@@ -407,7 +428,15 @@ function PresetShell({
   testId,
   sort,
   innerRef,
+  acceptsDrops,
 }: PresetShellProps) {
+  // We need a single ref on the wrapper div that serves both layout
+  // measurement (innerRef, when provided) and drop-target registration.
+  // useDropTarget is always called to keep hook order stable; the `enabled`
+  // flag gates the underlying registerDropTarget call.
+  const ownRef = useRef<HTMLDivElement | null>(null);
+  const wrapperRef = innerRef ?? ownRef;
+  useDropTarget(id, wrapperRef, { enabled: acceptsDrops === true });
   const registry = useChildRegistry();
   // Reset at the top of every render so we capture only the current JSX
   // children, not stale entries from a prior render.
@@ -468,7 +497,7 @@ function PresetShell({
     <ChildRegistryContext.Provider value={registry}>
       <ParentScope parentId={id}>
         <div
-          ref={innerRef}
+          ref={wrapperRef}
           className={compose(wrapperClass, className)}
           style={style}
           data-testid={testId}
