@@ -31,6 +31,7 @@ export function useContainerLayout(
   parentId: NodeId,
   viewportRef: RefObject<Element | null> | null,
   fixedViewport?: { w: number; h: number },
+  preview?: { insertId: NodeId; insertIndex?: number; cursor: { x: number; y: number } },
 ): ContainerLayout {
   const store = useStore();
   const node = useNode(parentId);
@@ -94,6 +95,12 @@ export function useContainerLayout(
     [store, parentId, node?.container, viewport, registry],
   );
 
+  // Stabilize preview reference for the memo: identity changes only when its
+  // fields change.
+  const previewKey = preview
+    ? `${preview.insertId}|${preview.insertIndex ?? '-'}|${preview.cursor.x}|${preview.cursor.y}`
+    : '';
+
   const layout = useMemo<Omit<ContainerLayout, 'dispatchAffordance'>>(() => {
     if (!node?.container || !viewport) {
       return { placements: new Map(), affordances: [], unplaced: [], viewport };
@@ -119,6 +126,7 @@ export function useContainerLayout(
       viewport,
       strategy,
       state as never,
+      preview,
     );
     return {
       placements: result.placements,
@@ -126,8 +134,8 @@ export function useContainerLayout(
       unplaced: result.unplaced ?? [],
       viewport,
     };
-    // biome-ignore lint/correctness/useExhaustiveDependencies: stateTick is a re-run gate.
-  }, [store, node?.container, viewport, registry, parentId, stateTick]);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: stateTick is a re-run gate; previewKey is a stable identity for `preview`.
+  }, [store, node?.container, viewport, registry, parentId, stateTick, previewKey]);
 
   return { ...layout, dispatchAffordance };
 }
