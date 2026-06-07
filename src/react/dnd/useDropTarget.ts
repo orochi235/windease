@@ -11,6 +11,10 @@ export interface UseDropTargetOptions {
    *  order, but registration should depend on a runtime flag. Defaults to
    *  true. */
   enabled?: boolean;
+  /** Map a cursor point (viewport coords) to a prospective insertion index in
+   *  the target's childOrder. Returning undefined leaves `insertIndex` unset
+   *  on the drag state (the strategy then falls back to "append"). */
+  getInsertionIndex?: (point: { x: number; y: number }) => number | undefined;
 }
 
 /**
@@ -32,7 +36,7 @@ export function useDropTarget(
     typeof canAcceptOrOptions === 'function'
       ? { canAccept: canAcceptOrOptions }
       : (canAcceptOrOptions ?? {});
-  const { canAccept, enabled } = opts;
+  const { canAccept, enabled, getInsertionIndex } = opts;
   // Always read the controller via useContext (not useDragController) so that
   // trees without a <DragProvider> can still call this hook with
   // `enabled: false` (e.g. PresetShell's unconditional call). When enabled
@@ -47,6 +51,11 @@ export function useDropTarget(
     if (!controller) return;
     const el = ref.current;
     if (!el) return;
-    return controller.registerDropTarget(nodeId, el, canAccept);
-  }, [controller, nodeId, ref, enabled, canAccept]);
+    return controller.registerDropTarget(
+      nodeId,
+      el,
+      canAccept,
+      getInsertionIndex ? { getInsertionIndex } : undefined,
+    );
+  }, [controller, nodeId, ref, enabled, canAccept, getInsertionIndex]);
 }
