@@ -584,4 +584,11 @@ describe('WindeaseNodeStore — container state (side-channel)', () => {
     s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
     expect(s.getContainerState(id('z'))).toBeUndefined();
   });
+
+  it('stores state on node.container.state (so snapshot picks it up)', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    s.setContainerState(id('z'), { ratio: 0.3 });
+    expect(s.getNode(id('z'))?.container?.state).toEqual({ ratio: 0.3 });
+  });
 });

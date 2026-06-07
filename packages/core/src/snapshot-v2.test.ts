@@ -60,6 +60,17 @@ describe('serializeNodes / deserializeToNodeStore — v2 round-trip', () => {
     expect(restored.focusedId).toBe('p');
     expect(restored.getNode(asNodeId('p'))?.focus?.state).toBe('focused');
   });
+
+  it('round-trips container state (e.g. binarySplit ratio)', () => {
+    const s = new WindeaseNodeStore();
+    s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'binarySplit', config: {} }));
+    s.setContainerState(asNodeId('z'), { ratio: 0.7 });
+    const snap = serializeNodes(s);
+    const zoneSnap = snap.nodes.find((n) => n.id === 'z');
+    expect(zoneSnap?.container?.state).toEqual({ ratio: 0.7 });
+    const restored = deserializeToNodeStore(snap);
+    expect(restored.getContainerState(asNodeId('z'))).toEqual({ ratio: 0.7 });
+  });
 });
 
 describe('deserializeToNodeStore — version validation', () => {
