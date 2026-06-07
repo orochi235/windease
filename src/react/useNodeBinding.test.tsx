@@ -93,4 +93,20 @@ describe('useNodeBinding', () => {
     const childIds = store.getContainerView(asNodeId('root'))?.childIds ?? [];
     expect(childIds.filter((id) => id === asNodeId('a')).length).toBe(1);
   });
+
+  it('reconciles current props on the StrictMode recovery remount', () => {
+    // After StrictMode's mount→cleanup→remount cycle, the reconcile callback
+    // should run against the *current* meta — not stale closure values.
+    const store = setupStore();
+    render(
+      <StrictMode>
+        <Provider store={store}>
+          <TestPanel id="a" parentId="root" meta={{ title: 'initial' }} />
+        </Provider>
+      </StrictMode>,
+    );
+    expect((store.getNode(asNodeId('a'))?.meta as Record<string, unknown>).title).toBe(
+      'initial',
+    );
+  });
 });

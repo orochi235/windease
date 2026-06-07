@@ -56,6 +56,21 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   const ownerRef = useRef<symbol | null>(null);
   if (ownerRef.current === null) ownerRef.current = Symbol(`jsx:${id}`);
 
+  // Keep latest opts/parentId reachable from the unmount-recovery effect,
+  // whose deps are deliberately minimal (`[id]`). React already invokes the
+  // most-recently-rendered effect callback, so the closures are current —
+  // but reading through the ref is defense in depth and makes the dependency
+  // explicit for readers.
+  const latestRef = useRef({ factory: opts.factory, reconcile: opts.reconcile, parentId });
+  latestRef.current = { factory: opts.factory, reconcile: opts.reconcile, parentId };
+
+  function registerWithOwner(factory: NodeBindingOptions['factory'], parent: NodeId | null): void {
+    const node = factory(id, parent);
+    const existingMeta = (node.meta ?? {}) as Record<string, unknown>;
+    const mergedMeta = { ...existingMeta, [JSX_OWNER_META_KEY]: ownerRef.current };
+    store.registerNode({ ...node, meta: mergedMeta });
+  }
+
   // Render-time registration, guarded so re-renders don't re-register.
   const registeredRef = useRef(false);
   if (!registeredRef.current) {
@@ -67,20 +82,18 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
       if (owner === undefined || owner === null) {
         throw new Error(
           `windease: node "${id}" is already registered imperatively; remove the imperative ` +
-            `registerNode call or change the JSX preset's id.`,
+            `registerNode call or change the ${opts.kindHintForAutoId ?? 'preset'}'s id.`,
         );
       }
       if (owner !== ownerRef.current) {
         throw new Error(
-          `windease: node "${id}" is already mounted by another <Panel/Group/Zone>; ids must be unique.`,
+          `windease: node "${id}" is already mounted by another ${opts.kindHintForAutoId ?? 'preset'}; ` +
+            `ids must be unique within a Provider.`,
         );
       }
       // StrictMode replay path: same owner, already registered. No-op.
     } else {
-      const node = opts.factory(id, parentId);
-      const existingMeta = (node.meta ?? {}) as Record<string, unknown>;
-      const mergedMeta = { ...existingMeta, [JSX_OWNER_META_KEY]: ownerRef.current };
-      store.registerNode({ ...node, meta: mergedMeta });
+      registerWithOwner(opts.factory, parentId);
     }
     registeredRef.current = true;
   }
@@ -96,16 +109,14 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   }
 
   // Unregister on unmount. In StrictMode the effect runs mount → cleanup →
-  // mount, so on the second mount we re-register if the cleanup wiped us
-  // out (the render-time guard above won't re-fire because the component
-  // instance — and thus its refs — is preserved across the StrictMode replay).
+  // mount, so on the second mount we re-register if the cleanup wiped us out
+  // (the render-time guard above stays `true` across the replay because the
+  // component instance — and its refs — is preserved).
   useEffect(() => {
     if (!store.getNode(id)) {
-      const node = opts.factory(id, parentId);
-      const existingMeta = (node.meta ?? {}) as Record<string, unknown>;
-      const mergedMeta = { ...existingMeta, [JSX_OWNER_META_KEY]: ownerRef.current };
-      store.registerNode({ ...node, meta: mergedMeta });
-      if (opts.reconcile) opts.reconcile(store, id);
+      const { factory, reconcile, parentId } = latestRef.current;
+      registerWithOwner(factory, parentId);
+      if (reconcile) reconcile(store, id);
     }
     return () => {
       if (store.getNode(id)) {
