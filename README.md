@@ -41,76 +41,43 @@ layout and DnD).
   recursive when `recursive: true` in config). Strategies work unchanged
   on recursive trees via the `LayoutNode` adapter.
 
-## Usage
+## Quick start
 
-```tsx
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  gridStrategy,
-  stackStrategy,
-  Store,
-} from 'windease';
-import {
-  Container,
-  Panel,
-  StrategyRegistryProvider,
-  Provider,
-  Zone,
-} from 'windease/react';
-
-const store = new Store();
-store.registerNode(createZone({
-  id: asNodeId('z'),
-  strategyId: 'grid',
-  config: { cols: 2, gap: 12 },
-}));
-store.registerNode(createPanel({
-  id: asNodeId('tray'),
-  parentId: asNodeId('z'),
-  meta: { title: 'Tray' },
-  container: { strategyId: 'stack', config: { axis: 'vertical' } },
-}));
-store.registerNode(createPanel({
-  id: asNodeId('leaf'),
-  parentId: asNodeId('tray'),
-  meta: { title: 'Leaf' },
-}));
-store.showNode(asNodeId('tray'));
-store.showNode(asNodeId('leaf'));
-
-// Chrome dispatches on node.kind (set by the createPanel/createZone presets).
-// `panel` handlers can opt into recursion by mounting Container themselves.
-const chrome = {
-  zone: ({ children }) => <Zone>{children}</Zone>,
-  panel: ({ node }) => {
-    const title = String(node.meta?.title ?? node.id);
-    if (node.container) {
-      return (
-        <Panel title={title}>
-          <Container parentId={node.id} chrome={chrome} />
-        </Panel>
-      );
-    }
-    return <Panel title={title} />;
-  },
-};
-
-<Provider store={store}>
-  <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
-    <Container parentId={asNodeId('z')} chrome={chrome} viewport={{ w: 720, h: 480 }} />
-  </StrategyRegistryProvider>
-</Provider>
+```bash
+npm install windease
 ```
 
-`<Panel>`, `<Group>`, `<Zone>` are minimal styled wrappers — pass
-`className`/`style` to override, or write your own chrome handlers
-directly. Chrome can be either a `Record<string, ChromeHandler>` keyed
-on `node.kind` (as above) or a single `(args) => ReactNode` function.
+```tsx
+import { gridStrategy } from 'windease';
+import {
+  Provider,
+  StrategyRegistryProvider,
+  Zone,
+  Panel,
+} from 'windease/react';
 
-See the **Recursive Zones** Ladle story for a working example you can
-manipulate live.
+export function App() {
+  return (
+    <Provider>
+      <StrategyRegistryProvider strategies={{ grid: gridStrategy }}>
+        <Zone
+          id="root"
+          strategyId="grid"
+          config={{ cols: 2 }}
+          viewport={{ w: 720, h: 480 }}
+        >
+          <Panel id="a" meta={{ title: 'A' }} />
+          <Panel id="b" meta={{ title: 'B' }} order={10} />
+        </Zone>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+}
+```
+
+`<Panel>` / `<Group>` / `<Zone>` register themselves with the underlying
+store on mount and unregister on unmount. JSX is the source of truth for
+the shape of the tree.
 
 Import the baseline stylesheet once at the top of your app:
 
@@ -120,6 +87,24 @@ import 'windease/styles.css';
 
 It supplies the structural rules `.windease-zone`, `.windease-window`, and
 the insertion-line affordance default. All visual styling is yours.
+
+### Imperative API (advanced / dynamic trees)
+
+For server-loaded layouts, programmatically generated nodes, or anything
+that can't be expressed as static JSX, use the store directly:
+
+```tsx
+import { Store, createPanel, asNodeId } from 'windease';
+
+const store = new Store();
+store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('root') }));
+
+<Provider store={store}>{/* ... */}</Provider>
+```
+
+Imperative and declarative nodes coexist under the same parent. JSX-owned
+ids reconcile their props on every render; imperative ids retain whatever
+the caller set. See `docs/concepts.md` for the ownership model.
 
 ## State machines
 
