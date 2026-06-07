@@ -11,7 +11,7 @@ import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
-  NodeContainer,
+  Container,
   StrategyRegistryProvider,
   WindeaseProvider,
 } from '../index.js';
@@ -73,7 +73,7 @@ export const Stack: Story<Args> = ({ gap, padding }) => {
     <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 260, height: 500 }}>
-          <NodeContainer
+          <Container
             parentId={ZONE_ID}
             chrome={chrome}
             viewport={{ w: 260, h: 500 }}

@@ -45,7 +45,7 @@ import {
   WindeaseStore,
 } from 'windease';
 import {
-  NodeContainer,
+  Container,
   StrategyRegistryProvider,
   WindeaseProvider,
 } from 'windease/react';
@@ -76,14 +76,14 @@ const chrome = {
     node.container
       ? <div className="my-tray">
           <h4>{String(node.meta?.title)}</h4>
-          <NodeContainer parentId={node.id} chrome={chrome} />
+          <Container parentId={node.id} chrome={chrome} />
         </div>
       : <div className="my-leaf">{String(node.meta?.title ?? node.id)}</div>,
 };
 
 <WindeaseProvider store={store}>
   <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
-    <NodeContainer parentId={asNodeId('z')} chrome={chrome} viewport={{ w: 720, h: 480 }} />
+    <Container parentId={asNodeId('z')} chrome={chrome} viewport={{ w: 720, h: 480 }} />
   </StrategyRegistryProvider>
 </WindeaseProvider>
 ```
@@ -117,7 +117,7 @@ See the **Parallel zones / Drag between** story for the canonical setup.
 
 ## Resize
 
-Pass `affordances` to `<NodeContainer>` to render the strategy's interactive
+Pass `affordances` to `<Container>` to render the strategy's interactive
 gutters. `binarySplit` and `recursiveSplit` ship draggable gutters out of
 the box; their state persists on `node.container.state` and survives
 snapshot/hydrate. Per-child `hints.minSize` is honored as a pixel floor so

@@ -12,7 +12,7 @@ import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
-  NodeContainer,
+  Container,
   StrategyRegistryProvider,
   WindeaseProvider,
 } from '../index.js';
@@ -82,7 +82,7 @@ export const RecursiveSplit: Story = () => {
     <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 720, height: 440, background: '#0f172a08', borderRadius: 8 }}>
-          <NodeContainer
+          <Container
             parentId={asNodeId('rs')}
             chrome={chrome}
             viewport={{ w: 720, h: 440 }}

@@ -12,7 +12,7 @@ import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
-  NodeContainer,
+  Container,
   StrategyRegistryProvider,
   WindeaseProvider,
 } from '../index.js';
@@ -118,7 +118,7 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
           return (
             <div className={cls} style={{ display: 'flex', flexDirection: 'column' }}>
               <strong style={{ marginBottom: 4 }}>{String(node.meta?.title ?? node.id)}</strong>
-              <NodeContainer
+              <Container
                 parentId={node.id}
                 chrome={chrome}
                 style={{ flex: 1, minHeight: 0 }}
@@ -140,7 +140,7 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
     <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 720, height: 480 }}>
-          <NodeContainer
+          <Container
             parentId={asNodeId('z')}
             chrome={chrome}
             viewport={{ w: 720, h: 480 }}

@@ -11,7 +11,7 @@ import { useChildren, useNode } from './hooks.js';
 import { NodeRenderer, type ChromeMap } from './NodeRenderer.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
 
-export interface NodeContainerProps {
+export interface ContainerProps {
   parentId: NodeId;
   chrome: ChromeMap;
   /** Fixed viewport; if omitted the wrapper measures via ResizeObserver. */
@@ -65,7 +65,7 @@ const DEFAULT_SETTLE_MS = 150;
  * Pair with `<WindeaseRoot>` for top-level layout, or use directly for
  * a container nested inside another component.
  */
-export function NodeContainer({
+export function Container({
   parentId,
   chrome,
   viewport,
@@ -75,7 +75,7 @@ export function NodeContainer({
   settleMs = DEFAULT_SETTLE_MS,
   affordances = false,
   affordanceHitPad = 4,
-}: NodeContainerProps) {
+}: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const parent = useNode(parentId);
   const children = useChildren(parentId);

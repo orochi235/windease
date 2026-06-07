@@ -11,7 +11,7 @@ import type { Story } from '@ladle/react';
 import { type RefObject, useMemo, useRef } from 'react';
 import {
   type ChromeMap,
-  NodeContainer,
+  Container,
   DragHandle,
   DragProvider,
   StrategyRegistryProvider,
@@ -82,7 +82,7 @@ function ZoneShell({
     <section className="pz-column">
       <header className="pz-column__header">{label}</header>
       <div ref={ref} className={className}>
-        <NodeContainer parentId={zoneId} chrome={chrome} className="pz-zone__inner" />
+        <Container parentId={zoneId} chrome={chrome} className="pz-zone__inner" />
       </div>
     </section>
   );

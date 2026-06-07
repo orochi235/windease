@@ -11,7 +11,7 @@ import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
-  NodeContainer,
+  Container,
   StrategyRegistryProvider,
   WindeaseProvider,
 } from '../index.js';
@@ -67,7 +67,7 @@ export const BinarySplit: Story<Args> = ({ direction, gutterSize }) => {
     <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 600, height: 360, background: '#0f172a08', borderRadius: 8 }}>
-          <NodeContainer
+          <Container
             parentId={asNodeId('split')}
             chrome={chrome}
             viewport={{ w: 600, h: 360 }}

@@ -138,7 +138,7 @@ Built-ins:
 ```tsx
 <WindeaseProvider store={store}>
   <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
-    <NodeContainer
+    <Container
       parentId={asNodeId('z')}
       chrome={{ panel, group, zone }}
       viewport={{ w: 720, h: 480 }}
@@ -148,7 +148,7 @@ Built-ins:
 ```
 
 Chrome handlers are keyed by `kind` and receive `{ node, children }`. A
-recursive panel mounts `<NodeContainer parentId={node.id} chrome={chrome} />`
+recursive panel mounts `<Container parentId={node.id} chrome={chrome} />`
 inside its own template at the position it wants the tray to live.
 
 Hooks: `useNode(id)`, `useNodeSelector(id, select)`, `useChildren(parentId)`,
@@ -161,7 +161,7 @@ and calls `store.moveNode` on drop. The controller honors:
 `container.allowsDrop`, `container.allowsDragOut`, `slot.placement.locked`,
 and the destination strategy's `canAccept`.
 
-Pass `affordances` to `<NodeContainer>` to render the strategy's
+Pass `affordances` to `<Container>` to render the strategy's
 interactive gutters; `affordanceHitPad` (default 4) widens the pointer-hit
 area beyond the visual rect.
 
@@ -217,7 +217,7 @@ Catch on `instanceof` or `.code`, not message text.
   `container-type: size` for `@container windease-window (…)` queries.
 - `.windease-insertion-line` — `background: currentColor` default.
 
-`NodeContainer` uses inline absolute positioning; consumer chrome supplies
+`Container` uses inline absolute positioning; consumer chrome supplies
 the rest of the visual styling.
 
 ## History

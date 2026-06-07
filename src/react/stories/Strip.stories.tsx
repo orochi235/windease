@@ -11,7 +11,7 @@ import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
   type ChromeMap,
-  NodeContainer,
+  Container,
   StrategyRegistryProvider,
   WindeaseProvider,
 } from '../index.js';
@@ -66,7 +66,7 @@ export const HorizontalStrip: Story = () => {
     <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 600, height: 100 }}>
-          <NodeContainer
+          <Container
             parentId={asNodeId('strip-x')}
             chrome={chrome}
             viewport={{ w: 600, h: 100 }}
@@ -84,7 +84,7 @@ export const VerticalStrip: Story = () => {
     <WindeaseProvider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div style={{ width: 220, height: 420 }}>
-          <NodeContainer
+          <Container
             parentId={asNodeId('strip-y')}
             chrome={chrome}
             viewport={{ w: 220, h: 420 }}
