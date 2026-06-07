@@ -1,5 +1,5 @@
-import { type CSSProperties, type ReactNode, type RefObject, useLayoutEffect, useRef } from 'react';
-import type { NodeId, Store } from '../index.js';
+import { type CSSProperties, Fragment, type ReactNode, type RefObject, useLayoutEffect, useMemo, useRef } from 'react';
+import type { Node, NodeId, Store } from '../index.js';
 import { createGroup, createPanel, createZone } from '../index.js';
 import {
   type LayoutInfo,
@@ -14,7 +14,7 @@ import { type ChildSort, defaultChildSort } from './childSort.js';
 import { useChildren } from './hooks.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
 import { useContainerLayout } from './useContainerLayout.js';
-import { useNodeBinding } from './useNodeBinding.js';
+import { JSX_OWNER_META_KEY, useNodeBinding } from './useNodeBinding.js';
 
 interface CommonBindingProps {
   id?: NodeId;
@@ -220,6 +220,15 @@ export interface ZoneProps extends CommonBindingProps, PresentationalProps {
    * strategy-computed placements. Default 150. Set to 0 to disable.
    */
   settleMs?: number;
+  /**
+   * Optional renderer for children that exist in the store but were NOT
+   * declared as JSX siblings (i.e. added imperatively via
+   * `store.registerNode`). Receives the node; the returned ReactNode is
+   * wrapped in an absolute-positioned box at the strategy-computed rect.
+   * When omitted, imperative-only children still occupy a strategy slot
+   * but render no DOM — preserves previous behavior.
+   */
+  renderImperative?: (node: Node) => ReactNode;
 }
 
 /** @group Components */
@@ -309,6 +318,29 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
     ...composeZoneStyle(props),
   };
 
+  // Render store-only (imperative) children if the consumer provided a
+  // renderer. We subscribe to children here AND in PresetShell (the latter
+  // is needed for sibling-order reconciliation); the duplicate subscription
+  // is cheap and keeps both responsibilities co-located with their use.
+  const allChildren = useChildren(props.id);
+  const renderImperative = props.renderImperative;
+  const imperativeRenders = useMemo(() => {
+    if (!renderImperative) return null;
+    const out: ReactNode[] = [];
+    for (const node of allChildren) {
+      const meta = node.meta as Record<string, unknown> | undefined;
+      if (meta && meta[JSX_OWNER_META_KEY]) continue;
+      const rect = layout.placements.get(node.id);
+      if (!rect) continue;
+      out.push(
+        <AbsoluteWrapper key={`imp-${node.id}`} rect={rect}>
+          {renderImperative(node)}
+        </AbsoluteWrapper>,
+      );
+    }
+    return out;
+  }, [renderImperative, allChildren, layout.placements]);
+
   return (
     <LayoutScope value={layoutInfo}>
       <PresetShell
@@ -322,6 +354,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         innerRef={ref}
       >
         {props.children}
+        {imperativeRenders && <Fragment>{imperativeRenders}</Fragment>}
       </PresetShell>
     </LayoutScope>
   );

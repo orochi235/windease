@@ -56,6 +56,16 @@ export const MixedProvenance: Story = () => {
           strategyId="grid"
           config={{ cols: 3 }}
           viewport={{ w: 900, h: 540 }}
+          renderImperative={(node) => (
+            <div
+              className="windease-panel"
+              style={{ background: '#fef3c7', height: '100%' }}
+            >
+              <header className="windease-panel__title">
+                {String(node.meta?.title ?? node.id)} (imperative)
+              </header>
+            </div>
+          )}
         >
           <Panel id={asNodeId('jsx-a')} meta={{ title: 'jsx-a' }} />
           <Panel id={asNodeId('jsx-b')} meta={{ title: 'jsx-b' }} order={10} />
