@@ -48,7 +48,7 @@ describe('DragController', () => {
     c.updateHoverByPoint(50, 50);
     expect(c.state()?.hover?.targetId).toBe('z2');
     c.drop();
-    expect(s.getContainerView(asNodeId('z2'))?.childIds).toEqual(['p']);
+    expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['p']);
     expect(c.state()).toBeNull();
   });
 
@@ -58,7 +58,7 @@ describe('DragController', () => {
     c.tryBegin(asNodeId('p'));
     c.cancel('outside');
     expect(c.state()).toBeNull();
-    expect(s.getContainerView(asNodeId('z1'))?.childIds).toEqual(['p']);
+    expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p']);
   });
 
   it('tryBegin returns false when parent has allowsDragOut=false', () => {
@@ -78,7 +78,7 @@ describe('DragController', () => {
     expect(c.state()?.hover).toEqual({ targetId: 'z2', accepted: false });
     c.drop();
     // p remains in z1 because hover wasn't accepted.
-    expect(s.getContainerView(asNodeId('z1'))?.childIds).toEqual(['p']);
+    expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p']);
   });
 
   it('strategy canAccept rejects drops the strategy can\'t lay out', () => {

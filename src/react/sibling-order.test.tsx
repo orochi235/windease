@@ -9,7 +9,7 @@ import type { ChildSort } from './childSort.js';
 afterEach(cleanup);
 
 describe('sibling order reconciliation', () => {
-  it('JSX child order is reflected in store childIds', () => {
+  it('JSX child order is reflected in store childOrder', () => {
     const store = new Store();
     render(
       <Provider store={store}>
@@ -20,7 +20,7 @@ describe('sibling order reconciliation', () => {
         </Zone>
       </Provider>,
     );
-    expect(store.getContainerView(asNodeId('z'))?.childIds).toEqual([
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
       asNodeId('a'),
       asNodeId('b'),
       asNodeId('c'),
@@ -49,13 +49,13 @@ describe('sibling order reconciliation', () => {
       </Provider>
     );
     const { rerender } = render(<Tree reversed={false} />);
-    expect(store.getContainerView(asNodeId('z'))?.childIds).toEqual([
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
       asNodeId('a'),
       asNodeId('b'),
       asNodeId('c'),
     ]);
     rerender(<Tree reversed={true} />);
-    expect(store.getContainerView(asNodeId('z'))?.childIds).toEqual([
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
       asNodeId('c'),
       asNodeId('b'),
       asNodeId('a'),
@@ -74,7 +74,7 @@ describe('sibling order reconciliation', () => {
       </Provider>,
     );
     // b (order 10) < a (order 20) < c (undefined → +Infinity)
-    expect(store.getContainerView(asNodeId('z'))?.childIds).toEqual([
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
       asNodeId('b'),
       asNodeId('a'),
       asNodeId('c'),
@@ -93,7 +93,7 @@ describe('sibling order reconciliation', () => {
         </Zone>
       </Provider>,
     );
-    expect(store.getContainerView(asNodeId('z'))?.childIds).toEqual([
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
       asNodeId('c'),
       asNodeId('b'),
       asNodeId('a'),
@@ -118,7 +118,7 @@ describe('sibling order reconciliation', () => {
       parentId: asNodeId('z'),
     }));
     rerender(<Stage />);
-    expect(store.getContainerView(asNodeId('z'))?.childIds).toEqual([
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
       asNodeId('jsx-b'),
       asNodeId('jsx-a'),
       asNodeId('imp-1'),

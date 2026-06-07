@@ -37,7 +37,7 @@ describe('declarative presets', () => {
       </Provider>,
     );
     expect(store.getNode(asNodeId('z1'))?.container).toBeTruthy();
-    expect(store.getContainerView(asNodeId('z1'))?.childIds).toEqual([
+    expect(store.getContainerView(asNodeId('z1'))?.childOrder).toEqual([
       asNodeId('p1'),
       asNodeId('p2'),
     ]);

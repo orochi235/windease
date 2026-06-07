@@ -42,7 +42,7 @@ export interface ContainerCap {
    * then, **treat this array as the single canonical ordering** and prefer
    * `setChildOrder` / `reorderInParent` / `moveNode` over mutating it.
    */
-  childIds: NodeId[];
+  childOrder: NodeId[];
   allowsPinning: boolean;
   /** When false, this container rejects all DnD drops. Default true. */
   allowsDrop: boolean;

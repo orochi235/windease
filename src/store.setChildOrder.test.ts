@@ -11,7 +11,7 @@ describe('Store.setChildOrder', () => {
 
     store.setChildOrder(asNodeId('root'), [asNodeId('c'), asNodeId('a'), asNodeId('b')]);
 
-    expect(store.getContainerView(asNodeId('root'))?.childIds).toEqual(['c', 'a', 'b']);
+    expect(store.getContainerView(asNodeId('root'))?.childOrder).toEqual(['c', 'a', 'b']);
   });
 
   it('is a no-op when the order is already correct', () => {
@@ -27,7 +27,7 @@ describe('Store.setChildOrder', () => {
     expect(notifications).toBe(0);
   });
 
-  it('throws if orderedIds is not a permutation of current childIds', () => {
+  it('throws if orderedIds is not a permutation of current childOrder', () => {
     const store = new Store();
     store.registerNode(createZone({ id: asNodeId('root') }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }));

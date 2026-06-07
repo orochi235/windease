@@ -56,10 +56,10 @@ describe('headline end-to-end', () => {
     const rehydrated = deserialize(snap);
 
     // Tree structure preserved (with pinned 'solo' promoted to prefix).
-    const zoneChildren = rehydrated.getContainerView(asNodeId('z'))?.childIds ?? [];
+    const zoneChildren = rehydrated.getContainerView(asNodeId('z'))?.childOrder ?? [];
     expect(zoneChildren[0]).toBe('solo');
     expect(zoneChildren).toEqual(expect.arrayContaining(['solo', 'tray', 'tabs']));
-    expect(rehydrated.getContainerView(asNodeId('tray'))?.childIds).toEqual(['leafA', 'leafB']);
+    expect(rehydrated.getContainerView(asNodeId('tray'))?.childOrder).toEqual(['leafA', 'leafB']);
 
     // Capabilities preserved per kind.
     expect(rehydrated.getNode(asNodeId('z'))?.slot).toBeUndefined();
@@ -74,8 +74,8 @@ describe('headline end-to-end', () => {
 
     // Mutating after rehydrate works end-to-end: move leafB out of tray into z.
     rehydrated.moveNode(asNodeId('leafB'), asNodeId('z'));
-    expect(rehydrated.getContainerView(asNodeId('tray'))?.childIds).toEqual(['leafA']);
-    const zoneAfter = rehydrated.getContainerView(asNodeId('z'))?.childIds ?? [];
+    expect(rehydrated.getContainerView(asNodeId('tray'))?.childOrder).toEqual(['leafA']);
+    const zoneAfter = rehydrated.getContainerView(asNodeId('z'))?.childOrder ?? [];
     expect(zoneAfter).toContain('leafB');
     // 'solo' is still pinned-prefix.
     expect(zoneAfter[0]).toBe('solo');

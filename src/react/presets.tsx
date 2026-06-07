@@ -327,13 +327,13 @@ function PresetShell({
   useLayoutEffect(() => {
     const view = store.getContainerView(id);
     if (!view) return; // Not a container (e.g. Panel with no nested presets).
-    const currentSet = new Set(view.childIds);
+    const currentSet = new Set(view.childOrder);
     // Drop any reported entries that aren't actually children of THIS parent
     // (a preset can override parentId to point elsewhere; it still reports to
     // the nearest ChildRegistry by context).
     const jsxEntries = registry.snapshot().filter((e) => currentSet.has(e.id));
     const jsxIds = new Set(jsxEntries.map((e) => e.id));
-    const currentIds = view.childIds;
+    const currentIds = view.childOrder;
     const imperativeIds = currentIds.filter((cid) => !jsxIds.has(cid));
     const sortFn = sort ?? defaultChildSort;
     const orderedJsx = sortFn(

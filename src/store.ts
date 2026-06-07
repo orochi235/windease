@@ -98,7 +98,7 @@ export class Store {
     const parent = this.nodesMap.get(parentId);
     if (!parent?.container) return [];
     const out: Node[] = [];
-    for (const cid of parent.container.childIds) {
+    for (const cid of parent.container.childOrder) {
       const c = this.nodesMap.get(cid);
       if (c) out.push(c);
     }
@@ -139,10 +139,10 @@ export class Store {
 
   getContainerView(
     id: NodeId,
-  ): { childIds: readonly NodeId[]; config: unknown; allowsPinning: boolean } | null {
+  ): { childOrder: readonly NodeId[]; config: unknown; allowsPinning: boolean } | null {
     const c = this.nodesMap.get(id)?.container;
     if (!c) return null;
-    return { childIds: c.childIds, config: c.config, allowsPinning: c.allowsPinning };
+    return { childOrder: c.childOrder, config: c.config, allowsPinning: c.allowsPinning };
   }
 
   // ===== Register / unregister =====
@@ -165,7 +165,7 @@ export class Store {
       this.nodesMap.set(node.id, node);
       this.replaceContainer(parent.id, (c) => ({
         ...c,
-        childIds: [...c.childIds, node.id],
+        childOrder: [...c.childOrder, node.id],
       }));
       this.resortByPin(parent.id);
     } else {
@@ -203,7 +203,7 @@ export class Store {
   private collectDescendants(parentId: NodeId, out: NodeId[]): void {
     const parent = this.nodesMap.get(parentId);
     if (!parent?.container) return;
-    for (const cid of parent.container.childIds) {
+    for (const cid of parent.container.childOrder) {
       const child = this.nodesMap.get(cid);
       if (!child) continue;
       if (child.container) this.collectDescendants(cid, out);
@@ -211,7 +211,7 @@ export class Store {
     }
   }
 
-  /** Remove a node from its parent's childIds (or rootIds) and from the map.
+  /** Remove a node from its parent's childOrder (or rootIds) and from the map.
    *  Does NOT cascade and does NOT emit. */
   private detachAndRemove(id: NodeId): void {
     const node = this.nodesMap.get(id);
@@ -221,7 +221,7 @@ export class Store {
       if (parent?.container) {
         this.replaceContainer(parent.id, (c) => ({
           ...c,
-          childIds: c.childIds.filter((cid) => cid !== id),
+          childOrder: c.childOrder.filter((cid) => cid !== id),
         }));
       }
     } else {
@@ -262,7 +262,7 @@ export class Store {
         { id, fromParentId },
       );
     }
-    const fromIndex = fromContainer.childIds.indexOf(id);
+    const fromIndex = fromContainer.childOrder.indexOf(id);
 
     // Transit: idle → releasing
     const transit = node.slot.transit;
@@ -279,7 +279,7 @@ export class Store {
     // Remove from old parent
     this.replaceContainer(fromParentId, (c) => ({
       ...c,
-      childIds: c.childIds.filter((cid) => cid !== id),
+      childOrder: c.childOrder.filter((cid) => cid !== id),
     }));
 
     // Transit: releasing → claiming
@@ -295,13 +295,13 @@ export class Store {
 
     // Add to new parent, set new parentId on the slot
     this.replaceSlot(id, (s) => ({ ...s, parentId: newParentId }));
-    const insertIndex = clampIndex(at, newParent.container.childIds.length);
+    const insertIndex = clampIndex(at, newParent.container.childOrder.length);
     this.replaceContainer(newParentId, (c) => {
-      const next = [...c.childIds];
+      const next = [...c.childOrder];
       next.splice(insertIndex, 0, id);
-      return { ...c, childIds: next };
+      return { ...c, childOrder: next };
     });
-    const toIndex = this.nodesMap.get(newParentId)?.container?.childIds.indexOf(id) ?? insertIndex;
+    const toIndex = this.nodesMap.get(newParentId)?.container?.childOrder.indexOf(id) ?? insertIndex;
 
     this.events.emit('node.moved', {
       id,
@@ -340,24 +340,24 @@ export class Store {
         { parentId },
       );
     }
-    const fromIndex = parent.container.childIds.indexOf(id);
+    const fromIndex = parent.container.childOrder.indexOf(id);
     if (fromIndex < 0) {
       throw new InvariantViolationError(
         'orphan-source',
-        `node ${id} not found in parent ${parentId} childIds`,
+        `node ${id} not found in parent ${parentId} childOrder`,
         { id, parentId },
       );
     }
-    const targetIndex = clampIndex(at, parent.container.childIds.length - 1);
+    const targetIndex = clampIndex(at, parent.container.childOrder.length - 1);
     if (targetIndex === fromIndex) return;
     this.replaceContainer(parentId, (c) => {
-      const next = [...c.childIds];
+      const next = [...c.childOrder];
       next.splice(fromIndex, 1);
       next.splice(targetIndex, 0, id);
-      return { ...c, childIds: next };
+      return { ...c, childOrder: next };
     });
     this.resortByPin(parentId);
-    const finalIndex = this.nodesMap.get(parentId)?.container?.childIds.indexOf(id) ?? targetIndex;
+    const finalIndex = this.nodesMap.get(parentId)?.container?.childOrder.indexOf(id) ?? targetIndex;
     this.events.emit('node.reordered', { parentId, id, fromIndex, toIndex: finalIndex });
     this.scheduleNotify();
   }
@@ -371,11 +371,11 @@ export class Store {
         { parentId },
       );
     }
-    const current = parent.container.childIds;
+    const current = parent.container.childOrder;
     if (orderedIds.length !== current.length) {
       throw new InvariantViolationError(
         'reorder-not-permutation',
-        `setChildOrder requires a permutation of current childIds (got ${orderedIds.length}, expected ${current.length})`,
+        `setChildOrder requires a permutation of current childOrder (got ${orderedIds.length}, expected ${current.length})`,
         { parentId, orderedIds: [...orderedIds], current: [...current] },
       );
     }
@@ -407,7 +407,7 @@ export class Store {
     }
     if (same) return;
 
-    this.replaceContainer(parentId, (c) => ({ ...c, childIds: [...orderedIds] }));
+    this.replaceContainer(parentId, (c) => ({ ...c, childOrder: [...orderedIds] }));
     this.resortByPin(parentId);
     trace('store', `setChildOrder: ${parentId} → [${orderedIds.join(', ')}]`);
     this.scheduleNotify();
@@ -418,7 +418,7 @@ export class Store {
     if (!parent?.container?.allowsPinning) return;
     const pinned: NodeId[] = [];
     const rest: NodeId[] = [];
-    for (const cid of parent.container.childIds) {
+    for (const cid of parent.container.childOrder) {
       const child = this.nodesMap.get(cid);
       const placement = child?.slot?.placement;
       if (placement?.pinned || placement?.locked) pinned.push(cid);
@@ -427,13 +427,13 @@ export class Store {
     const next = [...pinned, ...rest];
     let same = true;
     for (let i = 0; i < next.length; i++) {
-      if (next[i] !== parent.container.childIds[i]) {
+      if (next[i] !== parent.container.childOrder[i]) {
         same = false;
         break;
       }
     }
     if (same) return;
-    this.replaceContainer(parentId, (c) => ({ ...c, childIds: next }));
+    this.replaceContainer(parentId, (c) => ({ ...c, childOrder: next }));
   }
 
   private isDescendantOf(maybeDescendant: NodeId, ancestor: NodeId): boolean {
@@ -633,7 +633,7 @@ export class Store {
     this.events.emit('container.allowsPinningChanged', { id, from, to: allows });
     if (!allows) {
       // Clear pinned flags from children (locked retained for drag suppression).
-      for (const cid of node.container.childIds) {
+      for (const cid of node.container.childOrder) {
         const child = this.nodesMap.get(cid);
         if (child?.slot?.placement?.pinned) {
           const nextPlacement = { ...child.slot.placement };

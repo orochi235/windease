@@ -13,7 +13,7 @@ describe('createZone', () => {
     expect(node.container).toBeDefined();
     expect(node.container?.strategyId).toBe('grid');
     expect(node.container?.config).toEqual({ cols: 3 });
-    expect(node.container?.childIds).toEqual([]);
+    expect(node.container?.childOrder).toEqual([]);
     expect(node.container?.allowsPinning).toBe(true);
     expect(node.slot).toBeUndefined();
     expect(node.focus).toBeUndefined();
@@ -101,7 +101,7 @@ describe('createPanel', () => {
     });
     expect(node.container).toBeDefined();
     expect(node.container?.strategyId).toBe('stack');
-    expect(node.container?.childIds).toEqual([]);
+    expect(node.container?.childOrder).toEqual([]);
     expect(node.container?.allowsPinning).toBe(true);
   });
 

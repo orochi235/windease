@@ -24,7 +24,7 @@ export function createZone(input: CreateZoneInput): Node {
     container: {
       strategyId: input.strategyId,
       config: input.config,
-      childIds: [],
+      childOrder: [],
       allowsPinning: input.allowsPinning ?? true,
       allowsDrop: input.allowsDrop ?? true,
       allowsDragOut: input.allowsDragOut ?? true,
@@ -59,7 +59,7 @@ export function createGroup(input: CreateGroupInput): Node {
     container: {
       strategyId: input.strategyId,
       config: input.config,
-      childIds: [],
+      childOrder: [],
       allowsPinning: input.allowsPinning ?? true,
       allowsDrop: input.allowsDrop ?? true,
       allowsDragOut: input.allowsDragOut ?? true,
@@ -112,7 +112,7 @@ export function createPanel(input: CreatePanelInput): Node {
     node.container = {
       strategyId: input.container.strategyId,
       config: input.container.config,
-      childIds: [],
+      childOrder: [],
       allowsPinning: input.container.allowsPinning ?? true,
       allowsDrop: input.container.allowsDrop ?? true,
       allowsDragOut: input.container.allowsDragOut ?? true,

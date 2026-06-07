@@ -24,7 +24,7 @@ describe('node identity', () => {
       container: {
         strategyId: 'stack',
         config: {},
-        childIds: [],
+        childOrder: [],
         allowsPinning: true,
       },
     };
@@ -42,7 +42,7 @@ describe('node identity', () => {
       container: {
         strategyId: 'grid',
         config: {},
-        childIds: [],
+        childOrder: [],
         allowsPinning: true,
       },
     };

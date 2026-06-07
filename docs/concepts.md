@@ -70,7 +70,7 @@ Two paths for free-form data on a node; lifetimes differ:
 **Reserved keys on `slot.placement`:**
 
 - `pinned: true` — promotes to the **pinned-prefix** of the parent's
-  `childIds`. Strategies render the node earlier; reorder operations that
+  `childOrder`. Strategies render the node earlier; reorder operations that
   try to put it past an unpinned sibling are silently snapped back.
 - `locked: true` — implies pinned at the layout layer, AND the React layer
   refuses to start a drag from this node. Use for system chrome that owns

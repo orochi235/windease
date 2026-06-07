@@ -21,7 +21,7 @@ export interface SerializedNode {
   container?: {
     strategyId: string;
     config: unknown;
-    childIds: string[];
+    childOrder: string[];
     allowsPinning: boolean;
     /** Omitted when true (the default). */
     allowsDrop?: boolean;
@@ -64,7 +64,7 @@ export function serialize(store: Store): SerializedStore {
       const c: SerializedNode['container'] = {
         strategyId: node.container.strategyId,
         config: node.container.config,
-        childIds: [...node.container.childIds],
+        childOrder: [...node.container.childOrder],
         allowsPinning: node.container.allowsPinning,
       };
       if (node.container.allowsDrop === false) c.allowsDrop = false;
@@ -109,7 +109,24 @@ export function deserialize(snap: unknown): Store {
   );
 }
 
+/**
+ * Back-compat: snapshots written before the `childIds` → `childOrder`
+ * rename used `container.childIds`. Normalize any such node in-place so
+ * downstream code can assume `container.childOrder` is present.
+ */
+function normalizeLegacyChildOrder(nodes: SerializedNode[]): void {
+  for (const sn of nodes) {
+    if (!sn.container) continue;
+    const c = sn.container as typeof sn.container & { childIds?: string[] };
+    if (c.childOrder === undefined && Array.isArray(c.childIds)) {
+      c.childOrder = c.childIds;
+      delete c.childIds;
+    }
+  }
+}
+
 function hydrateFromV2(snap: SerializedStore): Store {
+  normalizeLegacyChildOrder(snap.nodes);
   // Build a lookup so we can validate links + multi-focus before mutating.
   const byId = new Map<string, SerializedNode>();
   for (const sn of snap.nodes) byId.set(sn.id, sn);
@@ -132,7 +149,7 @@ function hydrateFromV2(snap: SerializedStore): Store {
         { id: sn.id, parentId: parent.id },
       );
     }
-    if (!parent.container.childIds.includes(sn.id)) {
+    if (!parent.container.childOrder.includes(sn.id)) {
       throw new InvariantViolationError(
         'broken-bidi-link',
         `node ${sn.id} claims parent ${parent.id} but parent doesn't list it`,
@@ -158,17 +175,17 @@ function hydrateFromV2(snap: SerializedStore): Store {
 
   const store = new Store();
 
-  // Visit nodes in tree order: each root, then DFS through its childIds,
+  // Visit nodes in tree order: each root, then DFS through its childOrder,
   // which preserves both insertion order and the snapshot's intended child
-  // ordering. Building containers with empty childIds at register time lets
+  // ordering. Building containers with empty childOrder at register time lets
   // the store populate them via the child registrations.
   const visit = (id: string): void => {
     const sn = byId.get(id);
     if (!sn) return;
-    const node = buildNodeFromSerialized(sn, { emptyChildIds: true });
+    const node = buildNodeFromSerialized(sn, { emptyChildOrder: true });
     store.registerNode(node);
     if (sn.container) {
-      for (const cid of sn.container.childIds) visit(cid);
+      for (const cid of sn.container.childOrder) visit(cid);
     }
   };
 
@@ -199,7 +216,7 @@ function hydrateFromV2(snap: SerializedStore): Store {
   return store;
 }
 
-function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildIds: boolean }): Node {
+function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildOrder: boolean }): Node {
   const lifecycle = createLifecycleMachine();
   if (sn.lifecycle === 'visible') lifecycle.send('show');
   else if (sn.lifecycle === 'hidden') {
@@ -220,7 +237,7 @@ function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildIds: bool
     node.container = {
       strategyId: sn.container.strategyId,
       config: sn.container.config,
-      childIds: opts.emptyChildIds ? [] : sn.container.childIds.map(asNodeId),
+      childOrder: opts.emptyChildOrder ? [] : sn.container.childOrder.map(asNodeId),
       allowsPinning: sn.container.allowsPinning,
       allowsDrop: sn.container.allowsDrop ?? true,
       allowsDragOut: sn.container.allowsDragOut ?? true,

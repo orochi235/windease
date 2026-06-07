@@ -77,7 +77,7 @@ export const MixedProvenance: Story = () => {
           }}
           onRemove={() => {
             const view = store.getContainerView(asNodeId('root'));
-            const last = view?.childIds
+            const last = view?.childOrder
               .slice()
               .reverse()
               .find((id) => String(id).startsWith('imp-'));

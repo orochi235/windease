@@ -23,21 +23,21 @@ export function useNodeSelector<T>(id: NodeId, select: (n: Node) => T): T | unde
 
 export function useChildren(parentId: NodeId): readonly Node[] {
   // Subscribe to the parent node directly; derive children from its
-  // container.childIds via useMemo so the array is stable until childIds
+  // container.childOrder via useMemo so the array is stable until childOrder
   // actually changes. (getChildren() would allocate a new array per call
   // and cause useSyncExternalStore to loop.)
   const store = useStore();
   const parent = useNode(parentId);
-  const childIds = parent?.container?.childIds;
+  const childOrder = parent?.container?.childOrder;
   return useMemo(() => {
-    if (!childIds) return [];
+    if (!childOrder) return [];
     const out: Node[] = [];
-    for (const cid of childIds) {
+    for (const cid of childOrder) {
       const n = store.getNode(cid);
       if (n) out.push(n);
     }
     return out;
-  }, [store, childIds]);
+  }, [store, childOrder]);
 }
 
 export function useFocusedNode(): Node | undefined {

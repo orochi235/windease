@@ -75,9 +75,9 @@ describe('useNodeBinding', () => {
         <TestPanel parentId="root" />
       </Provider>,
     );
-    const childIds = store.getContainerView(asNodeId('root'))?.childIds ?? [];
-    expect(childIds.length).toBe(1);
-    expect(childIds[0]).toMatch(/^panel-/);
+    const childOrder = store.getContainerView(asNodeId('root'))?.childOrder ?? [];
+    expect(childOrder.length).toBe(1);
+    expect(childOrder[0]).toMatch(/^panel-/);
   });
 
   it('is idempotent under StrictMode double-mount', () => {
@@ -90,8 +90,8 @@ describe('useNodeBinding', () => {
       </StrictMode>,
     );
     expect(store.getNode(asNodeId('a'))).toBeTruthy();
-    const childIds = store.getContainerView(asNodeId('root'))?.childIds ?? [];
-    expect(childIds.filter((id) => id === asNodeId('a')).length).toBe(1);
+    const childOrder = store.getContainerView(asNodeId('root'))?.childOrder ?? [];
+    expect(childOrder.filter((id) => id === asNodeId('a')).length).toBe(1);
   });
 
   it('reconciles current props on the StrictMode recovery remount', () => {

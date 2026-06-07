@@ -66,7 +66,7 @@ describe('nodeToLayoutNode', () => {
 });
 
 describe('getLayoutNodes', () => {
-  it('returns visible children in childIds order, excludes hidden', () => {
+  it('returns visible children in childOrder order, excludes hidden', () => {
     const s = new Store();
     s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));

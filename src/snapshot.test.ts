@@ -38,8 +38,8 @@ describe('serialize / deserialize — v2 round-trip', () => {
     expect(snap.version).toBe(2);
     expect(snap.rootIds).toEqual(['z']);
     const restored = deserialize(snap);
-    expect(restored.getContainerView(asNodeId('z'))?.childIds).toEqual(['p1', 'p2']);
-    expect(restored.getContainerView(asNodeId('p2'))?.childIds).toEqual(['leaf']);
+    expect(restored.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2']);
+    expect(restored.getContainerView(asNodeId('p2'))?.childOrder).toEqual(['leaf']);
     expect(restored.getNode(asNodeId('p1'))?.meta).toEqual({ title: 'one' });
     expect(restored.getNode(asNodeId('p1'))?.slot?.placement).toEqual({ pinned: true });
   });
@@ -115,6 +115,46 @@ describe('deserialize — broken snapshot', () => {
       focusedId: null,
     };
     expect(() => deserialize(broken)).toThrow(/parentId missing/);
+  });
+});
+
+describe('deserialize — back-compat for legacy childIds key', () => {
+  it('accepts container.childIds (old shape) as childOrder', () => {
+    // Snapshot written by a 0.3.x build, where containers still used `childIds`.
+    const legacy = {
+      version: 2,
+      nodes: [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: {
+            strategyId: 'stack',
+            config: {},
+            childIds: ['p1', 'p2'],
+            allowsPinning: false,
+          },
+        },
+        {
+          id: 'p1',
+          kind: 'panel',
+          lifecycle: 'mounted',
+          slot: { parentId: 'z', placement: {} },
+          focus: { state: 'blurred' },
+        },
+        {
+          id: 'p2',
+          kind: 'panel',
+          lifecycle: 'mounted',
+          slot: { parentId: 'z', placement: {} },
+          focus: { state: 'blurred' },
+        },
+      ],
+      rootIds: ['z'],
+      focusedId: null,
+    };
+    const restored = deserialize(legacy);
+    expect(restored.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2']);
   });
 });
 

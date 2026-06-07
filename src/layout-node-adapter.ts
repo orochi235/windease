@@ -39,7 +39,7 @@ export function nodeToLayoutNode(node: Node): LayoutNode {
 }
 
 /**
- * Collect visible children of `parentId` as LayoutNodes in childIds order.
+ * Collect visible children of `parentId` as LayoutNodes in childOrder order.
  * Hidden children (lifecycle.state === 'hidden') are excluded.
  */
 export function getLayoutNodes(store: Store, parentId: NodeId): LayoutNode[] {

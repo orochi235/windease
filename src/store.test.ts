@@ -25,12 +25,12 @@ describe('Store — register / unregister', () => {
     expect(s.getNode(id('z'))?.kind).toBe('zone');
   });
 
-  it('registers a panel under a zone, appending to childIds', () => {
+  it('registers a panel under a zone, appending to childOrder', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
     s.registerNode(createPanel({ id: id('p1'), parentId: id('z') }));
     s.registerNode(createPanel({ id: id('p2'), parentId: id('z') }));
-    expect(s.getContainerView(id('z'))?.childIds).toEqual(['p1', 'p2']);
+    expect(s.getContainerView(id('z'))?.childOrder).toEqual(['p1', 'p2']);
   });
 
   it('throws DuplicateNodeError on re-register', () => {
@@ -64,7 +64,7 @@ describe('Store — register / unregister', () => {
     s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
     s.unregisterNode(id('p'));
     expect(s.getNode(id('p'))).toBeUndefined();
-    expect(s.getContainerView(id('z'))?.childIds).toEqual([]);
+    expect(s.getContainerView(id('z'))?.childOrder).toEqual([]);
     expect(cb).toHaveBeenCalledWith({ id: 'p' });
   });
 
@@ -97,7 +97,7 @@ describe('Store — register / unregister', () => {
     ]);
     expect(s.getNode(id('a'))).toBeUndefined();
     expect(s.getNode(id('tray'))).toBeUndefined();
-    expect(s.getContainerView(id('z'))?.childIds).toEqual([]);
+    expect(s.getContainerView(id('z'))?.childOrder).toEqual([]);
   });
 });
 
@@ -119,8 +119,8 @@ describe('Store — moveNode', () => {
     });
     s.moveNode(id('p1'), id('z2'));
     expect(transitions).toEqual(['idle→releasing', 'releasing→claiming', 'claiming→idle']);
-    expect(s.getContainerView(id('z1'))?.childIds).toEqual(['p2']);
-    expect(s.getContainerView(id('z2'))?.childIds).toEqual(['p1']);
+    expect(s.getContainerView(id('z1'))?.childOrder).toEqual(['p2']);
+    expect(s.getContainerView(id('z2'))?.childOrder).toEqual(['p1']);
     expect(s.getNode(id('p1'))?.slot?.parentId).toBe('z2');
   });
 
@@ -143,7 +143,7 @@ describe('Store — moveNode', () => {
     s.registerNode(createPanel({ id: id('p3'), parentId: id('z2') }));
     s.registerNode(createPanel({ id: id('p4'), parentId: id('z2') }));
     s.moveNode(id('p1'), id('z2'), 1);
-    expect(s.getContainerView(id('z2'))?.childIds).toEqual(['p3', 'p1', 'p4']);
+    expect(s.getContainerView(id('z2'))?.childOrder).toEqual(['p3', 'p1', 'p4']);
   });
 
   it('throws CycleError on self-move', () => {
@@ -206,7 +206,7 @@ describe('Store — reorder + pinned prefix', () => {
     const cb = vi.fn();
     s.events.on('node.reordered', cb);
     s.reorderInParent(id('c'), 0);
-    expect(s.getContainerView(id('z'))?.childIds).toEqual(['c', 'a', 'b']);
+    expect(s.getContainerView(id('z'))?.childOrder).toEqual(['c', 'a', 'b']);
     expect(cb).toHaveBeenCalledWith({
       parentId: 'z',
       id: 'c',
@@ -223,7 +223,7 @@ describe('Store — reorder + pinned prefix', () => {
     s.registerNode(createPanel({ id: id('c'), parentId: id('z') }));
     // Try to put c before a — should snap so a stays first.
     s.reorderInParent(id('c'), 0);
-    const ids = s.getContainerView(id('z'))?.childIds ?? [];
+    const ids = s.getContainerView(id('z'))?.childOrder ?? [];
     expect(ids[0]).toBe('a');
   });
 
@@ -234,7 +234,7 @@ describe('Store — reorder + pinned prefix', () => {
     s.registerNode(createPanel({ id: id('b'), parentId: id('z') }));
     s.registerNode(createPanel({ id: id('c'), parentId: id('z') }));
     s.setPlacement(id('c'), 'pinned', true);
-    const ids = s.getContainerView(id('z'))?.childIds ?? [];
+    const ids = s.getContainerView(id('z'))?.childOrder ?? [];
     expect(ids[0]).toBe('c');
   });
 
@@ -246,7 +246,7 @@ describe('Store — reorder + pinned prefix', () => {
     s.registerNode(createPanel({ id: id('a'), parentId: id('z') }));
     s.registerNode(createPanel({ id: id('b'), parentId: id('z') }));
     s.setPlacement(id('b'), 'pinned', true);
-    expect(s.getContainerView(id('z'))?.childIds).toEqual(['a', 'b']);
+    expect(s.getContainerView(id('z'))?.childOrder).toEqual(['a', 'b']);
   });
 });
 
@@ -358,7 +358,7 @@ describe('Store — focus', () => {
 });
 
 describe('Store — selectors', () => {
-  it('getChildren returns nodes in childIds order', () => {
+  it('getChildren returns nodes in childOrder order', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
     s.registerNode(createPanel({ id: id('a'), parentId: id('z') }));
@@ -529,13 +529,13 @@ describe('Store — integration', () => {
     s.registerNode(createPanel({ id: id('leaf2'), parentId: id('tray') }));
     s.registerNode(createPanel({ id: id('other'), parentId: id('z') }));
 
-    expect(s.getContainerView(id('z'))?.childIds).toEqual(['tray', 'other']);
-    expect(s.getContainerView(id('tray'))?.childIds).toEqual(['leaf1', 'leaf2']);
+    expect(s.getContainerView(id('z'))?.childOrder).toEqual(['tray', 'other']);
+    expect(s.getContainerView(id('tray'))?.childOrder).toEqual(['leaf1', 'leaf2']);
 
     // Move leaf1 out of tray into z
     s.moveNode(id('leaf1'), id('z'));
-    expect(s.getContainerView(id('tray'))?.childIds).toEqual(['leaf2']);
-    expect(s.getContainerView(id('z'))?.childIds).toContain('leaf1');
+    expect(s.getContainerView(id('tray'))?.childOrder).toEqual(['leaf2']);
+    expect(s.getContainerView(id('z'))?.childOrder).toContain('leaf1');
     expect(s.getNode(id('leaf1'))?.slot?.parentId).toBe('z');
   });
 });
