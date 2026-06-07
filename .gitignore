@@ -10,3 +10,4 @@ yarn.lock
 .superpowers
 .claude
 .playwright-mcp
+docs-api

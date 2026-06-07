@@ -109,22 +109,39 @@ it. Edge cases: rejecting drops a strategy can't accept (e.g. a 2-pane
 binarySplit), insertion-point previews for ordered strategies, and what
 happens to a single-member group when its last sibling leaves.
 
-## API reference docs on GH Pages
+## Declarative JSX tree binding [HIGH]
 
-Generate TypeDoc HTML from the public surface and publish alongside the
-Ladle playground:
+Today's React layer is store-driven: consumers build the tree
+imperatively via `store.registerNode(...)` and `<Container>` renders the
+store's children via `chrome` handlers. JSX like
+`<Container><Panel /></Container>` is silently dropped — Container
+ignores its `children` prop.
 
-- Add `typedoc` + `typedoc-plugin-markdown` (or stay HTML) as dev deps.
-- `typedoc.json` pointing at `src/index.ts` and `src/react/index.ts`,
-  `entryPointStrategy: 'expand'`. Output to `docs-build/`.
-- Extend `.github/workflows/ladle-pages.yml` to also run `npx typedoc`
-  before the artifact upload, mounting the typedoc output under
-  `build/api/`.
-- Link from README and the Ladle nav (Ladle supports an external link
-  via config) to `/api/`.
+A declarative mode would let consumers express the tree directly:
 
-Medium priority; ship before the next minor bump so consumers have a
-reference.
+```tsx
+<Provider store={new Store()}>
+  <Zone strategyId="grid" config={{ cols: 2 }}>
+    <Panel meta={{ title: 'A' }} />
+    <Panel meta={{ title: 'B' }}>
+      <Panel meta={{ title: 'nested' }} />
+    </Panel>
+  </Zone>
+</Provider>
+```
+
+Sketch:
+- Each preset (`<Panel>`/`<Group>`/`<Zone>`) emits a node-registration
+  effect in declarative mode, keyed by id (auto-generated if omitted).
+- Children walk happens on mount; on unmount the node is `unregisterNode`'d.
+- Conflicts: existing chrome dispatch needs a switch — either Container
+  rendered "from store" (current behavior) or "from JSX" (new).
+- Useful for small static layouts; less useful for big dynamic apps.
+
+Open questions: does the declarative mode coexist with `chrome` or
+replace it? How are runtime mutations (add/remove from outside JSX)
+reconciled? Probably ship as a separate `<DeclarativeContainer>` so
+the two stay distinct.
 
 ## Playwright e2e suite
 

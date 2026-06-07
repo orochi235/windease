@@ -1,4 +1,4 @@
-name: Publish Ladle to GitHub Pages
+name: Publish Ladle + API docs to GitHub Pages
 
 on:
   push:
@@ -38,6 +38,12 @@ jobs:
 
       - name: Build Ladle
         run: npx ladle build --base /windease/ --outDir build
+
+      - name: Build API docs
+        run: npx typedoc
+
+      - name: Place API docs under /api/
+        run: mv docs-api build/api
 
       - uses: actions/configure-pages@v5
 

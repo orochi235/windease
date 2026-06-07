@@ -12,6 +12,9 @@ if you import from `windease/react`).
 
 > **Playground:** every strategy and DnD path lives in the Ladle playground
 > at <https://orochi235.github.io/windease/>.
+>
+> **API reference:** TypeDoc-generated reference at
+> <https://orochi235.github.io/windease/api/>.
 
 See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
 (what's a window vs. zone vs. workspace, which of the four state buckets

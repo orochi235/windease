@@ -1,0 +1,19 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts", "src/react/index.ts"],
+  "out": "docs-api",
+  "name": "windease API reference",
+  "readme": "none",
+  "includeVersion": true,
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeReferences": false,
+  "sort": ["alphabetical"],
+  "categorizeByGroup": true,
+  "navigationLinks": {
+    "Playground": "..",
+    "GitHub": "https://github.com/orochi235/windease"
+  },
+  "githubPages": false
+}
