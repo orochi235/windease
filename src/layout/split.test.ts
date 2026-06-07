@@ -140,3 +140,17 @@ describe('splitStrategy', () => {
     }
   });
 });
+
+describe('splitStrategy — preview', () => {
+  it('marks isPreview=true on the result when preview is set', () => {
+    const result = splitStrategy.layout({
+      items: [{ id: 'a' }, { id: 'ghost' }],
+      container: { w: 200, h: 200 },
+      state: splitStrategy.initialState!([{ id: 'a' }, { id: 'ghost' }]),
+      options: { axis: 'x' },
+      preview: { insertId: 'ghost', cursor: { x: 100, y: 100 } },
+    });
+    expect(result.isPreview).toBe(true);
+    expect(result.placements.has('ghost')).toBe(true);
+  });
+});

@@ -186,14 +186,22 @@ export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
     if (cfg.recursive === false) return items.length === 2;
     return items.length >= 2;
   },
-  layout({ items, container, state, options }): LayoutResult<string, SplitMeta> {
+  layout({ items, container, state, options, preview }: {
+    items: LayoutItem[];
+    container: Size;
+    state: SplitNode;
+    options: Record<string, unknown>;
+    preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } };
+  }): LayoutResult<string, SplitMeta> {
     const cfg = options as SplitOptions;
     const gutter = cfg.gutterSize ?? 4;
     const placements = new Map<string, Rect>();
     const affordances: Affordance<SplitMeta>[] = [];
     const validIds = new Set(items.map((it) => it.id));
     walk(state, { x: 0, y: 0, w: container.w, h: container.h }, [], gutter, placements, affordances, validIds);
-    return { placements, affordances };
+    const result: LayoutResult<string, SplitMeta> = { placements, affordances };
+    if (preview) result.isPreview = true;
+    return result;
   },
   reduce(state, event, context) {
     if (event.kind !== 'drag') return state;
