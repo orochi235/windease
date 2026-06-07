@@ -90,3 +90,42 @@ describe('stackStrategy', () => {
     expect(result.placements.get('b')?.h).toBe(0);
   });
 });
+
+describe('stackStrategy — preview', () => {
+  it('marks isPreview=true when preview is set', () => {
+    const result = stackStrategy.layout({
+      items: [{ id: 'a' }, { id: 'ghost' }, { id: 'b' }],
+      container: { w: 100, h: 300 },
+      state: undefined,
+      options: {},
+      preview: { insertId: 'ghost', insertIndex: 1, cursor: { x: 50, y: 100 } },
+    });
+    expect(result.isPreview).toBe(true);
+    expect(result.placements.has('ghost')).toBe(true);
+  });
+
+  it('places the ghost between siblings (insertIndex=1 of 3)', () => {
+    const result = stackStrategy.layout({
+      items: [{ id: 'a' }, { id: 'ghost' }, { id: 'b' }],
+      container: { w: 100, h: 300 },
+      state: undefined,
+      options: {},
+      preview: { insertId: 'ghost', insertIndex: 1, cursor: { x: 50, y: 100 } },
+    });
+    const a = result.placements.get('a')!;
+    const ghost = result.placements.get('ghost')!;
+    const b = result.placements.get('b')!;
+    expect(a.y).toBeLessThan(ghost.y);
+    expect(ghost.y).toBeLessThan(b.y);
+  });
+
+  it('produces no isPreview flag when preview is absent', () => {
+    const result = stackStrategy.layout({
+      items: [{ id: 'a' }],
+      container: { w: 100, h: 100 },
+      state: undefined,
+      options: {},
+    });
+    expect(result.isPreview).toBeUndefined();
+  });
+});

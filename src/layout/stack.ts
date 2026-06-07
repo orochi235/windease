@@ -29,18 +29,24 @@ export const stackStrategy: LayoutStrategy<void, string> = {
     items,
     container,
     options,
+    preview,
   }: {
     items: LayoutItem[];
     container: Size;
     state: void;
     options: Record<string, unknown>;
+    preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } };
   }): LayoutResult<string> {
     const cfg = options as StackConfig;
     const gap = cfg.gap ?? 0;
     const padding = cfg.padding ?? 0;
 
     const placements = new Map<string, Rect>();
-    if (items.length === 0) return { placements, affordances: [] };
+    if (items.length === 0) {
+      const empty: LayoutResult<string> = { placements, affordances: [] };
+      if (preview) empty.isPreview = true;
+      return empty;
+    }
 
     const colX = padding;
     const colW = container.w - 2 * padding;
@@ -61,6 +67,8 @@ export const stackStrategy: LayoutStrategy<void, string> = {
       placements.set(item.id, { x: colX, y, w: colW, h });
       y += h + gap;
     }
-    return { placements, affordances: [] };
+    const result: LayoutResult<string> = { placements, affordances: [] };
+    if (preview) result.isPreview = true;
+    return result;
   },
 };
