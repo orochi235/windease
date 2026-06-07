@@ -49,10 +49,9 @@ const NOOP_REGISTRY: ChildRegistryAPI = {
 
 export const ChildRegistryContext = createContext<ChildRegistryAPI>(NOOP_REGISTRY);
 
-/** Provider wrapper. Allocates a stable registry that lives for the parent's
+/** Hook that allocates a stable registry which lives for the parent's
  *  lifetime and is reset on each render. */
 export function useChildRegistry(): ChildRegistryAPI {
-  // Stable across renders; reset by the parent at render start.
   return useMemo<ChildRegistryAPI>(() => {
     let entries: ChildEntry[] = [];
     return {
@@ -60,7 +59,7 @@ export function useChildRegistry(): ChildRegistryAPI {
         entries.push(entry);
       },
       snapshot() {
-        return entries;
+        return entries.slice();
       },
       reset() {
         entries = [];
