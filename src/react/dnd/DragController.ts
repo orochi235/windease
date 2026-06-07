@@ -9,7 +9,23 @@ export type DragCancelReason = 'rejected' | 'outside' | 'escape' | 'unregistered
 
 export interface DragState {
   draggingId: NodeId;
-  hover: { targetId: NodeId; accepted: boolean } | null;
+  hover: {
+    targetId: NodeId;
+    accepted: boolean;
+    /** 0-based prospective insertion index. Undefined when the strategy
+     *  gives no positional answer (e.g. splits) or when the target didn't
+     *  register a `getInsertionIndex`. */
+    insertIndex?: number;
+    /** Cursor in viewport coords. Used by `<DragProvider>` to position the
+     *  ghost overlay. */
+    cursor: { x: number; y: number };
+  } | null;
+}
+
+export interface DropTargetOptions {
+  /** Map cursor (viewport coords) → prospective insertion index (0-based).
+   *  Return undefined to leave `insertIndex` unset. */
+  getInsertionIndex?: (point: { x: number; y: number }) => number | undefined;
 }
 
 type Listener = (state: DragState | null) => void;
@@ -27,9 +43,15 @@ export class DragController {
   private readonly listeners = new Set<Listener>();
   private readonly dropTargets = new Map<
     NodeId,
-    { el: Element; canAccept?: (sourceId: NodeId) => boolean }
+    {
+      el: Element;
+      canAccept?: (sourceId: NodeId) => boolean;
+      getInsertionIndex?: (point: { x: number; y: number }) => number | undefined;
+    }
   >();
   private escapeBound = false;
+  private pendingPoint: { x: number; y: number } | null = null;
+  private rafId: number | null = null;
 
   constructor(
     private readonly store: Store,
@@ -51,9 +73,15 @@ export class DragController {
     id: NodeId,
     el: Element,
     canAccept?: (sourceId: NodeId) => boolean,
+    options?: DropTargetOptions,
   ): () => void {
-    const value: { el: Element; canAccept?: (sourceId: NodeId) => boolean } = { el };
+    const value: {
+      el: Element;
+      canAccept?: (sourceId: NodeId) => boolean;
+      getInsertionIndex?: (point: { x: number; y: number }) => number | undefined;
+    } = { el };
     if (canAccept) value.canAccept = canAccept;
+    if (options?.getInsertionIndex) value.getInsertionIndex = options.getInsertionIndex;
     this.dropTargets.set(id, value);
     return () => {
       this.dropTargets.delete(id);
@@ -76,6 +104,24 @@ export class DragController {
 
   updateHoverByPoint(x: number, y: number): void {
     if (!this.active) return;
+    this.pendingPoint = { x, y };
+    if (this.rafId !== null) return;
+    const raf =
+      typeof requestAnimationFrame !== 'undefined'
+        ? requestAnimationFrame
+        : ((cb: FrameRequestCallback) =>
+            setTimeout(() => cb(performance.now()), 16) as unknown as number);
+    this.rafId = raf(() => {
+      this.rafId = null;
+      if (!this.pendingPoint || !this.active) return;
+      const p = this.pendingPoint;
+      this.pendingPoint = null;
+      this.actuallyUpdateHover(p.x, p.y);
+    });
+  }
+
+  private actuallyUpdateHover(x: number, y: number): void {
+    if (!this.active) return;
     let best: { id: NodeId; depth: number } | null = null;
     for (const [id, { el }] of this.dropTargets) {
       const r = el.getBoundingClientRect();
@@ -84,14 +130,20 @@ export class DragController {
       if (!best || depth > best.depth) best = { id, depth };
     }
     if (!best) {
-      this.setHover(null);
+      this.setHover(null, { x, y });
       return;
     }
-    const accepted = this.checkAccept(best.id);
-    this.setHover({ targetId: best.id, accepted });
+    const reg = this.dropTargets.get(best.id);
+    const insertIndex = reg?.getInsertionIndex?.({ x, y });
+    const accepted = this.checkAccept(best.id, insertIndex);
+    const hover: Omit<NonNullable<DragState['hover']>, 'cursor'> & {
+      cursor?: { x: number; y: number };
+    } = { targetId: best.id, accepted, cursor: { x, y } };
+    if (insertIndex !== undefined) hover.insertIndex = insertIndex;
+    this.setHover(hover, { x, y });
   }
 
-  private checkAccept(targetId: NodeId): boolean {
+  private checkAccept(targetId: NodeId, _insertIndex: number | undefined): boolean {
     if (!this.active) return false;
     const draggingId = this.active.draggingId;
     if (targetId === draggingId) return false;
@@ -120,14 +172,30 @@ export class DragController {
     return true;
   }
 
-  private setHover(hover: { targetId: NodeId; accepted: boolean } | null): void {
+  private setHover(
+    hover:
+      | (Omit<NonNullable<DragState['hover']>, 'cursor'> & { cursor?: { x: number; y: number } })
+      | null,
+    cursor: { x: number; y: number },
+  ): void {
     if (!this.active) return;
-    if (sameHover(this.active.hover, hover)) return;
+    const next: DragState['hover'] = hover
+      ? {
+          targetId: hover.targetId,
+          accepted: hover.accepted,
+          cursor: hover.cursor ?? cursor,
+          ...(hover.insertIndex !== undefined ? { insertIndex: hover.insertIndex } : {}),
+        }
+      : null;
+    if (sameHover(this.active.hover, next)) return;
     const previous = this.active.hover;
-    this.active = { ...this.active, hover };
-    this.reflectHoverToDom(previous, hover);
-    if (hover) {
-      trace('dnd', `hover: target=${hover.targetId} accepted=${hover.accepted}`);
+    this.active = { ...this.active, hover: next };
+    this.reflectHoverToDom(previous, next);
+    if (next) {
+      trace(
+        'dnd',
+        `hover: target=${next.targetId} accepted=${next.accepted} insertIndex=${next.insertIndex ?? '-'}`,
+      );
     }
     this.emit();
   }
@@ -135,8 +203,8 @@ export class DragController {
   /** Stamp `data-drop-target` / `data-drop-rejected` onto the hovered element
    *  so CSS can paint affordances. Clears them on hover-leave / drop / cancel. */
   private reflectHoverToDom(
-    previous: { targetId: NodeId; accepted: boolean } | null,
-    next: { targetId: NodeId; accepted: boolean } | null,
+    previous: NonNullable<DragState['hover']> | null,
+    next: NonNullable<DragState['hover']> | null,
   ): void {
     if (previous) {
       const el = this.dropTargets.get(previous.targetId)?.el;
@@ -156,14 +224,15 @@ export class DragController {
 
   drop(): void {
     if (!this.active) return;
+    this.cancelPendingRaf();
     const { draggingId, hover } = this.active;
     if (!hover || !hover.accepted) {
       this.cancel(hover ? 'rejected' : 'outside');
       return;
     }
     try {
-      this.store.moveNode(draggingId, hover.targetId);
-      trace('dnd', `drop: ${draggingId} → ${hover.targetId}`);
+      this.store.moveNode(draggingId, hover.targetId, hover.insertIndex);
+      trace('dnd', `drop: ${draggingId} → ${hover.targetId}@${hover.insertIndex ?? 'append'}`);
     } catch (err) {
       trace('dnd', `drop failed: ${(err as Error).message}`);
     }
@@ -172,8 +241,17 @@ export class DragController {
 
   cancel(reason: DragCancelReason = 'outside'): void {
     if (!this.active) return;
+    this.cancelPendingRaf();
     trace('dnd', `cancel: ${this.active.draggingId} reason=${reason}`);
     this.clear();
+  }
+
+  private cancelPendingRaf(): void {
+    if (this.rafId !== null) {
+      if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    this.pendingPoint = null;
   }
 
   private clear(): void {
@@ -220,5 +298,11 @@ function ancestorDepth(el: Element): number {
 function sameHover(a: DragState['hover'], b: DragState['hover']): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  return a.targetId === b.targetId && a.accepted === b.accepted;
+  return (
+    a.targetId === b.targetId &&
+    a.accepted === b.accepted &&
+    a.insertIndex === b.insertIndex &&
+    a.cursor.x === b.cursor.x &&
+    a.cursor.y === b.cursor.y
+  );
 }
