@@ -13,11 +13,12 @@ import { useMemo } from 'react';
 import {
   type ChromeMap,
   Container,
+  Group,
+  Panel,
   StrategyRegistryProvider,
   WindeaseProvider,
 } from '../index.js';
 import './windease.css';
-import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   recursiveSplit: recursiveSplit as never,
@@ -66,14 +67,8 @@ export const RecursiveSplit: Story = () => {
   const chrome: ChromeMap = useMemo(
     () => ({
       zone: ({ children }) => <>{children}</>,
-      group: ({ node, children }) => (
-        <div className={`story-panel ${colorClassForId(node.id)}`}>{children}</div>
-      ),
-      panel: ({ node }) => (
-        <div className={`story-panel ${colorClassForId(node.id)}`}>
-          <span className="story-panel__title">{String(node.meta?.title ?? node.id)}</span>
-        </div>
-      ),
+      group: ({ node, children }) => <Group title={String(node.meta?.title ?? node.id)}>{children}</Group>,
+      panel: ({ node }) => <Panel title={String(node.meta?.title ?? node.id)} />,
     }),
     [],
   );

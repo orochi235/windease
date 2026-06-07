@@ -4,7 +4,6 @@ import {
   CycleError,
   DuplicateNodeError,
   InvariantViolationError,
-  KindShapeError,
   NodeNotFoundError,
   StrategyRejectionError,
   WindeaseError,
@@ -46,14 +45,6 @@ describe('error subclasses', () => {
     const err = new DuplicateNodeError(asNodeId('n2'));
     expect(err.code).toBe('duplicate-id');
     expect(err.id).toBe('n2');
-  });
-
-  it('KindShapeError carries id, kind, violation', () => {
-    const err = new KindShapeError(asNodeId('n3'), 'panel', 'missing slot');
-    expect(err.code).toBe('kind-shape-mismatch');
-    expect(err.id).toBe('n3');
-    expect(err.kind).toBe('panel');
-    expect(err.violation).toBe('missing slot');
   });
 
   it('CapabilityMissingError carries id, capability, operation', () => {

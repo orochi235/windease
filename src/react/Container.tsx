@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 import { useChildren, useNode } from './hooks.js';
-import { NodeRenderer, type ChromeMap } from './NodeRenderer.js';
+import { NodeRenderer, type Chrome } from './NodeRenderer.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
 
 /** Live layout snapshot passed to function-form `overlay` callbacks. */
@@ -33,8 +33,8 @@ export type OverlayRenderer = (ctx: OverlayContext) => ReactNode;
 export interface ContainerProps {
   /** The container node whose children to render. */
   parentId: NodeId;
-  /** Per-kind render handlers. Each handler receives `{ node, children }`. */
-  chrome: ChromeMap;
+  /** A `(args) => ReactNode` handler, or a role-keyed map (see `Chrome`). */
+  chrome: Chrome;
   /** Fixed viewport; omit to auto-measure via ResizeObserver. */
   viewport?: { w: number; h: number };
   className?: string;

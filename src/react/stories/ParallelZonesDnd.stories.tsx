@@ -14,6 +14,7 @@ import {
   Container,
   DragHandle,
   DragProvider,
+  Panel,
   StrategyRegistryProvider,
   useDragState,
   useDropTarget,
@@ -21,7 +22,6 @@ import {
 } from '../index.js';
 import './windease.css';
 import './parallel-zones-dnd.css';
-import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   stack: stackStrategy as never,
@@ -94,12 +94,9 @@ export const ParallelZonesDnd: Story = () => {
   const chrome: ChromeMap = useMemo(
     () => ({
       zone: ({ children }) => <>{children}</>,
-      group: ({ node, children }) => (
-        <div className={`story-panel ${colorClassForId(node.id)}`}>{children}</div>
-      ),
       panel: ({ node }) => (
-        <DragHandle nodeId={node.id} className={`story-panel ${colorClassForId(node.id)} pz-panel`}>
-          <span className="story-panel__title">{String(node.meta?.title ?? node.id)}</span>
+        <DragHandle nodeId={node.id} className="pz-panel">
+          <Panel title={String(node.meta?.title ?? node.id)} />
           <span className="pz-panel__grip" aria-hidden="true">⋮⋮</span>
         </DragHandle>
       ),

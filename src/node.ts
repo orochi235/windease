@@ -7,7 +7,13 @@ export type NodeId = string & { readonly __brand: 'NodeId' };
 
 export const asNodeId = (s: string): NodeId => s as NodeId;
 
-export type NodeKind = 'panel' | 'group' | 'zone';
+/**
+ * Optional consumer-defined role label. Conventional values when using the
+ * shipped presets are `'panel'`, `'group'`, `'zone'`, but the core does not
+ * enforce or interpret these — `kind` is a free-form string that the React
+ * chrome map can dispatch on, and nothing else.
+ */
+export type NodeKind = string;
 
 export interface NodeHints {
   minSize?: { w: number; h: number };
@@ -40,7 +46,8 @@ export interface SlotCap {
 
 export interface Node {
   id: NodeId;
-  kind: NodeKind;
+  /** Free-form role label; see `NodeKind` JSDoc. Optional. */
+  kind?: NodeKind;
   meta?: Record<string, unknown>;
   activity?: Record<string, unknown>;
   hints?: NodeHints;

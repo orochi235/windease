@@ -12,11 +12,11 @@ import { useMemo } from 'react';
 import {
   type ChromeMap,
   Container,
+  Panel,
   StrategyRegistryProvider,
   WindeaseProvider,
 } from '../index.js';
 import './windease.css';
-import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   binarySplit: binarySplit as never,
@@ -51,14 +51,7 @@ export const BinarySplit: Story<Args> = ({ direction, gutterSize }) => {
   const chrome: ChromeMap = useMemo(
     () => ({
       zone: ({ children }) => <>{children}</>,
-      group: ({ node, children }) => (
-        <div className={`story-panel ${colorClassForId(node.id)}`}>{children}</div>
-      ),
-      panel: ({ node }) => (
-        <div className={`story-panel ${colorClassForId(node.id)}`}>
-          <span className="story-panel__title">{String(node.meta?.title ?? node.id)}</span>
-        </div>
-      ),
+      panel: ({ node }) => <Panel title={String(node.meta?.title ?? node.id)} />,
     }),
     [],
   );
@@ -76,8 +69,7 @@ export const BinarySplit: Story<Args> = ({ direction, gutterSize }) => {
           />
         </div>
         <p style={{ marginTop: 12, font: '12px/1.4 system-ui, sans-serif', color: '#64748b' }}>
-          Drag the gutter to resize. Ratio persists in the store's container-state
-          side-channel (not snapshotted, not in undo history).
+          Drag the gutter to resize.
         </p>
       </StrategyRegistryProvider>
     </WindeaseProvider>

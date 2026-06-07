@@ -26,15 +26,16 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
 
 /** Convert a Node into the LayoutNode shape. */
 export function nodeToLayoutNode(node: Node): LayoutNode {
-  return {
+  const out: LayoutNode = {
     id: node.id,
-    kind: node.kind,
     hints: { ...(node.hints ?? {}) },
     meta: { ...(node.meta ?? {}) },
     placement: { ...(node.slot?.placement ?? {}) },
     isContainer: !!node.container,
     activity: { ...(node.activity ?? {}) },
   };
+  if (node.kind !== undefined) out.kind = node.kind;
+  return out;
 }
 
 /**

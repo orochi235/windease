@@ -8,7 +8,6 @@ import {
 import { TypedEmitter } from './events.js';
 import type { ContainerCap, FocusCap, Node, NodeId, SlotCap } from './node.js';
 import { trace } from './trace.js';
-import { validateKindShape } from './validators.js';
 
 export interface StoreEvents {
   'node.registered': { id: NodeId };
@@ -149,7 +148,7 @@ export class WindeaseStore {
   // ===== Register / unregister =====
 
   registerNode(node: Node): void {
-    validateKindShape(node);
+    
     if (this.nodesMap.has(node.id)) {
       throw new DuplicateNodeError(node.id);
     }

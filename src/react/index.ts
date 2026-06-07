@@ -10,12 +10,16 @@ export {
 export {
   NodeRenderer,
   WindeaseRoot,
+  type Chrome,
   type ChromeArgs,
   type ChromeHandler,
   type ChromeMap,
   type NodeRendererProps,
   type WindeaseRootProps,
 } from './NodeRenderer.js';
+
+// Preset components
+export { Panel, Group, Zone } from './presets.js';
 
 // DnD
 export {

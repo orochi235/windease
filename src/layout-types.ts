@@ -23,7 +23,8 @@ export interface LayoutItem {
  */
 export interface LayoutNode {
   id: string;
-  kind: 'panel' | 'group' | 'zone';
+  /** Free-form role label echoed from `node.kind` (optional). */
+  kind?: string;
   hints: {
     minSize?: Size;
     preferredSize?: Size;

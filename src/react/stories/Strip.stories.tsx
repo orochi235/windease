@@ -12,11 +12,11 @@ import { useMemo } from 'react';
 import {
   type ChromeMap,
   Container,
+  Panel,
   StrategyRegistryProvider,
   WindeaseProvider,
 } from '../index.js';
 import './windease.css';
-import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   strip: stripStrategy as never,
@@ -51,13 +51,7 @@ function makeStripStore(axis: 'x' | 'y', sizes: number[]): WindeaseStore {
 }
 
 const chrome: ChromeMap = {
-  panel: ({ node }) => (
-    <div className={`story-panel ${colorClassForId(node.id)}`}>
-      <span className="story-panel__title">
-        {String(node.meta?.title ?? node.id)}
-      </span>
-    </div>
-  ),
+  panel: ({ node }) => <Panel title={String(node.meta?.title ?? node.id)} />,
 };
 
 export const HorizontalStrip: Story = () => {

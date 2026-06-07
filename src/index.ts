@@ -62,11 +62,9 @@ export {
   type CreateGroupInput,
   type CreatePanelInput,
 } from './constructors.js';
-export { validateKindShape } from './validators.js';
 export {
   NodeNotFoundError,
   DuplicateNodeError,
-  KindShapeError,
   CapabilityMissingError,
   CycleError,
   StrategyRejectionError,

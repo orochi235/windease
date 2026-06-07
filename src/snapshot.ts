@@ -7,7 +7,7 @@ import { WindeaseStore } from './store.js';
 
 export interface SerializedNode {
   id: string;
-  kind: NodeKind;
+  kind?: NodeKind;
   meta?: Record<string, unknown>;
   activity?: Record<string, unknown>;
   hints?: {
@@ -51,9 +51,9 @@ export function serialize(store: WindeaseStore): SerializedStore {
     if (node.lifecycle.state === 'destroyed') continue;
     const out: SerializedNode = {
       id: node.id,
-      kind: node.kind,
       lifecycle: node.lifecycle.state as 'mounted' | 'visible' | 'hidden',
     };
+    if (node.kind !== undefined) out.kind = node.kind;
     if (node.meta && Object.keys(node.meta).length > 0) out.meta = { ...node.meta };
     if (node.activity && Object.keys(node.activity).length > 0) out.activity = { ...node.activity };
     if (node.hints && Object.keys(node.hints).length > 0) out.hints = { ...node.hints };
@@ -206,9 +206,9 @@ function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildIds: bool
 
   const node: Node = {
     id: asNodeId(sn.id),
-    kind: sn.kind,
     lifecycle,
   };
+  if (sn.kind !== undefined) node.kind = sn.kind;
   if (sn.meta) node.meta = { ...sn.meta };
   if (sn.activity) node.activity = { ...sn.activity };
   if (sn.hints) node.hints = { ...sn.hints };

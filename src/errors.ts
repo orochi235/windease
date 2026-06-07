@@ -1,4 +1,4 @@
-import type { NodeId, NodeKind } from './node.js';
+import type { NodeId } from './node.js';
 
 export type WindeaseErrorCode =
   // codes (still used by existing store/window/zone)
@@ -46,19 +46,6 @@ export class DuplicateNodeError extends WindeaseError {
     super('duplicate-id', `Duplicate node id: ${id}`);
     this.name = 'DuplicateNodeError';
     this.id = id;
-  }
-}
-
-export class KindShapeError extends WindeaseError {
-  readonly id: NodeId;
-  readonly kind: NodeKind;
-  readonly violation: string;
-  constructor(id: NodeId, kind: NodeKind, violation: string) {
-    super('kind-shape-mismatch', `Node ${id} (kind=${kind}): ${violation}`);
-    this.name = 'KindShapeError';
-    this.id = id;
-    this.kind = kind;
-    this.violation = violation;
   }
 }
 

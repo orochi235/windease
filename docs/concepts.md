@@ -11,8 +11,9 @@ and the public API mostly cares about which ones are present. There are
 no fundamentally distinct "window" and "zone" types; everything is the
 same Node shape with different capabilities set.
 
-Three combinations show up so often that windease names them and ships
-constructors for them:
+Three combinations show up so often that windease ships **presets** for
+them. These live entirely in the consumer-facing surface — the core
+doesn't enforce or interpret them:
 
 - **Zone** — `container`, no `slot`. A rootless container; the top of a
   sub-tree. Has a layout strategy that places its visible children.
@@ -21,17 +22,18 @@ constructors for them:
   region.
 - **Panel** — `slot` + `focus`. A leaf renderable. Set `container` on a
   panel too and it hosts its own child tree — the "tray inside a window"
-  pattern. There's no separate type for a recursive panel; it's just a
-  panel that happens to be a container.
+  pattern. No separate type for a recursive panel; it's just a panel that
+  happens to be a container.
 
-Most of the work you do with windease is composing trees of these named
-combos, but the underlying model is just nodes-and-capabilities — if a
-useful combination doesn't have a name, the store still accepts it as
-long as the capability shape is internally consistent.
+Presets ship two ways: `createPanel` / `createGroup` / `createZone` node
+constructors, and the React components `<Panel>` / `<Group>` / `<Zone>`
+that supply default chrome. Both set `node.kind` to `'panel'` / `'group'`
+/ `'zone'` as a label so a `ChromeMap` can dispatch on it.
 
-A node's `kind` is the only thing about it that's closed-enum; the rest
-of the API treats `node.container`, `node.slot`, etc. as independent
-optional fields.
+`node.kind` is just a free-form string — the core stores it, the React
+chrome map dispatches on it, nothing inside windease enforces it. Build
+nodes with whatever capability shape you want; the store accepts any
+internally-consistent combination.
 
 ## Identity
 
@@ -49,9 +51,10 @@ optional and reflect role:
 | `slot`      | parent reference + per-membership `placement` + transit FSM | panels, groups       |
 | `focus`     | focused ↔ blurred FSM (single-focus invariant)  | panels                        |
 
-The capability shape is validated against `kind` at `registerNode` and
-`hydrate` time. Hand-rolling a `Node` literal whose shape doesn't match
-`kind` throws `KindShapeError`.
+The core does not enforce any relationship between `kind` and the
+capabilities a node carries. Validation is structural only — slot's
+`parentId` must reference a node with a `container`, no cycles, single
+focus across the store, etc.
 
 ## Two scopes of free-form data
 

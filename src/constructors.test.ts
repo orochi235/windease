@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createGroup, createPanel, createZone } from './constructors.js';
 import { asNodeId } from './node.js';
-import { validateKindShape } from './validators.js';
 
 describe('createZone', () => {
   it('produces a zone-kind node with container only', () => {
@@ -43,10 +42,6 @@ describe('createZone', () => {
     expect(node.hints?.preferredSize).toEqual({ w: 800, h: 600 });
   });
 
-  it('passes validateKindShape', () => {
-    const node = createZone({ id: asNodeId('z4'), strategyId: 'grid', config: {} });
-    expect(() => validateKindShape(node)).not.toThrow();
-  });
 });
 
 describe('createGroup', () => {
@@ -81,15 +76,6 @@ describe('createGroup', () => {
     expect(node.slot?.placement).toEqual({ pinned: true });
   });
 
-  it('passes validateKindShape', () => {
-    const node = createGroup({
-      id: asNodeId('g3'),
-      parentId: asNodeId('z1'),
-      strategyId: 'stack',
-      config: {},
-    });
-    expect(() => validateKindShape(node)).not.toThrow();
-  });
 });
 
 describe('createPanel', () => {
@@ -141,14 +127,4 @@ describe('createPanel', () => {
     expect(node.slot?.placement).toEqual({ locked: true });
   });
 
-  it('passes validateKindShape (both leaf and recursive)', () => {
-    const leaf = createPanel({ id: asNodeId('p5'), parentId: asNodeId('z1') });
-    const recursive = createPanel({
-      id: asNodeId('p6'),
-      parentId: asNodeId('z1'),
-      container: { strategyId: 'stack', config: {} },
-    });
-    expect(() => validateKindShape(leaf)).not.toThrow();
-    expect(() => validateKindShape(recursive)).not.toThrow();
-  });
 });

@@ -12,11 +12,11 @@ import { useMemo } from 'react';
 import {
   type ChromeMap,
   Container,
+  Panel,
   StrategyRegistryProvider,
   WindeaseProvider,
 } from '../index.js';
 import './windease.css';
-import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   stack: stackStrategy as never,
@@ -58,13 +58,7 @@ export const Stack: Story<Args> = ({ gap, padding }) => {
 
   const chrome: ChromeMap = useMemo(
     () => ({
-      panel: ({ node }) => (
-        <div className={`story-panel ${colorClassForId(node.id)}`}>
-          <span className="story-panel__title">
-            {String(node.meta?.title ?? node.id)}
-          </span>
-        </div>
-      ),
+      panel: ({ node }) => <Panel title={String(node.meta?.title ?? node.id)} />,
     }),
     [],
   );

@@ -13,11 +13,12 @@ import { useMemo } from 'react';
 import {
   type ChromeMap,
   Container,
+  Panel,
   StrategyRegistryProvider,
   WindeaseProvider,
+  Zone,
 } from '../index.js';
 import './windease.css';
-import { colorClassForId } from './Panel.js';
 
 const STRATEGIES = {
   grid: gridStrategy as never,
@@ -100,37 +101,17 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
 
   const chrome: ChromeMap = useMemo(
     () => ({
-      zone: ({ node, children }) => (
-        <div className="windease-zone" style={{ width: '100%', height: '100%' }} data-id={node.id}>
-          {children}
-        </div>
-      ),
-      group: ({ node, children }) => (
-        <div className={`story-panel ${colorClassForId(node.id)}`}>
-          <strong>{String(node.meta?.title ?? node.id)}</strong>
-          {children}
-        </div>
-      ),
-      panel: ({ node, children }) => {
-        const isTray = node.container !== undefined;
-        const cls = `story-panel ${colorClassForId(node.id)}`;
-        if (isTray) {
+      zone: ({ children }) => <Zone>{children}</Zone>,
+      panel: ({ node }) => {
+        const title = String(node.meta?.title ?? node.id);
+        if (node.container) {
           return (
-            <div className={cls} style={{ display: 'flex', flexDirection: 'column' }}>
-              <strong style={{ marginBottom: 4 }}>{String(node.meta?.title ?? node.id)}</strong>
-              <Container
-                parentId={node.id}
-                chrome={chrome}
-                style={{ flex: 1, minHeight: 0 }}
-              />
-            </div>
+            <Panel title={title}>
+              <Container parentId={node.id} chrome={chrome} style={{ flex: 1, minHeight: 0 }} />
+            </Panel>
           );
         }
-        return (
-          <div className={cls}>
-            <span>{String(node.meta?.title ?? node.id)}</span>
-          </div>
-        );
+        return <Panel title={title} />;
       },
     }),
     [],
