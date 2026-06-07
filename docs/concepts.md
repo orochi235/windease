@@ -143,16 +143,23 @@ Built-ins:
   <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
     <Container
       parentId={asNodeId('z')}
-      chrome={{ panel, group, zone }}
+      chrome={{ panel: panelHandler, zone: zoneHandler }}
       viewport={{ w: 720, h: 480 }}
     />
   </StrategyRegistryProvider>
 </WindeaseProvider>
 ```
 
-Chrome handlers are keyed by `kind` and receive `{ node, children }`. A
-recursive panel mounts `<Container parentId={node.id} chrome={chrome} />`
-inside its own template at the position it wants the tray to live.
+`chrome` is either a `Record<string, ChromeHandler>` keyed by
+`node.kind`, or a single `(args) => ReactNode` function. Handlers
+receive `{ node, children }`. A recursive panel mounts
+`<Container parentId={node.id} chrome={chrome} />` inside its own
+template at the position it wants the tray to live.
+
+For the convention `kind` values `'panel'`, `'group'`, `'zone'` the
+React layer ships preset chrome components — `<Panel>`, `<Group>`,
+`<Zone>` — that supply default styling. They're plain wrappers; pass
+`className`/`style` to override, or write your own from scratch.
 
 Hooks: `useNode(id)`, `useNodeSelector(id, select)`, `useChildren(parentId)`,
 `useFocusedNode()`, `useRootNodes()`, `useContainerLayout(parentId, ref, viewport?)`.
@@ -197,7 +204,6 @@ Class hierarchy under `WindeaseError`:
 
 - `NodeNotFoundError` (`code: 'unknown-node'`)
 - `DuplicateNodeError` (`'duplicate-id'`)
-- `KindShapeError` (`'kind-shape-mismatch'`)
 - `CapabilityMissingError` (`'capability-missing'`)
 - `CycleError` (`'cycle-detected'`)
 - `StrategyRejectionError` (`'strategy-rejected'`)

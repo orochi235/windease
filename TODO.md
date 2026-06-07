@@ -109,6 +109,24 @@ it. Edge cases: rejecting drops a strategy can't accept (e.g. a 2-pane
 binarySplit), insertion-point previews for ordered strategies, and what
 happens to a single-member group when its last sibling leaves.
 
+## Playwright e2e suite
+
+The vitest suite + jsdom covers store logic and React component output,
+but DnD and resize gestures are only exercised through synthetic pointer
+events. A real-browser pass via Playwright (or @web/test-runner) would
+catch:
+
+- pointer capture / setPointerCapture behavior across browsers
+- ResizeObserver-driven layout under actual reflow
+- CSS stacking interactions between affordance hit areas and chrome
+- focus management across drag-induced re-renders
+- snapshot/hydrate cycle with persisted container state (resize ratios)
+
+Ladle's playground stories already represent the canonical fixtures —
+e2e specs would drive them with `@playwright/test`, screenshot key
+flows, and assert DOM/store state afterward. Medium priority; not a
+publish blocker but a desirable hardening pass.
+
 ## Loose ends
 
 - Layout strategies cast `container.config as XConfig` unchecked. Typos at

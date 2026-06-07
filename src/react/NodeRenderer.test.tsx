@@ -70,4 +70,30 @@ describe('WindeaseRoot', () => {
     expect(queryByTestId('panel-a')).not.toBeNull();
     expect(queryByTestId('panel-b')).toBeNull();
   });
+
+  it('chrome can be a single function instead of a kind-keyed map', () => {
+    const store = new WindeaseStore();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+    const single = ({ node, children }: import('./NodeRenderer.js').ChromeArgs) => (
+      <div data-testid={`x-${node.id}`}>{children}</div>
+    );
+    const { getByTestId } = render(<WindeaseRoot store={store} chrome={single} />);
+    expect(getByTestId('x-z')).toBeDefined();
+    expect(getByTestId('x-a')).toBeDefined();
+  });
+
+  it('map chrome falls back to "default" when no kind handler matches', () => {
+    const store = new WindeaseStore();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+    const onlyDefault: ChromeMap = {
+      default: ({ node, children }) => (
+        <div data-testid={`d-${node.id}`}>{children}</div>
+      ),
+    };
+    const { getByTestId } = render(<WindeaseRoot store={store} chrome={onlyDefault} />);
+    expect(getByTestId('d-z')).toBeDefined();
+    expect(getByTestId('d-a')).toBeDefined();
+  });
 });

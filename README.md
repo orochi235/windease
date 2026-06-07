@@ -18,10 +18,14 @@ See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
 owns what, and how reserved keys like `pinned` / `locked` interact with
 layout and DnD).
 
-- **Three named primitives** — `createZone`, `createGroup`, `createPanel`
-  — produce typed nodes with the right capability shape for their role.
-- **Recursive zones** — a `Panel` can host a `container`, making "tray
-  inside a window" a one-call composition.
+- **Node + capabilities, not classes.** Every node optionally carries
+  `container` / `slot` / `focus` / `lifecycle`. The core enforces only
+  structural invariants (no cycles, single focus, bidirectional links).
+  `Panel` / `Group` / `Zone` are convention names with shipped presets,
+  not built-in types.
+- **Recursive containers** — any node with a `container` capability hosts
+  children, and a child may itself be a container. "Tray inside a window"
+  is just a panel whose `container` is set.
 - **Universal lifecycle.** Every node carries an FSM
   (`mounted → visible ↔ hidden → destroyed`); panels additionally carry
   `transit` (atomic moves) and `focus` (single-focus invariant).
@@ -38,16 +42,18 @@ layout and DnD).
 ```tsx
 import {
   asNodeId,
-  createZone,
   createPanel,
+  createZone,
   gridStrategy,
   stackStrategy,
   WindeaseStore,
 } from 'windease';
 import {
   Container,
+  Panel,
   StrategyRegistryProvider,
   WindeaseProvider,
+  Zone,
 } from 'windease/react';
 
 const store = new WindeaseStore();
@@ -65,20 +71,26 @@ store.registerNode(createPanel({
 store.registerNode(createPanel({
   id: asNodeId('leaf'),
   parentId: asNodeId('tray'),
+  meta: { title: 'Leaf' },
 }));
 store.showNode(asNodeId('tray'));
 store.showNode(asNodeId('leaf'));
 
+// Chrome dispatches on node.kind (set by the createPanel/createZone presets).
+// `panel` handlers can opt into recursion by mounting Container themselves.
 const chrome = {
-  zone: ({ children }) => <div className="my-zone">{children}</div>,
-  group: ({ node, children }) => <div className="my-group">{children}</div>,
-  panel: ({ node, children }) =>
-    node.container
-      ? <div className="my-tray">
-          <h4>{String(node.meta?.title)}</h4>
+  zone: ({ children }) => <Zone>{children}</Zone>,
+  panel: ({ node }) => {
+    const title = String(node.meta?.title ?? node.id);
+    if (node.container) {
+      return (
+        <Panel title={title}>
           <Container parentId={node.id} chrome={chrome} />
-        </div>
-      : <div className="my-leaf">{String(node.meta?.title ?? node.id)}</div>,
+        </Panel>
+      );
+    }
+    return <Panel title={title} />;
+  },
 };
 
 <WindeaseProvider store={store}>
@@ -87,6 +99,11 @@ const chrome = {
   </StrategyRegistryProvider>
 </WindeaseProvider>
 ```
+
+`<Panel>`, `<Group>`, `<Zone>` are minimal styled wrappers — pass
+`className`/`style` to override, or write your own chrome handlers
+directly. Chrome can be either a `Record<string, ChromeHandler>` keyed
+on `node.kind` (as above) or a single `(args) => ReactNode` function.
 
 See the **Recursive Zones** Ladle story for a working example you can
 manipulate live.
