@@ -1,18 +1,66 @@
 {
-  "name": "windease-workspace",
-  "private": true,
-  "type": "module",
-  "workspaces": [
-    "packages/*"
+  "name": "windease",
+  "version": "0.3.0",
+  "description": "Browser window/zone/workspace model with pluggable layout strategies, opt-in drag-and-drop, snapshot persistence — headless core and React bindings in one package.",
+  "keywords": [
+    "windease",
+    "window-manager",
+    "layout",
+    "tiling",
+    "binary-split",
+    "drag-and-drop",
+    "react"
   ],
+  "license": "MIT",
+  "author": "Michael Baker",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/orochi235/windease.git"
+  },
+  "homepage": "https://github.com/orochi235/windease#readme",
+  "bugs": "https://github.com/orochi235/windease/issues",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./styles.css": "./dist/react/styles.css"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "react": "^19"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && cp src/react/styles.css dist/react/styles.css",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "ladle": "ladle serve",
-    "ladle:build": "ladle build"
+    "ladle:build": "ladle build",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",

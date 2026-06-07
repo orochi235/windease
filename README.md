@@ -1,7 +1,14 @@
 # windease
 
-Browser-based window manager. Framework-agnostic core (`@windease/core`) plus
-a React binding (`@windease/react`).
+Browser-based window manager. One package, two entry points: a
+framework-agnostic core (`windease`) and React bindings (`windease/react`).
+
+```sh
+npm install windease
+```
+
+React bindings peer-depend on `react@^19` (declared optional — install only
+if you import from `windease/react`).
 
 > **Playground:** every strategy and DnD path lives in the Ladle playground
 > at <https://orochi235.github.io/windease/>.
@@ -38,12 +45,12 @@ import {
   gridStrategy,
   stackStrategy,
   WindeaseNodeStore,
-} from '@windease/core';
+} from 'windease';
 import {
   NodeContainer,
   StrategyRegistryProvider,
   WindeaseNodeProvider,
-} from '@windease/react';
+} from 'windease/react';
 
 const store = new WindeaseNodeStore();
 store.registerNode(createZone({
@@ -89,7 +96,7 @@ manipulate live.
 Import the baseline stylesheet once at the top of your app:
 
 ```ts
-import '@windease/react/styles.css';
+import 'windease/styles.css';
 ```
 
 It supplies the structural rules `.windease-zone`, `.windease-window`, and

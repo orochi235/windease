@@ -33,8 +33,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Build workspace packages
-        run: npm run build --workspaces
+      - name: Build package
+        run: npm run build
 
       - name: Build Ladle
         run: npx ladle build --base /windease/ --outDir build
