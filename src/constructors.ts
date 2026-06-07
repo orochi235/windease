@@ -12,6 +12,8 @@ export interface CreateZoneInput {
   allowsDragOut?: boolean;
   meta?: Record<string, unknown>;
   hints?: NodeHints;
+  /** See `Node.order`. */
+  order?: number;
 }
 
 export function createZone(input: CreateZoneInput): Node {
@@ -30,6 +32,7 @@ export function createZone(input: CreateZoneInput): Node {
   };
   if (input.meta !== undefined) node.meta = input.meta;
   if (input.hints !== undefined) node.hints = input.hints;
+  if (input.order !== undefined) node.order = input.order;
   return node;
 }
 
@@ -44,6 +47,8 @@ export interface CreateGroupInput {
   placement?: Record<string, unknown>;
   meta?: Record<string, unknown>;
   hints?: NodeHints;
+  /** See `Node.order`. */
+  order?: number;
 }
 
 export function createGroup(input: CreateGroupInput): Node {
@@ -67,6 +72,7 @@ export function createGroup(input: CreateGroupInput): Node {
   };
   if (input.meta !== undefined) node.meta = input.meta;
   if (input.hints !== undefined) node.hints = input.hints;
+  if (input.order !== undefined) node.order = input.order;
   return node;
 }
 
@@ -76,6 +82,8 @@ export interface CreatePanelInput {
   placement?: Record<string, unknown>;
   meta?: Record<string, unknown>;
   hints?: NodeHints;
+  /** See `Node.order`. */
+  order?: number;
   container?: {
     strategyId: string;
     config: unknown;
@@ -99,6 +107,7 @@ export function createPanel(input: CreatePanelInput): Node {
   };
   if (input.meta !== undefined) node.meta = input.meta;
   if (input.hints !== undefined) node.hints = input.hints;
+  if (input.order !== undefined) node.order = input.order;
   if (input.container) {
     node.container = {
       strategyId: input.container.strategyId,

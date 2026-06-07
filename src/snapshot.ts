@@ -15,6 +15,8 @@ export interface SerializedNode {
     preferredSize?: { w: number; h: number };
     order?: number;
   };
+  /** See `Node.order`. */
+  order?: number;
   lifecycle: 'mounted' | 'visible' | 'hidden';
   container?: {
     strategyId: string;
@@ -57,6 +59,7 @@ export function serialize(store: Store): SerializedStore {
     if (node.meta && Object.keys(node.meta).length > 0) out.meta = { ...node.meta };
     if (node.activity && Object.keys(node.activity).length > 0) out.activity = { ...node.activity };
     if (node.hints && Object.keys(node.hints).length > 0) out.hints = { ...node.hints };
+    if (node.order !== undefined) out.order = node.order;
     if (node.container) {
       const c: SerializedNode['container'] = {
         strategyId: node.container.strategyId,
@@ -212,6 +215,7 @@ function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildIds: bool
   if (sn.meta) node.meta = { ...sn.meta };
   if (sn.activity) node.activity = { ...sn.activity };
   if (sn.hints) node.hints = { ...sn.hints };
+  if (sn.order !== undefined) node.order = sn.order;
   if (sn.container) {
     node.container = {
       strategyId: sn.container.strategyId,

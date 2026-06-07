@@ -51,6 +51,9 @@ export interface Node {
   meta?: Record<string, unknown>;
   activity?: Record<string, unknown>;
   hints?: NodeHints;
+  /** Optional numeric sort key used by container presets when reconciling
+   *  sibling order. Lower values come first; ties preserve input order. */
+  order?: number;
   lifecycle: LifecycleCap;
 
   container?: ContainerCap;

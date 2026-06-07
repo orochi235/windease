@@ -128,3 +128,38 @@ describe('createPanel', () => {
   });
 
 });
+
+describe('node factories — order', () => {
+  it('round-trips an explicit order on createPanel', () => {
+    const n = createPanel({
+      id: asNodeId('a'),
+      parentId: asNodeId('root'),
+      order: 7,
+    });
+    expect(n.order).toBe(7);
+  });
+
+  it('round-trips on createGroup and createZone', () => {
+    const g = createGroup({
+      id: asNodeId('g'),
+      parentId: asNodeId('root'),
+      strategyId: 'stack',
+      config: {},
+      order: 3,
+    });
+    const z = createZone({
+      id: asNodeId('z'),
+      strategyId: 'grid',
+      config: {},
+      order: 1,
+    });
+    expect(g.order).toBe(3);
+    expect(z.order).toBe(1);
+  });
+
+  it('leaves order undefined when not provided', () => {
+    expect(
+      createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }).order,
+    ).toBeUndefined();
+  });
+});
