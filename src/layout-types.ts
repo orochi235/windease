@@ -46,6 +46,21 @@ export interface Affordance<TMeta = unknown> {
   meta?: TMeta;
 }
 
+/**
+ * Optional "preview" hint passed into `LayoutStrategy.layout()` when the host
+ * (e.g. `<Container>`) is showing a live drop preview. The strategy should lay
+ * out as if `insertId` were inserted at the cursor (or at `insertIndex` when
+ * the host knows the prospective slot). Cursor is in container-relative coords.
+ *
+ * Strategies that ignore this field still work — the preview just falls back
+ * to the real layout.
+ */
+export interface LayoutPreview {
+  insertId: string;
+  insertIndex?: number;
+  cursor: { x: number; y: number };
+}
+
 export interface LayoutResult<TId extends string = string, TMeta = unknown> {
   placements: Map<TId, Rect>;
   affordances: Affordance<TMeta>[];
@@ -54,6 +69,12 @@ export interface LayoutResult<TId extends string = string, TMeta = unknown> {
    * is capped). Consumers may render these in an overflow tray or hide them.
    */
   unplaced?: TId[];
+  /**
+   * True when this result was produced in response to a `preview` input and
+   * the strategy honored it. `<Container>` uses this to know whether to
+   * suppress the source's real chrome (it's rendered as the ghost instead).
+   */
+  isPreview?: boolean;
 }
 
 export interface LayoutEvent {
@@ -74,6 +95,14 @@ export interface LayoutStrategy<
     container: Size;
     state: TState;
     options: Record<string, unknown>;
+    /**
+     * When set, the strategy should lay out as if `preview.insertId` were
+     * inserted at `preview.insertIndex` (or at the cursor when index is
+     * undefined). The strategy MAY ignore this and return the regular
+     * layout — the host falls back gracefully. When honored, set
+     * `result.isPreview = true`.
+     */
+    preview?: LayoutPreview;
   }): LayoutResult<TId, TMeta>;
   reduce?(
     state: TState,
@@ -86,4 +115,18 @@ export interface LayoutStrategy<
    * Strategies that don't implement it are treated as accept-all.
    */
   canAccept?(items: LayoutItem[], options: Record<string, unknown>): boolean;
+  /**
+   * Optional fast-path preview. When defined and returns non-null, the host
+   * uses this instead of calling `.layout({ preview })`. Useful when preview
+   * placements are cheap to compute directly (e.g. grid cells given an index).
+   * Return null to delegate to the canonical `.layout()` path.
+   */
+  getDropPreview?(input: {
+    items: LayoutItem[];
+    container: Size;
+    options: Record<string, unknown>;
+    insertId: TId;
+    insertIndex: number | undefined;
+    cursor: { x: number; y: number };
+  }): { placements: Map<TId, Rect>; accepted: boolean } | null;
 }
