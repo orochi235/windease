@@ -45,6 +45,9 @@ const AFFORDANCE_BASE: CSSProperties = {
   position: 'absolute',
   touchAction: 'none',
   userSelect: 'none',
+  // Sit above sibling panels so the +hitPad slack catches pointer events and
+  // wins the cursor against adjacent panel content.
+  zIndex: 1,
 };
 
 const CONTAINER_BASE: CSSProperties = { position: 'relative' };
