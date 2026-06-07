@@ -32,6 +32,13 @@ export interface NodeContainerProps {
    * if you want non-default visuals.
    */
   affordances?: boolean;
+  /**
+   * Pixels by which each drag affordance's hit area is expanded in the
+   * perpendicular direction beyond the visual rect, so a 4px gutter is
+   * easier to grab. Visual placement (via `data-affordance` styling) is
+   * not affected — only pointer-events. Default 4.
+   */
+  affordanceHitPad?: number;
 }
 
 const AFFORDANCE_BASE: CSSProperties = {
@@ -63,6 +70,7 @@ export function NodeContainer({
   overlay,
   settleMs = DEFAULT_SETTLE_MS,
   affordances = false,
+  affordanceHitPad = 4,
 }: NodeContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const parent = useNode(parentId);
@@ -93,7 +101,12 @@ export function NodeContainer({
     >
       {affordances &&
         layout.affordances.map((aff) => (
-          <AffordanceHandle key={aff.id} affordance={aff} dispatch={layout.dispatchAffordance} />
+          <AffordanceHandle
+            key={aff.id}
+            affordance={aff}
+            dispatch={layout.dispatchAffordance}
+            hitPad={affordanceHitPad}
+          />
         ))}
       {children.map((child) => {
         const rect = layout.placements.get(child.id);
@@ -123,9 +136,10 @@ export function NodeContainer({
 interface AffordanceHandleProps {
   affordance: import('@windease/core').Affordance;
   dispatch: ContainerLayout['dispatchAffordance'];
+  hitPad: number;
 }
 
-function AffordanceHandle({ affordance, dispatch }: AffordanceHandleProps) {
+function AffordanceHandle({ affordance, dispatch, hitPad }: AffordanceHandleProps) {
   const last = useRef<{ x: number; y: number } | null>(null);
   const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     last.current = { x: e.clientX, y: e.clientY };
@@ -155,12 +169,17 @@ function AffordanceHandle({ affordance, dispatch }: AffordanceHandleProps) {
     }
   }, []);
 
+  // Expand the hit area in the perpendicular direction so a 4px gutter is
+  // easier to grab. The visible rect (consumer-styled via [data-affordance])
+  // stays at the strategy's reported size via an inner div.
+  const padX = affordance.kind === 'drag-x' || affordance.kind === 'drag-xy' ? hitPad : 0;
+  const padY = affordance.kind === 'drag-y' || affordance.kind === 'drag-xy' ? hitPad : 0;
   const style: CSSProperties = {
     ...AFFORDANCE_BASE,
-    left: affordance.rect.x,
-    top: affordance.rect.y,
-    width: affordance.rect.w,
-    height: affordance.rect.h,
+    left: affordance.rect.x - padX,
+    top: affordance.rect.y - padY,
+    width: affordance.rect.w + 2 * padX,
+    height: affordance.rect.h + 2 * padY,
   };
   if (affordance.cursor) style.cursor = affordance.cursor;
 
