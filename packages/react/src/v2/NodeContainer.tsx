@@ -169,29 +169,43 @@ function AffordanceHandle({ affordance, dispatch, hitPad }: AffordanceHandleProp
     }
   }, []);
 
-  // Expand the hit area in the perpendicular direction so a 4px gutter is
-  // easier to grab. The visible rect (consumer-styled via [data-affordance])
-  // stays at the strategy's reported size via an inner div.
+  // Expand the hit area perpendicular to the gutter so a 4px line is easier
+  // to grab. The outer div catches pointer events; the inner div is the
+  // visible rect at the strategy's reported size and carries `data-affordance`
+  // so consumer CSS styles it (not the invisible padding).
   const padX = affordance.kind === 'drag-x' || affordance.kind === 'drag-xy' ? hitPad : 0;
   const padY = affordance.kind === 'drag-y' || affordance.kind === 'drag-xy' ? hitPad : 0;
-  const style: CSSProperties = {
+  const outerStyle: CSSProperties = {
     ...AFFORDANCE_BASE,
     left: affordance.rect.x - padX,
     top: affordance.rect.y - padY,
     width: affordance.rect.w + 2 * padX,
     height: affordance.rect.h + 2 * padY,
   };
-  if (affordance.cursor) style.cursor = affordance.cursor;
+  if (affordance.cursor) outerStyle.cursor = affordance.cursor;
+  const innerStyle: CSSProperties = {
+    position: 'absolute',
+    left: padX,
+    top: padY,
+    width: affordance.rect.w,
+    height: affordance.rect.h,
+    pointerEvents: 'none',
+  };
 
   return (
     <div
-      style={style}
-      data-affordance={affordance.id}
-      data-affordance-kind={affordance.kind}
+      style={outerStyle}
+      data-affordance-hit={affordance.id}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-    />
+    >
+      <div
+        style={innerStyle}
+        data-affordance={affordance.id}
+        data-affordance-kind={affordance.kind}
+      />
+    </div>
   );
 }
