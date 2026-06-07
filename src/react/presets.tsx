@@ -148,7 +148,7 @@ export function Zone(props: ZoneProps) {
   const { id } = useNodeBinding({
     ...defined({ id: props.id, parentId: props.parentId, order: props.order }),
     kindHintForAutoId: 'zone',
-    factory: (id) => {
+    factory: (id, parentId) => {
       if (!props.strategyId) {
         throw new Error(
           `windease: <Zone id="${id}"> requires a strategyId prop.`,
@@ -158,7 +158,7 @@ export function Zone(props: ZoneProps) {
         id,
         strategyId: props.strategyId,
         config: props.config,
-        ...defined({ meta: props.meta, order: props.order }),
+        ...defined({ parentId: parentId ?? undefined, meta: props.meta, order: props.order }),
       });
     },
     reconcile: (store, id) => {
@@ -248,27 +248,35 @@ function PresetShell({
   useLayoutEffect(() => {
     const view = store.getContainerView(id);
     if (!view) return; // Not a container (e.g. Panel with no nested presets).
-    const jsxEntries = registry.snapshot();
-    const jsxIds = jsxEntries.map((e) => e.id);
+    const currentSet = new Set(view.childIds);
+    // Drop any reported entries that aren't actually children of THIS parent
+    // (a preset can override parentId to point elsewhere; it still reports to
+    // the nearest ChildRegistry by context).
+    const jsxEntries = registry
+      .snapshot()
+      .filter((e) => currentSet.has(e.id));
+    const jsxIds = new Set(jsxEntries.map((e) => e.id));
     const currentIds = view.childIds;
-    const imperativeIds = currentIds.filter((cid) => !jsxIds.includes(cid));
+    const imperativeIds = currentIds.filter((cid) => !jsxIds.has(cid));
     const sortFn = sort ?? defaultChildSort;
     const orderedJsx = sortFn(
       jsxEntries.map((e) => ({ id: e.id, order: e.order })),
       currentIds,
     );
     const finalOrder = [...orderedJsx, ...imperativeIds];
-    if (finalOrder.length === currentIds.length) {
-      // Skip if already in this order (avoid spurious notifies).
-      let same = true;
+    // finalOrder is now guaranteed a permutation of currentIds: orderedJsx is
+    // a subset of currentIds (post-filter), imperativeIds is the complement,
+    // and the two sets are disjoint.
+    let same = finalOrder.length === currentIds.length;
+    if (same) {
       for (let i = 0; i < finalOrder.length; i++) {
         if (finalOrder[i] !== currentIds[i]) {
           same = false;
           break;
         }
       }
-      if (!same) store.setChildOrder(id, finalOrder);
     }
+    if (!same) store.setChildOrder(id, finalOrder);
   });
 
   const wrapperClass =
