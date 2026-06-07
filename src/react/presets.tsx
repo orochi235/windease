@@ -51,7 +51,12 @@ function defined<T extends Record<string, unknown>>(obj: T): Partial<T> {
 
 /* ---------- Panel ---------- */
 
-export interface PanelProps extends CommonBindingProps, PresentationalProps {}
+export interface PanelProps extends CommonBindingProps, PresentationalProps {
+  /** Promotes this panel to a container with the given strategy. Lets it host
+   *  nested presets (`<Panel container={...}><Panel /></Panel>`). When absent,
+   *  Panel is a leaf — nested presets will fail with "parent has no container". */
+  container?: { strategyId: string; config?: unknown };
+}
 
 /** @group Components */
 export function Panel(props: PanelProps) {
@@ -72,10 +77,29 @@ export function Panel(props: PanelProps) {
           placement: props.placement,
           order: props.order,
         }),
+        ...(props.container
+          ? {
+              container: {
+                strategyId: props.container.strategyId,
+                config: props.container.config ?? {},
+              },
+            }
+          : null),
       });
     },
     reconcile: makeReconciler(props),
   });
+
+  // Mirror Zone's layout-providing path: if this Panel is a container AND a
+  // matching strategy is registered, run the layout and provide placements
+  // to descendants via LayoutContext. Otherwise stay a plain shell.
+  const registry = useOptionalStrategyRegistry();
+  const canProvideLayout =
+    !!props.container && !!registry && registry.has(props.container.strategyId);
+
+  if (canProvideLayout) {
+    return <PanelWithLayout {...props} id={id} />;
+  }
 
   return (
     <PresetShell
@@ -88,6 +112,45 @@ export function Panel(props: PanelProps) {
     >
       {props.children}
     </PresetShell>
+  );
+}
+
+interface PanelWithLayoutProps extends PanelProps {
+  id: NodeId;
+}
+
+/**
+ * Panel variant that runs `useContainerLayout` and provides placements to
+ * descendants via `LayoutContext`. Only rendered when this Panel was promoted
+ * to a container via the `container` prop AND a strategy registry containing
+ * that strategyId is in scope. Mirrors `ZoneWithLayout`, but a Panel has no
+ * `viewport` prop — it measures its own DOM box.
+ */
+function PanelWithLayout(props: PanelWithLayoutProps) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const layout = useContainerLayout(props.id, ref);
+  const settleMs = DEFAULT_SETTLE_MS;
+  const layoutInfo: LayoutInfo = { placements: layout.placements, settleMs };
+
+  const panelStyle: CSSProperties = {
+    position: 'relative',
+    ...props.style,
+  };
+
+  return (
+    <LayoutScope value={layoutInfo}>
+      <PresetShell
+        kind="panel"
+        id={props.id}
+        className={props.className}
+        style={panelStyle}
+        title={props.title}
+        testId={props['data-testid']}
+        innerRef={ref}
+      >
+        {props.children}
+      </PresetShell>
+    </LayoutScope>
   );
 }
 

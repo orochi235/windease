@@ -23,6 +23,21 @@ describe('nested declarative presets', () => {
     expect(store.getNode(asNodeId('inner'))?.slot?.parentId).toBe(asNodeId('mid'));
   });
 
+  it('Panel with container prop hosts nested presets', () => {
+    const store = new Store();
+    render(
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('outer')} container={{ strategyId: 'stack', config: {} }}>
+            <Panel id={asNodeId('inner')} />
+          </Panel>
+        </Zone>
+      </Provider>,
+    );
+    expect(store.getNode(asNodeId('outer'))?.container).toBeTruthy();
+    expect(store.getNode(asNodeId('inner'))?.slot?.parentId).toBe(asNodeId('outer'));
+  });
+
   it('unmounting a parent cascades unregister to JSX children', () => {
     const store = new Store();
     const { unmount } = render(
