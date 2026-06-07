@@ -1,14 +1,22 @@
-import type { LayoutResult, NodeId, Rect } from '@windease/core';
+import type { Affordance, LayoutEvent, LayoutResult, NodeId, Rect } from '@windease/core';
 import { runStrategyForContainer } from '@windease/core';
-import { type RefObject, useEffect, useMemo, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNodeStore } from './NodeProvider.js';
 import { useNode } from './hooks.js';
 import { useStrategyRegistry } from './strategies.js';
 
 export interface ContainerLayout {
   placements: Map<NodeId, Rect>;
+  affordances: Affordance[];
   unplaced: NodeId[];
   viewport: { w: number; h: number } | null;
+  /**
+   * Feed a strategy event (e.g. drag delta on an affordance) into the
+   * container's `reduce()` and persist the new state on the store. State
+   * lives in a side-channel map (not snapshotted, not in undo history).
+   * No-op when the strategy has no `reduce`.
+   */
+  dispatchAffordance: (event: LayoutEvent) => void;
 }
 
 /**
@@ -47,33 +55,72 @@ export function useContainerLayout(
 
   const viewport = fixedViewport ?? measured;
 
-  return useMemo<ContainerLayout>(() => {
+  // Subscribe to container.stateChanged so layout re-runs when the persisted
+  // strategy state (e.g. binarySplit ratio) is updated via dispatchAffordance.
+  const [stateTick, setStateTick] = useState(0);
+  useEffect(() => {
+    return store.events.on('container.stateChanged', (e) => {
+      if (e.id === parentId) setStateTick((t) => t + 1);
+    });
+  }, [store, parentId]);
+
+  const dispatchAffordance = useCallback<ContainerLayout['dispatchAffordance']>(
+    (event) => {
+      const container = node?.container;
+      if (!container || !viewport) return;
+      const strategy = registry.get(container.strategyId);
+      if (!strategy?.reduce) return;
+      const visibleChildren = store
+        .getChildren(parentId)
+        .filter((c) => c.lifecycle.state === 'visible')
+        .map((c) => ({ id: c.id }));
+      const current =
+        store.getContainerState(parentId) ??
+        (strategy.initialState ? strategy.initialState(visibleChildren) : undefined);
+      const next = strategy.reduce(current as never, event, {
+        container: viewport,
+        options: (container.config ?? {}) as Record<string, unknown>,
+      });
+      if (next === current) return;
+      store.setContainerState(parentId, next);
+    },
+    [store, parentId, node?.container, viewport, registry],
+  );
+
+  const layout = useMemo<Omit<ContainerLayout, 'dispatchAffordance'>>(() => {
     if (!node?.container || !viewport) {
-      return { placements: new Map(), unplaced: [], viewport };
+      return { placements: new Map(), affordances: [], unplaced: [], viewport };
     }
     const strategy = registry.get(node.container.strategyId);
     if (!strategy) {
-      return { placements: new Map(), unplaced: [], viewport };
+      return { placements: new Map(), affordances: [], unplaced: [], viewport };
     }
-    const initial = strategy.initialState
-      ? strategy.initialState(
-          store
-            .getChildren(parentId)
-            .filter((c) => c.lifecycle.state === 'visible')
-            .map((c) => ({ id: c.id })),
-        )
-      : undefined;
+    const persisted = store.getContainerState(parentId);
+    const state =
+      persisted ??
+      (strategy.initialState
+        ? strategy.initialState(
+            store
+              .getChildren(parentId)
+              .filter((c) => c.lifecycle.state === 'visible')
+              .map((c) => ({ id: c.id })),
+          )
+        : undefined);
     const result: LayoutResult<NodeId, unknown> = runStrategyForContainer(
       store,
       parentId,
       viewport,
       strategy,
-      initial as never,
+      state as never,
     );
     return {
       placements: result.placements,
+      affordances: result.affordances,
       unplaced: result.unplaced ?? [],
       viewport,
     };
-  }, [store, node?.container, viewport, registry, parentId]);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: stateTick is a re-run gate.
+  }, [store, node?.container, viewport, registry, parentId, stateTick]);
+
+  return { ...layout, dispatchAffordance };
 }

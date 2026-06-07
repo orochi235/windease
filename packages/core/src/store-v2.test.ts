@@ -539,3 +539,49 @@ describe('WindeaseNodeStore — integration', () => {
     expect(s.getNode(id('leaf1'))?.slot?.parentId).toBe('z');
   });
 });
+
+describe('WindeaseNodeStore — container state (side-channel)', () => {
+  it('round-trips state via get/setContainerState', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    expect(s.getContainerState(id('z'))).toBeUndefined();
+    s.setContainerState(id('z'), { ratio: 0.7 });
+    expect(s.getContainerState(id('z'))).toEqual({ ratio: 0.7 });
+  });
+
+  it('emits container.stateChanged on write', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    const spy = vi.fn();
+    s.events.on('container.stateChanged', spy);
+    s.setContainerState(id('z'), { ratio: 0.4 });
+    expect(spy).toHaveBeenCalledWith({ id: 'z', from: undefined, to: { ratio: 0.4 } });
+  });
+
+  it('skips emit + notify when state reference is unchanged', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    const state = { ratio: 0.5 };
+    s.setContainerState(id('z'), state);
+    const spy = vi.fn();
+    s.events.on('container.stateChanged', spy);
+    s.setContainerState(id('z'), state);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('throws CapabilityMissingError for nodes without container', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
+    expect(() => s.setContainerState(id('p'), { ratio: 0.5 })).toThrow(CapabilityMissingError);
+  });
+
+  it('clears state when the container is unregistered', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    s.setContainerState(id('z'), { ratio: 0.7 });
+    s.unregisterNode(id('z'));
+    s.registerNode(createZone({ id: id('z'), strategyId: 'binarySplit', config: {} }));
+    expect(s.getContainerState(id('z'))).toBeUndefined();
+  });
+});

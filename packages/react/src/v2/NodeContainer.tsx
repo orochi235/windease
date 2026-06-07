@@ -1,8 +1,14 @@
 import type { NodeId } from '@windease/core';
-import { type CSSProperties, type ReactNode, useRef } from 'react';
+import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useCallback,
+  useRef,
+} from 'react';
 import { useChildren, useNode } from './hooks.js';
 import { NodeRenderer, type ChromeMap } from './NodeRenderer.js';
-import { useContainerLayout } from './useContainerLayout.js';
+import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
 
 export interface NodeContainerProps {
   parentId: NodeId;
@@ -19,7 +25,20 @@ export interface NodeContainerProps {
    * (left/top/width/height); chrome handlers can layer their own.
    */
   settleMs?: number;
+  /**
+   * Opt-in: render the strategy's affordances (e.g. binarySplit's gutter)
+   * as interactive elements that drive `dispatchAffordance` on pointer drag.
+   * Default false. Visual + behavior are coupled — pass a custom `overlay`
+   * if you want non-default visuals.
+   */
+  affordances?: boolean;
 }
+
+const AFFORDANCE_BASE: CSSProperties = {
+  position: 'absolute',
+  touchAction: 'none',
+  userSelect: 'none',
+};
 
 const CONTAINER_BASE: CSSProperties = { position: 'relative' };
 const CHILD_BASE: CSSProperties = { position: 'absolute' };
@@ -43,6 +62,7 @@ export function NodeContainer({
   style,
   overlay,
   settleMs = DEFAULT_SETTLE_MS,
+  affordances = false,
 }: NodeContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const parent = useNode(parentId);
@@ -71,6 +91,10 @@ export function NodeContainer({
       style={containerStyle}
       data-node-container={parentId}
     >
+      {affordances &&
+        layout.affordances.map((aff) => (
+          <AffordanceHandle key={aff.id} affordance={aff} dispatch={layout.dispatchAffordance} />
+        ))}
       {children.map((child) => {
         const rect = layout.placements.get(child.id);
         if (!rect) return null;
@@ -93,5 +117,62 @@ export function NodeContainer({
       })}
       {overlay}
     </div>
+  );
+}
+
+interface AffordanceHandleProps {
+  affordance: import('@windease/core').Affordance;
+  dispatch: ContainerLayout['dispatchAffordance'];
+}
+
+function AffordanceHandle({ affordance, dispatch }: AffordanceHandleProps) {
+  const last = useRef<{ x: number; y: number } | null>(null);
+  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    last.current = { x: e.clientX, y: e.clientY };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // jsdom or unsupported — ignore.
+    }
+  }, []);
+  const onPointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (!last.current) return;
+      const dx = e.clientX - last.current.x;
+      const dy = e.clientY - last.current.y;
+      if (dx === 0 && dy === 0) return;
+      last.current = { x: e.clientX, y: e.clientY };
+      dispatch({ affordanceId: affordance.id, kind: 'drag', payload: { dx, dy } });
+    },
+    [dispatch, affordance.id],
+  );
+  const onPointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    last.current = null;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const style: CSSProperties = {
+    ...AFFORDANCE_BASE,
+    left: affordance.rect.x,
+    top: affordance.rect.y,
+    width: affordance.rect.w,
+    height: affordance.rect.h,
+  };
+  if (affordance.cursor) style.cursor = affordance.cursor;
+
+  return (
+    <div
+      style={style}
+      data-affordance={affordance.id}
+      data-affordance-kind={affordance.kind}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    />
   );
 }

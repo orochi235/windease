@@ -50,6 +50,13 @@ export interface NodeStoreEvents {
   };
   'container.configChanged': { id: NodeId; from: unknown; to: unknown };
   'container.allowsPinningChanged': { id: NodeId; from: boolean; to: boolean };
+  /**
+   * Per-container strategy state (e.g. binarySplit ratio) changed. Lives in
+   * a side-channel map intentionally — not snapshotted by `serialize`, not
+   * captured by any future history mechanism. Suitable for ephemeral UI
+   * state like resize ratios.
+   */
+  'container.stateChanged': { id: NodeId; from: unknown; to: unknown };
 }
 
 /**
@@ -69,6 +76,7 @@ export class WindeaseNodeStore {
   private focusedIdValue: NodeId | null = null;
   private readonly subscribers = new Set<() => void>();
   private notifyScheduled = false;
+  private readonly containerStates = new Map<NodeId, unknown>();
 
   // ===== Read =====
 
@@ -223,6 +231,7 @@ export class WindeaseNodeStore {
       if (idx >= 0) this.rootIdsArr.splice(idx, 1);
     }
     this.nodesMap.delete(id);
+    this.containerStates.delete(id);
     if (this.focusedIdValue === id) this.focusedIdValue = null;
   }
 
@@ -535,6 +544,33 @@ export class WindeaseNodeStore {
     if (next === from) return;
     this.replaceContainer(id, (c) => ({ ...c, config: next }));
     this.events.emit('container.configChanged', { id, from, to: next });
+    this.scheduleNotify();
+  }
+
+  /**
+   * Read the persisted strategy state for `id`'s container, or undefined if
+   * nothing has been written yet (in which case the consumer initializes via
+   * `strategy.initialState`). State is ephemeral — not snapshotted, not in
+   * history.
+   */
+  getContainerState(id: NodeId): unknown {
+    return this.containerStates.get(id);
+  }
+
+  /**
+   * Write strategy state for `id`'s container. Emits `container.stateChanged`
+   * and schedules a notify so React subscribers re-render. Throws if `id`
+   * has no container capability.
+   */
+  setContainerState(id: NodeId, state: unknown): void {
+    const node = this.requireNode(id);
+    if (!node.container) {
+      throw new CapabilityMissingError(id, 'container', 'setContainerState');
+    }
+    const from = this.containerStates.get(id);
+    if (from === state) return;
+    this.containerStates.set(id, state);
+    this.events.emit('container.stateChanged', { id, from, to: state });
     this.scheduleNotify();
   }
 
