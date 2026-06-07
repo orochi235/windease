@@ -28,6 +28,20 @@ export type FocusCap = Machine<FocusState, FocusEvent>;
 export interface ContainerCap {
   strategyId: string;
   config: unknown;
+  /**
+   * Canonical record of this container's children **and their order**. The
+   * store is the source of truth: every mutation that adds, removes, moves, or
+   * reorders a child rewrites this array. Layout strategies, the React
+   * `useChildren` hook, snapshot/hydrate, and DnD all read from here.
+   *
+   * Today this is the *only* place child order lives. The declarative React
+   * layer reconciles JSX sibling order into this array via
+   * `Store.setChildOrder(parentId, orderedIds)`; a future iteration may move
+   * to an order-keyed model (e.g. sparse fractional keys) so that concurrent
+   * reorder operations don't have to round-trip the full permutation. Until
+   * then, **treat this array as the single canonical ordering** and prefer
+   * `setChildOrder` / `reorderInParent` / `moveNode` over mutating it.
+   */
   childIds: NodeId[];
   allowsPinning: boolean;
   /** When false, this container rejects all DnD drops. Default true. */
