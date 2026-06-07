@@ -16,23 +16,6 @@ export {
 } from './machines/focus.js';
 export { WindeaseError, type WindeaseErrorCode } from './errors.js';
 export { TypedEmitter, type EventMap } from './events.js';
-export {
-  asWindowId,
-  asZoneId,
-  createWindowRecord,
-  type WindowId,
-  type ZoneId,
-  type WindowRecord,
-  type WindowHints,
-  type CreateWindowInput,
-} from './window.js';
-export {
-  createZoneRecord,
-  type ZoneRecord,
-  type CreateZoneInput,
-  type Placement,
-  type ZoneItemMeta,
-} from './zone.js';
 export type {
   ItemId,
   Rect,
@@ -44,14 +27,6 @@ export type {
   Affordance,
   BuiltinAffordanceKind,
 } from './layout-types.js';
-export { WindeaseStore, type StoreEvents } from './store.js';
-export {
-  serialize,
-  deserialize,
-  type SerializedStore,
-  type SerializedWindow,
-  type SerializedZone,
-} from './snapshot.js';
 export { gridStrategy } from './layout/grid.js';
 export { stackStrategy } from './layout/stack.js';
 export { stripStrategy } from './layout/strip.js';
@@ -66,7 +41,7 @@ export {
   type TraceCategory,
 } from './trace.js';
 
-// v0.2 unified node model — additive in Phase 1; not yet wired into store/snapshot.
+// Node model
 export {
   asNodeId,
   type Node,
@@ -83,9 +58,7 @@ export {
   createZone,
   createGroup,
   createPanel,
-  // CreateZoneInput collides with v0.1's existing export; re-export under
-  // disambiguated names. The internal constructor file keeps the spec names.
-  type CreateZoneInput as CreateZoneNodeInput,
+  type CreateZoneInput,
   type CreateGroupInput,
   type CreatePanelInput,
 } from './constructors.js';
@@ -103,7 +76,6 @@ export { WindeaseNodeStore, type NodeStoreEvents } from './store-v2.js';
 export {
   serializeNodes,
   deserializeToNodeStore,
-  migrateV1ToV2,
   type SerializedNodeV2,
   type SerializedStoreV2,
 } from './snapshot-v2.js';

@@ -5,7 +5,7 @@ import type {
   Rect,
   Size,
 } from '../layout-types.js';
-import type { WindowId } from '../window.js';
+
 
 interface GridConfig {
   cols?: number;
@@ -75,7 +75,7 @@ function gridCapacity(cfg: GridConfig, itemCount: number): number {
   return rowCap !== undefined ? cols * rowCap : Number.POSITIVE_INFINITY;
 }
 
-export const gridStrategy: LayoutStrategy<void, WindowId> = {
+export const gridStrategy: LayoutStrategy<void, string> = {
   name: 'grid',
   canAccept(items, options): boolean {
     const cap = gridCapacity(options as GridConfig, items.length);
@@ -90,12 +90,12 @@ export const gridStrategy: LayoutStrategy<void, WindowId> = {
     container: Size;
     state: void;
     options: Record<string, unknown>;
-  }): LayoutResult<WindowId> {
+  }): LayoutResult<string> {
     const cfg = options as GridConfig;
     const gap = cfg.gap ?? 0;
     const padding = cfg.padding ?? 0;
 
-    const placements = new Map<WindowId, Rect>();
+    const placements = new Map<string, Rect>();
     if (items.length === 0) return { placements, affordances: [] };
 
     const hasGridCap = cfg.maxCols !== undefined || cfg.maxRows !== undefined;
@@ -154,7 +154,7 @@ export const gridStrategy: LayoutStrategy<void, WindowId> = {
       const item = items[i]!;
       const col = i % cols;
       const row = Math.floor(i / cols);
-      placements.set(item.id as WindowId, {
+      placements.set(item.id, {
         x: padding + col * (cellW + gap),
         y: padding + row * (cellH + gap),
         w: cellW,
@@ -162,12 +162,12 @@ export const gridStrategy: LayoutStrategy<void, WindowId> = {
       });
     }
 
-    const unplaced: WindowId[] = [];
+    const unplaced: string[] = [];
     for (let i = placedCount; i < items.length; i++) {
-      unplaced.push(items[i]!.id as WindowId);
+      unplaced.push(items[i]!.id);
     }
 
-    const result: LayoutResult<WindowId> = { placements, affordances: [] };
+    const result: LayoutResult<string> = { placements, affordances: [] };
     if (unplaced.length > 0) result.unplaced = unplaced;
     return result;
   },

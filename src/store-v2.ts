@@ -68,8 +68,6 @@ export interface NodeStoreEvents {
  * Node object (record replacement) so React's useSyncExternalStore detects
  * the change via referential equality. FSM transitions are paired with a
  * node-record swap.
- *
- * Exists alongside the v0.1 `WindeaseStore`. Phase 7 deprecates the old one.
  */
 export class WindeaseNodeStore {
   readonly events = new TypedEmitter<NodeStoreEvents>();

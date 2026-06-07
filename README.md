@@ -12,13 +12,11 @@ if you import from `windease/react`).
 
 > **Playground:** every strategy and DnD path lives in the Ladle playground
 > at <https://orochi235.github.io/windease/>.
->
-> The unified `Node` model with three named primitives (`Panel`, `Group`,
-> `Zone`) is the primary surface. The legacy v0.1 surface
-> (`WindeaseStore`, `WindowRecord`, `ZoneRecord`, `Zone`, `Workspace`,
-> `useWindow`, …) remains exported as `@deprecated`; new code targets the
-> v0.2 API documented below. See [`docs/concepts.md`](docs/concepts.md) for
-> the canonical vocabulary.
+
+See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
+(what's a window vs. zone vs. workspace, which of the four state buckets
+owns what, and how reserved keys like `pinned` / `locked` interact with
+layout and DnD).
 
 - **Three named primitives** — `createZone`, `createGroup`, `createPanel`
   — produce typed nodes with the right capability shape for their role.
@@ -35,7 +33,7 @@ if you import from `windease/react`).
   `strip`, `binarySplit`, `recursiveSplit`. Strategies work unchanged on
   recursive trees via the `LayoutNode` adapter.
 
-## Usage (v0.2 / current)
+## Usage
 
 ```tsx
 import {
@@ -125,36 +123,6 @@ the box; their state persists on `node.container.state` and survives
 snapshot/hydrate. Per-child `hints.minSize` is honored as a pixel floor so
 manual gutter drags can't push a panel below its declared minimum. The
 default 4px gutter ships with an 8px-wide hit area (`affordanceHitPad`).
-
-## Migrating from v0.1
-
-The v0.1 API (`WindeaseStore`, `WindowRecord`, `ZoneRecord`, `Zone`,
-`Workspace`, `useWindow`, etc.) remains exported under `@deprecated` and
-works unchanged. The v0.2 mapping:
-
-| v0.1                          | v0.2                                            |
-| ----------------------------- | ----------------------------------------------- |
-| `WindeaseStore`               | `WindeaseNodeStore`                             |
-| `WindowRecord` / `WindowId`   | `Node` (kind `'panel'`) / `NodeId`              |
-| `ZoneRecord` / `ZoneId`       | `Node` (kind `'zone'`) / `NodeId`               |
-| `WindowRecord.meta`           | `node.meta` (intrinsic, survives `moveNode`)    |
-| `ZoneItemMeta`                | `node.slot.placement` (per-membership)          |
-| `registerZone(input)`         | `registerNode(createZone(args))`                |
-| `createWindow` + `claim`      | `registerNode(createPanel(args))`               |
-| `moveWindow(id, zoneId, at?)` | `moveNode(id, parentId, at?)`                   |
-| `reorderInZone(id, order)`    | `reorderInParent(id, at)`                       |
-| `setItemMeta` / `patchItemMeta` | `setPlacement` / `patchPlacement`             |
-| `updateZoneConfig`            | `updateContainerConfig`                         |
-| `setZoneAllowsPinning`        | `setAllowsPinning`                              |
-| `useWindow(id)`               | `useNode(id)` (fixes FSM re-render bug)         |
-| `useZone(id)`                 | `useNode(id)`                                   |
-| `useItemMeta(z, w)`           | `useNodeSelector(id, n => n.slot?.placement)`   |
-| `useWindowsByZone(zoneId)`    | `useChildren(parentId)`                         |
-| `Workspace` / `Zone`          | `NodeContainer` + chrome map                    |
-
-Snapshots round-trip: `deserializeToNodeStore(snap)` accepts both v1 and
-v2 shapes. Unowned v1 windows are dropped on migration with a
-`console.warn`.
 
 ## Develop
 

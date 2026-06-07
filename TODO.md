@@ -100,15 +100,6 @@ would make targeting obvious, especially across zones. Options:
   translate`) or document-relative (fixed positioning) — fixed wins for
   cross-zone drags, but watch for transforms on ancestors.
 
-## v1 Strip story drag is broken
-
-`v0.1 / Strip` (deprecated) renders draggable handles via the Zone
-component but drops don't reorder — likely `buildProspectiveItems`'s
-insertion-index detection doesn't yield a valid index for the strip
-layout, so `prospective.isNoOp` is always true. Either fix the v1 path
-or delete the legacy strip story now that v0.2 stories cover the same
-ground.
-
 ## Drag-into (windows ↔ zones ↔ groups)
 
 Once groups exist and drag-and-drop is wired up, dragging a window onto
@@ -118,27 +109,12 @@ it. Edge cases: rejecting drops a strategy can't accept (e.g. a 2-pane
 binarySplit), insertion-point previews for ordered strategies, and what
 happens to a single-member group when its last sibling leaves.
 
-## Followups from v0.1
+## Loose ends
 
-Smaller items surfaced during v0.1 review. Promote to a `[HIGH]` section if
-they grow.
-
-- `useWindow(id)` does not re-render on FSM state changes (in-place machine
-  mutation keeps the WindowRecord reference stable; `useSyncExternalStore`
-  bails out). Documented in `packages/react/src/hooks.test.tsx`. Fix options:
-  selector-shaped hook (`useWindowSelector(id, w => w.lifecycle.state)`),
-  record replacement on mutation, or an `events`-derived hook.
-- `snapshot()` serializes `transit` state but `hydrate()` ignores it.
-  Either drop the field or honor it.
-- Layout strategies cast `zone.config as XConfig` unchecked. Typos at
+- Layout strategies cast `container.config as XConfig` unchecked. Typos at
   registration time become silent runtime quirks.
-- Strip strategy returns zero width/height when a window has no
+- Strip strategy returns zero width/height when a panel has no
   `preferredSize` — intentional for fixed-size toolbars but worth a doc
   comment.
-- README: document the new `@windease/react/styles.css` baseline (structural
-  rules + `container-type: size` on `.windease-window`) and the expected
-  consumer import.
-- Package `package.json` metadata is thin (no `description`, `repository`,
-  `license`, `keywords`). Fill before publishing to npm.
 - npm install warns of moderate/critical vulnerabilities in dev deps. Audit
   pass before publishing.

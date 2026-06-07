@@ -5,7 +5,7 @@ import type {
   Rect,
   Size,
 } from '../layout-types.js';
-import type { WindowId } from '../window.js';
+
 
 interface StripConfig {
   axis?: 'x' | 'y';
@@ -23,7 +23,7 @@ interface StripConfig {
   defaultItemSize?: number;
 }
 
-export const stripStrategy: LayoutStrategy<void, WindowId> = {
+export const stripStrategy: LayoutStrategy<void, string> = {
   name: 'strip',
   layout({
     items,
@@ -34,7 +34,7 @@ export const stripStrategy: LayoutStrategy<void, WindowId> = {
     container: Size;
     state: void;
     options: Record<string, unknown>;
-  }): LayoutResult<WindowId> {
+  }): LayoutResult<string> {
     const cfg = options as StripConfig;
     const axis = cfg.axis ?? 'x';
     const gap = cfg.gap ?? 0;
@@ -42,7 +42,7 @@ export const stripStrategy: LayoutStrategy<void, WindowId> = {
     const fill = cfg.fill ?? false;
     const defaultItemSize = cfg.defaultItemSize ?? 0;
 
-    const placements = new Map<WindowId, Rect>();
+    const placements = new Map<string, Rect>();
     if (items.length === 0) return { placements, affordances: [] };
 
     const main = axis === 'x' ? container.w : container.h;
@@ -62,7 +62,7 @@ export const stripStrategy: LayoutStrategy<void, WindowId> = {
       for (let i = 0; i < items.length; i++) {
         const item = items[i]!;
         const w = preferred[i]! > 0 ? preferred[i]! : fallbackMain;
-        placements.set(item.id as WindowId, { x, y, w, h });
+        placements.set(item.id, { x, y, w, h });
         x += w + gap;
       }
     } else {
@@ -72,7 +72,7 @@ export const stripStrategy: LayoutStrategy<void, WindowId> = {
       for (let i = 0; i < items.length; i++) {
         const item = items[i]!;
         const h = preferred[i]! > 0 ? preferred[i]! : fallbackMain;
-        placements.set(item.id as WindowId, { x, y, w, h });
+        placements.set(item.id, { x, y, w, h });
         y += h + gap;
       }
     }

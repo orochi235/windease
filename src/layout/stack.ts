@@ -5,7 +5,7 @@ import type {
   Rect,
   Size,
 } from '../layout-types.js';
-import type { WindowId } from '../window.js';
+
 
 interface StackConfig {
   gap?: number;
@@ -22,7 +22,7 @@ interface StackConfig {
   defaultItemSize?: number;
 }
 
-export const stackStrategy: LayoutStrategy<void, WindowId> = {
+export const stackStrategy: LayoutStrategy<void, string> = {
   name: 'stack',
   layout({
     items,
@@ -33,12 +33,12 @@ export const stackStrategy: LayoutStrategy<void, WindowId> = {
     container: Size;
     state: void;
     options: Record<string, unknown>;
-  }): LayoutResult<WindowId> {
+  }): LayoutResult<string> {
     const cfg = options as StackConfig;
     const gap = cfg.gap ?? 0;
     const padding = cfg.padding ?? 0;
 
-    const placements = new Map<WindowId, Rect>();
+    const placements = new Map<string, Rect>();
     if (items.length === 0) return { placements, affordances: [] };
 
     const colX = padding;
@@ -57,7 +57,7 @@ export const stackStrategy: LayoutStrategy<void, WindowId> = {
     for (let i = 0; i < items.length; i++) {
       const item = items[i]!;
       const h = preferredH[i]! > 0 ? preferredH[i]! : fallbackH;
-      placements.set(item.id as WindowId, { x: colX, y, w: colW, h });
+      placements.set(item.id, { x: colX, y, w: colW, h });
       y += h + gap;
     }
     return { placements, affordances: [] };
