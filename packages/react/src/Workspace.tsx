@@ -127,7 +127,9 @@ export function Workspace<TState, TMeta>(props: WorkspaceProps<TState, TMeta>): 
     (event: LayoutEvent) => {
       if (!strategy.reduce) return;
       if (!size) return;
-      applyState((prev) => strategy.reduce!(prev, event, { container: size, options: opts }));
+      applyState((prev) =>
+        strategy.reduce!(prev, event, { container: size, options: opts, items }),
+      );
     },
     [strategy, size, opts, applyState],
   );

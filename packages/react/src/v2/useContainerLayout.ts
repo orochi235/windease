@@ -73,13 +73,18 @@ export function useContainerLayout(
       const visibleChildren = store
         .getChildren(parentId)
         .filter((c) => c.lifecycle.state === 'visible')
-        .map((c) => ({ id: c.id }));
+        .map((c) => {
+          const item: { id: string; hints?: { minSize?: { w: number; h: number } } } = { id: c.id };
+          if (c.hints?.minSize) item.hints = { minSize: c.hints.minSize };
+          return item;
+        });
       const current =
         store.getContainerState(parentId) ??
         (strategy.initialState ? strategy.initialState(visibleChildren) : undefined);
       const next = strategy.reduce(current as never, event, {
         container: viewport,
         options: (container.config ?? {}) as Record<string, unknown>,
+        items: visibleChildren,
       });
       if (next === current) return;
       store.setContainerState(parentId, next);

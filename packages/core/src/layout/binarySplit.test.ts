@@ -64,7 +64,7 @@ describe('binarySplit', () => {
     const next = binarySplit.reduce!(
       state,
       { affordanceId: result.affordances[0]!.id, kind: 'drag', payload: { dx: 20, dy: 0 } },
-      { container: { w: 200, h: 100 }, options: { direction: 'horizontal' } },
+      { container: { w: 200, h: 100 }, options: { direction: 'horizontal' }, items: items2 },
     );
     expect(next.ratio).toBeCloseTo(0.5 + 20 / 200, 5);
   });
@@ -73,9 +73,37 @@ describe('binarySplit', () => {
     const next = binarySplit.reduce!(
       { ratio: 0.94 },
       { affordanceId: 'split-0', kind: 'drag', payload: { dx: 1000, dy: 0 } },
-      { container: { w: 100, h: 100 }, options: { direction: 'horizontal' } },
+      { container: { w: 100, h: 100 }, options: { direction: 'horizontal' }, items: items2 },
     );
     expect(next.ratio).toBe(0.95);
+  });
+
+  it('reduce raises floor when first child has hints.minSize.w', () => {
+    // 100px container, left child requires 60px → ratio cannot go below 0.6.
+    const items = [
+      { id: 'a', hints: { minSize: { w: 60, h: 0 } } },
+      { id: 'b' },
+    ];
+    const next = binarySplit.reduce!(
+      { ratio: 0.5 },
+      { affordanceId: 'split-0', kind: 'drag', payload: { dx: -100, dy: 0 } },
+      { container: { w: 100, h: 100 }, options: { direction: 'horizontal' }, items },
+    );
+    expect(next.ratio).toBe(0.6);
+  });
+
+  it('reduce lowers ceiling when second child has hints.minSize.w', () => {
+    const items = [
+      { id: 'a' },
+      { id: 'b', hints: { minSize: { w: 40, h: 0 } } },
+    ];
+    const next = binarySplit.reduce!(
+      { ratio: 0.5 },
+      { affordanceId: 'split-0', kind: 'drag', payload: { dx: 100, dy: 0 } },
+      { container: { w: 100, h: 100 }, options: { direction: 'horizontal' }, items },
+    );
+    // ratio ≤ 1 - 40/100 = 0.6
+    expect(next.ratio).toBe(0.6);
   });
 
   it('canAccept returns true for exactly 2 items', () => {

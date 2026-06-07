@@ -77,7 +77,7 @@ export interface LayoutStrategy<
   reduce?(
     state: TState,
     event: LayoutEvent,
-    context: { container: Size; options: Record<string, unknown> },
+    context: { container: Size; options: Record<string, unknown>; items: LayoutItem[] },
   ): TState;
   /**
    * Optional hook used by DnD to reject drops the strategy can't lay out.

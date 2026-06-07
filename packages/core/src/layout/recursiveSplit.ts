@@ -37,6 +37,27 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
 }
 
+/** Required pixel extent of a subtree along `axis`. Leaves contribute their
+ *  hints.minSize; nested splits add along the parallel axis and max along
+ *  the perpendicular axis. Unknown sizes contribute 0. */
+function subtreeMin(
+  node: SplitNode,
+  axis: 'horizontal' | 'vertical',
+  minsById: Map<string, { w: number; h: number } | undefined>,
+): number | undefined {
+  if (node.kind === 'leaf') {
+    const m = minsById.get(node.id);
+    if (!m) return undefined;
+    return axis === 'horizontal' ? m.w : m.h;
+  }
+  const a = subtreeMin(node.a, axis, minsById) ?? 0;
+  const b = subtreeMin(node.b, axis, minsById) ?? 0;
+  // Same-axis split: required sizes add. Perpendicular: max.
+  const parallel = node.direction === axis;
+  const result = parallel ? a + b : Math.max(a, b);
+  return result === 0 ? undefined : result;
+}
+
 function walk(
   node: SplitNode,
   rect: Rect,
@@ -165,12 +186,21 @@ export const recursiveSplit: LayoutStrategy<SplitNode, string, RecursiveSplitMet
     if (!target || target.kind !== 'split') return state;
     const cfg = (context.options ?? {}) as RecursiveSplitOptions;
     const gutter = cfg.gutterSize ?? 4;
-    const minR = cfg.minRatio ?? DEFAULT_MIN;
-    const maxR = cfg.maxRatio ?? DEFAULT_MAX;
+    let minR = cfg.minRatio ?? DEFAULT_MIN;
+    let maxR = cfg.maxRatio ?? DEFAULT_MAX;
     const rect = rectAtPath(state, path, { x: 0, y: 0, w: context.container.w, h: context.container.h }, gutter);
     if (!rect) return state;
     const total = target.direction === 'horizontal' ? rect.w : rect.h;
     if (total === 0) return state;
+    // Honor child minSize: each side's required pixel size becomes a ratio
+    // bound against this split's own rect (not the whole container).
+    const minsById = new Map<string, { w: number; h: number } | undefined>();
+    for (const it of context.items) minsById.set(it.id, it.hints?.minSize);
+    const minSideA = subtreeMin(target.a, target.direction, minsById);
+    const minSideB = subtreeMin(target.b, target.direction, minsById);
+    if (minSideA !== undefined) minR = Math.max(minR, minSideA / total);
+    if (minSideB !== undefined) maxR = Math.min(maxR, 1 - minSideB / total);
+    if (minR > maxR) return state;
     const delta = target.direction === 'horizontal' ? (event.payload.dx ?? 0) : (event.payload.dy ?? 0);
     return updateAtPath(state, path, clamp(target.ratio + delta / total, minR, maxR));
   },

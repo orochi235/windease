@@ -32,6 +32,15 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
 }
 
+function pickMin(
+  item: LayoutItem | undefined,
+  direction: 'horizontal' | 'vertical',
+): number | undefined {
+  const min = item?.hints?.minSize;
+  if (!min) return undefined;
+  return direction === 'horizontal' ? min.w : min.h;
+}
+
 export const binarySplit: LayoutStrategy<BinarySplitState, string, BinarySplitMeta> = {
   name: 'binarySplit',
   initialState(_items: LayoutItem[]): BinarySplitState {
@@ -98,11 +107,21 @@ export const binarySplit: LayoutStrategy<BinarySplitState, string, BinarySplitMe
     if (event.kind !== 'drag') return state;
     const cfg = (context.options ?? {}) as BinarySplitOptions;
     const direction = cfg.direction ?? 'horizontal';
-    const minR = cfg.minRatio ?? DEFAULT_MIN;
-    const maxR = cfg.maxRatio ?? DEFAULT_MAX;
+    let minR = cfg.minRatio ?? DEFAULT_MIN;
+    let maxR = cfg.maxRatio ?? DEFAULT_MAX;
     const total = direction === 'horizontal' ? context.container.w : context.container.h;
-    const delta = direction === 'horizontal' ? (event.payload.dx ?? 0) : (event.payload.dy ?? 0);
     if (total === 0) return state;
+    // Honor children's hints.minSize as pixel-space resize stops. The first
+    // item's min raises the floor; the second's lowers the ceiling.
+    const items = context.items;
+    const minA = pickMin(items[0], direction);
+    const minB = pickMin(items[1], direction);
+    if (minA !== undefined) minR = Math.max(minR, minA / total);
+    if (minB !== undefined) maxR = Math.min(maxR, 1 - minB / total);
+    // If the bounds inverted (container too small to satisfy both mins),
+    // keep ratio where it is rather than producing NaN.
+    if (minR > maxR) return state;
+    const delta = direction === 'horizontal' ? (event.payload.dx ?? 0) : (event.payload.dy ?? 0);
     return { ratio: clamp(state.ratio + delta / total, minR, maxR) };
   },
   canAccept(items) {

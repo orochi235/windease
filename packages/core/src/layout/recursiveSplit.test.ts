@@ -77,10 +77,48 @@ describe('recursiveSplit', () => {
     const next = recursiveSplit.reduce!(
       state,
       { affordanceId: aff.id, kind: 'drag', payload: { dx: 20, dy: 0 } },
-      { container: { w: 200, h: 100 }, options: {} },
+      { container: { w: 200, h: 100 }, options: {}, items: [{ id: 'a' }, { id: 'b' }] },
     );
     if (next.kind !== 'split') throw new Error('expected split');
     expect(next.ratio).toBeCloseTo(0.5 + 20 / 200, 5);
+  });
+
+  it('reduce honors child hints.minSize on a leaf', () => {
+    const state = split('horizontal', 0.5, leaf('a'), leaf('b'));
+    const items = [
+      { id: 'a', hints: { minSize: { w: 80, h: 0 } } },
+      { id: 'b' },
+    ];
+    const next = recursiveSplit.reduce!(
+      state,
+      { affordanceId: 'split-', kind: 'drag', payload: { dx: -1000, dy: 0 } },
+      { container: { w: 200, h: 100 }, options: {}, items },
+    );
+    if (next.kind !== 'split') throw new Error('expected split');
+    expect(next.ratio).toBe(0.4); // 80/200
+  });
+
+  it('reduce sums minSize across leaves on the same axis', () => {
+    // root: horizontal split. right side itself splits horizontally into c+d.
+    // Each leaf wants 30px width → right side total = 60px → maxR = 1 - 60/200
+    const state = split(
+      'horizontal',
+      0.5,
+      leaf('a'),
+      split('horizontal', 0.5, leaf('c'), leaf('d')),
+    );
+    const items = [
+      { id: 'a' },
+      { id: 'c', hints: { minSize: { w: 30, h: 0 } } },
+      { id: 'd', hints: { minSize: { w: 30, h: 0 } } },
+    ];
+    const next = recursiveSplit.reduce!(
+      state,
+      { affordanceId: 'split-', kind: 'drag', payload: { dx: 1000, dy: 0 } },
+      { container: { w: 200, h: 100 }, options: {}, items },
+    );
+    if (next.kind !== 'split') throw new Error('expected split');
+    expect(next.ratio).toBeCloseTo(1 - 60 / 200, 5);
   });
 
   it('orphan leaf is dropped and warned once', () => {
