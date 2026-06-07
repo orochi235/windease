@@ -153,3 +153,18 @@ describe('Container — affordances callback', () => {
     expect(state.ratio).toBeCloseTo(0.5 + 40 / 200, 5);
   });
 });
+
+describe('Container declarative children', () => {
+  it('renders provided children directly', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 1 } }));
+    const { getByText } = render(
+      <Provider store={store}>
+        <Container parentId={asNodeId('z')}>
+          <span>hello</span>
+        </Container>
+      </Provider>,
+    );
+    expect(getByText('hello').textContent).toBe('hello');
+  });
+});

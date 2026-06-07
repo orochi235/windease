@@ -33,8 +33,14 @@ export type OverlayRenderer = (ctx: OverlayContext) => ReactNode;
 export interface ContainerProps {
   /** The container node whose children to render. */
   parentId: NodeId;
-  /** A `(args) => ReactNode` handler, or a role-keyed map (see `Chrome`). */
-  chrome: Chrome;
+  /** A `(args) => ReactNode` handler, or a role-keyed map (see `Chrome`).
+   *  Optional when `children` is provided. */
+  chrome?: Chrome;
+  /** When provided, Container renders these directly and skips the chrome
+   *  dispatch. Use this for declarative trees built with <Panel>/<Group>/<Zone>.
+   *  When omitted, Container reads children from the store and renders each
+   *  via `chrome`. */
+  children?: ReactNode;
   /** Fixed viewport; omit to auto-measure via ResizeObserver. */
   viewport?: { w: number; h: number };
   className?: string;
@@ -97,7 +103,33 @@ const DEFAULT_SETTLE_MS = 150;
  * Pair with `<Root>` for top-level layout, or use directly for
  * a container nested inside another component.
  */
-export function Container({
+export function Container(props: ContainerProps) {
+  // Declarative-children path: render children directly, skip any strategy
+  // hooks (so the consumer doesn't need a StrategyRegistryProvider).
+  if (props.children !== undefined) {
+    return <DeclarativeContainer {...props} />;
+  }
+  return <StoreContainer {...props} />;
+}
+
+function DeclarativeContainer({
+  parentId,
+  children: childrenProp,
+  viewport,
+  className,
+  style,
+}: ContainerProps) {
+  const containerStyle: CSSProperties = viewport
+    ? { ...CONTAINER_BASE, width: viewport.w, height: viewport.h, ...style }
+    : { ...CONTAINER_BASE, width: '100%', height: '100%', ...style };
+  return (
+    <div className={className} style={containerStyle} data-node-container={parentId}>
+      {childrenProp}
+    </div>
+  );
+}
+
+function StoreContainer({
   parentId,
   chrome,
   viewport,
@@ -122,7 +154,7 @@ export function Container({
     ? { ...CONTAINER_BASE, width: viewport.w, height: viewport.h, ...style }
     : { ...CONTAINER_BASE, width: '100%', height: '100%', ...style };
 
-  if (!parent?.container) {
+  if (!parent?.container || !chrome) {
     return (
       <div
         ref={ref}
