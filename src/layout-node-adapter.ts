@@ -63,6 +63,7 @@ export function runStrategyForContainer<TState>(
   viewport: Size,
   strategy: LayoutStrategy<TState, string, unknown>,
   state: TState,
+  preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } },
 ): LayoutResult<NodeId, unknown> {
   const parent = store.getNode(parentId);
   const config = (parent?.container?.config ?? {}) as Record<string, unknown>;
@@ -72,11 +73,35 @@ export function runStrategyForContainer<TState>(
     if (child.lifecycle.state === 'hidden' || child.lifecycle.state === 'destroyed') continue;
     items.push(nodeToLayoutItem(child));
   }
-  const result = strategy.layout({
-    items,
-    container: viewport,
-    state,
-    options: config,
-  });
+  // When previewing an insert, splice the source in at the requested index
+  // (or append) so strategies that don't read `preview` still get the right
+  // item count. We pass `preview` through so strategies that DO read it can
+  // use the cursor for sub-index positioning.
+  if (preview) {
+    const alreadyPresent = items.some((it) => it.id === preview.insertId);
+    if (!alreadyPresent) {
+      const ghostItem: LayoutItem = { id: preview.insertId };
+      if (preview.insertIndex !== undefined && preview.insertIndex >= 0 && preview.insertIndex <= items.length) {
+        items.splice(preview.insertIndex, 0, ghostItem);
+      } else {
+        items.push(ghostItem);
+      }
+    } else if (preview.insertIndex !== undefined) {
+      // Same-parent reorder: move the existing entry to the preview index.
+      const from = items.findIndex((it) => it.id === preview.insertId);
+      const [picked] = items.splice(from, 1);
+      const to = Math.max(0, Math.min(items.length, preview.insertIndex));
+      items.splice(to, 0, picked!);
+    }
+  }
+  const input: {
+    items: LayoutItem[];
+    container: Size;
+    state: TState;
+    options: Record<string, unknown>;
+    preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } };
+  } = { items, container: viewport, state, options: config };
+  if (preview) input.preview = preview;
+  const result = strategy.layout(input);
   return result as LayoutResult<NodeId, unknown>;
 }
