@@ -105,8 +105,24 @@ function makeStore(): Store {
     );
     s.showNode(nid);
   };
+  // Locked control widgets — pinned to the head of their zones, render the
+  // ZoneControls UI via chrome, and cannot be dragged out or destroyed.
+  const seedControls = (id: string, parent: ReturnType<typeof asNodeId>, title: string) => {
+    const nid = asNodeId(id);
+    s.registerNode(
+      createPanel({
+        id: nid,
+        parentId: parent,
+        meta: { title, kind: 'controls' },
+      }),
+    );
+    s.patchPlacement(nid, { locked: true, pinned: true });
+    s.showNode(nid);
+  };
+  seedControls('main-controls', MAIN, 'Main controls');
   seed('panel-1', MAIN, 'Panel 1');
   seed('panel-2', MAIN, 'Panel 2');
+  seedControls('sidebar-controls', SIDEBAR, 'Sidebar controls');
   seed('widget-1', SIDEBAR, 'Widget 1', 120);
   seed('widget-2', SIDEBAR, 'Widget 2', 80);
   seed('tool-1', DOCK, 'Tool 1', undefined, 100);
@@ -171,6 +187,19 @@ export const Playground: Story = () => {
         if (node.id === MAIN || node.id === SIDEBAR || node.id === DOCK) {
           return <ZoneShell zoneId={node.id} chrome={chrome} />;
         }
+        // Locked control widgets render the per-zone behavior toggles.
+        if (node.meta?.kind === 'controls') {
+          const zoneId = node.slot?.parentId;
+          if (!zoneId) return null;
+          return (
+            <ZoneControls
+              store={store}
+              zoneId={zoneId}
+              title={String(node.meta?.title ?? 'Controls')}
+              includeGridFields={zoneId === MAIN}
+            />
+          );
+        }
         return (
           <DragHandle nodeId={node.id} className="pg-drag">
             <Panel title={String(node.meta?.title ?? node.id)} />
@@ -179,7 +208,7 @@ export const Playground: Story = () => {
       },
     }),
     // biome-ignore lint/correctness/useExhaustiveDependencies: chrome refers to itself via closure
-    [],
+    [store],
   );
 
   // Re-render on relevant store events.
@@ -232,6 +261,109 @@ export const Playground: Story = () => {
     </Provider>
   );
 };
+
+function ZoneControls({
+  store,
+  zoneId,
+  title,
+  includeGridFields,
+}: {
+  store: Store;
+  zoneId: ReturnType<typeof asNodeId>;
+  title: string;
+  includeGridFields: boolean;
+}) {
+  // Subscribe to changes on this zone so checkboxes/inputs reflect current state.
+  const [, force] = useState(0);
+  useEffect(() => {
+    const offs = [
+      store.events.on('container.allowsDropChanged', (e) => {
+        if (e.id === zoneId) force((n) => n + 1);
+      }),
+      store.events.on('container.allowsDragOutChanged', (e) => {
+        if (e.id === zoneId) force((n) => n + 1);
+      }),
+      store.events.on('container.allowsPinningChanged', (e) => {
+        if (e.id === zoneId) force((n) => n + 1);
+      }),
+      store.events.on('container.configChanged', (e) => {
+        if (e.id === zoneId) force((n) => n + 1);
+      }),
+    ];
+    return () => {
+      for (const off of offs) off();
+    };
+  }, [store, zoneId]);
+
+  const node = store.getNode(zoneId);
+  const container = node?.container;
+  if (!container) return null;
+
+  const cfg = (container.config ?? {}) as {
+    cols?: number;
+    rows?: number;
+    maxCols?: number;
+    maxRows?: number;
+  };
+
+  const onNum =
+    (key: 'cols' | 'rows' | 'maxCols' | 'maxRows') =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value.trim();
+      const next = raw === '' ? undefined : Number(raw);
+      store.patchContainerConfig(zoneId, { [key]: next });
+    };
+
+  return (
+    <div className="pg-zone-controls">
+      <header className="pg-zone-controls__title">{title}</header>
+      <label>
+        <input
+          type="checkbox"
+          checked={container.allowsDrop}
+          onChange={(e) => store.setAllowsDrop(zoneId, e.target.checked)}
+        />
+        allowsDrop
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={container.allowsDragOut}
+          onChange={(e) => store.setAllowsDragOut(zoneId, e.target.checked)}
+        />
+        allowsDragOut
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={container.allowsPinning}
+          onChange={(e) => store.setAllowsPinning(zoneId, e.target.checked)}
+        />
+        allowsPinning
+      </label>
+      {includeGridFields && (
+        <div className="pg-zone-controls__grid">
+          <label>
+            cols
+            <input type="number" min={1} value={cfg.cols ?? ''} onChange={onNum('cols')} />
+          </label>
+          <label>
+            rows
+            <input type="number" min={1} value={cfg.rows ?? ''} onChange={onNum('rows')} />
+          </label>
+          <label>
+            maxCols
+            <input type="number" min={1} value={cfg.maxCols ?? ''} onChange={onNum('maxCols')} />
+          </label>
+          <label>
+            maxRows
+            <input type="number" min={1} value={cfg.maxRows ?? ''} onChange={onNum('maxRows')} />
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Strip the live FSM instances out so the snapshot is JSON-safe and small. */
 function serializeSafely(store: Store): unknown {

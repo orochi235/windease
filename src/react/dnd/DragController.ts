@@ -123,11 +123,35 @@ export class DragController {
   private setHover(hover: { targetId: NodeId; accepted: boolean } | null): void {
     if (!this.active) return;
     if (sameHover(this.active.hover, hover)) return;
+    const previous = this.active.hover;
     this.active = { ...this.active, hover };
+    this.reflectHoverToDom(previous, hover);
     if (hover) {
       trace('dnd', `hover: target=${hover.targetId} accepted=${hover.accepted}`);
     }
     this.emit();
+  }
+
+  /** Stamp `data-drop-target` / `data-drop-rejected` onto the hovered element
+   *  so CSS can paint affordances. Clears them on hover-leave / drop / cancel. */
+  private reflectHoverToDom(
+    previous: { targetId: NodeId; accepted: boolean } | null,
+    next: { targetId: NodeId; accepted: boolean } | null,
+  ): void {
+    if (previous) {
+      const el = this.dropTargets.get(previous.targetId)?.el;
+      if (el && typeof el.removeAttribute === 'function') {
+        el.removeAttribute('data-drop-target');
+        el.removeAttribute('data-drop-rejected');
+      }
+    }
+    if (next) {
+      const el = this.dropTargets.get(next.targetId)?.el;
+      if (el && typeof el.setAttribute === 'function') {
+        if (next.accepted) el.setAttribute('data-drop-target', 'true');
+        else el.setAttribute('data-drop-rejected', 'true');
+      }
+    }
   }
 
   drop(): void {
@@ -153,7 +177,9 @@ export class DragController {
   }
 
   private clear(): void {
+    const previousHover = this.active?.hover ?? null;
     this.active = null;
+    this.reflectHoverToDom(previousHover, null);
     this.unbindEscape();
     this.emit();
   }
