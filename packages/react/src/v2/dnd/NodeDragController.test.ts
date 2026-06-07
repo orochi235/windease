@@ -1,4 +1,11 @@
-import { WindeaseNodeStore, asNodeId, createPanel, createZone } from '@windease/core';
+import {
+  type LayoutStrategy,
+  WindeaseNodeStore,
+  asNodeId,
+  binarySplit,
+  createPanel,
+  createZone,
+} from '@windease/core';
 import { describe, expect, it, vi } from 'vitest';
 import { NodeDragController } from './NodeDragController.js';
 
@@ -52,6 +59,44 @@ describe('NodeDragController', () => {
     c.cancel('outside');
     expect(c.state()).toBeNull();
     expect(s.getContainerView(asNodeId('z1'))?.childIds).toEqual(['p']);
+  });
+
+  it('tryBegin returns false when parent has allowsDragOut=false', () => {
+    const s = buildStore();
+    s.setAllowsDragOut(asNodeId('z1'), false);
+    const c = new NodeDragController(s);
+    expect(c.tryBegin(asNodeId('p'))).toBe(false);
+  });
+
+  it('hover is rejected when target has allowsDrop=false', () => {
+    const s = buildStore();
+    s.setAllowsDrop(asNodeId('z2'), false);
+    const c = new NodeDragController(s);
+    c.tryBegin(asNodeId('p'));
+    c.registerDropTarget(asNodeId('z2'), makeFakeElement(0, 0, 100, 100));
+    c.updateHoverByPoint(50, 50);
+    expect(c.state()?.hover).toEqual({ targetId: 'z2', accepted: false });
+    c.drop();
+    // p remains in z1 because hover wasn't accepted.
+    expect(s.getContainerView(asNodeId('z1'))?.childIds).toEqual(['p']);
+  });
+
+  it('strategy canAccept rejects drops the strategy can\'t lay out', () => {
+    // binarySplit requires exactly 2 items; z2 already has 2, drop of a third
+    // should be rejected.
+    const s = new WindeaseNodeStore();
+    s.registerNode(createZone({ id: asNodeId('z1'), strategyId: 'stack', config: {} }));
+    s.registerNode(createZone({ id: asNodeId('z2'), strategyId: 'binarySplit', config: {} }));
+    s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z2') }));
+    s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z2') }));
+    s.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z1') }));
+    const getStrategy = (sid: string): LayoutStrategy<unknown, string, unknown> | undefined =>
+      sid === 'binarySplit' ? (binarySplit as never) : undefined;
+    const c = new NodeDragController(s, getStrategy);
+    c.tryBegin(asNodeId('p'));
+    c.registerDropTarget(asNodeId('z2'), makeFakeElement(0, 0, 100, 100));
+    c.updateHoverByPoint(50, 50);
+    expect(c.state()?.hover).toEqual({ targetId: 'z2', accepted: false });
   });
 
   it('subscribers fire on state change', () => {

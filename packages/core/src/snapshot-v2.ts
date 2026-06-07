@@ -24,6 +24,10 @@ export interface SerializedNodeV2 {
     config: unknown;
     childIds: string[];
     allowsPinning: boolean;
+    /** Omitted when true (the default). */
+    allowsDrop?: boolean;
+    /** Omitted when true (the default). */
+    allowsDragOut?: boolean;
     state?: unknown;
   };
   slot?: {
@@ -63,6 +67,8 @@ export function serializeNodes(store: WindeaseNodeStore): SerializedStoreV2 {
         childIds: [...node.container.childIds],
         allowsPinning: node.container.allowsPinning,
       };
+      if (node.container.allowsDrop === false) c.allowsDrop = false;
+      if (node.container.allowsDragOut === false) c.allowsDragOut = false;
       if (node.container.state !== undefined) c.state = node.container.state;
       out.container = c;
     }
@@ -222,6 +228,8 @@ function buildNodeFromSerialized(sn: SerializedNodeV2, opts: { emptyChildIds: bo
       config: sn.container.config,
       childIds: opts.emptyChildIds ? [] : sn.container.childIds.map(asNodeId),
       allowsPinning: sn.container.allowsPinning,
+      allowsDrop: sn.container.allowsDrop ?? true,
+      allowsDragOut: sn.container.allowsDragOut ?? true,
     };
     if (sn.container.state !== undefined) {
       node.container.state = sn.container.state;
@@ -260,6 +268,7 @@ export function migrateV1ToV2(v1: SerializedStore): SerializedStoreV2 {
         config: sz.config,
         childIds: [...sz.windowIds],
         allowsPinning: sz.allowsPinning ?? true,
+        // v1 had no drop/dragOut concept; preserve the open behavior.
       },
     };
     nodes.push(out);

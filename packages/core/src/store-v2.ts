@@ -50,6 +50,8 @@ export interface NodeStoreEvents {
   };
   'container.configChanged': { id: NodeId; from: unknown; to: unknown };
   'container.allowsPinningChanged': { id: NodeId; from: boolean; to: boolean };
+  'container.allowsDropChanged': { id: NodeId; from: boolean; to: boolean };
+  'container.allowsDragOutChanged': { id: NodeId; from: boolean; to: boolean };
   /**
    * Per-container strategy state (e.g. binarySplit ratio) changed. Stored on
    * `node.container.state`; round-trips through snapshot. By design this
@@ -598,6 +600,30 @@ export class WindeaseNodeStore {
     } else {
       this.resortByPin(id);
     }
+    this.scheduleNotify();
+  }
+
+  setAllowsDrop(id: NodeId, allows: boolean): void {
+    const node = this.requireNode(id);
+    if (!node.container) {
+      throw new CapabilityMissingError(id, 'container', 'setAllowsDrop');
+    }
+    const from = node.container.allowsDrop;
+    if (from === allows) return;
+    this.replaceContainer(id, (c) => ({ ...c, allowsDrop: allows }));
+    this.events.emit('container.allowsDropChanged', { id, from, to: allows });
+    this.scheduleNotify();
+  }
+
+  setAllowsDragOut(id: NodeId, allows: boolean): void {
+    const node = this.requireNode(id);
+    if (!node.container) {
+      throw new CapabilityMissingError(id, 'container', 'setAllowsDragOut');
+    }
+    const from = node.container.allowsDragOut;
+    if (from === allows) return;
+    this.replaceContainer(id, (c) => ({ ...c, allowsDragOut: allows }));
+    this.events.emit('container.allowsDragOutChanged', { id, from, to: allows });
     this.scheduleNotify();
   }
 

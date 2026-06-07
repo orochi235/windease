@@ -592,3 +592,33 @@ describe('WindeaseNodeStore — container state (side-channel)', () => {
     expect(s.getNode(id('z'))?.container?.state).toEqual({ ratio: 0.3 });
   });
 });
+
+describe('WindeaseNodeStore — allowsDrop / allowsDragOut', () => {
+  it('default to true on createZone', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'stack', config: {} }));
+    const c = s.getNode(id('z'))?.container;
+    expect(c?.allowsDrop).toBe(true);
+    expect(c?.allowsDragOut).toBe(true);
+  });
+
+  it('setAllowsDrop emits and updates', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'stack', config: {} }));
+    const spy = vi.fn();
+    s.events.on('container.allowsDropChanged', spy);
+    s.setAllowsDrop(id('z'), false);
+    expect(s.getNode(id('z'))?.container?.allowsDrop).toBe(false);
+    expect(spy).toHaveBeenCalledWith({ id: 'z', from: true, to: false });
+  });
+
+  it('setAllowsDragOut emits and updates', () => {
+    const s = fresh();
+    s.registerNode(createZone({ id: id('z'), strategyId: 'stack', config: {} }));
+    const spy = vi.fn();
+    s.events.on('container.allowsDragOutChanged', spy);
+    s.setAllowsDragOut(id('z'), false);
+    expect(s.getNode(id('z'))?.container?.allowsDragOut).toBe(false);
+    expect(spy).toHaveBeenCalledWith({ id: 'z', from: true, to: false });
+  });
+});

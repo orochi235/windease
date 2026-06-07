@@ -1,5 +1,6 @@
 import type { NodeId } from '@windease/core';
 import { type PointerEvent as ReactPointerEvent, useCallback, useRef } from 'react';
+import { useNodeStore } from '../NodeProvider.js';
 import { useNode } from '../hooks.js';
 import { useNodeDragController } from './NodeDragProvider.js';
 
@@ -20,6 +21,7 @@ const NOOP_HANDLERS: NodeDragHandleHandlers = {
 export function useNodeDragHandle(nodeId: NodeId): NodeDragHandleHandlers {
   const controller = useNodeDragController();
   const node = useNode(nodeId);
+  const store = useNodeStore();
   const draggingRef = useRef(false);
 
   const onPointerDown = useCallback(
@@ -65,5 +67,9 @@ export function useNodeDragHandle(nodeId: NodeId): NodeDragHandleHandlers {
   }, [controller]);
 
   if (node?.slot?.placement?.locked === true) return NOOP_HANDLERS;
+  if (node?.slot) {
+    const parent = store.getNode(node.slot.parentId);
+    if (parent?.container?.allowsDragOut === false) return NOOP_HANDLERS;
+  }
   return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel };
 }

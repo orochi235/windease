@@ -1,5 +1,9 @@
-import type { NodeId, WindeaseNodeStore } from '@windease/core';
+import type { LayoutStrategy, NodeId, WindeaseNodeStore } from '@windease/core';
 import { trace } from '@windease/core';
+
+/** Looks up a strategy by id. NodeDragController uses it to consult
+ *  `strategy.canAccept` on the prospective post-drop child list. */
+export type StrategyLookup = (id: string) => LayoutStrategy<unknown, string, unknown> | undefined;
 
 export type DragCancelReason = 'rejected' | 'outside' | 'escape' | 'unregistered';
 
@@ -27,7 +31,10 @@ export class NodeDragController {
   >();
   private escapeBound = false;
 
-  constructor(private readonly store: WindeaseNodeStore) {}
+  constructor(
+    private readonly store: WindeaseNodeStore,
+    private readonly getStrategy?: StrategyLookup,
+  ) {}
 
   state(): DragState | null {
     return this.active;
@@ -58,6 +65,8 @@ export class NodeDragController {
     const node = this.store.getNode(sourceId);
     if (!node?.slot) return false;
     if (node.slot.placement?.locked === true) return false;
+    const parent = this.store.getNode(node.slot.parentId);
+    if (parent?.container?.allowsDragOut === false) return false;
     this.active = { draggingId: sourceId, hover: null };
     trace('dnd', `drag start: ${sourceId}`);
     this.bindEscape();
@@ -84,9 +93,30 @@ export class NodeDragController {
 
   private checkAccept(targetId: NodeId): boolean {
     if (!this.active) return false;
-    if (targetId === this.active.draggingId) return false;
+    const draggingId = this.active.draggingId;
+    if (targetId === draggingId) return false;
+
+    const targetNode = this.store.getNode(targetId);
+    if (targetNode?.container?.allowsDrop === false) return false;
+
+    // Strategy-level constraint: e.g. binarySplit refuses anything but 2 items.
+    if (targetNode?.container && this.getStrategy) {
+      const strategy = this.getStrategy(targetNode.container.strategyId);
+      if (strategy?.canAccept) {
+        const current = this.store
+          .getChildren(targetId)
+          .filter((c) => c.lifecycle.state !== 'destroyed');
+        const alreadyChild = current.some((c) => c.id === draggingId);
+        const items = alreadyChild
+          ? current.map((c) => ({ id: c.id }))
+          : [...current.map((c) => ({ id: c.id })), { id: draggingId }];
+        const options = (targetNode.container.config ?? {}) as Record<string, unknown>;
+        if (!strategy.canAccept(items, options)) return false;
+      }
+    }
+
     const reg = this.dropTargets.get(targetId);
-    if (reg?.canAccept) return reg.canAccept(this.active.draggingId);
+    if (reg?.canAccept) return reg.canAccept(draggingId);
     return true;
   }
 

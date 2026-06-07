@@ -24,6 +24,11 @@ export interface ContainerCap {
   config: unknown;
   childIds: NodeId[];
   allowsPinning: boolean;
+  /** When false, this container rejects all DnD drops. Default true. */
+  allowsDrop: boolean;
+  /** When false, this container suppresses drag handles on all its children
+   *  (in addition to per-child `slot.placement.locked`). Default true. */
+  allowsDragOut: boolean;
   state?: unknown;
 }
 

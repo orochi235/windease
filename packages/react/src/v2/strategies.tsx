@@ -32,3 +32,9 @@ export function useStrategyRegistry(): StrategyRegistry {
   }
   return r;
 }
+
+/** Variant for components that can function without a registry (e.g. drag
+ *  scaffolding that only uses it to enrich `canAccept` checks). */
+export function useOptionalStrategyRegistry(): StrategyRegistry | null {
+  return useContext(StrategyRegistryContext);
+}

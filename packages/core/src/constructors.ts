@@ -8,6 +8,8 @@ export interface CreateZoneInput {
   strategyId: string;
   config: unknown;
   allowsPinning?: boolean;
+  allowsDrop?: boolean;
+  allowsDragOut?: boolean;
   meta?: Record<string, unknown>;
   hints?: NodeHints;
 }
@@ -22,6 +24,8 @@ export function createZone(input: CreateZoneInput): Node {
       config: input.config,
       childIds: [],
       allowsPinning: input.allowsPinning ?? true,
+      allowsDrop: input.allowsDrop ?? true,
+      allowsDragOut: input.allowsDragOut ?? true,
     },
   };
   if (input.meta !== undefined) node.meta = input.meta;
@@ -35,6 +39,8 @@ export interface CreateGroupInput {
   strategyId: string;
   config: unknown;
   allowsPinning?: boolean;
+  allowsDrop?: boolean;
+  allowsDragOut?: boolean;
   placement?: Record<string, unknown>;
   meta?: Record<string, unknown>;
   hints?: NodeHints;
@@ -50,6 +56,8 @@ export function createGroup(input: CreateGroupInput): Node {
       config: input.config,
       childIds: [],
       allowsPinning: input.allowsPinning ?? true,
+      allowsDrop: input.allowsDrop ?? true,
+      allowsDragOut: input.allowsDragOut ?? true,
     },
     slot: {
       parentId: input.parentId,
@@ -72,6 +80,8 @@ export interface CreatePanelInput {
     strategyId: string;
     config: unknown;
     allowsPinning?: boolean;
+    allowsDrop?: boolean;
+    allowsDragOut?: boolean;
   };
 }
 
@@ -95,6 +105,8 @@ export function createPanel(input: CreatePanelInput): Node {
       config: input.container.config,
       childIds: [],
       allowsPinning: input.container.allowsPinning ?? true,
+      allowsDrop: input.container.allowsDrop ?? true,
+      allowsDragOut: input.container.allowsDragOut ?? true,
     };
   }
   return node;
