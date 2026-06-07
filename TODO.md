@@ -109,18 +109,17 @@ it. Edge cases: rejecting drops a strategy can't accept (e.g. a 2-pane
 binarySplit), insertion-point previews for ordered strategies, and what
 happens to a single-member group when its last sibling leaves.
 
-## Declarative JSX tree binding [HIGH]
+## Declarative JSX tree binding [HIGH — blocks credible 1.0]
 
-Today's React layer is store-driven: consumers build the tree
-imperatively via `store.registerNode(...)` and `<Container>` renders the
-store's children via `chrome` handlers. JSX like
-`<Container><Panel /></Container>` is silently dropped — Container
-ignores its `children` prop.
+It's hard to call this a "React implementation" while consumers must
+call `store.registerNode(...)` imperatively to populate the tree.
+`<Container><Panel /></Container>` should Just Work. This is the next
+big chunk before any 1.0 push.
 
-A declarative mode would let consumers express the tree directly:
+Target shape:
 
 ```tsx
-<Provider store={new Store()}>
+<Provider>
   <Zone strategyId="grid" config={{ cols: 2 }}>
     <Panel meta={{ title: 'A' }} />
     <Panel meta={{ title: 'B' }}>
@@ -130,18 +129,34 @@ A declarative mode would let consumers express the tree directly:
 </Provider>
 ```
 
-Sketch:
-- Each preset (`<Panel>`/`<Group>`/`<Zone>`) emits a node-registration
-  effect in declarative mode, keyed by id (auto-generated if omitted).
-- Children walk happens on mount; on unmount the node is `unregisterNode`'d.
-- Conflicts: existing chrome dispatch needs a switch — either Container
-  rendered "from store" (current behavior) or "from JSX" (new).
-- Useful for small static layouts; less useful for big dynamic apps.
+This becomes the *primary* React API; the imperative store-building path
+stays available for dynamic/server-loaded trees, but the declarative
+form is the one we lead with in docs.
 
-Open questions: does the declarative mode coexist with `chrome` or
-replace it? How are runtime mutations (add/remove from outside JSX)
-reconciled? Probably ship as a separate `<DeclarativeContainer>` so
-the two stay distinct.
+Mechanics to work out:
+- Each preset (`<Panel>`/`<Group>`/`<Zone>`) emits a registration
+  effect: register on mount, unregister on unmount, keyed by an
+  explicit `id` prop (or a stable auto-generated id).
+- Children walk happens implicitly via React's tree — `<Zone>` knows
+  its parent is the closest `<Container>`/`<Zone>` ancestor through
+  context, so each preset just registers itself.
+- Reordering: React's child-order in JSX maps to the store's
+  `childIds`. Re-rendering with a different key order calls
+  `reorderInParent`.
+- Container's `chrome` prop becomes optional; with no chrome, JSX
+  children render directly.
+- Dynamic vs. JSX: if both exist, JSX is the source of truth for what
+  it owns; store ops outside JSX (e.g. DnD moves) still work and JSX
+  reconciles next render.
+
+Open questions:
+- Strategy-state init: today done via `setContainerState`; declarative
+  could read a `state={...}` prop on `<Zone>`.
+- Hooks/refs: do we still need `useChildren`, `useNode` in the
+  declarative world? Mostly yes — for read-side consumers.
+- Effect ordering: register parents before children. React's effect
+  order (children-first by default) needs care; might need a
+  layoutEffect with a two-pass commit.
 
 ## Playwright e2e suite
 
