@@ -83,6 +83,32 @@ treatment (tabbed group vs. accordion vs. side-by-side strip) probably wants
 to be a strategy choice on the group itself. Persistence needs a stable group
 id and a way to express membership in snapshots.
 
+## Drag ghosts [HIGH]
+
+Today's v0.2 DnD ships no ghost — the source stays put while the cursor
+moves around, so the drag relies entirely on the drop-target highlight
+to convey intent. A semi-transparent representation of the dragged node
+that follows the cursor (DOM clone or a portal-mounted summary card)
+would make targeting obvious, especially across zones. Options:
+
+- Render a portal child of `<NodeDragProvider>` positioned at
+  `clientX/clientY - offset` whenever the controller is active. Chrome
+  handlers stay unchanged.
+- Let consumers provide a `renderGhost(node)` callback, defaulting to a
+  clone of the dragged element with `opacity: 0.6`.
+- Decide whether the ghost should be element-relative (`transform:
+  translate`) or document-relative (fixed positioning) — fixed wins for
+  cross-zone drags, but watch for transforms on ancestors.
+
+## v1 Strip story drag is broken
+
+`v0.1 / Strip` (deprecated) renders draggable handles via the Zone
+component but drops don't reorder — likely `buildProspectiveItems`'s
+insertion-index detection doesn't yield a valid index for the strip
+layout, so `prospective.isNoOp` is always true. Either fix the v1 path
+or delete the legacy strip story now that v0.2 stories cover the same
+ground.
+
 ## Drag-into (windows ↔ zones ↔ groups)
 
 Once groups exist and drag-and-drop is wired up, dragging a window onto
