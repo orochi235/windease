@@ -5,6 +5,7 @@ import {
   type ReactNode,
   useCallback,
   useRef,
+  useState,
 } from 'react';
 import { useChildren, useNode } from './hooks.js';
 import { NodeRenderer, type ChromeMap } from './NodeRenderer.js';
@@ -79,6 +80,11 @@ export function NodeContainer({
   const parent = useNode(parentId);
   const children = useChildren(parentId);
   const layout = useContainerLayout(parentId, ref, viewport);
+  // Suppress the settle transition during an active affordance drag — the
+  // cursor IS the motion, and CSS easing on top fights it. AffordanceHandle
+  // toggles this on pointerdown/up.
+  const [draggingAffordance, setDraggingAffordance] = useState(false);
+  const effectiveSettleMs = draggingAffordance ? 0 : settleMs;
 
   const containerStyle: CSSProperties = viewport
     ? { ...CONTAINER_BASE, width: viewport.w, height: viewport.h, ...style }
@@ -113,8 +119,8 @@ export function NodeContainer({
           width: rect.w,
           height: rect.h,
         };
-        if (settleMs > 0) {
-          childStyle.transition = `left ${settleMs}ms ease, top ${settleMs}ms ease, width ${settleMs}ms ease, height ${settleMs}ms ease`;
+        if (effectiveSettleMs > 0) {
+          childStyle.transition = `left ${effectiveSettleMs}ms ease, top ${effectiveSettleMs}ms ease, width ${effectiveSettleMs}ms ease, height ${effectiveSettleMs}ms ease`;
         }
         return (
           <div key={child.id} style={childStyle} data-node={child.id}>
@@ -129,6 +135,7 @@ export function NodeContainer({
             affordance={aff}
             dispatch={layout.dispatchAffordance}
             hitPad={affordanceHitPad}
+            onActiveChange={setDraggingAffordance}
           />
         ))}
       {overlay}
@@ -140,18 +147,28 @@ interface AffordanceHandleProps {
   affordance: import('@windease/core').Affordance;
   dispatch: ContainerLayout['dispatchAffordance'];
   hitPad: number;
+  onActiveChange: (active: boolean) => void;
 }
 
-function AffordanceHandle({ affordance, dispatch, hitPad }: AffordanceHandleProps) {
+function AffordanceHandle({
+  affordance,
+  dispatch,
+  hitPad,
+  onActiveChange,
+}: AffordanceHandleProps) {
   const last = useRef<{ x: number; y: number } | null>(null);
-  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    last.current = { x: e.clientX, y: e.clientY };
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // jsdom or unsupported — ignore.
-    }
-  }, []);
+  const onPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      last.current = { x: e.clientX, y: e.clientY };
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // jsdom or unsupported — ignore.
+      }
+      onActiveChange(true);
+    },
+    [onActiveChange],
+  );
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!last.current) return;
@@ -163,14 +180,19 @@ function AffordanceHandle({ affordance, dispatch, hitPad }: AffordanceHandleProp
     },
     [dispatch, affordance.id],
   );
-  const onPointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    last.current = null;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-  }, []);
+  const onPointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const wasDragging = last.current !== null;
+      last.current = null;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      if (wasDragging) onActiveChange(false);
+    },
+    [onActiveChange],
+  );
 
   // Expand the hit area perpendicular to the gutter so a 4px line is easier
   // to grab. The outer div catches pointer events; the inner div is the
