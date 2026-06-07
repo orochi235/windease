@@ -9,6 +9,7 @@ export interface DragHandleProps {
   style?: CSSProperties;
 }
 
+/** @group Components */
 export function DragHandle({ nodeId, children, className, style }: DragHandleProps) {
   const handlers = useDragHandle(nodeId);
   return (

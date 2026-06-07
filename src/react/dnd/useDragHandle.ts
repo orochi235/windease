@@ -18,6 +18,7 @@ const NOOP_HANDLERS: DragHandleHandlers = {
   onPointerCancel: () => {},
 };
 
+/** @group Hooks */
 export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
   const controller = useDragController();
   const node = useNode(nodeId);

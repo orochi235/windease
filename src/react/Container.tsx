@@ -102,6 +102,8 @@ const DEFAULT_SETTLE_MS = 150;
  *
  * Pair with `<Root>` for top-level layout, or use directly for
  * a container nested inside another component.
+ *
+ * @group Components
  */
 export function Container(props: ContainerProps) {
   // Declarative-children path: render children directly, skip any strategy

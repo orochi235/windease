@@ -67,6 +67,8 @@ export interface StoreEvents {
  * Node object (record replacement) so React's useSyncExternalStore detects
  * the change via referential equality. FSM transitions are paired with a
  * node-record swap.
+ *
+ * @group Store
  */
 export class Store {
   readonly events = new TypedEmitter<StoreEvents>();

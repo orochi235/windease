@@ -53,6 +53,7 @@ function defined<T extends Record<string, unknown>>(obj: T): Partial<T> {
 
 export interface PanelProps extends CommonBindingProps, PresentationalProps {}
 
+/** @group Components */
 export function Panel(props: PanelProps) {
   const { id } = useNodeBinding({
     ...defined({ id: props.id, parentId: props.parentId, order: props.order }),
@@ -97,6 +98,7 @@ export interface GroupProps extends CommonBindingProps, PresentationalProps {
   config?: unknown;
 }
 
+/** @group Components */
 export function Group(props: GroupProps) {
   const { id } = useNodeBinding({
     ...defined({ id: props.id, parentId: props.parentId, order: props.order }),
@@ -157,6 +159,7 @@ export interface ZoneProps extends CommonBindingProps, PresentationalProps {
   settleMs?: number;
 }
 
+/** @group Components */
 export function Zone(props: ZoneProps) {
   const { id } = useNodeBinding({
     ...defined({ id: props.id, parentId: props.parentId, order: props.order }),

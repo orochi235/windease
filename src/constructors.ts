@@ -16,6 +16,7 @@ export interface CreateZoneInput {
   order?: number;
 }
 
+/** @group Constructors */
 export function createZone(input: CreateZoneInput): Node {
   const node: Node = {
     id: input.id,
@@ -51,6 +52,7 @@ export interface CreateGroupInput {
   order?: number;
 }
 
+/** @group Constructors */
 export function createGroup(input: CreateGroupInput): Node {
   const node: Node = {
     id: input.id,
@@ -93,6 +95,7 @@ export interface CreatePanelInput {
   };
 }
 
+/** @group Constructors */
 export function createPanel(input: CreatePanelInput): Node {
   const node: Node = {
     id: input.id,

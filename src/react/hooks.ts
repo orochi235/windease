@@ -2,6 +2,7 @@ import type { Node, NodeId } from '../index.js';
 import { useMemo, useSyncExternalStore } from 'react';
 import { useStore } from './Provider.js';
 
+/** @group Hooks */
 export function useNode(id: NodeId): Node | undefined {
   const store = useStore();
   return useSyncExternalStore(
@@ -10,6 +11,7 @@ export function useNode(id: NodeId): Node | undefined {
   );
 }
 
+/** @group Hooks */
 export function useNodeSelector<T>(id: NodeId, select: (n: Node) => T): T | undefined {
   const store = useStore();
   return useSyncExternalStore(
@@ -21,6 +23,7 @@ export function useNodeSelector<T>(id: NodeId, select: (n: Node) => T): T | unde
   );
 }
 
+/** @group Hooks */
 export function useChildren(parentId: NodeId): readonly Node[] {
   // Subscribe to the parent node directly; derive children from its
   // container.childOrder via useMemo so the array is stable until childOrder
@@ -40,6 +43,7 @@ export function useChildren(parentId: NodeId): readonly Node[] {
   }, [store, childOrder]);
 }
 
+/** @group Hooks */
 export function useFocusedNode(): Node | undefined {
   const store = useStore();
   const focusedId = useSyncExternalStore(
@@ -49,6 +53,7 @@ export function useFocusedNode(): Node | undefined {
   return useNode(focusedId ?? (undefined as unknown as NodeId));
 }
 
+/** @group Hooks */
 export function useRootNodes(): readonly Node[] {
   const store = useStore();
   // Subscribe to a stable snapshot of rootIds. We rely on the store
@@ -72,6 +77,7 @@ export function useRootNodes(): readonly Node[] {
   }, [store, rootKey]);
 }
 
+/** @group Hooks */
 export function useActivity(id: NodeId): Record<string, unknown> | undefined {
   const store = useStore();
   return useSyncExternalStore(

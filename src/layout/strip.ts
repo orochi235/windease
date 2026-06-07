@@ -23,6 +23,7 @@ interface StripConfig {
   defaultItemSize?: number;
 }
 
+/** @group Strategies */
 export const stripStrategy: LayoutStrategy<void, string> = {
   name: 'strip',
   layout({

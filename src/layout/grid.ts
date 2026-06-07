@@ -75,6 +75,7 @@ function gridCapacity(cfg: GridConfig, itemCount: number): number {
   return rowCap !== undefined ? cols * rowCap : Number.POSITIVE_INFINITY;
 }
 
+/** @group Strategies */
 export const gridStrategy: LayoutStrategy<void, string> = {
   name: 'grid',
   canAccept(items, options): boolean {

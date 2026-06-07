@@ -22,6 +22,7 @@ export type WindeaseErrorCode =
   // Free-form code surface for InvariantViolationError.
   | (string & {});
 
+/** @group Errors */
 export class WindeaseError extends Error {
   readonly code: WindeaseErrorCode;
   constructor(code: WindeaseErrorCode, message: string) {
@@ -31,6 +32,7 @@ export class WindeaseError extends Error {
   }
 }
 
+/** @group Errors */
 export class NodeNotFoundError extends WindeaseError {
   readonly id: NodeId;
   constructor(id: NodeId) {
@@ -40,6 +42,7 @@ export class NodeNotFoundError extends WindeaseError {
   }
 }
 
+/** @group Errors */
 export class DuplicateNodeError extends WindeaseError {
   readonly id: NodeId;
   constructor(id: NodeId) {
@@ -49,6 +52,7 @@ export class DuplicateNodeError extends WindeaseError {
   }
 }
 
+/** @group Errors */
 export class CapabilityMissingError extends WindeaseError {
   readonly id: NodeId;
   readonly capability: 'container' | 'slot' | 'focus';
@@ -65,6 +69,7 @@ export class CapabilityMissingError extends WindeaseError {
   }
 }
 
+/** @group Errors */
 export class CycleError extends WindeaseError {
   readonly nodeId: NodeId;
   readonly attemptedParentId: NodeId;
@@ -76,6 +81,7 @@ export class CycleError extends WindeaseError {
   }
 }
 
+/** @group Errors */
 export class StrategyRejectionError extends WindeaseError {
   readonly parentId: NodeId;
   readonly reason: string | undefined;
@@ -87,6 +93,7 @@ export class StrategyRejectionError extends WindeaseError {
   }
 }
 
+/** @group Errors */
 export class InvariantViolationError extends WindeaseError {
   readonly context: Record<string, unknown>;
   constructor(code: string, message: string, context: Record<string, unknown>) {

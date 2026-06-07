@@ -46,6 +46,8 @@ export interface SerializedStore {
 /**
  * Serialize a Store into a v2 snapshot. Destroyed nodes and
  * transit state are deliberately not included — see spec section 8.
+ *
+ * @group Snapshots
  */
 export function serialize(store: Store): SerializedStore {
   const nodes: SerializedNode[] = [];
@@ -91,7 +93,11 @@ export function serialize(store: Store): SerializedStore {
   };
 }
 
-/** Hydrate a fresh Store from a v2 snapshot. */
+/**
+ * Hydrate a fresh Store from a v2 snapshot.
+ *
+ * @group Snapshots
+ */
 export function deserialize(snap: unknown): Store {
   const versioned = snap as { version?: number };
   if (!versioned || typeof versioned !== 'object' || typeof versioned.version !== 'number') {

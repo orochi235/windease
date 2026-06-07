@@ -8,6 +8,8 @@ import { useDragController } from './DragProvider.js';
  *
  * Pass an optional `canAccept(sourceId)` predicate to reject specific sources
  * (e.g. forbid drops from outside a particular sub-tree).
+ *
+ * @group Hooks
  */
 export function useDropTarget(
   nodeId: NodeId,

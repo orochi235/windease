@@ -19,6 +19,7 @@ const EMPTY_LAYOUT: LayoutInfo = { placements: new Map(), settleMs: 0 };
 
 export const LayoutContext = createContext<LayoutInfo>(EMPTY_LAYOUT);
 
+/** @group Components */
 export function LayoutScope({
   value,
   children,
@@ -29,10 +30,12 @@ export function LayoutScope({
   return <LayoutContext.Provider value={value}>{children}</LayoutContext.Provider>;
 }
 
+/** @group Hooks */
 export function useLayoutForSelf(id: NodeId): Rect | undefined {
   return useContext(LayoutContext).placements.get(id);
 }
 
+/** @group Hooks */
 export function useLayoutContext(): LayoutInfo {
   return useContext(LayoutContext);
 }

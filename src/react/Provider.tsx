@@ -11,6 +11,7 @@ export interface ProviderProps {
   children: ReactNode;
 }
 
+/** @group Components */
 export function Provider({ store: storeProp, children }: ProviderProps) {
   // Lazy init so the same Store instance survives re-renders. If `storeProp`
   // is provided on the first render, we capture it; if it changes later we
@@ -19,6 +20,7 @@ export function Provider({ store: storeProp, children }: ProviderProps) {
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }
 
+/** @group Hooks */
 export function useStore(): Store {
   const store = useContext(Context);
   if (!store) {

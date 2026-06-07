@@ -24,6 +24,8 @@ export interface ContainerLayout {
  * resolve the strategy registered for the container's `strategyId`, and
  * return a NodeId-keyed map of placements for the container's visible
  * children. Updates on resize, container config changes, and child changes.
+ *
+ * @group Hooks
  */
 export function useContainerLayout(
   parentId: NodeId,

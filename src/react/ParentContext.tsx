@@ -4,7 +4,11 @@ import type { NodeId } from '../index.js';
 /** Current parent id for descendant presets. `null` means "root of the store". */
 export const ParentContext = createContext<NodeId | null>(null);
 
-/** Push `parentId` into context for the subtree. Use inside container presets. */
+/**
+ * Push `parentId` into context for the subtree. Use inside container presets.
+ *
+ * @group Components
+ */
 export function ParentScope({
   parentId,
   children,
@@ -68,6 +72,7 @@ export function useChildRegistry(): ChildRegistryAPI {
   }, []);
 }
 
+/** @group Hooks */
 export function useParentId(): NodeId | null {
   return useContext(ParentContext);
 }

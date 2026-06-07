@@ -173,6 +173,8 @@ function rectAtPath(root: SplitNode, path: number[], container: Rect, gutter: nu
  * tree of splits, N items). Pass `recursive: false` in config to enforce
  * exactly 2 items (the old splitStrategy semantics). `direction` in config
  * picks the root-split direction when initialState builds the tree.
+ *
+ * @group Strategies
  */
 export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
   name: 'split',

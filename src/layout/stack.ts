@@ -22,6 +22,7 @@ interface StackConfig {
   defaultItemSize?: number;
 }
 
+/** @group Strategies */
 export const stackStrategy: LayoutStrategy<void, string> = {
   name: 'stack',
   layout({

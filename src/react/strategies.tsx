@@ -10,6 +10,7 @@ export interface StrategyRegistryProviderProps {
   children: ReactNode;
 }
 
+/** @group Components */
 export function StrategyRegistryProvider({
   strategies,
   children,
@@ -25,6 +26,7 @@ export function StrategyRegistryProvider({
   );
 }
 
+/** @group Hooks */
 export function useStrategyRegistry(): StrategyRegistry {
   const r = useContext(StrategyRegistryContext);
   if (!r) {
@@ -34,7 +36,10 @@ export function useStrategyRegistry(): StrategyRegistry {
 }
 
 /** Variant for components that can function without a registry (e.g. drag
- *  scaffolding that only uses it to enrich `canAccept` checks). */
+ *  scaffolding that only uses it to enrich `canAccept` checks).
+ *
+ *  @group Hooks
+ */
 export function useOptionalStrategyRegistry(): StrategyRegistry | null {
   return useContext(StrategyRegistryContext);
 }

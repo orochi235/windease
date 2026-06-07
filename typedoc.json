@@ -11,6 +11,7 @@
   "excludeReferences": false,
   "sort": ["alphabetical"],
   "categorizeByGroup": true,
+  "groupOrder": ["Components", "Hooks", "Store", "Constructors", "Strategies", "Snapshots", "Errors", "*"],
   "navigationLinks": {
     "Playground": "..",
     "GitHub": "https://github.com/orochi235/windease"

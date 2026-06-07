@@ -39,6 +39,7 @@ export interface NodeRendererProps {
   chrome: Chrome;
 }
 
+/** @group Components */
 export function NodeRenderer({ id, chrome }: NodeRendererProps) {
   const node = useNode(id);
   const children = useChildren(id);
@@ -63,6 +64,7 @@ export interface RootProps {
   chrome: Chrome;
 }
 
+/** @group Components */
 export function Root({ store, chrome }: RootProps) {
   return (
     <Provider store={store}>

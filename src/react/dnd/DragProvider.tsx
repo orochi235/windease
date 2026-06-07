@@ -9,6 +9,7 @@ export interface DragProviderProps {
   children: ReactNode;
 }
 
+/** @group Components */
 export function DragProvider({ children }: DragProviderProps) {
   const store = useStore();
   const registry = useOptionalStrategyRegistry();
@@ -19,6 +20,7 @@ export function DragProvider({ children }: DragProviderProps) {
   return <DragContext.Provider value={controller}>{children}</DragContext.Provider>;
 }
 
+/** @group Hooks */
 export function useDragController(): DragController {
   const ctrl = useContext(DragContext);
   if (!ctrl) {
