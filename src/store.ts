@@ -362,6 +362,57 @@ export class Store {
     this.scheduleNotify();
   }
 
+  setChildOrder(parentId: NodeId, orderedIds: readonly NodeId[]): void {
+    const parent = this.requireNode(parentId);
+    if (!parent.container) {
+      throw new InvariantViolationError(
+        'parent-not-container',
+        `parent ${parentId} has no container`,
+        { parentId },
+      );
+    }
+    const current = parent.container.childIds;
+    if (orderedIds.length !== current.length) {
+      throw new InvariantViolationError(
+        'reorder-not-permutation',
+        `setChildOrder requires a permutation of current childIds (got ${orderedIds.length}, expected ${current.length})`,
+        { parentId, orderedIds: [...orderedIds], current: [...current] },
+      );
+    }
+    const seen = new Set<NodeId>();
+    for (const id of orderedIds) {
+      if (seen.has(id)) {
+        throw new InvariantViolationError(
+          'reorder-not-permutation',
+          `setChildOrder requires a permutation; received duplicate id ${id}`,
+          { parentId, id },
+        );
+      }
+      seen.add(id);
+      if (!current.includes(id)) {
+        throw new InvariantViolationError(
+          'reorder-not-permutation',
+          `setChildOrder requires a permutation; id ${id} is not a child of ${parentId}`,
+          { parentId, id, current: [...current] },
+        );
+      }
+    }
+    // No-op if already in order.
+    let same = true;
+    for (let i = 0; i < orderedIds.length; i++) {
+      if (orderedIds[i] !== current[i]) {
+        same = false;
+        break;
+      }
+    }
+    if (same) return;
+
+    this.replaceContainer(parentId, (c) => ({ ...c, childIds: [...orderedIds] }));
+    this.resortByPin(parentId);
+    trace('store', `setChildOrder: ${parentId} → [${orderedIds.join(', ')}]`);
+    this.scheduleNotify();
+  }
+
   private resortByPin(parentId: NodeId): void {
     const parent = this.nodesMap.get(parentId);
     if (!parent?.container?.allowsPinning) return;
