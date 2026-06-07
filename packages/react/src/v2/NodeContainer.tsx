@@ -99,15 +99,6 @@ export function NodeContainer({
       style={containerStyle}
       data-node-container={parentId}
     >
-      {affordances &&
-        layout.affordances.map((aff) => (
-          <AffordanceHandle
-            key={aff.id}
-            affordance={aff}
-            dispatch={layout.dispatchAffordance}
-            hitPad={affordanceHitPad}
-          />
-        ))}
       {children.map((child) => {
         const rect = layout.placements.get(child.id);
         if (!rect) return null;
@@ -128,6 +119,15 @@ export function NodeContainer({
           </div>
         );
       })}
+      {affordances &&
+        layout.affordances.map((aff) => (
+          <AffordanceHandle
+            key={aff.id}
+            affordance={aff}
+            dispatch={layout.dispatchAffordance}
+            hitPad={affordanceHitPad}
+          />
+        ))}
       {overlay}
     </div>
   );
