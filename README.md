@@ -3,13 +3,15 @@
 Browser-based window manager. Framework-agnostic core (`@windease/core`) plus
 a React binding (`@windease/react`).
 
-> **v0.5 ships the unified node model.** The library now exposes a single
-> `Node` type with capability records and three named primitives (`Panel`,
-> `Group`, `Zone`), with recursive zones as a first-class case (panels
-> hosting their own children). The v0.1/v0.4 surface remains exported as
-> `@deprecated`. New code should target the v0.2 node API documented
-> below. See [`docs/concepts.md`](docs/concepts.md) for the canonical
-> reference.
+> **Playground:** every strategy and DnD path lives in the Ladle playground
+> at <https://orochi235.github.io/windease/>.
+>
+> The unified `Node` model with three named primitives (`Panel`, `Group`,
+> `Zone`) is the primary surface. The legacy v0.1 surface
+> (`WindeaseStore`, `WindowRecord`, `ZoneRecord`, `Zone`, `Workspace`,
+> `useWindow`, …) remains exported as `@deprecated`; new code targets the
+> v0.2 API documented below. See [`docs/concepts.md`](docs/concepts.md) for
+> the canonical vocabulary.
 
 - **Three named primitives** — `createZone`, `createGroup`, `createPanel`
   — produce typed nodes with the right capability shape for their role.
@@ -83,6 +85,39 @@ const chrome = {
 
 See the **Recursive Zones** Ladle story for a working example you can
 manipulate live.
+
+Import the baseline stylesheet once at the top of your app:
+
+```ts
+import '@windease/react/styles.css';
+```
+
+It supplies the structural rules `.windease-zone`, `.windease-window`, and
+the insertion-line affordance default. All visual styling is yours.
+
+## Drag and drop
+
+DnD is opt-in. Wrap your panel chrome in `<NodeDragHandle>`, register each
+container as a drop target with `useNodeDropTarget(zoneId, ref)`, and put
+the tree under `<NodeDragProvider>`. The drag controller honors:
+
+- `slot.placement.locked` — per-child drag suppression.
+- `container.allowsDragOut` — zone-level drag suppression.
+- `container.allowsDrop` — zone-level drop refusal.
+- The destination strategy's `canAccept(prospective-items, options)` — e.g.
+  `binarySplit` refuses anything that wouldn't leave exactly two children.
+- An optional consumer-supplied `canAccept(sourceId)` on the drop target.
+
+See the **Parallel zones / Drag between** story for the canonical setup.
+
+## Resize
+
+Pass `affordances` to `<NodeContainer>` to render the strategy's interactive
+gutters. `binarySplit` and `recursiveSplit` ship draggable gutters out of
+the box; their state persists on `node.container.state` and survives
+snapshot/hydrate. Per-child `hints.minSize` is honored as a pixel floor so
+manual gutter drags can't push a panel below its declared minimum. The
+default 4px gutter ships with an 8px-wide hit area (`affordanceHitPad`).
 
 ## Migrating from v0.1
 
