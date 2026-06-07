@@ -13,15 +13,16 @@ export interface DragHandleProps {
 export function DragHandle({ nodeId, children, className, style }: DragHandleProps) {
   const handlers = useDragHandle(nodeId);
   return (
-    <span
+    <div
       className={className}
       style={style}
+      data-windease-drag-handle={nodeId}
       onPointerDown={handlers.onPointerDown}
       onPointerMove={handlers.onPointerMove}
       onPointerUp={handlers.onPointerUp}
       onPointerCancel={handlers.onPointerCancel}
     >
       {children}
-    </span>
+    </div>
   );
 }

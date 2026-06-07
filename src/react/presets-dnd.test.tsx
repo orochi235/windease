@@ -34,7 +34,7 @@ describe('declarative DnD opt-in props', () => {
     // wrapping our content.
     const panel = container.querySelector('[data-testid="p1"]');
     expect(panel).toBeTruthy();
-    const span = panel?.querySelector(':scope > span');
+    const span = panel?.querySelector(':scope > div[data-windease-drag-handle]');
     expect(span).toBeTruthy();
     expect(span?.querySelector('[data-testid="p1-content"]')).toBeTruthy();
   });
@@ -58,7 +58,7 @@ describe('declarative DnD opt-in props', () => {
       </Provider>,
     );
     const panel = container.querySelector('[data-testid="p1"]');
-    expect(panel?.querySelector(':scope > span')).toBeNull();
+    expect(panel?.querySelector(':scope > div[data-windease-drag-handle]')).toBeNull();
     expect(panel?.querySelector('[data-testid="p1-content"]')).toBeTruthy();
   });
 
