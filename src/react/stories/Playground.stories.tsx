@@ -18,7 +18,6 @@ import {
   Container,
   DragHandle,
   DragProvider,
-  Panel,
   StrategyRegistryProvider,
   useDropTarget,
   Provider,
@@ -202,7 +201,11 @@ export const Playground: Story = () => {
         }
         return (
           <DragHandle nodeId={node.id} className="pg-drag">
-            <Panel title={String(node.meta?.title ?? node.id)} />
+            <div className="windease-panel">
+              <header className="windease-panel__title">
+                {String(node.meta?.title ?? node.id)}
+              </header>
+            </div>
           </DragHandle>
         );
       },
