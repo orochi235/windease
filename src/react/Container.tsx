@@ -1,6 +1,7 @@
-import type { NodeId } from '../index.js';
+import type { Affordance, NodeId } from '../index.js';
 import {
   type CSSProperties,
+  Fragment,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useCallback,
@@ -11,33 +12,64 @@ import { useChildren, useNode } from './hooks.js';
 import { NodeRenderer, type ChromeMap } from './NodeRenderer.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
 
+/** Live layout snapshot passed to function-form `overlay` callbacks. */
+export interface OverlayContext extends ContainerLayout {
+  /** ID of the affordance currently being dragged, or null. */
+  draggingAffordanceId: string | null;
+}
+
+/** Args passed to function-form `affordances` callbacks. The function fully
+ *  replaces the default renderer and is responsible for pointer events; call
+ *  `dispatch` with `{ affordanceId, kind, payload }` to drive the strategy. */
+export interface AffordanceRenderArgs {
+  affordance: Affordance;
+  dispatch: ContainerLayout['dispatchAffordance'];
+  hitPad: number;
+}
+
+export type AffordanceRenderer = (args: AffordanceRenderArgs) => ReactNode;
+export type OverlayRenderer = (ctx: OverlayContext) => ReactNode;
+
 export interface ContainerProps {
+  /** The container node whose children to render. */
   parentId: NodeId;
+  /** Per-kind render handlers. Each handler receives `{ node, children }`. */
   chrome: ChromeMap;
-  /** Fixed viewport; if omitted the wrapper measures via ResizeObserver. */
+  /** Fixed viewport; omit to auto-measure via ResizeObserver. */
   viewport?: { w: number; h: number };
   className?: string;
   style?: CSSProperties;
-  /** Render slot for overlays (drop indicators, etc.). */
-  overlay?: ReactNode;
+  /**
+   * Rendered after children + affordances. Pass a function to read the live
+   * layout (placements, affordances, viewport, draggingAffordanceId) — useful
+   * for drop indicators, debug overlays, or readouts during resize.
+   */
+  overlay?: ReactNode | OverlayRenderer;
   /**
    * Settle animation duration in ms for children moving between placements.
-   * Set to 0 to disable. Default 150ms. The library only animates position
+   * Set to 0 to disable. Default 150. The library only animates position
    * (left/top/width/height); chrome handlers can layer their own.
    */
   settleMs?: number;
   /**
-   * Opt-in: render the strategy's affordances (e.g. binarySplit's gutter)
-   * as interactive elements that drive `dispatchAffordance` on pointer drag.
-   * Default false. Visual + behavior are coupled — pass a custom `overlay`
-   * if you want non-default visuals.
+   * Render the strategy's affordances (e.g. binarySplit's gutter) as
+   * interactive elements. `true` ships the default rect renderer with a
+   * widened hit area and auto-suppresses the settle animation during drag.
+   *
+   * Pass a function to fully replace it per affordance — see
+   * `AffordanceRenderArgs`. Custom renderers handle their own pointer
+   * events; if you also want settle suppressed during your gestures, set
+   * `settleMs={0}` (or condition it via `overlay`'s `draggingAffordanceId`
+   * by managing a parallel state).
+   *
+   * Default false.
    */
-  affordances?: boolean;
+  affordances?: boolean | AffordanceRenderer;
   /**
-   * Pixels by which each drag affordance's hit area is expanded in the
-   * perpendicular direction beyond the visual rect, so a 4px gutter is
-   * easier to grab. Visual placement (via `data-affordance` styling) is
-   * not affected — only pointer-events. Default 4.
+   * When `affordances={true}`, pad the hit area by this many pixels in the
+   * perpendicular direction so a 4px gutter becomes a wider grab target.
+   * Visual placement (via `data-affordance` styling) is not affected.
+   * Default 4.
    */
   affordanceHitPad?: number;
 }
@@ -80,11 +112,11 @@ export function Container({
   const parent = useNode(parentId);
   const children = useChildren(parentId);
   const layout = useContainerLayout(parentId, ref, viewport);
-  // Suppress the settle transition during an active affordance drag — the
-  // cursor IS the motion, and CSS easing on top fights it. AffordanceHandle
-  // toggles this on pointerdown/up.
-  const [draggingAffordance, setDraggingAffordance] = useState(false);
-  const effectiveSettleMs = draggingAffordance ? 0 : settleMs;
+  // Track which affordance is currently being dragged (if any) so we can
+  // suppress the settle transition (cursor IS the motion) AND expose the id
+  // to overlay/affordance render functions.
+  const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
+  const effectiveSettleMs = draggingAffordanceId !== null ? 0 : settleMs;
 
   const containerStyle: CSSProperties = viewport
     ? { ...CONTAINER_BASE, width: viewport.w, height: viewport.h, ...style }
@@ -100,6 +132,11 @@ export function Container({
       />
     );
   }
+
+  const renderedOverlay =
+    typeof overlay === 'function'
+      ? (overlay as OverlayRenderer)({ ...layout, draggingAffordanceId })
+      : overlay;
 
   return (
     <div
@@ -129,22 +166,32 @@ export function Container({
         );
       })}
       {affordances &&
-        layout.affordances.map((aff) => (
-          <AffordanceHandle
-            key={aff.id}
-            affordance={aff}
-            dispatch={layout.dispatchAffordance}
-            hitPad={affordanceHitPad}
-            onActiveChange={setDraggingAffordance}
-          />
-        ))}
-      {overlay}
+        layout.affordances.map((aff) =>
+          typeof affordances === 'function' ? (
+            <Fragment key={aff.id}>
+              {affordances({
+                affordance: aff,
+                dispatch: layout.dispatchAffordance,
+                hitPad: affordanceHitPad,
+              })}
+            </Fragment>
+          ) : (
+            <AffordanceHandle
+              key={aff.id}
+              affordance={aff}
+              dispatch={layout.dispatchAffordance}
+              hitPad={affordanceHitPad}
+              onActiveChange={(active) => setDraggingAffordanceId(active ? aff.id : null)}
+            />
+          ),
+        )}
+      {renderedOverlay}
     </div>
   );
 }
 
 interface AffordanceHandleProps {
-  affordance: import('../index.js').Affordance;
+  affordance: Affordance;
   dispatch: ContainerLayout['dispatchAffordance'];
   hitPad: number;
   onActiveChange: (active: boolean) => void;
@@ -234,3 +281,4 @@ function AffordanceHandle({
     </div>
   );
 }
+

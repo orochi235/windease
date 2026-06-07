@@ -37,4 +37,11 @@ export {
   type StrategyRegistryProviderProps,
 } from './strategies.js';
 export { useContainerLayout, type ContainerLayout } from './useContainerLayout.js';
-export { Container, type ContainerProps } from './Container.js';
+export {
+  Container,
+  type ContainerProps,
+  type OverlayContext,
+  type OverlayRenderer,
+  type AffordanceRenderArgs,
+  type AffordanceRenderer,
+} from './Container.js';
