@@ -45,6 +45,13 @@ export { useDragHandle, type DragHandleHandlers } from './dnd/useDragHandle.js';
 export { DragHandle, type DragHandleProps } from './dnd/DragHandle.js';
 export { useDropTarget } from './dnd/useDropTarget.js';
 export { useDragState } from './dnd/useDragState.js';
+export {
+  defaultDragOverlay,
+  type DragOverlayRenderer,
+  type DragOverlayContext,
+} from './dnd/defaultDragOverlay.js';
+export type { DropTargetOptions } from './dnd/DragController.js';
+export { insertionIndexByMidpoint, childRectsForContainer } from './dnd/insertionIndex.js';
 
 // Strategy + layout
 export {

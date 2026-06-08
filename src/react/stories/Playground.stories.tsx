@@ -16,6 +16,7 @@ import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } fro
 import {
   type ChromeMap,
   Container,
+  defaultDragOverlay,
   DragHandle,
   DragProvider,
   StrategyRegistryProvider,
@@ -230,7 +231,7 @@ export const Playground: Story = () => {
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
-        <DragProvider>
+        <DragProvider dragOverlay={defaultDragOverlay}>
           <div className="pg-toolbar">
             <button type="button" onClick={() => addPanel(MAIN, 'panel')}>+ Panel → Main</button>
             <button type="button" onClick={() => addPanel(SIDEBAR, 'widget')}>+ Widget → Sidebar</button>

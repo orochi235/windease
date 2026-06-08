@@ -7,6 +7,7 @@ import {
   Store,
 } from '../../index.js';
 import {
+  defaultDragOverlay,
   DragProvider,
   Panel,
   Provider,
@@ -52,7 +53,7 @@ export const MixedProvenance: Story = () => {
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={{ grid: gridStrategy }}>
-        <DragProvider>
+        <DragProvider dragOverlay={defaultDragOverlay}>
         <Zone
           id={asNodeId('root')}
           strategyId="grid"
