@@ -123,6 +123,14 @@ function makeStore(): Store {
   seed('panel-1', MAIN, 'Panel 1');
   seed('panel-2', MAIN, 'Panel 2');
   seedControls('sidebar-controls', SIDEBAR, 'Sidebar controls');
+  // Resizable-children demo: pin the sidebar controls to an explicit 180px
+  // height so siblings stay below regardless of available space. The other
+  // sidebar widgets get interactive resize edges from the stack strategy.
+  s.patchPlacement(asNodeId('sidebar-controls'), {
+    locked: true,
+    pinned: true,
+    size: { h: 180 },
+  });
   seed('widget-1', SIDEBAR, 'Widget 1', 120);
   seed('widget-2', SIDEBAR, 'Widget 2', 80);
   seed('tool-1', DOCK, 'Tool 1', undefined, 100);
