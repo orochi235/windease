@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { stripStrategy } from './strip.js';
 
 import type { LayoutItem } from '../layout-types.js';
@@ -98,5 +98,72 @@ describe('stripStrategy — preview', () => {
     const ghost = result.placements.get('ghost')!;
     expect(ghost.y).toBeGreaterThan(a.y);
     expect(result.isPreview).toBe(true);
+  });
+});
+
+describe('stripStrategy — placement.size', () => {
+  it('honors placement.size.w on axis=x', () => {
+    const result = stripStrategy.layout({
+      items: [
+        { id: 'a', placement: { size: { w: 80 } } } as never,
+        { id: 'b' },
+      ],
+      container: { w: 200, h: 50 },
+      state: undefined as void,
+      options: { axis: 'x' },
+    });
+    expect(result.placements.get('a')?.w).toBe(80);
+    expect(result.placements.get('b')?.w).toBe(120);
+  });
+
+  it('honors placement.size.h on axis=y', () => {
+    const result = stripStrategy.layout({
+      items: [
+        { id: 'a', placement: { size: { h: 60 } } } as never,
+        { id: 'b' },
+      ],
+      container: { w: 50, h: 200 },
+      state: undefined as void,
+      options: { axis: 'y' },
+    });
+    expect(result.placements.get('a')?.h).toBe(60);
+    expect(result.placements.get('b')?.h).toBe(140);
+  });
+
+  it('emits resize-x affordances on non-last children when axis=x', () => {
+    const result = stripStrategy.layout({
+      items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+      container: { w: 300, h: 50 },
+      state: undefined as void,
+      options: { axis: 'x' },
+    });
+    const resizes = result.affordances.filter((a) => a.kind === 'resize-x');
+    expect(resizes).toHaveLength(2);
+    expect(resizes.map((a) => a.childId)).toEqual(['a', 'b']);
+  });
+
+  it('dispatchAffordance patches placement.size on resize drag (axis=x)', () => {
+    const fakeStore = {
+      patchPlacement: vi.fn(),
+      getNode: vi.fn(() => ({ slot: { placement: { size: { w: 100 } } } })),
+    };
+    stripStrategy.dispatchAffordance?.({
+      event: { affordanceId: 'resize-x-a', kind: 'drag', payload: { dx: 20, dy: 0 } },
+      affordance: {
+        id: 'resize-x-a',
+        kind: 'resize-x',
+        rect: { x: 0, y: 0, w: 4, h: 50 },
+        childId: 'a',
+      },
+      store: fakeStore as never,
+      parentId: 'root' as never,
+      container: { w: 300, h: 50 },
+      options: { axis: 'x' },
+      items: [
+        { id: 'a', placement: { size: { w: 100 } } } as never,
+        { id: 'b' },
+      ],
+    });
+    expect(fakeStore.patchPlacement).toHaveBeenCalledWith('a', { size: { w: 120 } });
   });
 });
