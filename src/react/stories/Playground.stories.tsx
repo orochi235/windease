@@ -213,7 +213,37 @@ export const Playground: Story = () => {
           <DragHandle nodeId={node.id} className="pg-drag">
             <div className="windease-panel">
               <header className="windease-panel__title">
-                {String(node.meta?.title ?? node.id)}
+                <span>{String(node.meta?.title ?? node.id)}</span>
+                <span className="pg-panel-actions">
+                  <button
+                    type="button"
+                    className={
+                      'pg-panel-btn pg-panel-btn--pin' +
+                      (node.slot?.placement?.pinned ? ' is-active' : '')
+                    }
+                    title={node.slot?.placement?.pinned ? 'Unpin' : 'Pin'}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const pinned = !node.slot?.placement?.pinned;
+                      store.patchPlacement(node.id, { pinned: pinned ? true : undefined });
+                    }}
+                  >
+                    📌
+                  </button>
+                  <button
+                    type="button"
+                    className="pg-panel-btn pg-panel-btn--close"
+                    title="Close"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      store.unregisterNode(node.id);
+                    }}
+                  >
+                    ✕
+                  </button>
+                </span>
               </header>
             </div>
           </DragHandle>
