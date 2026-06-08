@@ -1,3 +1,6 @@
+import type { Store } from './store.js';
+import type { NodeId } from './node.js';
+
 export type ItemId = string;
 export type Rect = { x: number; y: number; w: number; h: number };
 export type Size = { w: number; h: number };
@@ -36,7 +39,15 @@ export interface LayoutNode {
   activity: Record<string, unknown>;
 }
 
-export type BuiltinAffordanceKind = 'drag-x' | 'drag-y' | 'drag-xy' | 'click' | 'keypress';
+export type BuiltinAffordanceKind =
+  | 'drag-x'
+  | 'drag-y'
+  | 'drag-xy'
+  | 'resize-x'
+  | 'resize-y'
+  | 'resize-xy'
+  | 'click'
+  | 'keypress';
 
 export interface Affordance<TMeta = unknown> {
   id: string;
@@ -44,6 +55,12 @@ export interface Affordance<TMeta = unknown> {
   rect: Rect;
   cursor?: string;
   meta?: TMeta;
+  /**
+   * Present on resize affordances; absent on existing gutter/drag affordances.
+   * Identifies the child whose `placement.size` will be mutated when the
+   * strategy's `dispatchAffordance` hook fires.
+   */
+  childId?: NodeId | string;
 }
 
 /**
@@ -109,6 +126,22 @@ export interface LayoutStrategy<
     event: LayoutEvent,
     context: { container: Size; options: Record<string, unknown>; items: LayoutItem[] },
   ): TState;
+  /**
+   * Optional store-mutating dispatch path for affordances that change
+   * per-child placement (e.g. resize edges) rather than container state.
+   * Called by the React layer's `useContainerLayout` BEFORE `reduce`, so
+   * the strategy can choose to handle a given affordance here, in `reduce`,
+   * or in both.
+   */
+  dispatchAffordance?(ctx: {
+    event: LayoutEvent;
+    affordance: Affordance<TMeta>;
+    store: Store;
+    parentId: NodeId;
+    container: Size;
+    options: Record<string, unknown>;
+    items: LayoutItem[];
+  }): void;
   /**
    * Optional hook used by DnD to reject drops the strategy can't lay out.
    * Receives the prospective post-drop items list. Return false to reject.
