@@ -83,21 +83,39 @@ export class DragController {
     } = { el };
     if (canAccept) value.canAccept = canAccept;
     if (options?.getInsertionIndex) value.getInsertionIndex = options.getInsertionIndex;
+    const overwriting = this.dropTargets.has(id);
     this.dropTargets.set(id, value);
+    trace(
+      'dnd',
+      `registerDropTarget: ${id}${overwriting ? ' (overwriting prior registration)' : ''} (total: ${this.dropTargets.size})`,
+    );
     return () => {
       this.dropTargets.delete(id);
+      trace('dnd', `unregisterDropTarget: ${id} (total: ${this.dropTargets.size})`);
     };
   }
 
   tryBegin(sourceId: NodeId): boolean {
-    if (this.active) return false;
+    if (this.active) {
+      trace('dnd', `tryBegin ${sourceId}: REJECTED (drag already active for ${this.active.draggingId})`);
+      return false;
+    }
     const node = this.store.getNode(sourceId);
-    if (!node?.slot) return false;
-    if (node.slot.placement?.locked === true) return false;
+    if (!node?.slot) {
+      trace('dnd', `tryBegin ${sourceId}: REJECTED (no slot)`);
+      return false;
+    }
+    if (node.slot.placement?.locked === true) {
+      trace('dnd', `tryBegin ${sourceId}: REJECTED (placement.locked=true)`);
+      return false;
+    }
     const parent = this.store.getNode(node.slot.parentId);
-    if (parent?.container?.allowsDragOut === false) return false;
+    if (parent?.container?.allowsDragOut === false) {
+      trace('dnd', `tryBegin ${sourceId}: REJECTED (parent ${node.slot.parentId} allowsDragOut=false)`);
+      return false;
+    }
     this.active = { draggingId: sourceId, cursor: { x: 0, y: 0 }, hover: null };
-    trace('dnd', `drag start: ${sourceId}`);
+    trace('dnd', `drag start: ${sourceId} (from parent ${node.slot.parentId}; ${this.dropTargets.size} drop targets registered)`);
     this.bindEscape();
     this.emit();
     return true;
@@ -147,10 +165,16 @@ export class DragController {
   private checkAccept(targetId: NodeId, _insertIndex: number | undefined): boolean {
     if (!this.active) return false;
     const draggingId = this.active.draggingId;
-    if (targetId === draggingId) return false;
+    if (targetId === draggingId) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (target is the source)`);
+      return false;
+    }
 
     const targetNode = this.store.getNode(targetId);
-    if (targetNode?.container?.allowsDrop === false) return false;
+    if (targetNode?.container?.allowsDrop === false) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (target.container.allowsDrop=false)`);
+      return false;
+    }
 
     // Strategy-level constraint: e.g. splitStrategy refuses anything but 2 items.
     if (targetNode?.container && this.getStrategy) {
@@ -164,12 +188,21 @@ export class DragController {
           ? current.map((c) => ({ id: c.id }))
           : [...current.map((c) => ({ id: c.id })), { id: draggingId }];
         const options = (targetNode.container.config ?? {}) as Record<string, unknown>;
-        if (!strategy.canAccept(items, options)) return false;
+        if (!strategy.canAccept(items, options)) {
+          trace(
+            'dnd',
+            `checkAccept ${targetId}: REJECT (strategy ${strategy.name}.canAccept said no for ${items.length} items)`,
+          );
+          return false;
+        }
       }
     }
 
     const reg = this.dropTargets.get(targetId);
-    if (reg?.canAccept) return reg.canAccept(draggingId);
+    if (reg?.canAccept && !reg.canAccept(draggingId)) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (consumer canAccept said no)`);
+      return false;
+    }
     return true;
   }
 
@@ -192,9 +225,15 @@ export class DragController {
     this.active = { ...this.active, cursor, hover: next };
     this.reflectHoverToDom(previous, next);
     if (next) {
+      const prevDesc = previous ? `${previous.targetId}` : 'none';
       trace(
         'dnd',
-        `hover: target=${next.targetId} accepted=${next.accepted} insertIndex=${next.insertIndex ?? '-'}`,
+        `hover: ${prevDesc} → target=${next.targetId} accepted=${next.accepted} insertIndex=${next.insertIndex ?? '-'} cursor=(${cursor.x},${cursor.y})`,
+      );
+    } else if (previous) {
+      trace(
+        'dnd',
+        `hover: ${previous.targetId} → none (cursor outside all targets, now (${cursor.x},${cursor.y}))`,
       );
     }
     this.emit();

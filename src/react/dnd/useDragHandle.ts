@@ -1,4 +1,5 @@
 import type { NodeId } from '../../index.js';
+import { trace } from '../../index.js';
 import { type PointerEvent as ReactPointerEvent, useCallback, useRef } from 'react';
 import { useStore } from '../Provider.js';
 import { useNode } from '../hooks.js';
@@ -30,11 +31,17 @@ export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
       const ok = controller.tryBegin(nodeId);
       if (!ok) return;
       draggingRef.current = true;
+      let captured = false;
       try {
         (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+        captured = true;
       } catch {
         // jsdom or unsupported — ignore.
       }
+      trace(
+        'dnd',
+        `pointerDown on handle for ${nodeId} at (${e.clientX},${e.clientY}); pointerCapture=${captured}`,
+      );
     },
     [controller, nodeId],
   );
@@ -56,6 +63,7 @@ export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
       } catch {
         // ignore
       }
+      trace('dnd', `pointerUp at (${e.clientX},${e.clientY}) — dispatching drop`);
       controller.drop();
     },
     [controller],
@@ -64,13 +72,18 @@ export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
   const onPointerCancel = useCallback(() => {
     if (!draggingRef.current) return;
     draggingRef.current = false;
+    trace('dnd', `pointerCancel — dispatching cancel`);
     controller.cancel('outside');
   }, [controller]);
 
-  if (node?.slot?.placement?.locked === true) return NOOP_HANDLERS;
+  if (node?.slot?.placement?.locked === true) {
+    return NOOP_HANDLERS;
+  }
   if (node?.slot) {
     const parent = store.getNode(node.slot.parentId);
-    if (parent?.container?.allowsDragOut === false) return NOOP_HANDLERS;
+    if (parent?.container?.allowsDragOut === false) {
+      return NOOP_HANDLERS;
+    }
   }
   return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel };
 }
