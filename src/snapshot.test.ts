@@ -223,3 +223,38 @@ describe('serialize — groups + recursion', () => {
     expect(restored.getNode(asNodeId('g'))?.focus).toBeUndefined();
   });
 });
+
+describe('snapshot — placement.size and hints.maxSize', () => {
+  it('round-trips placement.size on a slot', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createPanel({
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+        placement: { size: { h: 180 } },
+      }),
+    );
+    const snap = serialize(store);
+    const restored = deserialize(snap);
+    const placement = restored.getNode(asNodeId('a'))?.slot?.placement as {
+      size: { h: number };
+    };
+    expect(placement.size).toEqual({ h: 180 });
+  });
+
+  it('round-trips hints.maxSize', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createPanel({
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+        hints: { minSize: { w: 10, h: 10 }, maxSize: { w: 400, h: 400 } },
+      }),
+    );
+    const snap = serialize(store);
+    const restored = deserialize(snap);
+    expect(restored.getNode(asNodeId('a'))?.hints?.maxSize).toEqual({ w: 400, h: 400 });
+  });
+});
