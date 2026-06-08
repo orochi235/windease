@@ -12,7 +12,7 @@ import {
   Store,
 } from '../../index.js';
 import type { Story } from '@ladle/react';
-import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type ChromeMap,
   Container,
@@ -20,7 +20,6 @@ import {
   DragHandle,
   DragProvider,
   StrategyRegistryProvider,
-  useDropTarget,
   Provider,
 } from '../index.js';
 import './windease.css';
@@ -145,10 +144,12 @@ function ZoneShell({
   zoneId: ReturnType<typeof asNodeId>;
   chrome: ChromeMap;
 }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useDropTarget(zoneId, ref as RefObject<Element | null>);
+  // Container itself registers as the drop target (and the default
+  // getInsertionIndex callback). An extra useDropTarget here would clobber
+  // that registration because child effects fire before parent effects in
+  // React — leaving every drop appending instead of inserting at the cursor.
   return (
-    <div ref={ref} className="pg-zone-shell">
+    <div className="pg-zone-shell">
       <Container parentId={zoneId} chrome={chrome} className="pg-zone-inner" />
     </div>
   );

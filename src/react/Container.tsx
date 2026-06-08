@@ -277,10 +277,14 @@ function StoreContainer({
         // (Cross-parent previews fall through to the !isReal branch below
         // because the source isn't yet a real child of this container.)
         if (id === previewSourceId && isReal) {
+          // Source during preview: render the chrome with opacity:0 so the
+          // ghost overlay is what the user "sees" — but the DOM and pointer
+          // event flow stay alive (visibility:hidden disables pointer events
+          // even on captured elements in some browsers, which freezes the drag).
           return (
             <div
               key={id}
-              style={{ ...childStyle, visibility: 'hidden' }}
+              style={{ ...childStyle, opacity: 0 }}
               data-node={id}
               data-preview-source="true"
             >

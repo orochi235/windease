@@ -135,7 +135,7 @@ describe('Container — live drop preview', () => {
     expect(queryByTestId('chrome-a')).not.toBeNull();
     const previewWrapper = container.querySelector('[data-preview-source="true"]');
     expect(previewWrapper).not.toBeNull();
-    expect((previewWrapper as HTMLElement).style.visibility).toBe('hidden');
+    expect((previewWrapper as HTMLElement).style.opacity).toBe('0');
   });
 });
 
