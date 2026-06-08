@@ -51,6 +51,7 @@ export class DragController {
     }
   >();
   private escapeBound = false;
+  private windowUpBound = false;
   private pendingPoint: { x: number; y: number } | null = null;
   private rafId: number | null = null;
 
@@ -117,6 +118,7 @@ export class DragController {
     this.active = { draggingId: sourceId, cursor: { x: 0, y: 0 }, hover: null };
     trace('dnd', `drag start: ${sourceId} (from parent ${node.slot.parentId}; ${this.dropTargets.size} drop targets registered)`);
     this.bindEscape();
+    this.bindWindowUp();
     this.emit();
     return true;
   }
@@ -298,6 +300,7 @@ export class DragController {
     this.active = null;
     this.reflectHoverToDom(previousHover, null);
     this.unbindEscape();
+    this.unbindWindowUp();
     this.emit();
   }
 
@@ -319,8 +322,35 @@ export class DragController {
     this.escapeBound = false;
   }
 
+  /** Window-level pointerup safety net. The DragHandle's onPointerUp is the
+   *  primary drop trigger, but setPointerCapture can be silently lost (cursor
+   *  leaves the window, the captured element gets unmounted by a re-render,
+   *  browser edge cases). Without this fallback, a missed pointerup leaves
+   *  the controller permanently active — ghost stuck, future drags rejected. */
+  private bindWindowUp(): void {
+    if (this.windowUpBound) return;
+    if (typeof window === 'undefined') return;
+    window.addEventListener('pointerup', this.onWindowPointerUp);
+    window.addEventListener('pointercancel', this.onWindowPointerUp);
+    this.windowUpBound = true;
+  }
+
+  private unbindWindowUp(): void {
+    if (!this.windowUpBound) return;
+    if (typeof window === 'undefined') return;
+    window.removeEventListener('pointerup', this.onWindowPointerUp);
+    window.removeEventListener('pointercancel', this.onWindowPointerUp);
+    this.windowUpBound = false;
+  }
+
   private onKey = (e: KeyboardEvent): void => {
     if (e.key === 'Escape') this.cancel('escape');
+  };
+
+  private onWindowPointerUp = (): void => {
+    if (!this.active) return;
+    trace('dnd', `window pointerup safety net fired — dispatching drop`);
+    this.drop();
   };
 }
 
