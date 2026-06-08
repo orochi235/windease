@@ -112,6 +112,34 @@ export function useContainerLayout(
     if (!strategy) {
       return { placements: new Map(), affordances: [], unplaced: [], viewport, isPreview: false };
     }
+
+    // Fast path: when previewing and the strategy implements getDropPreview,
+    // ask it directly; fall back to runStrategyForContainer on null.
+    if (preview && strategy.getDropPreview) {
+      const items = store
+        .getChildren(parentId)
+        .filter((c) => c.lifecycle.state === 'visible')
+        .map((c) => ({ id: c.id }));
+      const config = (node.container.config ?? {}) as Record<string, unknown>;
+      const fast = strategy.getDropPreview({
+        items,
+        container: viewport,
+        options: config,
+        insertId: preview.insertId,
+        insertIndex: preview.insertIndex,
+        cursor: preview.cursor,
+      });
+      if (fast) {
+        return {
+          placements: fast.placements as Map<NodeId, Rect>,
+          affordances: [],
+          unplaced: [],
+          viewport,
+          isPreview: fast.accepted,
+        };
+      }
+    }
+
     const persisted = store.getContainerState(parentId);
     const state =
       persisted ??

@@ -1,5 +1,5 @@
 import { render, cleanup, act } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Provider } from '../Provider.js';
 import { Store, asNodeId, createPanel, createZone } from '../../index.js';
 import { Container } from '../Container.js';
@@ -130,5 +130,48 @@ describe('Container — live drop preview', () => {
     });
     expect(queryByTestId('chrome-src')).toBeNull();
     expect(queryByTestId('chrome-a')).not.toBeNull();
+  });
+});
+
+describe('Container — getDropPreview fast path', () => {
+  it('uses strategy.getDropPreview when defined', async () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createZone({ id: asNodeId('tgt'), parentId: asNodeId('z'), strategyId: 'grid', config: { cols: 2 } }),
+    );
+    store.registerNode(
+      createPanel({ id: asNodeId('src'), parentId: asNodeId('z'), meta: { title: 'S' } }),
+    );
+    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('tgt') }));
+    store.showNode(asNodeId('src'));
+    store.showNode(asNodeId('a'));
+
+    const spy = vi.spyOn(gridStrategy, 'getDropPreview' as never);
+    let controller: ReturnType<typeof useDragController> | null = null;
+    const { container } = render(
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
+          <DragProvider>
+            <Handle onReady={(c) => (controller = c)} />
+            <Container
+              parentId={asNodeId('tgt')}
+              viewport={{ w: 200, h: 200 }}
+              chrome={(args) => <div data-testid={`chrome-${args.node.id}`} />}
+            />
+          </DragProvider>
+        </StrategyRegistryProvider>
+      </Provider>,
+    );
+    const tgtElPre = container.querySelector('[data-node-container="tgt"]')!;
+    tgtElPre.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    await act(async () => {
+      controller!.tryBegin(asNodeId('src'));
+      controller!.updateHoverByPoint(50, 50);
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
