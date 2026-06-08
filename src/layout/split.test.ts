@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { splitStrategy, type SplitNode } from './split.js';
 
 const leaf = (id: string): SplitNode => ({ kind: 'leaf', id });
@@ -138,6 +138,108 @@ describe('splitStrategy', () => {
     } finally {
       console.warn = orig;
     }
+  });
+});
+
+describe('splitStrategy — placement.size', () => {
+  it('honors placement.size.h on the top pane of a vertical split', () => {
+    const tree: SplitNode = {
+      kind: 'split',
+      direction: 'vertical',
+      ratio: 0.5,
+      a: { kind: 'leaf', id: 'top' },
+      b: { kind: 'leaf', id: 'bot' },
+    };
+    const result = splitStrategy.layout({
+      items: [
+        { id: 'top', placement: { size: { h: 100 } } } as never,
+        { id: 'bot' },
+      ],
+      container: { w: 200, h: 400 },
+      state: tree,
+      options: { gutterSize: 0 },
+    });
+    expect(result.placements.get('top')?.h).toBe(100);
+    expect(result.placements.get('bot')?.h).toBe(300);
+  });
+
+  it('honors placement.size.w on the left pane of a horizontal split', () => {
+    const tree: SplitNode = {
+      kind: 'split',
+      direction: 'horizontal',
+      ratio: 0.5,
+      a: { kind: 'leaf', id: 'l' },
+      b: { kind: 'leaf', id: 'r' },
+    };
+    const result = splitStrategy.layout({
+      items: [
+        { id: 'l', placement: { size: { w: 80 } } } as never,
+        { id: 'r' },
+      ],
+      container: { w: 200, h: 50 },
+      state: tree,
+      options: { gutterSize: 0 },
+    });
+    expect(result.placements.get('l')?.w).toBe(80);
+    expect(result.placements.get('r')?.w).toBe(120);
+  });
+
+  it('dispatchAffordance on a gutter clears placement.size on both panes', () => {
+    const fakeStore = {
+      patchPlacement: vi.fn(),
+      getNode: vi.fn((_id: string) => ({
+        slot: { placement: { size: { h: 100 }, pinned: true } },
+      })),
+    };
+    const tree: SplitNode = {
+      kind: 'split',
+      direction: 'vertical',
+      ratio: 0.5,
+      a: { kind: 'leaf', id: 'top' },
+      b: { kind: 'leaf', id: 'bot' },
+    };
+    splitStrategy.dispatchAffordance?.({
+      event: { affordanceId: 'split-', kind: 'drag', payload: { dx: 0, dy: 10 } },
+      affordance: {
+        id: 'split-',
+        kind: 'drag-y',
+        rect: { x: 0, y: 0, w: 200, h: 4 },
+        meta: { path: [], direction: 'vertical' } as never,
+      },
+      store: fakeStore as never,
+      parentId: 'root' as never,
+      container: { w: 200, h: 400 },
+      options: {},
+      items: [{ id: 'top' }, { id: 'bot' }],
+    } as never);
+    expect(fakeStore.patchPlacement).toHaveBeenCalledWith('top', { size: undefined });
+    expect(fakeStore.patchPlacement).toHaveBeenCalledWith('bot', { size: undefined });
+  });
+});
+
+describe('splitStrategy — sibling-add bounds', () => {
+  it('pins current per-leaf behavior: explicit pane gets its intent, sibling takes the remainder', () => {
+    // Split's clamp is rectwise (per leaf), not summed. With container h=200
+    // and top explicit at 150, bot just gets the remaining 50 even if its
+    // hints.minSize.h says 80. Stricter shrink-to-fit is a follow-up.
+    const tree: SplitNode = {
+      kind: 'split',
+      direction: 'vertical',
+      ratio: 0.5,
+      a: { kind: 'leaf', id: 'top' },
+      b: { kind: 'leaf', id: 'bot' },
+    };
+    const result = splitStrategy.layout({
+      items: [
+        { id: 'top', placement: { size: { h: 150 } } } as never,
+        { id: 'bot', hints: { minSize: { w: 0, h: 80 } } },
+      ],
+      container: { w: 50, h: 200 },
+      state: tree,
+      options: { gutterSize: 0 },
+    });
+    expect(result.placements.get('top')?.h).toBe(150);
+    expect(result.placements.get('bot')?.h).toBe(50);
   });
 });
 

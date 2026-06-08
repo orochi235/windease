@@ -61,6 +61,20 @@ function subtreeMin(
   return result === 0 ? undefined : result;
 }
 
+function explicitForLeaf(
+  node: SplitNode,
+  axis: 'horizontal' | 'vertical',
+  itemsById: Map<string, LayoutItem>,
+): number | undefined {
+  if (node.kind !== 'leaf') return undefined;
+  const item = itemsById.get(node.id);
+  if (!item) return undefined;
+  const size = (item as unknown as { placement?: { size?: { w?: number; h?: number } } })
+    .placement?.size;
+  if (!size) return undefined;
+  return axis === 'horizontal' ? size.w : size.h;
+}
+
 function walk(
   node: SplitNode,
   rect: Rect,
@@ -69,6 +83,7 @@ function walk(
   placements: Map<string, Rect>,
   affordances: Affordance<SplitMeta>[],
   validIds: Set<string>,
+  itemsById: Map<string, LayoutItem>,
 ): void {
   if (node.kind === 'leaf') {
     if (!validIds.has(node.id)) {
@@ -84,27 +99,80 @@ function walk(
   }
   const halfG = gutter / 2;
   const r = clamp(node.ratio, DEFAULT_MIN, DEFAULT_MAX);
+
+  // Explicit size overrides ratio. Either pane wins; if both explicit, the
+  // first one wins and the second takes the remainder. Out-of-bounds values
+  // are clamped against the rect.
+  const total = node.direction === 'horizontal' ? rect.w : rect.h;
+  const explicitA = explicitForLeaf(node.a, node.direction, itemsById);
+  const explicitB = explicitForLeaf(node.b, node.direction, itemsById);
+  let aSize: number;
+  if (explicitA !== undefined) {
+    aSize = Math.min(Math.max(0, explicitA), Math.max(0, total - gutter));
+  } else if (explicitB !== undefined) {
+    aSize = Math.max(
+      0,
+      total - gutter - Math.min(Math.max(0, explicitB), Math.max(0, total - gutter)),
+    );
+  } else {
+    aSize = total * r - halfG;
+  }
+
   if (node.direction === 'horizontal') {
-    const aw = rect.w * r - halfG;
-    const bx = rect.x + rect.w * r + halfG;
-    walk(node.a, { x: rect.x, y: rect.y, w: aw, h: rect.h }, [...path, 0], gutter, placements, affordances, validIds);
-    walk(node.b, { x: bx, y: rect.y, w: rect.x + rect.w - bx, h: rect.h }, [...path, 1], gutter, placements, affordances, validIds);
+    const bx = rect.x + aSize + gutter;
+    walk(
+      node.a,
+      { x: rect.x, y: rect.y, w: aSize, h: rect.h },
+      [...path, 0],
+      gutter,
+      placements,
+      affordances,
+      validIds,
+      itemsById,
+    );
+    walk(
+      node.b,
+      { x: bx, y: rect.y, w: rect.x + rect.w - bx, h: rect.h },
+      [...path, 1],
+      gutter,
+      placements,
+      affordances,
+      validIds,
+      itemsById,
+    );
     affordances.push({
       id: `split-${path.join('.')}`,
       kind: 'drag-x',
-      rect: { x: rect.x + rect.w * r - halfG, y: rect.y, w: gutter, h: rect.h },
+      rect: { x: rect.x + aSize, y: rect.y, w: gutter, h: rect.h },
       cursor: 'col-resize',
       meta: { path, direction: 'horizontal' },
     });
   } else {
-    const ah = rect.h * r - halfG;
-    const by = rect.y + rect.h * r + halfG;
-    walk(node.a, { x: rect.x, y: rect.y, w: rect.w, h: ah }, [...path, 0], gutter, placements, affordances, validIds);
-    walk(node.b, { x: rect.x, y: by, w: rect.w, h: rect.y + rect.h - by }, [...path, 1], gutter, placements, affordances, validIds);
+    const by = rect.y + aSize + gutter;
+    walk(
+      node.a,
+      { x: rect.x, y: rect.y, w: rect.w, h: aSize },
+      [...path, 0],
+      gutter,
+      placements,
+      affordances,
+      validIds,
+      itemsById,
+    );
+    walk(
+      node.b,
+      { x: rect.x, y: by, w: rect.w, h: rect.y + rect.h - by },
+      [...path, 1],
+      gutter,
+      placements,
+      affordances,
+      validIds,
+      itemsById,
+    );
     affordances.push({
       id: `split-${path.join('.')}`,
       kind: 'drag-y',
-      rect: { x: rect.x, y: rect.y + rect.h * r - halfG, w: rect.w, h: gutter },
+      rect: { x: rect.x, y: rect.y + aSize, w: rect.w, h: gutter },
       cursor: 'row-resize',
       meta: { path, direction: 'vertical' },
     });
@@ -198,10 +266,43 @@ export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
     const placements = new Map<string, Rect>();
     const affordances: Affordance<SplitMeta>[] = [];
     const validIds = new Set(items.map((it) => it.id));
-    walk(state, { x: 0, y: 0, w: container.w, h: container.h }, [], gutter, placements, affordances, validIds);
+    const itemsById = new Map(items.map((it) => [it.id, it] as const));
+    walk(
+      state,
+      { x: 0, y: 0, w: container.w, h: container.h },
+      [],
+      gutter,
+      placements,
+      affordances,
+      validIds,
+      itemsById,
+    );
     const result: LayoutResult<string, SplitMeta> = { placements, affordances };
     if (preview) result.isPreview = true;
     return result;
+  },
+  dispatchAffordance({ event, affordance, store, items }) {
+    if (event.kind !== 'drag') return;
+    // Only the split's own gutter affordances; ignore unrelated kinds.
+    if (!affordance.id.startsWith('split-')) return;
+    const meta = affordance.meta as SplitMeta | undefined;
+    if (!meta) return;
+    // Conservative implementation: clear `size` on every leaf in the items
+    // list whose stored placement carries one. Targeted clearing of only the
+    // two leaves on either side of this gutter is a follow-up; the plan
+    // accepts this scope.
+    const s = store as unknown as {
+      getNode: (id: string) => { slot?: { placement?: Record<string, unknown> } } | undefined;
+      patchPlacement: (id: string, patch: Record<string, unknown>) => void;
+    };
+    for (const it of items) {
+      const placement = s.getNode(it.id)?.slot?.placement;
+      if (placement && 'size' in placement) {
+        s.patchPlacement(it.id, { size: undefined });
+      }
+    }
+    // Note: the existing reduce() handler still fires after this in
+    // useContainerLayout, applying the ratio update.
   },
   reduce(state, event, context) {
     if (event.kind !== 'drag') return state;
