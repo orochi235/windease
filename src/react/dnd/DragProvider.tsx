@@ -40,7 +40,7 @@ export function DragProvider({ children, dragOverlay = defaultDragOverlay }: Dra
 function DragOverlayPortal({ state, render }: { state: DragState; render: DragOverlayRenderer }) {
   const store = useStore();
   const node = store.getNode(state.draggingId);
-  const cursor = state.hover?.cursor ?? { x: 0, y: 0 };
+  const cursor = state.cursor;
   const rejected = state.hover?.accepted === false;
   if (typeof document === 'undefined') {
     return <>{render({ draggingId: state.draggingId, cursor, node, hover: state.hover, rejected })}</>;

@@ -169,7 +169,7 @@ function StoreContainer({
           ...(dragState.hover.insertIndex !== undefined
             ? { insertIndex: dragState.hover.insertIndex }
             : {}),
-          cursor: dragState.hover.cursor,
+          cursor: dragState.cursor,
         }
       : undefined;
 

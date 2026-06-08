@@ -9,6 +9,10 @@ export type DragCancelReason = 'rejected' | 'outside' | 'escape' | 'unregistered
 
 export interface DragState {
   draggingId: NodeId;
+  /** Latest cursor position in viewport coords. Always present during a drag,
+   *  even when the cursor is outside every registered drop target. Used by
+   *  `<DragProvider>` to position the ghost overlay. */
+  cursor: { x: number; y: number };
   hover: {
     targetId: NodeId;
     accepted: boolean;
@@ -16,9 +20,6 @@ export interface DragState {
      *  gives no positional answer (e.g. splits) or when the target didn't
      *  register a `getInsertionIndex`. */
     insertIndex?: number;
-    /** Cursor in viewport coords. Used by `<DragProvider>` to position the
-     *  ghost overlay. */
-    cursor: { x: number; y: number };
   } | null;
 }
 
@@ -95,7 +96,7 @@ export class DragController {
     if (node.slot.placement?.locked === true) return false;
     const parent = this.store.getNode(node.slot.parentId);
     if (parent?.container?.allowsDragOut === false) return false;
-    this.active = { draggingId: sourceId, hover: null };
+    this.active = { draggingId: sourceId, cursor: { x: 0, y: 0 }, hover: null };
     trace('dnd', `drag start: ${sourceId}`);
     this.bindEscape();
     this.emit();
@@ -122,6 +123,8 @@ export class DragController {
 
   private actuallyUpdateHover(x: number, y: number): void {
     if (!this.active) return;
+    // Cursor always updates, regardless of hover target. The ghost overlay
+    // follows the cursor even when over no drop target.
     let best: { id: NodeId; depth: number } | null = null;
     for (const [id, { el }] of this.dropTargets) {
       const r = el.getBoundingClientRect();
@@ -136,9 +139,7 @@ export class DragController {
     const reg = this.dropTargets.get(best.id);
     const insertIndex = reg?.getInsertionIndex?.({ x, y });
     const accepted = this.checkAccept(best.id, insertIndex);
-    const hover: Omit<NonNullable<DragState['hover']>, 'cursor'> & {
-      cursor?: { x: number; y: number };
-    } = { targetId: best.id, accepted, cursor: { x, y } };
+    const hover: NonNullable<DragState['hover']> = { targetId: best.id, accepted };
     if (insertIndex !== undefined) hover.insertIndex = insertIndex;
     this.setHover(hover, { x, y });
   }
@@ -173,9 +174,7 @@ export class DragController {
   }
 
   private setHover(
-    hover:
-      | (Omit<NonNullable<DragState['hover']>, 'cursor'> & { cursor?: { x: number; y: number } })
-      | null,
+    hover: NonNullable<DragState['hover']> | null,
     cursor: { x: number; y: number },
   ): void {
     if (!this.active) return;
@@ -183,13 +182,14 @@ export class DragController {
       ? {
           targetId: hover.targetId,
           accepted: hover.accepted,
-          cursor: hover.cursor ?? cursor,
           ...(hover.insertIndex !== undefined ? { insertIndex: hover.insertIndex } : {}),
         }
       : null;
-    if (sameHover(this.active.hover, next)) return;
+    const cursorChanged =
+      this.active.cursor.x !== cursor.x || this.active.cursor.y !== cursor.y;
+    if (sameHover(this.active.hover, next) && !cursorChanged) return;
     const previous = this.active.hover;
-    this.active = { ...this.active, hover: next };
+    this.active = { ...this.active, cursor, hover: next };
     this.reflectHoverToDom(previous, next);
     if (next) {
       trace(
@@ -299,10 +299,6 @@ function sameHover(a: DragState['hover'], b: DragState['hover']): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
   return (
-    a.targetId === b.targetId &&
-    a.accepted === b.accepted &&
-    a.insertIndex === b.insertIndex &&
-    a.cursor.x === b.cursor.x &&
-    a.cursor.y === b.cursor.y
+    a.targetId === b.targetId && a.accepted === b.accepted && a.insertIndex === b.insertIndex
   );
 }

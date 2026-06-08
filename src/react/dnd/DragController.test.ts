@@ -141,7 +141,7 @@ describe('DragController — rAF throttle + cursor', () => {
 
     // Only one hover update emitted (the latest), not three.
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(controller.state()?.hover?.cursor).toEqual({ x: 30, y: 30 });
+    expect(controller.state()?.cursor).toEqual({ x: 30, y: 30 });
   });
 
   it('cancels pending rAF on drop()', async () => {
