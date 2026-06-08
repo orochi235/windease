@@ -16,7 +16,10 @@ export const asNodeId = (s: string): NodeId => s as NodeId;
 export type NodeKind = string;
 
 export interface NodeHints {
+  /** Floor for strategy clamping and resize-drag. */
   minSize?: { w: number; h: number };
+  /** Ceiling for strategy clamping and resize-drag. */
+  maxSize?: { w: number; h: number };
   preferredSize?: { w: number; h: number };
   order?: number;
 }
@@ -54,6 +57,16 @@ export interface ContainerCap {
 
 export interface SlotCap {
   parentId: NodeId;
+  /**
+   * Per-membership bag of placement state. Reserved keys recognized by the
+   * shipped layout strategies and React layer:
+   *  - `pinned: boolean` — pinned to the prefix of the parent's childOrder.
+   *  - `locked: boolean` — pinned, AND the React layer refuses drag/destroy.
+   *  - `size?: { w?: number; h?: number }` — user intent; honored by stack /
+   *     strip / split along their main axis. Either dimension is optional.
+   *     Gutter drags on split *clear* this key on the two affected panes.
+   *  Free-form keys are ignored by core; consumers may add their own.
+   */
   placement: Record<string, unknown>;
   transit: TransitCap;
 }
