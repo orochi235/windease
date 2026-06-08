@@ -59,12 +59,15 @@ export function isTraceEnabled(category: TraceCategory): boolean {
 export function trace(category: TraceCategory, message: string, data?: unknown): void {
   if (!enabled.has(category)) return;
   const tag = `[windease:${category}]`;
+  // Use console.log (not console.debug) so traces show at the default
+  // DevTools level — debug is filtered out unless "Verbose" is enabled.
+  // The user explicitly opted in; they want to see these.
   if (data !== undefined) {
     // biome-ignore lint/suspicious/noConsole: trace is opt-in diagnostics
-    console.debug(tag, message, data);
+    console.log(tag, message, data);
   } else {
     // biome-ignore lint/suspicious/noConsole: trace is opt-in diagnostics
-    console.debug(tag, message);
+    console.log(tag, message);
   }
 }
 
