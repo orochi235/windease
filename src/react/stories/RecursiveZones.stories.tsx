@@ -13,7 +13,6 @@ import { useMemo } from 'react';
 import {
   type ChromeMap,
   Container,
-  Panel,
   StrategyRegistryProvider,
   Provider,
   Zone,
@@ -106,12 +105,17 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
         const title = String(node.meta?.title ?? node.id);
         if (node.container) {
           return (
-            <Panel title={title}>
+            <div className="windease-panel">
+              <header className="windease-panel__title">{title}</header>
               <Container parentId={node.id} chrome={chrome} style={{ flex: 1, minHeight: 0 }} />
-            </Panel>
+            </div>
           );
         }
-        return <Panel title={title} />;
+        return (
+          <div className="windease-panel">
+            <header className="windease-panel__title">{title}</header>
+          </div>
+        );
       },
     }),
     [],

@@ -14,7 +14,6 @@ import {
   Container,
   DragHandle,
   DragProvider,
-  Panel,
   StrategyRegistryProvider,
   useDragState,
   useDropTarget,
@@ -96,7 +95,9 @@ export const ParallelZonesDnd: Story = () => {
       zone: ({ children }) => <>{children}</>,
       panel: ({ node }) => (
         <DragHandle nodeId={node.id} className="pz-panel">
-          <Panel title={String(node.meta?.title ?? node.id)} />
+          <div className="windease-panel">
+            <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
+          </div>
           <span className="pz-panel__grip" aria-hidden="true">⋮⋮</span>
         </DragHandle>
       ),

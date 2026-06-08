@@ -12,7 +12,6 @@ import { useMemo } from 'react';
 import {
   type ChromeMap,
   Container,
-  Panel,
   StrategyRegistryProvider,
   Provider,
 } from '../index.js';
@@ -51,7 +50,11 @@ function makeStripStore(axis: 'x' | 'y', sizes: number[]): Store {
 }
 
 const chrome: ChromeMap = {
-  panel: ({ node }) => <Panel title={String(node.meta?.title ?? node.id)} />,
+  panel: ({ node }) => (
+    <div className="windease-panel">
+      <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
+    </div>
+  ),
 };
 
 export const HorizontalStrip: Story = () => {

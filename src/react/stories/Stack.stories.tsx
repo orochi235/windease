@@ -12,7 +12,6 @@ import { useMemo } from 'react';
 import {
   type ChromeMap,
   Container,
-  Panel,
   StrategyRegistryProvider,
   Provider,
 } from '../index.js';
@@ -58,7 +57,11 @@ export const Stack: Story<Args> = ({ gap, padding }) => {
 
   const chrome: ChromeMap = useMemo(
     () => ({
-      panel: ({ node }) => <Panel title={String(node.meta?.title ?? node.id)} />,
+      panel: ({ node }) => (
+        <div className="windease-panel">
+          <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
+        </div>
+      ),
     }),
     [],
   );
