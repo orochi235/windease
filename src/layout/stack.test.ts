@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { stackStrategy } from './stack.js';
 
 import type { LayoutItem } from '../layout-types.js';
@@ -127,5 +127,94 @@ describe('stackStrategy — preview', () => {
       options: {},
     });
     expect(result.isPreview).toBeUndefined();
+  });
+});
+
+describe('stackStrategy — placement.size', () => {
+  it('honors a child with explicit placement.size.h', () => {
+    const result = stackStrategy.layout({
+      items: [
+        { id: 'a', placement: { size: { h: 200 } } } as never,
+        { id: 'b' },
+      ],
+      container: { w: 100, h: 500 },
+      state: undefined as void,
+      options: {},
+    });
+    expect(result.placements.get('a')?.h).toBe(200);
+    expect(result.placements.get('b')?.h).toBe(300);
+  });
+
+  it('sums multiple explicit sizes, fills remainder to unconstrained child', () => {
+    const result = stackStrategy.layout({
+      items: [
+        { id: 'a', placement: { size: { h: 100 } } } as never,
+        { id: 'b', placement: { size: { h: 150 } } } as never,
+        { id: 'c' },
+      ],
+      container: { w: 100, h: 500 },
+      state: undefined as void,
+      options: {},
+    });
+    expect(result.placements.get('a')?.h).toBe(100);
+    expect(result.placements.get('b')?.h).toBe(150);
+    expect(result.placements.get('c')?.h).toBe(250);
+  });
+
+  it('scales explicit sizes proportionally on overflow', () => {
+    // container 200, two explicit kids: 300 + 100 = 400 -> scale 0.5
+    const result = stackStrategy.layout({
+      items: [
+        { id: 'a', placement: { size: { h: 300 } } } as never,
+        { id: 'b', placement: { size: { h: 100 } } } as never,
+      ],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: {},
+    });
+    expect(result.placements.get('a')?.h).toBeCloseTo(150);
+    expect(result.placements.get('b')?.h).toBeCloseTo(50);
+  });
+
+  it('emits resize-y affordances on non-last children only', () => {
+    const result = stackStrategy.layout({
+      items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+      container: { w: 100, h: 300 },
+      state: undefined as void,
+      options: {},
+    });
+    const resizes = result.affordances.filter((a) => a.kind === 'resize-y');
+    expect(resizes).toHaveLength(2);
+    expect(resizes[0]!.childId).toBe('a');
+    expect(resizes[1]!.childId).toBe('b');
+  });
+
+  it('dispatchAffordance patches placement.size on the targeted child', () => {
+    const fakeStore = {
+      patchPlacement: vi.fn(),
+      getNode: vi.fn((_id: string) => ({
+        slot: { placement: { size: { h: 100 } } },
+      })),
+    };
+    stackStrategy.dispatchAffordance?.({
+      event: { affordanceId: 'resize-y-a', kind: 'drag', payload: { dx: 0, dy: 50 } },
+      affordance: {
+        id: 'resize-y-a',
+        kind: 'resize-y',
+        rect: { x: 0, y: 0, w: 100, h: 4 },
+        childId: 'a',
+      },
+      store: fakeStore as never,
+      parentId: 'root' as never,
+      container: { w: 100, h: 500 },
+      options: {},
+      items: [
+        { id: 'a', placement: { size: { h: 100 } } } as never,
+        { id: 'b' },
+      ],
+    });
+    expect(fakeStore.patchPlacement).toHaveBeenCalledWith('a', {
+      size: { h: 150 },
+    });
   });
 });
