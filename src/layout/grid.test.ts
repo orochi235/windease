@@ -354,3 +354,20 @@ describe('gridStrategy — preview', () => {
     expect(out!.accepted).toBe(false);
   });
 });
+
+describe('gridStrategy — placement.size is currently ignored', () => {
+  it('child with placement.size still occupies a uniform cell', () => {
+    const result = gridStrategy.layout({
+      items: [
+        { id: 'a', placement: { size: { w: 999, h: 999 } } } as never,
+        { id: 'b' },
+      ],
+      container: { w: 200, h: 100 },
+      state: undefined as void,
+      options: { cols: 2 },
+    });
+    expect(result.placements.get('a')?.w).toBe(100);
+    expect(result.placements.get('a')?.h).toBe(100);
+    expect(result.placements.get('b')?.w).toBe(100);
+  });
+});

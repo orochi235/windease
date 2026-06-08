@@ -75,6 +75,14 @@ function gridCapacity(cfg: GridConfig, itemCount: number): number {
   return rowCap !== undefined ? cols * rowCap : Number.POSITIVE_INFINITY;
 }
 
+// TODO(0.6+): honor placement.size on grid children as multi-cell spans.
+//   Today gridStrategy ignores placement.size entirely (cells stay uniform).
+//   Planned semantics: `placement.size.w` → colSpan (count of cells), and
+//   `placement.size.h` → rowSpan. Spanning items reserve their cells in
+//   row-major order; subsequent items skip over reserved cells. This
+//   requires a small placement bookkeeping pass and a re-evaluation of
+//   maxCols/maxRows arithmetic; deferred behind the 0.5 ship.
+
 /** @group Strategies */
 export const gridStrategy: LayoutStrategy<void, string> = {
   name: 'grid',
