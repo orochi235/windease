@@ -9,7 +9,6 @@ export interface DragOverlayContext {
     targetId: NodeId;
     accepted: boolean;
     insertIndex?: number;
-    cursor: { x: number; y: number };
   } | null;
   rejected: boolean;
 }
