@@ -3,6 +3,16 @@
 Future work, sectioned by item. Append new ideas here rather than scattering
 them. Tag major items with `[HIGH]`.
 
+## Shipped in 0.5.0
+
+- **Resizable children.** `placement.size?: { w?, h? }` reserved key is
+  honored by `stack` / `strip` / `split` strategies; `hints.maxSize` is
+  a new clamp ceiling alongside `hints.minSize`. Non-last children in
+  stack/strip get trailing-edge resize affordances; split gutters now
+  clear `placement.size` on both panes before applying the ratio change.
+  Grid still ignores explicit sizes (multi-cell spans deferred). Snapshot
+  round-trips without a schema change.
+
 ## Shipped in 0.4.0
 
 - **Declarative JSX tree binding.** `<Zone>` / `<Group>` / `<Panel>`
