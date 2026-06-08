@@ -10,6 +10,9 @@ export interface ContainerLayout {
   affordances: Affordance[];
   unplaced: NodeId[];
   viewport: { w: number; h: number } | null;
+  /** True when the current placements were produced from a `preview` input.
+   *  Container uses this to suppress the source's real chrome during preview. */
+  isPreview: boolean;
   /**
    * Feed a strategy event (e.g. drag delta on an affordance) into the
    * container's `reduce()` and persist the new state on the store. State
@@ -103,11 +106,11 @@ export function useContainerLayout(
 
   const layout = useMemo<Omit<ContainerLayout, 'dispatchAffordance'>>(() => {
     if (!node?.container || !viewport) {
-      return { placements: new Map(), affordances: [], unplaced: [], viewport };
+      return { placements: new Map(), affordances: [], unplaced: [], viewport, isPreview: false };
     }
     const strategy = registry.get(node.container.strategyId);
     if (!strategy) {
-      return { placements: new Map(), affordances: [], unplaced: [], viewport };
+      return { placements: new Map(), affordances: [], unplaced: [], viewport, isPreview: false };
     }
     const persisted = store.getContainerState(parentId);
     const state =
@@ -133,6 +136,7 @@ export function useContainerLayout(
       affordances: result.affordances,
       unplaced: result.unplaced ?? [],
       viewport,
+      isPreview: result.isPreview ?? false,
     };
     // biome-ignore lint/correctness/useExhaustiveDependencies: stateTick is a re-run gate; previewKey is a stable identity for `preview`.
   }, [store, node?.container, viewport, registry, parentId, stateTick, previewKey]);

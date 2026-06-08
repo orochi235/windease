@@ -5,12 +5,17 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useCallback,
+  useContext,
+  useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import { useChildren, useNode } from './hooks.js';
 import { NodeRenderer, type Chrome } from './NodeRenderer.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
+import { DragContext } from './dnd/DragProvider.js';
+import { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
 
 /** Live layout snapshot passed to function-form `overlay` callbacks. */
 export interface OverlayContext extends ContainerLayout {
@@ -145,7 +150,60 @@ function StoreContainer({
   const ref = useRef<HTMLDivElement | null>(null);
   const parent = useNode(parentId);
   const children = useChildren(parentId);
-  const layout = useContainerLayout(parentId, ref, viewport);
+  const dragController = useContext(DragContext);
+  const dragState = useSyncExternalStore(
+    useCallback(
+      (cb) => (dragController ? dragController.subscribe(cb) : () => {}),
+      [dragController],
+    ),
+    useCallback(() => (dragController ? dragController.state() : null), [dragController]),
+    useCallback(() => null, []),
+  );
+
+  // Compute preview from current drag state. Only when this container is
+  // the hover target AND the hover is accepted; otherwise preview is omitted.
+  const preview =
+    dragState?.hover?.targetId === parentId && dragState.hover.accepted
+      ? {
+          insertId: dragState.draggingId,
+          ...(dragState.hover.insertIndex !== undefined
+            ? { insertIndex: dragState.hover.insertIndex }
+            : {}),
+          cursor: dragState.hover.cursor,
+        }
+      : undefined;
+
+  const layout = useContainerLayout(parentId, ref, viewport, preview);
+
+  // Register a default getInsertionIndex on the container element so the
+  // controller can resolve cursor → child slot without consumer wiring.
+  // Strategy axis is inferred from container.config.axis (defaults to 'y'
+  // for stack, 'x' for strip — for grid we leave it undefined and let the
+  // strategy's fast path handle it via list order).
+  useEffect(() => {
+    if (!dragController) return;
+    const el = ref.current;
+    if (!el) return;
+    const cfg = (parent?.container?.config ?? {}) as { axis?: 'x' | 'y' };
+    const strategyId = parent?.container?.strategyId;
+    const axis: 'x' | 'y' = cfg.axis ?? (strategyId === 'strip' ? 'x' : 'y');
+    return dragController.registerDropTarget(parentId, el, undefined, {
+      getInsertionIndex: (point) => {
+        const rects = childRectsForContainer(el);
+        if (rects.length === 0) return 0;
+        // Skip the source itself for same-parent previews.
+        const sourceId = dragController.state()?.draggingId;
+        const filtered = sourceId ? rects.filter((r) => r.id !== sourceId) : rects;
+        const main = axis === 'y' ? point.y : point.x;
+        return insertionIndexByMidpoint(
+          filtered.map((r) => r.rect),
+          main,
+          axis,
+        );
+      },
+    });
+  }, [dragController, parentId, parent?.container?.strategyId, parent?.container?.config]);
+
   // Track which affordance is currently being dragged (if any) so we can
   // suppress the settle transition (cursor IS the motion) AND expose the id
   // to overlay/affordance render functions.
@@ -172,17 +230,36 @@ function StoreContainer({
       ? (overlay as OverlayRenderer)({ ...layout, draggingAffordanceId })
       : overlay;
 
+  // During preview, the source's real chrome is suppressed (it appears as the
+  // ghost). For same-parent previews, the source is in `children`; for
+  // cross-parent previews, it's not — but its rect is in `layout.placements`
+  // (we skip rendering chrome for it either way because the ghost handles it).
+  const previewSourceId = layout.isPreview ? dragState?.draggingId : undefined;
+
+  // Build the render list = real children ∪ ghost (if cross-parent). For
+  // same-parent the ghost id is already a child; for cross-parent we synthesize
+  // a placeholder entry so we render the preview rect (but with no chrome —
+  // the DragProvider portal-ghost is what the user sees).
+  const renderEntries = new Map<NodeId, { isReal: boolean }>();
+  for (const c of children) {
+    if (c.lifecycle.state !== 'visible') continue;
+    renderEntries.set(c.id, { isReal: true });
+  }
+  if (previewSourceId && !renderEntries.has(previewSourceId)) {
+    renderEntries.set(previewSourceId, { isReal: false });
+  }
+
   return (
     <div
       ref={ref}
       className={className}
       style={containerStyle}
       data-node-container={parentId}
+      data-preview={layout.isPreview ? 'true' : undefined}
     >
-      {children.map((child) => {
-        const rect = layout.placements.get(child.id);
+      {Array.from(renderEntries.entries()).map(([id, { isReal }]) => {
+        const rect = layout.placements.get(id);
         if (!rect) return null;
-        if (child.lifecycle.state !== 'visible') return null;
         const childStyle: CSSProperties = {
           ...CHILD_BASE,
           left: rect.x,
@@ -193,9 +270,16 @@ function StoreContainer({
         if (effectiveSettleMs > 0) {
           childStyle.transition = `left ${effectiveSettleMs}ms ease, top ${effectiveSettleMs}ms ease, width ${effectiveSettleMs}ms ease, height ${effectiveSettleMs}ms ease`;
         }
+        // Source during preview: render the rect but skip chrome (the ghost
+        // overlay is what the user sees). This keeps the slot reserved so
+        // siblings reflow into their preview positions.
+        if (id === previewSourceId) {
+          return <div key={id} style={childStyle} data-node={id} data-preview-source="true" />;
+        }
+        if (!isReal) return null;
         return (
-          <div key={child.id} style={childStyle} data-node={child.id}>
-            <NodeRenderer id={child.id} chrome={chrome} />
+          <div key={id} style={childStyle} data-node={id}>
+            <NodeRenderer id={id} chrome={chrome} />
           </div>
         );
       })}
