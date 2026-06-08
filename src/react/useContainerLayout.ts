@@ -75,7 +75,7 @@ export function useContainerLayout(
       const container = node?.container;
       if (!container || !viewport) return;
       const strategy = registry.get(container.strategyId);
-      if (!strategy?.reduce) return;
+      if (!strategy) return;
       const visibleChildren = store
         .getChildren(parentId)
         .filter((c) => c.lifecycle.state === 'visible')
@@ -84,6 +84,32 @@ export function useContainerLayout(
           if (c.hints?.minSize) item.hints = { minSize: c.hints.minSize };
           return item;
         });
+      // Route store-mutating affordances (e.g. resize edges) to the strategy's
+      // dispatchAffordance hook. This runs in addition to reduce — strategies
+      // may use both (split clears placement.size here, then updates ratio
+      // in reduce).
+      if (strategy.dispatchAffordance) {
+        const lastLayout = strategy.layout({
+          items: visibleChildren,
+          container: viewport,
+          state: (store.getContainerState(parentId) ??
+            (strategy.initialState ? strategy.initialState(visibleChildren) : undefined)) as never,
+          options: (container.config ?? {}) as Record<string, unknown>,
+        });
+        const aff = lastLayout.affordances.find((a) => a.id === event.affordanceId);
+        if (aff) {
+          strategy.dispatchAffordance({
+            event,
+            affordance: aff,
+            store,
+            parentId,
+            container: viewport,
+            options: (container.config ?? {}) as Record<string, unknown>,
+            items: visibleChildren,
+          });
+        }
+      }
+      if (!strategy.reduce) return;
       const current =
         store.getContainerState(parentId) ??
         (strategy.initialState ? strategy.initialState(visibleChildren) : undefined);

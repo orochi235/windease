@@ -380,8 +380,12 @@ function AffordanceHandle({
   // to grab. The outer div catches pointer events; the inner div is the
   // visible rect at the strategy's reported size and carries `data-affordance`
   // so consumer CSS styles it (not the invisible padding).
-  const padX = affordance.kind === 'drag-x' || affordance.kind === 'drag-xy' ? hitPad : 0;
-  const padY = affordance.kind === 'drag-y' || affordance.kind === 'drag-xy' ? hitPad : 0;
+  const isXish = affordance.kind === 'drag-x' || affordance.kind === 'drag-xy'
+    || affordance.kind === 'resize-x' || affordance.kind === 'resize-xy';
+  const isYish = affordance.kind === 'drag-y' || affordance.kind === 'drag-xy'
+    || affordance.kind === 'resize-y' || affordance.kind === 'resize-xy';
+  const padX = isXish ? hitPad : 0;
+  const padY = isYish ? hitPad : 0;
   const outerStyle: CSSProperties = {
     ...AFFORDANCE_BASE,
     left: affordance.rect.x - padX,
