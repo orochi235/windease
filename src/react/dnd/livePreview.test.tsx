@@ -128,8 +128,14 @@ describe('Container — live drop preview', () => {
       controller!.updateHoverByPoint(50, 500);
       await new Promise((r) => setTimeout(r, 20));
     });
-    expect(queryByTestId('chrome-src')).toBeNull();
+    // Source's chrome is rendered (so DragHandle pointer capture survives)
+    // but visually hidden via its wrapper. The data-preview-source attribute
+    // marks the wrapper.
+    expect(queryByTestId('chrome-src')).not.toBeNull();
     expect(queryByTestId('chrome-a')).not.toBeNull();
+    const previewWrapper = container.querySelector('[data-preview-source="true"]');
+    expect(previewWrapper).not.toBeNull();
+    expect((previewWrapper as HTMLElement).style.visibility).toBe('hidden');
   });
 });
 

@@ -270,10 +270,27 @@ function StoreContainer({
         if (effectiveSettleMs > 0) {
           childStyle.transition = `left ${effectiveSettleMs}ms ease, top ${effectiveSettleMs}ms ease, width ${effectiveSettleMs}ms ease, height ${effectiveSettleMs}ms ease`;
         }
-        // Source during preview: render the rect but skip chrome (the ghost
-        // overlay is what the user sees). This keeps the slot reserved so
-        // siblings reflow into their preview positions.
+        // Source during preview: render the chrome with visibility:hidden so
+        // it occupies its prospective rect (siblings reflow around it) and
+        // the ghost overlay is what the user sees — but the DOM stays alive
+        // so the DragHandle's pointer capture isn't broken mid-drag.
+        // (Cross-parent previews fall through to the !isReal branch below
+        // because the source isn't yet a real child of this container.)
+        if (id === previewSourceId && isReal) {
+          return (
+            <div
+              key={id}
+              style={{ ...childStyle, visibility: 'hidden' }}
+              data-node={id}
+              data-preview-source="true"
+            >
+              <NodeRenderer id={id} chrome={chrome} />
+            </div>
+          );
+        }
         if (id === previewSourceId) {
+          // Cross-parent preview placeholder — source isn't here yet, just
+          // reserve the slot.
           return <div key={id} style={childStyle} data-node={id} data-preview-source="true" />;
         }
         if (!isReal) return null;
