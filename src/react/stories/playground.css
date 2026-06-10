@@ -17,9 +17,27 @@
   background: #f1f5f9;
 }
 
+/* Make Ladle's story root behave as a flex column so the canvas can fill it. */
+:where(html, body, #root, #ladle-root, [data-story-root]) {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+.pg-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
 .pg-canvas {
-  width: 900px;
-  height: 540px;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
   background: #0f172a05;
   border-radius: 8px;
 }
@@ -56,8 +74,10 @@
 .pg-snap {
   display: block;
   margin-top: 12px;
-  width: 900px;
+  width: 100%;
+  flex: 0 0 auto;
   height: 200px;
+  box-sizing: border-box;
   font: 11px/1.35 ui-monospace, monospace;
   background: #0f172a05;
   border: 1px solid #e2e8f0;

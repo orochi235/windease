@@ -205,7 +205,7 @@ export const Playground: Story = () => {
               store={store}
               zoneId={zoneId}
               title={String(node.meta?.title ?? 'Controls')}
-              includeGridFields={zoneId === MAIN}
+              variant={zoneId === MAIN ? 'grid' : zoneId === SIDEBAR ? 'stack' : 'none'}
             />
           );
         }
@@ -271,6 +271,7 @@ export const Playground: Story = () => {
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <DragProvider dragOverlay={defaultDragOverlay}>
+          <div className="pg-root">
           <div className="pg-toolbar">
             <button type="button" onClick={() => addPanel(MAIN, 'panel')}>+ Panel → Main</button>
             <button type="button" onClick={() => addPanel(SIDEBAR, 'widget')}>+ Widget → Sidebar</button>
@@ -281,7 +282,6 @@ export const Playground: Story = () => {
             <Container
               parentId={ROOT}
               chrome={chrome}
-              viewport={{ w: 900, h: 540 }}
               className="windease-zone"
               affordances
             />
@@ -299,6 +299,7 @@ export const Playground: Story = () => {
               spellCheck={false}
             />
           )}
+          </div>
         </DragProvider>
       </StrategyRegistryProvider>
     </Provider>
@@ -309,12 +310,12 @@ function ZoneControls({
   store,
   zoneId,
   title,
-  includeGridFields,
+  variant,
 }: {
   store: Store;
   zoneId: ReturnType<typeof asNodeId>;
   title: string;
-  includeGridFields: boolean;
+  variant: 'grid' | 'stack' | 'none';
 }) {
   // Subscribe to changes on this zone so checkboxes/inputs reflect current state.
   const [, force] = useState(0);
@@ -347,14 +348,15 @@ function ZoneControls({
     rows?: number;
     maxCols?: number;
     maxRows?: number;
+    maxItems?: number;
   };
 
   const onNum =
-    (key: 'cols' | 'rows' | 'maxCols' | 'maxRows') =>
+    (key: 'cols' | 'rows' | 'maxCols' | 'maxRows' | 'maxItems') =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value.trim();
       const next = raw === '' ? undefined : Number(raw);
-      store.patchContainerConfig(zoneId, { [key]: next });
+      store.updateContainerConfig(zoneId, { [key]: next });
     };
 
   return (
@@ -384,7 +386,7 @@ function ZoneControls({
         />
         allowsPinning
       </label>
-      {includeGridFields && (
+      {variant === 'grid' && (
         <div className="pg-zone-controls__grid">
           <label>
             cols
@@ -401,6 +403,28 @@ function ZoneControls({
           <label>
             maxRows
             <input type="number" min={1} value={cfg.maxRows ?? ''} onChange={onNum('maxRows')} />
+          </label>
+          <label>
+            maxItems
+            <input
+              type="number"
+              min={1}
+              value={cfg.maxItems ?? ''}
+              onChange={onNum('maxItems')}
+            />
+          </label>
+        </div>
+      )}
+      {variant === 'stack' && (
+        <div className="pg-zone-controls__grid">
+          <label>
+            maxItems
+            <input
+              type="number"
+              min={1}
+              value={cfg.maxItems ?? ''}
+              onChange={onNum('maxItems')}
+            />
           </label>
         </div>
       )}

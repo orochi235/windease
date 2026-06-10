@@ -91,6 +91,60 @@ describe('stackStrategy', () => {
   });
 });
 
+describe('stackStrategy — maxItems', () => {
+  it('caps placement count and reports the rest as unplaced', () => {
+    const result = stackStrategy.layout({
+      items: [mkItem('a'), mkItem('b'), mkItem('c'), mkItem('d')],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: { maxItems: 2 },
+    });
+    expect(result.placements.size).toBe(2);
+    expect(result.placements.has('a')).toBe(true);
+    expect(result.placements.has('b')).toBe(true);
+    expect(result.unplaced).toEqual(['c', 'd']);
+  });
+
+  it('uses placed count when sharing leftover space (not total)', () => {
+    // container h=200, no padding/gap, maxItems=2 → both placed items get full half each.
+    const result = stackStrategy.layout({
+      items: [mkItem('a'), mkItem('b'), mkItem('c')],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: { maxItems: 2 },
+    });
+    expect(result.placements.get('a')?.h).toBe(100);
+    expect(result.placements.get('b')?.h).toBe(100);
+  });
+
+  it('emits resize affordances only for placed-non-last children', () => {
+    const result = stackStrategy.layout({
+      items: [mkItem('a'), mkItem('b'), mkItem('c'), mkItem('d')],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: { maxItems: 2 },
+    });
+    // Only 'a' gets an affordance (b is last placed, c/d are unplaced).
+    expect(result.affordances.map((a) => a.id)).toEqual(['resize-y-a']);
+  });
+
+  it('canAccept rejects drops that would overflow maxItems', () => {
+    expect(stackStrategy.canAccept?.([mkItem('a'), mkItem('b')], { maxItems: 2 })).toBe(true);
+    expect(
+      stackStrategy.canAccept?.([mkItem('a'), mkItem('b'), mkItem('c')], { maxItems: 2 }),
+    ).toBe(false);
+  });
+
+  it('canAccept returns true when maxItems is not set', () => {
+    expect(
+      stackStrategy.canAccept?.(
+        Array.from({ length: 50 }, (_, i) => mkItem(`p${i}`)),
+        {},
+      ),
+    ).toBe(true);
+  });
+});
+
 describe('stackStrategy — preview', () => {
   it('marks isPreview=true when preview is set', () => {
     const result = stackStrategy.layout({

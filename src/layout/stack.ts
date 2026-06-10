@@ -27,6 +27,12 @@ interface StackConfig {
    * every non-last child. Consumers can set false to disable.
    */
   resizable?: boolean;
+  /**
+   * Absolute cap on the number of items the zone accepts. Items beyond this
+   * count go to `unplaced` and the default `canAccept` rejects drops that
+   * would overflow it.
+   */
+  maxItems?: number;
 }
 
 function explicitH(item: LayoutItem): number | undefined {
@@ -48,6 +54,11 @@ function effectiveMax(item: LayoutItem): number | undefined {
 /** @group Strategies */
 export const stackStrategy: LayoutStrategy<void, string> = {
   name: 'stack',
+  canAccept(items, options): boolean {
+    const cap = (options as StackConfig).maxItems;
+    if (cap === undefined) return true;
+    return items.length <= Math.max(1, cap);
+  },
   layout({
     items,
     container,
@@ -73,28 +84,33 @@ export const stackStrategy: LayoutStrategy<void, string> = {
       return empty;
     }
 
+    const itemCap =
+      cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
+    const placedCount = Math.min(items.length, itemCap);
+    const placedItems = items.slice(0, placedCount);
+
     const colX = padding;
     const colW = container.w - 2 * padding;
-    const usableH = container.h - 2 * padding - gap * (items.length - 1);
+    const usableH = container.h - 2 * padding - gap * (placedCount - 1);
 
     // If any child has explicit placement.size.h, use the clamp helper for the
     // whole row. Otherwise fall back to the existing preferredSize/fill path.
-    const hasExplicit = items.some((it) => explicitH(it) !== undefined);
+    const hasExplicit = placedItems.some((it) => explicitH(it) !== undefined);
     let heights: number[];
     if (hasExplicit) {
       const clamp = clampExplicitSizes({
         available: usableH,
-        items: items.map((it) => ({
+        items: placedItems.map((it) => ({
           id: it.id,
           explicit: explicitH(it),
           min: effectiveMin(it),
         })),
       });
-      heights = items.map((it) => clamp.get(it.id) ?? 0);
+      heights = placedItems.map((it) => clamp.get(it.id) ?? 0);
     } else {
       const fill = cfg.fill ?? true;
       const defaultItemSize = cfg.defaultItemSize ?? 0;
-      const preferredH = items.map((item) => item.hints?.preferredSize?.h ?? 0);
+      const preferredH = placedItems.map((item) => item.hints?.preferredSize?.h ?? 0);
       const totalPreferred = preferredH.reduce((sum, h) => sum + h, 0);
       const flexCount = preferredH.filter((h) => h === 0).length;
       const flexH =
@@ -104,12 +120,12 @@ export const stackStrategy: LayoutStrategy<void, string> = {
     }
 
     let y = padding;
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]!;
+    for (let i = 0; i < placedCount; i++) {
+      const item = placedItems[i]!;
       const h = heights[i]!;
       placements.set(item.id, { x: colX, y, w: colW, h });
-      // Trailing-edge resize affordance, except on the last child.
-      if (resizable && i < items.length - 1) {
+      // Trailing-edge resize affordance, except on the last placed child.
+      if (resizable && i < placedCount - 1) {
         affordances.push({
           id: `resize-y-${item.id}`,
           kind: 'resize-y',
@@ -120,7 +136,12 @@ export const stackStrategy: LayoutStrategy<void, string> = {
       }
       y += h + gap;
     }
+    const unplaced: string[] = [];
+    for (let i = placedCount; i < items.length; i++) {
+      unplaced.push(items[i]!.id);
+    }
     const result: LayoutResult<string> = { placements, affordances };
+    if (unplaced.length > 0) result.unplaced = unplaced;
     if (preview) result.isPreview = true;
     return result;
   },
