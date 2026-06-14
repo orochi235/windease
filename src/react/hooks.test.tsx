@@ -1,6 +1,6 @@
 import { act, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from '../index.js';
+import { Store, asNodeId, createPanel, createZone } from '../index.js';
 import { Provider } from './Provider.js';
 import { useActivity } from './hooks.js';
 

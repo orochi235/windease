@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
-import { asNodeId, type Node, type NodeId } from './node.js';
+import { type Node, type NodeId, asNodeId } from './node.js';
 
 describe('node identity', () => {
   it('asNodeId mints a branded NodeId from a string', () => {

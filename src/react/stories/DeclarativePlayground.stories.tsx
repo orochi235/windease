@@ -1,18 +1,13 @@
 import type { Story } from '@ladle/react';
 import { useEffect, useMemo, useState } from 'react';
+import { Store, asNodeId, createPanel, gridStrategy } from '../../index.js';
 import {
-  asNodeId,
-  createPanel,
-  gridStrategy,
-  Store,
-} from '../../index.js';
-import {
-  defaultDragOverlay,
   DragProvider,
   Panel,
   Provider,
   StrategyRegistryProvider,
   Zone,
+  defaultDragOverlay,
 } from '../index.js';
 import './windease.css';
 import './playground.css';
@@ -54,72 +49,67 @@ export const MixedProvenance: Story = () => {
     <Provider store={store}>
       <StrategyRegistryProvider strategies={{ grid: gridStrategy }}>
         <DragProvider dragOverlay={defaultDragOverlay}>
-        <Zone
-          id={asNodeId('root')}
-          strategyId="grid"
-          config={{ cols: 3 }}
-          viewport={{ w: 900, h: 540 }}
-          acceptsDrops
-          renderImperative={(node) => (
-            <div
-              className="windease-panel"
-              style={{ background: '#fef3c7', height: '100%' }}
-            >
-              <header className="windease-panel__title">
-                {String(node.meta?.title ?? node.id)} (imperative)
-              </header>
-            </div>
-          )}
-        >
-          <Panel id={asNodeId('jsx-a')} meta={{ title: 'jsx-a' }} draggable />
-          <Panel id={asNodeId('jsx-b')} meta={{ title: 'jsx-b' }} order={10} draggable />
-          <Panel id={asNodeId('jsx-c')} meta={{ title: 'jsx-c' }} draggable />
-        </Zone>
-        <ImperativeControls
-          onAdd={() => {
-            const next = impCount + 1;
-            setImpCount(next);
-            const id = asNodeId(`imp-${next}`);
-            store.registerNode(
-              createPanel({
-                id,
-                parentId: asNodeId('root'),
-                meta: { title: `imp-${next}` },
-              }),
-            );
-            store.showNode(id);
-          }}
-          onRemove={() => {
-            const view = store.getContainerView(asNodeId('root'));
-            const last = view?.childOrder
-              .slice()
-              .reverse()
-              .find((id) => String(id).startsWith('imp-'));
-            if (last) store.unregisterNode(last);
-          }}
-          onAttemptCollision={() => {
-            try {
+          <Zone
+            id={asNodeId('root')}
+            strategyId="grid"
+            config={{ cols: 3 }}
+            viewport={{ w: 900, h: 540 }}
+            acceptsDrops
+            renderImperative={(node) => (
+              <div className="windease-panel" style={{ background: '#fef3c7', height: '100%' }}>
+                <header className="windease-panel__title">
+                  {String(node.meta?.title ?? node.id)} (imperative)
+                </header>
+              </div>
+            )}
+          >
+            <Panel id={asNodeId('jsx-a')} meta={{ title: 'jsx-a' }} draggable />
+            <Panel id={asNodeId('jsx-b')} meta={{ title: 'jsx-b' }} order={10} draggable />
+            <Panel id={asNodeId('jsx-c')} meta={{ title: 'jsx-c' }} draggable />
+          </Zone>
+          <ImperativeControls
+            onAdd={() => {
+              const next = impCount + 1;
+              setImpCount(next);
+              const id = asNodeId(`imp-${next}`);
               store.registerNode(
                 createPanel({
-                  id: asNodeId('jsx-a'),
+                  id,
                   parentId: asNodeId('root'),
+                  meta: { title: `imp-${next}` },
                 }),
               );
-              alert('UNEXPECTED: collision did not throw');
-            } catch (err) {
-              alert(`Collision correctly rejected: ${(err as Error).message}`);
-            }
-          }}
-          onMutateJsxOwned={() => {
-            store.setMeta(asNodeId('jsx-b'), { title: 'mutated-from-outside' });
-            alert(
-              'Set meta on jsx-b. Next render of <Panel> will overwrite it back to "jsx-b".',
-            );
-          }}
-          onMutateImperative={() => {
-            store.setMeta(asNodeId('imp-1'), { title: 'mutated-imp-1' });
-          }}
-        />
+              store.showNode(id);
+            }}
+            onRemove={() => {
+              const view = store.getContainerView(asNodeId('root'));
+              const last = view?.childOrder
+                .slice()
+                .reverse()
+                .find((id) => String(id).startsWith('imp-'));
+              if (last) store.unregisterNode(last);
+            }}
+            onAttemptCollision={() => {
+              try {
+                store.registerNode(
+                  createPanel({
+                    id: asNodeId('jsx-a'),
+                    parentId: asNodeId('root'),
+                  }),
+                );
+                alert('UNEXPECTED: collision did not throw');
+              } catch (err) {
+                alert(`Collision correctly rejected: ${(err as Error).message}`);
+              }
+            }}
+            onMutateJsxOwned={() => {
+              store.setMeta(asNodeId('jsx-b'), { title: 'mutated-from-outside' });
+              alert('Set meta on jsx-b. Next render of <Panel> will overwrite it back to "jsx-b".');
+            }}
+            onMutateImperative={() => {
+              store.setMeta(asNodeId('imp-1'), { title: 'mutated-imp-1' });
+            }}
+          />
         </DragProvider>
       </StrategyRegistryProvider>
     </Provider>
@@ -143,8 +133,12 @@ function ImperativeControls(props: {
         font: '12px/1.4 system-ui, sans-serif',
       }}
     >
-      <button type="button" onClick={props.onAdd}>+ imperative panel</button>
-      <button type="button" onClick={props.onRemove}>− last imperative</button>
+      <button type="button" onClick={props.onAdd}>
+        + imperative panel
+      </button>
+      <button type="button" onClick={props.onRemove}>
+        − last imperative
+      </button>
       <button type="button" onClick={props.onAttemptCollision}>
         collide with jsx-a (should throw)
       </button>

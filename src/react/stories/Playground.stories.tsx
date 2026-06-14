@@ -1,26 +1,26 @@
 export default { title: 'Playground' };
 
+import type { Story } from '@ladle/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  type SplitNode,
+  Store,
   asNodeId,
   createPanel,
   createZone,
   gridStrategy,
   splitStrategy,
-  type SplitNode,
   stackStrategy,
   stripStrategy,
-  Store,
 } from '../../index.js';
-import type { Story } from '@ladle/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type ChromeMap,
   Container,
-  defaultDragOverlay,
   DragHandle,
   DragProvider,
-  StrategyRegistryProvider,
   Provider,
+  StrategyRegistryProvider,
+  defaultDragOverlay,
 } from '../index.js';
 import './windease.css';
 import './playground.css';
@@ -55,9 +55,7 @@ const INITIAL_TREE: SplitNode = {
 function makeStore(): Store {
   const s = new Store();
   // Root is a splitStrategy container that arranges three sub-zones.
-  s.registerNode(
-    createZone({ id: ROOT, strategyId: 'split', config: { gutterSize: 6 } }),
-  );
+  s.registerNode(createZone({ id: ROOT, strategyId: 'split', config: { gutterSize: 6 } }));
   // Each zone is itself a child of root with its own strategy.
   s.registerNode(
     createPanel({
@@ -90,7 +88,13 @@ function makeStore(): Store {
   s.setContainerState(ROOT, INITIAL_TREE);
 
   // Seed content.
-  const seed = (id: string, parent: ReturnType<typeof asNodeId>, title: string, h?: number, w?: number) => {
+  const seed = (
+    id: string,
+    parent: ReturnType<typeof asNodeId>,
+    title: string,
+    h?: number,
+    w?: number,
+  ) => {
     const nid = asNodeId(id);
     s.registerNode(
       createPanel({
@@ -217,10 +221,7 @@ export const Playground: Story = () => {
                 <span className="pg-panel-actions">
                   <button
                     type="button"
-                    className={
-                      'pg-panel-btn pg-panel-btn--pin' +
-                      (node.slot?.placement?.pinned ? ' is-active' : '')
-                    }
+                    className={`pg-panel-btn pg-panel-btn--pin${node.slot?.placement?.pinned ? ' is-active' : ''}`}
                     title={node.slot?.placement?.pinned ? 'Unpin' : 'Pin'}
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
@@ -250,7 +251,6 @@ export const Playground: Story = () => {
         );
       },
     }),
-    // biome-ignore lint/correctness/useExhaustiveDependencies: chrome refers to itself via closure
     [store],
   );
 
@@ -272,33 +272,31 @@ export const Playground: Story = () => {
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <DragProvider dragOverlay={defaultDragOverlay}>
           <div className="pg-root">
-          <div className="pg-toolbar">
-            <button type="button" onClick={() => addPanel(MAIN, 'panel')}>+ Panel → Main</button>
-            <button type="button" onClick={() => addPanel(SIDEBAR, 'widget')}>+ Widget → Sidebar</button>
-            <button type="button" onClick={() => addPanel(DOCK, 'tool')}>+ Tool → Dock</button>
-            <button type="button" onClick={onSnap}>Snapshot</button>
-          </div>
-          <div className="pg-canvas">
-            <Container
-              parentId={ROOT}
-              chrome={chrome}
-              className="windease-zone"
-              affordances
-            />
-          </div>
-          <p className="pg-hint">
-            Drag panels between Main / Sidebar / Dock. Resize the gutters between
-            zones. <code>Snapshot</code> dumps the store; copy and{' '}
-            <code>deserialize</code> elsewhere to rehydrate.
-          </p>
-          {snapText && (
-            <textarea
-              className="pg-snap"
-              readOnly
-              value={snapText}
-              spellCheck={false}
-            />
-          )}
+            <div className="pg-toolbar">
+              <button type="button" onClick={() => addPanel(MAIN, 'panel')}>
+                + Panel → Main
+              </button>
+              <button type="button" onClick={() => addPanel(SIDEBAR, 'widget')}>
+                + Widget → Sidebar
+              </button>
+              <button type="button" onClick={() => addPanel(DOCK, 'tool')}>
+                + Tool → Dock
+              </button>
+              <button type="button" onClick={onSnap}>
+                Snapshot
+              </button>
+            </div>
+            <div className="pg-canvas">
+              <Container parentId={ROOT} chrome={chrome} className="windease-zone" affordances />
+            </div>
+            <p className="pg-hint">
+              Drag panels between Main / Sidebar / Dock. Resize the gutters between zones.{' '}
+              <code>Snapshot</code> dumps the store; copy and <code>deserialize</code> elsewhere to
+              rehydrate.
+            </p>
+            {snapText && (
+              <textarea className="pg-snap" readOnly value={snapText} spellCheck={false} />
+            )}
           </div>
         </DragProvider>
       </StrategyRegistryProvider>
@@ -406,12 +404,7 @@ function ZoneControls({
           </label>
           <label>
             maxItems
-            <input
-              type="number"
-              min={1}
-              value={cfg.maxItems ?? ''}
-              onChange={onNum('maxItems')}
-            />
+            <input type="number" min={1} value={cfg.maxItems ?? ''} onChange={onNum('maxItems')} />
           </label>
         </div>
       )}
@@ -419,12 +412,7 @@ function ZoneControls({
         <div className="pg-zone-controls__grid">
           <label>
             maxItems
-            <input
-              type="number"
-              min={1}
-              value={cfg.maxItems ?? ''}
-              onChange={onNum('maxItems')}
-            />
+            <input type="number" min={1} value={cfg.maxItems ?? ''} onChange={onNum('maxItems')} />
           </label>
         </div>
       )}

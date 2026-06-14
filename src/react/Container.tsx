@@ -1,9 +1,8 @@
-import type { Affordance, NodeId } from '../index.js';
 import {
   type CSSProperties,
   Fragment,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useContext,
   useEffect,
@@ -11,11 +10,12 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { useChildren, useNode } from './hooks.js';
-import { NodeRenderer, type Chrome } from './NodeRenderer.js';
-import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
+import type { Affordance, NodeId } from '../index.js';
+import { type Chrome, NodeRenderer } from './NodeRenderer.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
+import { useChildren, useNode } from './hooks.js';
+import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
 
 /** Live layout snapshot passed to function-form `overlay` callbacks. */
 export interface OverlayContext extends ContainerLayout {
@@ -216,12 +216,7 @@ function StoreContainer({
 
   if (!parent?.container || !chrome) {
     return (
-      <div
-        ref={ref}
-        className={className}
-        style={containerStyle}
-        data-node-container={parentId}
-      />
+      <div ref={ref} className={className} style={containerStyle} data-node-container={parentId} />
     );
   }
 
@@ -336,12 +331,7 @@ interface AffordanceHandleProps {
   onActiveChange: (active: boolean) => void;
 }
 
-function AffordanceHandle({
-  affordance,
-  dispatch,
-  hitPad,
-  onActiveChange,
-}: AffordanceHandleProps) {
+function AffordanceHandle({ affordance, dispatch, hitPad, onActiveChange }: AffordanceHandleProps) {
   const last = useRef<{ x: number; y: number } | null>(null);
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -384,10 +374,16 @@ function AffordanceHandle({
   // to grab. The outer div catches pointer events; the inner div is the
   // visible rect at the strategy's reported size and carries `data-affordance`
   // so consumer CSS styles it (not the invisible padding).
-  const isXish = affordance.kind === 'drag-x' || affordance.kind === 'drag-xy'
-    || affordance.kind === 'resize-x' || affordance.kind === 'resize-xy';
-  const isYish = affordance.kind === 'drag-y' || affordance.kind === 'drag-xy'
-    || affordance.kind === 'resize-y' || affordance.kind === 'resize-xy';
+  const isXish =
+    affordance.kind === 'drag-x' ||
+    affordance.kind === 'drag-xy' ||
+    affordance.kind === 'resize-x' ||
+    affordance.kind === 'resize-xy';
+  const isYish =
+    affordance.kind === 'drag-y' ||
+    affordance.kind === 'drag-xy' ||
+    affordance.kind === 'resize-y' ||
+    affordance.kind === 'resize-xy';
   const padX = isXish ? hitPad : 0;
   const padY = isYish ? hitPad : 0;
   const outerStyle: CSSProperties = {
@@ -424,4 +420,3 @@ function AffordanceHandle({
     </div>
   );
 }
-

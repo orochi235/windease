@@ -2,16 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { createGroup, createPanel, createZone } from './constructors.js';
 import { WindeaseError } from './errors.js';
 import { asNodeId } from './node.js';
-import {
-  deserialize,
-  serialize,
-  type SerializedStore,
-} from './snapshot.js';
+import { type SerializedStore, deserialize, serialize } from './snapshot.js';
 import { Store } from './store.js';
 
 function buildSampleStore(): Store {
   const s = new Store();
-  s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'vertical' } }));
+  s.registerNode(
+    createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'vertical' } }),
+  );
   s.registerNode(
     createPanel({
       id: asNodeId('p1'),
@@ -160,9 +158,7 @@ describe('deserialize — back-compat for legacy childIds key', () => {
 
 describe('deserialize — rejects v1 snapshots', () => {
   it('throws on version: 1', () => {
-    expect(() =>
-      deserialize({ version: 1, zones: [], windows: [] }),
-    ).toThrow(/version: 1/);
+    expect(() => deserialize({ version: 1, zones: [], windows: [] })).toThrow(/version: 1/);
   });
 });
 
@@ -197,7 +193,6 @@ describe('snapshot v2 — activity', () => {
     const snap = serialize(store);
     expect(snap.nodes.find((n) => n.id === 'p')!.activity).toBeUndefined();
   });
-
 });
 
 describe('serialize — groups + recursion', () => {

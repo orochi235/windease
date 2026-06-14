@@ -1,8 +1,8 @@
-import { render, cleanup } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render } from '@testing-library/react';
 import { useEffect, useRef } from 'react';
-import { Provider } from '../Provider.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Store, asNodeId, createPanel, createZone } from '../../index.js';
+import { Provider } from '../Provider.js';
 import { DragProvider, useDragController } from './DragProvider.js';
 import { useDropTarget } from './useDropTarget.js';
 
@@ -21,7 +21,17 @@ function Target({
     const el = ref.current;
     if (!el) return;
     el.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 100, bottom: 100, width: 100, height: 100, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+      ({
+        left: 0,
+        top: 0,
+        right: 100,
+        bottom: 100,
+        width: 100,
+        height: 100,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
   }, []);
   return <div ref={ref} data-testid={nodeId} style={{ width: 100, height: 100 }} />;
 }
@@ -47,7 +57,11 @@ describe('useDropTarget — getInsertionIndex', () => {
     render(
       <Provider store={store}>
         <DragProvider>
-          <ControllerCapture onReady={(c) => (controller = c)} />
+          <ControllerCapture
+            onReady={(c) => {
+              controller = c;
+            }}
+          />
           <Target nodeId="tgt" onIndex={spy} />
         </DragProvider>
       </Provider>,

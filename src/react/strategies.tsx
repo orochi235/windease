@@ -1,5 +1,5 @@
+import { type ReactNode, createContext, useContext, useMemo } from 'react';
 import type { LayoutStrategy } from '../index.js';
-import { createContext, type ReactNode, useContext, useMemo } from 'react';
 
 export type StrategyRegistry = ReadonlyMap<string, LayoutStrategy<unknown, string, unknown>>;
 
@@ -11,18 +11,10 @@ export interface StrategyRegistryProviderProps {
 }
 
 /** @group Components */
-export function StrategyRegistryProvider({
-  strategies,
-  children,
-}: StrategyRegistryProviderProps) {
-  const registry = useMemo(
-    () => new Map(Object.entries(strategies)),
-    [strategies],
-  );
+export function StrategyRegistryProvider({ strategies, children }: StrategyRegistryProviderProps) {
+  const registry = useMemo(() => new Map(Object.entries(strategies)), [strategies]);
   return (
-    <StrategyRegistryContext.Provider value={registry}>
-      {children}
-    </StrategyRegistryContext.Provider>
+    <StrategyRegistryContext.Provider value={registry}>{children}</StrategyRegistryContext.Provider>
   );
 }
 

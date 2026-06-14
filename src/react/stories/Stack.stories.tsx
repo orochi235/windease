@@ -1,20 +1,9 @@
 export default { title: 'Stack' };
 
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  stackStrategy,
-  Store,
-} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import {
-  type ChromeMap,
-  Container,
-  StrategyRegistryProvider,
-  Provider,
-} from '../index.js';
+import { Store, asNodeId, createPanel, createZone, stackStrategy } from '../../index.js';
+import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
 const STRATEGIES = {
@@ -52,7 +41,6 @@ export const Stack: Story<Args> = ({ gap, padding }) => {
       s.showNode(id);
     });
     return s;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: rebuild on control change
   }, [gap, padding]);
 
   const chrome: ChromeMap = useMemo(

@@ -1,6 +1,6 @@
+import { type RefObject, useCallback, useEffect, useMemo, useState } from 'react';
 import type { Affordance, LayoutEvent, LayoutResult, NodeId, Rect } from '../index.js';
 import { nodeToLayoutItem, runStrategyForContainer } from '../index.js';
-import { type RefObject, useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from './Provider.js';
 import { useNode } from './hooks.js';
 import { useStrategyRegistry } from './strategies.js';
@@ -39,9 +39,7 @@ export function useContainerLayout(
   const store = useStore();
   const node = useNode(parentId);
   const registry = useStrategyRegistry();
-  const [measured, setMeasured] = useState<{ w: number; h: number } | null>(
-    fixedViewport ?? null,
-  );
+  const [measured, setMeasured] = useState<{ w: number; h: number } | null>(fixedViewport ?? null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: depend on whether fixedViewport is provided, not its identity.
   useEffect(() => {
@@ -128,6 +126,7 @@ export function useContainerLayout(
     ? `${preview.insertId}|${preview.insertIndex ?? '-'}|${preview.cursor.x}|${preview.cursor.y}`
     : '';
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: stateTick is a re-run gate; previewKey is a stable identity for `preview`.
   const layout = useMemo<Omit<ContainerLayout, 'dispatchAffordance'>>(() => {
     if (!node?.container || !viewport) {
       return { placements: new Map(), affordances: [], unplaced: [], viewport, isPreview: false };
@@ -190,7 +189,6 @@ export function useContainerLayout(
       viewport,
       isPreview: result.isPreview ?? false,
     };
-    // biome-ignore lint/correctness/useExhaustiveDependencies: stateTick is a re-run gate; previewKey is a stable identity for `preview`.
   }, [store, node?.container, viewport, registry, parentId, stateTick, previewKey]);
 
   return { ...layout, dispatchAffordance };

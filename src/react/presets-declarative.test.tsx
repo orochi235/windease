@@ -1,8 +1,8 @@
-import { render, cleanup } from '@testing-library/react';
+import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Store, asNodeId } from '../index.js';
 import { Provider } from './Provider.js';
-import { Panel, Group, Zone } from './presets.js';
+import { Group, Panel, Zone } from './presets.js';
 
 afterEach(cleanup);
 
@@ -53,13 +53,9 @@ describe('declarative presets', () => {
       </Provider>
     );
     const { rerender } = render(<Tree title="one" />);
-    expect(
-      (store.getNode(asNodeId('p1'))?.meta as Record<string, unknown>).title,
-    ).toBe('one');
+    expect((store.getNode(asNodeId('p1'))?.meta as Record<string, unknown>).title).toBe('one');
     rerender(<Tree title="two" />);
-    expect(
-      (store.getNode(asNodeId('p1'))?.meta as Record<string, unknown>).title,
-    ).toBe('two');
+    expect((store.getNode(asNodeId('p1'))?.meta as Record<string, unknown>).title).toBe('two');
   });
 
   it('hidden prop toggles hideNode/showNode', () => {

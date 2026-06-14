@@ -8,7 +8,6 @@ import type {
 } from '../layout-types.js';
 import { clampExplicitSizes } from './resize.js';
 
-
 interface StackConfig {
   gap?: number;
   padding?: number;
@@ -36,8 +35,7 @@ interface StackConfig {
 }
 
 function explicitH(item: LayoutItem): number | undefined {
-  const size = (item as unknown as { placement?: { size?: { h?: number } } })
-    .placement?.size?.h;
+  const size = (item as unknown as { placement?: { size?: { h?: number } } }).placement?.size?.h;
   return typeof size === 'number' ? size : undefined;
 }
 
@@ -46,8 +44,7 @@ function effectiveMin(item: LayoutItem): number {
 }
 
 function effectiveMax(item: LayoutItem): number | undefined {
-  const m = (item as unknown as { hints?: { maxSize?: { h?: number } } }).hints
-    ?.maxSize?.h;
+  const m = (item as unknown as { hints?: { maxSize?: { h?: number } } }).hints?.maxSize?.h;
   return typeof m === 'number' ? m : undefined;
 }
 
@@ -113,8 +110,7 @@ export const stackStrategy: LayoutStrategy<void, string> = {
       const preferredH = placedItems.map((item) => item.hints?.preferredSize?.h ?? 0);
       const totalPreferred = preferredH.reduce((sum, h) => sum + h, 0);
       const flexCount = preferredH.filter((h) => h === 0).length;
-      const flexH =
-        fill && flexCount > 0 ? Math.max(0, (usableH - totalPreferred) / flexCount) : 0;
+      const flexH = fill && flexCount > 0 ? Math.max(0, (usableH - totalPreferred) / flexCount) : 0;
       const fallbackH = fill ? flexH : defaultItemSize;
       heights = preferredH.map((h) => (h > 0 ? h : fallbackH));
     }
@@ -168,10 +164,7 @@ export const stackStrategy: LayoutStrategy<void, string> = {
       const explicits = items.filter((it) => explicitH(it) !== undefined);
       const explicitSum = explicits.reduce((s, it) => s + (explicitH(it) ?? 0), 0);
       const unconstrainedCount = items.length - explicits.length;
-      base =
-        unconstrainedCount > 0
-          ? Math.max(0, (usableH - explicitSum) / unconstrainedCount)
-          : 0;
+      base = unconstrainedCount > 0 ? Math.max(0, (usableH - explicitSum) / unconstrainedCount) : 0;
     }
 
     let next = base + dy;
@@ -188,9 +181,7 @@ export const stackStrategy: LayoutStrategy<void, string> = {
 
     const node = (
       store as unknown as {
-        getNode: (id: string) =>
-          | { slot?: { placement?: Record<string, unknown> } }
-          | undefined;
+        getNode: (id: string) => { slot?: { placement?: Record<string, unknown> } } | undefined;
       }
     ).getNode(childId as string);
     const existingSize = (node?.slot?.placement?.size ?? {}) as {

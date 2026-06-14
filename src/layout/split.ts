@@ -250,7 +250,12 @@ function buildTree(items: LayoutItem[], _direction: 'horizontal' | 'vertical'): 
   };
 }
 
-function rectAtPath(root: SplitNode, path: number[], container: Rect, gutter: number): Rect | undefined {
+function rectAtPath(
+  root: SplitNode,
+  path: number[],
+  container: Rect,
+  gutter: number,
+): Rect | undefined {
   let node = root;
   let rect = container;
   for (const step of path) {
@@ -260,13 +265,23 @@ function rectAtPath(root: SplitNode, path: number[], container: Rect, gutter: nu
     if (node.direction === 'horizontal') {
       const aw = rect.w * r - halfG;
       const bx = rect.x + rect.w * r + halfG;
-      if (step === 0) { rect = { x: rect.x, y: rect.y, w: aw, h: rect.h }; node = node.a; }
-      else { rect = { x: bx, y: rect.y, w: rect.x + rect.w - bx, h: rect.h }; node = node.b; }
+      if (step === 0) {
+        rect = { x: rect.x, y: rect.y, w: aw, h: rect.h };
+        node = node.a;
+      } else {
+        rect = { x: bx, y: rect.y, w: rect.x + rect.w - bx, h: rect.h };
+        node = node.b;
+      }
     } else {
       const ah = rect.h * r - halfG;
       const by = rect.y + rect.h * r + halfG;
-      if (step === 0) { rect = { x: rect.x, y: rect.y, w: rect.w, h: ah }; node = node.a; }
-      else { rect = { x: rect.x, y: by, w: rect.w, h: rect.y + rect.h - by }; node = node.b; }
+      if (step === 0) {
+        rect = { x: rect.x, y: rect.y, w: rect.w, h: ah };
+        node = node.a;
+      } else {
+        rect = { x: rect.x, y: by, w: rect.w, h: rect.y + rect.h - by };
+        node = node.b;
+      }
     }
   }
   return rect;
@@ -290,7 +305,13 @@ export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
     if (cfg.recursive === false) return items.length === 2;
     return items.length >= 2;
   },
-  layout({ items, container, state, options, preview }: {
+  layout({
+    items,
+    container,
+    state,
+    options,
+    preview,
+  }: {
     items: LayoutItem[];
     container: Size;
     state: SplitNode;
@@ -352,7 +373,12 @@ export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
     const gutter = cfg.gutterSize ?? 4;
     let minR = cfg.minRatio ?? DEFAULT_MIN;
     let maxR = cfg.maxRatio ?? DEFAULT_MAX;
-    const rect = rectAtPath(state, path, { x: 0, y: 0, w: context.container.w, h: context.container.h }, gutter);
+    const rect = rectAtPath(
+      state,
+      path,
+      { x: 0, y: 0, w: context.container.w, h: context.container.h },
+      gutter,
+    );
     if (!rect) return state;
     const total = target.direction === 'horizontal' ? rect.w : rect.h;
     if (total === 0) return state;
@@ -372,7 +398,8 @@ export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
     if (maxSideA !== undefined) maxR = Math.min(maxR, maxSideA / total);
     if (maxSideB !== undefined) minR = Math.max(minR, 1 - maxSideB / total);
     if (minR > maxR) return state;
-    const delta = target.direction === 'horizontal' ? (event.payload.dx ?? 0) : (event.payload.dy ?? 0);
+    const delta =
+      target.direction === 'horizontal' ? (event.payload.dx ?? 0) : (event.payload.dy ?? 0);
     return updateAtPath(state, path, clamp(target.ratio + delta / total, minR, maxR));
   },
 };

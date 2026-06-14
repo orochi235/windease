@@ -86,7 +86,11 @@ export function runStrategyForContainer<TState>(
     const alreadyPresent = items.some((it) => it.id === preview.insertId);
     if (!alreadyPresent) {
       const ghostItem: LayoutItem = { id: preview.insertId };
-      if (preview.insertIndex !== undefined && preview.insertIndex >= 0 && preview.insertIndex <= items.length) {
+      if (
+        preview.insertIndex !== undefined &&
+        preview.insertIndex >= 0 &&
+        preview.insertIndex <= items.length
+      ) {
         items.splice(preview.insertIndex, 0, ghostItem);
       } else {
         items.push(ghostItem);

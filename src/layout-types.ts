@@ -1,5 +1,5 @@
-import type { Store } from './store.js';
 import type { NodeId } from './node.js';
+import type { Store } from './store.js';
 
 export type ItemId = string;
 export type Rect = { x: number; y: number; w: number; h: number };
@@ -113,11 +113,7 @@ export interface LayoutEvent {
   payload: { dx?: number; dy?: number; key?: string };
 }
 
-export interface LayoutStrategy<
-  TState = void,
-  TId extends string = string,
-  TMeta = unknown,
-> {
+export interface LayoutStrategy<TState = void, TId extends string = string, TMeta = unknown> {
   name: string;
   initialState?(items: LayoutItem[]): TState;
   layout(input: {

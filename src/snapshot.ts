@@ -266,4 +266,3 @@ function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildOrder: bo
   }
   return node;
 }
-

@@ -33,14 +33,8 @@
     },
     "./styles.css": "./dist/react/styles.css"
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "sideEffects": [
-    "*.css"
-  ],
+  "files": ["dist", "README.md", "LICENSE"],
+  "sideEffects": ["*.css"],
   "publishConfig": {
     "access": "public"
   },

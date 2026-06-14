@@ -98,7 +98,10 @@ export class DragController {
 
   tryBegin(sourceId: NodeId): boolean {
     if (this.active) {
-      trace('dnd', `tryBegin ${sourceId}: REJECTED (drag already active for ${this.active.draggingId})`);
+      trace(
+        'dnd',
+        `tryBegin ${sourceId}: REJECTED (drag already active for ${this.active.draggingId})`,
+      );
       return false;
     }
     const node = this.store.getNode(sourceId);
@@ -112,11 +115,17 @@ export class DragController {
     }
     const parent = this.store.getNode(node.slot.parentId);
     if (parent?.container?.allowsDragOut === false) {
-      trace('dnd', `tryBegin ${sourceId}: REJECTED (parent ${node.slot.parentId} allowsDragOut=false)`);
+      trace(
+        'dnd',
+        `tryBegin ${sourceId}: REJECTED (parent ${node.slot.parentId} allowsDragOut=false)`,
+      );
       return false;
     }
     this.active = { draggingId: sourceId, cursor: { x: 0, y: 0 }, hover: null };
-    trace('dnd', `drag start: ${sourceId} (from parent ${node.slot.parentId}; ${this.dropTargets.size} drop targets registered)`);
+    trace(
+      'dnd',
+      `drag start: ${sourceId} (from parent ${node.slot.parentId}; ${this.dropTargets.size} drop targets registered)`,
+    );
     this.bindEscape();
     this.bindWindowUp();
     this.emit();
@@ -130,8 +139,8 @@ export class DragController {
     const raf =
       typeof requestAnimationFrame !== 'undefined'
         ? requestAnimationFrame
-        : ((cb: FrameRequestCallback) =>
-            setTimeout(() => cb(performance.now()), 16) as unknown as number);
+        : (cb: FrameRequestCallback) =>
+            setTimeout(() => cb(performance.now()), 16) as unknown as number;
     this.rafId = raf(() => {
       this.rafId = null;
       if (!this.pendingPoint || !this.active) return;
@@ -220,8 +229,7 @@ export class DragController {
           ...(hover.insertIndex !== undefined ? { insertIndex: hover.insertIndex } : {}),
         }
       : null;
-    const cursorChanged =
-      this.active.cursor.x !== cursor.x || this.active.cursor.y !== cursor.y;
+    const cursorChanged = this.active.cursor.x !== cursor.x || this.active.cursor.y !== cursor.y;
     if (sameHover(this.active.hover, next) && !cursorChanged) return;
     const previous = this.active.hover;
     this.active = { ...this.active, cursor, hover: next };
@@ -349,7 +357,7 @@ export class DragController {
 
   private onWindowPointerUp = (): void => {
     if (!this.active) return;
-    trace('dnd', `window pointerup safety net fired — dispatching drop`);
+    trace('dnd', 'window pointerup safety net fired — dispatching drop');
     this.drop();
   };
 }
@@ -367,7 +375,5 @@ function ancestorDepth(el: Element): number {
 function sameHover(a: DragState['hover'], b: DragState['hover']): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  return (
-    a.targetId === b.targetId && a.accepted === b.accepted && a.insertIndex === b.insertIndex
-  );
+  return a.targetId === b.targetId && a.accepted === b.accepted && a.insertIndex === b.insertIndex;
 }

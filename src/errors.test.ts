@@ -20,7 +20,7 @@ describe('WindeaseError', () => {
   });
 });
 
-import { describe as describe2, it as it2, expect as expect2 } from 'vitest';
+import { describe as describe2, expect as expect2, it as it2 } from 'vitest';
 
 describe2('WindeaseError - workspace codes', () => {
   for (const code of ['WRONG_ITEM_COUNT', 'UNKNOWN_AFFORDANCE_KIND', 'NO_INITIAL_STATE'] as const) {

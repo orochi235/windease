@@ -1,5 +1,5 @@
-import type { NodeId } from '../../index.js';
 import { type RefObject, useContext, useEffect } from 'react';
+import type { NodeId } from '../../index.js';
 import { DragContext } from './DragProvider.js';
 
 export interface UseDropTargetOptions {

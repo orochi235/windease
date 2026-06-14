@@ -1,21 +1,16 @@
 export default { title: 'Recursive zones / Split (resize)' };
 
+import type { Story } from '@ladle/react';
+import { useMemo } from 'react';
 import {
+  type SplitNode,
+  Store,
   asNodeId,
   createPanel,
   createZone,
   splitStrategy,
-  type SplitNode,
-  Store,
 } from '../../index.js';
-import type { Story } from '@ladle/react';
-import { useMemo } from 'react';
-import {
-  type ChromeMap,
-  Container,
-  StrategyRegistryProvider,
-  Provider,
-} from '../index.js';
+import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
 const STRATEGIES = {

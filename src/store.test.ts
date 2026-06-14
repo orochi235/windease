@@ -6,7 +6,7 @@ import {
   DuplicateNodeError,
   NodeNotFoundError,
 } from './errors.js';
-import { asNodeId, type NodeId } from './node.js';
+import { type NodeId, asNodeId } from './node.js';
 import { Store, type StoreEvents } from './store.js';
 
 function fresh(): Store {
@@ -43,9 +43,9 @@ describe('Store — register / unregister', () => {
 
   it('throws NodeNotFoundError when parent does not exist', () => {
     const s = fresh();
-    expect(() =>
-      s.registerNode(createPanel({ id: id('p1'), parentId: id('missing') })),
-    ).toThrow(NodeNotFoundError);
+    expect(() => s.registerNode(createPanel({ id: id('p1'), parentId: id('missing') }))).toThrow(
+      NodeNotFoundError,
+    );
   });
 
   it('emits node.registered', () => {
@@ -89,12 +89,7 @@ describe('Store — register / unregister', () => {
 
     s.unregisterNode(id('tray'));
 
-    expect(order).toEqual([
-      'unreg:a',
-      'unreg:b',
-      'cascade:tray:a,b',
-      'unreg:tray',
-    ]);
+    expect(order).toEqual(['unreg:a', 'unreg:b', 'cascade:tray:a,b', 'unreg:tray']);
     expect(s.getNode(id('a'))).toBeUndefined();
     expect(s.getNode(id('tray'))).toBeUndefined();
     expect(s.getContainerView(id('z'))?.childOrder).toEqual([]);
@@ -254,9 +249,7 @@ describe('Store — placement / meta', () => {
   it('patchPlacement merges and undefined deletes; emits batched changes', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(
-      createPanel({ id: id('p'), parentId: id('z'), placement: { a: 1 } }),
-    );
+    s.registerNode(createPanel({ id: id('p'), parentId: id('z'), placement: { a: 1 } }));
     const cb = vi.fn();
     s.events.on('node.placementChanged', cb);
     s.patchPlacement(id('p'), { a: 2, b: 3 });
@@ -289,9 +282,7 @@ describe('Store — placement / meta', () => {
 describe('Store — container config', () => {
   it('merge-patches object configs; emits configChanged', () => {
     const s = fresh();
-    s.registerNode(
-      createZone({ id: id('z'), strategyId: 'grid', config: { cols: 2, rows: 3 } }),
-    );
+    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: { cols: 2, rows: 3 } }));
     const cb = vi.fn();
     s.events.on('container.configChanged', cb);
     s.updateContainerConfig(id('z'), { cols: 4 });

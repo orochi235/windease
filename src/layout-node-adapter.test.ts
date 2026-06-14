@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
-import { stackStrategy } from './layout/stack.js';
 import {
   getLayoutNodes,
   nodeToLayoutItem,
   nodeToLayoutNode,
   runStrategyForContainer,
 } from './layout-node-adapter.js';
+import { stackStrategy } from './layout/stack.js';
 import { asNodeId } from './node.js';
 import { Store } from './store.js';
 
@@ -152,10 +152,7 @@ describe('runStrategyForContainer', () => {
     s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
     const initial = stackStrategy.initialState
-      ? stackStrategy.initialState([
-          { id: 'a' },
-          { id: 'b' },
-        ])
+      ? stackStrategy.initialState([{ id: 'a' }, { id: 'b' }])
       : undefined;
     const result = runStrategyForContainer(
       s,

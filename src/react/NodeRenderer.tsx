@@ -1,5 +1,5 @@
-import type { Node, NodeId, Store } from '../index.js';
 import { Fragment, type ReactNode } from 'react';
+import type { Node, NodeId, Store } from '../index.js';
 import { Provider } from './Provider.js';
 import { useChildren, useNode, useRootNodes } from './hooks.js';
 
@@ -56,7 +56,7 @@ export function NodeRenderer({ id, chrome }: NodeRendererProps) {
   ) : null;
   const handler = resolveChrome(chrome, node);
   if (!handler) return null;
-  return <Fragment>{handler({ node, children: subtree })}</Fragment>;
+  return handler({ node, children: subtree });
 }
 
 export interface RootProps {

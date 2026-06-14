@@ -51,7 +51,9 @@ const REJECTED_STYLE: CSSProperties = {
  * @group Components
  */
 export const defaultDragOverlay: DragOverlayRenderer = ({ draggingId, cursor, node, rejected }) => {
-  const label = ((node?.meta as Record<string, unknown> | undefined)?.title as string | undefined) ?? draggingId;
+  const label =
+    ((node?.meta as Record<string, unknown> | undefined)?.title as string | undefined) ??
+    draggingId;
   const style: CSSProperties = {
     ...BASE_STYLE,
     ...(rejected ? REJECTED_STYLE : ACCEPTED_STYLE),
@@ -59,7 +61,11 @@ export const defaultDragOverlay: DragOverlayRenderer = ({ draggingId, cursor, no
     top: cursor.y,
   };
   return (
-    <div data-testid="windease-drag-overlay" data-rejected={rejected ? 'true' : 'false'} style={style}>
+    <div
+      data-testid="windease-drag-overlay"
+      data-rejected={rejected ? 'true' : 'false'}
+      style={style}
+    >
       {label}
     </div>
   );

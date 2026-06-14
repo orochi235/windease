@@ -18,8 +18,11 @@ describe('HistoryController', () => {
 
   it('redo replays forward until exhausted', () => {
     const h = new HistoryController<number>();
-    h.push(1); h.push(2); h.push(3);
-    h.undo(); h.undo();
+    h.push(1);
+    h.push(2);
+    h.push(3);
+    h.undo();
+    h.undo();
     expect(h.redo()).toBe(2);
     expect(h.redo()).toBe(3);
     expect(h.redo()).toBeUndefined();
@@ -27,7 +30,9 @@ describe('HistoryController', () => {
 
   it('push after undo truncates the redo tail', () => {
     const h = new HistoryController<number>();
-    h.push(1); h.push(2); h.push(3);
+    h.push(1);
+    h.push(2);
+    h.push(3);
     h.undo();
     h.push(99);
     expect(h.canRedo()).toBe(false);
@@ -37,7 +42,10 @@ describe('HistoryController', () => {
 
   it('capacity caps the stack and evicts oldest', () => {
     const h = new HistoryController<number>({ capacity: 3 });
-    h.push(1); h.push(2); h.push(3); h.push(4);
+    h.push(1);
+    h.push(2);
+    h.push(3);
+    h.push(4);
     expect(h.undo()).toBe(3);
     expect(h.undo()).toBe(2);
     expect(h.canUndo()).toBe(false);
@@ -67,7 +75,8 @@ describe('HistoryController', () => {
 
   it('clear empties the stack', () => {
     const h = new HistoryController<number>();
-    h.push(1); h.push(2);
+    h.push(1);
+    h.push(2);
     h.clear();
     expect(h.canUndo()).toBe(false);
     expect(h.canRedo()).toBe(false);

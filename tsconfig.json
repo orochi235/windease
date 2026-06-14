@@ -7,10 +7,5 @@
     "declarationMap": true
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/*.stories.tsx",
-    "src/react/stories/**"
-  ]
+  "exclude": ["**/*.test.ts", "**/*.test.tsx", "**/*.stories.tsx", "src/react/stories/**"]
 }

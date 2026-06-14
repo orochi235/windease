@@ -41,7 +41,6 @@ describe('createZone', () => {
     expect(node.meta).toEqual({ label: 'main' });
     expect(node.hints?.preferredSize).toEqual({ w: 800, h: 600 });
   });
-
 });
 
 describe('createGroup', () => {
@@ -75,7 +74,6 @@ describe('createGroup', () => {
     expect(node.container?.allowsPinning).toBe(false);
     expect(node.slot?.placement).toEqual({ pinned: true });
   });
-
 });
 
 describe('createPanel', () => {
@@ -126,7 +124,6 @@ describe('createPanel', () => {
     expect(node.hints?.minSize).toEqual({ w: 200, h: 100 });
     expect(node.slot?.placement).toEqual({ locked: true });
   });
-
 });
 
 describe('node factories — order', () => {
@@ -158,8 +155,6 @@ describe('node factories — order', () => {
   });
 
   it('leaves order undefined when not provided', () => {
-    expect(
-      createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }).order,
-    ).toBeUndefined();
+    expect(createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }).order).toBeUndefined();
   });
 });

@@ -1,20 +1,9 @@
 export default { title: 'Strip' };
 
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  stripStrategy,
-  Store,
-} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import {
-  type ChromeMap,
-  Container,
-  StrategyRegistryProvider,
-  Provider,
-} from '../index.js';
+import { Store, asNodeId, createPanel, createZone, stripStrategy } from '../../index.js';
+import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
 const STRATEGIES = {

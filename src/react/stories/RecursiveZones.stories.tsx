@@ -1,22 +1,16 @@
 export default { title: 'Recursive zones / Trays' };
 
+import type { Story } from '@ladle/react';
+import { useMemo } from 'react';
 import {
+  Store,
   asNodeId,
   createPanel,
   createZone,
   gridStrategy,
   stackStrategy,
-  Store,
 } from '../../index.js';
-import type { Story } from '@ladle/react';
-import { useMemo } from 'react';
-import {
-  type ChromeMap,
-  Container,
-  StrategyRegistryProvider,
-  Provider,
-  Zone,
-} from '../index.js';
+import { type ChromeMap, Container, Provider, StrategyRegistryProvider, Zone } from '../index.js';
 import './windease.css';
 
 const STRATEGIES = {
@@ -95,7 +89,6 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
     }
 
     return s;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: rebuild store when controls change
   }, [cols, trayChildren, showSecondTray]);
 
   const chrome: ChromeMap = useMemo(

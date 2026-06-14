@@ -150,7 +150,6 @@ export class Store {
   // ===== Register / unregister =====
 
   registerNode(node: Node): void {
-    
     if (this.nodesMap.has(node.id)) {
       throw new DuplicateNodeError(node.id);
     }
@@ -303,7 +302,8 @@ export class Store {
       next.splice(insertIndex, 0, id);
       return { ...c, childOrder: next };
     });
-    const toIndex = this.nodesMap.get(newParentId)?.container?.childOrder.indexOf(id) ?? insertIndex;
+    const toIndex =
+      this.nodesMap.get(newParentId)?.container?.childOrder.indexOf(id) ?? insertIndex;
 
     this.events.emit('node.moved', {
       id,
@@ -359,7 +359,8 @@ export class Store {
       return { ...c, childOrder: next };
     });
     this.resortByPin(parentId);
-    const finalIndex = this.nodesMap.get(parentId)?.container?.childOrder.indexOf(id) ?? targetIndex;
+    const finalIndex =
+      this.nodesMap.get(parentId)?.container?.childOrder.indexOf(id) ?? targetIndex;
     this.events.emit('node.reordered', { parentId, id, fromIndex, toIndex: finalIndex });
     this.scheduleNotify();
   }

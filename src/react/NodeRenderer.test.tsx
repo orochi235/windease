@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
-import { Store, asNodeId, createPanel, createZone } from '../index.js';
 import { describe, expect, it } from 'vitest';
+import { Store, asNodeId, createPanel, createZone } from '../index.js';
 import { type ChromeMap, Root } from './NodeRenderer.js';
 
 const chrome: ChromeMap = {
@@ -88,9 +88,7 @@ describe('Root', () => {
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     const onlyDefault: ChromeMap = {
-      default: ({ node, children }) => (
-        <div data-testid={`d-${node.id}`}>{children}</div>
-      ),
+      default: ({ node, children }) => <div data-testid={`d-${node.id}`}>{children}</div>,
     };
     const { getByTestId } = render(<Root store={store} chrome={onlyDefault} />);
     expect(getByTestId('d-z')).toBeDefined();

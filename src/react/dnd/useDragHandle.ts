@@ -1,6 +1,6 @@
+import { type PointerEvent as ReactPointerEvent, useCallback, useRef } from 'react';
 import type { NodeId } from '../../index.js';
 import { trace } from '../../index.js';
-import { type PointerEvent as ReactPointerEvent, useCallback, useRef } from 'react';
 import { useStore } from '../Provider.js';
 import { useNode } from '../hooks.js';
 import { useDragController } from './DragProvider.js';
@@ -72,7 +72,7 @@ export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
   const onPointerCancel = useCallback(() => {
     if (!draggingRef.current) return;
     draggingRef.current = false;
-    trace('dnd', `pointerCancel — dispatching cancel`);
+    trace('dnd', 'pointerCancel — dispatching cancel');
     controller.cancel('outside');
   }, [controller]);
 

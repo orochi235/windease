@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { type DragState, DragController } from './DragController.js';
+import { DragController, type DragState } from './DragController.js';
 import { useDragController } from './DragProvider.js';
 
 /** @group Hooks */

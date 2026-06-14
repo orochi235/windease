@@ -2,7 +2,7 @@
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
-  font: 12px/1.4 system-ui, sans-serif;
+  font: 12px / 1.4 system-ui, sans-serif;
 }
 
 .pg-toolbar button {
@@ -67,7 +67,7 @@ body {
 
 .pg-hint {
   margin: 12px 0 0;
-  font: 12px/1.4 system-ui, sans-serif;
+  font: 12px / 1.4 system-ui, sans-serif;
   color: #64748b;
 }
 
@@ -78,7 +78,7 @@ body {
   flex: 0 0 auto;
   height: 200px;
   box-sizing: border-box;
-  font: 11px/1.35 ui-monospace, monospace;
+  font: 11px / 1.35 ui-monospace, monospace;
   background: #0f172a05;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
@@ -133,7 +133,7 @@ body {
   background: #fef3c7;
   border: 1px solid #fbbf24;
   border-radius: 6px;
-  font: 11px/1.3 system-ui, sans-serif;
+  font: 11px / 1.3 system-ui, sans-serif;
   color: #78350f;
 }
 
@@ -163,10 +163,10 @@ body {
   font-size: 10px;
 }
 
-.pg-zone-controls__grid input[type='number'] {
+.pg-zone-controls__grid input[type="number"] {
   width: 100%;
   padding: 2px 4px;
-  font: 11px/1.3 ui-monospace, monospace;
+  font: 11px / 1.3 ui-monospace, monospace;
   border: 1px solid #fbbf24;
   border-radius: 3px;
   background: #fff;

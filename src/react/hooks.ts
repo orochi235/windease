@@ -1,5 +1,5 @@
-import type { Node, NodeId } from '../index.js';
 import { useMemo, useSyncExternalStore } from 'react';
+import type { Node, NodeId } from '../index.js';
 import { useStore } from './Provider.js';
 
 /** @group Hooks */
@@ -65,6 +65,8 @@ export function useRootNodes(): readonly Node[] {
     (cb) => store.subscribe(cb),
     () => store.rootIds.join('|'),
   );
+  // rootKey is the gate — when the joined id string changes we recompute.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rootKey is the snapshot signal.
   return useMemo(() => {
     const out: Node[] = [];
     for (const id of store.rootIds) {
@@ -72,8 +74,6 @@ export function useRootNodes(): readonly Node[] {
       if (n) out.push(n);
     }
     return out;
-    // rootKey is the gate — when the joined id string changes we recompute.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: rootKey is the snapshot signal.
   }, [store, rootKey]);
 }
 

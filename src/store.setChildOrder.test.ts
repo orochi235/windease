@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from './index.js';
+import { Store, asNodeId, createPanel, createZone } from './index.js';
 
 describe('Store.setChildOrder', () => {
   it('applies a full reordering atomically', () => {
@@ -37,9 +37,9 @@ describe('Store.setChildOrder', () => {
     expect(() =>
       store.setChildOrder(asNodeId('root'), [asNodeId('a'), asNodeId('b'), asNodeId('c')]),
     ).toThrow(/permutation/i);
-    expect(() =>
-      store.setChildOrder(asNodeId('root'), [asNodeId('a'), asNodeId('a')]),
-    ).toThrow(/permutation/i);
+    expect(() => store.setChildOrder(asNodeId('root'), [asNodeId('a'), asNodeId('a')])).toThrow(
+      /permutation/i,
+    );
   });
 
   it('throws when parent has no container capability', () => {

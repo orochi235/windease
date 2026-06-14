@@ -1,20 +1,9 @@
 export default { title: 'Grid' };
 
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  gridStrategy,
-  Store,
-} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import {
-  type ChromeMap,
-  Container,
-  StrategyRegistryProvider,
-  Provider,
-} from '../index.js';
+import { Store, asNodeId, createPanel, createZone, gridStrategy } from '../../index.js';
+import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
 const STRATEGIES = {
@@ -42,13 +31,10 @@ export const Grid: Story<Args> = ({ cols, gap, padding, panelCount }) => {
     );
     for (let i = 0; i < panelCount; i++) {
       const id = asNodeId(`panel-${i + 1}`);
-      s.registerNode(
-        createPanel({ id, parentId: ZONE_ID, meta: { title: `Window ${id}` } }),
-      );
+      s.registerNode(createPanel({ id, parentId: ZONE_ID, meta: { title: `Window ${id}` } }));
       s.showNode(id);
     }
     return s;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: rebuild store when controls change
   }, [cols, gap, padding, panelCount]);
 
   const chrome: ChromeMap = useMemo(

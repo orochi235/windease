@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { splitStrategy, type SplitNode } from './split.js';
+import { describe, expect, it, vi } from 'vitest';
+import { type SplitNode, splitStrategy } from './split.js';
 
 const leaf = (id: string): SplitNode => ({ kind: 'leaf', id });
 const split = (
@@ -85,10 +85,7 @@ describe('splitStrategy', () => {
 
   it('reduce honors child hints.minSize on a leaf', () => {
     const state = split('horizontal', 0.5, leaf('a'), leaf('b'));
-    const items = [
-      { id: 'a', hints: { minSize: { w: 80, h: 0 } } },
-      { id: 'b' },
-    ];
+    const items = [{ id: 'a', hints: { minSize: { w: 80, h: 0 } } }, { id: 'b' }];
     const next = splitStrategy.reduce!(
       state,
       { affordanceId: 'split-', kind: 'drag', payload: { dx: -1000, dy: 0 } },
@@ -151,10 +148,7 @@ describe('splitStrategy — placement.size', () => {
       b: { kind: 'leaf', id: 'bot' },
     };
     const result = splitStrategy.layout({
-      items: [
-        { id: 'top', placement: { size: { h: 100 } } } as never,
-        { id: 'bot' },
-      ],
+      items: [{ id: 'top', placement: { size: { h: 100 } } } as never, { id: 'bot' }],
       container: { w: 200, h: 400 },
       state: tree,
       options: { gutterSize: 0 },
@@ -172,10 +166,7 @@ describe('splitStrategy — placement.size', () => {
       b: { kind: 'leaf', id: 'r' },
     };
     const result = splitStrategy.layout({
-      items: [
-        { id: 'l', placement: { size: { w: 80 } } } as never,
-        { id: 'r' },
-      ],
+      items: [{ id: 'l', placement: { size: { w: 80 } } } as never, { id: 'r' }],
       container: { w: 200, h: 50 },
       state: tree,
       options: { gutterSize: 0 },
@@ -249,10 +240,7 @@ describe('splitStrategy — maxSize', () => {
     // maxSize.w caps it at 120; sibling takes the remainder.
     const tree = split('horizontal', 0.5, leaf('l'), leaf('r'));
     const result = splitStrategy.layout({
-      items: [
-        { id: 'l', hints: { maxSize: { w: 120, h: 0 } } },
-        { id: 'r' },
-      ],
+      items: [{ id: 'l', hints: { maxSize: { w: 120, h: 0 } } }, { id: 'r' }],
       container: { w: 400, h: 100 },
       state: tree,
       options: { gutterSize: 0 },
@@ -266,7 +254,11 @@ describe('splitStrategy — maxSize', () => {
     const tree = split('vertical', 0.5, leaf('top'), leaf('bot'));
     const result = splitStrategy.layout({
       items: [
-        { id: 'top', placement: { size: { h: 300 } }, hints: { maxSize: { w: 0, h: 150 } } } as never,
+        {
+          id: 'top',
+          placement: { size: { h: 300 } },
+          hints: { maxSize: { w: 0, h: 150 } },
+        } as never,
         { id: 'bot' },
       ],
       container: { w: 200, h: 400 },
@@ -291,7 +283,7 @@ describe('splitStrategy — maxSize', () => {
     expect(next.ratio).toBeCloseTo(0.25, 5);
   });
 
-  it("maxSize on the sibling raises the lower ratio bound during a drag", () => {
+  it('maxSize on the sibling raises the lower ratio bound during a drag', () => {
     // dragging left would grow 'b' past its maxSize.w of 100; 'a' must keep at
     // least 300 → minR = 1 - 100/400 = 0.75.
     const state = split('horizontal', 0.5, leaf('a'), leaf('b'));

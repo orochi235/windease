@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { stackStrategy } from './stack.js';
 
 import type { LayoutItem } from '../layout-types.js';
@@ -187,10 +187,7 @@ describe('stackStrategy — preview', () => {
 describe('stackStrategy — placement.size', () => {
   it('honors a child with explicit placement.size.h', () => {
     const result = stackStrategy.layout({
-      items: [
-        { id: 'a', placement: { size: { h: 200 } } } as never,
-        { id: 'b' },
-      ],
+      items: [{ id: 'a', placement: { size: { h: 200 } } } as never, { id: 'b' }],
       container: { w: 100, h: 500 },
       state: undefined as void,
       options: {},
@@ -262,10 +259,7 @@ describe('stackStrategy — placement.size', () => {
       parentId: 'root' as never,
       container: { w: 100, h: 500 },
       options: {},
-      items: [
-        { id: 'a', placement: { size: { h: 100 } } } as never,
-        { id: 'b' },
-      ],
+      items: [{ id: 'a', placement: { size: { h: 100 } } } as never, { id: 'b' }],
     });
     expect(fakeStore.patchPlacement).toHaveBeenCalledWith('a', {
       size: { h: 150 },

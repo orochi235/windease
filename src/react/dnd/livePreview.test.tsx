@@ -1,12 +1,12 @@
-import { render, cleanup, act } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Provider } from '../Provider.js';
 import { Store, asNodeId, createPanel, createZone } from '../../index.js';
-import { Container } from '../Container.js';
-import { DragProvider, useDragController } from './DragProvider.js';
-import { StrategyRegistryProvider } from '../strategies.js';
-import { stackStrategy } from '../../layout/stack.js';
 import { gridStrategy } from '../../layout/grid.js';
+import { stackStrategy } from '../../layout/stack.js';
+import { Container } from '../Container.js';
+import { Provider } from '../Provider.js';
+import { StrategyRegistryProvider } from '../strategies.js';
+import { DragProvider, useDragController } from './DragProvider.js';
 
 afterEach(cleanup);
 
@@ -34,7 +34,11 @@ describe('Container — live drop preview', () => {
       <Provider store={store}>
         <StrategyRegistryProvider strategies={{ stack: stackStrategy }}>
           <DragProvider>
-            <Handle onReady={(c) => (controller = c)} />
+            <Handle
+              onReady={(c) => {
+                controller = c;
+              }}
+            />
             <Container
               parentId={asNodeId('tgt')}
               viewport={{ w: 200, h: 600 }}
@@ -46,7 +50,17 @@ describe('Container — live drop preview', () => {
     );
     const tgtElPre = container.querySelector('[data-node-container="tgt"]')!;
     tgtElPre.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 200, bottom: 600, width: 200, height: 600, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+      ({
+        left: 0,
+        top: 0,
+        right: 200,
+        bottom: 600,
+        width: 200,
+        height: 600,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
     await act(async () => {
       controller!.tryBegin(asNodeId('src'));
       controller!.updateHoverByPoint(50, 300);
@@ -71,7 +85,11 @@ describe('Container — live drop preview', () => {
       <Provider store={store}>
         <StrategyRegistryProvider strategies={{ grid: gridStrategy }}>
           <DragProvider>
-            <Handle onReady={(c) => (controller = c)} />
+            <Handle
+              onReady={(c) => {
+                controller = c;
+              }}
+            />
             <Container
               parentId={asNodeId('tgt')}
               viewport={{ w: 200, h: 200 }}
@@ -83,7 +101,17 @@ describe('Container — live drop preview', () => {
     );
     const tgtElPre = container.querySelector('[data-node-container="tgt"]')!;
     tgtElPre.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+      ({
+        left: 0,
+        top: 0,
+        right: 200,
+        bottom: 200,
+        width: 200,
+        height: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
     await act(async () => {
       controller!.tryBegin(asNodeId('src'));
       controller!.updateHoverByPoint(50, 50);
@@ -110,7 +138,11 @@ describe('Container — live drop preview', () => {
       <Provider store={store}>
         <StrategyRegistryProvider strategies={{ stack: stackStrategy }}>
           <DragProvider>
-            <Handle onReady={(c) => (controller = c)} />
+            <Handle
+              onReady={(c) => {
+                controller = c;
+              }}
+            />
             <Container
               parentId={asNodeId('tgt')}
               viewport={{ w: 200, h: 600 }}
@@ -122,7 +154,17 @@ describe('Container — live drop preview', () => {
     );
     const tgtElPre = container.querySelector('[data-node-container="tgt"]')!;
     tgtElPre.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 200, bottom: 600, width: 200, height: 600, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+      ({
+        left: 0,
+        top: 0,
+        right: 200,
+        bottom: 600,
+        width: 200,
+        height: 600,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
     await act(async () => {
       controller!.tryBegin(asNodeId('src'));
       controller!.updateHoverByPoint(50, 500);
@@ -144,7 +186,12 @@ describe('Container — getDropPreview fast path', () => {
     const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
-      createZone({ id: asNodeId('tgt'), parentId: asNodeId('z'), strategyId: 'grid', config: { cols: 2 } }),
+      createZone({
+        id: asNodeId('tgt'),
+        parentId: asNodeId('z'),
+        strategyId: 'grid',
+        config: { cols: 2 },
+      }),
     );
     store.registerNode(
       createPanel({ id: asNodeId('src'), parentId: asNodeId('z'), meta: { title: 'S' } }),
@@ -159,7 +206,11 @@ describe('Container — getDropPreview fast path', () => {
       <Provider store={store}>
         <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
           <DragProvider>
-            <Handle onReady={(c) => (controller = c)} />
+            <Handle
+              onReady={(c) => {
+                controller = c;
+              }}
+            />
             <Container
               parentId={asNodeId('tgt')}
               viewport={{ w: 200, h: 200 }}
@@ -171,7 +222,17 @@ describe('Container — getDropPreview fast path', () => {
     );
     const tgtElPre = container.querySelector('[data-node-container="tgt"]')!;
     tgtElPre.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+      ({
+        left: 0,
+        top: 0,
+        right: 200,
+        bottom: 200,
+        width: 200,
+        height: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
     await act(async () => {
       controller!.tryBegin(asNodeId('src'));
       controller!.updateHoverByPoint(50, 50);

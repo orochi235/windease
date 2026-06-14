@@ -45,9 +45,7 @@ describe('declarative layout via strategy', () => {
             strategyId="grid"
             config={{ cols: 2 }}
             viewport={{ w: 200, h: 100 }}
-            renderImperative={(node) => (
-              <div data-testid={`imp-${node.id}`}>{String(node.id)}</div>
-            )}
+            renderImperative={(node) => <div data-testid={`imp-${node.id}`}>{String(node.id)}</div>}
           >
             <Panel id={asNodeId('jsx-a')} data-testid="jsx-a" />
           </Zone>
@@ -59,9 +57,7 @@ describe('declarative layout via strategy', () => {
     expect(container.querySelector('[data-testid="imp-imp-1"]')).toBeNull();
 
     await act(async () => {
-      store.registerNode(
-        createPanel({ id: asNodeId('imp-1'), parentId: asNodeId('z') }),
-      );
+      store.registerNode(createPanel({ id: asNodeId('imp-1'), parentId: asNodeId('z') }));
       store.showNode(asNodeId('imp-1'));
     });
 

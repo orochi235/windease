@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
 import type { Node, NodeId, Store } from '../index.js';
-import { useStore } from './Provider.js';
 import { useChildRegistryFromContext, useParentId } from './ParentContext.js';
+import { useStore } from './Provider.js';
 
 export interface NodeBindingOptions {
   /** Explicit id from props. If absent, a stable auto-id is minted. */
@@ -52,8 +52,7 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   // Stable auto-id when none provided. Strip React's id-internal colons since
   // some downstream tooling treats them as CSS selectors.
   const id =
-    opts.id ??
-    (`${opts.kindHintForAutoId ?? 'node'}-${reactId.replace(/:/g, '')}` as NodeId);
+    opts.id ?? (`${opts.kindHintForAutoId ?? 'node'}-${reactId.replace(/:/g, '')}` as NodeId);
 
   // Detect id changes across renders. React reuses the component instance when
   // only props change, so if a consumer writes `<Panel id={dynamicId} />` and
@@ -63,8 +62,7 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   const lastIdRef = useRef<NodeId | null>(null);
   if (lastIdRef.current !== null && lastIdRef.current !== id) {
     throw new Error(
-      `windease: <${opts.kindHintForAutoId ?? 'preset'}> id changed from "${lastIdRef.current}" to "${id}" without a key. ` +
-        `Add key={id} to your JSX element so React remounts the component when the id changes.`,
+      `windease: <${opts.kindHintForAutoId ?? 'preset'}> id changed from "${lastIdRef.current}" to "${id}" without a key. Add key={id} to your JSX element so React remounts the component when the id changes.`,
     );
   }
   lastIdRef.current = id;
@@ -96,9 +94,7 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   if (!registeredRef.current) {
     const existing = store.getNode(id);
     if (existing) {
-      const owner = (existing.meta as Record<string, unknown> | undefined)?.[
-        JSX_OWNER_META_KEY
-      ];
+      const owner = (existing.meta as Record<string, unknown> | undefined)?.[JSX_OWNER_META_KEY];
       if (owner === undefined || owner === null) {
         throw new Error(
           `windease: node "${id}" is already registered imperatively; remove the imperative ` +
@@ -107,8 +103,7 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
       }
       if (owner !== ownerToken) {
         throw new Error(
-          `windease: node "${id}" is already mounted by another ${opts.kindHintForAutoId ?? 'preset'}; ` +
-            `ids must be unique within a Provider.`,
+          `windease: node "${id}" is already mounted by another ${opts.kindHintForAutoId ?? 'preset'}; ids must be unique within a Provider.`,
         );
       }
       // StrictMode replay path: same owner, already registered. No-op.
@@ -131,7 +126,9 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   // Unregister on unmount. In StrictMode the effect runs mount → cleanup →
   // mount, so on the second mount we re-register if the cleanup wiped us out
   // (the render-time guard above stays `true` across the replay because the
-  // component instance — and its refs — is preserved).
+  // component instance — and its refs — is preserved). Deps are deliberately
+  // just `[id]`; the effect reads latestRef for current factory/reconcile.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional [id]-only deps; latest values read via latestRef.
   useEffect(() => {
     if (!store.getNode(id)) {
       const { factory, reconcile, parentId } = latestRef.current;
@@ -143,7 +140,6 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
         store.unregisterNode(id);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   return { id };

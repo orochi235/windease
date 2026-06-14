@@ -8,7 +8,6 @@ import type {
 } from '../layout-types.js';
 import { clampExplicitSizes } from './resize.js';
 
-
 interface StripConfig {
   axis?: 'x' | 'y';
   gap?: number;
@@ -31,8 +30,8 @@ interface StripConfig {
 }
 
 function explicitAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
-  const size = (item as unknown as { placement?: { size?: { w?: number; h?: number } } })
-    .placement?.size;
+  const size = (item as unknown as { placement?: { size?: { w?: number; h?: number } } }).placement
+    ?.size;
   const v = axis === 'x' ? size?.w : size?.h;
   return typeof v === 'number' ? v : undefined;
 }
@@ -44,8 +43,8 @@ function effectiveMinAxis(item: LayoutItem, axis: 'x' | 'y'): number {
 }
 
 function effectiveMaxAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
-  const m = (item as unknown as { hints?: { maxSize?: { w?: number; h?: number } } })
-    .hints?.maxSize;
+  const m = (item as unknown as { hints?: { maxSize?: { w?: number; h?: number } } }).hints
+    ?.maxSize;
   if (!m) return undefined;
   const v = axis === 'x' ? m.w : m.h;
   return typeof v === 'number' ? v : undefined;
@@ -106,7 +105,8 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       );
       const totalPreferred = preferred.reduce((sum, v) => sum + v, 0);
       const flexCount = preferred.filter((v) => v === 0).length;
-      const flexMain = fill && flexCount > 0 ? Math.max(0, (usableMain - totalPreferred) / flexCount) : 0;
+      const flexMain =
+        fill && flexCount > 0 ? Math.max(0, (usableMain - totalPreferred) / flexCount) : 0;
       const fallbackMain = fill ? flexMain : defaultItemSize;
       sizes = preferred.map((v) => (v > 0 ? v : fallbackMain));
     }
@@ -177,9 +177,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       const explicitSum = explicits.reduce((s, it) => s + (explicitAxis(it, axis) ?? 0), 0);
       const unconstrainedCount = items.length - explicits.length;
       base =
-        unconstrainedCount > 0
-          ? Math.max(0, (usableMain - explicitSum) / unconstrainedCount)
-          : 0;
+        unconstrainedCount > 0 ? Math.max(0, (usableMain - explicitSum) / unconstrainedCount) : 0;
     }
 
     let next = base + delta;
@@ -195,9 +193,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
 
     const node = (
       store as unknown as {
-        getNode: (id: string) =>
-          | { slot?: { placement?: Record<string, unknown> } }
-          | undefined;
+        getNode: (id: string) => { slot?: { placement?: Record<string, unknown> } } | undefined;
       }
     ).getNode(childId as string);
     const existingSize = (node?.slot?.placement?.size ?? {}) as {

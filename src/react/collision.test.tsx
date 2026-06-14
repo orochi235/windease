@@ -1,4 +1,4 @@
-import { render, cleanup } from '@testing-library/react';
+import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Store, asNodeId, createPanel, createZone } from '../index.js';
 import { Provider } from './Provider.js';

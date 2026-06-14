@@ -1,10 +1,10 @@
 // src/react/sibling-order.test.tsx
-import { render, cleanup } from '@testing-library/react';
+import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Store, asNodeId, createPanel } from '../index.js';
 import { Provider } from './Provider.js';
-import { Panel, Zone } from './presets.js';
 import type { ChildSort } from './childSort.js';
+import { Panel, Zone } from './presets.js';
 
 afterEach(cleanup);
 
@@ -113,10 +113,12 @@ describe('sibling order reconciliation', () => {
     const { rerender } = render(<Stage />);
     // Now add an imperative child. Then trigger a re-render so the parent's
     // useChildren subscription fires the layout effect and reconciles.
-    store.registerNode(createPanel({
-      id: asNodeId('imp-1'),
-      parentId: asNodeId('z'),
-    }));
+    store.registerNode(
+      createPanel({
+        id: asNodeId('imp-1'),
+        parentId: asNodeId('z'),
+      }),
+    );
     rerender(<Stage />);
     expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
       asNodeId('jsx-b'),

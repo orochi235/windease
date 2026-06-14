@@ -1,11 +1,4 @@
-import type {
-  LayoutItem,
-  LayoutResult,
-  LayoutStrategy,
-  Rect,
-  Size,
-} from '../layout-types.js';
-
+import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
 
 interface GridConfig {
   cols?: number;
@@ -46,9 +39,7 @@ interface GridConfig {
 function gridCapacity(cfg: GridConfig, itemCount: number): number {
   const hasGridCap = cfg.maxCols !== undefined || cfg.maxRows !== undefined;
   if (cfg.maxItems !== undefined && hasGridCap) {
-    throw new Error(
-      'gridStrategy: maxItems is mutually exclusive with maxCols/maxRows',
-    );
+    throw new Error('gridStrategy: maxItems is mutually exclusive with maxCols/maxRows');
   }
   if (cfg.maxItems !== undefined) return Math.max(1, cfg.maxItems);
   const maxCols = cfg.maxCols !== undefined ? Math.max(1, cfg.maxCols) : undefined;
@@ -66,8 +57,7 @@ function gridCapacity(cfg: GridConfig, itemCount: number): number {
     rowCap = fixedRows;
   } else {
     const root = Math.sqrt(Math.max(1, itemCount));
-    const ideal =
-      (cfg.orientation ?? 'wide') === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
+    const ideal = (cfg.orientation ?? 'wide') === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
     cols = maxCols !== undefined ? Math.min(maxCols, ideal) : ideal;
     cols = Math.max(1, cols);
     rowCap = maxRows;
@@ -145,9 +135,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
 
     const hasGridCap = cfg.maxCols !== undefined || cfg.maxRows !== undefined;
     if (cfg.maxItems !== undefined && hasGridCap) {
-      throw new Error(
-        'gridStrategy: maxItems is mutually exclusive with maxCols/maxRows',
-      );
+      throw new Error('gridStrategy: maxItems is mutually exclusive with maxCols/maxRows');
     }
     const maxCols = cfg.maxCols !== undefined ? Math.max(1, cfg.maxCols) : undefined;
     const maxRows = cfg.maxRows !== undefined ? Math.max(1, cfg.maxRows) : undefined;
@@ -182,13 +170,12 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     }
 
     const gridCap = rowCap !== undefined ? cols * rowCap : Number.POSITIVE_INFINITY;
-    const itemCap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
+    const itemCap =
+      cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
     const capacity = Math.min(gridCap, itemCap);
     const placedCount = Math.min(items.length, capacity);
     const rows =
-      !fill && rowCap !== undefined
-        ? rowCap
-        : Math.max(1, Math.ceil(placedCount / cols));
+      !fill && rowCap !== undefined ? rowCap : Math.max(1, Math.ceil(placedCount / cols));
 
     const usableW = container.w - 2 * padding;
     const usableH = container.h - 2 * padding;

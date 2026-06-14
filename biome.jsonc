@@ -1,13 +1,27 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.0/schema.json",
-  "files": { "ignore": ["dist", "node_modules", "coverage", "*.tsbuildinfo"] },
+  "files": {
+    "ignore": ["dist", "node_modules", "coverage", "*.tsbuildinfo", "docs-api", "build", ".ladle"]
+  },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
       "style": { "noNonNullAssertion": "off" },
-      "suspicious": { "noExplicitAny": "warn" }
+      "suspicious": {
+        "noExplicitAny": "warn",
+        // Stateless strategies model "no layout state" as `state: void`
+        // (LayoutStrategy<void>); `void` in those type positions is idiomatic
+        // here, and biome's suggested `undefined` rewrite changes the typing.
+        "noConfusingVoidType": "off"
+      },
+      "performance": {
+        // The store/snapshot code removes optional keys with `delete` so the
+        // property is genuinely absent (honoring optional shapes / dropping
+        // migrated legacy fields); assigning `undefined` would leave the key.
+        "noDelete": "off"
+      }
     }
   },
   "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "always" } }

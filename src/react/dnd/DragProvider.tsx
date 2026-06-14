@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useStore } from '../Provider.js';
 import { useOptionalStrategyRegistry } from '../strategies.js';
 import { DragController, type DragState } from './DragController.js';
-import { defaultDragOverlay, type DragOverlayRenderer } from './defaultDragOverlay.js';
+import { type DragOverlayRenderer, defaultDragOverlay } from './defaultDragOverlay.js';
 
 export const DragContext = createContext<DragController | null>(null);
 
@@ -43,10 +43,12 @@ function DragOverlayPortal({ state, render }: { state: DragState; render: DragOv
   const cursor = state.cursor;
   const rejected = state.hover?.accepted === false;
   if (typeof document === 'undefined') {
-    return <>{render({ draggingId: state.draggingId, cursor, node, hover: state.hover, rejected })}</>;
+    return (
+      <>{render({ draggingId: state.draggingId, cursor, node, hover: state.hover, rejected })}</>
+    );
   }
   return createPortal(
-    <>{render({ draggingId: state.draggingId, cursor, node, hover: state.hover, rejected })}</>,
+    render({ draggingId: state.draggingId, cursor, node, hover: state.hover, rejected }),
     document.body,
   );
 }

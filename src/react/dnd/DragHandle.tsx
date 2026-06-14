@@ -1,5 +1,5 @@
-import type { NodeId } from '../../index.js';
 import type { CSSProperties, ReactNode } from 'react';
+import type { NodeId } from '../../index.js';
 import { useDragHandle } from './useDragHandle.js';
 
 export interface DragHandleProps {

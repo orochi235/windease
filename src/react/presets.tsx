@@ -1,4 +1,12 @@
-import { type CSSProperties, Fragment, type ReactNode, type RefObject, useLayoutEffect, useMemo, useRef } from 'react';
+import {
+  type CSSProperties,
+  Fragment,
+  type ReactNode,
+  type RefObject,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import type { Node, NodeId, Store } from '../index.js';
 import { createGroup, createPanel, createZone } from '../index.js';
 import {
@@ -159,7 +167,11 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         innerRef={ref}
         acceptsDrops={props.acceptsDrops}
       >
-        {props.draggable ? <DragHandle nodeId={props.id}>{props.children}</DragHandle> : props.children}
+        {props.draggable ? (
+          <DragHandle nodeId={props.id}>{props.children}</DragHandle>
+        ) : (
+          props.children
+        )}
       </PresetShell>
     </LayoutScope>
   );
@@ -345,7 +357,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
     const out: ReactNode[] = [];
     for (const node of allChildren) {
       const meta = node.meta as Record<string, unknown> | undefined;
-      if (meta && meta[JSX_OWNER_META_KEY]) continue;
+      if (meta?.[JSX_OWNER_META_KEY]) continue;
       const rect = layout.placements.get(node.id);
       if (!rect) continue;
       out.push(
@@ -371,7 +383,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         acceptsDrops={props.acceptsDrops}
       >
         {props.children}
-        {imperativeRenders && <Fragment>{imperativeRenders}</Fragment>}
+        {imperativeRenders}
       </PresetShell>
     </LayoutScope>
   );

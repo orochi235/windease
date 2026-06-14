@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { stripStrategy } from './strip.js';
 
 import type { LayoutItem } from '../layout-types.js';
@@ -104,10 +104,7 @@ describe('stripStrategy — preview', () => {
 describe('stripStrategy — placement.size', () => {
   it('honors placement.size.w on axis=x', () => {
     const result = stripStrategy.layout({
-      items: [
-        { id: 'a', placement: { size: { w: 80 } } } as never,
-        { id: 'b' },
-      ],
+      items: [{ id: 'a', placement: { size: { w: 80 } } } as never, { id: 'b' }],
       container: { w: 200, h: 50 },
       state: undefined as void,
       options: { axis: 'x' },
@@ -118,10 +115,7 @@ describe('stripStrategy — placement.size', () => {
 
   it('honors placement.size.h on axis=y', () => {
     const result = stripStrategy.layout({
-      items: [
-        { id: 'a', placement: { size: { h: 60 } } } as never,
-        { id: 'b' },
-      ],
+      items: [{ id: 'a', placement: { size: { h: 60 } } } as never, { id: 'b' }],
       container: { w: 50, h: 200 },
       state: undefined as void,
       options: { axis: 'y' },
@@ -159,10 +153,7 @@ describe('stripStrategy — placement.size', () => {
       parentId: 'root' as never,
       container: { w: 300, h: 50 },
       options: { axis: 'x' },
-      items: [
-        { id: 'a', placement: { size: { w: 100 } } } as never,
-        { id: 'b' },
-      ],
+      items: [{ id: 'a', placement: { size: { w: 100 } } } as never, { id: 'b' }],
     });
     expect(fakeStore.patchPlacement).toHaveBeenCalledWith('a', { size: { w: 120 } });
   });

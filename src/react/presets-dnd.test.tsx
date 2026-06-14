@@ -1,8 +1,8 @@
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Store, asNodeId, gridStrategy } from '../index.js';
-import { DragProvider } from './dnd/DragProvider.js';
 import { Provider } from './Provider.js';
+import { DragProvider } from './dnd/DragProvider.js';
 import { Panel, Zone } from './presets.js';
 import { StrategyRegistryProvider } from './strategies.js';
 

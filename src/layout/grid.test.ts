@@ -1,6 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { gridStrategy } from './grid.js';
-
 
 const mkItem = (id: string) => ({ id: id });
 
@@ -188,12 +187,7 @@ describe('gridStrategy', () => {
       });
       expect(result.placements.size).toBe(1);
       expect(result.placements.has('first')).toBe(true);
-      expect(result.unplaced).toEqual([
-        'a',
-        'b',
-        'c',
-        'last',
-      ]);
+      expect(result.unplaced).toEqual(['a', 'b', 'c', 'last']);
     });
 
     it('clamps maxCols and maxRows to at least 1', () => {
@@ -278,9 +272,9 @@ describe('gridStrategy', () => {
           options: { maxItems: 4, maxCols: 2 },
         }),
       ).toThrow(/mutually exclusive/);
-      expect(() =>
-        gridStrategy.canAccept?.([mkItem('a')], { maxItems: 4, maxRows: 2 }),
-      ).toThrow(/mutually exclusive/);
+      expect(() => gridStrategy.canAccept?.([mkItem('a')], { maxItems: 4, maxRows: 2 })).toThrow(
+        /mutually exclusive/,
+      );
     });
 
     it('canAccept rejects prospective lists that would overflow capacity', () => {
@@ -358,10 +352,7 @@ describe('gridStrategy — preview', () => {
 describe('gridStrategy — placement.size is currently ignored', () => {
   it('child with placement.size still occupies a uniform cell', () => {
     const result = gridStrategy.layout({
-      items: [
-        { id: 'a', placement: { size: { w: 999, h: 999 } } } as never,
-        { id: 'b' },
-      ],
+      items: [{ id: 'a', placement: { size: { w: 999, h: 999 } } } as never, { id: 'b' }],
       container: { w: 200, h: 100 },
       state: undefined as void,
       options: { cols: 2 },

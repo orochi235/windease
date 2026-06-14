@@ -46,9 +46,7 @@ export function configureTrace(spec: string | readonly TraceCategory[] | '*' | n
     return;
   }
   enabled = new Set(
-    parts.filter((p): p is TraceCategory =>
-      (TRACE_CATEGORIES as readonly string[]).includes(p),
-    ),
+    parts.filter((p): p is TraceCategory => (TRACE_CATEGORIES as readonly string[]).includes(p)),
   );
 }
 
@@ -63,10 +61,8 @@ export function trace(category: TraceCategory, message: string, data?: unknown):
   // DevTools level — debug is filtered out unless "Verbose" is enabled.
   // The user explicitly opted in; they want to see these.
   if (data !== undefined) {
-    // biome-ignore lint/suspicious/noConsole: trace is opt-in diagnostics
     console.log(tag, message, data);
   } else {
-    // biome-ignore lint/suspicious/noConsole: trace is opt-in diagnostics
     console.log(tag, message);
   }
 }

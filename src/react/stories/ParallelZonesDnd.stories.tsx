@@ -1,23 +1,17 @@
 export default { title: 'Parallel zones (drag between)' };
 
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  stackStrategy,
-  Store,
-} from '../../index.js';
 import type { Story } from '@ladle/react';
 import { type RefObject, useMemo, useRef } from 'react';
+import { Store, asNodeId, createPanel, createZone, stackStrategy } from '../../index.js';
 import {
   type ChromeMap,
   Container,
   DragHandle,
   DragProvider,
+  Provider,
   StrategyRegistryProvider,
   useDragState,
   useDropTarget,
-  Provider,
 } from '../index.js';
 import './windease.css';
 import './parallel-zones-dnd.css';
@@ -98,7 +92,9 @@ export const ParallelZonesDnd: Story = () => {
           <div className="windease-panel">
             <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
           </div>
-          <span className="pz-panel__grip" aria-hidden="true">⋮⋮</span>
+          <span className="pz-panel__grip" aria-hidden="true">
+            ⋮⋮
+          </span>
         </DragHandle>
       ),
     }),
@@ -113,9 +109,7 @@ export const ParallelZonesDnd: Story = () => {
             <ZoneShell zoneId={LEFT} label="Left zone" chrome={chrome} />
             <ZoneShell zoneId={RIGHT} label="Right zone" chrome={chrome} />
           </div>
-          <p className="pz-hint">
-            Drag any panel by its grip into the other zone. Escape cancels.
-          </p>
+          <p className="pz-hint">Drag any panel by its grip into the other zone. Escape cancels.</p>
         </DragProvider>
       </StrategyRegistryProvider>
     </Provider>

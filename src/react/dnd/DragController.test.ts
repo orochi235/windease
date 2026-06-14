@@ -1,12 +1,12 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   type LayoutStrategy,
   Store,
   asNodeId,
-  splitStrategy,
   createPanel,
   createZone,
+  splitStrategy,
 } from '../../index.js';
-import { describe, expect, it, vi } from 'vitest';
 import { DragController } from './DragController.js';
 
 function buildStore(): Store {
@@ -84,7 +84,7 @@ describe('DragController', () => {
     expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p']);
   });
 
-  it('strategy canAccept rejects drops the strategy can\'t lay out', async () => {
+  it("strategy canAccept rejects drops the strategy can't lay out", async () => {
     // splitStrategy with recursive:false enforces exactly 2 items; z2 already
     // has 2, drop of a third should be rejected.
     const s = new Store();

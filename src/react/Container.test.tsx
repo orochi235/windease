@@ -1,16 +1,9 @@
 import { act, render } from '@testing-library/react';
-import {
-  asNodeId,
-  splitStrategy,
-  createPanel,
-  createZone,
-  gridStrategy,
-  Store,
-} from '../index.js';
 import { describe, expect, it } from 'vitest';
-import { Container, type ChromeMap } from './index.js';
-import { StrategyRegistryProvider } from './strategies.js';
+import { Store, asNodeId, createPanel, createZone, gridStrategy, splitStrategy } from '../index.js';
 import { Provider } from './Provider.js';
+import { type ChromeMap, Container } from './index.js';
+import { StrategyRegistryProvider } from './strategies.js';
 
 const PANEL_CHROME: ChromeMap = {
   panel: ({ node }) => <div data-testid={`p-${node.id}`}>{String(node.id)}</div>,
@@ -29,9 +22,7 @@ function makeGridStore(): Store {
 function withProviders(store: Store, strategies: Record<string, unknown>, ui: React.ReactNode) {
   return (
     <Provider store={store}>
-      <StrategyRegistryProvider strategies={strategies as never}>
-        {ui}
-      </StrategyRegistryProvider>
+      <StrategyRegistryProvider strategies={strategies as never}>{ui}</StrategyRegistryProvider>
     </Provider>
   );
 }
@@ -93,9 +84,7 @@ describe('Container — overlay callback', () => {
 describe('Container — affordances callback', () => {
   it('custom affordance renderer replaces the default per affordance', () => {
     const store = new Store();
-    store.registerNode(
-      createZone({ id: asNodeId('s'), strategyId: 'split', config: {} }),
-    );
+    store.registerNode(createZone({ id: asNodeId('s'), strategyId: 'split', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('s') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('s') }));
     store.showNode(asNodeId('a'));
@@ -121,9 +110,7 @@ describe('Container — affordances callback', () => {
 
   it('custom affordance dispatch updates persisted container state', () => {
     const store = new Store();
-    store.registerNode(
-      createZone({ id: asNodeId('s'), strategyId: 'split', config: {} }),
-    );
+    store.registerNode(createZone({ id: asNodeId('s'), strategyId: 'split', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('s') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('s') }));
     store.showNode(asNodeId('a'));
