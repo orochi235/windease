@@ -9,7 +9,20 @@ export interface LayoutItem {
   id: ItemId;
   hints?: {
     minSize?: Size;
+    /** Ceiling honored by the strip / stack / split strategies along their
+     *  main axis (and by split's ratio/explicit clamping). */
+    maxSize?: Size;
     preferredSize?: Size;
+  };
+  /**
+   * Per-membership placement intent projected from `node.slot.placement`.
+   * `size` is the public "fixed-px pane" API: set it via `store.patchPlacement`
+   * to pin a pane's main-axis extent. The strip / stack / split strategies
+   * honor it; split's gutter drag clears it (reverting to ratio control).
+   * Either `Size` dimension is optional.
+   */
+  placement?: {
+    size?: { w?: number; h?: number };
   };
   /**
    * Free-form per-item meta carried over from the zone's `itemMeta` map.

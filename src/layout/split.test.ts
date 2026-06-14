@@ -243,6 +243,125 @@ describe('splitStrategy — sibling-add bounds', () => {
   });
 });
 
+describe('splitStrategy — maxSize', () => {
+  it('caps a pane on initial layout (ratio branch)', () => {
+    // ratio 0.5 of a 400px-wide container would give 'l' 200px, but its
+    // maxSize.w caps it at 120; sibling takes the remainder.
+    const tree = split('horizontal', 0.5, leaf('l'), leaf('r'));
+    const result = splitStrategy.layout({
+      items: [
+        { id: 'l', hints: { maxSize: { w: 120, h: 0 } } },
+        { id: 'r' },
+      ],
+      container: { w: 400, h: 100 },
+      state: tree,
+      options: { gutterSize: 0 },
+    });
+    expect(result.placements.get('l')?.w).toBe(120);
+    expect(result.placements.get('r')?.w).toBe(280);
+  });
+
+  it('caps the explicit-size branch (placement.size larger than maxSize)', () => {
+    // top asks for 300px via placement.size but maxSize.h caps it at 150.
+    const tree = split('vertical', 0.5, leaf('top'), leaf('bot'));
+    const result = splitStrategy.layout({
+      items: [
+        { id: 'top', placement: { size: { h: 300 } }, hints: { maxSize: { w: 0, h: 150 } } } as never,
+        { id: 'bot' },
+      ],
+      container: { w: 200, h: 400 },
+      state: tree,
+      options: { gutterSize: 0 },
+    });
+    expect(result.placements.get('top')?.h).toBe(150);
+    expect(result.placements.get('bot')?.h).toBe(250);
+  });
+
+  it('caps a pane during a drag (reduce)', () => {
+    // dragging the gutter far right would grow 'a' past its maxSize.w of 100;
+    // the ratio is clamped to maxSize.w / total = 100/400 = 0.25.
+    const state = split('horizontal', 0.5, leaf('a'), leaf('b'));
+    const items = [{ id: 'a', hints: { maxSize: { w: 100, h: 0 } } }, { id: 'b' }];
+    const next = splitStrategy.reduce!(
+      state,
+      { affordanceId: 'split-', kind: 'drag', payload: { dx: 1000, dy: 0 } },
+      { container: { w: 400, h: 100 }, options: { gutterSize: 0 }, items },
+    );
+    if (next.kind !== 'split') throw new Error('expected split');
+    expect(next.ratio).toBeCloseTo(0.25, 5);
+  });
+
+  it("maxSize on the sibling raises the lower ratio bound during a drag", () => {
+    // dragging left would grow 'b' past its maxSize.w of 100; 'a' must keep at
+    // least 300 → minR = 1 - 100/400 = 0.75.
+    const state = split('horizontal', 0.5, leaf('a'), leaf('b'));
+    const items = [{ id: 'a' }, { id: 'b', hints: { maxSize: { w: 100, h: 0 } } }];
+    const next = splitStrategy.reduce!(
+      state,
+      { affordanceId: 'split-', kind: 'drag', payload: { dx: -1000, dy: 0 } },
+      { container: { w: 400, h: 100 }, options: { gutterSize: 0 }, items },
+    );
+    if (next.kind !== 'split') throw new Error('expected split');
+    expect(next.ratio).toBeCloseTo(0.75, 5);
+  });
+
+  it('maxSize wins over a sibling minSize when both bound the same side', () => {
+    // 'a' maxSize.w=100 → maxR=0.25; 'b' minSize.w=50 → maxR=min(0.25, 0.875).
+    const state = split('horizontal', 0.5, leaf('a'), leaf('b'));
+    const items = [
+      { id: 'a', hints: { maxSize: { w: 100, h: 0 } } },
+      { id: 'b', hints: { minSize: { w: 50, h: 0 } } },
+    ];
+    const next = splitStrategy.reduce!(
+      state,
+      { affordanceId: 'split-', kind: 'drag', payload: { dx: 1000, dy: 0 } },
+      { container: { w: 400, h: 100 }, options: { gutterSize: 0 }, items },
+    );
+    if (next.kind !== 'split') throw new Error('expected split');
+    expect(next.ratio).toBeCloseTo(0.25, 5);
+  });
+
+  it('over-constrained (min > max on the same side) is a no-op in reduce', () => {
+    // 'a' minSize.w=300 (minR=0.75) conflicts with maxSize.w=100 (maxR=0.25);
+    // minR > maxR ⇒ the drag leaves state unchanged.
+    const state = split('horizontal', 0.5, leaf('a'), leaf('b'));
+    const items = [
+      { id: 'a', hints: { minSize: { w: 300, h: 0 }, maxSize: { w: 100, h: 0 } } },
+      { id: 'b' },
+    ];
+    const next = splitStrategy.reduce!(
+      state,
+      { affordanceId: 'split-', kind: 'drag', payload: { dx: 50, dy: 0 } },
+      { container: { w: 400, h: 100 }, options: { gutterSize: 0 }, items },
+    );
+    if (next.kind !== 'split') throw new Error('expected split');
+    expect(next.ratio).toBe(0.5);
+  });
+
+  it('sums maxSize across leaves on the same axis', () => {
+    // right side splits into c+d, each maxSize.w=60 → side max = 120 →
+    // minR = 1 - 120/400 = 0.7 when dragging left.
+    const state = split(
+      'horizontal',
+      0.5,
+      leaf('a'),
+      split('horizontal', 0.5, leaf('c'), leaf('d')),
+    );
+    const items = [
+      { id: 'a' },
+      { id: 'c', hints: { maxSize: { w: 60, h: 0 } } },
+      { id: 'd', hints: { maxSize: { w: 60, h: 0 } } },
+    ];
+    const next = splitStrategy.reduce!(
+      state,
+      { affordanceId: 'split-', kind: 'drag', payload: { dx: -1000, dy: 0 } },
+      { container: { w: 400, h: 100 }, options: { gutterSize: 0 }, items },
+    );
+    if (next.kind !== 'split') throw new Error('expected split');
+    expect(next.ratio).toBeCloseTo(0.7, 5);
+  });
+});
+
 describe('splitStrategy — preview', () => {
   it('marks isPreview=true on the result when preview is set', () => {
     const result = splitStrategy.layout({

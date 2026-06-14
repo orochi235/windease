@@ -65,7 +65,7 @@ Two paths for free-form data on a node; lifetimes differ:
 | `node.meta`            | Intrinsic; survives `moveNode`                 | Window-intrinsic consumer data (title, URL, etc.)       |
 | `node.slot.placement`  | Per-membership; cleared on detach              | State that exists *because of this placement* — pin flags, slot-specific UI state |
 | `node.container.config` | Container-strategy options                    | Strategy options (`cols`, `gap`, etc.)                  |
-| `NodeHints`            | Layout-only soft prefs                         | `minSize`, `preferredSize`, `order`                     |
+| `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `order`          |
 
 **Reserved keys on `slot.placement`:**
 
@@ -75,6 +75,11 @@ Two paths for free-form data on a node; lifetimes differ:
 - `locked: true` — implies pinned at the layout layer, AND the React layer
   refuses to start a drag from this node. Use for system chrome that owns
   its slot for the session.
+- `size: { w?, h? }` — fixed pixel extent honored by strip / stack / split
+  along their main axis (the public "fixed-px pane" API; set via
+  `store.patchPlacement`). On `split`, a gutter drag **clears** this key on
+  the two affected panes, reverting them to ratio control. Pair with
+  `hints.maxSize` for an "auto up to a cap" pane.
 
 `setAllowsPinning(id, false)` opts a container out of the pinned-prefix
 invariant (a tool strip, a tabbed group). `locked` still suppresses drag.
@@ -136,7 +141,8 @@ Built-ins:
 - **`splitStrategy`** — workspace-level splits with draggable gutters.
   Default behavior accepts any N≥2 items; pass `recursive: false` in
   config to require exactly 2 items. Honors child `hints.minSize` as a
-  pixel floor.
+  pixel floor and `hints.maxSize` as a ceiling, plus `placement.size` for
+  a fixed-px pane (cleared on gutter drag).
 
 ## React layer
 

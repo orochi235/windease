@@ -40,6 +40,38 @@ describe('nodeToLayoutItem', () => {
     const item = nodeToLayoutItem(n);
     expect(item.meta).toBeUndefined();
   });
+
+  it('propagates hints.maxSize', () => {
+    const n = createPanel({
+      id: asNodeId('p'),
+      parentId: asNodeId('z'),
+      hints: { minSize: { w: 10, h: 10 }, maxSize: { w: 200, h: 300 } },
+    });
+    const item = nodeToLayoutItem(n);
+    expect(item.hints?.maxSize).toEqual({ w: 200, h: 300 });
+  });
+
+  it('surfaces placement.size as item.placement.size', () => {
+    const n = createPanel({
+      id: asNodeId('p'),
+      parentId: asNodeId('z'),
+      placement: { pinned: true, size: { h: 180 } },
+    });
+    const item = nodeToLayoutItem(n);
+    expect(item.placement?.size).toEqual({ h: 180 });
+    // size lives under placement, not duplicated into the meta flag bag.
+    expect(item.meta).toEqual({ pinned: true, size: { h: 180 } });
+  });
+
+  it('omits placement when there is no size', () => {
+    const n = createPanel({
+      id: asNodeId('p'),
+      parentId: asNodeId('z'),
+      placement: { pinned: true },
+    });
+    const item = nodeToLayoutItem(n);
+    expect(item.placement).toBeUndefined();
+  });
 });
 
 describe('nodeToLayoutNode', () => {

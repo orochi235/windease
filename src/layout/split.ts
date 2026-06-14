@@ -61,6 +61,32 @@ function subtreeMin(
   return result === 0 ? undefined : result;
 }
 
+/** Maximum pixel extent a subtree may occupy along `axis`, from hints.maxSize.
+ *  Parallel (same-axis) splits sum the children's caps; perpendicular splits
+ *  take the tighter (min) cap since both children share that extent. An
+ *  unbounded child (no maxSize) leaves a parallel sum unbounded (undefined). */
+function subtreeMax(
+  node: SplitNode,
+  axis: 'horizontal' | 'vertical',
+  itemsById: Map<string, LayoutItem>,
+): number | undefined {
+  if (node.kind === 'leaf') {
+    const m = itemsById.get(node.id)?.hints?.maxSize;
+    if (!m) return undefined;
+    return axis === 'horizontal' ? m.w : m.h;
+  }
+  const a = subtreeMax(node.a, axis, itemsById);
+  const b = subtreeMax(node.b, axis, itemsById);
+  const parallel = node.direction === axis;
+  if (parallel) {
+    if (a === undefined || b === undefined) return undefined;
+    return a + b;
+  }
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return Math.min(a, b);
+}
+
 function explicitForLeaf(
   node: SplitNode,
   axis: 'horizontal' | 'vertical',
@@ -69,8 +95,7 @@ function explicitForLeaf(
   if (node.kind !== 'leaf') return undefined;
   const item = itemsById.get(node.id);
   if (!item) return undefined;
-  const size = (item as unknown as { placement?: { size?: { w?: number; h?: number } } })
-    .placement?.size;
+  const size = item.placement?.size;
   if (!size) return undefined;
   return axis === 'horizontal' ? size.w : size.h;
 }
@@ -117,6 +142,17 @@ function walk(
   } else {
     aSize = total * r - halfG;
   }
+
+  // Honor maxSize regardless of how aSize was derived: side A's cap is an
+  // upper bound on its extent; side B's cap forces a *lower* bound on A
+  // (so B can't exceed its own ceiling). clamp favors hi when over-constrained.
+  const maxA = subtreeMax(node.a, node.direction, itemsById);
+  const maxB = subtreeMax(node.b, node.direction, itemsById);
+  let lo = 0;
+  let hi = Math.max(0, total - gutter);
+  if (maxA !== undefined) hi = Math.min(hi, maxA);
+  if (maxB !== undefined) lo = Math.max(lo, total - gutter - maxB);
+  aSize = clamp(aSize, lo, hi);
 
   if (node.direction === 'horizontal') {
     const bx = rect.x + aSize + gutter;
@@ -328,6 +364,13 @@ export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
     const minSideB = subtreeMin(target.b, target.direction, minsById);
     if (minSideA !== undefined) minR = Math.max(minR, minSideA / total);
     if (minSideB !== undefined) maxR = Math.min(maxR, 1 - minSideB / total);
+    // Honor child maxSize: a side's cap is an upper bound on that side. For A
+    // it tightens maxR; for B it tightens minR (A must keep enough room).
+    const itemsById = new Map(context.items.map((it) => [it.id, it] as const));
+    const maxSideA = subtreeMax(target.a, target.direction, itemsById);
+    const maxSideB = subtreeMax(target.b, target.direction, itemsById);
+    if (maxSideA !== undefined) maxR = Math.min(maxR, maxSideA / total);
+    if (maxSideB !== undefined) minR = Math.max(minR, 1 - maxSideB / total);
     if (minR > maxR) return state;
     const delta = target.direction === 'horizontal' ? (event.payload.dx ?? 0) : (event.payload.dy ?? 0);
     return updateAtPath(state, path, clamp(target.ratio + delta / total, minR, maxR));

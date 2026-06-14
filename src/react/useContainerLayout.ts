@@ -1,5 +1,5 @@
 import type { Affordance, LayoutEvent, LayoutResult, NodeId, Rect } from '../index.js';
-import { runStrategyForContainer } from '../index.js';
+import { nodeToLayoutItem, runStrategyForContainer } from '../index.js';
 import { type RefObject, useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from './Provider.js';
 import { useNode } from './hooks.js';
@@ -76,14 +76,12 @@ export function useContainerLayout(
       if (!container || !viewport) return;
       const strategy = registry.get(container.strategyId);
       if (!strategy) return;
+      // Use the canonical adapter so strategies see the same shape they get in
+      // the layout path: hints (min/max), placement.size, and meta flags.
       const visibleChildren = store
         .getChildren(parentId)
         .filter((c) => c.lifecycle.state === 'visible')
-        .map((c) => {
-          const item: { id: string; hints?: { minSize?: { w: number; h: number } } } = { id: c.id };
-          if (c.hints?.minSize) item.hints = { minSize: c.hints.minSize };
-          return item;
-        });
+        .map((c) => nodeToLayoutItem(c));
       // Route store-mutating affordances (e.g. resize edges) to the strategy's
       // dispatchAffordance hook. This runs in addition to reduce — strategies
       // may use both (split clears placement.size here, then updates ratio

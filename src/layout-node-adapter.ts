@@ -12,14 +12,19 @@ import type { Store } from './store.js';
  */
 export function nodeToLayoutItem(node: Node): LayoutItem {
   const item: LayoutItem = { id: node.id };
-  if (node.hints?.minSize || node.hints?.preferredSize) {
+  if (node.hints?.minSize || node.hints?.maxSize || node.hints?.preferredSize) {
     item.hints = {};
     if (node.hints.minSize) item.hints.minSize = node.hints.minSize;
+    if (node.hints.maxSize) item.hints.maxSize = node.hints.maxSize;
     if (node.hints.preferredSize) item.hints.preferredSize = node.hints.preferredSize;
   }
   const placement = node.slot?.placement;
   if (placement && Object.keys(placement).length > 0) {
     item.meta = { ...placement };
+    // Surface `size` as the typed, public placement intent strategies read
+    // (the `meta` projection above still carries flags like pinned/locked).
+    const size = (placement as { size?: { w?: number; h?: number } }).size;
+    if (size) item.placement = { size };
   }
   return item;
 }

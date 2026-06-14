@@ -175,8 +175,16 @@ gutters. `splitStrategy` ships draggable gutters out of the box (binary
 by default; pass `recursive: true` for arbitrary trees). State persists
 on `node.container.state` and survives snapshot/hydrate. Per-child
 `hints.minSize` is honored as a pixel floor so manual gutter drags can't
-push a panel below its declared minimum. The default 4px gutter ships
-with an 8px-wide hit area (`affordanceHitPad`).
+push a panel below its declared minimum, and `hints.maxSize` as a ceiling
+so a pane can't grow past it (on initial layout, explicit sizing, and
+gutter drags). The default 4px gutter ships with an 8px-wide hit area
+(`affordanceHitPad`).
+
+To pin a pane to a fixed pixel extent along the split's axis, set
+`placement.size` via `store.patchPlacement(id, { size: { w } })` (or `{ h }`);
+the sibling auto-takes the remainder, and a gutter drag clears it, reverting
+that pane to ratio control. Combine with `hints.maxSize` for an
+"auto up to a cap" pane.
 
 ## Develop
 
