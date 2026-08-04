@@ -1639,6 +1639,29 @@ describe('Publisher — dwell', () => {
     expect(h.pub.nodes.has(nid('a'))).toBe(false);
   });
 
+  it('holds with exactly one pending timer, never busy-spinning', () => {
+    const h = throttledHarness(policy);
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    h.clock.advance(20);
+    // Still held. Exactly one timer should be armed for the wake-up — not a
+    // re-armed notify window firing repeatedly for the whole dwell.
+    expect(h.pub.nodes.has(nid('a'))).toBe(false);
+    expect(h.clock.pending).toBe(1);
+  });
+
+  it('does not spin when notifyMs is 0 and a node is dwelling', () => {
+    // A zero-length window plus a dwell-held node is the exact shape that
+    // makes a naive `schedule()` re-arm at the same timestamp forever.
+    const h = throttledHarness({ notifyMs: 0, dwell: { lifecycle: 150 }, maxWaitMs: 600 });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    expect(() => h.clock.advance(200)).not.toThrow();
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+
   it('defaults maxWaitMs to 4x the largest dwell', () => {
     const h = throttledHarness({ notifyMs: 10, dwell: { lifecycle: 100 } });
     h.truth.set(nid('a'), makeNode('a'));
@@ -1709,8 +1732,37 @@ Replace `flush()`:
       this.notify();
     }
 
-    // Anything still dwelling needs another look.
-    if (this.dirty.size > 0) this.schedule();
+    // Anything still dwelling needs another look — but wake at the moment it
+    // actually becomes eligible, NOT immediately. See scheduleRecheck.
+    if (this.dirty.size > 0) this.scheduleRecheck(now);
+  }
+
+  /**
+   * Re-arm for nodes held back by dwell, waking at the earliest moment any
+   * held entry becomes eligible.
+   *
+   * Do NOT re-arm via `schedule()` here. That would reschedule at the notify
+   * window — or, when `notifyMs` is undefined, on a microtask — and a node
+   * held by dwell would then be re-checked over and over without publishing,
+   * busy-spinning for the entire dwell duration. On the microtask path that
+   * starves the event loop outright.
+   */
+  private scheduleRecheck(now: number): void {
+    if (this.scheduled) return;
+    let earliest = Number.POSITIVE_INFINITY;
+    for (const entry of this.dirty.values()) {
+      if (entry.bypass || entry.dwellMs === 0) {
+        earliest = now;
+        break;
+      }
+      const byDwell = entry.touched + entry.dwellMs;
+      const byMaxWait =
+        this.maxWaitMs > 0 ? entry.since + this.maxWaitMs : Number.POSITIVE_INFINITY;
+      earliest = Math.min(earliest, byDwell, byMaxWait);
+    }
+    if (earliest === Number.POSITIVE_INFINITY) return;
+    this.scheduled = true;
+    this.timer = this.clock.setTimeout(() => this.runFlush(), Math.max(0, earliest - now));
   }
 
   /**
@@ -2038,15 +2090,18 @@ Replace `flush()`'s node loop with a budgeted, ordered pass:
       this.notify();
     }
 
-    if (this.dirty.size > 0) this.scheduleNextWave(deferred > 0);
+    if (this.dirty.size > 0) this.scheduleNextWave(deferred > 0, now);
   }
 
   /**
    * Re-arm after a partial flush. A stagger-deferred remainder waits the
-   * configured wave interval; a dwell-held remainder just re-checks on the
-   * normal notify window.
+   * configured wave interval; a dwell-held remainder wakes when it becomes
+   * eligible.
+   *
+   * Neither branch may re-arm via `schedule()` — see `scheduleRecheck` for
+   * why that busy-spins.
    */
-  private scheduleNextWave(staggered: boolean): void {
+  private scheduleNextWave(staggered: boolean, now: number): void {
     if (this.scheduled) return;
     const waveMs = this.policy?.stagger?.ms;
     if (staggered && waveMs !== undefined) {
@@ -2054,7 +2109,7 @@ Replace `flush()`'s node loop with a budgeted, ordered pass:
       this.timer = this.clock.setTimeout(() => this.runFlush(), waveMs);
       return;
     }
-    this.schedule();
+    this.scheduleRecheck(now);
   }
 ```
 
@@ -2200,5 +2255,7 @@ grep -n "this\.getNode(\|this\.nodes\.\|this\.rootIds\b\|this\.focusedId\b" src/
 Every hit inside a private/internal method must read `this.nodesMap` / `this.rootIdsArr` / `this.focusedIdValue` instead. Known sites to check: `requireNode` (already correct), `collectDescendants`, `resortByPin`, `getChildren`, `getParent`, `getAncestors`, `isContainer`, `isSlotted`, `hasFocus`, `getContainerView`, and the cycle check in `moveNode`.
 
 **`registerNode` marks its parent twice** (once via `replaceContainer`, once bypassed). That is intentional — `markDirty` merges into one entry and `bypass: true` is sticky — but if the merge logic in Task 13 is changed, re-check that the bypass survives.
+
+**Never re-arm a held flush with `schedule()`.** A node held by dwell is still in `this.dirty`, so a naive `if (this.dirty.size > 0) this.schedule()` at the end of `flush()` re-checks it on the notify window — or on a *microtask* when `notifyMs` is undefined — without publishing anything. That busy-spins for the whole dwell duration, and on the microtask path it starves the event loop. Tasks 14 and 16 use `scheduleRecheck(now)`, which arms a single timer for the moment the earliest held entry becomes eligible. Two tests in Task 14 guard this (`exactly one pending timer`, `notifyMs: 0` does not spin), and `FakeClock`'s iteration cap turns a regression into a thrown error rather than a hung test run.
 
 **Two ordering assumptions** the tests depend on: `Array.prototype.sort` is stable (guaranteed in every engine windease targets), and `Map` iteration follows insertion order (guaranteed by spec). Both are relied on for deterministic stagger waves.
