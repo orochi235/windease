@@ -109,7 +109,11 @@ export class Publisher {
 
   // ===== Dirty marking =====
 
-  markDirty(id: NodeId): void {
+  /**
+   * `opts` is accepted but inert until dwell lands; it exists now so that
+   * Store's call sites don't need a second pass to add it.
+   */
+  markDirty(id: NodeId, opts?: { machine?: MachineName; bypass?: boolean }): void {
     if (!this.passthrough) this.dirty.add(id);
     this.schedule();
   }

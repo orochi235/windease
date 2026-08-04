@@ -141,6 +141,20 @@ describe('Publisher — notifyMs window', () => {
     expect(h.pub.nodes).not.toBe(h.truth);
   });
 
+  it('markDirty opts are accepted but change nothing observable today', () => {
+    const h = throttledHarness({ notifyMs: 32 });
+    const n = makeNode('a');
+    h.truth.set(nid('a'), n);
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle', bypass: true });
+
+    expect(h.pub.nodes.get(nid('a'))).toBeUndefined();
+    expect(h.notifies()).toBe(0);
+
+    h.clock.advance(32);
+    expect(h.pub.nodes.get(nid('a'))).toBe(n);
+    expect(h.notifies()).toBe(1);
+  });
+
   it('withholds a mutation until the window elapses', () => {
     const h = throttledHarness({ notifyMs: 32 });
     const n = makeNode('a');
