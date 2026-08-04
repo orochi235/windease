@@ -219,3 +219,30 @@ describe('Store dwell', () => {
     expect(store.getNode(nid('z'))?.container?.childOrder).toEqual([nid('b'), nid('a')]);
   });
 });
+
+describe('Store stagger', () => {
+  it('reveals a cold-start flood in waves', () => {
+    const clock = new FakeClock();
+    const store = new Store({
+      throttle: { notifyMs: 10, stagger: { batch: 3, ms: 40 } },
+      clock,
+    });
+    store.registerNode(zone('z'));
+    store.flushNow();
+
+    for (let i = 0; i < 9; i++) {
+      store.registerNode(panel(`p${i}`, 'z'));
+    }
+
+    const visible = () =>
+      [...Array(9).keys()].filter((i) => store.getNode(nid(`p${i}`)) !== undefined).length;
+
+    clock.advance(10);
+    const first = visible();
+    expect(first).toBeGreaterThan(0);
+    expect(first).toBeLessThan(9);
+
+    clock.advance(200);
+    expect(visible()).toBe(9);
+  });
+});
