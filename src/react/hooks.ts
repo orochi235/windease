@@ -58,6 +58,7 @@ export function useChildren(parentId: NodeId): readonly Node[] {
     (cb) => store.subscribe(cb),
     () => publishedKey(store, childOrder),
   );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `published` is the snapshot signal, not a value the body reads.
   return useMemo(() => {
     if (!childOrder) return [];
     const out: Node[] = [];
