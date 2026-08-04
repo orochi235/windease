@@ -240,7 +240,7 @@ gesture that should feel immediate.
 | `registerNode` / `unregisterNode` / `node.cascadeDestroyed` | Bypass dwell, flush immediately. A dead node cannot be rendered and a new node should not wait to appear. |
 | `moveNode` / `reorderInParent` / `setChildOrder` | Structural. Ride `notifyMs`, never dwelled — DnD must stay responsive. |
 | Eligible by dwell but over the stagger budget | Stays dirty, publishes in the next wave. |
-| `HistoryController` undo/redo | Captures and restores truth, then forces an immediate publish. An undo is a user gesture and should not lag. |
+| `HistoryController` undo/redo | No change needed. It is a generic snapshot stack holding no `Store` reference — `undo()` returns a snapshot the consumer applies via `deserialize`, which resets the projection. An undo is a user gesture and lands without lag as a consequence. |
 | `deserialize` | `published := truth`, dirty set cleared, pending timers cancelled. |
 | `serialize` | Reads truth, so snapshots are never lagged. |
 
