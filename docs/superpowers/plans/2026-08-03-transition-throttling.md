@@ -1212,6 +1212,9 @@ Add the delegating method to `src/store.ts` next to `flushNow`:
    * Snap the published view to truth and cancel pending flushes. Called by
    * `deserialize`; consumers should not need this.
    *
+   * `Publisher.reset()` notifies subscribers synchronously — do NOT add a
+   * second notification here or after the call in `deserialize`.
+   *
    * @internal
    */
   resetPublished(): void {
@@ -1495,7 +1498,7 @@ Change the field declaration:
   private readonly dirty = new Map<NodeId, DirtyEntry>();
 ```
 
-Replace `markDirty` with the machine-aware version:
+`markDirty` already accepts `opts?: { machine?: MachineName; bypass?: boolean }` — the signature was added early (with `opts` inert) so `Store`'s call sites from Task 7 didn't need a second pass. This task makes `opts` actually *do* something. Replace the body:
 
 ```ts
   markDirty(id: NodeId, opts?: { machine?: MachineName; bypass?: boolean }): void {
@@ -2255,6 +2258,8 @@ grep -n "this\.getNode(\|this\.nodes\.\|this\.rootIds\b\|this\.focusedId\b" src/
 Every hit inside a private/internal method must read `this.nodesMap` / `this.rootIdsArr` / `this.focusedIdValue` instead. Known sites to check: `requireNode` (already correct), `collectDescendants`, `resortByPin`, `getChildren`, `getParent`, `getAncestors`, `isContainer`, `isSlotted`, `hasFocus`, `getContainerView`, and the cycle check in `moveNode`.
 
 **`registerNode` marks its parent twice** (once via `replaceContainer`, once bypassed). That is intentional — `markDirty` merges into one entry and `bypass: true` is sticky — but if the merge logic in Task 13 is changed, re-check that the bypass survives.
+
+**`Publisher.reset()` notifies; `deserialize` must not notify again.** Hydration is wholesale, and `reset()` clears `scheduled` — which turns any already-queued microtask into a no-op. Without a notify inside `reset()`, subscribers are never told the store was replaced and React renders stale until an unrelated mutation happens to flush. `reset()` therefore notifies unconditionally, and Task 9's `deserialize` wiring must not add a second notification on top.
 
 **Never re-arm a held flush with `schedule()`.** A node held by dwell is still in `this.dirty`, so a naive `if (this.dirty.size > 0) this.schedule()` at the end of `flush()` re-checks it on the notify window — or on a *microtask* when `notifyMs` is undefined — without publishing anything. That busy-spins for the whole dwell duration, and on the microtask path it starves the event loop. Tasks 14 and 16 use `scheduleRecheck(now)`, which arms a single timer for the moment the earliest held entry becomes eligible. Two tests in Task 14 guard this (`exactly one pending timer`, `notifyMs: 0` does not spin), and `FakeClock`'s iteration cap turns a regression into a thrown error rather than a hung test run.
 
