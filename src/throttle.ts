@@ -187,7 +187,7 @@ interface DirtyEntry {
   machine: MachineName | null;
   /** Structural change (register/unregister/move); bypasses dwell entirely. */
   bypass: boolean;
-  /** Changes that landed while this entry was already pending. */
+  /** Dirty-marks that landed while this entry was already pending. */
   coalesced: number;
 }
 

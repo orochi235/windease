@@ -177,7 +177,7 @@ describe('Publisher — notifyMs window', () => {
     expect(h.pub.nodes).not.toBe(h.truth);
   });
 
-  it('markDirty opts are accepted but change nothing observable today', () => {
+  it('markDirty opts do not change publish timing under a notifyMs-only policy', () => {
     const h = throttledHarness({ notifyMs: 32 });
     const n = makeNode('a');
     h.truth.set(nid('a'), n);
@@ -1181,10 +1181,10 @@ describe('Publisher — reset drains pending', () => {
   });
 
   it('keeps an entry created by a listener during the drain', () => {
-    // The reason the order is capture -> clear -> emit. If reset cleared
-    // AFTER emitting, this listener's markDirty would create an entry
-    // that the trailing clear() then wiped — an unpaired `pending`,
-    // exactly the leak this drain exists to prevent.
+    // The drain captures ids up front, then deletes and emits per id, one
+    // at a time. A listener's markDirty here creates a fresh entry for an
+    // id outside that captured snapshot, so it isn't touched by the drain
+    // loop at all — nothing left to wipe it.
     const truth = new Map<NodeId, Node>();
     const clock = new FakeClock();
     const pending: NodeId[] = [];
@@ -1339,5 +1339,39 @@ describe('Publisher — reset drains pending', () => {
     // already agree with truth.
     expect(pub.getPending(nid('b'))).toBeNull();
     expect(pub.nodes.get(nid('b'))).toBe(truth.get(nid('b')));
+  });
+
+  it('lets a listener re-dirty the id whose published it is handling', () => {
+    const truth = new Map<NodeId, Node>();
+    const clock = new FakeClock();
+    const log: string[] = [];
+    let reentered = false;
+    const pub: Publisher = new Publisher({
+      truth,
+      policy: { notifyMs: 32, dwell: { lifecycle: 150 } },
+      clock,
+      readGlobals: () => ({ rootIds: [], focusedId: null }),
+      notify: () => {},
+      onPending: (p) => log.push(`p:${p.id}`),
+      onPublished: (p) => {
+        log.push(`P:${p.id}`);
+        if (reentered) return;
+        reentered = true;
+        truth.set(nid('a'), makeNode('a'));
+        pub.markDirty(nid('a'), { machine: 'lifecycle' });
+      },
+    });
+
+    const first = makeNode('a');
+    truth.set(nid('a'), first);
+    pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    pub.reset();
+
+    // The entry is already gone when the listener runs, so the re-dirty
+    // opens a genuinely new episode with its own `pending` rather than
+    // coalescing into an entry about to be destroyed.
+    expect(log).toEqual(['p:a', 'P:a', 'p:a']);
+    expect(pub.getPending(nid('a'))).not.toBeNull();
+    expect(pub.nodes.get(nid('a'))).toBe(first);
   });
 });

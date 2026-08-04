@@ -141,14 +141,17 @@ individual fields) is held.
 but whose published record hasn't caught up yet. `store.getPending(id)`
 returns a `PendingPublish` snapshot of the current episode — `since`,
 `touched`, `dwellMs`, `machine` (the machine that set that `dwellMs`, or
-`null`), `bypass`, `coalesced`, and `eligibleAt` — or `null` when nothing
-is withheld, which is always the case on an un-throttled store.
+`null`), `bypass`, `coalesced` (internal dirty-marks folded into this
+episode, not a count of store operations), and `eligibleAt` — or `null`
+when nothing is withheld, which is always the case on an un-throttled
+store.
 `eligibleAt` is when the gate *opens*, not when the node will publish:
 `notifyMs` coalescing and stagger waves can both defer the actual flush
 past it. Two paired events on `store.events` mark the episode's edges:
 `throttle.pending` (`{ id, since }`, fired when the entry is created,
 before the dwell gate has settled — no `dwellMs`/`eligibleAt` yet) and
-`throttle.published` (`{ id, heldMs, coalesced, forced }`). Exactly one
+`throttle.published` (`{ id, heldMs, coalesced, forced }`, where `coalesced`
+is again dirty-marks, not store operations). Exactly one
 `throttle.published` follows each `throttle.pending` for the same id,
 including a node unregistered while pending or dropped by `deserialize`
 — so a consumer maintaining a `Set<NodeId>` of withheld nodes is correct

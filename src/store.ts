@@ -8,6 +8,7 @@ import {
 import { TypedEmitter } from './events.js';
 import type { ContainerCap, FocusCap, Node, NodeId, SlotCap } from './node.js';
 import {
+  type MachineName,
   type PendingPublish,
   Publisher,
   type StoreOptions,
@@ -22,7 +23,7 @@ export interface StoreEvents {
   'node.unregistered': { id: NodeId };
   'node.transitioned': {
     id: NodeId;
-    machine: 'lifecycle' | 'transit' | 'focus';
+    machine: MachineName;
     from: string;
     to: string;
   };

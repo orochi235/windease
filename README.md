@@ -236,7 +236,8 @@ if (pending) {
 
 `eligibleAt` is when the dwell/`maxWaitMs` gate *opens*, not when the node
 will actually publish — `notifyMs` coalescing and stagger waves can both
-defer the real flush past it.
+defer the real flush past it. `coalesced` counts internal dirty-marks, not
+store operations — it's a churn indicator, not a change tally.
 
 Two paired events on `store.events` mark the same episode's edges:
 
@@ -244,6 +245,9 @@ Two paired events on `store.events` mark the same episode's edges:
 store.events.on('throttle.pending', ({ id, since }) => { ... });
 store.events.on('throttle.published', ({ id, heldMs, coalesced, forced }) => { ... });
 ```
+
+Here too, `coalesced` is the number of internal dirty-marks folded into
+this publish, not a count of store operations.
 
 `throttle.pending` fires when a node first goes dirty, before the dwell
 gate has settled, so it carries no `dwellMs`/`eligibleAt` — read
