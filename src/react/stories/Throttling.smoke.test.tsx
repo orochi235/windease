@@ -14,9 +14,7 @@ describe('Throttling stories smoke test', () => {
   it('Bounce renders and survives a full bounce cycle without throwing', async () => {
     vi.useFakeTimers();
     try {
-      const { getByText } = render(
-        <Bounce throttled={true} dwellMs={0} />,
-      );
+      const { getByText } = render(<Bounce throttled={true} dwellMs={0} />);
       const button = getByText(/Bounce \(show/);
 
       act(() => {
