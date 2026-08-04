@@ -200,16 +200,23 @@ export class Publisher {
   // ===== Dirty marking =====
 
   /**
-   * `opts` is accepted but inert until dwell lands; it exists now so that
-   * Store's call sites don't need a second pass to add it.
+   * Only a dwell-gated FSM transition restarts the debounce clock
+   * (`touched`). A call with no `machine` tag — or one whose machine has no
+   * configured dwell — still marks the node dirty (so it publishes on the
+   * usual window/dwell schedule) but must NOT push the deadline out, or a
+   * dwelling node fed a steady stream of ordinary field writes (activity,
+   * placement, meta) would never go quiet and would ride `maxWaitMs`
+   * instead of `dwellMs`. `since` (which drives `maxWaitMs`) is never
+   * touched here either way.
    */
   markDirty(id: NodeId, opts?: { machine?: MachineName; bypass?: boolean }): void {
     if (!this.passthrough) {
       const now = this.clock.now();
       const dwellForMachine = opts?.machine ? (this.policy?.dwell?.[opts.machine] ?? 0) : 0;
+      const restartsDebounce = dwellForMachine > 0;
       const existing = this.dirty.get(id);
       if (existing) {
-        existing.touched = now;
+        if (restartsDebounce) existing.touched = now;
         // A node dwells for the longest gate that applies to it.
         if (dwellForMachine > existing.dwellMs) existing.dwellMs = dwellForMachine;
         if (opts?.bypass) existing.bypass = true;

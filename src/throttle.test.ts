@@ -618,3 +618,71 @@ describe('Publisher — policy validation', () => {
     expect(() => buildPublisher({ stagger: { batch: 1, ms: 0 } })).not.toThrow();
   });
 });
+
+describe('Publisher — dwell debounce restart (Fix 2 regression)', () => {
+  const policy = { notifyMs: 10, dwell: { lifecycle: 150 }, maxWaitMs: 600 };
+
+  it('an untagged markDirty on a dwelling node does not restart the debounce clock', () => {
+    // Reproduction: seed a dwell via a lifecycle transition, then send
+    // ordinary (untagged) markDirty calls the way setActivity/patchPlacement
+    // /setMeta do via replaceNode/replaceSlot. Per the design doc
+    // (dwell.lifecycle=150, maxWaitMs=600) the node must publish after
+    // dwellMs of FSM quiet, not linger until maxWaitMs.
+    const h = throttledHarness(policy);
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    for (let t = 0; t < 100; t += 50) {
+      h.clock.advance(50);
+      h.pub.markDirty(nid('a')); // no machine tag — an ordinary field write
+    }
+    // t=100: still within dwell (touched should still be t=0).
+    expect(h.pub.nodes.has(nid('a'))).toBe(false);
+
+    h.clock.advance(49); // t=149
+    expect(h.pub.nodes.has(nid('a'))).toBe(false);
+
+    h.clock.advance(1); // t=150 — dwellMs of quiet since the FSM touch at t=0
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+
+  it('a genuine second FSM transition still restarts the debounce (bounce suppression)', () => {
+    // This is the behavior the whole feature exists for; the Fix 2 change
+    // must not regress it.
+    const h = throttledHarness(policy);
+    const first = makeNode('a');
+    h.truth.set(nid('a'), first);
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    h.clock.advance(80);
+    const second = makeNode('a');
+    h.truth.set(nid('a'), second);
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    h.clock.advance(70); // t=150 from the first touch — but debounce restarted at t=80
+    expect(h.pub.nodes.has(nid('a'))).toBe(false);
+
+    h.clock.advance(80); // t=230 — 150ms after the restart at t=80
+    expect(h.pub.nodes.get(nid('a'))).toBe(second);
+  });
+
+  it('an untagged markDirty does not reset "since", so maxWaitMs still eventually forces a publish', () => {
+    // If untagged calls reset `since` instead of leaving it alone, a
+    // permanently-noisy non-FSM node held by an earlier dwell could starve
+    // past maxWaitMs. Confirm `since` keeps counting from the original
+    // dirty time even across untagged touches.
+    const h = throttledHarness(policy);
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    // Untagged touches every 10ms — far more frequent than dwellMs, so if
+    // `touched` were restarted the node would never publish. It must still
+    // publish exactly at dwellMs (150) since the untagged calls must not
+    // extend `touched` either.
+    for (let t = 0; t < 150; t += 10) {
+      h.clock.advance(10);
+      h.pub.markDirty(nid('a'));
+    }
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+});
