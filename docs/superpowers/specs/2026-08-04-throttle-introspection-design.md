@@ -170,18 +170,22 @@ A node that was unregistered while pending still gets a `published` event
 ### `forced`
 
 ```ts
-forced =
-  fullFlush ||
-  (entry.dwellMs > 0 && !entry.bypass && now - entry.touched < entry.dwellMs)
+forced = entry.dwellMs > 0 && !entry.bypass && now - entry.touched < entry.dwellMs
 ```
 
-True when the node published **without going quiet first**. A node that
-was never dwell-gated — `bypass`, or `dwellMs === 0` — is not "forced"; it
-had no gate to escape. This covers
-both escape hatches — `flushNow()` (which sets `forceFullFlush`) and the
-`maxWaitMs` starvation cap — from data already in hand at the flush site.
-It is the semantically interesting bit for a debugger: "this published
-because it ran out of patience, not because it settled."
+True when the node published **without going quiet first** — its dwell
+gate was still unsatisfied at the moment it published, whatever caused
+the publish.
+
+Note there is deliberately **no `fullFlush ||` term**, though an earlier
+draft had one. It is redundant where it matters and wrong everywhere
+else: a `flushNow()` on a still-dwelling node already satisfies
+`now - touched < dwellMs`, while a blanket `full` would also stamp
+`forced: true` on a node that was never gated (`bypass`, or
+`dwellMs === 0`) and on a stagger-deferred node whose gate opened long
+ago — nodes that plainly *did* go quiet. `forced` is only useful to a
+consumer as "this one didn't get its quiet period"; a `full` term
+destroys exactly that signal on the drain path, including in `reset()`.
 
 ### The balance invariant
 
@@ -191,8 +195,22 @@ because it ran out of patience, not because it settled."
 This is the property that makes the events usable for a debug overlay: a
 listener maintaining a `Set<NodeId>` of pending nodes never leaks. It
 constrains `reset()`, which today clears `dirty` wholesale during
-`deserialize` — `reset()` must emit `throttle.published` with
-`forced: true` for every entry it drops.
+`deserialize` — `reset()` must emit `throttle.published` for every entry
+it drops (with whatever `forced` the expression above yields, not a
+blanket `true`).
+
+Two ordering constraints on that drain, both learned the hard way:
+
+- **Capture the entries into an array, then `clear()`, then emit.**
+  Emitting while iterating and clearing afterwards lets a listener that
+  calls `markDirty` during the drain have its brand-new entry wiped by
+  the trailing `clear()` — an unpaired `pending`, which is precisely the
+  leak this invariant promises cannot happen.
+- **The wave loop in `flush()` must tolerate a missing entry.** A
+  `throttle.published` listener can re-enter `flush()` (via `flushNow()`
+  or `deserialize`) and drain ids the outer loop has not reached yet.
+  Reading such an id unguarded throws. Skipping it is also
+  pairing-correct: the re-entrant flush already emitted for it.
 
 ### Passthrough
 
