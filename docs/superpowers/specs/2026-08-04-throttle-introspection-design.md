@@ -201,16 +201,26 @@ blanket `true`).
 
 Two ordering constraints on that drain, both learned the hard way:
 
-- **Capture the entries into an array, then `clear()`, then emit.**
-  Emitting while iterating and clearing afterwards lets a listener that
-  calls `markDirty` during the drain have its brand-new entry wiped by
-  the trailing `clear()` — an unpaired `pending`, which is precisely the
-  leak this invariant promises cannot happen.
+- **Snapshot the ids, then delete-then-emit one at a time** — the same
+  order `flush()` uses. Two wrong shapes were tried first. Emitting while
+  iterating and clearing afterwards lets a listener's `markDirty` create
+  an entry the trailing `clear()` then wipes. Clearing the whole map
+  upfront instead fixes that but introduces a subtler bug: entry *j*'s
+  emission is then necessarily ordered after any re-dirty triggered by
+  entry *i<j*, so a listener that re-dirties a still-queued id produces
+  `pending` *before* that id's `published`, and a consumer's withheld-set
+  transiently reports a still-withheld node as settled. Deleting each id
+  immediately before emitting for it makes a re-dirty either coalesce
+  into the entry still queued to drain, or start a genuinely new episode.
+  No trailing `clear()` is needed — ids a listener creates were never in
+  the snapshot.
 - **The wave loop in `flush()` must tolerate a missing entry.** A
   `throttle.published` listener can re-enter `flush()` (via `flushNow()`
   or `deserialize`) and drain ids the outer loop has not reached yet.
-  Reading such an id unguarded throws. Skipping it is also
-  pairing-correct: the re-entrant flush already emitted for it.
+  Reading such an id unguarded throws — this was a real `TypeError`, not
+  a hypothetical. Skipping it is also pairing-correct: the re-entrant
+  flush already emitted for it. `reset()`'s drain needs the same guard,
+  for nested resets.
 
 ### Passthrough
 
