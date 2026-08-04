@@ -240,10 +240,12 @@ export interface ThrottlePublishedPayload {
    */
   coalesced: number;
   /**
-   * Published without its dwell gate being satisfied — it ran out of
-   * patience rather than settling. True for `flushNow()`, for the
-   * `maxWaitMs` starvation cap, and for a `reset()` drain. A node that
-   * was never dwell-gated is not "forced"; it had no gate to escape.
+   * The dwell gate was still unsatisfied at the moment this node
+   * published, whatever caused the publish — the `maxWaitMs` starvation
+   * cap, or a `flushNow()` / `reset()` drain that caught it mid-dwell. A
+   * node that had already gone quiet, or was never dwell-gated at all,
+   * is not "forced" even when a drain is what published it: it had no
+   * gate left to escape.
    */
   forced: boolean;
 }
@@ -516,15 +518,22 @@ export class Publisher {
     const deferred = eligible.length - wave.length;
 
     for (const id of wave) {
-      const entry = dirty.get(id) as DirtyEntry;
+      const entry = dirty.get(id);
+      // A listener on an earlier event in this same wave may have
+      // re-entered flush() (flushNow/reset) and already drained this id.
+      // Skipping is also pairing-correct: that flush already emitted for
+      // it, so it still gets exactly one published per pending.
+      if (entry === undefined) continue;
       const node = this.truth.get(id);
       if (node === undefined) published.delete(id);
       else published.set(id, node);
       dirty.delete(id);
       // Emitted after the published view is updated and before notify(),
       // so a listener that reads getNode(id) here already sees the new
-      // value and subscribers still run on a settled world.
-      this.emitPublished(entry, id, now, full);
+      // value for this id — a listener reading a different id later in
+      // the same wave still sees the stale value until its own turn — and
+      // subscribers still run on a settled world.
+      this.emitPublished(id, entry, now, node === undefined);
     }
 
     if (this.globalsDirty) {
@@ -543,19 +552,18 @@ export class Publisher {
   }
 
   /**
-   * `forced` means the node published without going quiet first — either
-   * `flushNow()` bypassed every gate, or the `maxWaitMs` cap fired while
-   * the dwell debounce was still being restarted. A node that was never
-   * dwell-gated in the first place is not "forced"; it had no gate to
-   * escape.
+   * `forced` means the node published without going quiet first — the
+   * `maxWaitMs` cap fired, or a `flushNow()` / `reset()` drained it while
+   * its dwell debounce was still being restarted. A node that had already
+   * settled, or was never dwell-gated at all, is NOT forced even when a
+   * drain is what finally published it: it had no gate left to escape.
    */
-  private emitPublished(entry: DirtyEntry, id: NodeId, now: number, full: boolean): void {
+  private emitPublished(id: NodeId, entry: DirtyEntry, now: number, removed: boolean): void {
     const heldMs = now - entry.since;
-    const forced =
-      full || (entry.dwellMs > 0 && !entry.bypass && now - entry.touched < entry.dwellMs);
+    const forced = entry.dwellMs > 0 && !entry.bypass && now - entry.touched < entry.dwellMs;
     trace(
       'throttle',
-      `published: ${id} held ${heldMs}ms, ${entry.coalesced} coalesced${forced ? ' (forced)' : ''}`,
+      `published: ${id} held ${heldMs}ms, ${entry.coalesced} coalesced${forced ? ' (forced)' : ''}${removed ? ' (removed)' : ''}`,
     );
     this.onPublished?.({ id, heldMs, coalesced: entry.coalesced, forced });
   }

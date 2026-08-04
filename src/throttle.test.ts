@@ -1006,10 +1006,24 @@ describe('Publisher — throttle.published event', () => {
   it('does not mark forced for a bypassing node that was never gated', () => {
     const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
     h.truth.set(nid('a'), makeNode('a'));
-    h.pub.markDirty(nid('a'), { bypass: true });
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle', bypass: true });
     h.clock.advance(500);
 
     expect(h.publishedEvents()[0].forced).toBe(false);
+  });
+
+  it('does not mark forced when flushNow drains a node that already settled', () => {
+    const h = throttledHarness({ notifyMs: 1000, dwell: { lifecycle: 50 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.clock.advance(200);
+    // The gate opened at 50; it's the long notifyMs window still holding
+    // this node. flushNow publishes it — but it did go quiet, so the
+    // publish is not forced.
+    h.pub.flushNow();
+
+    expect(h.publishedEvents()[0].forced).toBe(false);
+    expect(h.publishedEvents()[0].heldMs).toBe(200);
   });
 
   it('fires for a node that was unregistered while pending', () => {
@@ -1080,5 +1094,38 @@ describe('Publisher — throttle.published event', () => {
     }
     expect(unbalanced).toBe(0);
     expect([...open]).toEqual([]);
+  });
+
+  it('survives a listener that re-enters flush during the same wave', () => {
+    const truth = new Map<NodeId, Node>();
+    const clock = new FakeClock();
+    const published: NodeId[] = [];
+    let reentered = false;
+    const pub: Publisher = new Publisher({
+      truth,
+      policy: { notifyMs: 32 },
+      clock,
+      readGlobals: () => ({ rootIds: [], focusedId: null }),
+      notify: () => {},
+      onPublished: (p) => {
+        published.push(p.id);
+        // "When a lands, flush the rest" — a plausible consumer
+        // coordination pattern, and one that drains entries the outer
+        // wave loop is still iterating over.
+        if (!reentered) {
+          reentered = true;
+          pub.flushNow();
+        }
+      },
+    });
+
+    truth.set(nid('a'), makeNode('a'));
+    truth.set(nid('b'), makeNode('b'));
+    pub.markDirty(nid('a'));
+    pub.markDirty(nid('b'));
+    clock.advance(100);
+
+    expect(published.filter((id) => id === nid('a'))).toHaveLength(1);
+    expect(published.filter((id) => id === nid('b'))).toHaveLength(1);
   });
 });
