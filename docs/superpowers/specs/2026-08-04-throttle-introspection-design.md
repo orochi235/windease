@@ -143,13 +143,18 @@ per-mutation hot path (`markDirty` runs on every store mutation; there are
 
 Consequently the payload carries **only `id` and `since`**. One store
 mutation marks a node several times, and the *first* mark is usually the
-untagged one from `replaceNode` — `showNode` does `replaceNode(id)`
-(`src/store.ts:756`, no machine) before `markDirty(id, { machine:
-'lifecycle' })` (`src/store.ts:757`). The entry is therefore born with
-`dwellMs: 0` and raised afterwards, so a payload advertising `dwellMs` or
-`eligibleAt` would report `0` / "already eligible" for a node about to be
-held the full dwell. Settled values come from `getPending(id)` or from
-`throttle.published`.
+untagged one from `replaceNode` — `showNode` calls `replaceNode(id)` (no
+machine) before `markDirty(id, { machine: 'lifecycle' })`. The entry is
+therefore born with `dwellMs: 0` and raised afterwards, so a payload
+advertising `dwellMs` or `eligibleAt` would report `0` / "already
+eligible" for a node about to be held the full dwell. Settled values come
+from `getPending(id)` or from `throttle.published`.
+
+The event also fires **mid-mutation**: during `moveNode` it lands after
+the old parent's `removeChild` but before `addChild`, so a handler that
+walks the tree can observe a half-applied change. This matches how
+`node.transitioned` already behaves, but it must be stated rather than
+discovered.
 
 ### When `published` fires
 

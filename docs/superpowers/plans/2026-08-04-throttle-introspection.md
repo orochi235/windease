@@ -825,7 +825,16 @@ and add to its returned object, after `pendingEvents`:
 
 Add `type ThrottlePublishedPayload,` to the `./throttle.js` import at the top of the file.
 
-With the union in place, `pendingEvents`'s existing `as ThrottlePendingPayload` cast still narrows correctly. Then append the tests:
+Both accessors must filter with a **type predicate**, not a bare comparison — `.filter((e) => e.kind === 'published')` does not narrow, and a plain `as` cast would happily force pending payloads through as published once the union has two members:
+
+```ts
+    publishedEvents: () =>
+      events
+        .filter((e): e is Extract<RecordedEvent, { kind: 'published' }> => e.kind === 'published')
+        .map((e) => e.payload),
+```
+
+Then append the tests:
 
 ```ts
 describe('Publisher — throttle.published event', () => {
