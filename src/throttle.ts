@@ -158,7 +158,12 @@ export class Publisher {
   private publishedRootIds: readonly NodeId[] = [];
   private publishedFocusedId: NodeId | null = null;
 
-  private readonly dirty = new Map<NodeId, DirtyEntry>();
+  // Allocated only for a throttled Publisher — see the class doc. Every
+  // read site is reached exclusively via a `!this.passthrough` guard (or,
+  // in `flush()`/`scheduleNextWave()`/`scheduleRecheck()`, code that only
+  // runs after `flush()`'s own passthrough early-return), so the non-null
+  // assertions below are safe.
+  private readonly dirty: Map<NodeId, DirtyEntry> | null;
   private globalsDirty = false;
   private scheduled = false;
   private timer: TimerHandle | null = null;
@@ -175,6 +180,7 @@ export class Publisher {
     this.notify = deps.notify;
     this.passthrough = deps.policy === undefined;
     this.publishedNodes = this.passthrough ? null : new Map();
+    this.dirty = this.passthrough ? null : new Map();
 
     const dwells = Object.values(deps.policy?.dwell ?? {}).filter(
       (v): v is number => typeof v === 'number',
@@ -211,17 +217,18 @@ export class Publisher {
    */
   markDirty(id: NodeId, opts?: { machine?: MachineName; bypass?: boolean }): void {
     if (!this.passthrough) {
+      const dirty = this.dirty as Map<NodeId, DirtyEntry>;
       const now = this.clock.now();
       const dwellForMachine = opts?.machine ? (this.policy?.dwell?.[opts.machine] ?? 0) : 0;
       const restartsDebounce = dwellForMachine > 0;
-      const existing = this.dirty.get(id);
+      const existing = dirty.get(id);
       if (existing) {
         if (restartsDebounce) existing.touched = now;
         // A node dwells for the longest gate that applies to it.
         if (dwellForMachine > existing.dwellMs) existing.dwellMs = dwellForMachine;
         if (opts?.bypass) existing.bypass = true;
       } else {
-        this.dirty.set(id, {
+        dirty.set(id, {
           since: now,
           touched: now,
           dwellMs: dwellForMachine,
@@ -259,7 +266,7 @@ export class Publisher {
     // A queued microtask can't be cancelled; clearing `scheduled` makes it
     // a no-op when it lands.
     this.scheduled = false;
-    const bypassed = this.passthrough ? 0 : this.dirty.size;
+    const bypassed = this.passthrough ? 0 : (this.dirty as Map<NodeId, DirtyEntry>).size;
     trace('throttle', `flushNow: bypassing gates for ${bypassed} dirty node(s)`);
     this.forceFullFlush = true;
     this.flush();
@@ -277,7 +284,7 @@ export class Publisher {
       this.timer = null;
     }
     this.scheduled = false;
-    this.dirty.clear();
+    this.dirty?.clear();
     this.globalsDirty = false;
     if (this.publishedNodes) {
       this.publishedNodes.clear();
@@ -304,6 +311,7 @@ export class Publisher {
       return;
     }
     const published = this.publishedNodes as Map<NodeId, Node>;
+    const dirty = this.dirty as Map<NodeId, DirtyEntry>;
     const now = this.clock.now();
     const full = this.forceFullFlush;
     this.forceFullFlush = false;
@@ -312,7 +320,7 @@ export class Publisher {
     // deterministic and reproducible across runs.
     const eligible: NodeId[] = [];
     let held = 0;
-    for (const [id, entry] of this.dirty) {
+    for (const [id, entry] of dirty) {
       if (!full && !this.isEligible(entry, now)) {
         held++;
         continue;
@@ -320,8 +328,8 @@ export class Publisher {
       eligible.push(id);
     }
     eligible.sort((x, y) => {
-      const ex = this.dirty.get(x) as DirtyEntry;
-      const ey = this.dirty.get(y) as DirtyEntry;
+      const ex = dirty.get(x) as DirtyEntry;
+      const ey = dirty.get(y) as DirtyEntry;
       return ex.since - ey.since;
     });
 
@@ -333,7 +341,7 @@ export class Publisher {
       const node = this.truth.get(id);
       if (node === undefined) published.delete(id);
       else published.set(id, node);
-      this.dirty.delete(id);
+      dirty.delete(id);
     }
 
     if (this.globalsDirty) {
@@ -348,7 +356,7 @@ export class Publisher {
       this.notify();
     }
 
-    if (this.dirty.size > 0) this.scheduleNextWave(deferred > 0, now);
+    if (dirty.size > 0) this.scheduleNextWave(deferred > 0, now);
   }
 
   /**
@@ -383,8 +391,9 @@ export class Publisher {
    */
   private scheduleRecheck(now: number): void {
     if (this.scheduled) return;
+    const dirty = this.dirty as Map<NodeId, DirtyEntry>;
     let earliest = Number.POSITIVE_INFINITY;
-    for (const entry of this.dirty.values()) {
+    for (const entry of dirty.values()) {
       if (entry.bypass || entry.dwellMs === 0) {
         earliest = now;
         break;
@@ -397,7 +406,7 @@ export class Publisher {
     if (earliest === Number.POSITIVE_INFINITY) return;
     this.scheduled = true;
     const delay = Math.max(0, earliest - now);
-    trace('throttle', `scheduleRecheck: waking in ${delay}ms for ${this.dirty.size} held node(s)`);
+    trace('throttle', `scheduleRecheck: waking in ${delay}ms for ${dirty.size} held node(s)`);
     this.timer = this.clock.setTimeout(() => this.runFlush(), delay);
   }
 
