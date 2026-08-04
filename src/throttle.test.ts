@@ -478,4 +478,28 @@ describe('Publisher — stagger', () => {
     h.pub.flushNow();
     expect(h.pub.nodes.size).toBe(5);
   });
+
+  it('a dwell-held node is filtered out before the stagger slice, so it never occupies wave budget', () => {
+    // dwell holds 'held' ineligible for 100ms; batch is only 2, so if
+    // eligibility were checked *after* slicing instead of before, 'held'
+    // would consume one of the two wave slots and only one real node
+    // ('a') would publish this wave instead of two.
+    const dwellPolicy = { notifyMs: 10, dwell: { lifecycle: 100 }, stagger: { batch: 2, ms: 40 } };
+    const h = throttledHarness(dwellPolicy);
+
+    h.truth.set(nid('held'), makeNode('held'));
+    h.pub.markDirty(nid('held'), { machine: 'lifecycle' });
+
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'));
+    h.truth.set(nid('b'), makeNode('b'));
+    h.pub.markDirty(nid('b'));
+    h.truth.set(nid('c'), makeNode('c'));
+    h.pub.markDirty(nid('c'));
+
+    h.clock.advance(10);
+    expect(h.pub.nodes.has(nid('held'))).toBe(false);
+    expect(h.pub.nodes.size).toBe(2);
+    expect([...h.pub.nodes.keys()]).toEqual([nid('a'), nid('b')]);
+  });
 });
