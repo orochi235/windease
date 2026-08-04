@@ -188,6 +188,17 @@ function BounceDemo({ store, throttled }: { store: Store; throttled: boolean }) 
 
   const bounce = useCallback(() => {
     if (running) return;
+    // A completed bounce leaves the panel `visible`, and the lifecycle FSM
+    // rejects show-from-visible — so reset before replaying. Checked against
+    // *truth* (getNodeTruth), not the published view: the published view can
+    // legitimately lag behind while a transition is held, and deciding this
+    // off a stale `visible` would throw exactly when throttling is doing its
+    // job. That truth/published distinction is the whole subject of this
+    // story. This reset is itself a real transition and shows up in the
+    // truth log, which is honest.
+    if (store.getNodeTruth(BOUNCE_PANEL)?.lifecycle.state === 'visible') {
+      store.hideNode(BOUNCE_PANEL);
+    }
     setRunning(true);
     store.showNode(BOUNCE_PANEL);
     timers.current.push(
@@ -211,16 +222,18 @@ function BounceDemo({ store, throttled }: { store: Store; throttled: boolean }) 
     <div className="throttling-demo">
       <p className="throttling-caption">
         Click <strong>Bounce</strong>: the panel is shown, hidden, and shown again within ~80ms.
-        With dwell at 150ms the intermediate <code>hidden</code> never reaches the published view —
-        its row below is marked <em>suppressed</em>, and the row that did land reports how long it
-        was held and how many changes collapsed into it. Set <strong>dwellMs</strong> to 0 and click{' '}
-        <strong>Bounce</strong> again: now every truth transition publishes on its own.
+        With dwell at 150ms all three truth transitions collapse into a single publish — only the
+        last <code>visible</code> row reaches the published view; the first <code>visible</code> and
+        the intermediate <code>hidden</code> are both marked <em>suppressed</em>. The row that did
+        land reports how long it was held and how many earlier rows were suppressed. Set{' '}
+        <strong>dwellMs</strong> to 0 and click <strong>Bounce</strong> again: now every truth
+        transition publishes on its own.
       </p>
       <div className="throttling-toolbar">
         <button type="button" onClick={bounce} disabled={running}>
           Bounce (show → hide → show, ~40ms apart)
         </button>
-        <button type="button" onClick={clearLog} disabled={running}>
+        <button type="button" onClick={clearLog} disabled={running || withheld}>
           Clear log
         </button>
         <span className="throttling-render-count">renders: {renders.current}</span>
