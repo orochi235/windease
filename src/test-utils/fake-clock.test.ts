@@ -61,4 +61,37 @@ describe('FakeClock', () => {
     c.advance(100);
     expect(fired).toEqual(['outer', 'inner']);
   });
+
+  it('now() is the full advance target after a window in which timers fired', () => {
+    const c = new FakeClock();
+    c.setTimeout(() => {}, 30);
+    c.advance(100);
+    expect(c.now()).toBe(100);
+  });
+
+  it('clearing a timer from within another timer callback prevents it from firing', () => {
+    const c = new FakeClock();
+    const fired: string[] = [];
+    let handleB: ReturnType<FakeClock['setTimeout']>;
+    c.setTimeout(() => {
+      fired.push('a');
+      c.clearTimeout(handleB);
+    }, 10);
+    handleB = c.setTimeout(() => fired.push('b'), 20);
+    c.advance(100);
+    expect(fired).toEqual(['a']);
+  });
+
+  it('throws instead of hanging when a timer reschedules itself with a non-advancing delay', () => {
+    const c = new FakeClock();
+    let fireCount = 0;
+    const scheduleSelf = () => {
+      fireCount++;
+      c.setTimeout(scheduleSelf, 0);
+    };
+    c.setTimeout(scheduleSelf, 0);
+    expect(() => c.advance(100)).toThrow(/exceeded.*timer fires/i);
+    // The guard must actually cap iteration count, not just eventually throw.
+    expect(fireCount).toBeLessThan(20_000);
+  });
 });

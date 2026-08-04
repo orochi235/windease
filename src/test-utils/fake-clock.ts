@@ -16,6 +16,9 @@ interface Entry {
  * Timers scheduled from within a callback are picked up by the same
  * `advance` call if they come due inside the window.
  */
+/** Runaway guard for `advance()`. See class doc. */
+const MAX_ADVANCE_FIRES = 10_000;
+
 export class FakeClock implements Clock {
   private t = 0;
   private seq = 0;
@@ -42,6 +45,7 @@ export class FakeClock implements Clock {
 
   advance(ms: number): void {
     const target = this.t + ms;
+    let fires = 0;
     for (;;) {
       let nextHandle = -1;
       let next: Entry | undefined;
@@ -53,6 +57,17 @@ export class FakeClock implements Clock {
         }
       }
       if (!next) break;
+      if (++fires > MAX_ADVANCE_FIRES) {
+        throw new Error(
+          `FakeClock.advance(${ms}) exceeded ${MAX_ADVANCE_FIRES} timer fires without reaching ` +
+            `target time ${target} (stuck at t=${this.t}). This almost always means a timer ` +
+            'callback is rescheduling itself (directly or via a chain) with a delay that does ' +
+            'not advance past the current time — e.g. a zero-delay setTimeout called from ' +
+            'within its own callback, or a `flush()`-style method that re-schedules whenever ' +
+            'work remains. Check for code that calls setTimeout(..., 0) (or another ' +
+            'non-advancing delay) from inside a timer callback.',
+        );
+      }
       this.timers.delete(nextHandle);
       this.t = next.at;
       next.fn();
