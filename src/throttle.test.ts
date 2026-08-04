@@ -806,24 +806,42 @@ describe('Publisher — getPending', () => {
     // One published, one held back by the wave budget — its gate opened
     // long ago, which is exactly why eligibleAt is not a publish time.
     const deferred = h.pub.getPending(nid('b'));
+    expect(h.pub.nodes.size).toBe(1);
     expect(deferred).not.toBeNull();
-    expect(deferred?.eligibleAt).toBeLessThanOrEqual(16);
+    expect(deferred?.eligibleAt).toBe(0);
   });
 
   it('merges a sticky bypass with the largest dwell', () => {
     const h = throttledHarness({ notifyMs: 32, dwell: { transit: 80, lifecycle: 150 } });
     h.truth.set(nid('a'), makeNode('a'));
     h.pub.markDirty(nid('a'), { machine: 'transit' });
+    h.clock.advance(50);
     h.pub.markDirty(nid('a'), { machine: 'lifecycle', bypass: true });
 
     const pending = h.pub.getPending(nid('a'));
     expect(pending?.dwellMs).toBe(150);
     expect(pending?.machine).toBe('lifecycle');
     expect(pending?.bypass).toBe(true);
-    // bypass outranks the dwell it still carries — the documented
-    // precedence, and the case that makes a naive
-    // `eligibleAt < touched + dwellMs` reading wrong.
-    expect(pending?.eligibleAt).toBe(pending?.since);
+    expect(pending?.since).toBe(0);
+    expect(pending?.touched).toBe(50);
+    // Literal, not `pending?.since` — comparing two fields of one object
+    // can never fail. bypass short-circuits to `since`, so a shortcut
+    // that returned `touched` would read 50 here and this would catch it.
+    expect(pending?.eligibleAt).toBe(0);
+  });
+
+  it('keeps the machine that set the winning dwell when a smaller one marks later', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { transit: 80, lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.markDirty(nid('a'), { machine: 'transit' });
+
+    const pending = h.pub.getPending(nid('a'));
+    // transit marked last, but lifecycle's 150 still governs the
+    // deadline — the reported machine must be the one that set dwellMs,
+    // not the most recent marker.
+    expect(pending?.dwellMs).toBe(150);
+    expect(pending?.machine).toBe('lifecycle');
   });
 
   it('keeps eligibleAt finite when the starvation cap is disabled', () => {

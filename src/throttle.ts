@@ -137,9 +137,11 @@ export interface PendingPublish {
    */
   dwellMs: number;
   /**
-   * The machine whose dwell is currently gating this node, or `null`
-   * when it is not dwell-gated. A node gated by several machines reports
-   * whichever one set the largest dwell.
+   * The machine that set the current `dwellMs`, or `null` when no dwell
+   * applies. Not necessarily the machine restarting the debounce — a
+   * shorter-dwell machine can be the one churning while a longer-dwell
+   * machine still governs the deadline. Like `dwellMs`, inert while
+   * `bypass` is set.
    */
   machine: MachineName | null;
   /** Structural change (register/unregister/move); skips dwell entirely. */
@@ -308,7 +310,11 @@ export class Publisher {
       if (existing) {
         existing.coalesced++;
         if (restartsDebounce) existing.touched = now;
-        // A node dwells for the longest gate that applies to it.
+        // A node dwells for the longest gate that applies to it. The
+        // `?? null` here is unreachable: `dwellForMachine > 0` is only
+        // true when `opts.machine` produced it, so `opts?.machine` is
+        // always set on this branch — `machine` never gets cleared by a
+        // winning dwell.
         if (dwellForMachine > existing.dwellMs) {
           existing.dwellMs = dwellForMachine;
           existing.machine = opts?.machine ?? null;
@@ -319,6 +325,7 @@ export class Publisher {
           since: now,
           touched: now,
           dwellMs: dwellForMachine,
+          // Same invariant as above: dwellForMachine > 0 implies opts.machine is set.
           machine: dwellForMachine > 0 ? (opts?.machine ?? null) : null,
           bypass: opts?.bypass ?? false,
           coalesced: 0,
