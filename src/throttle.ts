@@ -48,6 +48,21 @@ export interface StoreOptions {
   clock?: Clock;
 }
 
+interface DirtyEntry {
+  /** clock.now() when this node first went dirty and has stayed dirty. */
+  since: number;
+  /** clock.now() of the most recent change; the debounce restarts here. */
+  touched: number;
+  /**
+   * Largest dwell among the machines that transitioned since the last
+   * publish. 0 means this node is not dwell-gated — only non-FSM changes
+   * have landed, so it rides the notifyMs window.
+   */
+  dwellMs: number;
+  /** Structural change (register/unregister/move); bypasses dwell entirely. */
+  bypass: boolean;
+}
+
 export interface PublisherDeps {
   /** Live reference to the Store's truth map. Never copied wholesale. */
   truth: ReadonlyMap<NodeId, Node>;
@@ -78,7 +93,7 @@ export class Publisher {
   private publishedRootIds: readonly NodeId[] = [];
   private publishedFocusedId: NodeId | null = null;
 
-  private readonly dirty = new Set<NodeId>();
+  private readonly dirty = new Map<NodeId, DirtyEntry>();
   private globalsDirty = false;
   private scheduled = false;
   private timer: TimerHandle | null = null;
@@ -114,7 +129,24 @@ export class Publisher {
    * Store's call sites don't need a second pass to add it.
    */
   markDirty(id: NodeId, opts?: { machine?: MachineName; bypass?: boolean }): void {
-    if (!this.passthrough) this.dirty.add(id);
+    if (!this.passthrough) {
+      const now = this.clock.now();
+      const dwellForMachine = opts?.machine ? (this.policy?.dwell?.[opts.machine] ?? 0) : 0;
+      const existing = this.dirty.get(id);
+      if (existing) {
+        existing.touched = now;
+        // A node dwells for the longest gate that applies to it.
+        if (dwellForMachine > existing.dwellMs) existing.dwellMs = dwellForMachine;
+        if (opts?.bypass) existing.bypass = true;
+      } else {
+        this.dirty.set(id, {
+          since: now,
+          touched: now,
+          dwellMs: dwellForMachine,
+          bypass: opts?.bypass ?? false,
+        });
+      }
+    }
     this.schedule();
   }
 
@@ -190,7 +222,7 @@ export class Publisher {
     }
     const published = this.publishedNodes as Map<NodeId, Node>;
     let count = 0;
-    for (const id of this.dirty) {
+    for (const [id, _entry] of this.dirty) {
       const node = this.truth.get(id);
       if (node === undefined) published.delete(id);
       else published.set(id, node);
