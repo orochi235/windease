@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
 import { asNodeId } from './node.js';
+import { deserialize, serialize } from './snapshot.js';
 import { Store } from './store.js';
 import { FakeClock } from './test-utils/fake-clock.js';
 
@@ -86,5 +87,47 @@ describe('Store published projection', () => {
     expect(store.getNode(nid('z'))).toBeUndefined();
     store.flushNow();
     expect(store.getNode(nid('z'))).toBeDefined();
+  });
+});
+
+describe('snapshot under throttling', () => {
+  it('serializes truth, not the lagged published view', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { notifyMs: 5000 }, clock });
+    store.registerNode(zone('z'));
+
+    expect(store.getNode(nid('z'))).toBeUndefined();
+    const snap = serialize(store);
+    expect(snap.nodes.map((n) => n.id)).toContain('z');
+  });
+
+  it('deserialize snaps published to truth with no pending timers', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { notifyMs: 5000 }, clock });
+    store.registerNode(zone('z'));
+    store.flushNow();
+
+    const snap = serialize(store);
+    const restored = new Store({ throttle: { notifyMs: 5000 }, clock: new FakeClock() });
+    deserialize(restored, snap);
+
+    // No advance() — hydration is wholesale, so published must match at once.
+    expect(restored.getNode(nid('z'))).toBeDefined();
+  });
+
+  it('notifies subscribers on hydrate', () => {
+    const clock = new FakeClock();
+    const source = new Store({ throttle: { notifyMs: 5000 }, clock });
+    source.registerNode(zone('z'));
+    source.flushNow();
+    const snap = serialize(source);
+
+    const restored = new Store({ throttle: { notifyMs: 5000 }, clock: new FakeClock() });
+    let calls = 0;
+    restored.subscribe(() => {
+      calls++;
+    });
+    deserialize(restored, snap);
+    expect(calls).toBeGreaterThan(0);
   });
 });
