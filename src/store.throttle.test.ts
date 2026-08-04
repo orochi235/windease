@@ -24,9 +24,7 @@ describe('Store construction', () => {
     expect(store.nodes).toBe(store.nodesTruth);
   });
 
-  // Task 8 repoints `store.nodes` at the published projection; until then it
-  // still reads truth, so this fails by design. Re-enable in Task 8.
-  it.skip('allocates a separate projection when throttled', () => {
+  it('allocates a separate projection when throttled', () => {
     const store = new Store({ throttle: { notifyMs: 32 }, clock: new FakeClock() });
     expect(store.nodes).not.toBe(store.nodesTruth);
   });
@@ -42,5 +40,51 @@ describe('Store construction', () => {
     expect(calls).toBe(0);
     await tick();
     expect(calls).toBe(1);
+  });
+});
+
+describe('Store published projection', () => {
+  it('withholds a registration until the notify window elapses', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { notifyMs: 32 }, clock });
+    store.registerNode(zone('z'));
+
+    expect(store.getNodeTruth(nid('z'))).toBeDefined();
+    expect(store.getNode(nid('z'))).toBeUndefined();
+
+    clock.advance(32);
+    expect(store.getNode(nid('z'))).toBeDefined();
+  });
+
+  it('shares one Machine instance between truth and published', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { notifyMs: 32 }, clock });
+    store.registerNode(zone('z'));
+    clock.advance(32);
+
+    const published = store.getNode(nid('z'));
+    const truth = store.getNodeTruth(nid('z'));
+    expect(published).toBe(truth);
+    expect(published?.lifecycle).toBe(truth?.lifecycle);
+    expect(typeof published?.lifecycle.send).toBe('function');
+  });
+
+  it('projects rootIds on flush', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { notifyMs: 32 }, clock });
+    store.registerNode(zone('z'));
+    expect(store.rootIds).toEqual([]);
+    expect(store.rootIdsTruth).toEqual([nid('z')]);
+    clock.advance(32);
+    expect(store.rootIds).toEqual([nid('z')]);
+  });
+
+  it('flushNow() collapses pending latency', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { notifyMs: 5000 }, clock });
+    store.registerNode(zone('z'));
+    expect(store.getNode(nid('z'))).toBeUndefined();
+    store.flushNow();
+    expect(store.getNode(nid('z'))).toBeDefined();
   });
 });

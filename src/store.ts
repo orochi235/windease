@@ -92,9 +92,16 @@ export class Store {
   }
 
   // ===== Read =====
+  //
+  // `nodes` / `rootIds` / `focusedId` / `getNode` return the PUBLISHED view:
+  // what subscribers and the React layer see, which may lag truth when a
+  // throttle policy is configured. The `*Truth` variants return the exact
+  // current state and are what snapshot and history read.
+  //
+  // With no throttle policy the two are identity-equal.
 
   get nodes(): ReadonlyMap<NodeId, Node> {
-    return this.nodesMap;
+    return this.publisher.nodes;
   }
 
   /** Truth: unlagged, exactly what the last mutation wrote. */
@@ -103,14 +110,29 @@ export class Store {
   }
 
   get rootIds(): readonly NodeId[] {
+    return this.publisher.rootIds;
+  }
+
+  /** Truth: unlagged root id list. */
+  get rootIdsTruth(): readonly NodeId[] {
     return this.rootIdsArr;
   }
 
   get focusedId(): NodeId | null {
+    return this.publisher.focusedId;
+  }
+
+  /** Truth: unlagged focused id. */
+  get focusedIdTruth(): NodeId | null {
     return this.focusedIdValue;
   }
 
   getNode(id: NodeId): Node | undefined {
+    return this.publisher.nodes.get(id);
+  }
+
+  /** Truth: unlagged node record. */
+  getNodeTruth(id: NodeId): Node | undefined {
     return this.nodesMap.get(id);
   }
 
@@ -817,6 +839,19 @@ export class Store {
    */
   flushNow(): void {
     this.publisher.flushNow();
+  }
+
+  /**
+   * Snap the published view to truth and cancel pending flushes. Called by
+   * `deserialize`; consumers should not need this.
+   *
+   * `Publisher.reset()` notifies subscribers synchronously — do NOT add a
+   * second notification here or after the call in `deserialize`.
+   *
+   * @internal
+   */
+  resetPublished(): void {
+    this.publisher.reset();
   }
 
   // ===== Internal helpers =====
