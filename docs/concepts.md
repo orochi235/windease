@@ -111,6 +111,35 @@ methods:
 Selectors: `getNode`, `getChildren`, `getParent`, `getAncestors`,
 `isContainer`, `isSlotted`, `hasFocus`, `getContainerView`.
 
+## Truth vs. published
+
+Store-wide split, opt-in via `new Store({ throttle })`. **Truth** is
+updated synchronously by every mutation — it's what `Machine.send()`
+always acts on. **Published** is the projection subscribers and the React
+layer actually observe; with a `throttle` policy configured it can lag
+truth by up to `dwellMs`/`notifyMs`, gated by the `Publisher` (see
+`src/throttle.ts`). With no policy, published *is* truth by object
+identity — a hard requirement, not an optimization, so an unthrottled
+`Store` pays no cost.
+
+| Read                              | Sees       |
+| ---------------------------------- | ---------- |
+| `getNode(id)` / `nodes`            | published  |
+| `focusedId` / `rootIds`            | published  |
+| `getNodeTruth(id)` / `nodesTruth`  | truth      |
+| `focusedIdTruth` / `rootIdsTruth`  | truth      |
+
+`serialize()` and `HistoryController` always read truth — a snapshot or an
+undo entry is never the lagged value. `store.flushNow()` collapses
+published up to truth immediately, bypassing every gate. Dwell gates
+**observation, never truth**: only an FSM transition on a configured
+machine starts or restarts a dwell, and only the whole record (not
+individual fields) is held.
+
+Full mechanism (dwell debounce, stagger waves, `maxWaitMs` starvation cap)
+is in `docs/superpowers/specs/2026-08-03-transition-throttling-design.md`;
+this section is the vocabulary, not the design.
+
 ## Layout strategies
 
 Strategies are pure functions of `{ items, container, state, options }`
@@ -222,7 +251,7 @@ Catch on `instanceof` or `.code`, not message text.
 ## Tracing
 
 `trace(category, message, data?)`. Categories: `dnd`, `history`, `layout`,
-`store`, `workspace`, `container`. Enable per-category via
+`store`, `throttle`, `workspace`, `container`. Enable per-category via
 `WINDEASE_TRACE=dnd,history npm test` or `configureTrace('*')`.
 
 ## CSS surface
