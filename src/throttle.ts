@@ -6,6 +6,7 @@
  * `Store` constructor; the un-throttled path stays identity-equal to truth.
  */
 
+import { InvalidThrottlePolicyError } from './errors.js';
 import type { Node, NodeId } from './node.js';
 import { trace } from './trace.js';
 
@@ -33,14 +34,78 @@ export const systemClock: Clock = {
 };
 
 export interface ThrottlePolicy {
-  /** Flush window in ms. Omit for microtask scheduling (the default). */
+  /**
+   * Flush window in ms. Omit for microtask scheduling (the default). Must
+   * be a finite number \>= 0 if provided. `0` is legal and meaningful — a
+   * real zero-delay timer, distinct from omitting the field.
+   */
   notifyMs?: number;
-  /** Per-machine minimum dwell in ms. Machines omitted are not gated. */
+  /**
+   * Per-machine minimum dwell in ms. Machines omitted are not gated. Each
+   * configured value must be a finite number \>= 0.
+   */
   dwell?: Partial<Record<MachineName, number>>;
-  /** Starvation cap. Defaults to 4x the largest configured dwell. */
+  /**
+   * Starvation cap. Defaults to 4x the largest configured dwell. Must be a
+   * finite number \>= 0 if provided. `0` disables the cap (see
+   * {@link Publisher.isEligible}) rather than forcing an immediate publish.
+   */
   maxWaitMs?: number;
-  /** Publish at most `batch` newly-eligible nodes every `ms`. */
+  /**
+   * Publish at most `batch` newly-eligible nodes every `ms`. `batch` must
+   * be a finite integer \>= 1 — an explicit `0` (or any value below 1)
+   * would silently starve every dwelling node forever, so it is rejected
+   * at construction rather than papered over. `ms` must be a finite
+   * number \>= 0.
+   */
   stagger?: { batch: number; ms: number };
+}
+
+/**
+ * Throws `InvalidThrottlePolicyError` for any field whose value would
+ * silently misbehave rather than do something sensible. Called once, at
+ * `Publisher` construction — a bad policy fails loudly up front instead of
+ * quietly never publishing.
+ */
+function validateThrottlePolicy(policy: ThrottlePolicy): void {
+  const reject = (field: string, value: unknown, requirement: string): never => {
+    throw new InvalidThrottlePolicyError(
+      field,
+      value,
+      `ThrottlePolicy.${field} must be ${requirement} (got ${String(value)})`,
+    );
+  };
+
+  if (policy.notifyMs !== undefined) {
+    if (!Number.isFinite(policy.notifyMs) || policy.notifyMs < 0) {
+      reject('notifyMs', policy.notifyMs, 'a finite number >= 0');
+    }
+  }
+
+  if (policy.dwell) {
+    for (const [machine, ms] of Object.entries(policy.dwell)) {
+      if (ms === undefined) continue;
+      if (!Number.isFinite(ms) || ms < 0) {
+        reject(`dwell.${machine}`, ms, 'a finite number >= 0');
+      }
+    }
+  }
+
+  if (policy.maxWaitMs !== undefined) {
+    if (!Number.isFinite(policy.maxWaitMs) || policy.maxWaitMs < 0) {
+      reject('maxWaitMs', policy.maxWaitMs, 'a finite number >= 0');
+    }
+  }
+
+  if (policy.stagger) {
+    const { batch, ms } = policy.stagger;
+    if (!Number.isFinite(batch) || !Number.isInteger(batch) || batch < 1) {
+      reject('stagger.batch', batch, 'a finite integer >= 1');
+    }
+    if (!Number.isFinite(ms) || ms < 0) {
+      reject('stagger.ms', ms, 'a finite number >= 0');
+    }
+  }
 }
 
 export interface StoreOptions {
@@ -101,6 +166,8 @@ export class Publisher {
   private forceFullFlush = false;
 
   constructor(deps: PublisherDeps) {
+    if (deps.policy) validateThrottlePolicy(deps.policy);
+
     this.truth = deps.truth;
     this.policy = deps.policy;
     this.clock = deps.clock;

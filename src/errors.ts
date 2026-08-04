@@ -19,6 +19,8 @@ export type WindeaseErrorCode =
   | 'capability-missing'
   | 'cycle-detected'
   | 'strategy-rejected'
+  // codes (throttling)
+  | 'invalid-throttle-policy'
   // Free-form code surface for InvariantViolationError.
   | (string & {});
 
@@ -90,6 +92,18 @@ export class StrategyRejectionError extends WindeaseError {
     this.name = 'StrategyRejectionError';
     this.parentId = parentId;
     this.reason = reason;
+  }
+}
+
+/** @group Errors */
+export class InvalidThrottlePolicyError extends WindeaseError {
+  readonly field: string;
+  readonly value: unknown;
+  constructor(field: string, value: unknown, message: string) {
+    super('invalid-throttle-policy', message);
+    this.name = 'InvalidThrottlePolicyError';
+    this.field = field;
+    this.value = value;
   }
 }
 

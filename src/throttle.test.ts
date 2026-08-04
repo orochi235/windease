@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { InvalidThrottlePolicyError } from './errors.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import type { Node, NodeId } from './node.js';
 import { FakeClock } from './test-utils/fake-clock.js';
@@ -501,5 +502,119 @@ describe('Publisher — stagger', () => {
     expect(h.pub.nodes.has(nid('held'))).toBe(false);
     expect(h.pub.nodes.size).toBe(2);
     expect([...h.pub.nodes.keys()]).toEqual([nid('a'), nid('b')]);
+  });
+});
+
+function buildPublisher(policy: ThrottlePolicy): Publisher {
+  return new Publisher({
+    truth: new Map(),
+    policy,
+    clock: new FakeClock(),
+    readGlobals: () => ({ rootIds: [], focusedId: null }),
+    notify: () => {},
+  });
+}
+
+describe('Publisher — policy validation', () => {
+  // Fix 1 regression coverage: `stagger.batch: 0` (or any value below 1)
+  // makes the batch computed at src/throttle.ts:254 —
+  // `full ? eligible.length : (this.policy?.stagger?.batch ?? eligible.length)`
+  // — evaluate to 0 on every flush, forever, because `??` only catches
+  // `undefined`. A dirty node then never becomes eligible for a wave and a
+  // recheck timer keeps re-arming indefinitely. Construction must reject
+  // this instead of silently starving.
+  it('rejects stagger.batch: 0', () => {
+    expect(() => buildPublisher({ stagger: { batch: 0, ms: 40 } })).toThrow(
+      InvalidThrottlePolicyError,
+    );
+  });
+
+  it('rejects a negative stagger.batch', () => {
+    expect(() => buildPublisher({ stagger: { batch: -1, ms: 40 } })).toThrow(
+      InvalidThrottlePolicyError,
+    );
+  });
+
+  it('rejects a non-integer stagger.batch', () => {
+    expect(() => buildPublisher({ stagger: { batch: 1.5, ms: 40 } })).toThrow(
+      InvalidThrottlePolicyError,
+    );
+  });
+
+  it('rejects a NaN stagger.batch', () => {
+    expect(() => buildPublisher({ stagger: { batch: Number.NaN, ms: 40 } })).toThrow(
+      InvalidThrottlePolicyError,
+    );
+  });
+
+  it('rejects a negative stagger.ms', () => {
+    expect(() => buildPublisher({ stagger: { batch: 4, ms: -1 } })).toThrow(
+      InvalidThrottlePolicyError,
+    );
+  });
+
+  it('rejects a NaN stagger.ms', () => {
+    expect(() => buildPublisher({ stagger: { batch: 4, ms: Number.NaN } })).toThrow(
+      InvalidThrottlePolicyError,
+    );
+  });
+
+  it('rejects a negative notifyMs', () => {
+    expect(() => buildPublisher({ notifyMs: -1 })).toThrow(InvalidThrottlePolicyError);
+  });
+
+  it('rejects a NaN notifyMs', () => {
+    expect(() => buildPublisher({ notifyMs: Number.NaN })).toThrow(InvalidThrottlePolicyError);
+  });
+
+  it('rejects an infinite notifyMs', () => {
+    expect(() => buildPublisher({ notifyMs: Number.POSITIVE_INFINITY })).toThrow(
+      InvalidThrottlePolicyError,
+    );
+  });
+
+  it('rejects a negative dwell value', () => {
+    expect(() => buildPublisher({ dwell: { lifecycle: -1 } })).toThrow(InvalidThrottlePolicyError);
+  });
+
+  it('rejects a NaN dwell value', () => {
+    expect(() => buildPublisher({ dwell: { lifecycle: Number.NaN } })).toThrow(
+      InvalidThrottlePolicyError,
+    );
+  });
+
+  it('rejects a negative maxWaitMs', () => {
+    expect(() => buildPublisher({ maxWaitMs: -1 })).toThrow(InvalidThrottlePolicyError);
+  });
+
+  it('rejects a NaN maxWaitMs', () => {
+    expect(() => buildPublisher({ maxWaitMs: Number.NaN })).toThrow(InvalidThrottlePolicyError);
+  });
+
+  it('accepts and honors notifyMs: 0 — a real zero-delay window, not "omitted"', () => {
+    const h = throttledHarness({ notifyMs: 0 });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'));
+    // Nothing published synchronously — a timer is armed even for a 0ms
+    // window, distinct from the omitted-notifyMs microtask path.
+    expect(h.pub.nodes.has(nid('a'))).toBe(false);
+    h.clock.advance(0);
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+
+  it('accepts an omitted throttle policy fields (defaults intact)', () => {
+    expect(() => buildPublisher({})).not.toThrow();
+    const h = throttledHarness({});
+    expect(h.pub.passthrough).toBe(false);
+  });
+
+  it('accepts maxWaitMs: 0 (disables the starvation cap rather than forcing immediate publish)', () => {
+    expect(() =>
+      buildPublisher({ notifyMs: 10, dwell: { lifecycle: 100 }, maxWaitMs: 0 }),
+    ).not.toThrow();
+  });
+
+  it('accepts a valid stagger policy at the boundary (batch: 1)', () => {
+    expect(() => buildPublisher({ stagger: { batch: 1, ms: 0 } })).not.toThrow();
   });
 });
