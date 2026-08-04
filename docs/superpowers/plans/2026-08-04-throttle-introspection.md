@@ -30,6 +30,10 @@
 
 **Two harnesses already exist in `src/throttle.test.ts`:** `harness()` (line 33, passthrough only) and `throttledHarness(policy)` (line 112). Task 4 extends `throttledHarness` with an event recorder; do not create a third harness.
 
+**Never put an `expect` inside a `store.events` handler.** `TypedEmitter.emit` catches and logs listener throws (`src/events.ts:22-25`), so an assertion that fails inside a handler prints `[windease] event listener threw` and the test still passes. Capture what you need into a variable and assert after the mutation returns.
+
+**Test files are not type-checked by `tsc`.** Both `tsconfig.json` and `tsconfig.build.json` exclude `**/*.test.ts`, so type errors in tests surface only in the editor. Anything you want guaranteed about test-side types has to be proven at runtime by an assertion.
+
 **Run the whole suite, not one file.** `npx vitest run <path>` for a single file is fine while iterating, but every task's final check is `npm test`.
 
 ---
