@@ -76,6 +76,14 @@ export {
 } from './errors.js';
 export { Store, type StoreEvents } from './store.js';
 export {
+  systemClock,
+  type Clock,
+  type MachineName,
+  type StoreOptions,
+  type ThrottlePolicy,
+  type TimerHandle,
+} from './throttle.js';
+export {
   serialize,
   deserialize,
   type SerializedNode,
