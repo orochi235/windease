@@ -1,5 +1,4 @@
-import { render, screen } from '@testing-library/react';
-import { act } from 'react';
+import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createPanel, createZone } from '../constructors.js';
 import { asNodeId } from '../node.js';
