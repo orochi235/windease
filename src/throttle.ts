@@ -394,14 +394,7 @@ export class Publisher {
     const dirty = this.dirty as Map<NodeId, DirtyEntry>;
     let earliest = Number.POSITIVE_INFINITY;
     for (const entry of dirty.values()) {
-      if (entry.bypass || entry.dwellMs === 0) {
-        earliest = now;
-        break;
-      }
-      const byDwell = entry.touched + entry.dwellMs;
-      const byMaxWait =
-        this.maxWaitMs > 0 ? entry.since + this.maxWaitMs : Number.POSITIVE_INFINITY;
-      earliest = Math.min(earliest, byDwell, byMaxWait);
+      earliest = Math.min(earliest, this.eligibleAt(entry));
     }
     if (earliest === Number.POSITIVE_INFINITY) return;
     this.scheduled = true;
@@ -411,17 +404,36 @@ export class Publisher {
   }
 
   /**
+   * The earliest moment `entry`'s gate opens: its dwell debounce or the
+   * `maxWaitMs` starvation cap, whichever lands first. An entry that is
+   * not dwell-gated (`bypass`, or `dwellMs === 0`) opened its gate the
+   * moment it went dirty, so it reports `since`.
+   *
+   * A pure function of the entry — it never reads the clock, so two
+   * callers in the same tick always agree. Single source of truth for
+   * `isEligible`, `scheduleRecheck`, and the public `getPending`
+   * descriptor; do not re-inline this expression at a call site.
+   */
+  private eligibleAt(entry: DirtyEntry): number {
+    if (entry.bypass || entry.dwellMs === 0) return entry.since;
+    const byDwell = entry.touched + entry.dwellMs;
+    const byMaxWait = this.maxWaitMs > 0 ? entry.since + this.maxWaitMs : Number.POSITIVE_INFINITY;
+    return Math.min(byDwell, byMaxWait);
+  }
+
+  /**
    * A node publishes once it has been quiet for `dwellMs`, or when
    * `maxWaitMs` has elapsed since it first went dirty — the starvation cap
    * that stops a permanently-noisy node from never updating.
    */
   private isEligible(entry: DirtyEntry, now: number): boolean {
     if (entry.bypass || entry.dwellMs === 0) return true;
-    if (now - entry.touched >= entry.dwellMs) return true;
-    if (this.maxWaitMs > 0 && now - entry.since >= this.maxWaitMs) {
+    if (now < this.eligibleAt(entry)) return false;
+    // The gate opened. If the dwell debounce isn't what opened it, the
+    // starvation cap did — that's the interesting case to log.
+    if (now - entry.touched < entry.dwellMs) {
       trace('throttle', `maxWait forced publish after ${now - entry.since}ms`);
-      return true;
     }
-    return false;
+    return true;
   }
 }
