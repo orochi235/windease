@@ -306,3 +306,36 @@ describe('Store.getPending', () => {
     expect(store.getPending(nid('p'))).toBeNull();
   });
 });
+
+describe('Store throttle.pending event', () => {
+  it('is emitted on store.events when a node is withheld', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { dwell: { lifecycle: 150 } }, clock });
+    store.registerNode(zone('z'));
+    store.registerNode(panel('p', 'z'));
+    store.flushNow();
+
+    const seen: string[] = [];
+    store.events.on('throttle.pending', (p) => {
+      seen.push(p.id);
+    });
+
+    store.showNode(nid('p'));
+    // One event, even though showNode marks the node twice.
+    expect(seen).toEqual([nid('p')]);
+    // The settled gate comes from the point read, not from the event.
+    expect(store.getPending(nid('p'))?.dwellMs).toBe(150);
+  });
+
+  it('is never emitted by an un-throttled store', () => {
+    const store = new Store();
+    let calls = 0;
+    store.events.on('throttle.pending', () => {
+      calls++;
+    });
+    store.registerNode(zone('z'));
+    store.registerNode(panel('p', 'z'));
+    store.showNode(nid('p'));
+    expect(calls).toBe(0);
+  });
+});

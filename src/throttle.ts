@@ -191,6 +191,27 @@ interface DirtyEntry {
   coalesced: number;
 }
 
+/**
+ * Emitted as `throttle.pending` on `store.events` when a node first goes
+ * dirty and starts being withheld. Fires once per pending episode, not
+ * once per change — see `throttle.published` for the other end.
+ *
+ * Carries only what is settled at emit time. The dwell gate is not: one
+ * store mutation marks a node several times, and the mark that creates
+ * the entry is typically the untagged one from `replaceNode`, so
+ * `dwellMs` is still `0` here and is raised immediately afterwards. Read
+ * {@link Store.getPending} for the settled gate.
+ *
+ * Never emitted by an un-throttled store.
+ *
+ * @group Store
+ */
+export interface ThrottlePendingPayload {
+  id: NodeId;
+  /** `clock.now()` when the node went dirty. */
+  since: number;
+}
+
 export interface PublisherDeps {
   /** Live reference to the Store's truth map. Never copied wholesale. */
   truth: ReadonlyMap<NodeId, Node>;
@@ -198,6 +219,11 @@ export interface PublisherDeps {
   clock: Clock;
   readGlobals: () => { rootIds: readonly NodeId[]; focusedId: NodeId | null };
   notify: () => void;
+  /**
+   * Called when a node starts being withheld. Optional so test harnesses
+   * and any future embedder can omit it; `Store` always supplies it.
+   */
+  onPending?: (payload: ThrottlePendingPayload) => void;
 }
 
 /**
@@ -216,6 +242,7 @@ export class Publisher {
   private readonly clock: Clock;
   private readonly readGlobals: PublisherDeps['readGlobals'];
   private readonly notify: () => void;
+  private readonly onPending: PublisherDeps['onPending'];
 
   private readonly publishedNodes: Map<NodeId, Node> | null;
   private publishedRootIds: readonly NodeId[] = [];
@@ -241,6 +268,7 @@ export class Publisher {
     this.clock = deps.clock;
     this.readGlobals = deps.readGlobals;
     this.notify = deps.notify;
+    this.onPending = deps.onPending;
     this.passthrough = deps.policy === undefined;
     this.publishedNodes = this.passthrough ? null : new Map();
     this.dirty = this.passthrough ? null : new Map();
@@ -321,7 +349,7 @@ export class Publisher {
         }
         if (opts?.bypass) existing.bypass = true;
       } else {
-        dirty.set(id, {
+        const entry: DirtyEntry = {
           since: now,
           touched: now,
           dwellMs: dwellForMachine,
@@ -329,7 +357,12 @@ export class Publisher {
           machine: dwellForMachine > 0 ? (opts?.machine ?? null) : null,
           bypass: opts?.bypass ?? false,
           coalesced: 0,
-        });
+        };
+        dirty.set(id, entry);
+        // No dwell in the message: this fires on entry creation, and the
+        // gate is raised by a later mark in the same mutation.
+        trace('throttle', `pending: ${id} withheld from ${now}`);
+        this.onPending?.({ id, since: now });
       }
     }
     this.schedule();

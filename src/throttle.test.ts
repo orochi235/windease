@@ -3,7 +3,12 @@ import { InvalidThrottlePolicyError } from './errors.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import type { Node, NodeId } from './node.js';
 import { FakeClock } from './test-utils/fake-clock.js';
-import { Publisher, type ThrottlePolicy, systemClock } from './throttle.js';
+import {
+  Publisher,
+  type ThrottlePendingPayload,
+  type ThrottlePolicy,
+  systemClock,
+} from './throttle.js';
 
 describe('systemClock', () => {
   it('reports a monotonic-ish now()', () => {
@@ -109,12 +114,18 @@ describe('Publisher — passthrough', () => {
   });
 });
 
+interface RecordedEvent {
+  kind: 'pending';
+  payload: ThrottlePendingPayload;
+}
+
 function throttledHarness(policy: ThrottlePolicy) {
   const truth = new Map<NodeId, Node>();
   let rootIds: NodeId[] = [];
   const focusedId: NodeId | null = null;
   let notifies = 0;
   const clock = new FakeClock();
+  const events: RecordedEvent[] = [];
   const pub = new Publisher({
     truth,
     policy,
@@ -123,12 +134,18 @@ function throttledHarness(policy: ThrottlePolicy) {
     notify: () => {
       notifies++;
     },
+    onPending: (payload) => {
+      events.push({ kind: 'pending', payload });
+    },
   });
   return {
     pub,
     truth,
     clock,
     notifies: () => notifies,
+    events,
+    pendingEvents: () =>
+      events.filter((e) => e.kind === 'pending').map((e) => e.payload as ThrottlePendingPayload),
     setRootIds: (ids: NodeId[]) => {
       rootIds = ids;
     },
@@ -852,5 +869,68 @@ describe('Publisher — getPending', () => {
     const pending = h.pub.getPending(nid('a'));
     expect(pending?.eligibleAt).toBe(150);
     expect(Number.isFinite(pending?.eligibleAt ?? Number.POSITIVE_INFINITY)).toBe(true);
+  });
+});
+
+describe('Publisher — throttle.pending event', () => {
+  it('does not fire in passthrough', () => {
+    // The passthrough harness supplies no callbacks at all; this asserts
+    // the Publisher tolerates that and never tries to call them.
+    const h = harness();
+    h.truth.set(nid('a'), makeNode('a'));
+    expect(() => h.pub.markDirty(nid('a'), { machine: 'lifecycle' })).not.toThrow();
+  });
+
+  it('fires once when a node first goes dirty', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    expect(h.pendingEvents()).toEqual([{ id: nid('a'), since: 0 }]);
+  });
+
+  it('fires once for a mutation that marks the node twice', () => {
+    // This is the real `showNode` shape: an untagged mark from
+    // `replaceNode` creates the entry, then a machine-tagged mark raises
+    // the dwell. Only the first fires the event — which is exactly why
+    // the payload carries no `dwellMs`: it isn't settled yet.
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    expect(h.pendingEvents()).toEqual([{ id: nid('a'), since: 0 }]);
+    expect(h.pub.getPending(nid('a'))?.dwellMs).toBe(150);
+  });
+
+  it('does not re-fire on subsequent touches of the same entry', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.markDirty(nid('a'));
+
+    expect(h.pendingEvents()).toHaveLength(1);
+  });
+
+  it('fires again for a new pending episode after the node publishes', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 50 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.clock.advance(500);
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    expect(h.pendingEvents()).toHaveLength(2);
+    expect(h.pendingEvents()[1].since).toBe(500);
+  });
+
+  it('reports one event per node', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.truth.set(nid('b'), makeNode('b'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.markDirty(nid('b'), { machine: 'lifecycle' });
+
+    expect(h.pendingEvents().map((e) => e.id)).toEqual([nid('a'), nid('b')]);
   });
 });

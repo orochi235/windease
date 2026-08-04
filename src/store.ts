@@ -7,7 +7,13 @@ import {
 } from './errors.js';
 import { TypedEmitter } from './events.js';
 import type { ContainerCap, FocusCap, Node, NodeId, SlotCap } from './node.js';
-import { type PendingPublish, Publisher, type StoreOptions, systemClock } from './throttle.js';
+import {
+  type PendingPublish,
+  Publisher,
+  type StoreOptions,
+  type ThrottlePendingPayload,
+  systemClock,
+} from './throttle.js';
 import { trace } from './trace.js';
 
 export interface StoreEvents {
@@ -59,6 +65,11 @@ export interface StoreEvents {
    * resize gestures shouldn't pollute the timeline.
    */
   'container.stateChanged': { id: NodeId; from: unknown; to: unknown };
+  /**
+   * A node started being withheld by throttling. Only ever emitted by a
+   * store constructed with a `throttle` policy.
+   */
+  'throttle.pending': ThrottlePendingPayload;
 }
 
 /**
@@ -88,6 +99,7 @@ export class Store {
       notify: () => {
         for (const fn of this.subscribers) fn();
       },
+      onPending: (payload) => this.events.emit('throttle.pending', payload),
     });
   }
 
