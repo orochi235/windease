@@ -14,7 +14,7 @@ describe('Throttling stories smoke test', () => {
   it('Bounce renders and survives a full bounce cycle without throwing', async () => {
     vi.useFakeTimers();
     try {
-      const { getByText } = render(<Bounce throttled={true} dwellMs={0} />);
+      const { getByText, getByRole } = render(<Bounce throttled={true} dwellMs={0} />);
       const button = getByText(/Bounce \(show/);
 
       act(() => {
@@ -22,6 +22,10 @@ describe('Throttling stories smoke test', () => {
       });
       await act(async () => {
         await vi.advanceTimersByTimeAsync(200);
+      });
+
+      act(() => {
+        getByRole('button', { name: 'Clear log' }).click();
       });
     } finally {
       vi.useRealTimers();
@@ -47,10 +51,10 @@ describe('Throttling stories smoke test', () => {
   it('ColdStartFlood registers and resets 24 panels without throwing', async () => {
     vi.useFakeTimers();
     try {
-      const { getByText } = render(
+      const { getByRole } = render(
         <ColdStartFlood throttled={true} notifyMs={16} staggerBatch={4} staggerMs={40} />,
       );
-      const registerButton = getByText('Register 24 panels');
+      const registerButton = getByRole('button', { name: 'Register 24 panels' });
 
       act(() => {
         registerButton.click();
@@ -59,7 +63,7 @@ describe('Throttling stories smoke test', () => {
         await vi.advanceTimersByTimeAsync(500);
       });
 
-      const resetButton = getByText('Reset');
+      const resetButton = getByRole('button', { name: 'Reset' });
       act(() => {
         resetButton.click();
       });
@@ -74,10 +78,10 @@ describe('Throttling stories smoke test', () => {
   it('TruthVsPublished renders the readout and survives churning', async () => {
     vi.useFakeTimers();
     try {
-      const { getByText } = render(
+      const { getByRole } = render(
         <TruthVsPublished throttled={true} notifyMs={16} dwellMs={100} />,
       );
-      const churnButton = getByText('Start churn');
+      const churnButton = getByRole('button', { name: 'Start churn' });
 
       act(() => {
         churnButton.click();
@@ -87,7 +91,7 @@ describe('Throttling stories smoke test', () => {
       });
 
       act(() => {
-        getByText('Stop churn').click();
+        getByRole('button', { name: 'Stop churn' }).click();
       });
     } finally {
       vi.useRealTimers();

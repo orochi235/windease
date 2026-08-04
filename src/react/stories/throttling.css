@@ -8,6 +8,24 @@
   max-width: 560px;
 }
 
+.throttling-caption {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.throttling-caption code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: #e2e8f0;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
 .throttling-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -113,4 +131,9 @@
   background: #fef3c7;
   color: #92400e;
   font-weight: 600;
+}
+
+.throttling-log-empty {
+  color: #94a3b8;
+  font-style: italic;
 }

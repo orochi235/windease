@@ -38,9 +38,16 @@ const PANEL_CHROME: ChromeMap = {
 // ===== Bounce — demonstrates dwell =====
 //
 // A single panel starts unshown. Clicking "Bounce" fires show → hide → show
-// roughly 40ms apart (~80ms total). With dwell configured, the publisher
-// only shows the settled end state; with dwellMs 0 every truth transition
-// publishes immediately and the hidden frame is visible on screen.
+// roughly 40ms apart (~80ms total). The point of dwell is an *absence* — a
+// suppressed transition that never reaches the published view — and an
+// absence isn't something a viewer can see in a single flickering badge.
+// So instead of just showing the current published state, this demo keeps a
+// live transition log with two columns: every truth transition (captured
+// off `store.events`, which is synchronous and never throttled) beside
+// every distinct state that actually reached the published view (captured
+// off `store.subscribe`). With dwell on, the Truth column gets three rows
+// and Published gets one; with dwellMs at 0 the two columns match line for
+// line.
 
 interface BounceArgs {
   throttled: boolean;
@@ -77,6 +84,35 @@ function BounceDemo({ store }: { store: Store }) {
   const [running, setRunning] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  const [truthLog, setTruthLog] = useState<string[]>([]);
+  const [publishedLog, setPublishedLog] = useState<string[]>([]);
+  const lastPublished = useRef<string | null>(null);
+
+  // Two independent recorders, live for the life of this component:
+  //  - `store.events` is synchronous and un-throttled, so every truth
+  //    transition of the panel's lifecycle FSM lands here in order.
+  //  - `store.subscribe` fires on every published flush; we read
+  //    `getNode(...)` (the published view) and only append when it differs
+  //    from the last value recorded, so a state that never actually changed
+  //    on the published side doesn't pad the column.
+  // Unsubscribed on unmount alongside the bounce timers below.
+  useEffect(() => {
+    const unsubscribeTruth = store.events.on('node.transitioned', (payload) => {
+      if (payload.id !== BOUNCE_PANEL || payload.machine !== 'lifecycle') return;
+      setTruthLog((log) => [...log, payload.to]);
+    });
+    const unsubscribePublished = store.subscribe(() => {
+      const published = store.getNode(BOUNCE_PANEL)?.lifecycle.state;
+      if (published === undefined || published === lastPublished.current) return;
+      lastPublished.current = published;
+      setPublishedLog((log) => [...log, published]);
+    });
+    return () => {
+      unsubscribeTruth();
+      unsubscribePublished();
+    };
+  }, [store]);
+
   // Unmount-only cleanup. This component fully remounts (a fresh `store`)
   // whenever the story's `<Provider key=...>` changes, so there is no
   // "same component, new store" case to guard here — only "component goes
@@ -105,17 +141,64 @@ function BounceDemo({ store }: { store: Store }) {
     );
   }, [store, running]);
 
+  const clearLog = useCallback(() => {
+    setTruthLog([]);
+    setPublishedLog([]);
+    lastPublished.current = null;
+  }, []);
+
+  const rowCount = Math.max(truthLog.length, publishedLog.length);
+  const logRows = Array.from({ length: rowCount }, (_, i) => ({
+    truth: truthLog[i],
+    published: publishedLog[i],
+  }));
+
   return (
     <div className="throttling-demo">
+      <p className="throttling-caption">
+        Click <strong>Bounce</strong>: the panel is shown, hidden, and shown again within ~80ms.
+        With dwell at 150ms the intermediate <code>hidden</code> never reaches the published view —
+        the Truth column below records it, the Published column skips straight to the settled{' '}
+        <code>visible</code>. Set <strong>dwellMs</strong> to 0 and click <strong>Bounce</strong>{' '}
+        again: now every truth transition publishes and the two columns match line for line.
+      </p>
       <div className="throttling-toolbar">
         <button type="button" onClick={bounce} disabled={running}>
           Bounce (show → hide → show, ~40ms apart)
+        </button>
+        <button type="button" onClick={clearLog} disabled={running}>
+          Clear log
         </button>
         <span className="throttling-render-count">renders: {renders.current}</span>
       </div>
       <p className={`throttling-state throttling-state--${state}`}>
         Published lifecycle: <strong>{state}</strong>
       </p>
+      <table className="throttling-table">
+        <thead>
+          <tr>
+            <th>Truth</th>
+            <th>Published</th>
+          </tr>
+        </thead>
+        <tbody>
+          {logRows.length === 0 ? (
+            <tr>
+              <td colSpan={2} className="throttling-log-empty">
+                No transitions recorded yet — click Bounce.
+              </td>
+            </tr>
+          ) : (
+            logRows.map((row, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: rows are an append-only log, index is a stable identity for this render's position
+              <tr key={i}>
+                <td>{row.truth ?? ''}</td>
+                <td>{row.published ?? ''}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
       <div className="throttling-bounce-viewport" style={{ width: 260, height: 160 }}>
         <Container
           parentId={BOUNCE_ZONE}
@@ -212,6 +295,12 @@ function FloodDemo({ store }: { store: Store }) {
 
   return (
     <div className="throttling-demo">
+      <p className="throttling-caption">
+        Click <strong>Register 24 panels</strong>: registration bypasses dwell, so what gates the
+        reveal is <strong>notifyMs</strong> coalescing plus the stagger wave budget. Watch{' '}
+        <em>published visible</em> — with a small stagger batch it climbs in visible steps instead
+        of jumping straight to 24/24.
+      </p>
       <div className="throttling-toolbar">
         <button type="button" onClick={flood}>
           Register 24 panels
@@ -345,6 +434,11 @@ function TvpDemo({ store }: { store: Store }) {
 
   return (
     <div className="throttling-demo">
+      <p className="throttling-caption">
+        Click <strong>Start churn</strong>: an interval flips a few panels' truth visibility every
+        120ms. Watch for highlighted rows — a highlighted row means truth has already changed but
+        the published column hasn't caught up yet; that lag is the whole point of throttling.
+      </p>
       <div className="throttling-toolbar">
         <button type="button" onClick={() => setChurning((v) => !v)}>
           {churning ? 'Stop churn' : 'Start churn'}
