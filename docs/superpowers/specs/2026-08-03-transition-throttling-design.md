@@ -241,8 +241,45 @@ gesture that should feel immediate.
 | `moveNode` / `reorderInParent` / `setChildOrder` | Structural. Ride `notifyMs`, never dwelled — DnD must stay responsive. |
 | Eligible by dwell but over the stagger budget | Stays dirty, publishes in the next wave. |
 | `HistoryController` undo/redo | No change needed. It is a generic snapshot stack holding no `Store` reference — `undo()` returns a snapshot the consumer applies via `deserialize`, which resets the projection. An undo is a user gesture and lands without lag as a consequence. |
-| `deserialize` | `published := truth`, dirty set cleared, pending timers cancelled. |
+| `deserialize` | `published := truth`, dirty set cleared, pending timers cancelled, subscribers notified once. See "Hydrating in place" below. |
 | `serialize` | Reads truth, so snapshots are never lagged. |
+
+## Hydrating in place
+
+`deserialize(snap)` constructs and returns a **new** `Store`. That is fine
+pre-throttling, but it breaks two things once a policy exists: the new
+store is built with no options, so the throttle policy is silently
+discarded, and every subscriber attached to the old instance is orphaned —
+which makes undo/redo unusable, since the React tree is bound to the
+original store.
+
+A second overload therefore hydrates into an existing store:
+
+```ts
+export function deserialize(snap: unknown): Store;              // unchanged
+export function deserialize(store: Store, snap: unknown): void; // in place
+```
+
+The in-place form clears the target (cascading `unregisterNode` from each
+root, reading truth), repopulates from the snapshot, and calls
+`store.resetPublished()`. The store keeps its policy, its clock, and its
+subscribers, so `deserialize(store, history.undo())` lands immediately on
+the instance the consumer is already rendering.
+
+Two consequences worth stating:
+
+- **Hydration now emits removal events.** Clearing the target fires
+  `node.unregistered` / `node.cascadeDestroyed` per node. Consumers
+  listening on `store.events` see teardown traffic they did not see when
+  hydration always produced a fresh store. Traces and event-driven
+  consumers should expect it.
+- **The single-arg form still drops the policy.** It is left unchanged for
+  back-compat. A consumer who wants a throttled store from a snapshot
+  should construct it themselves and hydrate in place:
+  ```ts
+  const store = new Store({ throttle });
+  deserialize(store, snap);
+  ```
 
 ## Tracing
 
