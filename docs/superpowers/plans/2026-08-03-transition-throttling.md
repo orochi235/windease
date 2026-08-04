@@ -2191,6 +2191,94 @@ git commit -m "test(store): cold-start flood reveals in staggered waves"
 
 ---
 
+## Task 19: Ladle story exercising all three mechanisms
+
+Unit tests assert throttling through a `FakeClock`, which proves the logic
+but shows nobody what it *feels* like. Coalescing, dwell, and stagger are
+temporal behaviors — the value only reads on screen, against real timers.
+This story is also the fixture a future Playwright e2e pass would drive
+(see the "Playwright e2e suite" item in `TODO.md`).
+
+**Files:**
+- Create: `src/react/stories/Throttling.stories.tsx`
+- Reuse: `src/react/stories/windease.css` (do not write new CSS unless a
+  layout genuinely needs it; no inline `style` beyond the sizing pattern
+  the sibling stories already use)
+
+Run it with `npm run ladle`.
+
+### What it must demonstrate
+
+Three stories, each isolating one mechanism, plus a shared readout.
+
+**1. `Bounce` — dwell.** A button flips one panel `show → hide → show`
+inside ~80ms. With `dwellMs` at its default the panel must never visibly
+flicker to hidden; with `dwellMs: 0` it must. That side-by-side contrast is
+the whole point — a viewer should be able to set the control to 0, click,
+see the flicker, set it back to 150, click, and see it gone.
+
+**2. `ColdStartFlood` — stagger + notifyMs.** A button registers 24 panels
+in one synchronous burst. With `stagger` configured they appear in waves;
+with `batch` large enough they all appear at once.
+
+**3. `TruthVsPublished` — the core invariant.** A live two-column readout
+listing every node's **truth** state (`getNodeTruth(id)?.lifecycle.state`)
+next to its **published** state (`getNode(id)?.lifecycle.state`), so the lag
+is directly visible. Drive it with a toggle that churns a few panels on an
+interval. This is the story that makes "gates observation, never truth"
+concrete.
+
+### Controls (Ladle `args`)
+
+`notifyMs`, `dwellMs`, `staggerBatch`, `staggerMs`, and a `throttled`
+boolean that omits the policy entirely when false.
+
+The `Store` takes its policy at construction, so build it in a `useMemo`
+keyed on every arg — the same pattern `Stack.stories.tsx` uses for
+`gap`/`padding`. Changing a control rebuilds the store, which is correct
+and expected here.
+
+Do **not** pass a `clock` — the story must use the real `systemClock`.
+
+### Required readout
+
+Show a **render counter** (increment a ref in the component body, display
+it). With `notifyMs` raised, a burst that would otherwise cause many
+renders causes one. That number is the most legible evidence coalescing
+works, and it costs three lines.
+
+### Correctness notes for the implementer
+
+- The churn interval must be cleaned up in the `useEffect` return, and must
+  stop when the story unmounts. A leaked interval mutating a discarded
+  store will throw `NodeNotFoundError` in the console.
+- `useMemo` rebuilding the store on every arg change means any interval
+  started against the old store must be torn down — key the effect on the
+  store instance.
+- Registering 24 panels needs the zone to exist first; register the zone in
+  the same `useMemo` that creates the store.
+- Panels must be `showNode`n to be visible, as in the sibling stories.
+
+- [ ] **Step 1: Write the story** following `src/react/stories/Stack.stories.tsx` for structure, imports, and `ChromeMap` shape.
+
+- [ ] **Step 2: Verify it typechecks and lints**
+
+Run: `npm run typecheck && npm run lint`
+Expected: clean (apart from the known pre-existing `package.json` failure).
+
+- [ ] **Step 3: Verify it renders**
+
+Run `npm run ladle` in the background, load each of the three stories, and
+confirm: no console errors, the bounce contrast behaves as described at
+`dwellMs` 0 vs 150, and the flood reveals in waves. Capture a screenshot.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/react/stories/Throttling.stories.tsx
+git commit -m "docs(ladle): story exercising coalescing, dwell, and stagger"
+```
+
 ## Task 18: Version bump and TODO reconciliation
 
 **Files:**
