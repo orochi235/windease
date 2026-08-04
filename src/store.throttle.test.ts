@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
 import { HistoryController } from './history.js';
 import { asNodeId } from './node.js';
-import { deserialize, serialize, type SerializedStore } from './snapshot.js';
+import { type SerializedStore, deserialize, serialize } from './snapshot.js';
 import { Store } from './store.js';
 import { FakeClock } from './test-utils/fake-clock.js';
 
