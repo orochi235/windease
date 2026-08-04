@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import type { Node, NodeId } from './node.js';
 import { FakeClock } from './test-utils/fake-clock.js';
-import { Publisher, systemClock, type ThrottlePolicy } from './throttle.js';
+import { Publisher, type ThrottlePolicy, systemClock } from './throttle.js';
 
 describe('systemClock', () => {
   it('reports a monotonic-ish now()', () => {
@@ -90,7 +90,7 @@ describe('Publisher — passthrough', () => {
 function throttledHarness(policy: ThrottlePolicy) {
   const truth = new Map<NodeId, Node>();
   let rootIds: NodeId[] = [];
-  let focusedId: NodeId | null = null;
+  const focusedId: NodeId | null = null;
   let notifies = 0;
   const clock = new FakeClock();
   const pub = new Publisher({
