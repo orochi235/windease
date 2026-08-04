@@ -140,10 +140,14 @@ A node that was unregistered while pending still gets a `published` event
 ### `forced`
 
 ```ts
-forced = fullFlush || (entry.dwellMs > 0 && now - entry.touched < entry.dwellMs)
+forced =
+  fullFlush ||
+  (entry.dwellMs > 0 && !entry.bypass && now - entry.touched < entry.dwellMs)
 ```
 
-True when the node published **without going quiet first**. This covers
+True when the node published **without going quiet first**. A node that
+was never dwell-gated — `bypass`, or `dwellMs === 0` — is not "forced"; it
+had no gate to escape. This covers
 both escape hatches — `flushNow()` (which sets `forceFullFlush`) and the
 `maxWaitMs` starvation cap — from data already in hand at the flush site.
 It is the semantically interesting bit for a debugger: "this published
