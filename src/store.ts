@@ -7,6 +7,7 @@ import {
 } from './errors.js';
 import { TypedEmitter } from './events.js';
 import type { ContainerCap, FocusCap, Node, NodeId, SlotCap } from './node.js';
+import { Publisher, type StoreOptions, systemClock } from './throttle.js';
 import { trace } from './trace.js';
 
 export interface StoreEvents {
@@ -76,23 +77,62 @@ export class Store {
   private readonly rootIdsArr: NodeId[] = [];
   private focusedIdValue: NodeId | null = null;
   private readonly subscribers = new Set<() => void>();
-  private notifyScheduled = false;
+  private readonly publisher: Publisher;
+
+  constructor(options: StoreOptions = {}) {
+    this.publisher = new Publisher({
+      truth: this.nodesMap,
+      policy: options.throttle,
+      clock: options.clock ?? systemClock,
+      readGlobals: () => ({ rootIds: this.rootIdsArr, focusedId: this.focusedIdValue }),
+      notify: () => {
+        for (const fn of this.subscribers) fn();
+      },
+    });
+  }
 
   // ===== Read =====
+  //
+  // `nodes` / `rootIds` / `focusedId` / `getNode` return the PUBLISHED view:
+  // what subscribers and the React layer see, which may lag truth when a
+  // throttle policy is configured. The `*Truth` variants return the exact
+  // current state and are what snapshot and history read.
+  //
+  // With no throttle policy the two are identity-equal.
 
   get nodes(): ReadonlyMap<NodeId, Node> {
+    return this.publisher.nodes;
+  }
+
+  /** Truth: unlagged, exactly what the last mutation wrote. */
+  get nodesTruth(): ReadonlyMap<NodeId, Node> {
     return this.nodesMap;
   }
 
   get rootIds(): readonly NodeId[] {
+    return this.publisher.rootIds;
+  }
+
+  /** Truth: unlagged root id list. */
+  get rootIdsTruth(): readonly NodeId[] {
     return this.rootIdsArr;
   }
 
   get focusedId(): NodeId | null {
+    return this.publisher.focusedId;
+  }
+
+  /** Truth: unlagged focused id. */
+  get focusedIdTruth(): NodeId | null {
     return this.focusedIdValue;
   }
 
   getNode(id: NodeId): Node | undefined {
+    return this.publisher.nodes.get(id);
+  }
+
+  /** Truth: unlagged node record. */
+  getNodeTruth(id: NodeId): Node | undefined {
     return this.nodesMap.get(id);
   }
 
@@ -164,14 +204,18 @@ export class Store {
         );
       }
       this.nodesMap.set(node.id, node);
+      this.publisher.markDirty(node.id, { bypass: true });
       this.replaceContainer(parent.id, (c) => ({
         ...c,
         childOrder: [...c.childOrder, node.id],
       }));
+      this.publisher.markDirty(parent.id, { bypass: true });
       this.resortByPin(parent.id);
     } else {
       this.nodesMap.set(node.id, node);
+      this.publisher.markDirty(node.id, { bypass: true });
       this.rootIdsArr.push(node.id);
+      this.publisher.markGlobalsDirty();
     }
     this.events.emit('node.registered', { id: node.id });
     trace('store', `register: ${node.id} (kind=${node.kind})`);
@@ -230,6 +274,8 @@ export class Store {
       if (idx >= 0) this.rootIdsArr.splice(idx, 1);
     }
     this.nodesMap.delete(id);
+    this.publisher.markDirty(id, { bypass: true });
+    this.publisher.markGlobalsDirty();
     if (this.focusedIdValue === id) this.focusedIdValue = null;
   }
 
@@ -317,6 +363,7 @@ export class Store {
     // Transit: claiming → idle
     transit.send('settle');
     this.replaceNode(id);
+    this.publisher.markDirty(id, { machine: 'transit', bypass: true });
     this.events.emit('node.transitioned', {
       id,
       machine: 'transit',
@@ -358,6 +405,7 @@ export class Store {
       next.splice(targetIndex, 0, id);
       return { ...c, childOrder: next };
     });
+    this.publisher.markDirty(parentId, { bypass: true });
     this.resortByPin(parentId);
     const finalIndex =
       this.nodesMap.get(parentId)?.container?.childOrder.indexOf(id) ?? targetIndex;
@@ -411,6 +459,7 @@ export class Store {
     if (same) return;
 
     this.replaceContainer(parentId, (c) => ({ ...c, childOrder: [...orderedIds] }));
+    this.publisher.markDirty(parentId, { bypass: true });
     this.resortByPin(parentId);
     trace('store', `setChildOrder: ${parentId} → [${orderedIds.join(', ')}]`);
     this.scheduleNotify();
@@ -691,6 +740,7 @@ export class Store {
       );
     }
     this.replaceNode(id);
+    this.publisher.markDirty(id, { machine: 'lifecycle' });
     this.events.emit('node.transitioned', {
       id,
       machine: 'lifecycle',
@@ -711,6 +761,7 @@ export class Store {
       );
     }
     this.replaceNode(id);
+    this.publisher.markDirty(id, { machine: 'lifecycle' });
     this.events.emit('node.transitioned', {
       id,
       machine: 'lifecycle',
@@ -733,6 +784,7 @@ export class Store {
       if (prev?.focus) {
         prev.focus.send('blur');
         this.replaceNode(prev.id);
+        this.publisher.markDirty(prev.id, { machine: 'focus' });
         this.events.emit('node.transitioned', {
           id: prev.id,
           machine: 'focus',
@@ -743,6 +795,7 @@ export class Store {
     }
     target.focus.send('focus');
     this.replaceNode(id);
+    this.publisher.markDirty(id, { machine: 'focus' });
     this.events.emit('node.transitioned', {
       id,
       machine: 'focus',
@@ -750,6 +803,7 @@ export class Store {
       to: 'focused',
     });
     this.focusedIdValue = id;
+    this.publisher.markGlobalsDirty();
     this.scheduleNotify();
   }
 
@@ -759,6 +813,7 @@ export class Store {
     if (node?.focus) {
       node.focus.send('blur');
       this.replaceNode(node.id);
+      this.publisher.markDirty(node.id, { machine: 'focus' });
       this.events.emit('node.transitioned', {
         id: node.id,
         machine: 'focus',
@@ -767,6 +822,7 @@ export class Store {
       });
     }
     this.focusedIdValue = null;
+    this.publisher.markGlobalsDirty();
     this.scheduleNotify();
   }
 
@@ -780,12 +836,31 @@ export class Store {
   }
 
   private scheduleNotify(): void {
-    if (this.notifyScheduled) return;
-    this.notifyScheduled = true;
-    queueMicrotask(() => {
-      this.notifyScheduled = false;
-      for (const fn of this.subscribers) fn();
-    });
+    this.publisher.schedule();
+  }
+
+  /**
+   * Publish every pending change synchronously, bypassing `notifyMs`,
+   * dwell, and stagger alike. Subscribers are notified before this returns.
+   *
+   * Use at a synchronization point where pending latency is unwanted — an
+   * explicit user gesture that must feel immediate, or a test assertion.
+   */
+  flushNow(): void {
+    this.publisher.flushNow();
+  }
+
+  /**
+   * Snap the published view to truth and cancel pending flushes. Called by
+   * `deserialize`; consumers should not need this.
+   *
+   * `Publisher.reset()` notifies subscribers synchronously — do NOT add a
+   * second notification here or after the call in `deserialize`.
+   *
+   * @internal
+   */
+  resetPublished(): void {
+    this.publisher.reset();
   }
 
   // ===== Internal helpers =====
@@ -803,6 +878,7 @@ export class Store {
     if (!prev) return;
     const next = fn ? fn(prev) : { ...prev };
     this.nodesMap.set(id, next);
+    this.publisher.markDirty(id);
   }
 
   private replaceContainer(id: NodeId, fn: (c: ContainerCap) => ContainerCap): void {
@@ -810,6 +886,7 @@ export class Store {
     if (!prev?.container) return;
     const nextContainer = fn(prev.container);
     this.nodesMap.set(id, { ...prev, container: nextContainer });
+    this.publisher.markDirty(id);
   }
 
   private replaceSlot(id: NodeId, fn: (s: SlotCap) => SlotCap): void {
@@ -817,6 +894,7 @@ export class Store {
     if (!prev?.slot) return;
     const nextSlot = fn(prev.slot);
     this.nodesMap.set(id, { ...prev, slot: nextSlot });
+    this.publisher.markDirty(id);
   }
 }
 

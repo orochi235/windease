@@ -73,8 +73,17 @@ export {
   CycleError,
   StrategyRejectionError,
   InvariantViolationError,
+  InvalidThrottlePolicyError,
 } from './errors.js';
 export { Store, type StoreEvents } from './store.js';
+export {
+  systemClock,
+  type Clock,
+  type MachineName,
+  type StoreOptions,
+  type ThrottlePolicy,
+  type TimerHandle,
+} from './throttle.js';
 export {
   serialize,
   deserialize,
@@ -89,4 +98,4 @@ export {
   runStrategyForContainer,
 } from './layout-node-adapter.js';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.7.0';

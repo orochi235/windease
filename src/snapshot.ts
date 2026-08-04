@@ -51,7 +51,7 @@ export interface SerializedStore {
  */
 export function serialize(store: Store): SerializedStore {
   const nodes: SerializedNode[] = [];
-  for (const node of store.nodes.values()) {
+  for (const node of store.nodesTruth.values()) {
     if (node.lifecycle.state === 'destroyed') continue;
     const out: SerializedNode = {
       id: node.id,
@@ -88,17 +88,29 @@ export function serialize(store: Store): SerializedStore {
   return {
     version: 2,
     nodes,
-    rootIds: [...store.rootIds],
-    focusedId: store.focusedId,
+    rootIds: [...store.rootIdsTruth],
+    focusedId: store.focusedIdTruth,
   };
 }
 
 /**
- * Hydrate a fresh Store from a v2 snapshot.
+ * Hydrate a Store from a v2 snapshot.
+ *
+ * Two forms:
+ * - `deserialize(snap)` builds and returns a fresh `Store`.
+ * - `deserialize(store, snap)` hydrates `store` in place — every existing
+ *   node is discarded and replaced with the snapshot's contents — and
+ *   returns nothing. This is the form history/undo use: it reuses the
+ *   caller's `Store` instance (and its throttle policy, subscribers, and
+ *   identity) rather than swapping in a new one.
  *
  * @group Snapshots
  */
-export function deserialize(snap: unknown): Store {
+export function deserialize(snap: unknown): Store;
+export function deserialize(store: Store, snap: unknown): void;
+export function deserialize(a: unknown, b?: unknown): Store | void {
+  const target = a instanceof Store ? a : undefined;
+  const snap = target ? b : a;
   const versioned = snap as { version?: number };
   if (!versioned || typeof versioned !== 'object' || typeof versioned.version !== 'number') {
     throw new WindeaseError(
@@ -107,7 +119,8 @@ export function deserialize(snap: unknown): Store {
     );
   }
   if (versioned.version === 2) {
-    return hydrateFromV2(snap as SerializedStore);
+    const hydrated = hydrateFromV2(snap as SerializedStore, target);
+    return target ? undefined : hydrated;
   }
   throw new WindeaseError(
     'unsupported-snapshot-version',
@@ -131,7 +144,7 @@ function normalizeLegacyChildOrder(nodes: SerializedNode[]): void {
   }
 }
 
-function hydrateFromV2(snap: SerializedStore): Store {
+function hydrateFromV2(snap: SerializedStore, target?: Store): Store {
   normalizeLegacyChildOrder(snap.nodes);
   // Build a lookup so we can validate links + multi-focus before mutating.
   const byId = new Map<string, SerializedNode>();
@@ -179,7 +192,16 @@ function hydrateFromV2(snap: SerializedStore): Store {
     }
   }
 
-  const store = new Store();
+  const store = target ?? new Store();
+
+  if (target) {
+    // Wholesale replacement: drop every existing node (cascading from each
+    // root) before repopulating from the snapshot. Truth reads only — the
+    // published view is meaningless mid-hydrate and gets resynced below.
+    for (const rootId of [...target.rootIdsTruth]) {
+      target.unregisterNode(rootId);
+    }
+  }
 
   // Visit nodes in tree order: each root, then DFS through its childOrder,
   // which preserves both insertion order and the snapshot's intended child
@@ -199,7 +221,7 @@ function hydrateFromV2(snap: SerializedStore): Store {
   // Any nodes not reached via rootIds (e.g. unslotted but not listed as
   // roots) — register them as additional roots in stable order.
   for (const sn of snap.nodes) {
-    if (store.getNode(asNodeId(sn.id))) continue;
+    if (store.getNodeTruth(asNodeId(sn.id))) continue;
     if (sn.slot) {
       // Already-orphan branches were validated above; if we get here the
       // node was unreachable from rootIds — that's a corrupt snapshot.
@@ -213,11 +235,16 @@ function hydrateFromV2(snap: SerializedStore): Store {
   }
 
   if (snap.focusedId) {
-    const focused = store.getNode(asNodeId(snap.focusedId));
+    const focused = store.getNodeTruth(asNodeId(snap.focusedId));
     if (focused?.focus) {
       store.focusNode(asNodeId(snap.focusedId));
     }
   }
+
+  // Hydration is a wholesale replacement, not an incremental change — the
+  // published view must match immediately and any in-flight timers from the
+  // pre-hydrate store are meaningless.
+  store.resetPublished();
 
   return store;
 }

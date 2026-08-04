@@ -16,6 +16,7 @@ export const TRACE_CATEGORIES = [
   'history',
   'layout',
   'store',
+  'throttle',
   'workspace',
   'zone', // deprecated alias for 'container'; remove in v0.3
   'container',

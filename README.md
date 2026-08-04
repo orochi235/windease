@@ -186,6 +186,64 @@ the sibling auto-takes the remainder, and a gutter drag clears it, reverting
 that pane to ratio control. Combine with `hints.maxSize` for an
 "auto up to a cap" pane.
 
+## Optional transition throttling
+
+Consumers driving the store from a live event stream can rate-limit how
+fast the layout reacts. All of it is opt-in — omit `throttle` and the
+store behaves exactly as it always has.
+
+```ts
+const store = new Store({
+  throttle: {
+    notifyMs: 32,                     // coalesce bursts into one flush
+    dwell: { lifecycle: 150 },        // min quiet time before a state publishes
+    stagger: { batch: 8, ms: 40 },    // publish mass transitions in waves
+  },
+});
+```
+
+Throttling gates **observation, never truth**. `getNode()` returns the
+published view that subscribers and the React layer see; `getNodeTruth()`,
+`nodesTruth`, `rootIdsTruth`, and `focusedIdTruth` return the exact current
+state. Snapshot and history always read truth, so persistence and undo are
+unaffected. `store.flushNow()` publishes everything pending immediately,
+bypassing `notifyMs`, `dwell`, and `stagger` alike.
+
+`notifyMs` coalesces bursts into one flush per window. `dwell` is a
+debounce, not a leading-edge throttle: a node publishes once it has been
+quiet for `dwellMs`, or when `maxWaitMs` has elapsed since it first went
+dirty — the starvation cap that stops a permanently-noisy node from never
+updating (defaults to 4x the largest configured dwell). Only an FSM
+transition on a configured machine starts or restarts a dwell; ordinary
+field writes (activity, placement, meta) never gate on it. `stagger`
+publishes at most `batch` newly-eligible nodes per `ms`-spaced wave,
+oldest-dirty-first, so a mass transition (e.g. a cold-start flood) animates
+in deterministic batches instead of all at once.
+
+Set `WINDEASE_TRACE=throttle` to see publish decisions.
+
+A nonsensical policy (a negative or `NaN` `notifyMs`/`dwell`/`maxWaitMs`, a
+`stagger.batch` below 1, or a negative `stagger.ms`) throws
+`InvalidThrottlePolicyError` when the store is constructed, rather than
+silently misbehaving. `notifyMs: 0` and `maxWaitMs: 0` are legal, meaningful
+values, not omissions.
+
+### Hydrating in place
+
+`deserialize(snap)` builds a brand-new `Store` with default options — handy
+for a one-shot load, but it drops whatever `throttle` policy you configured
+and leaves existing subscribers pointed at the old instance. To rehydrate
+an existing store instead (preserving its throttle policy and subscribers),
+pass the store as the first argument:
+
+```ts
+deserialize(store, snap);
+```
+
+This clears the target in place before repopulating it, emitting
+`node.unregistered` / `node.cascadeDestroyed` for whatever was there
+before the snapshot lands.
+
 ## Develop
 
 ```bash
