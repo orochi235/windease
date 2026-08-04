@@ -206,12 +206,27 @@ Throttling gates **observation, never truth**. `getNode()` returns the
 published view that subscribers and the React layer see; `getNodeTruth()`,
 `nodesTruth`, `rootIdsTruth`, and `focusedIdTruth` return the exact current
 state. Snapshot and history always read truth, so persistence and undo are
-unaffected. `store.flushNow()` publishes everything pending immediately.
+unaffected. `store.flushNow()` publishes everything pending immediately,
+bypassing `notifyMs`, `dwell`, and `stagger` alike.
+
+`notifyMs` coalesces bursts into one flush per window. `dwell` is a
+debounce, not a leading-edge throttle: a node publishes once it has been
+quiet for `dwellMs`, or when `maxWaitMs` has elapsed since it first went
+dirty — the starvation cap that stops a permanently-noisy node from never
+updating (defaults to 4x the largest configured dwell). Only an FSM
+transition on a configured machine starts or restarts a dwell; ordinary
+field writes (activity, placement, meta) never gate on it. `stagger`
+publishes at most `batch` newly-eligible nodes per `ms`-spaced wave,
+oldest-dirty-first, so a mass transition (e.g. a cold-start flood) animates
+in deterministic batches instead of all at once.
 
 Set `WINDEASE_TRACE=throttle` to see publish decisions.
 
-`notifyMs` ships now; `dwell` and `stagger` are accepted by the type today
-but are inert until 0.7.0, when all three land together.
+A nonsensical policy (a negative or `NaN` `notifyMs`/`dwell`/`maxWaitMs`, a
+`stagger.batch` below 1, or a negative `stagger.ms`) throws
+`InvalidThrottlePolicyError` when the store is constructed, rather than
+silently misbehaving. `notifyMs: 0` and `maxWaitMs: 0` are legal, meaningful
+values, not omissions.
 
 ### Hydrating in place
 
