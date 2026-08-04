@@ -141,19 +141,35 @@ The accepted cost: **every** gated transition eats `dwellMs` of latency,
 including isolated ones. Consumers tune it down — 150ms reads as instant —
 and machines with no configured dwell are unaffected.
 
-### Dwell gates FSM transitions only
+### Dwell is triggered by FSM transitions, and holds the whole node
 
-`placement`, `meta`, `activity`, and structural changes ride the
-`notifyMs` window and are never dwell-gated. "Min dwell per state" is
-literally about state, and a consumer typically wants activity (token
-counts, spinners) live *while* status is dwelled.
+Only an FSM transition *starts* a dwell. A node whose `placement`, `meta`,
+or `activity` changed — but whose machine states are stable — publishes on
+the `notifyMs` window and is never dwell-gated.
 
-A node record cannot be half-published, so the published record pins just
-the state field to its last-published value until dwell expires:
+Once a node **is** dwelling, however, its entire record is held:
 
 ```ts
-published = { ...truth, lifecycle: { ...truth.lifecycle, state: lastPublishedState } };
+publishedMap.set(id, truthNode);   // same object, same Machine instance
 ```
+
+This is forced by the node shape. `Node.lifecycle` is a live `Machine`
+class instance (`src/node.ts:84`), not a plain object — it owns mutable
+`state` alongside `send` / `can` / `subscribe` and a subscriber `Set`.
+Two rejected alternatives:
+
+- *Pin just the state field* via `{ ...truth, lifecycle: { ...truth.lifecycle,
+  state: pinned } }`. Spreading a class instance produces a plain object
+  that has lost its methods; `node.lifecycle.send(...)` on a published
+  record would throw.
+- *Clone the Machine.* The clone owns its own `state`, so a `send()`
+  against a published record would mutate the clone and silently diverge
+  from truth.
+
+Sharing one instance keeps `send()` always hitting truth. The accepted
+cost: `activity` on a node that is *currently dwelling* lags by up to
+`dwellMs`. A node mid-status-flip is rarely the one whose activity
+readout matters, and at a typical 150ms dwell the lag is imperceptible.
 
 ### #3 stagger
 
@@ -254,8 +270,11 @@ flake.
   and never publishes `hidden`.
 - An isolated transition publishes after exactly `dwellMs`.
 - Continuous churn forces a publish at `maxWaitMs`.
-- `activity` publishes on the notify window while `lifecycle` is still
-  dwelled (the pinned-state-field record).
+- `activity` on a node with stable machine states publishes on the notify
+  window (dwell is never started by a non-FSM change).
+- `activity` on a node that *is* dwelling is held with the rest of the
+  record, and `published.lifecycle === truth.lifecycle` throughout — the
+  Machine instance is shared, never cloned.
 - `unregisterNode` mid-dwell drops the node from published immediately.
 - Stagger emits deterministic batches in oldest-dirty-first order.
 - `serialize()` mid-dwell returns truth, not the published lag.
