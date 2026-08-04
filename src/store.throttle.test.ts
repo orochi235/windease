@@ -316,13 +316,20 @@ describe('Store throttle.pending event', () => {
     store.flushNow();
 
     const seen: string[] = [];
+    let pendingInsideHandler: ReturnType<Store['getPending']> = null;
     store.events.on('throttle.pending', (p) => {
       seen.push(p.id);
+      // The payload doc tells consumers to read getPending for the
+      // settled gate — so the entry must already be in the map when
+      // this fires, and `since` must agree with the payload.
+      pendingInsideHandler = store.getPending(p.id);
+      expect(pendingInsideHandler?.since).toBe(p.since);
     });
 
     store.showNode(nid('p'));
     // One event, even though showNode marks the node twice.
     expect(seen).toEqual([nid('p')]);
+    expect(pendingInsideHandler).not.toBeNull();
     // The settled gate comes from the point read, not from the event.
     expect(store.getPending(nid('p'))?.dwellMs).toBe(150);
   });

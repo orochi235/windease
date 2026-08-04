@@ -35,11 +35,17 @@ function makeNode(id: string): Node {
   return { id: nid(id), lifecycle: createLifecycleMachine() };
 }
 
+interface RecordedEvent {
+  kind: 'pending';
+  payload: ThrottlePendingPayload;
+}
+
 function harness(policy?: undefined) {
   const truth = new Map<NodeId, Node>();
   let rootIds: NodeId[] = [];
   let focusedId: NodeId | null = null;
   let notifies = 0;
+  const events: RecordedEvent[] = [];
   const pub = new Publisher({
     truth,
     policy,
@@ -48,11 +54,19 @@ function harness(policy?: undefined) {
     notify: () => {
       notifies++;
     },
+    onPending: (payload) => {
+      events.push({ kind: 'pending', payload });
+    },
   });
   return {
     pub,
     truth,
     notifies: () => notifies,
+    events,
+    pendingEvents: () =>
+      events
+        .filter((e): e is Extract<RecordedEvent, { kind: 'pending' }> => e.kind === 'pending')
+        .map((e) => e.payload),
     setRootIds: (ids: NodeId[]) => {
       rootIds = ids;
     },
@@ -114,11 +128,6 @@ describe('Publisher — passthrough', () => {
   });
 });
 
-interface RecordedEvent {
-  kind: 'pending';
-  payload: ThrottlePendingPayload;
-}
-
 function throttledHarness(policy: ThrottlePolicy) {
   const truth = new Map<NodeId, Node>();
   let rootIds: NodeId[] = [];
@@ -145,7 +154,9 @@ function throttledHarness(policy: ThrottlePolicy) {
     notifies: () => notifies,
     events,
     pendingEvents: () =>
-      events.filter((e) => e.kind === 'pending').map((e) => e.payload as ThrottlePendingPayload),
+      events
+        .filter((e): e is Extract<RecordedEvent, { kind: 'pending' }> => e.kind === 'pending')
+        .map((e) => e.payload),
     setRootIds: (ids: NodeId[]) => {
       rootIds = ids;
     },
@@ -874,11 +885,16 @@ describe('Publisher — getPending', () => {
 
 describe('Publisher — throttle.pending event', () => {
   it('does not fire in passthrough', () => {
-    // The passthrough harness supplies no callbacks at all; this asserts
-    // the Publisher tolerates that and never tries to call them.
     const h = harness();
     h.truth.set(nid('a'), makeNode('a'));
-    expect(() => h.pub.markDirty(nid('a'), { machine: 'lifecycle' })).not.toThrow();
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.markDirty(nid('a'));
+    expect(h.pendingEvents()).toEqual([]);
+  });
+
+  it('tolerates a throttled Publisher constructed without the callback', () => {
+    const pub = buildPublisher({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    expect(() => pub.markDirty(nid('a'), { machine: 'lifecycle' })).not.toThrow();
   });
 
   it('fires once when a node first goes dirty', () => {

@@ -204,6 +204,11 @@ interface DirtyEntry {
  *
  * Never emitted by an un-throttled store.
  *
+ * Fires mid-mutation, from inside `markDirty`, so a handler that walks the
+ * node tree may observe a half-applied change — e.g. during `moveNode` it
+ * lands after the old parent's `removeChild` but before the new parent's
+ * `addChild`. Consistent with how `node.transitioned` already behaves.
+ *
  * @group Store
  */
 export interface ThrottlePendingPayload {
@@ -360,8 +365,13 @@ export class Publisher {
         };
         dirty.set(id, entry);
         // No dwell in the message: this fires on entry creation, and the
-        // gate is raised by a later mark in the same mutation.
-        trace('throttle', `pending: ${id} withheld from ${now}`);
+        // gate is raised by a later mark in the same mutation. The mark
+        // that created the entry is named instead — usually 'untagged',
+        // since that's the mark that typically wins the race.
+        trace(
+          'throttle',
+          `pending: ${id} withheld from ${now} (mark: ${opts?.machine ?? 'untagged'}${opts?.bypass ? ', bypass' : ''})`,
+        );
         this.onPending?.({ id, since: now });
       }
     }
