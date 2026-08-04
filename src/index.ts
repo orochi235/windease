@@ -82,7 +82,9 @@ export {
   type MachineName,
   type PendingPublish,
   type StoreOptions,
+  type ThrottlePendingPayload,
   type ThrottlePolicy,
+  type ThrottlePublishedPayload,
   type TimerHandle,
 } from './throttle.js';
 export {
