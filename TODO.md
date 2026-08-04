@@ -3,6 +3,25 @@
 Future work, sectioned by item. Append new ideas here rather than scattering
 them. Tag major items with `[HIGH]`.
 
+## Shipped in 0.7.0
+
+- **Optional transition throttling.** `new Store({ throttle })` opts into
+  three mechanisms over one flush pipeline: `notifyMs` time-window
+  coalescing, per-machine `dwell` (a debounce with a `maxWaitMs`
+  starvation cap), and `stagger` waves for mass transitions. Gates
+  observation only — `getNode()` returns the published view while
+  `getNodeTruth()` / `nodesTruth` / `rootIdsTruth` / `focusedIdTruth`
+  return truth, so snapshot and history are unaffected. Identity-equal
+  passthrough when the option is omitted. `store.flushNow()` collapses
+  pending latency. Traced under the `throttle` category. Demoed by the
+  `Throttling` Ladle stories.
+- **`deserialize(store, snap)` overload.** Hydrates into an existing store
+  rather than returning a new one, preserving its throttle policy and its
+  subscribers — which is what makes undo work on a bound React tree. The
+  single-arg form is unchanged and still returns a fresh store built with
+  default options. Note the in-place form emits `node.unregistered` /
+  `node.cascadeDestroyed` as it clears the target.
+
 ## Shipped in 0.5.0
 
 - **Resizable children.** `placement.size?: { w?, h? }` reserved key is

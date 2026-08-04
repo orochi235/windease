@@ -97,4 +97,4 @@ export {
   runStrategyForContainer,
 } from './layout-node-adapter.js';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.7.0';
