@@ -204,15 +204,16 @@ export class Store {
         );
       }
       this.nodesMap.set(node.id, node);
-      this.publisher.markDirty(node.id);
+      this.publisher.markDirty(node.id, { bypass: true });
       this.replaceContainer(parent.id, (c) => ({
         ...c,
         childOrder: [...c.childOrder, node.id],
       }));
+      this.publisher.markDirty(parent.id, { bypass: true });
       this.resortByPin(parent.id);
     } else {
       this.nodesMap.set(node.id, node);
-      this.publisher.markDirty(node.id);
+      this.publisher.markDirty(node.id, { bypass: true });
       this.rootIdsArr.push(node.id);
       this.publisher.markGlobalsDirty();
     }
@@ -273,7 +274,7 @@ export class Store {
       if (idx >= 0) this.rootIdsArr.splice(idx, 1);
     }
     this.nodesMap.delete(id);
-    this.publisher.markDirty(id);
+    this.publisher.markDirty(id, { bypass: true });
     this.publisher.markGlobalsDirty();
     if (this.focusedIdValue === id) this.focusedIdValue = null;
   }
@@ -362,6 +363,7 @@ export class Store {
     // Transit: claiming → idle
     transit.send('settle');
     this.replaceNode(id);
+    this.publisher.markDirty(id, { machine: 'transit', bypass: true });
     this.events.emit('node.transitioned', {
       id,
       machine: 'transit',
@@ -403,6 +405,7 @@ export class Store {
       next.splice(targetIndex, 0, id);
       return { ...c, childOrder: next };
     });
+    this.publisher.markDirty(parentId, { bypass: true });
     this.resortByPin(parentId);
     const finalIndex =
       this.nodesMap.get(parentId)?.container?.childOrder.indexOf(id) ?? targetIndex;
@@ -456,6 +459,7 @@ export class Store {
     if (same) return;
 
     this.replaceContainer(parentId, (c) => ({ ...c, childOrder: [...orderedIds] }));
+    this.publisher.markDirty(parentId, { bypass: true });
     this.resortByPin(parentId);
     trace('store', `setChildOrder: ${parentId} → [${orderedIds.join(', ')}]`);
     this.scheduleNotify();
@@ -736,6 +740,7 @@ export class Store {
       );
     }
     this.replaceNode(id);
+    this.publisher.markDirty(id, { machine: 'lifecycle' });
     this.events.emit('node.transitioned', {
       id,
       machine: 'lifecycle',
@@ -756,6 +761,7 @@ export class Store {
       );
     }
     this.replaceNode(id);
+    this.publisher.markDirty(id, { machine: 'lifecycle' });
     this.events.emit('node.transitioned', {
       id,
       machine: 'lifecycle',
@@ -778,6 +784,7 @@ export class Store {
       if (prev?.focus) {
         prev.focus.send('blur');
         this.replaceNode(prev.id);
+        this.publisher.markDirty(prev.id, { machine: 'focus' });
         this.events.emit('node.transitioned', {
           id: prev.id,
           machine: 'focus',
@@ -788,6 +795,7 @@ export class Store {
     }
     target.focus.send('focus');
     this.replaceNode(id);
+    this.publisher.markDirty(id, { machine: 'focus' });
     this.events.emit('node.transitioned', {
       id,
       machine: 'focus',
@@ -805,6 +813,7 @@ export class Store {
     if (node?.focus) {
       node.focus.send('blur');
       this.replaceNode(node.id);
+      this.publisher.markDirty(node.id, { machine: 'focus' });
       this.events.emit('node.transitioned', {
         id: node.id,
         machine: 'focus',

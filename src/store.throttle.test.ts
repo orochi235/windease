@@ -157,3 +157,65 @@ describe('history under throttling', () => {
     expect(store.getNode(nid('z'))).toBeDefined();
   });
 });
+
+describe('Store dwell', () => {
+  const policy = { notifyMs: 10, dwell: { lifecycle: 150 }, maxWaitMs: 600 };
+
+  function seeded() {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: policy, clock });
+    store.registerNode(zone('z'));
+    store.registerNode(panel('p', 'z'));
+    store.flushNow();
+    return { store, clock };
+  }
+
+  it('never publishes the intermediate state of a show/hide/show bounce', () => {
+    const { store, clock } = seeded();
+    const seen: string[] = [];
+    store.subscribe(() => {
+      const n = store.getNode(nid('p'));
+      if (n) seen.push(n.lifecycle.state);
+    });
+
+    store.showNode(nid('p'));
+    clock.advance(40);
+    store.hideNode(nid('p'));
+    clock.advance(40);
+    store.showNode(nid('p'));
+    clock.advance(200);
+
+    expect(seen).not.toContain('hidden');
+    expect(store.getNode(nid('p'))?.lifecycle.state).toBe('visible');
+  });
+
+  it('keeps truth exact throughout the dwell', () => {
+    const { store, clock } = seeded();
+    store.showNode(nid('p'));
+    store.hideNode(nid('p'));
+    expect(store.getNodeTruth(nid('p'))?.lifecycle.state).toBe('hidden');
+    clock.advance(200);
+    expect(store.getNode(nid('p'))?.lifecycle.state).toBe('hidden');
+  });
+
+  it('publishes an unregister immediately despite dwell', () => {
+    const { store, clock } = seeded();
+    store.showNode(nid('p'));
+    store.unregisterNode(nid('p'));
+    clock.advance(10);
+    expect(store.getNode(nid('p'))).toBeUndefined();
+  });
+
+  it('publishes a reorder without waiting out dwell', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: policy, clock });
+    store.registerNode(zone('z'));
+    store.registerNode(panel('a', 'z'));
+    store.registerNode(panel('b', 'z'));
+    store.flushNow();
+
+    store.reorderInParent(nid('b'), 0);
+    clock.advance(10);
+    expect(store.getNode(nid('z'))?.container?.childOrder).toEqual([nid('b'), nid('a')]);
+  });
+});
