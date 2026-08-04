@@ -506,7 +506,16 @@ export class Publisher {
       // drained this id.
       if (entry === undefined) continue;
       this.dirty?.delete(id);
-      this.emitPublished(id, entry, drainedAt, this.truth.get(id) === undefined);
+      // The wholesale resync above already ran, so it can't see a truth
+      // mutation a listener makes for an id still queued at this point —
+      // e.g. an onPublished handler for an earlier id in this same drain
+      // that writes `truth` and re-dirties a later one. Sync this id's
+      // slot individually, the same way flush()'s wave loop does, so the
+      // published view can't go stale with nothing left pending to heal it.
+      const node = this.truth.get(id);
+      if (node === undefined) this.publishedNodes?.delete(id);
+      else this.publishedNodes?.set(id, node);
+      this.emitPublished(id, entry, drainedAt, node === undefined);
     }
 
     trace('throttle', `reset: published resynced to truth (${this.nodes.size} node(s))`);

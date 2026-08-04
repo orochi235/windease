@@ -1305,4 +1305,39 @@ describe('Publisher — reset drains pending', () => {
     // the drain reads the clock once, up front.
     expect(held).toEqual([30, 30]);
   });
+
+  it('publishes a truth change a listener makes during the drain', () => {
+    const truth = new Map<NodeId, Node>();
+    const clock = new FakeClock();
+    let reentered = false;
+    const pub: Publisher = new Publisher({
+      truth,
+      policy: { notifyMs: 32, dwell: { lifecycle: 150 } },
+      clock,
+      readGlobals: () => ({ rootIds: [], focusedId: null }),
+      notify: () => {},
+      onPublished: (p) => {
+        if (reentered || p.id !== nid('a')) return;
+        reentered = true;
+        // Mutate truth for an id still queued to drain. The wholesale
+        // resync already ran, so only the per-id sync in the drain loop
+        // can carry this through. A fresh makeNode('b') call keeps the
+        // `id` field matching the map key while giving the record a new
+        // identity — that's the "truth mutation" being tested.
+        truth.set(nid('b'), makeNode('b'));
+        pub.markDirty(nid('b'), { machine: 'lifecycle' });
+      },
+    });
+
+    truth.set(nid('a'), makeNode('a'));
+    truth.set(nid('b'), makeNode('b'));
+    pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    pub.markDirty(nid('b'), { machine: 'lifecycle' });
+    pub.reset();
+
+    // Nothing is left pending to heal a miss, so the published view must
+    // already agree with truth.
+    expect(pub.getPending(nid('b'))).toBeNull();
+    expect(pub.nodes.get(nid('b'))).toBe(truth.get(nid('b')));
+  });
 });
