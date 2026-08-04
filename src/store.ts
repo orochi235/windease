@@ -12,6 +12,7 @@ import {
   Publisher,
   type StoreOptions,
   type ThrottlePendingPayload,
+  type ThrottlePublishedPayload,
   systemClock,
 } from './throttle.js';
 import { trace } from './trace.js';
@@ -70,6 +71,11 @@ export interface StoreEvents {
    * store constructed with a `throttle` policy.
    */
   'throttle.pending': ThrottlePendingPayload;
+  /**
+   * A withheld node reached the published view. Pairs with
+   * `throttle.pending` for the same id.
+   */
+  'throttle.published': ThrottlePublishedPayload;
 }
 
 /**
@@ -100,6 +106,7 @@ export class Store {
         for (const fn of this.subscribers) fn();
       },
       onPending: (payload) => this.events.emit('throttle.pending', payload),
+      onPublished: (payload) => this.events.emit('throttle.published', payload),
     });
   }
 

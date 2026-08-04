@@ -7,6 +7,7 @@ import {
   Publisher,
   type ThrottlePendingPayload,
   type ThrottlePolicy,
+  type ThrottlePublishedPayload,
   systemClock,
 } from './throttle.js';
 
@@ -35,10 +36,9 @@ function makeNode(id: string): Node {
   return { id: nid(id), lifecycle: createLifecycleMachine() };
 }
 
-interface RecordedEvent {
-  kind: 'pending';
-  payload: ThrottlePendingPayload;
-}
+type RecordedEvent =
+  | { kind: 'pending'; payload: ThrottlePendingPayload }
+  | { kind: 'published'; payload: ThrottlePublishedPayload };
 
 function harness(policy?: undefined) {
   const truth = new Map<NodeId, Node>();
@@ -146,6 +146,9 @@ function throttledHarness(policy: ThrottlePolicy) {
     onPending: (payload) => {
       events.push({ kind: 'pending', payload });
     },
+    onPublished: (payload) => {
+      events.push({ kind: 'published', payload });
+    },
   });
   return {
     pub,
@@ -156,6 +159,10 @@ function throttledHarness(policy: ThrottlePolicy) {
     pendingEvents: () =>
       events
         .filter((e): e is Extract<RecordedEvent, { kind: 'pending' }> => e.kind === 'pending')
+        .map((e) => e.payload),
+    publishedEvents: () =>
+      events
+        .filter((e): e is Extract<RecordedEvent, { kind: 'published' }> => e.kind === 'published')
         .map((e) => e.payload),
     setRootIds: (ids: NodeId[]) => {
       rootIds = ids;
@@ -948,5 +955,130 @@ describe('Publisher — throttle.pending event', () => {
     h.pub.markDirty(nid('b'), { machine: 'lifecycle' });
 
     expect(h.pendingEvents().map((e) => e.id)).toEqual([nid('a'), nid('b')]);
+  });
+});
+
+describe('Publisher — throttle.published event', () => {
+  it('reports heldMs and coalesced for a node that settled', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 100 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.clock.advance(20);
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.clock.advance(500);
+
+    // FakeClock runs a timer with now() at its DUE time, not the end of
+    // the advance window. Dirty at 0, touched at 20, 100ms dwell opens
+    // the gate at 120 — so heldMs is 120, not 520.
+    expect(h.publishedEvents()).toEqual([
+      { id: nid('a'), heldMs: 120, coalesced: 1, forced: false },
+    ]);
+  });
+
+  it('marks forced when flushNow bypasses an unsatisfied dwell', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.flushNow();
+
+    const [event] = h.publishedEvents();
+    expect(event.forced).toBe(true);
+    expect(event.heldMs).toBe(0);
+  });
+
+  it('marks forced when the maxWaitMs cap wins over a restarting dwell', () => {
+    const h = throttledHarness({ notifyMs: 10, dwell: { lifecycle: 100 }, maxWaitMs: 150 });
+    h.truth.set(nid('a'), makeNode('a'));
+    // Keep touching it so the dwell debounce never settles; maxWait must
+    // eventually force the publish.
+    for (let i = 0; i < 5; i++) {
+      h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+      h.clock.advance(40);
+    }
+    h.clock.advance(200);
+
+    const events = h.publishedEvents();
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0].forced).toBe(true);
+    expect(events[0].id).toBe(nid('a'));
+  });
+
+  it('does not mark forced for a bypassing node that was never gated', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { bypass: true });
+    h.clock.advance(500);
+
+    expect(h.publishedEvents()[0].forced).toBe(false);
+  });
+
+  it('fires for a node that was unregistered while pending', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 100 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.truth.delete(nid('a'));
+    h.clock.advance(500);
+
+    // Publishing a deletion is publishing — otherwise this node's
+    // `pending` event would be permanently unpaired.
+    expect(h.publishedEvents().map((e) => e.id)).toEqual([nid('a')]);
+    expect(h.pub.nodes.get(nid('a'))).toBeUndefined();
+  });
+
+  it('emits before notify, with the published view already updated', () => {
+    // The shared harness records events for later inspection, which can't
+    // observe ordering. This one samples state *inside* the callback.
+    // Referencing `pub` from the callback is safe: it only ever runs
+    // during a flush, long after the const is initialized.
+    const truth = new Map<NodeId, Node>();
+    const clock = new FakeClock();
+    let notifies = 0;
+    let notifiesAtEmit = -1;
+    let publishedAtEmit = false;
+    const pub: Publisher = new Publisher({
+      truth,
+      policy: { notifyMs: 32, dwell: { lifecycle: 50 } },
+      clock,
+      readGlobals: () => ({ rootIds: [], focusedId: null }),
+      notify: () => {
+        notifies++;
+      },
+      onPublished: () => {
+        notifiesAtEmit = notifies;
+        publishedAtEmit = pub.nodes.has(nid('a'));
+      },
+    });
+
+    truth.set(nid('a'), makeNode('a'));
+    pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    clock.advance(500);
+
+    expect(publishedAtEmit).toBe(true);
+    expect(notifiesAtEmit).toBe(0);
+    expect(notifies).toBe(1);
+  });
+
+  it('pairs one published event with each pending event under churn', () => {
+    const h = throttledHarness({ notifyMs: 10, dwell: { lifecycle: 40 }, maxWaitMs: 120 });
+    for (let i = 0; i < 6; i++) h.truth.set(nid(`n${i}`), makeNode(`n${i}`));
+
+    for (let round = 0; round < 10; round++) {
+      for (let i = 0; i < 6; i++) h.pub.markDirty(nid(`n${i}`), { machine: 'lifecycle' });
+      h.clock.advance(25);
+    }
+    h.clock.advance(2000);
+
+    const open = new Set<NodeId>();
+    let unbalanced = 0;
+    for (const e of h.events) {
+      if (e.kind === 'pending') {
+        if (open.has(e.payload.id)) unbalanced++;
+        open.add(e.payload.id);
+      } else {
+        if (!open.delete(e.payload.id)) unbalanced++;
+      }
+    }
+    expect(unbalanced).toBe(0);
+    expect([...open]).toEqual([]);
   });
 });

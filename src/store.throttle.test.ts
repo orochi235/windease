@@ -346,3 +346,51 @@ describe('Store throttle.pending event', () => {
     expect(calls).toBe(0);
   });
 });
+
+describe('Store throttle.published event', () => {
+  it('fires with the published view already updated, before subscribers', async () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { dwell: { lifecycle: 50 } }, clock });
+    store.registerNode(zone('z'));
+    store.registerNode(panel('p', 'z'));
+    store.flushNow();
+
+    // Everything here CAPTURES; assertions run after the flush. An
+    // `expect` inside a store.events handler can never fail a test —
+    // TypedEmitter swallows listener throws.
+    const order: string[] = [];
+    let stateSeenByEvent: string | undefined;
+    store.events.on('throttle.published', (p) => {
+      if (p.id !== nid('p')) return;
+      order.push('event');
+      stateSeenByEvent = store.getNode(nid('p'))?.lifecycle.state;
+    });
+    store.subscribe(() => {
+      order.push('subscriber');
+    });
+
+    store.showNode(nid('p'));
+    // See the Background note: with `notifyMs` omitted the first flush is
+    // a microtask, and the FakeClock timer is only armed by the recheck
+    // after it. Yield or `advance` has nothing to fire.
+    await tick();
+    clock.advance(500);
+
+    expect(stateSeenByEvent).toBe('visible');
+    expect(order[0]).toBe('event');
+    expect(order).toContain('subscriber');
+  });
+
+  it('is never emitted by an un-throttled store', async () => {
+    const store = new Store();
+    let calls = 0;
+    store.events.on('throttle.published', () => {
+      calls++;
+    });
+    store.registerNode(zone('z'));
+    store.registerNode(panel('p', 'z'));
+    store.showNode(nid('p'));
+    await tick();
+    expect(calls).toBe(0);
+  });
+});

@@ -217,6 +217,37 @@ export interface ThrottlePendingPayload {
   since: number;
 }
 
+/**
+ * Emitted as `throttle.published` on `store.events` when a withheld node
+ * reaches the published view. Pairs with `throttle.pending`: one of these
+ * follows each pending event for the same id — including when the node
+ * was unregistered while pending (publishing a deletion is publishing)
+ * and when `deserialize` drops the pending state wholesale. That pairing
+ * is what lets a consumer maintain a live set of withheld nodes without
+ * leaking.
+ *
+ * Never emitted by an un-throttled store.
+ *
+ * @group Store
+ */
+export interface ThrottlePublishedPayload {
+  id: NodeId;
+  /** Total time withheld: `now - since`. */
+  heldMs: number;
+  /**
+   * Internal dirty-marks coalesced into this single publish. Not a count
+   * of store operations — see {@link PendingPublish.coalesced}.
+   */
+  coalesced: number;
+  /**
+   * Published without its dwell gate being satisfied — it ran out of
+   * patience rather than settling. True for `flushNow()`, for the
+   * `maxWaitMs` starvation cap, and for a `reset()` drain. A node that
+   * was never dwell-gated is not "forced"; it had no gate to escape.
+   */
+  forced: boolean;
+}
+
 export interface PublisherDeps {
   /** Live reference to the Store's truth map. Never copied wholesale. */
   truth: ReadonlyMap<NodeId, Node>;
@@ -229,6 +260,12 @@ export interface PublisherDeps {
    * and any future embedder can omit it; `Store` always supplies it.
    */
   onPending?: (payload: ThrottlePendingPayload) => void;
+  /**
+   * Called when a withheld node reaches the published view. Optional so
+   * test harnesses and any future embedder can omit it; `Store` always
+   * supplies it.
+   */
+  onPublished?: (payload: ThrottlePublishedPayload) => void;
 }
 
 /**
@@ -248,6 +285,7 @@ export class Publisher {
   private readonly readGlobals: PublisherDeps['readGlobals'];
   private readonly notify: () => void;
   private readonly onPending: PublisherDeps['onPending'];
+  private readonly onPublished: PublisherDeps['onPublished'];
 
   private readonly publishedNodes: Map<NodeId, Node> | null;
   private publishedRootIds: readonly NodeId[] = [];
@@ -274,6 +312,7 @@ export class Publisher {
     this.readGlobals = deps.readGlobals;
     this.notify = deps.notify;
     this.onPending = deps.onPending;
+    this.onPublished = deps.onPublished;
     this.passthrough = deps.policy === undefined;
     this.publishedNodes = this.passthrough ? null : new Map();
     this.dirty = this.passthrough ? null : new Map();
@@ -477,10 +516,15 @@ export class Publisher {
     const deferred = eligible.length - wave.length;
 
     for (const id of wave) {
+      const entry = dirty.get(id) as DirtyEntry;
       const node = this.truth.get(id);
       if (node === undefined) published.delete(id);
       else published.set(id, node);
       dirty.delete(id);
+      // Emitted after the published view is updated and before notify(),
+      // so a listener that reads getNode(id) here already sees the new
+      // value and subscribers still run on a settled world.
+      this.emitPublished(entry, id, now, full);
     }
 
     if (this.globalsDirty) {
@@ -496,6 +540,24 @@ export class Publisher {
     }
 
     if (dirty.size > 0) this.scheduleNextWave(deferred > 0, now);
+  }
+
+  /**
+   * `forced` means the node published without going quiet first — either
+   * `flushNow()` bypassed every gate, or the `maxWaitMs` cap fired while
+   * the dwell debounce was still being restarted. A node that was never
+   * dwell-gated in the first place is not "forced"; it had no gate to
+   * escape.
+   */
+  private emitPublished(entry: DirtyEntry, id: NodeId, now: number, full: boolean): void {
+    const heldMs = now - entry.since;
+    const forced =
+      full || (entry.dwellMs > 0 && !entry.bypass && now - entry.touched < entry.dwellMs);
+    trace(
+      'throttle',
+      `published: ${id} held ${heldMs}ms, ${entry.coalesced} coalesced${forced ? ' (forced)' : ''}`,
+    );
+    this.onPublished?.({ id, heldMs, coalesced: entry.coalesced, forced });
   }
 
   /**
