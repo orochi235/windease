@@ -570,7 +570,21 @@ describe('Publisher — throttle.pending event', () => {
     h.truth.set(nid('a'), makeNode('a'));
     h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
 
-    expect(h.pendingEvents()).toEqual([{ id: nid('a'), dwellMs: 150, eligibleAt: 150 }]);
+    expect(h.pendingEvents()).toEqual([{ id: nid('a'), since: 0 }]);
+  });
+
+  it('fires once for a mutation that marks the node twice', () => {
+    // This is the real `showNode` shape: an untagged mark from
+    // `replaceNode` creates the entry, then a machine-tagged mark raises
+    // the dwell. Only the first fires the event — which is exactly why
+    // the payload carries no `dwellMs`: it isn't settled yet.
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    expect(h.pendingEvents()).toEqual([{ id: nid('a'), since: 0 }]);
+    expect(h.pub.getPending(nid('a'))?.dwellMs).toBe(150);
   });
 
   it('does not re-fire on subsequent touches of the same entry', () => {
@@ -616,13 +630,16 @@ describe('Store throttle.pending event', () => {
     store.registerNode(panel('p', 'z'));
     store.flushNow();
 
-    const seen: { id: string; dwellMs: number }[] = [];
+    const seen: string[] = [];
     store.events.on('throttle.pending', (p) => {
-      seen.push({ id: p.id, dwellMs: p.dwellMs });
+      seen.push(p.id);
     });
 
     store.showNode(nid('p'));
-    expect(seen).toEqual([{ id: nid('p'), dwellMs: 150 }]);
+    // One event, even though showNode marks the node twice.
+    expect(seen).toEqual([nid('p')]);
+    // The settled gate comes from the point read, not from the event.
+    expect(store.getPending(nid('p'))?.dwellMs).toBe(150);
   });
 
   it('is never emitted by an un-throttled store', () => {
@@ -660,12 +677,21 @@ In `src/throttle.ts`, insert immediately **above** `export interface PublisherDe
  */
 export interface ThrottlePendingPayload {
   id: NodeId;
-  /** Largest dwell gating this node; `0` means it is not dwell-gated. */
-  dwellMs: number;
-  /** Earliest the gate opens. See {@link PendingPublish.eligibleAt}. */
-  eligibleAt: number;
+  /** `clock.now()` when the node went dirty. */
+  since: number;
 }
 ```
+
+**Why the payload carries no `dwellMs` or `eligibleAt`:** the event fires
+when the `DirtyEntry` is created, and at that moment the gate is not yet
+known. A single store mutation marks a node more than once —
+`showNode` calls `replaceNode(id)` → `markDirty(id)` *untagged*
+(`src/store.ts:756`) before `markDirty(id, { machine: 'lifecycle' })`
+(`src/store.ts:757`). The entry is therefore created by the untagged
+mark, with `dwellMs: 0`, and only raised to `150` afterwards. Publishing
+that initial `0` in the payload would misreport the most common case in
+the library. The settled values are available from `getPending(id)` and
+from `throttle.published`.
 
 - [ ] **Step 5: Add the optional callback to `PublisherDeps`**
 
@@ -705,9 +731,10 @@ In `markDirty`, the `else` branch that creates a new entry becomes:
           coalesced: 0,
         };
         dirty.set(id, entry);
-        const eligibleAt = this.eligibleAt(entry);
-        trace('throttle', `pending: ${id} dwell ${entry.dwellMs}ms, gate opens at ${eligibleAt}`);
-        this.onPending?.({ id, dwellMs: entry.dwellMs, eligibleAt });
+        // No dwell in the message: this fires on entry creation, and the
+        // gate is raised by a later mark in the same mutation.
+        trace('throttle', `pending: ${id} withheld from ${now}`);
+        this.onPending?.({ id, since: now });
       }
 ```
 

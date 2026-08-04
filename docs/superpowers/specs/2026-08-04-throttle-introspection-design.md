@@ -114,8 +114,7 @@ the doc comments must therefore state outright:
 ```ts
 'throttle.pending': {
   id: NodeId;
-  dwellMs: number;
-  eligibleAt: number;
+  since: number;
 };
 'throttle.published': {
   id: NodeId;
@@ -141,6 +140,16 @@ Only when `markDirty` **creates** a new `DirtyEntry` — not on subsequent
 touches of an already-pending node. This keeps the event off the
 per-mutation hot path (`markDirty` runs on every store mutation; there are
 15 call sites in `store.ts`).
+
+Consequently the payload carries **only `id` and `since`**. One store
+mutation marks a node several times, and the *first* mark is usually the
+untagged one from `replaceNode` — `showNode` does `replaceNode(id)`
+(`src/store.ts:756`, no machine) before `markDirty(id, { machine:
+'lifecycle' })` (`src/store.ts:757`). The entry is therefore born with
+`dwellMs: 0` and raised afterwards, so a payload advertising `dwellMs` or
+`eligibleAt` would report `0` / "already eligible" for a node about to be
+held the full dwell. Settled values come from `getPending(id)` or from
+`throttle.published`.
 
 ### When `published` fires
 
