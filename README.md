@@ -220,6 +220,39 @@ publishes at most `batch` newly-eligible nodes per `ms`-spaced wave,
 oldest-dirty-first, so a mass transition (e.g. a cold-start flood) animates
 in deterministic batches instead of all at once.
 
+### Introspecting what's withheld
+
+`store.getPending(id)` answers "why hasn't this node published yet?":
+
+```ts
+const pending = store.getPending(nodeId);
+// null if nothing is withheld for this id (always null on a
+// store with no `throttle` policy)
+if (pending) {
+  const { since, touched, dwellMs, machine, bypass, coalesced, eligibleAt } = pending;
+  // ...
+}
+```
+
+`eligibleAt` is when the dwell/`maxWaitMs` gate *opens*, not when the node
+will actually publish — `notifyMs` coalescing and stagger waves can both
+defer the real flush past it.
+
+Two paired events on `store.events` mark the same episode's edges:
+
+```ts
+store.events.on('throttle.pending', ({ id, since }) => { ... });
+store.events.on('throttle.published', ({ id, heldMs, coalesced, forced }) => { ... });
+```
+
+`throttle.pending` fires when a node first goes dirty, before the dwell
+gate has settled, so it carries no `dwellMs`/`eligibleAt` — read
+`getPending` for those. Exactly one `throttle.published` follows each
+`throttle.pending` for the same id, including a node unregistered while
+pending or dropped by `deserialize`, so a consumer maintaining a
+`Set<NodeId>` of withheld nodes is correct at every point, not merely
+balanced at the end.
+
 Set `WINDEASE_TRACE=throttle` to see publish decisions.
 
 A nonsensical policy (a negative or `NaN` `notifyMs`/`dwell`/`maxWaitMs`, a

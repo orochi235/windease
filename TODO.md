@@ -14,7 +14,10 @@ them. Tag major items with `[HIGH]`.
   return truth, so snapshot and history are unaffected. Identity-equal
   passthrough when the option is omitted. `store.flushNow()` collapses
   pending latency. Traced under the `throttle` category. Demoed by the
-  `Throttling` Ladle stories.
+  `Throttling` Ladle stories. Introspectable via `store.getPending(id)`
+  (a `PendingPublish` snapshot, or `null` when nothing is withheld) and
+  the paired `throttle.pending` / `throttle.published` events, letting a
+  consumer maintain a leak-free set of currently-withheld node ids.
 - **`deserialize(store, snap)` overload.** Hydrates into an existing store
   rather than returning a new one, preserving its throttle policy and its
   subscribers — which is what makes undo work on a bound React tree. The

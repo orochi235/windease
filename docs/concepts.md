@@ -128,6 +128,7 @@ identity — a hard requirement, not an optimization, so an unthrottled
 | `focusedId` / `rootIds`            | published  |
 | `getNodeTruth(id)` / `nodesTruth`  | truth      |
 | `focusedIdTruth` / `rootIdsTruth`  | truth      |
+| `getPending(id)`                   | pending    |
 
 `serialize()` and `HistoryController` always read truth — a snapshot or an
 undo entry is never the lagged value. `store.flushNow()` collapses
@@ -135,6 +136,23 @@ published up to truth immediately, bypassing every gate. Dwell gates
 **observation, never truth**: only an FSM transition on a configured
 machine starts or restarts a dwell, and only the whole record (not
 individual fields) is held.
+
+**Pending** is the third observable state: a node whose truth has moved
+but whose published record hasn't caught up yet. `store.getPending(id)`
+returns a `PendingPublish` snapshot of the current episode — `since`,
+`touched`, `dwellMs`, `machine` (the machine that set that `dwellMs`, or
+`null`), `bypass`, `coalesced`, and `eligibleAt` — or `null` when nothing
+is withheld, which is always the case on an un-throttled store.
+`eligibleAt` is when the gate *opens*, not when the node will publish:
+`notifyMs` coalescing and stagger waves can both defer the actual flush
+past it. Two paired events on `store.events` mark the episode's edges:
+`throttle.pending` (`{ id, since }`, fired when the entry is created,
+before the dwell gate has settled — no `dwellMs`/`eligibleAt` yet) and
+`throttle.published` (`{ id, heldMs, coalesced, forced }`). Exactly one
+`throttle.published` follows each `throttle.pending` for the same id,
+including a node unregistered while pending or dropped by `deserialize`
+— so a consumer maintaining a `Set<NodeId>` of withheld nodes is correct
+at every point, not merely balanced at the end.
 
 Full mechanism (dwell debounce, stagger waves, `maxWaitMs` starvation cap)
 is in `docs/superpowers/specs/2026-08-03-transition-throttling-design.md`;
