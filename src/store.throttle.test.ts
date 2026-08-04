@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
+import { HistoryController } from './history.js';
 import { asNodeId } from './node.js';
-import { deserialize, serialize } from './snapshot.js';
+import { deserialize, serialize, type SerializedStore } from './snapshot.js';
 import { Store } from './store.js';
 import { FakeClock } from './test-utils/fake-clock.js';
 
@@ -129,5 +130,30 @@ describe('snapshot under throttling', () => {
     });
     deserialize(restored, snap);
     expect(calls).toBeGreaterThan(0);
+  });
+});
+
+describe('history under throttling', () => {
+  it('publishes an undo immediately rather than waiting out the window', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { notifyMs: 5000 }, clock });
+    const history = new HistoryController<SerializedStore>();
+
+    store.registerNode(zone('z'));
+    store.flushNow();
+    history.push(serialize(store));
+
+    store.registerNode(panel('p', 'z'));
+    store.flushNow();
+    history.push(serialize(store));
+    expect(store.getNode(nid('p'))).toBeDefined();
+
+    const prev = history.undo();
+    expect(prev).toBeDefined();
+    deserialize(store, prev as SerializedStore);
+
+    // No clock.advance() — an undo is a user gesture and must not lag.
+    expect(store.getNode(nid('p'))).toBeUndefined();
+    expect(store.getNode(nid('z'))).toBeDefined();
   });
 });
