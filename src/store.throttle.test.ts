@@ -394,3 +394,30 @@ describe('Store throttle.published event', () => {
     expect(calls).toBe(0);
   });
 });
+
+describe('Store pending set survives deserialize', () => {
+  it('balances pending/published across an in-place hydrate', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { dwell: { lifecycle: 150 } }, clock });
+    store.registerNode(zone('z'));
+    store.registerNode(panel('p', 'z'));
+    store.flushNow();
+    const snap: SerializedStore = serialize(store);
+
+    // Capture only — an expect inside a store.events handler can never
+    // fail a test, because TypedEmitter swallows listener throws.
+    const open = new Set<string>();
+    store.events.on('throttle.pending', (p) => {
+      open.add(p.id);
+    });
+    store.events.on('throttle.published', (p) => {
+      open.delete(p.id);
+    });
+
+    store.showNode(nid('p'));
+    expect(open.size).toBeGreaterThan(0);
+
+    deserialize(store, snap);
+    expect([...open]).toEqual([]);
+  });
+});

@@ -1129,3 +1129,94 @@ describe('Publisher — throttle.published event', () => {
     expect(published.filter((id) => id === nid('b'))).toHaveLength(1);
   });
 });
+
+describe('Publisher — reset drains pending', () => {
+  it('emits a published event for every dropped entry', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.truth.set(nid('b'), makeNode('b'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.markDirty(nid('b'), { machine: 'lifecycle' });
+    h.clock.advance(30);
+
+    h.pub.reset();
+
+    const published = h.publishedEvents();
+    expect(published.map((e) => e.id)).toEqual([nid('a'), nid('b')]);
+    expect(published.every((e) => e.heldMs === 30)).toBe(true);
+    // Both were still dwelling at 30ms into a 150ms gate.
+    expect(published.every((e) => e.forced)).toBe(true);
+    expect(h.pub.getPending(nid('a'))).toBeNull();
+  });
+
+  it('does not mark forced when the drained node had already settled', () => {
+    const h = throttledHarness({ notifyMs: 1000, dwell: { lifecycle: 50 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.clock.advance(200);
+    // Gate opened at 50; the long notifyMs window is what still holds it.
+    h.pub.reset();
+
+    expect(h.publishedEvents()[0].forced).toBe(false);
+  });
+
+  it('emits nothing when there was nothing pending', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.pub.reset();
+    expect(h.publishedEvents()).toEqual([]);
+  });
+
+  it('leaves the pending set balanced across a reset', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.reset();
+
+    const open = new Set<NodeId>();
+    for (const e of h.events) {
+      if (e.kind === 'pending') open.add(e.payload.id);
+      else open.delete(e.payload.id);
+    }
+    expect([...open]).toEqual([]);
+  });
+
+  it('keeps an entry created by a listener during the drain', () => {
+    // The reason the order is capture -> clear -> emit. If reset cleared
+    // AFTER emitting, this listener's markDirty would create an entry
+    // that the trailing clear() then wiped — an unpaired `pending`,
+    // exactly the leak this drain exists to prevent.
+    const truth = new Map<NodeId, Node>();
+    const clock = new FakeClock();
+    const pending: NodeId[] = [];
+    const published: NodeId[] = [];
+    let reentered = false;
+    const pub: Publisher = new Publisher({
+      truth,
+      policy: { notifyMs: 32, dwell: { lifecycle: 150 } },
+      clock,
+      readGlobals: () => ({ rootIds: [], focusedId: null }),
+      notify: () => {},
+      onPending: (p) => {
+        pending.push(p.id);
+      },
+      onPublished: (p) => {
+        published.push(p.id);
+        if (!reentered) {
+          reentered = true;
+          pub.markDirty(nid('b'), { machine: 'lifecycle' });
+        }
+      },
+    });
+
+    truth.set(nid('a'), makeNode('a'));
+    truth.set(nid('b'), makeNode('b'));
+    pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    pub.reset();
+
+    expect(pending).toEqual([nid('a'), nid('b')]);
+    expect(published).toEqual([nid('a')]);
+    // `b`'s entry must have survived the drain — it is still withheld,
+    // and will get its own `published` later.
+    expect(pub.getPending(nid('b'))).not.toBeNull();
+  });
+});

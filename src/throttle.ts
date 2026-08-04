@@ -464,7 +464,20 @@ export class Publisher {
       this.timer = null;
     }
     this.scheduled = false;
+
+    // Drain rather than clear: every `throttle.pending` must be balanced
+    // by exactly one `throttle.published`, or a consumer tracking
+    // withheld nodes leaks across a hydrate.
+    //
+    // Capture and clear HERE but emit further down, after the published
+    // view is resynced. Clearing before emitting is what lets a listener
+    // call `markDirty` during the drain and keep its new entry — if we
+    // cleared afterwards, that entry would be wiped and its `pending`
+    // would never be paired.
+    const drainedAt = this.clock.now();
+    const drained = this.dirty ? [...this.dirty] : [];
     this.dirty?.clear();
+
     this.globalsDirty = false;
     if (this.publishedNodes) {
       this.publishedNodes.clear();
@@ -473,6 +486,11 @@ export class Publisher {
       this.publishedRootIds = [...g.rootIds];
       this.publishedFocusedId = g.focusedId;
     }
+
+    for (const [id, entry] of drained) {
+      this.emitPublished(id, entry, drainedAt, this.truth.get(id) === undefined);
+    }
+
     trace('throttle', `reset: published resynced to truth (${this.nodes.size} node(s))`);
     this.notify();
   }
