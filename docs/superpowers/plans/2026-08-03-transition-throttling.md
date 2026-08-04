@@ -2249,13 +2249,14 @@ Checked against `docs/superpowers/specs/2026-08-03-transition-throttling-design.
 
 ## Risks
 
-**Task 8's internal-read audit is the highest-risk edit in the plan.** Changing `Store`'s public getters to return the published view silently changes what every *internal* method sees. Any internal site left reading `this.getNode(...)` or `this.nodes` will operate on a lagged view, and the bug only manifests under a throttle policy — so the existing suite won't catch it. Before considering Phase 1 done:
+**Task 8's internal-read audit — RESOLVED, verified 2026-08-03.** The concern was that repointing `Store`'s public getters at the published view would silently change what *internal* methods see, with the bug only manifesting under a throttle policy. Audited after Task 7:
 
 ```bash
-grep -n "this\.getNode(\|this\.nodes\.\|this\.rootIds\b\|this\.focusedId\b" src/store.ts
+grep -n "this\.getNode(\|this\.nodes\b\|this\.rootIds\b\|this\.focusedId\b\|this\.getChildren(\|this\.getParent(\|this\.getAncestors(\|this\.isContainer(\|this\.isSlotted(\|this\.hasFocus(\|this\.getPlacement(\|this\.getMeta(\|this\.getActivity(\|this\.getContainerState(" src/store.ts
+# → no matches
 ```
 
-Every hit inside a private/internal method must read `this.nodesMap` / `this.rootIdsArr` / `this.focusedIdValue` instead. Known sites to check: `requireNode` (already correct), `collectDescendants`, `resortByPin`, `getChildren`, `getParent`, `getAncestors`, `isContainer`, `isSlotted`, `hasFocus`, `getContainerView`, and the cycle check in `moveNode`.
+**Zero internal call sites go through a public getter.** All 57 internal reads use `this.nodesMap` / `this.rootIdsArr` / `this.focusedIdValue` directly — `Store` never consumes its own public API internally. Task 8 therefore only needs to repoint the getter bodies themselves; no other site in `store.ts` requires changes. Re-run the grep above if `store.ts` gains methods before Task 8 lands.
 
 **`registerNode` marks its parent twice** (once via `replaceContainer`, once bypassed). That is intentional — `markDirty` merges into one entry and `bypass: true` is sticky — but if the merge logic in Task 13 is changed, re-check that the bypass survives.
 
