@@ -182,6 +182,7 @@ export class Store {
         );
       }
       this.nodesMap.set(node.id, node);
+      this.publisher.markDirty(node.id);
       this.replaceContainer(parent.id, (c) => ({
         ...c,
         childOrder: [...c.childOrder, node.id],
@@ -189,7 +190,9 @@ export class Store {
       this.resortByPin(parent.id);
     } else {
       this.nodesMap.set(node.id, node);
+      this.publisher.markDirty(node.id);
       this.rootIdsArr.push(node.id);
+      this.publisher.markGlobalsDirty();
     }
     this.events.emit('node.registered', { id: node.id });
     trace('store', `register: ${node.id} (kind=${node.kind})`);
@@ -248,6 +251,8 @@ export class Store {
       if (idx >= 0) this.rootIdsArr.splice(idx, 1);
     }
     this.nodesMap.delete(id);
+    this.publisher.markDirty(id);
+    this.publisher.markGlobalsDirty();
     if (this.focusedIdValue === id) this.focusedIdValue = null;
   }
 
@@ -768,6 +773,7 @@ export class Store {
       to: 'focused',
     });
     this.focusedIdValue = id;
+    this.publisher.markGlobalsDirty();
     this.scheduleNotify();
   }
 
@@ -785,6 +791,7 @@ export class Store {
       });
     }
     this.focusedIdValue = null;
+    this.publisher.markGlobalsDirty();
     this.scheduleNotify();
   }
 
@@ -827,6 +834,7 @@ export class Store {
     if (!prev) return;
     const next = fn ? fn(prev) : { ...prev };
     this.nodesMap.set(id, next);
+    this.publisher.markDirty(id);
   }
 
   private replaceContainer(id: NodeId, fn: (c: ContainerCap) => ContainerCap): void {
@@ -834,6 +842,7 @@ export class Store {
     if (!prev?.container) return;
     const nextContainer = fn(prev.container);
     this.nodesMap.set(id, { ...prev, container: nextContainer });
+    this.publisher.markDirty(id);
   }
 
   private replaceSlot(id: NodeId, fn: (s: SlotCap) => SlotCap): void {
@@ -841,6 +850,7 @@ export class Store {
     if (!prev?.slot) return;
     const nextSlot = fn(prev.slot);
     this.nodesMap.set(id, { ...prev, slot: nextSlot });
+    this.publisher.markDirty(id);
   }
 }
 
