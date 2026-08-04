@@ -98,6 +98,7 @@ export class Publisher {
   private scheduled = false;
   private timer: TimerHandle | null = null;
   private readonly maxWaitMs: number;
+  private forceFullFlush = false;
 
   constructor(deps: PublisherDeps) {
     this.truth = deps.truth;
@@ -186,6 +187,7 @@ export class Publisher {
     this.scheduled = false;
     const bypassed = this.passthrough ? 0 : this.dirty.size;
     trace('throttle', `flushNow: bypassing gates for ${bypassed} dirty node(s)`);
+    this.forceFullFlush = true;
     this.flush();
   }
 
@@ -229,19 +231,35 @@ export class Publisher {
     }
     const published = this.publishedNodes as Map<NodeId, Node>;
     const now = this.clock.now();
-    let count = 0;
-    let held = 0;
+    const full = this.forceFullFlush;
+    this.forceFullFlush = false;
 
-    for (const [id, entry] of [...this.dirty]) {
-      if (!this.isEligible(entry, now)) {
+    // Oldest-dirty-first, ties by insertion order, so waves are
+    // deterministic and reproducible across runs.
+    const eligible: NodeId[] = [];
+    let held = 0;
+    for (const [id, entry] of this.dirty) {
+      if (!full && !this.isEligible(entry, now)) {
         held++;
         continue;
       }
+      eligible.push(id);
+    }
+    eligible.sort((x, y) => {
+      const ex = this.dirty.get(x) as DirtyEntry;
+      const ey = this.dirty.get(y) as DirtyEntry;
+      return ex.since - ey.since;
+    });
+
+    const batch = full ? eligible.length : (this.policy?.stagger?.batch ?? eligible.length);
+    const wave = eligible.slice(0, batch);
+    const deferred = eligible.length - wave.length;
+
+    for (const id of wave) {
       const node = this.truth.get(id);
       if (node === undefined) published.delete(id);
       else published.set(id, node);
       this.dirty.delete(id);
-      count++;
     }
 
     if (this.globalsDirty) {
@@ -251,14 +269,32 @@ export class Publisher {
       this.globalsDirty = false;
     }
 
-    if (count > 0 || held === 0) {
-      trace('throttle', `flush: published ${count}, held ${held}`);
+    if (wave.length > 0 || (held === 0 && deferred === 0)) {
+      trace('throttle', `flush: published ${wave.length}, deferred ${deferred}, held ${held}`);
       this.notify();
     }
 
-    // Anything still dwelling needs another look — but wake at the moment it
-    // actually becomes eligible, NOT immediately. See scheduleRecheck.
-    if (this.dirty.size > 0) this.scheduleRecheck(now);
+    if (this.dirty.size > 0) this.scheduleNextWave(deferred > 0, now);
+  }
+
+  /**
+   * Re-arm after a partial flush. A stagger-deferred remainder waits the
+   * configured wave interval; a dwell-held remainder wakes when it becomes
+   * eligible.
+   *
+   * Neither branch may re-arm via `schedule()` — see `scheduleRecheck` for
+   * why that busy-spins.
+   */
+  private scheduleNextWave(staggered: boolean, now: number): void {
+    if (this.scheduled) return;
+    const waveMs = this.policy?.stagger?.ms;
+    if (staggered && waveMs !== undefined) {
+      this.scheduled = true;
+      trace('throttle', `scheduleNextWave: next wave in ${waveMs}ms`);
+      this.timer = this.clock.setTimeout(() => this.runFlush(), waveMs);
+      return;
+    }
+    this.scheduleRecheck(now);
   }
 
   /**

@@ -415,3 +415,67 @@ describe('Publisher — dwell', () => {
     expect(h.pub.nodes.has(nid('a'))).toBe(true);
   });
 });
+
+describe('Publisher — stagger', () => {
+  const policy = { notifyMs: 10, stagger: { batch: 2, ms: 40 } };
+
+  function seedMany(h: ReturnType<typeof throttledHarness>, ids: string[]) {
+    for (const id of ids) {
+      h.truth.set(nid(id), makeNode(id));
+      h.pub.markDirty(nid(id));
+    }
+  }
+
+  it('publishes at most `batch` nodes per wave', () => {
+    const h = throttledHarness(policy);
+    seedMany(h, ['a', 'b', 'c', 'd', 'e']);
+
+    h.clock.advance(10);
+    expect(h.pub.nodes.size).toBe(2);
+
+    h.clock.advance(40);
+    expect(h.pub.nodes.size).toBe(4);
+
+    h.clock.advance(40);
+    expect(h.pub.nodes.size).toBe(5);
+  });
+
+  it('publishes in oldest-dirty-first order', () => {
+    const h = throttledHarness(policy);
+    h.truth.set(nid('old'), makeNode('old'));
+    h.pub.markDirty(nid('old'));
+    h.clock.advance(1);
+    h.truth.set(nid('mid'), makeNode('mid'));
+    h.pub.markDirty(nid('mid'));
+    h.clock.advance(1);
+    h.truth.set(nid('new'), makeNode('new'));
+    h.pub.markDirty(nid('new'));
+
+    h.clock.advance(10);
+    expect([...h.pub.nodes.keys()]).toEqual([nid('old'), nid('mid')]);
+  });
+
+  it('is deterministic across identical runs', () => {
+    const run = () => {
+      const h = throttledHarness(policy);
+      seedMany(h, ['e', 'd', 'c', 'b', 'a']);
+      h.clock.advance(10);
+      return [...h.pub.nodes.keys()];
+    };
+    expect(run()).toEqual(run());
+  });
+
+  it('does not batch when no stagger policy is configured', () => {
+    const h = throttledHarness({ notifyMs: 10 });
+    seedMany(h, ['a', 'b', 'c', 'd', 'e']);
+    h.clock.advance(10);
+    expect(h.pub.nodes.size).toBe(5);
+  });
+
+  it('flushNow() ignores the stagger budget', () => {
+    const h = throttledHarness(policy);
+    seedMany(h, ['a', 'b', 'c', 'd', 'e']);
+    h.pub.flushNow();
+    expect(h.pub.nodes.size).toBe(5);
+  });
+});
