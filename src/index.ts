@@ -80,6 +80,7 @@ export {
   systemClock,
   type Clock,
   type MachineName,
+  type PendingPublish,
   type StoreOptions,
   type ThrottlePolicy,
   type TimerHandle,

@@ -246,3 +246,63 @@ describe('Store stagger', () => {
     expect(visible()).toBe(9);
   });
 });
+
+describe('Store.getPending', () => {
+  it('returns null on an un-throttled store', () => {
+    const store = new Store();
+    store.registerNode(zone('z'));
+    store.registerNode(panel('p', 'z'));
+    expect(store.getPending(nid('p'))).toBeNull();
+  });
+
+  it('returns null for an unknown node', () => {
+    const store = new Store({ throttle: { dwell: { lifecycle: 150 } }, clock: new FakeClock() });
+    expect(store.getPending(nid('ghost'))).toBeNull();
+  });
+
+  it('describes a node held by dwell', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { dwell: { lifecycle: 150 } }, clock });
+    store.registerNode(zone('z'));
+    store.registerNode(panel('p', 'z'));
+    store.flushNow();
+
+    store.showNode(nid('p'));
+    const pending = store.getPending(nid('p'));
+    expect(pending).not.toBeNull();
+    expect(pending?.dwellMs).toBe(150);
+    expect(pending?.machine).toBe('lifecycle');
+    expect(pending?.eligibleAt).toBe((pending?.touched ?? 0) + 150);
+  });
+
+  it('clears once the node publishes', async () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { dwell: { lifecycle: 50 } }, clock });
+    store.registerNode(zone('z'));
+    store.registerNode(panel('p', 'z'));
+    store.flushNow();
+
+    store.showNode(nid('p'));
+    expect(store.getPending(nid('p'))).not.toBeNull();
+    // The first flush is a microtask when `notifyMs` is omitted, and the
+    // FakeClock timer is only armed by the recheck that follows it — so
+    // yield once before advancing or there is no timer to fire.
+    await tick();
+    clock.advance(500);
+    expect(store.getPending(nid('p'))).toBeNull();
+    expect(store.getNode(nid('p'))?.lifecycle.state).toBe('visible');
+  });
+
+  it('is cleared by flushNow', () => {
+    const clock = new FakeClock();
+    const store = new Store({ throttle: { dwell: { lifecycle: 150 } }, clock });
+    store.registerNode(zone('z'));
+    store.registerNode(panel('p', 'z'));
+    store.flushNow();
+
+    store.showNode(nid('p'));
+    expect(store.getPending(nid('p'))).not.toBeNull();
+    store.flushNow();
+    expect(store.getPending(nid('p'))).toBeNull();
+  });
+});

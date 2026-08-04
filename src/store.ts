@@ -7,7 +7,7 @@ import {
 } from './errors.js';
 import { TypedEmitter } from './events.js';
 import type { ContainerCap, FocusCap, Node, NodeId, SlotCap } from './node.js';
-import { Publisher, type StoreOptions, systemClock } from './throttle.js';
+import { type PendingPublish, Publisher, type StoreOptions, systemClock } from './throttle.js';
 import { trace } from './trace.js';
 
 export interface StoreEvents {
@@ -134,6 +134,20 @@ export class Store {
   /** Truth: unlagged node record. */
   getNodeTruth(id: NodeId): Node | undefined {
     return this.nodesMap.get(id);
+  }
+
+  /**
+   * What throttling is currently withholding for `id`, or `null` if
+   * nothing is. Always `null` on a store with no `throttle` policy — an
+   * un-throttled store tracks nothing and withholds nothing.
+   *
+   * `eligibleAt` on the result is when the node's gate opens, not when it
+   * will publish: `notifyMs` and stagger waves can defer the flush past
+   * it. Pair with the `throttle.pending` / `throttle.published` events to
+   * observe the transitions rather than poll.
+   */
+  getPending(id: NodeId): PendingPublish | null {
+    return this.publisher.getPending(id);
   }
 
   getChildren(parentId: NodeId): readonly Node[] {
