@@ -113,6 +113,38 @@ export interface StoreOptions {
   clock?: Clock;
 }
 
+/**
+ * A read-only snapshot of what is currently being withheld for one node,
+ * as returned by {@link Store.getPending}. Answers "why hasn't this
+ * published yet?" — a plain value derived from internal bookkeeping, not
+ * a live view of it.
+ *
+ * @group Store
+ */
+export interface PendingPublish {
+  /** `clock.now()` when the node first went dirty and has stayed dirty. */
+  since: number;
+  /** `clock.now()` of the most recent dwell-restarting change. */
+  touched: number;
+  /** Largest dwell gating this node; `0` means it is not dwell-gated. */
+  dwellMs: number;
+  /** Structural change (register/unregister/move); skips dwell entirely. */
+  bypass: boolean;
+  /** Further changes that landed while this node was already pending. */
+  coalesced: number;
+  /**
+   * Earliest the gate opens — **not** when the node will publish.
+   * `notifyMs` coalescing and stagger waves can both defer the actual
+   * flush past this moment.
+   *
+   * Which gate is binding is derivable without exposing the policy: when
+   * `eligibleAt` is less than `touched + dwellMs`, the `maxWaitMs`
+   * starvation cap is what will release this node, not the dwell
+   * debounce.
+   */
+  eligibleAt: number;
+}
+
 interface DirtyEntry {
   /** clock.now() when this node first went dirty and has stayed dirty. */
   since: number;
@@ -126,6 +158,8 @@ interface DirtyEntry {
   dwellMs: number;
   /** Structural change (register/unregister/move); bypasses dwell entirely. */
   bypass: boolean;
+  /** Changes that landed while this entry was already pending. */
+  coalesced: number;
 }
 
 export interface PublisherDeps {
@@ -203,6 +237,25 @@ export class Publisher {
     return this.passthrough ? this.readGlobals().focusedId : this.publishedFocusedId;
   }
 
+  /**
+   * What is currently being withheld for `id`, or `null` if nothing is —
+   * either the node is clean, or this Publisher is in passthrough, which
+   * tracks nothing and so can never withhold anything.
+   */
+  getPending(id: NodeId): PendingPublish | null {
+    if (this.passthrough) return null;
+    const entry = (this.dirty as Map<NodeId, DirtyEntry>).get(id);
+    if (entry === undefined) return null;
+    return {
+      since: entry.since,
+      touched: entry.touched,
+      dwellMs: entry.dwellMs,
+      bypass: entry.bypass,
+      coalesced: entry.coalesced,
+      eligibleAt: this.eligibleAt(entry),
+    };
+  }
+
   // ===== Dirty marking =====
 
   /**
@@ -223,6 +276,7 @@ export class Publisher {
       const restartsDebounce = dwellForMachine > 0;
       const existing = dirty.get(id);
       if (existing) {
+        existing.coalesced++;
         if (restartsDebounce) existing.touched = now;
         // A node dwells for the longest gate that applies to it.
         if (dwellForMachine > existing.dwellMs) existing.dwellMs = dwellForMachine;
@@ -233,6 +287,7 @@ export class Publisher {
           touched: now,
           dwellMs: dwellForMachine,
           bypass: opts?.bypass ?? false,
+          coalesced: 0,
         });
       }
     }
@@ -427,6 +482,12 @@ export class Publisher {
    * that stops a permanently-noisy node from never updating.
    */
   private isEligible(entry: DirtyEntry, now: number): boolean {
+    // `eligibleAt` already special-cases these, so this guard is not what
+    // makes the boolean correct — it keeps a fresh un-gated entry from
+    // falling into the maxWait trace below and being mislabeled. A node
+    // marked `{ machine, bypass: true }` has a real `dwellMs` it never
+    // waited on; without this it would log a starvation publish that
+    // never happened.
     if (entry.bypass || entry.dwellMs === 0) return true;
     if (now < this.eligibleAt(entry)) return false;
     // The gate opened. If the dwell debounce isn't what opened it, the

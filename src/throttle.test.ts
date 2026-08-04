@@ -686,3 +686,93 @@ describe('Publisher — dwell debounce restart (Fix 2 regression)', () => {
     expect(h.pub.nodes.has(nid('a'))).toBe(true);
   });
 });
+
+describe('Publisher — getPending', () => {
+  it('returns null in passthrough even with a dirty node', () => {
+    const h = harness();
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    expect(h.pub.getPending(nid('a'))).toBeNull();
+  });
+
+  it('returns null for a node that was never marked dirty', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    expect(h.pub.getPending(nid('nope'))).toBeNull();
+  });
+
+  it('describes a dwell-gated node', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    expect(h.pub.getPending(nid('a'))).toEqual({
+      since: 0,
+      touched: 0,
+      dwellMs: 150,
+      bypass: false,
+      coalesced: 0,
+      eligibleAt: 150,
+    });
+  });
+
+  it('reports eligibleAt as since for a bypassing node', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.clock.advance(40);
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle', bypass: true });
+
+    const pending = h.pub.getPending(nid('a'));
+    expect(pending?.bypass).toBe(true);
+    expect(pending?.eligibleAt).toBe(40);
+    expect(pending?.since).toBe(40);
+  });
+
+  it('reports eligibleAt as since for a node with no dwell gate', () => {
+    const h = throttledHarness({ notifyMs: 32 });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'));
+
+    const pending = h.pub.getPending(nid('a'));
+    expect(pending?.dwellMs).toBe(0);
+    expect(pending?.eligibleAt).toBe(0);
+  });
+
+  it('clamps eligibleAt to the maxWaitMs starvation cap', () => {
+    // dwell 150 restarts on every touch; maxWait 200 from `since` wins
+    // once the node has been noisy for long enough.
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 }, maxWaitMs: 200 });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.clock.advance(100);
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    const pending = h.pub.getPending(nid('a'));
+    // touched=100 → byDwell=250; since=0 → byMaxWait=200. Min wins.
+    expect(pending?.touched).toBe(100);
+    expect(pending?.eligibleAt).toBe(200);
+  });
+
+  it('counts coalesced changes, not the first one', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    expect(h.pub.getPending(nid('a'))?.coalesced).toBe(0);
+
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    expect(h.pub.getPending(nid('a'))?.coalesced).toBe(2);
+  });
+
+  it('returns null once the node publishes, and starts a fresh episode after', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 50 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    h.clock.advance(500);
+    expect(h.pub.getPending(nid('a'))).toBeNull();
+
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    expect(h.pub.getPending(nid('a'))?.coalesced).toBe(0);
+  });
+});
