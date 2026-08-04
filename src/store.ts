@@ -7,6 +7,7 @@ import {
 } from './errors.js';
 import { TypedEmitter } from './events.js';
 import type { ContainerCap, FocusCap, Node, NodeId, SlotCap } from './node.js';
+import { Publisher, type StoreOptions, systemClock } from './throttle.js';
 import { trace } from './trace.js';
 
 export interface StoreEvents {
@@ -76,11 +77,28 @@ export class Store {
   private readonly rootIdsArr: NodeId[] = [];
   private focusedIdValue: NodeId | null = null;
   private readonly subscribers = new Set<() => void>();
-  private notifyScheduled = false;
+  private readonly publisher: Publisher;
+
+  constructor(options: StoreOptions = {}) {
+    this.publisher = new Publisher({
+      truth: this.nodesMap,
+      policy: options.throttle,
+      clock: options.clock ?? systemClock,
+      readGlobals: () => ({ rootIds: this.rootIdsArr, focusedId: this.focusedIdValue }),
+      notify: () => {
+        for (const fn of this.subscribers) fn();
+      },
+    });
+  }
 
   // ===== Read =====
 
   get nodes(): ReadonlyMap<NodeId, Node> {
+    return this.nodesMap;
+  }
+
+  /** Truth: unlagged, exactly what the last mutation wrote. */
+  get nodesTruth(): ReadonlyMap<NodeId, Node> {
     return this.nodesMap;
   }
 
@@ -780,12 +798,18 @@ export class Store {
   }
 
   private scheduleNotify(): void {
-    if (this.notifyScheduled) return;
-    this.notifyScheduled = true;
-    queueMicrotask(() => {
-      this.notifyScheduled = false;
-      for (const fn of this.subscribers) fn();
-    });
+    this.publisher.schedule();
+  }
+
+  /**
+   * Publish every pending change synchronously, bypassing `notifyMs`,
+   * dwell, and stagger alike. Subscribers are notified before this returns.
+   *
+   * Use at a synchronization point where pending latency is unwanted — an
+   * explicit user gesture that must feel immediate, or a test assertion.
+   */
+  flushNow(): void {
+    this.publisher.flushNow();
   }
 
   // ===== Internal helpers =====
