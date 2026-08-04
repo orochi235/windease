@@ -85,6 +85,27 @@ describe('Publisher — passthrough', () => {
     h.truth.set(nid('a'), n);
     expect(h.pub.nodes.get(nid('a'))).toBe(n);
   });
+
+  it('reset() notifies subscribers', () => {
+    const h = harness();
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'));
+
+    h.pub.reset();
+    expect(h.notifies()).toBe(1);
+  });
+
+  it('reset() cancels a pending microtask so total notifies is 1, not 2', async () => {
+    const h = harness();
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'));
+
+    h.pub.reset();
+    expect(h.notifies()).toBe(1);
+    await tick();
+    await tick();
+    expect(h.notifies()).toBe(1);
+  });
 });
 
 function throttledHarness(policy: ThrottlePolicy) {
@@ -206,5 +227,18 @@ describe('Publisher — notifyMs window', () => {
     h.pub.reset();
     expect(h.pub.nodes.get(nid('a'))).toBe(n);
     expect(h.clock.pending).toBe(0);
+  });
+
+  it('reset() notifies subscribers, cancelling the pending timer', () => {
+    const h = throttledHarness({ notifyMs: 32 });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'));
+
+    h.pub.reset();
+    expect(h.notifies()).toBe(1);
+    expect(h.clock.pending).toBe(0);
+
+    h.clock.advance(100);
+    expect(h.notifies()).toBe(1);
   });
 });

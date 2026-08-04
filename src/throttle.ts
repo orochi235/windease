@@ -144,7 +144,12 @@ export class Publisher {
     this.flush();
   }
 
-  /** Drop all pending state. Used by `deserialize`. */
+  /**
+   * Drop all pending state and resync published to truth. Used by
+   * `deserialize`. Notifies synchronously and unconditionally — hydration
+   * always changes everything, so callers (e.g. the upcoming
+   * `Store.deserialize`) must not notify a second time after calling this.
+   */
   reset(): void {
     if (this.timer !== null) {
       this.clock.clearTimeout(this.timer);
@@ -160,6 +165,7 @@ export class Publisher {
       this.publishedRootIds = [...g.rootIds];
       this.publishedFocusedId = g.focusedId;
     }
+    this.notify();
   }
 
   private runFlush(): void {
