@@ -1305,8 +1305,13 @@ function resolveRows(
   }
   if (landed === -1) return rows as BounceRow[];
 
+  // Deliberately NOT `event.coalesced` — that counts internal dirty-marks
+  // (one `showNode` alone yields 1), so showing it here would misreport
+  // the demo. The suppressed count below is derived from the truth log,
+  // which is the number this story is actually about.
+  const suppressed = rows.filter((r, i) => r.status === 'pending' && i !== landed).length;
   const parts = [`held ${event.heldMs}ms`];
-  if (event.coalesced > 0) parts.push(`${event.coalesced} coalesced`);
+  if (suppressed > 0) parts.push(`${suppressed} suppressed`);
   if (event.forced) parts.push('forced');
   const detail = parts.join(', ');
 

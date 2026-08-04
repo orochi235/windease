@@ -66,9 +66,11 @@ export interface PendingPublish {
   touched: number;
   /** Largest dwell gating this node; 0 means not dwell-gated. */
   dwellMs: number;
+  /** The machine that set the current dwellMs; null when no dwell applies. */
+  machine: MachineName | null;
   /** Structural change (register/unregister/move); skips dwell entirely. */
   bypass: boolean;
-  /** Further changes that landed while this node was already pending. */
+  /** Internal dirty-marks after the first: a churn indicator. */
   coalesced: number;
   /** Earliest the gate opens: min(touched + dwellMs, since + maxWaitMs). */
   eligibleAt: number;
@@ -92,6 +94,20 @@ easiest thing to misread about this API.
 dirty. Reporting `since` rather than reading the clock keeps the
 descriptor a pure function of the entry, so two reads in the same tick
 agree.
+
+Two field semantics that review proved are easy to get wrong, and that
+the doc comments must therefore state outright:
+
+- **`bypass` outranks the dwell it still carries.** `bypass` is sticky and
+  `dwellMs` is a running max, so a bypassing entry routinely reports a
+  non-zero `dwellMs` (and a `machine`) that gate nothing. Any rule of the
+  form "compare `eligibleAt` against `touched + dwellMs`" must check
+  `bypass` first or it reports the wrong cause on the `moveNode` path.
+- **`coalesced` counts internal dirty-marks, not store operations.** One
+  `showNode` yields `1`; one `showNode` plus one `moveNode` yields `6` —
+  the record swap and the FSM transition are separate `markDirty` calls.
+  It is a churn indicator, and must not be presented to a user as a count
+  of changes.
 
 ### Events (`StoreEvents`)
 
