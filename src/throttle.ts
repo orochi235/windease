@@ -119,6 +119,10 @@ export interface StoreOptions {
  * published yet?" — a plain value derived from internal bookkeeping, not
  * a live view of it.
  *
+ * Every field describes the **current pending episode** — from the moment
+ * a clean node is marked dirty until it publishes. A node that publishes
+ * and goes dirty again reports fresh values; nothing here is cumulative.
+ *
  * @group Store
  */
 export interface PendingPublish {
@@ -126,20 +130,38 @@ export interface PendingPublish {
   since: number;
   /** `clock.now()` of the most recent dwell-restarting change. */
   touched: number;
-  /** Largest dwell gating this node; `0` means it is not dwell-gated. */
+  /**
+   * Largest dwell gating this node; `0` means it is not dwell-gated.
+   * Ignored while `bypass` is set — a bypassing entry can carry a
+   * non-zero `dwellMs` that gates nothing.
+   */
   dwellMs: number;
+  /**
+   * The machine whose dwell is currently gating this node, or `null`
+   * when it is not dwell-gated. A node gated by several machines reports
+   * whichever one set the largest dwell.
+   */
+  machine: MachineName | null;
   /** Structural change (register/unregister/move); skips dwell entirely. */
   bypass: boolean;
-  /** Further changes that landed while this node was already pending. */
+  /**
+   * Internal dirty-marks after the first one in this episode. **Not** a
+   * count of store operations — a single call like `showNode` marks the
+   * node more than once (the record swap and the FSM transition are
+   * separate marks), so read this as a churn indicator, not a change
+   * tally.
+   */
   coalesced: number;
   /**
    * Earliest the gate opens — **not** when the node will publish.
    * `notifyMs` coalescing and stagger waves can both defer the actual
-   * flush past this moment.
+   * flush past this moment. Expressed in the domain of the clock the
+   * store was constructed with (`Date.now()` unless one was injected).
    *
-   * Which gate is binding is derivable without exposing the policy: when
+   * Which gate is binding, in precedence order: `bypass` releases the
+   * node immediately and outranks everything below it; otherwise, when
    * `eligibleAt` is less than `touched + dwellMs`, the `maxWaitMs`
-   * starvation cap is what will release this node, not the dwell
+   * starvation cap is what will release this node rather than the dwell
    * debounce.
    */
   eligibleAt: number;
@@ -148,7 +170,10 @@ export interface PendingPublish {
 interface DirtyEntry {
   /** clock.now() when this node first went dirty and has stayed dirty. */
   since: number;
-  /** clock.now() of the most recent change; the debounce restarts here. */
+  /**
+   * clock.now() of the most recent dwell-restarting change; the debounce
+   * restarts here.
+   */
   touched: number;
   /**
    * Largest dwell among the machines that transitioned since the last
@@ -156,6 +181,8 @@ interface DirtyEntry {
    * have landed, so it rides the notifyMs window.
    */
   dwellMs: number;
+  /** Machine whose dwell set the current `dwellMs`; null when ungated. */
+  machine: MachineName | null;
   /** Structural change (register/unregister/move); bypasses dwell entirely. */
   bypass: boolean;
   /** Changes that landed while this entry was already pending. */
@@ -240,7 +267,9 @@ export class Publisher {
   /**
    * What is currently being withheld for `id`, or `null` if nothing is —
    * either the node is clean, or this Publisher is in passthrough, which
-   * tracks nothing and so can never withhold anything.
+   * tracks nothing and so can never withhold anything. Covers node
+   * updates only — withheld global state (`rootIds`, `focusedId`) is
+   * tracked separately and is not reflected here.
    */
   getPending(id: NodeId): PendingPublish | null {
     if (this.passthrough) return null;
@@ -250,6 +279,7 @@ export class Publisher {
       since: entry.since,
       touched: entry.touched,
       dwellMs: entry.dwellMs,
+      machine: entry.machine,
       bypass: entry.bypass,
       coalesced: entry.coalesced,
       eligibleAt: this.eligibleAt(entry),
@@ -279,13 +309,17 @@ export class Publisher {
         existing.coalesced++;
         if (restartsDebounce) existing.touched = now;
         // A node dwells for the longest gate that applies to it.
-        if (dwellForMachine > existing.dwellMs) existing.dwellMs = dwellForMachine;
+        if (dwellForMachine > existing.dwellMs) {
+          existing.dwellMs = dwellForMachine;
+          existing.machine = opts?.machine ?? null;
+        }
         if (opts?.bypass) existing.bypass = true;
       } else {
         dirty.set(id, {
           since: now,
           touched: now,
           dwellMs: dwellForMachine,
+          machine: dwellForMachine > 0 ? (opts?.machine ?? null) : null,
           bypass: opts?.bypass ?? false,
           coalesced: 0,
         });
@@ -493,7 +527,10 @@ export class Publisher {
     // The gate opened. If the dwell debounce isn't what opened it, the
     // starvation cap did — that's the interesting case to log.
     if (now - entry.touched < entry.dwellMs) {
-      trace('throttle', `maxWait forced publish after ${now - entry.since}ms`);
+      trace(
+        'throttle',
+        `maxWait forced publish after ${now - entry.since}ms (${entry.coalesced} coalesced)`,
+      );
     }
     return true;
   }

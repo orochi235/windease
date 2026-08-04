@@ -709,6 +709,7 @@ describe('Publisher — getPending', () => {
       since: 0,
       touched: 0,
       dwellMs: 150,
+      machine: 'lifecycle',
       bypass: false,
       coalesced: 0,
       eligibleAt: 150,
@@ -773,6 +774,65 @@ describe('Publisher — getPending', () => {
     expect(h.pub.getPending(nid('a'))).toBeNull();
 
     h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
-    expect(h.pub.getPending(nid('a'))?.coalesced).toBe(0);
+    const fresh = h.pub.getPending(nid('a'));
+    expect(fresh?.coalesced).toBe(0);
+    expect(fresh?.since).toBe(500);
+    expect(fresh?.touched).toBe(500);
+  });
+
+  it('returns an independent snapshot, not a live view', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    const held = h.pub.getPending(nid('a'));
+
+    h.clock.advance(10);
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    expect(held?.coalesced).toBe(0);
+    expect(held?.touched).toBe(0);
+    expect(h.pub.getPending(nid('a'))).not.toBe(held);
+    expect(h.pub.getPending(nid('a'))?.coalesced).toBe(1);
+  });
+
+  it('keeps reporting a node whose gate is open but is stagger-deferred', () => {
+    const h = throttledHarness({ notifyMs: 16, stagger: { batch: 1, ms: 1000 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.truth.set(nid('b'), makeNode('b'));
+    h.pub.markDirty(nid('a'));
+    h.pub.markDirty(nid('b'));
+
+    h.clock.advance(16);
+    // One published, one held back by the wave budget — its gate opened
+    // long ago, which is exactly why eligibleAt is not a publish time.
+    const deferred = h.pub.getPending(nid('b'));
+    expect(deferred).not.toBeNull();
+    expect(deferred?.eligibleAt).toBeLessThanOrEqual(16);
+  });
+
+  it('merges a sticky bypass with the largest dwell', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { transit: 80, lifecycle: 150 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'transit' });
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle', bypass: true });
+
+    const pending = h.pub.getPending(nid('a'));
+    expect(pending?.dwellMs).toBe(150);
+    expect(pending?.machine).toBe('lifecycle');
+    expect(pending?.bypass).toBe(true);
+    // bypass outranks the dwell it still carries — the documented
+    // precedence, and the case that makes a naive
+    // `eligibleAt < touched + dwellMs` reading wrong.
+    expect(pending?.eligibleAt).toBe(pending?.since);
+  });
+
+  it('keeps eligibleAt finite when the starvation cap is disabled', () => {
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 150 }, maxWaitMs: 0 });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    const pending = h.pub.getPending(nid('a'));
+    expect(pending?.eligibleAt).toBe(150);
+    expect(Number.isFinite(pending?.eligibleAt ?? Number.POSITIVE_INFINITY)).toBe(true);
   });
 });
