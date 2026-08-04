@@ -24,7 +24,9 @@
 
 **Entries are deleted on publish.** `flush()` does `dirty.delete(id)` for every node in the wave (`src/throttle.ts:344`). So a republished node that goes dirty again gets a **fresh** entry with `coalesced: 0` — the counter is per-pending-episode, not cumulative. That is intended.
 
-**`FakeClock` starts at 0** (`src/test-utils/fake-clock.ts`) and `advance(ms)` fires due timers in order. Every timing test in `src/throttle.test.ts` uses it. Never use real timers in these tests.
+**`FakeClock` starts at 0** (`src/test-utils/fake-clock.ts`) and `advance(ms)` fires due timers in order, running each with `now()` set to that timer's **due time**, not the end of the advance window. Every timing test in `src/throttle.test.ts` uses it. Never use real timers in these tests.
+
+**A policy without `notifyMs` does not schedule its first flush on the clock.** `schedule()` reads `this.policy?.notifyMs`; when it is undefined the first flush goes through `queueMicrotask`, not `clock.setTimeout`. The `FakeClock` timer only gets armed by the `scheduleRecheck` that runs *after* that microtask. So a synchronous test that does `showNode(...)` then `clock.advance(500)` on a `{ dwell: {...} }`-only policy advances past **nothing** — the entry is still pending and the assertion fails misleadingly. Make such tests `async` and `await tick()` before advancing. This does not affect `src/throttle.test.ts`'s `throttledHarness`, whose policies all set `notifyMs`.
 
 **Two harnesses already exist in `src/throttle.test.ts`:** `harness()` (line 33, passthrough only) and `throttledHarness(policy)` (line 112). Task 4 extends `throttledHarness` with an event recorder; do not create a third harness.
 
@@ -381,7 +383,7 @@ describe('Store.getPending', () => {
     expect(pending?.eligibleAt).toBe(pending!.touched + 150);
   });
 
-  it('clears once the node publishes', () => {
+  it('clears once the node publishes', async () => {
     const clock = new FakeClock();
     const store = new Store({ throttle: { dwell: { lifecycle: 50 } }, clock });
     store.registerNode(zone('z'));
@@ -390,6 +392,10 @@ describe('Store.getPending', () => {
 
     store.showNode(nid('p'));
     expect(store.getPending(nid('p'))).not.toBeNull();
+    // The first flush is a microtask when `notifyMs` is omitted, and the
+    // FakeClock timer is only armed by the recheck that follows it — so
+    // yield once before advancing or there is no timer to fire.
+    await tick();
     clock.advance(500);
     expect(store.getPending(nid('p'))).toBeNull();
     expect(store.getNode(nid('p'))?.lifecycle.state).toBe('visible');
@@ -924,7 +930,7 @@ Append to the end of `src/store.throttle.test.ts`:
 
 ```ts
 describe('Store throttle.published event', () => {
-  it('fires with the published view already updated, before subscribers', () => {
+  it('fires with the published view already updated, before subscribers', async () => {
     const clock = new FakeClock();
     const store = new Store({ throttle: { dwell: { lifecycle: 50 } }, clock });
     store.registerNode(zone('z'));
@@ -943,6 +949,10 @@ describe('Store throttle.published event', () => {
     });
 
     store.showNode(nid('p'));
+    // See the note in the Background section: with `notifyMs` omitted the
+    // first flush is a microtask, and the FakeClock timer is only armed by
+    // the recheck after it. Yield or `advance` has nothing to fire.
+    await tick();
     clock.advance(500);
 
     expect(stateSeenByEvent).toBe('visible');
