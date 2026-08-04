@@ -242,3 +242,48 @@ describe('Publisher — notifyMs window', () => {
     expect(h.notifies()).toBe(1);
   });
 });
+
+describe('Publisher — policy present, notifyMs omitted', () => {
+  // `notifyMs` is optional on ThrottlePolicy, so a dwell-only policy like
+  // `{ dwell: { lifecycle: 150 } }` is a valid non-passthrough policy that
+  // still schedules via queueMicrotask (schedule() branches on
+  // `windowMs === undefined`, not on `this.passthrough`). Nothing exercises
+  // this combination elsewhere: the passthrough suite always passes
+  // `policy: undefined`, and the notifyMs suite always sets `notifyMs`.
+  const policy: ThrottlePolicy = { dwell: { lifecycle: 150 } };
+
+  it('is not passthrough and allocates its own map', () => {
+    const h = throttledHarness(policy);
+    expect(h.pub.passthrough).toBe(false);
+    expect(h.pub.nodes).not.toBe(h.truth);
+  });
+
+  it('publishes a markDirty after a microtask drain, not synchronously', async () => {
+    const h = throttledHarness(policy);
+    const n = makeNode('a');
+    h.truth.set(nid('a'), n);
+    h.pub.markDirty(nid('a'));
+
+    expect(h.pub.nodes.get(nid('a'))).toBeUndefined();
+    expect(h.notifies()).toBe(0);
+
+    await tick();
+    expect(h.pub.nodes.get(nid('a'))).toBe(n);
+    expect(h.notifies()).toBe(1);
+  });
+
+  it('flushNow() while a microtask is pending yields exactly one notify total', async () => {
+    const h = throttledHarness(policy);
+    const n = makeNode('a');
+    h.truth.set(nid('a'), n);
+    h.pub.markDirty(nid('a'));
+
+    h.pub.flushNow();
+    expect(h.pub.nodes.get(nid('a'))).toBe(n);
+    expect(h.notifies()).toBe(1);
+
+    await tick();
+    await tick();
+    expect(h.notifies()).toBe(1);
+  });
+});
