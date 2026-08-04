@@ -457,6 +457,14 @@ export class Publisher {
    * `deserialize`. Notifies synchronously and unconditionally — hydration
    * always changes everything, so callers (e.g. the upcoming
    * `Store.deserialize`) must not notify a second time after calling this.
+   *
+   * That "must not notify twice" guarantee is about the caller's own
+   * follow-up notify, not about re-entrancy: if a `throttle.published`
+   * listener re-enters `reset()` (or `flushNow()`) from inside a wave
+   * `flush()` is running, that outer `flush()` still calls its own
+   * `notify()` afterwards — so two notifies can happen in that case. This
+   * is harmless (one extra render) and not something `reset()` can or
+   * should prevent.
    */
   reset(): void {
     if (this.timer !== null) {
@@ -469,14 +477,19 @@ export class Publisher {
     // by exactly one `throttle.published`, or a consumer tracking
     // withheld nodes leaks across a hydrate.
     //
-    // Capture and clear HERE but emit further down, after the published
-    // view is resynced. Clearing before emitting is what lets a listener
-    // call `markDirty` during the drain and keep its new entry — if we
-    // cleared afterwards, that entry would be wiped and its `pending`
-    // would never be paired.
+    // Snapshot the ids, then delete-then-emit one at a time — the same
+    // order `flush()` uses, and for the same reason. A listener that
+    // re-dirties an id must either coalesce into an entry still queued to
+    // drain, or start a genuinely new episode; clearing the whole map
+    // upfront instead makes a re-dirtied id emit `pending` *before* its
+    // `published`, so a consumer's withheld-set transiently reports a
+    // still-withheld node as settled.
+    //
+    // There is deliberately no trailing `clear()`: ids a listener creates
+    // during the drain were never in the snapshot, so they survive
+    // without one.
     const drainedAt = this.clock.now();
-    const drained = this.dirty ? [...this.dirty] : [];
-    this.dirty?.clear();
+    const drainedIds = this.dirty ? [...this.dirty.keys()] : [];
 
     this.globalsDirty = false;
     if (this.publishedNodes) {
@@ -487,7 +500,12 @@ export class Publisher {
       this.publishedFocusedId = g.focusedId;
     }
 
-    for (const [id, entry] of drained) {
+    for (const id of drainedIds) {
+      const entry = this.dirty?.get(id);
+      // A nested reset() or a flush() from a listener may already have
+      // drained this id.
+      if (entry === undefined) continue;
+      this.dirty?.delete(id);
       this.emitPublished(id, entry, drainedAt, this.truth.get(id) === undefined);
     }
 

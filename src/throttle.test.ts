@@ -1219,4 +1219,90 @@ describe('Publisher — reset drains pending', () => {
     // and will get its own `published` later.
     expect(pub.getPending(nid('b'))).not.toBeNull();
   });
+
+  it('lets a listener re-dirty an id still queued to drain without unpairing it', () => {
+    const truth = new Map<NodeId, Node>();
+    const clock = new FakeClock();
+    const log: string[] = [];
+    let reentered = false;
+    const pub: Publisher = new Publisher({
+      truth,
+      policy: { notifyMs: 32, dwell: { lifecycle: 150 } },
+      clock,
+      readGlobals: () => ({ rootIds: [], focusedId: null }),
+      notify: () => {},
+      onPending: (p) => log.push(`p:${p.id}`),
+      onPublished: (p) => {
+        log.push(`P:${p.id}`);
+        if (!reentered) {
+          reentered = true;
+          pub.markDirty(nid('b'), { machine: 'lifecycle' });
+        }
+      },
+    });
+
+    truth.set(nid('a'), makeNode('a'));
+    truth.set(nid('b'), makeNode('b'));
+    pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    pub.markDirty(nid('b'), { machine: 'lifecycle' });
+    pub.reset();
+
+    // `b` was still queued to drain, so the re-dirty coalesced into its
+    // existing entry — no second `pending`, and a withheld-set built from
+    // this log ends empty AND correct.
+    expect(log).toEqual(['p:a', 'p:b', 'P:a', 'P:b']);
+    expect(pub.getPending(nid('b'))).toBeNull();
+  });
+
+  it('has already resynced the published view when the drain emits', () => {
+    const truth = new Map<NodeId, Node>();
+    const clock = new FakeClock();
+    let seenInPublished = false;
+    const pub: Publisher = new Publisher({
+      truth,
+      policy: { notifyMs: 32, dwell: { lifecycle: 150 } },
+      clock,
+      readGlobals: () => ({ rootIds: [], focusedId: null }),
+      notify: () => {},
+      onPublished: (p) => {
+        seenInPublished = pub.nodes.get(p.id) !== undefined;
+      },
+    });
+
+    truth.set(nid('a'), makeNode('a'));
+    pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    expect(pub.nodes.get(nid('a'))).toBeUndefined();
+    pub.reset();
+
+    // Emitting before the resync would show this listener an absent node.
+    expect(seenInPublished).toBe(true);
+  });
+
+  it('stamps every drained entry with a single clock read', () => {
+    const truth = new Map<NodeId, Node>();
+    const clock = new FakeClock();
+    const held: number[] = [];
+    const pub: Publisher = new Publisher({
+      truth,
+      policy: { notifyMs: 1000, dwell: { lifecycle: 150 } },
+      clock,
+      readGlobals: () => ({ rootIds: [], focusedId: null }),
+      notify: () => {},
+      onPublished: (p) => {
+        held.push(p.heldMs);
+        clock.advance(100);
+      },
+    });
+
+    truth.set(nid('a'), makeNode('a'));
+    truth.set(nid('b'), makeNode('b'));
+    pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    pub.markDirty(nid('b'), { machine: 'lifecycle' });
+    clock.advance(30);
+    pub.reset();
+
+    // A listener burning clock time must not inflate later entries —
+    // the drain reads the clock once, up front.
+    expect(held).toEqual([30, 30]);
+  });
 });
