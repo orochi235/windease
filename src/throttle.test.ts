@@ -301,3 +301,117 @@ describe('Publisher — policy present, notifyMs omitted', () => {
     expect(h.notifies()).toBe(1);
   });
 });
+
+describe('Publisher — dwell', () => {
+  const policy = { notifyMs: 10, dwell: { lifecycle: 150 }, maxWaitMs: 600 };
+
+  it('publishes an isolated transition after dwellMs of quiet', () => {
+    const h = throttledHarness(policy);
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    h.clock.advance(149);
+    expect(h.pub.nodes.has(nid('a'))).toBe(false);
+
+    h.clock.advance(10);
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+
+  it('never publishes the intermediate state of a bounce', () => {
+    const h = throttledHarness(policy);
+    const first = makeNode('a');
+    h.truth.set(nid('a'), first);
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    h.clock.advance(80);
+    const second = makeNode('a');
+    h.truth.set(nid('a'), second);
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    // The debounce restarted at t=80, so nothing is published at t=150.
+    h.clock.advance(70);
+    expect(h.pub.nodes.has(nid('a'))).toBe(false);
+
+    h.clock.advance(80);
+    expect(h.pub.nodes.get(nid('a'))).toBe(second);
+  });
+
+  it('forces a publish at maxWaitMs under continuous churn', () => {
+    const h = throttledHarness(policy);
+    h.truth.set(nid('a'), makeNode('a'));
+    for (let t = 0; t < 600; t += 50) {
+      h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+      h.clock.advance(50);
+    }
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+
+  it('does not dwell a node whose machines are stable', () => {
+    const h = throttledHarness(policy);
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'));
+    h.clock.advance(10);
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+
+  it('does not dwell a machine with no configured dwell', () => {
+    const h = throttledHarness(policy);
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'focus' });
+    h.clock.advance(10);
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+
+  it('bypasses dwell for structural changes', () => {
+    const h = throttledHarness(policy);
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle', bypass: true });
+    h.clock.advance(10);
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+
+  it('holds a dwelling node while publishing its stable neighbor', () => {
+    const h = throttledHarness(policy);
+    h.truth.set(nid('a'), makeNode('a'));
+    h.truth.set(nid('b'), makeNode('b'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+    h.pub.markDirty(nid('b'));
+
+    h.clock.advance(10);
+    expect(h.pub.nodes.has(nid('b'))).toBe(true);
+    expect(h.pub.nodes.has(nid('a'))).toBe(false);
+  });
+
+  it('holds with exactly one pending timer, never busy-spinning', () => {
+    const h = throttledHarness(policy);
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    h.clock.advance(20);
+    // Still held. Exactly one timer should be armed for the wake-up — not a
+    // re-armed notify window firing repeatedly for the whole dwell.
+    expect(h.pub.nodes.has(nid('a'))).toBe(false);
+    expect(h.clock.pending).toBe(1);
+  });
+
+  it('does not spin when notifyMs is 0 and a node is dwelling', () => {
+    // A zero-length window plus a dwell-held node is the exact shape that
+    // makes a naive `schedule()` re-arm at the same timestamp forever.
+    const h = throttledHarness({ notifyMs: 0, dwell: { lifecycle: 150 }, maxWaitMs: 600 });
+    h.truth.set(nid('a'), makeNode('a'));
+    h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+
+    expect(() => h.clock.advance(200)).not.toThrow();
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+
+  it('defaults maxWaitMs to 4x the largest dwell', () => {
+    const h = throttledHarness({ notifyMs: 10, dwell: { lifecycle: 100 } });
+    h.truth.set(nid('a'), makeNode('a'));
+    for (let t = 0; t < 400; t += 50) {
+      h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
+      h.clock.advance(50);
+    }
+    expect(h.pub.nodes.has(nid('a'))).toBe(true);
+  });
+});

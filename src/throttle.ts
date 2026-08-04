@@ -97,6 +97,7 @@ export class Publisher {
   private globalsDirty = false;
   private scheduled = false;
   private timer: TimerHandle | null = null;
+  private readonly maxWaitMs: number;
 
   constructor(deps: PublisherDeps) {
     this.truth = deps.truth;
@@ -106,6 +107,12 @@ export class Publisher {
     this.notify = deps.notify;
     this.passthrough = deps.policy === undefined;
     this.publishedNodes = this.passthrough ? null : new Map();
+
+    const dwells = Object.values(deps.policy?.dwell ?? {}).filter(
+      (v): v is number => typeof v === 'number',
+    );
+    const largestDwell = dwells.length > 0 ? Math.max(...dwells) : 0;
+    this.maxWaitMs = deps.policy?.maxWaitMs ?? largestDwell * 4;
   }
 
   // ===== Published reads =====
@@ -221,21 +228,81 @@ export class Publisher {
       return;
     }
     const published = this.publishedNodes as Map<NodeId, Node>;
+    const now = this.clock.now();
     let count = 0;
-    for (const [id, _entry] of this.dirty) {
+    let held = 0;
+
+    for (const [id, entry] of [...this.dirty]) {
+      if (!this.isEligible(entry, now)) {
+        held++;
+        continue;
+      }
       const node = this.truth.get(id);
       if (node === undefined) published.delete(id);
       else published.set(id, node);
+      this.dirty.delete(id);
       count++;
     }
-    this.dirty.clear();
+
     if (this.globalsDirty) {
       const g = this.readGlobals();
       this.publishedRootIds = [...g.rootIds];
       this.publishedFocusedId = g.focusedId;
       this.globalsDirty = false;
     }
-    trace('throttle', `flush: published ${count} node(s)`);
-    this.notify();
+
+    if (count > 0 || held === 0) {
+      trace('throttle', `flush: published ${count}, held ${held}`);
+      this.notify();
+    }
+
+    // Anything still dwelling needs another look — but wake at the moment it
+    // actually becomes eligible, NOT immediately. See scheduleRecheck.
+    if (this.dirty.size > 0) this.scheduleRecheck(now);
+  }
+
+  /**
+   * Re-arm for nodes held back by dwell, waking at the earliest moment any
+   * held entry becomes eligible.
+   *
+   * Do NOT re-arm via `schedule()` here. That would reschedule at the notify
+   * window — or, when `notifyMs` is undefined, on a microtask — and a node
+   * held by dwell would then be re-checked over and over without publishing,
+   * busy-spinning for the entire dwell duration. On the microtask path that
+   * starves the event loop outright.
+   */
+  private scheduleRecheck(now: number): void {
+    if (this.scheduled) return;
+    let earliest = Number.POSITIVE_INFINITY;
+    for (const entry of this.dirty.values()) {
+      if (entry.bypass || entry.dwellMs === 0) {
+        earliest = now;
+        break;
+      }
+      const byDwell = entry.touched + entry.dwellMs;
+      const byMaxWait =
+        this.maxWaitMs > 0 ? entry.since + this.maxWaitMs : Number.POSITIVE_INFINITY;
+      earliest = Math.min(earliest, byDwell, byMaxWait);
+    }
+    if (earliest === Number.POSITIVE_INFINITY) return;
+    this.scheduled = true;
+    const delay = Math.max(0, earliest - now);
+    trace('throttle', `scheduleRecheck: waking in ${delay}ms for ${this.dirty.size} held node(s)`);
+    this.timer = this.clock.setTimeout(() => this.runFlush(), delay);
+  }
+
+  /**
+   * A node publishes once it has been quiet for `dwellMs`, or when
+   * `maxWaitMs` has elapsed since it first went dirty — the starvation cap
+   * that stops a permanently-noisy node from never updating.
+   */
+  private isEligible(entry: DirtyEntry, now: number): boolean {
+    if (entry.bypass || entry.dwellMs === 0) return true;
+    if (now - entry.touched >= entry.dwellMs) return true;
+    if (this.maxWaitMs > 0 && now - entry.since >= this.maxWaitMs) {
+      trace('throttle', `maxWait forced publish after ${now - entry.since}ms`);
+      return true;
+    }
+    return false;
   }
 }
