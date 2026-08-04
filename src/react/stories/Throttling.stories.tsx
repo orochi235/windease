@@ -37,21 +37,27 @@ const PANEL_CHROME: ChromeMap = {
 
 // ===== Bounce — demonstrates dwell =====
 //
-// A single panel starts unshown. Clicking "Bounce" fires show → hide → show
-// roughly 40ms apart (~80ms total). The point of dwell is an *absence* — a
-// suppressed transition that never reaches the published view — and an
-// absence isn't something a viewer can see in a single flickering badge.
-// So instead of just showing the current published state, this demo keeps a
-// live transition log with two columns: every truth transition (captured
-// off `store.events`, which is synchronous and never throttled) beside
-// every distinct state that actually reached the published view (captured
-// off `store.subscribe`). With dwell on, the Truth column gets three rows
-// and Published gets one; with dwellMs at 0 the two columns match line for
-// line.
+// A single panel starts unshown. Clicking "Bounce" fires show → hide →
+// show roughly 40ms apart (~80ms total). The point of dwell is an
+// *absence* — a suppressed transition that never reaches the published
+// view — so this demo logs every truth transition (from `store.events`,
+// which is synchronous and never throttled) and then resolves each row
+// against the `throttle.published` event: the last unresolved row is the
+// state that actually landed, and every row before it was suppressed.
+// With dwell on, three truth rows collapse into one publish; with dwellMs
+// at 0 every row publishes on its own.
 
 interface BounceArgs {
   throttled: boolean;
   dwellMs: number;
+}
+
+type RowStatus = 'pending' | 'published' | 'suppressed';
+
+interface BounceRow {
+  truth: string;
+  status: RowStatus;
+  detail: string;
 }
 
 const BOUNCE_ZONE = asNodeId('bounce-zone');
@@ -74,7 +80,43 @@ function buildBounceStore(throttled: boolean, dwellMs: number): Store {
   return store;
 }
 
-function BounceDemo({ store }: { store: Store }) {
+/**
+ * A publish reveals the node's *current* truth state, so the newest
+ * unresolved row is the one that landed and every earlier unresolved row
+ * was suppressed. `findLastIndex` is deliberately hand-rolled — the story
+ * builds against the same lib target as the library.
+ */
+function resolveRows(
+  rows: readonly BounceRow[],
+  event: { heldMs: number; forced: boolean },
+): BounceRow[] {
+  let landed = -1;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].status === 'pending') {
+      landed = i;
+      break;
+    }
+  }
+  if (landed === -1) return rows as BounceRow[];
+
+  // Deliberately NOT `event.coalesced` — that counts internal dirty-marks
+  // (one `showNode` alone yields 1), so showing it here would misreport
+  // the demo. The suppressed count below is derived from the truth log,
+  // which is the number this story is actually about.
+  const suppressed = rows.filter((r, i) => r.status === 'pending' && i !== landed).length;
+  const parts = [`held ${event.heldMs}ms`];
+  if (suppressed > 0) parts.push(`${suppressed} suppressed`);
+  if (event.forced) parts.push('forced');
+  const detail = parts.join(', ');
+
+  return rows.map((row, i) => {
+    if (row.status !== 'pending') return row;
+    if (i === landed) return { ...row, status: 'published', detail };
+    return { ...row, status: 'suppressed', detail: 'never reached the published view' };
+  });
+}
+
+function BounceDemo({ store, throttled }: { store: Store; throttled: boolean }) {
   const renders = useRef(0);
   renders.current += 1;
 
@@ -84,34 +126,54 @@ function BounceDemo({ store }: { store: Store }) {
   const [running, setRunning] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const [truthLog, setTruthLog] = useState<string[]>([]);
-  const [publishedLog, setPublishedLog] = useState<string[]>([]);
-  const lastPublished = useRef<string | null>(null);
+  const [rows, setRows] = useState<BounceRow[]>([]);
+  const [withheld, setWithheld] = useState(false);
+  const [opensIn, setOpensIn] = useState(0);
 
-  // Two independent recorders, live for the life of this component:
-  //  - `store.events` is synchronous and un-throttled, so every truth
-  //    transition of the panel's lifecycle FSM lands here in order.
-  //  - `store.subscribe` fires on every published flush; we read
-  //    `getNode(...)` (the published view) and only append when it differs
-  //    from the last value recorded, so a state that never actually changed
-  //    on the published side doesn't pad the column.
-  // Unsubscribed on unmount alongside the bounce timers below.
+  // Truth transitions and publish events, both off `store.events` — which
+  // is synchronous and never throttled. An un-throttled store emits no
+  // throttle events at all, so that arm marks each row published on
+  // arrival instead of waiting for a resolution that will never come.
   useEffect(() => {
-    const unsubscribeTruth = store.events.on('node.transitioned', (payload) => {
+    const offTruth = store.events.on('node.transitioned', (payload) => {
       if (payload.id !== BOUNCE_PANEL || payload.machine !== 'lifecycle') return;
-      setTruthLog((log) => [...log, payload.to]);
+      setRows((prev) => [
+        ...prev,
+        throttled
+          ? { truth: payload.to, status: 'pending', detail: '' }
+          : { truth: payload.to, status: 'published', detail: 'published immediately' },
+      ]);
     });
-    const unsubscribePublished = store.subscribe(() => {
-      const published = store.getNode(BOUNCE_PANEL)?.lifecycle.state;
-      if (published === undefined || published === lastPublished.current) return;
-      lastPublished.current = published;
-      setPublishedLog((log) => [...log, published]);
+    const offPending = store.events.on('throttle.pending', (payload) => {
+      if (payload.id !== BOUNCE_PANEL) return;
+      setWithheld(true);
+    });
+    const offPublished = store.events.on('throttle.published', (payload) => {
+      if (payload.id !== BOUNCE_PANEL) return;
+      setWithheld(false);
+      setRows((prev) => resolveRows(prev, payload));
     });
     return () => {
-      unsubscribeTruth();
-      unsubscribePublished();
+      offTruth();
+      offPending();
+      offPublished();
     };
-  }, [store]);
+  }, [store, throttled]);
+
+  // The countdown ticker only runs while something is actually withheld —
+  // `getPending` is a point read, so the story supplies the repaint.
+  useEffect(() => {
+    if (!withheld) {
+      setOpensIn(0);
+      return;
+    }
+    const handle = setInterval(() => {
+      const pending = store.getPending(BOUNCE_PANEL);
+      if (!pending) return;
+      setOpensIn(Math.max(0, Math.round(pending.eligibleAt - Date.now())));
+    }, 16);
+    return () => clearInterval(handle);
+  }, [withheld, store]);
 
   // Unmount-only cleanup. This component fully remounts (a fresh `store`)
   // whenever the story's `<Provider key=...>` changes, so there is no
@@ -142,25 +204,17 @@ function BounceDemo({ store }: { store: Store }) {
   }, [store, running]);
 
   const clearLog = useCallback(() => {
-    setTruthLog([]);
-    setPublishedLog([]);
-    lastPublished.current = null;
+    setRows([]);
   }, []);
-
-  const rowCount = Math.max(truthLog.length, publishedLog.length);
-  const logRows = Array.from({ length: rowCount }, (_, i) => ({
-    truth: truthLog[i],
-    published: publishedLog[i],
-  }));
 
   return (
     <div className="throttling-demo">
       <p className="throttling-caption">
         Click <strong>Bounce</strong>: the panel is shown, hidden, and shown again within ~80ms.
         With dwell at 150ms the intermediate <code>hidden</code> never reaches the published view —
-        the Truth column below records it, the Published column skips straight to the settled{' '}
-        <code>visible</code>. Set <strong>dwellMs</strong> to 0 and click <strong>Bounce</strong>{' '}
-        again: now every truth transition publishes and the two columns match line for line.
+        its row below is marked <em>suppressed</em>, and the row that did land reports how long it
+        was held and how many changes collapsed into it. Set <strong>dwellMs</strong> to 0 and click{' '}
+        <strong>Bounce</strong> again: now every truth transition publishes on its own.
       </p>
       <div className="throttling-toolbar">
         <button type="button" onClick={bounce} disabled={running}>
@@ -174,26 +228,34 @@ function BounceDemo({ store }: { store: Store }) {
       <p className={`throttling-state throttling-state--${state}`}>
         Published lifecycle: <strong>{state}</strong>
       </p>
+      {withheld ? (
+        <p className="throttling-pending">
+          Withheld — gate opens in <strong>{opensIn}ms</strong>{' '}
+          <span className="throttling-render-count">(store.getPending)</span>
+        </p>
+      ) : null}
       <table className="throttling-table">
         <thead>
           <tr>
             <th>Truth</th>
             <th>Published</th>
+            <th>Detail</th>
           </tr>
         </thead>
         <tbody>
-          {logRows.length === 0 ? (
+          {rows.length === 0 ? (
             <tr>
-              <td colSpan={2} className="throttling-log-empty">
+              <td colSpan={3} className="throttling-log-empty">
                 No transitions recorded yet — click Bounce.
               </td>
             </tr>
           ) : (
-            logRows.map((row, i) => (
+            rows.map((row, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: rows are an append-only log, index is a stable identity for this render's position
-              <tr key={i}>
-                <td>{row.truth ?? ''}</td>
-                <td>{row.published ?? ''}</td>
+              <tr key={i} className={`is-${row.status}`}>
+                <td>{row.truth}</td>
+                <td>{row.status === 'published' ? row.truth : '—'}</td>
+                <td>{row.detail}</td>
               </tr>
             ))
           )}
@@ -220,7 +282,7 @@ export const Bounce: Story<BounceArgs> = ({ throttled, dwellMs }) => {
   return (
     <Provider key={`${throttled}:${dwellMs}`} store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
-        <BounceDemo store={store} />
+        <BounceDemo store={store} throttled={throttled} />
       </StrategyRegistryProvider>
     </Provider>
   );
