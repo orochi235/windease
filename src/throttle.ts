@@ -145,6 +145,8 @@ export class Publisher {
     // A queued microtask can't be cancelled; clearing `scheduled` makes it
     // a no-op when it lands.
     this.scheduled = false;
+    const bypassed = this.passthrough ? 0 : this.dirty.size;
+    trace('throttle', `flushNow: bypassing gates for ${bypassed} dirty node(s)`);
     this.flush();
   }
 
@@ -169,6 +171,7 @@ export class Publisher {
       this.publishedRootIds = [...g.rootIds];
       this.publishedFocusedId = g.focusedId;
     }
+    trace('throttle', `reset: published resynced to truth (${this.nodes.size} node(s))`);
     this.notify();
   }
 
