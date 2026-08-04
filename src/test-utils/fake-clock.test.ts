@@ -72,12 +72,11 @@ describe('FakeClock', () => {
   it('clearing a timer from within another timer callback prevents it from firing', () => {
     const c = new FakeClock();
     const fired: string[] = [];
-    let handleB: ReturnType<FakeClock['setTimeout']>;
+    const handleB = c.setTimeout(() => fired.push('b'), 20);
     c.setTimeout(() => {
       fired.push('a');
       c.clearTimeout(handleB);
     }, 10);
-    handleB = c.setTimeout(() => fired.push('b'), 20);
     c.advance(100);
     expect(fired).toEqual(['a']);
   });

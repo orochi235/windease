@@ -59,13 +59,7 @@ export class FakeClock implements Clock {
       if (!next) break;
       if (++fires > MAX_ADVANCE_FIRES) {
         throw new Error(
-          `FakeClock.advance(${ms}) exceeded ${MAX_ADVANCE_FIRES} timer fires without reaching ` +
-            `target time ${target} (stuck at t=${this.t}). This almost always means a timer ` +
-            'callback is rescheduling itself (directly or via a chain) with a delay that does ' +
-            'not advance past the current time — e.g. a zero-delay setTimeout called from ' +
-            'within its own callback, or a `flush()`-style method that re-schedules whenever ' +
-            'work remains. Check for code that calls setTimeout(..., 0) (or another ' +
-            'non-advancing delay) from inside a timer callback.',
+          `FakeClock.advance(${ms}) exceeded ${MAX_ADVANCE_FIRES} timer fires without reaching target time ${target} (stuck at t=${this.t}). This almost always means a timer callback is rescheduling itself (directly or via a chain) with a delay that does not advance past the current time — e.g. a zero-delay setTimeout called from within its own callback, or a \`flush()\`-style method that re-schedules whenever work remains. Check for code that calls setTimeout(..., 0) (or another non-advancing delay) from inside a timer callback.`,
         );
       }
       this.timers.delete(nextHandle);
