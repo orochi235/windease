@@ -73,6 +73,7 @@ export {
   CycleError,
   StrategyRejectionError,
   InvariantViolationError,
+  InvalidThrottlePolicyError,
 } from './errors.js';
 export { Store, type StoreEvents } from './store.js';
 export {
