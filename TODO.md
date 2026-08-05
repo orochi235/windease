@@ -3,69 +3,42 @@
 Future work, sectioned by item. Append new ideas here rather than scattering
 them. Tag major items with `[HIGH]`.
 
-## Test-harness gaps worth knowing about
+## Surfaced by turning the type-checker on over the test tree
 
-Surfaced by review of the throttle-introspection work. None are bugs in
-shipped behavior; all three let a broken test pass silently, so they cost
-real time to rediscover.
+`npm run typecheck` now covers tests and stories (`tsconfig.test.json`).
+Two findings from that first pass are real and still open:
 
-- **[HIGH] Test files are never type-checked.** Both `tsconfig.json` and
-  `tsconfig.build.json` exclude `**/*.test.ts`, so `npm run typecheck`
-  never sees them and type errors surface only in the editor. This is how
-  an unsound `as` cast survived in a test helper — a `.filter(e => e.kind
-  === 'x')` that does not narrow, paired with a cast that would have
-  forced the wrong payload type through once the union grew a second
-  member. Anything you want *guaranteed* about test-side types needs a
-  runtime assertion behind it. Consider a third tsconfig that includes
-  tests and runs in CI.
+- **[HIGH] `<Zone>` silently drops `parentId`, so a nested JSX zone
+  registers as a root.** `CreateZoneInput` has no `parentId`
+  (`src/constructors.ts:6`), but the `Zone` preset passes one
+  (`src/react/presets.tsx:274`) through the `defined()` spread — and a
+  spread of `Partial<T>` skips excess-property checking, so nothing ever
+  complained. The zone gets no `slot`, and `registerNode` files it under
+  `rootIds` instead of the parent's `childOrder`. No test covers
+  `<Zone>` inside `<Zone>` — `nested-presets.test.tsx` nests via
+  `<Group>`, which does accept `parentId`. Needs a decision before a
+  fix: a zone with a parent is structurally a group, so either
+  `CreateZoneInput` grows `parentId` (and a zone becomes slot-capable)
+  or `<Zone>` should refuse to nest loudly. `livePreview.test.tsx` had
+  the same dead `parentId` and has been corrected.
+- **Public constructor inputs are hostile to
+  `exactOptionalPropertyTypes`.** `createPanel({ meta: props.meta })`
+  where `props.meta` is `Record | undefined` is a type error even though
+  the constructor guards with `!== undefined` and handles it fine. Every
+  consumer forwarding optional React props hits this immediately; the
+  repo's own answer is the `defined()` helper in `presets.tsx`, which is
+  not exported. Either widen the input bags to `prop?: T | undefined` or
+  export `defined()` as public API.
+
+## Test-harness gaps
+
 - **An `expect` inside a `store.events` handler can never fail a test.**
   `TypedEmitter.emit` catches and logs listener throws
   (`src/events.ts:22-25`), so a failing assertion there prints
-  `[windease] event listener threw` and the test still passes. Capture
-  into a variable and assert after the mutation returns.
-- **CI runs neither `npm test` nor `npm run typecheck`** — the only
-  workflow is `ladle-pages.yml`. Both gates are local-only.
-
-## Smaller follow-ups
-
-- **`removed` on `throttle.published`'s trace is unverifiable.** It is
-  passed to `emitPublished` and used only in the trace string, never in
-  the payload, and the suite has no trace-capture helper — so no test can
-  observe it. Accepted deliberately; a small `captureTrace` test utility
-  would close it and would pay for itself across the whole `trace`
-  surface.
-- **`docs-api/` is gitignored and has never been committed.** `npm run
-  docs:api` is a local-review step, not a publishing one. Worth deciding
-  whether generated API docs should ship.
-- **`package.json` has a standing Biome formatting error** (`files` and
-  `sideEffects` want to be single-line). Untouched by recent work so it
-  doesn't pollute feature diffs; `npm run lint` is therefore never fully
-  clean, which trains people to ignore it.
-- **`reset()` does a little work even in passthrough.** It reads
-  `clock.now()` unconditionally and allocates one empty array for the
-  drain snapshot before discovering there is nothing to drain. Reachable
-  only via `deserialize`, so the cost is noise — but the passthrough
-  contract ("allocates nothing, tracks nothing") is otherwise exact, and
-  exactness is what makes it enforceable. Hoist both behind the
-  `this.dirty` check.
-- **`flush()` and `reset()` sync `publishedNodes` on opposite sides of
-  the `dirty.delete`.** `flush()` syncs before, `reset()` after. Both
-  precede their `emitPublished`, so it is unobservable today — but these
-  are the only two removal sites and the pairing invariant depends on
-  them staying in lockstep, so gratuitous asymmetry between them is a
-  future trap. Pick one order.
-
-## Throttling Ladle story nits
-
-- **`.throttling-render-count` does double duty.** It styles both the
-  "renders: N" counter and the `(store.getPending)` annotation on the
-  Bounce story's withheld banner — two unrelated pieces of copy sharing a
-  class whose name describes only the first. Split out a neutral
-  `.throttling-annotation`.
-- **The Bounce caption explains `dwellMs` but not `throttled`.** A viewer
-  who flips the `throttled` boolean off instead of zeroing the dwell gets
-  no explanation of what changed. Pre-existing, not a regression from the
-  introspection rewrite.
+  `[windease] event listener threw` and the test still passes. Use
+  `recordEvents` (`src/test-utils/record-events.ts`) and assert after the
+  mutation returns. The one live instance has been fixed; nothing
+  prevents a new one, so this stays on the list as a review item.
 
 ## Shipped in 0.7.0
 
