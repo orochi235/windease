@@ -29,11 +29,6 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
-      # .nvmrc pins Node 22, which ships npm 10.x. Trusted publishing needs
-      # npm >= 11.5.1, so the bundled CLI can't do it.
-      - name: Use an npm that can do OIDC
-        run: npm install -g npm@latest
-
       - run: npm ci
 
       # The drift this guards against: v0.7.0 was published from a commit
