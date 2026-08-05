@@ -15,7 +15,7 @@
   "author": "Michael Baker",
   "repository": {
     "type": "git",
-    "url": "https://github.com/orochi235/windease.git"
+    "url": "git+https://github.com/orochi235/windease.git"
   },
   "homepage": "https://github.com/orochi235/windease#readme",
   "bugs": "https://github.com/orochi235/windease/issues",

@@ -4,9 +4,13 @@ on:
   push:
     tags: ['v*']
 
+# No NPM_TOKEN: this publishes via npm trusted publishing (OIDC), so the
+# credential is short-lived and minted per run. `id-token: write` is what
+# makes that possible — without it npm falls back to looking for a token
+# and fails. The npmjs.com side must name this exact filename.
 permissions:
   contents: read
-  id-token: write # npm provenance
+  id-token: write
 
 # Opt into Node 24 for JavaScript actions ahead of the September 2026 forced
 # cutover. Drop this once the actions themselves declare Node 24 support.
@@ -24,6 +28,11 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           registry-url: https://registry.npmjs.org
+
+      # .nvmrc pins Node 22, which ships npm 10.x. Trusted publishing needs
+      # npm >= 11.5.1, so the bundled CLI can't do it.
+      - name: Use an npm that can do OIDC
+        run: npm install -g npm@latest
 
       - run: npm ci
 
@@ -47,5 +56,3 @@ jobs:
 
       - name: Publish
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
