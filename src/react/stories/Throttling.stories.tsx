@@ -229,6 +229,15 @@ function BounceDemo({ store, throttled }: { store: Store; throttled: boolean }) 
         <strong>dwellMs</strong> to 0 and click <strong>Bounce</strong> again: now every truth
         transition publishes on its own.
       </p>
+      <p className="throttling-caption">
+        The two knobs are not the same lever. <strong>dwellMs</strong> at 0 keeps the throttle
+        installed — transitions still flow through the publish pipeline, they just have no gate to
+        wait behind. Turning <strong>throttled</strong> off builds the store with no{' '}
+        <code>throttle</code> option at all, so it is the identity passthrough: published{' '}
+        <em>is</em> truth, <code>store.getPending()</code> is always <code>null</code>, and neither{' '}
+        <code>throttle.pending</code> nor <code>throttle.published</code> ever fires — which is why
+        the withheld banner below never appears in that mode.
+      </p>
       <div className="throttling-toolbar">
         <button type="button" onClick={bounce} disabled={running}>
           Bounce (show → hide → show, ~40ms apart)
@@ -244,7 +253,7 @@ function BounceDemo({ store, throttled }: { store: Store; throttled: boolean }) 
       {withheld ? (
         <p className="throttling-pending">
           Withheld — gate opens in <strong>{opensIn}ms</strong>{' '}
-          <span className="throttling-render-count">(store.getPending)</span>
+          <span className="throttling-annotation">(store.getPending)</span>
         </p>
       ) : null}
       <table className="throttling-table">
@@ -383,7 +392,7 @@ function FloodDemo({ store }: { store: Store }) {
         <button type="button" onClick={reset}>
           Reset
         </button>
-        <span className="throttling-render-count">
+        <span className="throttling-annotation">
           published visible: {visibleCount} / {FLOOD_COUNT}
         </span>
         <span className="throttling-render-count">renders: {renders.current}</span>

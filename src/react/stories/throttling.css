@@ -51,7 +51,8 @@
   cursor: default;
 }
 
-.throttling-render-count {
+.throttling-render-count,
+.throttling-annotation {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   color: #64748b;
