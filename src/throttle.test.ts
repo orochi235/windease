@@ -944,7 +944,7 @@ describe('Publisher — throttle.pending event', () => {
     h.pub.markDirty(nid('a'), { machine: 'lifecycle' });
 
     expect(h.pendingEvents()).toHaveLength(2);
-    expect(h.pendingEvents()[1].since).toBe(500);
+    expect(h.pendingEvents()[1]?.since).toBe(500);
   });
 
   it('reports one event per node', () => {
@@ -982,8 +982,8 @@ describe('Publisher — throttle.published event', () => {
     h.pub.flushNow();
 
     const [event] = h.publishedEvents();
-    expect(event.forced).toBe(true);
-    expect(event.heldMs).toBe(0);
+    expect(event?.forced).toBe(true);
+    expect(event?.heldMs).toBe(0);
   });
 
   it('marks forced when the maxWaitMs cap wins over a restarting dwell', () => {
@@ -999,8 +999,8 @@ describe('Publisher — throttle.published event', () => {
 
     const events = h.publishedEvents();
     expect(events.length).toBeGreaterThan(0);
-    expect(events[0].forced).toBe(true);
-    expect(events[0].id).toBe(nid('a'));
+    expect(events[0]?.forced).toBe(true);
+    expect(events[0]?.id).toBe(nid('a'));
   });
 
   it('does not mark forced for a bypassing node that was never gated', () => {
@@ -1009,7 +1009,7 @@ describe('Publisher — throttle.published event', () => {
     h.pub.markDirty(nid('a'), { machine: 'lifecycle', bypass: true });
     h.clock.advance(500);
 
-    expect(h.publishedEvents()[0].forced).toBe(false);
+    expect(h.publishedEvents()[0]?.forced).toBe(false);
   });
 
   it('does not mark forced when flushNow drains a node that already settled', () => {
@@ -1022,8 +1022,8 @@ describe('Publisher — throttle.published event', () => {
     // publish is not forced.
     h.pub.flushNow();
 
-    expect(h.publishedEvents()[0].forced).toBe(false);
-    expect(h.publishedEvents()[0].heldMs).toBe(200);
+    expect(h.publishedEvents()[0]?.forced).toBe(false);
+    expect(h.publishedEvents()[0]?.heldMs).toBe(200);
   });
 
   it('fires for a node that was unregistered while pending', () => {
@@ -1157,7 +1157,7 @@ describe('Publisher — reset drains pending', () => {
     // Gate opened at 50; the long notifyMs window is what still holds it.
     h.pub.reset();
 
-    expect(h.publishedEvents()[0].forced).toBe(false);
+    expect(h.publishedEvents()[0]?.forced).toBe(false);
   });
 
   it('emits nothing when there was nothing pending', () => {

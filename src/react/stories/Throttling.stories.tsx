@@ -92,7 +92,7 @@ function resolveRows(
 ): BounceRow[] {
   let landed = -1;
   for (let i = rows.length - 1; i >= 0; i--) {
-    if (rows[i].status === 'pending') {
+    if (rows[i]?.status === 'pending') {
       landed = i;
       break;
     }
@@ -491,6 +491,7 @@ function TvpDemo({ store }: { store: Store }) {
     const handle = setInterval(() => {
       const id = TVP_PANEL_IDS[churnIndex.current % TVP_PANEL_IDS.length];
       churnIndex.current += 1;
+      if (id === undefined) return;
       const state = store.getNodeTruth(id)?.lifecycle.state;
       if (state === 'visible') store.hideNode(id);
       else if (state === 'mounted' || state === 'hidden') store.showNode(id);

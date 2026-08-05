@@ -13,14 +13,14 @@ function TestPanel(props: {
   meta?: Record<string, unknown>;
 }) {
   useNodeBinding({
-    id: props.id ? asNodeId(props.id) : undefined,
+    ...(props.id ? { id: asNodeId(props.id) } : {}),
     parentId: asNodeId(props.parentId),
     kindHintForAutoId: 'panel',
     factory: (id, parentId) =>
       createPanel({
         id,
-        parentId: parentId!,
-        meta: props.meta,
+        parentId: parentId ?? asNodeId(props.parentId),
+        ...(props.meta !== undefined ? { meta: props.meta } : {}),
       }),
     reconcile: (store, id) => {
       if (props.meta !== undefined) store.setMeta(id, props.meta);

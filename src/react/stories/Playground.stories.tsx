@@ -80,8 +80,11 @@ function makeStore(): Store {
       id: DOCK,
       parentId: ROOT,
       meta: { title: 'Dock' },
-      container: { strategyId: 'strip', config: { axis: 'x', gap: 6, padding: 6, fill: true } },
-      allowsDrop: true,
+      container: {
+        strategyId: 'strip',
+        config: { axis: 'x', gap: 6, padding: 6, fill: true },
+        allowsDrop: true,
+      },
     }),
   );
   s.showNode(DOCK);
@@ -169,7 +172,7 @@ export const Playground: Story = () => {
       counter.current[kind] += 1;
       const n = counter.current[kind];
       const id = asNodeId(`${kind}-${n}`);
-      const title = `${kind[0].toUpperCase()}${kind.slice(1)} ${n}`;
+      const title = `${kind.charAt(0).toUpperCase()}${kind.slice(1)} ${n}`;
       const hints =
         kind === 'widget'
           ? { preferredSize: { w: 0, h: 100 } }

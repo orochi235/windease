@@ -30,7 +30,7 @@ function withProviders(store: Store, strategies: Record<string, unknown>, ui: Re
 describe('Container — overlay callback', () => {
   it('overlay function receives live layout (placements + viewport)', () => {
     const store = makeGridStore();
-    let captured: { placementsCount?: number; w?: number; h?: number } = {};
+    let captured: { placementsCount?: number; w?: number | undefined; h?: number | undefined } = {};
     const overlay = ({
       placements,
       viewport,

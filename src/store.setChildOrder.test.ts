@@ -4,7 +4,7 @@ import { Store, asNodeId, createPanel, createZone } from './index.js';
 describe('Store.setChildOrder', () => {
   it('applies a full reordering atomically', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('root') }));
+    store.registerNode(createZone({ id: asNodeId('root'), strategyId: 'stack', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('root') }));
     store.registerNode(createPanel({ id: asNodeId('c'), parentId: asNodeId('root') }));
@@ -16,7 +16,7 @@ describe('Store.setChildOrder', () => {
 
   it('is a no-op when the order is already correct', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('root') }));
+    store.registerNode(createZone({ id: asNodeId('root'), strategyId: 'stack', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('root') }));
 
@@ -29,7 +29,7 @@ describe('Store.setChildOrder', () => {
 
   it('throws if orderedIds is not a permutation of current childOrder', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('root') }));
+    store.registerNode(createZone({ id: asNodeId('root'), strategyId: 'stack', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('root') }));
 
@@ -44,7 +44,7 @@ describe('Store.setChildOrder', () => {
 
   it('throws when parent has no container capability', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('root') }));
+    store.registerNode(createZone({ id: asNodeId('root'), strategyId: 'stack', config: {} }));
     store.registerNode(createPanel({ id: asNodeId('lone'), parentId: asNodeId('root') }));
     expect(() => store.setChildOrder(asNodeId('lone'), [])).toThrow();
   });

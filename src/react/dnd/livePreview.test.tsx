@@ -188,7 +188,6 @@ describe('Container — getDropPreview fast path', () => {
     store.registerNode(
       createZone({
         id: asNodeId('tgt'),
-        parentId: asNodeId('z'),
         strategyId: 'grid',
         config: { cols: 2 },
       }),

@@ -38,9 +38,9 @@ describe('Provider auto-store', () => {
   });
 
   it('auto-store works end-to-end with a JSX preset', () => {
-    let capturedStore: Store | null = null;
+    const captured: { store: Store | null } = { store: null };
     function Probe() {
-      capturedStore = useStore();
+      captured.store = useStore();
       return null;
     }
     render(
@@ -51,6 +51,6 @@ describe('Provider auto-store', () => {
         <Probe />
       </Provider>,
     );
-    expect(capturedStore?.getNode(asNodeId('p'))).toBeTruthy();
+    expect(captured.store?.getNode(asNodeId('p'))).toBeTruthy();
   });
 });

@@ -26,6 +26,8 @@ describe('node identity', () => {
         config: {},
         childOrder: [],
         allowsPinning: true,
+        allowsDrop: true,
+        allowsDragOut: true,
       },
     };
     expect(node.kind).toBe('panel');
@@ -44,6 +46,8 @@ describe('node identity', () => {
         config: {},
         childOrder: [],
         allowsPinning: true,
+        allowsDrop: true,
+        allowsDragOut: true,
       },
     };
     expect(node.kind).toBe('zone');

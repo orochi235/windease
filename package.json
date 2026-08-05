@@ -48,7 +48,7 @@
   },
   "scripts": {
     "build": "tsc -b tsconfig.build.json && cp src/react/styles.css dist/react/styles.css",
-    "typecheck": "tsc -b tsconfig.json",
+    "typecheck": "tsc -b tsconfig.json && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check .",
