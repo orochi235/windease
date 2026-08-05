@@ -477,20 +477,17 @@ export class Publisher {
     // by exactly one `throttle.published`, or a consumer tracking
     // withheld nodes leaks across a hydrate.
     //
-    // Snapshot the ids, then delete-then-emit one at a time — the same
-    // order `flush()` uses, and for the same reason. A listener that
-    // re-dirties an id must either coalesce into an entry still queued to
-    // drain, or start a genuinely new episode; clearing the whole map
-    // upfront instead makes a re-dirtied id emit `pending` *before* its
-    // `published`, so a consumer's withheld-set transiently reports a
-    // still-withheld node as settled.
+    // Snapshot the ids, then sync-delete-emit one at a time — the same
+    // order `flush()`'s wave loop uses, and for the same reason. A
+    // listener that re-dirties an id must either coalesce into an entry
+    // still queued to drain, or start a genuinely new episode; clearing
+    // the whole map upfront instead makes a re-dirtied id emit `pending`
+    // *before* its `published`, so a consumer's withheld-set transiently
+    // reports a still-withheld node as settled.
     //
     // There is deliberately no trailing `clear()`: ids a listener creates
     // during the drain were never in the snapshot, so they survive
     // without one.
-    const drainedAt = this.clock.now();
-    const drainedIds = this.dirty ? [...this.dirty.keys()] : [];
-
     this.globalsDirty = false;
     if (this.publishedNodes) {
       this.publishedNodes.clear();
@@ -500,22 +497,26 @@ export class Publisher {
       this.publishedFocusedId = g.focusedId;
     }
 
-    for (const id of drainedIds) {
-      const entry = this.dirty?.get(id);
-      // A nested reset() or a flush() from a listener may already have
-      // drained this id.
-      if (entry === undefined) continue;
-      this.dirty?.delete(id);
-      // The wholesale resync above already ran, so it can't see a truth
-      // mutation a listener makes for an id still queued at this point —
-      // e.g. an onPublished handler for an earlier id in this same drain
-      // that writes `truth` and re-dirties a later one. Sync this id's
-      // slot individually, the same way flush()'s wave loop does, so the
-      // published view can't go stale with nothing left pending to heal it.
-      const node = this.truth.get(id);
-      if (node === undefined) this.publishedNodes?.delete(id);
-      else this.publishedNodes?.set(id, node);
-      this.emitPublished(id, entry, drainedAt, node === undefined);
+    const dirty = this.dirty;
+    if (dirty !== null && dirty.size > 0) {
+      const drainedAt = this.clock.now();
+      for (const id of [...dirty.keys()]) {
+        const entry = dirty.get(id);
+        // A nested reset() or a flush() from a listener may already have
+        // drained this id.
+        if (entry === undefined) continue;
+        // The wholesale resync above already ran, so it can't see a truth
+        // mutation a listener makes for an id still queued at this point —
+        // e.g. an onPublished handler for an earlier id in this same drain
+        // that writes `truth` and re-dirties a later one. Sync this id's
+        // slot individually, the same way flush()'s wave loop does, so the
+        // published view can't go stale with nothing left pending to heal it.
+        const node = this.truth.get(id);
+        if (node === undefined) this.publishedNodes?.delete(id);
+        else this.publishedNodes?.set(id, node);
+        dirty.delete(id);
+        this.emitPublished(id, entry, drainedAt, node === undefined);
+      }
     }
 
     trace('throttle', `reset: published resynced to truth (${this.nodes.size} node(s))`);

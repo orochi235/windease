@@ -5,6 +5,7 @@ import type { Node, NodeId } from './node.js';
 import { captureTrace } from './test-utils/capture-trace.js';
 import { FakeClock } from './test-utils/fake-clock.js';
 import {
+  type Clock,
   Publisher,
   type ThrottlePendingPayload,
   type ThrottlePolicy,
@@ -114,6 +115,35 @@ describe('Publisher — passthrough', () => {
 
     h.pub.reset();
     expect(h.notifies()).toBe(1);
+  });
+
+  it('reset() touches neither the clock nor the heap when there is no drain', () => {
+    const base = new FakeClock();
+    let nowCalls = 0;
+    const clock: Clock = {
+      now: () => {
+        nowCalls++;
+        return base.now();
+      },
+      setTimeout: (fn, ms) => base.setTimeout(fn, ms),
+      clearTimeout: (h) => base.clearTimeout(h),
+    };
+    const truth = new Map<NodeId, Node>();
+    const pub = new Publisher({
+      truth,
+      policy: undefined,
+      clock,
+      readGlobals: () => ({ rootIds: [], focusedId: null }),
+      notify: () => {},
+    });
+    truth.set(nid('a'), makeNode('a'));
+    pub.markDirty(nid('a'));
+
+    const before = nowCalls;
+    pub.reset();
+    // Passthrough tracks nothing, so there is nothing to drain and no
+    // reason to timestamp the drain.
+    expect(nowCalls - before).toBe(0);
   });
 
   it('reset() cancels a pending microtask so total notifies is 1, not 2', async () => {
