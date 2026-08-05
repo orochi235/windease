@@ -41,6 +41,31 @@ real time to rediscover.
   `sideEffects` want to be single-line). Untouched by recent work so it
   doesn't pollute feature diffs; `npm run lint` is therefore never fully
   clean, which trains people to ignore it.
+- **`reset()` does a little work even in passthrough.** It reads
+  `clock.now()` unconditionally and allocates one empty array for the
+  drain snapshot before discovering there is nothing to drain. Reachable
+  only via `deserialize`, so the cost is noise — but the passthrough
+  contract ("allocates nothing, tracks nothing") is otherwise exact, and
+  exactness is what makes it enforceable. Hoist both behind the
+  `this.dirty` check.
+- **`flush()` and `reset()` sync `publishedNodes` on opposite sides of
+  the `dirty.delete`.** `flush()` syncs before, `reset()` after. Both
+  precede their `emitPublished`, so it is unobservable today — but these
+  are the only two removal sites and the pairing invariant depends on
+  them staying in lockstep, so gratuitous asymmetry between them is a
+  future trap. Pick one order.
+
+## Throttling Ladle story nits
+
+- **`.throttling-render-count` does double duty.** It styles both the
+  "renders: N" counter and the `(store.getPending)` annotation on the
+  Bounce story's withheld banner — two unrelated pieces of copy sharing a
+  class whose name describes only the first. Split out a neutral
+  `.throttling-annotation`.
+- **The Bounce caption explains `dwellMs` but not `throttled`.** A viewer
+  who flips the `throttled` boolean off instead of zeroing the dwell gets
+  no explanation of what changed. Pre-existing, not a regression from the
+  introspection rewrite.
 
 ## Shipped in 0.7.0
 
