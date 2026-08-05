@@ -5,6 +5,7 @@ import { asNodeId } from './node.js';
 import { type SerializedStore, deserialize, serialize } from './snapshot.js';
 import { Store } from './store.js';
 import { FakeClock } from './test-utils/fake-clock.js';
+import { recordEvents } from './test-utils/record-events.js';
 
 const tick = () => new Promise<void>((r) => queueMicrotask(() => r()));
 
@@ -315,21 +316,24 @@ describe('Store throttle.pending event', () => {
     store.registerNode(panel('p', 'z'));
     store.flushNow();
 
-    const seen: string[] = [];
-    let pendingInsideHandler: ReturnType<Store['getPending']> = null;
+    const rec = recordEvents(store, 'throttle.pending');
+    // The payload doc tells consumers to read getPending for the settled
+    // gate, so the entry must already be in the map when this fires and
+    // its `since` must agree with the payload. Capture both and compare
+    // after the mutation returns — see recordEvents' doc for why an
+    // `expect` in here could never fail.
+    const readInsideHandler: { payloadSince: number; entrySince: number | undefined }[] = [];
     store.events.on('throttle.pending', (p) => {
-      seen.push(p.id);
-      // The payload doc tells consumers to read getPending for the
-      // settled gate — so the entry must already be in the map when
-      // this fires, and `since` must agree with the payload.
-      pendingInsideHandler = store.getPending(p.id);
-      expect(pendingInsideHandler?.since).toBe(p.since);
+      readInsideHandler.push({ payloadSince: p.since, entrySince: store.getPending(p.id)?.since });
     });
 
     store.showNode(nid('p'));
     // One event, even though showNode marks the node twice.
-    expect(seen).toEqual([nid('p')]);
-    expect(pendingInsideHandler).not.toBeNull();
+    expect(rec.of('throttle.pending').map((p) => p.id)).toEqual([nid('p')]);
+    // The FakeClock has not advanced, so both reads are pinned to 0 —
+    // asserting the shared value rather than `a === b` keeps a pair of
+    // undefineds from passing vacuously.
+    expect(readInsideHandler).toEqual([{ payloadSince: 0, entrySince: 0 }]);
     // The settled gate comes from the point read, not from the event.
     expect(store.getPending(nid('p'))?.dwellMs).toBe(150);
   });
