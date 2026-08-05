@@ -3,6 +3,45 @@
 Future work, sectioned by item. Append new ideas here rather than scattering
 them. Tag major items with `[HIGH]`.
 
+## Test-harness gaps worth knowing about
+
+Surfaced by review of the throttle-introspection work. None are bugs in
+shipped behavior; all three let a broken test pass silently, so they cost
+real time to rediscover.
+
+- **[HIGH] Test files are never type-checked.** Both `tsconfig.json` and
+  `tsconfig.build.json` exclude `**/*.test.ts`, so `npm run typecheck`
+  never sees them and type errors surface only in the editor. This is how
+  an unsound `as` cast survived in a test helper — a `.filter(e => e.kind
+  === 'x')` that does not narrow, paired with a cast that would have
+  forced the wrong payload type through once the union grew a second
+  member. Anything you want *guaranteed* about test-side types needs a
+  runtime assertion behind it. Consider a third tsconfig that includes
+  tests and runs in CI.
+- **An `expect` inside a `store.events` handler can never fail a test.**
+  `TypedEmitter.emit` catches and logs listener throws
+  (`src/events.ts:22-25`), so a failing assertion there prints
+  `[windease] event listener threw` and the test still passes. Capture
+  into a variable and assert after the mutation returns.
+- **CI runs neither `npm test` nor `npm run typecheck`** — the only
+  workflow is `ladle-pages.yml`. Both gates are local-only.
+
+## Smaller follow-ups
+
+- **`removed` on `throttle.published`'s trace is unverifiable.** It is
+  passed to `emitPublished` and used only in the trace string, never in
+  the payload, and the suite has no trace-capture helper — so no test can
+  observe it. Accepted deliberately; a small `captureTrace` test utility
+  would close it and would pay for itself across the whole `trace`
+  surface.
+- **`docs-api/` is gitignored and has never been committed.** `npm run
+  docs:api` is a local-review step, not a publishing one. Worth deciding
+  whether generated API docs should ship.
+- **`package.json` has a standing Biome formatting error** (`files` and
+  `sideEffects` want to be single-line). Untouched by recent work so it
+  doesn't pollute feature diffs; `npm run lint` is therefore never fully
+  clean, which trains people to ignore it.
+
 ## Shipped in 0.7.0
 
 - **Optional transition throttling.** `new Store({ throttle })` opts into
