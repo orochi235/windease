@@ -40,6 +40,20 @@ Two findings from that first pass are real and still open:
   mutation returns. The one live instance has been fixed; nothing
   prevents a new one, so this stays on the list as a review item.
 
+## Shipped in 0.8.0
+
+- **Throttle introspection.** `store.getPending(id)` returns a
+  `PendingPublish` snapshot of what is currently being withheld for that
+  node, or `null` when nothing is. The paired `throttle.pending` /
+  `throttle.published` events fire once each per withholding episode,
+  which is what lets a consumer maintain a leak-free set of
+  currently-withheld node ids. Payload types are exported from the entry
+  point. The `Throttling` Ladle stories are driven off these rather than
+  off log diffing.
+
+  This was written against 0.7.0 but missed the 0.7.0 publish — see the
+  note under that heading.
+
 ## Shipped in 0.7.0
 
 - **Optional transition throttling.** `new Store({ throttle })` opts into
@@ -51,16 +65,24 @@ Two findings from that first pass are real and still open:
   return truth, so snapshot and history are unaffected. Identity-equal
   passthrough when the option is omitted. `store.flushNow()` collapses
   pending latency. Traced under the `throttle` category. Demoed by the
-  `Throttling` Ladle stories. Introspectable via `store.getPending(id)`
-  (a `PendingPublish` snapshot, or `null` when nothing is withheld) and
-  the paired `throttle.pending` / `throttle.published` events, letting a
-  consumer maintain a leak-free set of currently-withheld node ids.
+  `Throttling` Ladle stories.
 - **`deserialize(store, snap)` overload.** Hydrates into an existing store
   rather than returning a new one, preserving its throttle policy and its
   subscribers — which is what makes undo work on a bound React tree. The
   single-arg form is unchanged and still returns a fresh store built with
   default options. Note the in-place form emits `node.unregistered` /
   `node.cascadeDestroyed` as it clears the target.
+
+**Note on what 0.7.0 actually contains.** It was published from
+`8c27511` (the PR #1 merge), not from the `chore: 0.7.0` bump commit that
+named it, so the registry tarball is that merge's tree. It has the
+throttling core and the `deserialize` overload above; it does **not**
+have `getPending` or the throttle events, which landed afterwards and are
+released in 0.8.0. `v0.7.0` and `v0.4.0` were tagged retroactively —
+`v0.7.0` at the commit the registry timestamp points to, `v0.4.0` at its
+bump commit (0.4.0 was never published to npm at all). The
+tag/version guard in `.github/workflows/release.yml` exists so this
+cannot recur.
 
 ## Shipped in 0.5.0
 
