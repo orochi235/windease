@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { InvalidThrottlePolicyError } from './errors.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import type { Node, NodeId } from './node.js';
+import { captureTrace } from './test-utils/capture-trace.js';
 import { FakeClock } from './test-utils/fake-clock.js';
 import {
   Publisher,
@@ -1037,6 +1038,24 @@ describe('Publisher — throttle.published event', () => {
     // `pending` event would be permanently unpaired.
     expect(h.publishedEvents().map((e) => e.id)).toEqual([nid('a')]);
     expect(h.pub.nodes.get(nid('a'))).toBeUndefined();
+  });
+
+  // `removed` reaches no payload and no return value, so the trace is the
+  // only place it is observable at all.
+  it('marks the trace (removed) only when the node is gone from truth', () => {
+    const cap = captureTrace('throttle');
+    const h = throttledHarness({ notifyMs: 32, dwell: { lifecycle: 100 } });
+    h.truth.set(nid('gone'), makeNode('gone'));
+    h.truth.set(nid('stays'), makeNode('stays'));
+    h.pub.markDirty(nid('gone'), { machine: 'lifecycle' });
+    h.pub.markDirty(nid('stays'), { machine: 'lifecycle' });
+    h.truth.delete(nid('gone'));
+    h.clock.advance(500);
+
+    expect(cap.matching(/^\[windease:throttle\] published:/)).toEqual([
+      '[windease:throttle] published: gone held 100ms, 0 coalesced (removed)',
+      '[windease:throttle] published: stays held 100ms, 0 coalesced',
+    ]);
   });
 
   it('emits before notify, with the published view already updated', () => {
