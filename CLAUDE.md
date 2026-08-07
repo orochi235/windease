@@ -4,20 +4,32 @@
 
 **Always read [`docs/concepts.md`](docs/concepts.md) before touching this
 codebase if you're not already fluent in the vocabulary.** It's the
-canonical reference for what counts as a window vs. zone vs. workspace,
-which of the four data buckets (`hints` / `config` / `WindowRecord.meta` /
-`ZoneItemMeta`) a given piece of state belongs in, and how reserved
-itemMeta keys (`pinned`, `locked`) interact with layout and DnD.
+canonical reference for the capability model, which of the four data
+buckets (`hints` / `container.config` / `node.meta` /
+`membership.placement`) a given piece of state belongs in, and how the
+reserved placement keys (`pinned`, `locked`, `size`) interact with layout
+and DnD.
+
+There is no distinct "window" or "zone" *type*. Everything is one `Node`
+shape carrying any combination of four optional capabilities —
+`lifecycle`, `container`, `membership`, `focus`. Zone / Group / Panel are
+presets over that shape, and `node.kind` is a free-form label the core
+never interprets.
 
 Common naming-trap rules:
 
-- **`meta` is overloaded by scope.** `WindowRecord.meta` is window-intrinsic
-  and survives `moveWindow`; `ZoneRecord.itemMeta` (alias `ZoneItemMeta`)
-  is per-membership and is cleared on `release`. Pick the one whose lifetime
-  matches the data.
-- **`pinned` ≠ `locked`.** Pinned means "sorted to the prefix of
-  `windowIds`." Locked means "pinned, AND the React layer refuses to drag
-  or destroy it." Don't conflate; both are reserved keys on `itemMeta`.
+- **`container` and `membership` answer opposite questions.** `container`
+  is "can I have children?" (holds `childOrder`); `membership` is "do I
+  have a parent?" (holds `parentId` + my `placement` in that parent). A
+  zone is a container with no membership — it has children and no parent.
+  A panel is the childless one.
+- **`meta` is overloaded by scope.** `node.meta` is node-intrinsic and
+  survives `moveNode`; `membership.placement` is per-membership and is
+  cleared on detach. Pick the one whose lifetime matches the data.
+- **`pinned` ≠ `locked`.** Pinned means "sorted to the prefix of the
+  parent's `childOrder`." Locked means "pinned, AND the React layer
+  refuses to drag or destroy it." Don't conflate; both are reserved keys
+  on `membership.placement`.
 - **`canAccept(items, options)` is a hot path.** It runs on every drag
   pointermove. Keep it O(items.length) or smaller; defer expensive checks
   to drop time.

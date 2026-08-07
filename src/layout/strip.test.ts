@@ -138,7 +138,7 @@ describe('stripStrategy — placement.size', () => {
   it('dispatchAffordance patches placement.size on resize drag (axis=x)', () => {
     const fakeStore = {
       patchPlacement: vi.fn(),
-      getNode: vi.fn(() => ({ slot: { placement: { size: { w: 100 } } } })),
+      getNode: vi.fn(() => ({ membership: { placement: { size: { w: 100 } } } })),
     };
     stripStrategy.dispatchAffordance?.({
       event: { affordanceId: 'resize-x-a', kind: 'drag', payload: { dx: 20, dy: 0 } },

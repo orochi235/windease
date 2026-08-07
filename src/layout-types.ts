@@ -15,7 +15,7 @@ export interface LayoutItem {
     preferredSize?: Size;
   };
   /**
-   * Per-membership placement intent projected from `node.slot.placement`.
+   * Per-membership placement intent projected from `node.membership.placement`.
    * `size` is the public "fixed-px pane" API: set it via `store.patchPlacement`
    * to pin a pane's main-axis extent. The strip / stack / split strategies
    * honor it; split's gutter drag clears it (reverting to ratio control).

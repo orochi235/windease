@@ -50,12 +50,12 @@ export interface ContainerCap {
   /** When false, this container rejects all DnD drops. Default true. */
   allowsDrop: boolean;
   /** When false, this container suppresses drag handles on all its children
-   *  (in addition to per-child `slot.placement.locked`). Default true. */
+   *  (in addition to per-child `membership.placement.locked`). Default true. */
   allowsDragOut: boolean;
   state?: unknown;
 }
 
-export interface SlotCap {
+export interface MembershipCap {
   parentId: NodeId;
   /**
    * Per-membership bag of placement state. Reserved keys recognized by the
@@ -84,6 +84,6 @@ export interface Node {
   lifecycle: LifecycleCap;
 
   container?: ContainerCap;
-  slot?: SlotCap;
+  membership?: MembershipCap;
   focus?: FocusCap;
 }

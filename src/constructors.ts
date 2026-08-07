@@ -66,7 +66,7 @@ export function createGroup(input: CreateGroupInput): Node {
       allowsDrop: input.allowsDrop ?? true,
       allowsDragOut: input.allowsDragOut ?? true,
     },
-    slot: {
+    membership: {
       parentId: input.parentId,
       placement: input.placement ?? {},
       transit: createTransitMachine(),
@@ -101,7 +101,7 @@ export function createPanel(input: CreatePanelInput): Node {
     id: input.id,
     kind: 'panel',
     lifecycle: createLifecycleMachine(),
-    slot: {
+    membership: {
       parentId: input.parentId,
       placement: input.placement ?? {},
       transit: createTransitMachine(),

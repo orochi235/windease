@@ -46,7 +46,7 @@ describe('resize affordance dispatch wiring', () => {
         payload: { dx: 0, dy: 30 },
       } as never);
     });
-    const placement = store.getNode(asNodeId('a'))?.slot?.placement as
+    const placement = store.getNode(asNodeId('a'))?.membership?.placement as
       | { size?: { h: number } }
       | undefined;
     expect(placement?.size?.h).toBeGreaterThan(0);

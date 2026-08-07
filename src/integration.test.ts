@@ -13,8 +13,8 @@ describe('preset constructors — capability shape', () => {
       parentId: asNodeId('tray'),
     });
     expect(trayHost.container).toBeDefined();
-    expect(trayHost.slot?.parentId).toBe('z');
-    expect(leaf.slot?.parentId).toBe('tray');
+    expect(trayHost.membership?.parentId).toBe('z');
+    expect(leaf.membership?.parentId).toBe('tray');
   });
 
   it('builds a group inside a zone', () => {
@@ -25,7 +25,7 @@ describe('preset constructors — capability shape', () => {
       config: { axis: 'horizontal' },
     });
     expect(group.container?.strategyId).toBe('strip');
-    expect(group.slot?.parentId).toBe('z');
+    expect(group.membership?.parentId).toBe('z');
     expect(group.focus).toBeUndefined();
   });
 });

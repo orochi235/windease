@@ -179,7 +179,7 @@ describe('splitStrategy — placement.size', () => {
     const fakeStore = {
       patchPlacement: vi.fn(),
       getNode: vi.fn((_id: string) => ({
-        slot: { placement: { size: { h: 100 }, pinned: true } },
+        membership: { placement: { size: { h: 100 }, pinned: true } },
       })),
     };
     splitStrategy.dispatchAffordance?.({

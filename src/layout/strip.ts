@@ -193,10 +193,12 @@ export const stripStrategy: LayoutStrategy<void, string> = {
 
     const node = (
       store as unknown as {
-        getNode: (id: string) => { slot?: { placement?: Record<string, unknown> } } | undefined;
+        getNode: (
+          id: string,
+        ) => { membership?: { placement?: Record<string, unknown> } } | undefined;
       }
     ).getNode(childId as string);
-    const existingSize = (node?.slot?.placement?.size ?? {}) as {
+    const existingSize = (node?.membership?.placement?.size ?? {}) as {
       w?: number;
       h?: number;
     };

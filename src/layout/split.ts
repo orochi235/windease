@@ -348,11 +348,11 @@ export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
     // two leaves on either side of this gutter is a follow-up; the plan
     // accepts this scope.
     const s = store as unknown as {
-      getNode: (id: string) => { slot?: { placement?: Record<string, unknown> } } | undefined;
+      getNode: (id: string) => { membership?: { placement?: Record<string, unknown> } } | undefined;
       patchPlacement: (id: string, patch: Record<string, unknown>) => void;
     };
     for (const it of items) {
-      const placement = s.getNode(it.id)?.slot?.placement;
+      const placement = s.getNode(it.id)?.membership?.placement;
       if (placement && 'size' in placement) {
         s.patchPlacement(it.id, { size: undefined });
       }

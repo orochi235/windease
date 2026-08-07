@@ -68,11 +68,11 @@ export {
   type ContainerCap,
   type FocusCap,
   type LifecycleCap,
+  type MembershipCap,
   type Node,
   type NodeHints,
   type NodeId,
   type NodeKind,
-  type SlotCap,
   type TransitCap,
 } from './node.js';
 export {
