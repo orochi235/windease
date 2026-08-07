@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { Store, asNodeId, createPanel, createZone } from '../index.js';
+import { asNodeId, createPanel, createZone, Store } from '../index.js';
 import { type ChromeMap, Root } from './NodeRenderer.js';
 
 const chrome: ChromeMap = {

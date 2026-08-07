@@ -2,7 +2,7 @@ import { InvariantViolationError, WindeaseError } from './errors.js';
 import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
-import { type Node, type NodeKind, asNodeId } from './node.js';
+import { asNodeId, type Node, type NodeKind } from './node.js';
 import { Store } from './store.js';
 
 export interface SerializedNode {

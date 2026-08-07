@@ -2,7 +2,7 @@ export default { title: 'Grid' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import { Store, asNodeId, createPanel, createZone, gridStrategy } from '../../index.js';
+import { asNodeId, createPanel, createZone, gridStrategy, Store } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 

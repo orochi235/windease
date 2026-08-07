@@ -11,10 +11,10 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { Affordance, NodeId } from '../index.js';
-import { type Chrome, NodeRenderer } from './NodeRenderer.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
 import { useChildren, useNode } from './hooks.js';
+import { type Chrome, NodeRenderer } from './NodeRenderer.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
 
 /** Live layout snapshot passed to function-form `overlay` callbacks. */

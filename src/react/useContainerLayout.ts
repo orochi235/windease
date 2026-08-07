@@ -1,8 +1,8 @@
 import { type RefObject, useCallback, useEffect, useMemo, useState } from 'react';
 import type { Affordance, LayoutEvent, LayoutResult, NodeId, Rect } from '../index.js';
 import { nodeToLayoutItem, runStrategyForContainer } from '../index.js';
-import { useStore } from './Provider.js';
 import { useNode } from './hooks.js';
+import { useStore } from './Provider.js';
 import { useStrategyRegistry } from './strategies.js';
 
 export interface ContainerLayout {

@@ -2,7 +2,7 @@ export default { title: 'Stack' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import { Store, asNodeId, createPanel, createZone, stackStrategy } from '../../index.js';
+import { asNodeId, createPanel, createZone, Store, stackStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 

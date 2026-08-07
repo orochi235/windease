@@ -275,7 +275,7 @@ export class DragController {
     if (!this.active) return;
     this.cancelPendingRaf();
     const { draggingId, hover } = this.active;
-    if (!hover || !hover.accepted) {
+    if (!hover?.accepted) {
       this.cancel(hover ? 'rejected' : 'outside');
       return;
     }

@@ -3,12 +3,12 @@ export default { title: 'Throttling' };
 import type { Story } from '@ladle/react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  type NodeId,
-  Store,
   asNodeId,
   createPanel,
   createZone,
   gridStrategy,
+  type NodeId,
+  Store,
   stackStrategy,
 } from '../../index.js';
 import {

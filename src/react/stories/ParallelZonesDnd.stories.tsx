@@ -2,7 +2,7 @@ export default { title: 'Parallel zones (drag between)' };
 
 import type { Story } from '@ladle/react';
 import { type RefObject, useMemo, useRef } from 'react';
-import { Store, asNodeId, createPanel, createZone, stackStrategy } from '../../index.js';
+import { asNodeId, createPanel, createZone, Store, stackStrategy } from '../../index.js';
 import {
   type ChromeMap,
   Container,

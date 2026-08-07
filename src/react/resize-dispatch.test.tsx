@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { useRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPanel, createZone } from '../constructors.js';
-import { Store, asNodeId, stackStrategy } from '../index.js';
+import { asNodeId, Store, stackStrategy } from '../index.js';
 import { Provider } from './Provider.js';
 import { StrategyRegistryProvider } from './strategies.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';

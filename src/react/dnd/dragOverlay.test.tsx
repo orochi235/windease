@@ -1,8 +1,8 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { useEffect, useRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Store, asNodeId, createPanel, createZone } from '../../index.js';
 import type { NodeId } from '../../index.js';
+import { asNodeId, createPanel, createZone, Store } from '../../index.js';
 import { Provider } from '../Provider.js';
 import { DragProvider, useDragController } from './DragProvider.js';
 import { useDropTarget } from './useDropTarget.js';
@@ -33,7 +33,9 @@ function TgtBox({ nodeId, canAccept }: { nodeId: string; canAccept?: (s: NodeId)
 
 function ControllerHandle({
   onReady,
-}: { onReady: (c: ReturnType<typeof useDragController>) => void }) {
+}: {
+  onReady: (c: ReturnType<typeof useDragController>) => void;
+}) {
   const c = useDragController();
   onReady(c);
   return null;

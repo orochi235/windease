@@ -7,10 +7,10 @@ import { FakeClock } from './test-utils/fake-clock.js';
 import {
   type Clock,
   Publisher,
+  systemClock,
   type ThrottlePendingPayload,
   type ThrottlePolicy,
   type ThrottlePublishedPayload,
-  systemClock,
 } from './throttle.js';
 
 describe('systemClock', () => {

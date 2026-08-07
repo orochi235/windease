@@ -1,8 +1,8 @@
 import { type PointerEvent as ReactPointerEvent, useCallback, useRef } from 'react';
 import type { NodeId } from '../../index.js';
 import { trace } from '../../index.js';
-import { useStore } from '../Provider.js';
 import { useNode } from '../hooks.js';
+import { useStore } from '../Provider.js';
 import { useDragController } from './DragProvider.js';
 
 export interface DragHandleHandlers {

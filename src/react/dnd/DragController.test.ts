@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  type LayoutStrategy,
-  Store,
   asNodeId,
   createPanel,
   createZone,
+  type LayoutStrategy,
+  Store,
   splitStrategy,
 } from '../../index.js';
 import { DragController } from './DragController.js';

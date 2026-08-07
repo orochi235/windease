@@ -1,4 +1,4 @@
-import { type ReactNode, createContext, useContext, useState } from 'react';
+import { createContext, type ReactNode, useContext, useState } from 'react';
 import { Store } from '../index.js';
 
 export const Context = createContext<Store | null>(null);

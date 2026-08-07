@@ -1,9 +1,9 @@
 // src/react/sibling-order.test.tsx
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Store, asNodeId, createPanel } from '../index.js';
-import { Provider } from './Provider.js';
+import { asNodeId, createPanel, Store } from '../index.js';
 import type { ChildSort } from './childSort.js';
+import { Provider } from './Provider.js';
 import { Panel, Zone } from './presets.js';
 
 afterEach(cleanup);

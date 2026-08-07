@@ -1,7 +1,7 @@
 import { cleanup, render } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Store, asNodeId, createPanel, createZone } from '../index.js';
+import { asNodeId, createPanel, createZone, Store } from '../index.js';
 import { Provider } from './Provider.js';
 import { useNodeBinding } from './useNodeBinding.js';
 
@@ -55,13 +55,13 @@ describe('useNodeBinding', () => {
         <TestPanel id="a" parentId="root" meta={{ title: 'A1' }} />
       </Provider>,
     );
-    expect((store.getNode(asNodeId('a'))?.meta as Record<string, unknown>).title).toBe('A1');
+    expect((store.getNode(asNodeId('a'))!.meta as Record<string, unknown>).title).toBe('A1');
     rerender(
       <Provider store={store}>
         <TestPanel id="a" parentId="root" meta={{ title: 'A2' }} />
       </Provider>,
     );
-    expect((store.getNode(asNodeId('a'))?.meta as Record<string, unknown>).title).toBe('A2');
+    expect((store.getNode(asNodeId('a'))!.meta as Record<string, unknown>).title).toBe('A2');
   });
 
   it('mints a stable id when none is provided', () => {
@@ -114,6 +114,6 @@ describe('useNodeBinding', () => {
         </Provider>
       </StrictMode>,
     );
-    expect((store.getNode(asNodeId('a'))?.meta as Record<string, unknown>).title).toBe('initial');
+    expect((store.getNode(asNodeId('a'))!.meta as Record<string, unknown>).title).toBe('initial');
   });
 });

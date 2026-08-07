@@ -1,4 +1,4 @@
-import { type ReactNode, createContext, useContext } from 'react';
+import { createContext, type ReactNode, useContext } from 'react';
 import type { NodeId } from '../index.js';
 
 export interface Rect {
@@ -20,13 +20,7 @@ const EMPTY_LAYOUT: LayoutInfo = { placements: new Map(), settleMs: 0 };
 export const LayoutContext = createContext<LayoutInfo>(EMPTY_LAYOUT);
 
 /** @group Components */
-export function LayoutScope({
-  value,
-  children,
-}: {
-  value: LayoutInfo;
-  children: ReactNode;
-}) {
+export function LayoutScope({ value, children }: { value: LayoutInfo; children: ReactNode }) {
   return <LayoutContext.Provider value={value}>{children}</LayoutContext.Provider>;
 }
 

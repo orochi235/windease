@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createGroup, createPanel, createZone } from './constructors.js';
 import {
   CapabilityMissingError,
@@ -6,7 +6,7 @@ import {
   DuplicateNodeError,
   NodeNotFoundError,
 } from './errors.js';
-import { type NodeId, asNodeId } from './node.js';
+import { asNodeId, type NodeId } from './node.js';
 import { Store, type StoreEvents } from './store.js';
 
 function fresh(): Store {

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  Store,
   asNodeId,
   createGroup,
   createPanel,
   createZone,
   deserialize,
+  Store,
   serialize,
 } from './index.js';
 

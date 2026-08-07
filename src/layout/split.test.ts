@@ -182,13 +182,6 @@ describe('splitStrategy — placement.size', () => {
         slot: { placement: { size: { h: 100 }, pinned: true } },
       })),
     };
-    const tree: SplitNode = {
-      kind: 'split',
-      direction: 'vertical',
-      ratio: 0.5,
-      a: { kind: 'leaf', id: 'top' },
-      b: { kind: 'leaf', id: 'bot' },
-    };
     splitStrategy.dispatchAffordance?.({
       event: { affordanceId: 'split-', kind: 'drag', payload: { dx: 0, dy: 10 } },
       affordance: {

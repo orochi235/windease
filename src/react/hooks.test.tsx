@@ -1,8 +1,8 @@
 import { act, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { Store, asNodeId, createPanel, createZone } from '../index.js';
-import { Provider } from './Provider.js';
+import { asNodeId, createPanel, createZone, Store } from '../index.js';
 import { useActivity } from './hooks.js';
+import { Provider } from './Provider.js';
 
 function withStore(store: Store, ui: React.ReactNode) {
   return <Provider store={store}>{ui}</Provider>;

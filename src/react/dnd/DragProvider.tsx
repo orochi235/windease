@@ -1,4 +1,4 @@
-import { type ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../Provider.js';
 import { useOptionalStrategyRegistry } from '../strategies.js';

@@ -1,5 +1,5 @@
 import { act, cleanup, render } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, it, vi } from 'vitest';
 import { Bounce, ColdStartFlood, TruthVsPublished } from './Throttling.stories.js';
 
 // Ladle stories are not exercised by the rest of the test suite. These

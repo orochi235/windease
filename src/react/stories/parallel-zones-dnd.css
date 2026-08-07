@@ -13,7 +13,9 @@
 }
 
 .pz-column__header {
-  font: 600 13px / 1 system-ui, sans-serif;
+  font:
+    600 13px / 1 system-ui,
+    sans-serif;
   color: #475569;
   padding: 4px 8px 8px;
 }
@@ -24,7 +26,9 @@
   border: 1px dashed #cbd5e1;
   border-radius: 8px;
   background: #f8fafc;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
   min-height: 0;
 }
 
@@ -66,6 +70,8 @@
 
 .pz-hint {
   margin: 12px 0 0;
-  font: 12px / 1.4 system-ui, sans-serif;
+  font:
+    12px / 1.4 system-ui,
+    sans-serif;
   color: #64748b;
 }
