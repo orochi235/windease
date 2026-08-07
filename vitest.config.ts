@@ -1,11 +1,27 @@
-import { defineConfig } from 'vitest/config';
+import { defaultExclude, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    environment: 'node',
-    environmentMatchGlobs: [['src/react/**', 'jsdom']],
-    setupFiles: ['./vitest.setup.ts'],
     globals: false,
+    setupFiles: ['./vitest.setup.ts'],
     coverage: { provider: 'v8', reporter: ['text', 'html'] },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          environment: 'node',
+          exclude: [...defaultExclude, '**/dist/**', 'src/react/**'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'react',
+          environment: 'jsdom',
+          include: ['src/react/**/*.test.{ts,tsx}'],
+        },
+      },
+    ],
   },
 });
