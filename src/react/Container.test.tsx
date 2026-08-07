@@ -1,8 +1,8 @@
 import { act, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { Store, asNodeId, createPanel, createZone, gridStrategy, splitStrategy } from '../index.js';
-import { Provider } from './Provider.js';
+import { asNodeId, createPanel, createZone, gridStrategy, Store, splitStrategy } from '../index.js';
 import { type ChromeMap, Container } from './index.js';
+import { Provider } from './Provider.js';
 import { StrategyRegistryProvider } from './strategies.js';
 
 const PANEL_CHROME: ChromeMap = {
@@ -34,7 +34,10 @@ describe('Container — overlay callback', () => {
     const overlay = ({
       placements,
       viewport,
-    }: { placements: Map<string, unknown>; viewport: { w: number; h: number } | null }) => {
+    }: {
+      placements: Map<string, unknown>;
+      viewport: { w: number; h: number } | null;
+    }) => {
       captured = {
         placementsCount: placements.size,
         w: viewport?.w,

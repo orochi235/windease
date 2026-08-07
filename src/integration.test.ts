@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Store, asNodeId, createGroup, createPanel, createZone, getLayoutNodes } from './index.js';
+import { asNodeId, createGroup, createPanel, createZone, getLayoutNodes, Store } from './index.js';
 
 describe('preset constructors — capability shape', () => {
   it('builds a 3-level tree of zone → recursive panel → leaf panel', () => {

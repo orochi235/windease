@@ -1,7 +1,7 @@
-import { Fragment, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Node, NodeId, Store } from '../index.js';
-import { Provider } from './Provider.js';
 import { useChildren, useNode, useRootNodes } from './hooks.js';
+import { Provider } from './Provider.js';
 
 export interface ChromeArgs {
   node: Node;
@@ -47,13 +47,9 @@ export function NodeRenderer({ id, chrome }: NodeRendererProps) {
   if (node.lifecycle.state === 'hidden' || node.lifecycle.state === 'destroyed') {
     return null;
   }
-  const subtree: ReactNode | null = node.container ? (
-    <>
-      {children.map((c) => (
-        <NodeRenderer key={c.id} id={c.id} chrome={chrome} />
-      ))}
-    </>
-  ) : null;
+  const subtree: ReactNode | null = node.container
+    ? children.map((c) => <NodeRenderer key={c.id} id={c.id} chrome={chrome} />)
+    : null;
   const handler = resolveChrome(chrome, node);
   if (!handler) return null;
   return handler({ node, children: subtree });

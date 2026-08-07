@@ -2,7 +2,7 @@ export default { title: 'Strip' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import { Store, asNodeId, createPanel, createZone, stripStrategy } from '../../index.js';
+import { asNodeId, createPanel, createZone, Store, stripStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
+import { stackStrategy } from './layout/stack.js';
 import {
   getLayoutNodes,
   nodeToLayoutItem,
   nodeToLayoutNode,
   runStrategyForContainer,
 } from './layout-node-adapter.js';
-import { stackStrategy } from './layout/stack.js';
 import { asNodeId } from './node.js';
 import { Store } from './store.js';
 

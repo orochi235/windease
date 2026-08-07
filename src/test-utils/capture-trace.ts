@@ -1,5 +1,5 @@
 import { onTestFinished } from 'vitest';
-import { TRACE_CATEGORIES, type TraceCategory, configureTrace, isTraceEnabled } from '../trace.js';
+import { configureTrace, isTraceEnabled, TRACE_CATEGORIES, type TraceCategory } from '../trace.js';
 
 export interface TraceCapture {
   /** Rendered trace lines, in emission order: `"[windease:cat] message"`,

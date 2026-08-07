@@ -3,11 +3,11 @@ export default { title: 'Recursive zones / Trays' };
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
-  Store,
   asNodeId,
   createPanel,
   createZone,
   gridStrategy,
+  Store,
   stackStrategy,
 } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider, Zone } from '../index.js';

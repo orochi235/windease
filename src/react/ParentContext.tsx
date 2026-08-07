@@ -1,4 +1,4 @@
-import { type ReactNode, createContext, useContext, useMemo } from 'react';
+import { createContext, type ReactNode, useContext, useMemo } from 'react';
 import type { NodeId } from '../index.js';
 
 /** Current parent id for descendant presets. `null` means "root of the store". */
@@ -9,13 +9,7 @@ export const ParentContext = createContext<NodeId | null>(null);
  *
  * @group Components
  */
-export function ParentScope({
-  parentId,
-  children,
-}: {
-  parentId: NodeId;
-  children: ReactNode;
-}) {
+export function ParentScope({ parentId, children }: { parentId: NodeId; children: ReactNode }) {
   return <ParentContext.Provider value={parentId}>{children}</ParentContext.Provider>;
 }
 

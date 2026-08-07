@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { stackStrategy } from './stack.js';
-
 import type { LayoutItem } from '../layout-types.js';
+import { stackStrategy } from './stack.js';
 
 const mkItem = (id: string, preferredH?: number): LayoutItem => ({
   id: id,

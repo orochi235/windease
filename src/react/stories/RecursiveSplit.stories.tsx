@@ -3,11 +3,11 @@ export default { title: 'Recursive zones / Split (resize)' };
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import {
-  type SplitNode,
-  Store,
   asNodeId,
   createPanel,
   createZone,
+  type SplitNode,
+  Store,
   splitStrategy,
 } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';

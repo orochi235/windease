@@ -1,6 +1,5 @@
 import type {
   Affordance,
-  LayoutEvent,
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
@@ -368,7 +367,7 @@ export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
     const pathStr = m[1]!;
     const path = pathStr === '' ? [] : pathStr.split('.').map(Number);
     const target = nodeAtPath(state, path);
-    if (!target || target.kind !== 'split') return state;
+    if (target?.kind !== 'split') return state;
     const cfg = (context.options ?? {}) as SplitOptions;
     const gutter = cfg.gutterSize ?? 4;
     let minR = cfg.minRatio ?? DEFAULT_MIN;

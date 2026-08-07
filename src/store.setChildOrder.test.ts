@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Store, asNodeId, createPanel, createZone } from './index.js';
+import { asNodeId, createPanel, createZone, Store } from './index.js';
 
 describe('Store.setChildOrder', () => {
   it('applies a full reordering atomically', () => {

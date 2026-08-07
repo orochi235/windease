@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { stripStrategy } from './strip.js';
-
 import type { LayoutItem } from '../layout-types.js';
+import { stripStrategy } from './strip.js';
 
 const mkItem = (id: string, opts?: { preferredW?: number; preferredH?: number }): LayoutItem => ({
   id: id,

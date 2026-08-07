@@ -4,8 +4,8 @@ import { createPanel, createZone } from '../constructors.js';
 import { asNodeId } from '../node.js';
 import { Store } from '../store.js';
 import { FakeClock } from '../test-utils/fake-clock.js';
-import { Provider } from './Provider.js';
 import { useChildren } from './hooks.js';
+import { Provider } from './Provider.js';
 
 const nid = (s: string) => asNodeId(s);
 const zone = (id: string) => createZone({ id: nid(id), strategyId: 'grid', config: {} });

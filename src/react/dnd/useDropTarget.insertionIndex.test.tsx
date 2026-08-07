@@ -1,7 +1,7 @@
 import { cleanup, render } from '@testing-library/react';
 import { useEffect, useRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Store, asNodeId, createPanel, createZone } from '../../index.js';
+import { asNodeId, createPanel, createZone, Store } from '../../index.js';
 import { Provider } from '../Provider.js';
 import { DragProvider, useDragController } from './DragProvider.js';
 import { useDropTarget } from './useDropTarget.js';

@@ -7,7 +7,11 @@
 }
 
 .windease-window {
-  transition: left 0.15s, top 0.15s, width 0.15s, height 0.15s;
+  transition:
+    left 0.15s,
+    top 0.15s,
+    width 0.15s,
+    height 0.15s;
 }
 
 .story-panel {

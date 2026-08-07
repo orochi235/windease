@@ -12,9 +12,9 @@ import {
   type PendingPublish,
   Publisher,
   type StoreOptions,
+  systemClock,
   type ThrottlePendingPayload,
   type ThrottlePublishedPayload,
-  systemClock,
 } from './throttle.js';
 import { trace } from './trace.js';
 

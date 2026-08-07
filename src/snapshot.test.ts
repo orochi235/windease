@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createGroup, createPanel, createZone } from './constructors.js';
 import { WindeaseError } from './errors.js';
 import { asNodeId } from './node.js';
-import { type SerializedStore, deserialize, serialize } from './snapshot.js';
+import { deserialize, type SerializedStore, serialize } from './snapshot.js';
 import { Store } from './store.js';
 
 function buildSampleStore(): Store {

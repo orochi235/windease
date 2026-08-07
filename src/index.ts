@@ -1,104 +1,104 @@
+export {
+  type CreateGroupInput,
+  type CreatePanelInput,
+  type CreateZoneInput,
+  createGroup,
+  createPanel,
+  createZone,
+} from './constructors.js';
+export {
+  CapabilityMissingError,
+  CycleError,
+  DuplicateNodeError,
+  InvalidThrottlePolicyError,
+  InvariantViolationError,
+  NodeNotFoundError,
+  StrategyRejectionError,
+  WindeaseError,
+  type WindeaseErrorCode,
+} from './errors.js';
+export { type EventMap, TypedEmitter } from './events.js';
 export { Machine, type MachineDef, type MachineSubscriber } from './fsm.js';
-export {
-  createLifecycleMachine,
-  type LifecycleState,
-  type LifecycleEvent,
-} from './machines/lifecycle.js';
-export {
-  createTransitMachine,
-  type TransitState,
-  type TransitEvent,
-} from './machines/transit.js';
-export {
-  createFocusMachine,
-  type FocusState,
-  type FocusEvent,
-} from './machines/focus.js';
-export { WindeaseError, type WindeaseErrorCode } from './errors.js';
-export { TypedEmitter, type EventMap } from './events.js';
-export type {
-  ItemId,
-  Rect,
-  Size,
-  LayoutItem,
-  LayoutResult,
-  LayoutEvent,
-  LayoutStrategy,
-  Affordance,
-  BuiltinAffordanceKind,
-} from './layout-types.js';
+export { HistoryController, type HistoryControllerOptions } from './history.js';
 export { gridStrategy } from './layout/grid.js';
+export {
+  type SplitMeta,
+  type SplitNode,
+  type SplitOptions,
+  splitStrategy,
+} from './layout/split.js';
 export { stackStrategy } from './layout/stack.js';
 export { stripStrategy } from './layout/strip.js';
 export {
-  splitStrategy,
-  type SplitNode,
-  type SplitMeta,
-  type SplitOptions,
-} from './layout/split.js';
-export { HistoryController, type HistoryControllerOptions } from './history.js';
+  getLayoutNodes,
+  nodeToLayoutItem,
+  nodeToLayoutNode,
+  runStrategyForContainer,
+} from './layout-node-adapter.js';
+export type {
+  Affordance,
+  BuiltinAffordanceKind,
+  ItemId,
+  LayoutEvent,
+  LayoutItem,
+  LayoutNode,
+  LayoutResult,
+  LayoutStrategy,
+  Rect,
+  Size,
+} from './layout-types.js';
 export {
-  configureTrace,
-  isTraceEnabled,
-  trace,
-  TRACE_CATEGORIES,
-  type TraceCategory,
-} from './trace.js';
-
+  createFocusMachine,
+  type FocusEvent,
+  type FocusState,
+} from './machines/focus.js';
+export {
+  createLifecycleMachine,
+  type LifecycleEvent,
+  type LifecycleState,
+} from './machines/lifecycle.js';
+export {
+  createTransitMachine,
+  type TransitEvent,
+  type TransitState,
+} from './machines/transit.js';
 // Node model
 export {
   asNodeId,
-  type Node,
-  type NodeId,
-  type NodeKind,
-  type NodeHints,
   type ContainerCap,
-  type SlotCap,
   type FocusCap,
   type LifecycleCap,
+  type Node,
+  type NodeHints,
+  type NodeId,
+  type NodeKind,
+  type SlotCap,
   type TransitCap,
 } from './node.js';
 export {
-  createZone,
-  createGroup,
-  createPanel,
-  type CreateZoneInput,
-  type CreateGroupInput,
-  type CreatePanelInput,
-} from './constructors.js';
-export {
-  NodeNotFoundError,
-  DuplicateNodeError,
-  CapabilityMissingError,
-  CycleError,
-  StrategyRejectionError,
-  InvariantViolationError,
-  InvalidThrottlePolicyError,
-} from './errors.js';
+  deserialize,
+  type SerializedNode,
+  type SerializedStore,
+  serialize,
+} from './snapshot.js';
 export { Store, type StoreEvents } from './store.js';
 export {
-  systemClock,
   type Clock,
   type MachineName,
   type PendingPublish,
   type StoreOptions,
+  systemClock,
   type ThrottlePendingPayload,
   type ThrottlePolicy,
   type ThrottlePublishedPayload,
   type TimerHandle,
 } from './throttle.js';
 export {
-  serialize,
-  deserialize,
-  type SerializedNode,
-  type SerializedStore,
-} from './snapshot.js';
-export type { LayoutNode } from './layout-types.js';
-export {
-  nodeToLayoutItem,
-  nodeToLayoutNode,
-  getLayoutNodes,
-  runStrategyForContainer,
-} from './layout-node-adapter.js';
+  configureTrace,
+  isTraceEnabled,
+  TRACE_CATEGORIES,
+  type TraceCategory,
+  trace,
+} from './trace.js';
 
 export const VERSION = '0.7.0';
