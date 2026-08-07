@@ -70,8 +70,12 @@ export function trace(category: TraceCategory, message: string, data?: unknown):
 
 function readInitialConfig(): void {
   let raw: string | undefined | null;
-  if (typeof process !== 'undefined' && process.env) {
-    raw = process.env.WINDEASE_TRACE;
+  // Read `process` off globalThis rather than as a bare global: this is a
+  // browser-targeted lib (`lib` is DOM-only, no @types/node), and depending on
+  // @types/node here would make every Node API typecheck across all of src/.
+  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  if (proc?.env) {
+    raw = proc.env.WINDEASE_TRACE;
   }
   if (!raw && typeof globalThis !== 'undefined') {
     const g = globalThis as { localStorage?: Storage; WINDEASE_TRACE?: string };

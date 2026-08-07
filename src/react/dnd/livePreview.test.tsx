@@ -1,6 +1,6 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Store, asNodeId, createPanel, createZone } from '../../index.js';
+import { asNodeId, createPanel, createZone, Store } from '../../index.js';
 import { gridStrategy } from '../../layout/grid.js';
 import { stackStrategy } from '../../layout/stack.js';
 import { Container } from '../Container.js';
@@ -199,7 +199,7 @@ describe('Container — getDropPreview fast path', () => {
     store.showNode(asNodeId('src'));
     store.showNode(asNodeId('a'));
 
-    const spy = vi.spyOn(gridStrategy, 'getDropPreview' as never);
+    const spy = vi.spyOn(gridStrategy, 'getDropPreview');
     let controller: ReturnType<typeof useDragController> | null = null;
     const { container } = render(
       <Provider store={store}>

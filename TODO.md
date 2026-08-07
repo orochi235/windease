@@ -236,5 +236,5 @@ publish blocker but a desirable hardening pass.
 - Strip strategy returns zero width/height when a panel has no
   `preferredSize` — intentional for fixed-size toolbars but worth a doc
   comment.
-- npm install warns of moderate/critical vulnerabilities in dev deps. Audit
-  pass before publishing.
+- TypeScript is held at 6.x because typedoc 0.28's peer range stops at
+  `6.0.x`. Revisit TS 7 (the Go port) once typedoc ships support.
