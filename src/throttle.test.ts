@@ -691,7 +691,7 @@ describe('Publisher — dwell debounce restart (Fix 2 regression)', () => {
   it('an untagged markDirty on a dwelling node does not restart the debounce clock', () => {
     // Reproduction: seed a dwell via a lifecycle transition, then send
     // ordinary (untagged) markDirty calls the way setActivity/patchPlacement
-    // /setMeta do via replaceNode/replaceSlot. Per the design doc
+    // /setMeta do via replaceNode/replaceMembership. Per the design doc
     // (dwell.lifecycle=150, maxWaitMs=600) the node must publish after
     // dwellMs of FSM quiet, not linger until maxWaitMs.
     const h = throttledHarness(policy);

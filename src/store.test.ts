@@ -116,7 +116,7 @@ describe('Store — moveNode', () => {
     expect(transitions).toEqual(['idle→releasing', 'releasing→claiming', 'claiming→idle']);
     expect(s.getContainerView(id('z1'))?.childOrder).toEqual(['p2']);
     expect(s.getContainerView(id('z2'))?.childOrder).toEqual(['p1']);
-    expect(s.getNode(id('p1'))?.slot?.parentId).toBe('z2');
+    expect(s.getNode(id('p1'))?.membership?.parentId).toBe('z2');
   });
 
   it('emits node.moved with from/to parents and indices', () => {
@@ -263,7 +263,7 @@ describe('Store — placement / meta', () => {
     expect(s.getPlacement(id('p'))).toEqual({ b: 3 });
   });
 
-  it('patchPlacement throws when slot is missing', () => {
+  it('patchPlacement throws when membership is missing', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
     expect(() => s.patchPlacement(id('z'), { a: 1 })).toThrow(CapabilityMissingError);
@@ -378,7 +378,7 @@ describe('Store — selectors', () => {
     expect(s.getAncestors(id('leaf')).map((n) => n.id)).toEqual(['z', 'tray', 'leaf']);
   });
 
-  it('isContainer / isSlotted / hasFocus', () => {
+  it('isContainer / isMember / hasFocus', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
     s.registerNode(
@@ -388,9 +388,9 @@ describe('Store — selectors', () => {
     expect(s.isContainer(id('z'))).toBe(true);
     expect(s.isContainer(id('g'))).toBe(true);
     expect(s.isContainer(id('p'))).toBe(false);
-    expect(s.isSlotted(id('z'))).toBe(false);
-    expect(s.isSlotted(id('g'))).toBe(true);
-    expect(s.isSlotted(id('p'))).toBe(true);
+    expect(s.isMember(id('z'))).toBe(false);
+    expect(s.isMember(id('g'))).toBe(true);
+    expect(s.isMember(id('p'))).toBe(true);
     expect(s.hasFocus(id('p'))).toBe(true);
     expect(s.hasFocus(id('g'))).toBe(false);
     expect(s.hasFocus(id('z'))).toBe(false);
@@ -527,7 +527,7 @@ describe('Store — integration', () => {
     s.moveNode(id('leaf1'), id('z'));
     expect(s.getContainerView(id('tray'))?.childOrder).toEqual(['leaf2']);
     expect(s.getContainerView(id('z'))?.childOrder).toContain('leaf1');
-    expect(s.getNode(id('leaf1'))?.slot?.parentId).toBe('z');
+    expect(s.getNode(id('leaf1'))?.membership?.parentId).toBe('z');
   });
 });
 

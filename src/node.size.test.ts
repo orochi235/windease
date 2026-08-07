@@ -18,6 +18,6 @@ describe('NodeHints.maxSize', () => {
       parentId: asNodeId('parent'),
       placement: { size: { h: 180 } },
     });
-    expect((node.slot!.placement as Record<string, unknown>).size).toEqual({ h: 180 });
+    expect((node.membership!.placement as Record<string, unknown>).size).toEqual({ h: 180 });
   });
 });

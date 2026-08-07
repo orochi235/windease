@@ -15,7 +15,7 @@ describe('createZone', () => {
     expect(node.container?.config).toEqual({ cols: 3 });
     expect(node.container?.childOrder).toEqual([]);
     expect(node.container?.allowsPinning).toBe(true);
-    expect(node.slot).toBeUndefined();
+    expect(node.membership).toBeUndefined();
     expect(node.focus).toBeUndefined();
     expect(node.lifecycle.state).toBe('mounted');
   });
@@ -44,7 +44,7 @@ describe('createZone', () => {
 });
 
 describe('createGroup', () => {
-  it('produces a group-kind node with container + slot', () => {
+  it('produces a group-kind node with container + membership', () => {
     const node = createGroup({
       id: asNodeId('g1'),
       parentId: asNodeId('z1'),
@@ -54,10 +54,10 @@ describe('createGroup', () => {
     expect(node.kind).toBe('group');
     expect(node.container).toBeDefined();
     expect(node.container?.strategyId).toBe('stack');
-    expect(node.slot).toBeDefined();
-    expect(node.slot?.parentId).toBe('z1');
-    expect(node.slot?.placement).toEqual({});
-    expect(node.slot?.transit.state).toBe('idle');
+    expect(node.membership).toBeDefined();
+    expect(node.membership?.parentId).toBe('z1');
+    expect(node.membership?.placement).toEqual({});
+    expect(node.membership?.transit.state).toBe('idle');
     expect(node.focus).toBeUndefined();
     expect(node.lifecycle.state).toBe('mounted');
   });
@@ -72,7 +72,7 @@ describe('createGroup', () => {
       placement: { pinned: true },
     });
     expect(node.container?.allowsPinning).toBe(false);
-    expect(node.slot?.placement).toEqual({ pinned: true });
+    expect(node.membership?.placement).toEqual({ pinned: true });
   });
 });
 
@@ -83,8 +83,8 @@ describe('createPanel', () => {
       parentId: asNodeId('z1'),
     });
     expect(node.kind).toBe('panel');
-    expect(node.slot).toBeDefined();
-    expect(node.slot?.parentId).toBe('z1');
+    expect(node.membership).toBeDefined();
+    expect(node.membership?.parentId).toBe('z1');
     expect(node.focus).toBeDefined();
     expect(node.focus?.state).toBe('blurred');
     expect(node.container).toBeUndefined();
@@ -122,7 +122,7 @@ describe('createPanel', () => {
     });
     expect(node.meta).toEqual({ title: 'Editor' });
     expect(node.hints?.minSize).toEqual({ w: 200, h: 100 });
-    expect(node.slot?.placement).toEqual({ locked: true });
+    expect(node.membership?.placement).toEqual({ locked: true });
   });
 });
 

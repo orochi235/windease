@@ -18,7 +18,7 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
     if (node.hints.maxSize) item.hints.maxSize = node.hints.maxSize;
     if (node.hints.preferredSize) item.hints.preferredSize = node.hints.preferredSize;
   }
-  const placement = node.slot?.placement;
+  const placement = node.membership?.placement;
   if (placement && Object.keys(placement).length > 0) {
     item.meta = { ...placement };
     // Surface `size` as the typed, public placement intent strategies read
@@ -35,7 +35,7 @@ export function nodeToLayoutNode(node: Node): LayoutNode {
     id: node.id,
     hints: { ...(node.hints ?? {}) },
     meta: { ...(node.meta ?? {}) },
-    placement: { ...(node.slot?.placement ?? {}) },
+    placement: { ...(node.membership?.placement ?? {}) },
     isContainer: !!node.container,
     activity: { ...(node.activity ?? {}) },
   };

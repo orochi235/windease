@@ -76,11 +76,11 @@ export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
     controller.cancel('outside');
   }, [controller]);
 
-  if (node?.slot?.placement?.locked === true) {
+  if (node?.membership?.placement?.locked === true) {
     return NOOP_HANDLERS;
   }
-  if (node?.slot) {
-    const parent = store.getNode(node.slot.parentId);
+  if (node?.membership) {
+    const parent = store.getNode(node.membership.parentId);
     if (parent?.container?.allowsDragOut === false) {
       return NOOP_HANDLERS;
     }

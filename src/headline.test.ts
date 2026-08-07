@@ -52,7 +52,7 @@ describe('headline end-to-end', () => {
 
     // Snapshot + rehydrate.
     const snap = serialize(store);
-    expect(snap.version).toBe(2);
+    expect(snap.version).toBe(3);
     const rehydrated = deserialize(snap);
 
     // Tree structure preserved (with pinned 'solo' promoted to prefix).
@@ -62,10 +62,10 @@ describe('headline end-to-end', () => {
     expect(rehydrated.getContainerView(asNodeId('tray'))?.childOrder).toEqual(['leafA', 'leafB']);
 
     // Capabilities preserved per kind.
-    expect(rehydrated.getNode(asNodeId('z'))?.slot).toBeUndefined();
+    expect(rehydrated.getNode(asNodeId('z'))?.membership).toBeUndefined();
     expect(rehydrated.getNode(asNodeId('z'))?.focus).toBeUndefined();
     expect(rehydrated.getNode(asNodeId('tabs'))?.focus).toBeUndefined();
-    expect(rehydrated.getNode(asNodeId('tabs'))?.slot).toBeDefined();
+    expect(rehydrated.getNode(asNodeId('tabs'))?.membership).toBeDefined();
     expect(rehydrated.getNode(asNodeId('tabs'))?.container).toBeDefined();
     expect(rehydrated.getNode(asNodeId('leafA'))?.focus).toBeDefined();
 

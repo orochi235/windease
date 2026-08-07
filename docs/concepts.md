@@ -6,7 +6,7 @@ the mental model; jump to a section when you hit a term you don't recognize.
 ## Mental model
 
 A windease tree is made of **nodes**. A node can hold any combination of
-four optional capabilities — `lifecycle`, `container`, `slot`, `focus` —
+four optional capabilities — `lifecycle`, `container`, `membership`, `focus` —
 and the public API mostly cares about which ones are present. There are
 no fundamentally distinct "window" and "zone" types; everything is the
 same Node shape with different capabilities set.
@@ -15,15 +15,28 @@ Three combinations show up so often that windease ships **presets** for
 them. These live entirely in the consumer-facing surface — the core
 doesn't enforce or interpret them:
 
-- **Zone** — `container`, no `slot`. A rootless container; the top of a
+- **Zone** — `container`, no `membership`. A rootless container; the top of a
   sub-tree. Has a layout strategy that places its visible children.
-- **Group** — `container` + `slot`. A widget-shaped container — occupies
+- **Group** — `container` + `membership`. A widget-shaped container — occupies
   one position in a parent's layout but renders children inside its own
   region.
-- **Panel** — `slot` + `focus`. A leaf renderable. Set `container` on a
+- **Panel** — `membership` + `focus`. A leaf renderable. Set `container` on a
   panel too and it hosts its own child tree — the "tray inside a window"
   pattern. No separate type for a recursive panel; it's just a panel that
   happens to be a container.
+
+The two capabilities are independent axes, and it's worth reading them
+separately because they answer opposite questions:
+
+- `container` — **can I have children?** It holds `childOrder`, the canonical
+  record of this node's children and their order.
+- `membership` — **do I have a parent?** It holds `parentId`, my `placement`
+  within that parent, and the transit FSM for moving between parents.
+
+So a zone is not the childless one — it's the one that has children but no
+parent, i.e. a **root**. The childless one is a panel. A node with both is a
+group, which means *a zone with a parent is structurally just a group*; that
+is the whole distinction between the two presets.
 
 Presets ship two ways: `createPanel` / `createGroup` / `createZone` node
 constructors, and the React components `<Panel>` / `<Group>` / `<Zone>`
@@ -48,11 +61,11 @@ optional and reflect role:
 | ----------- | ----------------------------------------------- | ----------------------------- |
 | `lifecycle` | mount → visible ↔ hidden → destroyed FSM         | every node                    |
 | `container` | hosts children with a strategy                  | zones, groups, recursive panels |
-| `slot`      | parent reference + per-membership `placement` + transit FSM | panels, groups       |
+| `membership` | parent reference + per-membership `placement` + transit FSM | panels, groups       |
 | `focus`     | focused ↔ blurred FSM (single-focus invariant)  | panels                        |
 
 The core does not enforce any relationship between `kind` and the
-capabilities a node carries. Validation is structural only — slot's
+capabilities a node carries. Validation is structural only — membership's
 `parentId` must reference a node with a `container`, no cycles, single
 focus across the store, etc.
 
@@ -63,18 +76,18 @@ Two paths for free-form data on a node; lifetimes differ:
 | Where                  | Lifetime                                       | Use for                                                 |
 | ---------------------- | ---------------------------------------------- | ------------------------------------------------------- |
 | `node.meta`            | Intrinsic; survives `moveNode`                 | Window-intrinsic consumer data (title, URL, etc.)       |
-| `node.slot.placement`  | Per-membership; cleared on detach              | State that exists *because of this placement* — pin flags, slot-specific UI state |
+| `node.membership.placement`  | Per-membership; cleared on detach              | State that exists *because of this placement* — pin flags, placement-specific UI state |
 | `node.container.config` | Container-strategy options                    | Strategy options (`cols`, `gap`, etc.)                  |
 | `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `order`          |
 
-**Reserved keys on `slot.placement`:**
+**Reserved keys on `membership.placement`:**
 
 - `pinned: true` — promotes to the **pinned-prefix** of the parent's
   `childOrder`. Strategies render the node earlier; reorder operations that
   try to put it past an unpinned sibling are silently snapped back.
 - `locked: true` — implies pinned at the layout layer, AND the React layer
   refuses to start a drag from this node. Use for system chrome that owns
-  its slot for the session.
+  its placement for the session.
 - `size: { w?, h? }` — fixed pixel extent honored by strip / stack / split
   along their main axis (the public "fixed-px pane" API; set via
   `store.patchPlacement`). On `split`, a gutter drag **clears** this key on
@@ -97,7 +110,7 @@ methods:
   `idle → releasing → claiming → idle`. Throws `CycleError` on a move into
   the node's own descendant.
 - `reorderInParent(id, at)` — pinned-prefix preserved.
-- `setPlacement` / `patchPlacement` — slot.placement merge-patches.
+- `setPlacement` / `patchPlacement` — membership.placement merge-patches.
 - `setMeta` — node.meta merge-patch.
 - `updateContainerConfig` — strategy config merge-patch.
 - `setAllowsPinning` / `setAllowsDrop` / `setAllowsDragOut` — container
@@ -109,7 +122,7 @@ methods:
 - `focusNode` / `blurAll` — single-focus invariant enforced.
 
 Selectors: `getNode`, `getChildren`, `getParent`, `getAncestors`,
-`isContainer`, `isSlotted`, `hasFocus`, `getContainerView`.
+`isContainer`, `isMember`, `hasFocus`, `getContainerView`.
 
 ## Truth vs. published
 
@@ -176,7 +189,7 @@ a node tree onto the strategy signature.
 
 **Recursion is mount-time, not strategy-time.** A strategy lays out the
 children it's handed. When a child is itself a container
-(`isContainer: true`), the strategy treats it as any other slotted item.
+(`isContainer: true`), the strategy treats it as any other parented item.
 The React `NodeRenderer` then mounts the child's own strategy inside the
 placement rect. Built-in strategies (grid, stack, strip, split) work
 unchanged on recursive trees.
@@ -226,7 +239,7 @@ DnD scaffolding: `<DragProvider>`, `useDragHandle(id)`, `<DragHandle>`,
 `useDropTarget(id, ref, canAccept?)`, `useDragState()`. Drop targets register
 element rects; the controller's innermost-wins hit-test runs on pointermove
 and calls `store.moveNode` on drop. The controller honors:
-`container.allowsDrop`, `container.allowsDragOut`, `slot.placement.locked`,
+`container.allowsDrop`, `container.allowsDragOut`, `membership.placement.locked`,
 and the destination strategy's `canAccept`.
 
 Pass `affordances` to `<Container>` to render the strategy's

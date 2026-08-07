@@ -105,26 +105,26 @@ export class DragController {
       return false;
     }
     const node = this.store.getNode(sourceId);
-    if (!node?.slot) {
-      trace('dnd', `tryBegin ${sourceId}: REJECTED (no slot)`);
+    if (!node?.membership) {
+      trace('dnd', `tryBegin ${sourceId}: REJECTED (no membership)`);
       return false;
     }
-    if (node.slot.placement?.locked === true) {
+    if (node.membership.placement?.locked === true) {
       trace('dnd', `tryBegin ${sourceId}: REJECTED (placement.locked=true)`);
       return false;
     }
-    const parent = this.store.getNode(node.slot.parentId);
+    const parent = this.store.getNode(node.membership.parentId);
     if (parent?.container?.allowsDragOut === false) {
       trace(
         'dnd',
-        `tryBegin ${sourceId}: REJECTED (parent ${node.slot.parentId} allowsDragOut=false)`,
+        `tryBegin ${sourceId}: REJECTED (parent ${node.membership.parentId} allowsDragOut=false)`,
       );
       return false;
     }
     this.active = { draggingId: sourceId, cursor: { x: 0, y: 0 }, hover: null };
     trace(
       'dnd',
-      `drag start: ${sourceId} (from parent ${node.slot.parentId}; ${this.dropTargets.size} drop targets registered)`,
+      `drag start: ${sourceId} (from parent ${node.membership.parentId}; ${this.dropTargets.size} drop targets registered)`,
     );
     this.bindEscape();
     this.bindWindowUp();

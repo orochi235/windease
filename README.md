@@ -17,12 +17,12 @@ if you import from `windease/react`).
 > <https://orochi235.github.io/windease/api/>.
 
 See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
-(what's a window vs. zone vs. workspace, which of the four state buckets
-owns what, and how reserved keys like `pinned` / `locked` interact with
-layout and DnD).
+(the capability model, which of the four state buckets owns what, and how
+reserved keys like `pinned` / `locked` / `size` interact with layout and
+DnD).
 
 - **Node + capabilities, not classes.** Every node optionally carries
-  `container` / `slot` / `focus` / `lifecycle`. The core enforces only
+  `container` / `membership` / `focus` / `lifecycle`. The core enforces only
   structural invariants (no cycles, single focus, bidirectional links).
   `Panel` / `Group` / `Zone` are convention names with shipped presets,
   not built-in types.
@@ -128,7 +128,7 @@ stateDiagram-v2
     destroyed --> [*]
 ```
 
-**Transit** (slotted nodes during `moveNode`). Provides an atomic
+**Transit** (parented nodes during `moveNode`). Provides an atomic
 release-then-claim envelope around reparenting so transition listeners
 can stage CSS/animation around the move. `settle` returns to `idle`.
 
@@ -158,7 +158,7 @@ DnD is opt-in. Wrap your panel chrome in `<DragHandle>`, register each
 container as a drop target with `useDropTarget(zoneId, ref)`, and put
 the tree under `<DragProvider>`. The drag controller honors:
 
-- `slot.placement.locked` — per-child drag suppression.
+- `membership.placement.locked` — per-child drag suppression.
 - `container.allowsDragOut` — zone-level drag suppression.
 - `container.allowsDrop` — zone-level drop refusal.
 - The destination strategy's `canAccept(prospective-items, options)` — e.g.
@@ -280,6 +280,32 @@ deserialize(store, snap);
 This clears the target in place before repopulating it, emitting
 `node.unregistered` / `node.cascadeDestroyed` for whatever was there
 before the snapshot lands.
+
+## Breaking changes
+
+### Unreleased — `slot` renamed to `membership`
+
+The parent-membership capability is now `node.membership`, not `node.slot`.
+"Slot" was borrowed from web components, where a slot is a hole the *parent*
+exposes; here the capability hangs on the *child* and means "the position I
+occupy in my parent," so the direction was inverted from what the word
+implies everywhere else. `membership` is the word `docs/concepts.md` already
+used in prose to describe the lifetime rule.
+
+| Before | After |
+| --- | --- |
+| `node.slot` | `node.membership` |
+| `SlotCap` | `MembershipCap` |
+| `store.isSlotted(id)` | `store.isMember(id)` |
+| `CapabilityMissingError.capability === 'slot'` | `=== 'membership'` |
+| `InvariantViolationError` code `move-unslotted` | `move-unparented` |
+| `InvariantViolationError` code `reorder-unslotted` | `reorder-unparented` |
+
+**Snapshots migrate automatically.** `serialize()` now emits `version: 3`
+with a `membership` key. `deserialize()` still accepts `version: 2`
+snapshots and maps the old `slot` key across on read, so persisted state
+from 0.8.0 and earlier keeps loading. Only the write side changed; there is
+no migration step to run.
 
 ## Develop
 

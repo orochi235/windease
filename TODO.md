@@ -13,12 +13,12 @@ Two findings from that first pass are real and still open:
   (`src/constructors.ts:6`), but the `Zone` preset passes one
   (`src/react/presets.tsx:274`) through the `defined()` spread — and a
   spread of `Partial<T>` skips excess-property checking, so nothing ever
-  complained. The zone gets no `slot`, and `registerNode` files it under
+  complained. The zone gets no `membership`, and `registerNode` files it under
   `rootIds` instead of the parent's `childOrder`. No test covers
   `<Zone>` inside `<Zone>` — `nested-presets.test.tsx` nests via
   `<Group>`, which does accept `parentId`. Needs a decision before a
   fix: a zone with a parent is structurally a group, so either
-  `CreateZoneInput` grows `parentId` (and a zone becomes slot-capable)
+  `CreateZoneInput` grows `parentId` (and a zone becomes membership-capable)
   or `<Zone>` should refuse to nest loudly. `livePreview.test.tsx` had
   the same dead `parentId` and has been corrected.
 - **Public constructor inputs are hostile to
@@ -107,8 +107,8 @@ cannot recur.
 
 ## Pinning items within a zone
 
-Baseline shipped: `itemMeta.pinned: true` promotes a window to the
-pinned-prefix of `zone.windowIds` via `resortByPin`. Strategies see the
+Baseline shipped: `placement.pinned: true` promotes a node to the
+pinned-prefix of the parent's `childOrder` via `resortByPin`. Strategies see the
 flag through `LayoutItem.meta.pinned` if they want extra behavior. Snapshot
 round-trips, undo works (history captures full store state).
 
@@ -141,12 +141,12 @@ Open questions:
   whichever zone has focus" or "promote selected window to main zone"?
 - Dynamic zone creation/teardown: brainhouse's worktree grouping might want
   zones that appear and disappear as worktrees are added/removed. Today
-  `registerZone`/`unregisterZone` work; what's missing is a UX for it.
+  `registerNode`/`unregisterNode` work; what's missing is a UX for it.
 
 ## Drag-and-drop support [HIGH]
 
 Spec calls drag "designed for, not shipped." The transit FSM, ownership
-transitions, and `moveWindow(id, zoneId, at?)` API already exist; what's
+transitions, and the `moveNode(id, newParentId, at?)` API already exist; what's
 missing is the pointer-driven UX layer.
 
 Scope:
@@ -155,7 +155,7 @@ Scope:
 - Drop-target indicators on zones (highlight on hover, insertion-point
   preview).
 - Reorder-within-zone via drag (already supported programmatically via
-  `reorderInZone`).
+  `reorderInParent`).
 - Animations: optional FLIP-style animation as windows settle into their new
   placements.
 - Accessibility: keyboard-driven equivalents (move selected window to

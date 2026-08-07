@@ -19,8 +19,8 @@ describe('nested declarative presets', () => {
       </Provider>,
     );
     expect(store.getNode(asNodeId('z'))?.container).toBeTruthy();
-    expect(store.getNode(asNodeId('mid'))?.slot?.parentId).toBe(asNodeId('z'));
-    expect(store.getNode(asNodeId('inner'))?.slot?.parentId).toBe(asNodeId('mid'));
+    expect(store.getNode(asNodeId('mid'))?.membership?.parentId).toBe(asNodeId('z'));
+    expect(store.getNode(asNodeId('inner'))?.membership?.parentId).toBe(asNodeId('mid'));
   });
 
   it('Panel with container prop hosts nested presets', () => {
@@ -35,7 +35,7 @@ describe('nested declarative presets', () => {
       </Provider>,
     );
     expect(store.getNode(asNodeId('outer'))?.container).toBeTruthy();
-    expect(store.getNode(asNodeId('inner'))?.slot?.parentId).toBe(asNodeId('outer'));
+    expect(store.getNode(asNodeId('inner'))?.membership?.parentId).toBe(asNodeId('outer'));
   });
 
   it('unmounting a parent cascades unregister to JSX children', () => {

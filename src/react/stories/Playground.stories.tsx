@@ -199,7 +199,7 @@ export const Playground: Story = () => {
         }
         // Locked control widgets render the per-zone behavior toggles.
         if (node.meta?.kind === 'controls') {
-          const zoneId = node.slot?.parentId;
+          const zoneId = node.membership?.parentId;
           if (!zoneId) return null;
           return (
             <ZoneControls
@@ -218,12 +218,12 @@ export const Playground: Story = () => {
                 <span className="pg-panel-actions">
                   <button
                     type="button"
-                    className={`pg-panel-btn pg-panel-btn--pin${node.slot?.placement?.pinned ? ' is-active' : ''}`}
-                    title={node.slot?.placement?.pinned ? 'Unpin' : 'Pin'}
+                    className={`pg-panel-btn pg-panel-btn--pin${node.membership?.placement?.pinned ? ' is-active' : ''}`}
+                    title={node.membership?.placement?.pinned ? 'Unpin' : 'Pin'}
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
-                      const pinned = !node.slot?.placement?.pinned;
+                      const pinned = !node.membership?.placement?.pinned;
                       store.patchPlacement(node.id, { pinned: pinned ? true : undefined });
                     }}
                   >
@@ -423,7 +423,7 @@ function serializeSafely(store: Store): unknown {
     nodes: [...store.nodes.values()].map((n) => ({
       id: n.id,
       kind: n.kind,
-      parentId: n.slot?.parentId,
+      parentId: n.membership?.parentId,
       lifecycle: n.lifecycle.state,
       hasContainer: !!n.container,
       meta: n.meta,

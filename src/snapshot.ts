@@ -29,7 +29,7 @@ export interface SerializedNode {
     allowsDragOut?: boolean;
     state?: unknown;
   };
-  slot?: {
+  membership?: {
     parentId: string;
     placement: Record<string, unknown>;
   };
@@ -37,14 +37,14 @@ export interface SerializedNode {
 }
 
 export interface SerializedStore {
-  version: 2;
+  version: 3;
   nodes: SerializedNode[];
   rootIds: string[];
   focusedId: string | null;
 }
 
 /**
- * Serialize a Store into a v2 snapshot. Destroyed nodes and
+ * Serialize a Store into a v3 snapshot. Destroyed nodes and
  * transit state are deliberately not included — see spec section 8.
  *
  * @group Snapshots
@@ -74,10 +74,10 @@ export function serialize(store: Store): SerializedStore {
       if (node.container.state !== undefined) c.state = node.container.state;
       out.container = c;
     }
-    if (node.slot) {
-      out.slot = {
-        parentId: node.slot.parentId,
-        placement: { ...node.slot.placement },
+    if (node.membership) {
+      out.membership = {
+        parentId: node.membership.parentId,
+        placement: { ...node.membership.placement },
       };
     }
     if (node.focus) {
@@ -86,7 +86,7 @@ export function serialize(store: Store): SerializedStore {
     nodes.push(out);
   }
   return {
-    version: 2,
+    version: 3,
     nodes,
     rootIds: [...store.rootIdsTruth],
     focusedId: store.focusedIdTruth,
@@ -94,7 +94,8 @@ export function serialize(store: Store): SerializedStore {
 }
 
 /**
- * Hydrate a Store from a v2 snapshot.
+ * Hydrate a Store from a v3 snapshot. v2 snapshots are accepted and migrated
+ * on read — see `normalizeLegacyMembership`.
  *
  * Two forms:
  * - `deserialize(snap)` builds and returns a fresh `Store`.
@@ -118,8 +119,8 @@ export function deserialize(a: unknown, b?: unknown): Store | void {
       'snapshot is missing a numeric version field',
     );
   }
-  if (versioned.version === 2) {
-    const hydrated = hydrateFromV2(snap as SerializedStore, target);
+  if (versioned.version === 2 || versioned.version === 3) {
+    const hydrated = hydrate(snap as SerializedStore, target);
     return target ? undefined : hydrated;
   }
   throw new WindeaseError(
@@ -144,21 +145,36 @@ function normalizeLegacyChildOrder(nodes: SerializedNode[]): void {
   }
 }
 
-function hydrateFromV2(snap: SerializedStore, target?: Store): Store {
+/**
+ * Back-compat: v2 snapshots named the parent-membership capability `slot`.
+ * The shapes are identical, so a key rename is the whole migration.
+ */
+function normalizeLegacyMembership(nodes: SerializedNode[]): void {
+  for (const sn of nodes) {
+    const legacy = sn as SerializedNode & { slot?: SerializedNode['membership'] };
+    if (legacy.membership === undefined && legacy.slot !== undefined) {
+      legacy.membership = legacy.slot;
+      delete legacy.slot;
+    }
+  }
+}
+
+function hydrate(snap: SerializedStore, target?: Store): Store {
   normalizeLegacyChildOrder(snap.nodes);
+  normalizeLegacyMembership(snap.nodes);
   // Build a lookup so we can validate links + multi-focus before mutating.
   const byId = new Map<string, SerializedNode>();
   for (const sn of snap.nodes) byId.set(sn.id, sn);
 
   // Validate bidirectional link.
   for (const sn of snap.nodes) {
-    if (!sn.slot) continue;
-    const parent = byId.get(sn.slot.parentId);
+    if (!sn.membership) continue;
+    const parent = byId.get(sn.membership.parentId);
     if (!parent) {
       throw new InvariantViolationError(
         'orphan-child',
-        `node ${sn.id} has parentId ${sn.slot.parentId} but no such node`,
-        { id: sn.id, parentId: sn.slot.parentId },
+        `node ${sn.id} has parentId ${sn.membership.parentId} but no such node`,
+        { id: sn.id, parentId: sn.membership.parentId },
       );
     }
     if (!parent.container) {
@@ -218,11 +234,11 @@ function hydrateFromV2(snap: SerializedStore, target?: Store): Store {
   };
 
   for (const rid of snap.rootIds) visit(rid);
-  // Any nodes not reached via rootIds (e.g. unslotted but not listed as
+  // Any nodes not reached via rootIds (e.g. unparented but not listed as
   // roots) — register them as additional roots in stable order.
   for (const sn of snap.nodes) {
     if (store.getNodeTruth(asNodeId(sn.id))) continue;
-    if (sn.slot) {
+    if (sn.membership) {
       // Already-orphan branches were validated above; if we get here the
       // node was unreachable from rootIds — that's a corrupt snapshot.
       throw new InvariantViolationError(
@@ -279,10 +295,10 @@ function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildOrder: bo
       node.container.state = sn.container.state;
     }
   }
-  if (sn.slot) {
-    node.slot = {
-      parentId: asNodeId(sn.slot.parentId),
-      placement: { ...sn.slot.placement },
+  if (sn.membership) {
+    node.membership = {
+      parentId: asNodeId(sn.membership.parentId),
+      placement: { ...sn.membership.placement },
       transit: createTransitMachine(),
     };
   }

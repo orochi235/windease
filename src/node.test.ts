@@ -15,7 +15,7 @@ describe('node identity', () => {
       id: asNodeId('p1'),
       kind: 'panel',
       lifecycle: createLifecycleMachine(),
-      slot: {
+      membership: {
         parentId: asNodeId('z1'),
         placement: {},
         transit: createTransitMachine(),
@@ -32,7 +32,7 @@ describe('node identity', () => {
     };
     expect(node.kind).toBe('panel');
     expect(node.lifecycle.state).toBe('mounted');
-    expect(node.slot?.transit.state).toBe('idle');
+    expect(node.membership?.transit.state).toBe('idle');
     expect(node.focus?.state).toBe('blurred');
   });
 
@@ -51,7 +51,7 @@ describe('node identity', () => {
       },
     };
     expect(node.kind).toBe('zone');
-    expect(node.slot).toBeUndefined();
+    expect(node.membership).toBeUndefined();
     expect(node.focus).toBeUndefined();
   });
 });

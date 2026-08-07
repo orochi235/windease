@@ -18,7 +18,7 @@ function buildStore(): Store {
 }
 
 describe('DragController', () => {
-  it('tryBegin succeeds for a slotted unlocked node', () => {
+  it('tryBegin succeeds for a parented unlocked node', () => {
     const s = buildStore();
     const c = new DragController(s);
     expect(c.tryBegin(asNodeId('p'))).toBe(true);
@@ -32,7 +32,7 @@ describe('DragController', () => {
     expect(c.tryBegin(asNodeId('p'))).toBe(false);
   });
 
-  it('tryBegin returns false for unslotted (root) node', () => {
+  it('tryBegin returns false for unparented (root) node', () => {
     const s = buildStore();
     const c = new DragController(s);
     expect(c.tryBegin(asNodeId('z1'))).toBe(false);

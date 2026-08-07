@@ -57,9 +57,9 @@ export class DuplicateNodeError extends WindeaseError {
 /** @group Errors */
 export class CapabilityMissingError extends WindeaseError {
   readonly id: NodeId;
-  readonly capability: 'container' | 'slot' | 'focus';
+  readonly capability: 'container' | 'membership' | 'focus';
   readonly operation: string;
-  constructor(id: NodeId, capability: 'container' | 'slot' | 'focus', operation: string) {
+  constructor(id: NodeId, capability: 'container' | 'membership' | 'focus', operation: string) {
     super(
       'capability-missing',
       `Operation ${operation} requires ${capability} capability on ${id}`,

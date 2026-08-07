@@ -6,7 +6,7 @@ import {
   NodeNotFoundError,
 } from './errors.js';
 import { TypedEmitter } from './events.js';
-import type { ContainerCap, FocusCap, Node, NodeId, SlotCap } from './node.js';
+import type { ContainerCap, FocusCap, MembershipCap, Node, NodeId } from './node.js';
 import {
   type MachineName,
   type PendingPublish,
@@ -183,15 +183,15 @@ export class Store {
 
   getParent(id: NodeId): Node | undefined {
     const node = this.nodesMap.get(id);
-    if (!node?.slot) return undefined;
-    return this.nodesMap.get(node.slot.parentId);
+    if (!node?.membership) return undefined;
+    return this.nodesMap.get(node.membership.parentId);
   }
 
   getAncestors(id: NodeId): readonly Node[] {
     const chain: Node[] = [];
     let current = this.nodesMap.get(id);
-    while (current?.slot) {
-      const parent = this.nodesMap.get(current.slot.parentId);
+    while (current?.membership) {
+      const parent = this.nodesMap.get(current.membership.parentId);
       if (!parent) break;
       chain.unshift(parent);
       current = parent;
@@ -205,8 +205,8 @@ export class Store {
     return !!this.nodesMap.get(id)?.container;
   }
 
-  isSlotted(id: NodeId): boolean {
-    return !!this.nodesMap.get(id)?.slot;
+  isMember(id: NodeId): boolean {
+    return !!this.nodesMap.get(id)?.membership;
   }
 
   hasFocus(id: NodeId): boolean {
@@ -227,14 +227,14 @@ export class Store {
     if (this.nodesMap.has(node.id)) {
       throw new DuplicateNodeError(node.id);
     }
-    if (node.slot) {
-      const parent = this.nodesMap.get(node.slot.parentId);
-      if (!parent) throw new NodeNotFoundError(node.slot.parentId);
+    if (node.membership) {
+      const parent = this.nodesMap.get(node.membership.parentId);
+      if (!parent) throw new NodeNotFoundError(node.membership.parentId);
       if (!parent.container) {
         throw new InvariantViolationError(
           'parent-not-container',
-          `parent ${node.slot.parentId} has no container capability`,
-          { parentId: node.slot.parentId, childId: node.id },
+          `parent ${node.membership.parentId} has no container capability`,
+          { parentId: node.membership.parentId, childId: node.id },
         );
       }
       this.nodesMap.set(node.id, node);
@@ -295,8 +295,8 @@ export class Store {
   private detachAndRemove(id: NodeId): void {
     const node = this.nodesMap.get(id);
     if (!node) return;
-    if (node.slot) {
-      const parent = this.nodesMap.get(node.slot.parentId);
+    if (node.membership) {
+      const parent = this.nodesMap.get(node.membership.parentId);
       if (parent?.container) {
         this.replaceContainer(parent.id, (c) => ({
           ...c,
@@ -317,8 +317,8 @@ export class Store {
 
   moveNode(id: NodeId, newParentId: NodeId, at?: number): void {
     const node = this.requireNode(id);
-    if (!node.slot) {
-      throw new InvariantViolationError('move-unslotted', `cannot move unslotted node ${id}`, {
+    if (!node.membership) {
+      throw new InvariantViolationError('move-unparented', `cannot move unparented node ${id}`, {
         id,
       });
     }
@@ -334,7 +334,7 @@ export class Store {
       );
     }
 
-    const fromParentId = node.slot.parentId;
+    const fromParentId = node.membership.parentId;
     const fromContainer = this.nodesMap.get(fromParentId)?.container;
     if (!fromContainer) {
       throw new InvariantViolationError(
@@ -346,7 +346,7 @@ export class Store {
     const fromIndex = fromContainer.childOrder.indexOf(id);
 
     // Transit: idle → releasing
-    const transit = node.slot.transit;
+    const transit = node.membership.transit;
     const transitPrev = transit.state;
     transit.send('beginRelease');
     this.replaceNode(id);
@@ -374,8 +374,8 @@ export class Store {
       to: 'claiming',
     });
 
-    // Add to new parent, set new parentId on the slot
-    this.replaceSlot(id, (s) => ({ ...s, parentId: newParentId }));
+    // Add to new parent, set new parentId on the membership
+    this.replaceMembership(id, (s) => ({ ...s, parentId: newParentId }));
     const insertIndex = clampIndex(at, newParent.container.childOrder.length);
     this.replaceContainer(newParentId, (c) => {
       const next = [...c.childOrder];
@@ -411,10 +411,10 @@ export class Store {
 
   reorderInParent(id: NodeId, at: number): void {
     const node = this.requireNode(id);
-    if (!node.slot) {
-      throw new InvariantViolationError('reorder-unslotted', `node ${id} not slotted`, { id });
+    if (!node.membership) {
+      throw new InvariantViolationError('reorder-unparented', `node ${id} not parented`, { id });
     }
-    const parentId = node.slot.parentId;
+    const parentId = node.membership.parentId;
     const parent = this.requireNode(parentId);
     if (!parent.container) {
       throw new InvariantViolationError(
@@ -506,7 +506,7 @@ export class Store {
     const rest: NodeId[] = [];
     for (const cid of parent.container.childOrder) {
       const child = this.nodesMap.get(cid);
-      const placement = child?.slot?.placement;
+      const placement = child?.membership?.placement;
       if (placement?.pinned || placement?.locked) pinned.push(cid);
       else rest.push(cid);
     }
@@ -524,9 +524,9 @@ export class Store {
 
   private isDescendantOf(maybeDescendant: NodeId, ancestor: NodeId): boolean {
     let current = this.nodesMap.get(maybeDescendant);
-    while (current?.slot) {
-      if (current.slot.parentId === ancestor) return true;
-      current = this.nodesMap.get(current.slot.parentId);
+    while (current?.membership) {
+      if (current.membership.parentId === ancestor) return true;
+      current = this.nodesMap.get(current.membership.parentId);
     }
     return false;
   }
@@ -539,10 +539,10 @@ export class Store {
 
   patchPlacement(id: NodeId, patch: Record<string, unknown>): void {
     const node = this.requireNode(id);
-    if (!node.slot) {
-      throw new CapabilityMissingError(id, 'slot', 'patchPlacement');
+    if (!node.membership) {
+      throw new CapabilityMissingError(id, 'membership', 'patchPlacement');
     }
-    const prev = node.slot.placement;
+    const prev = node.membership.placement;
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     const next: Record<string, unknown> = { ...prev };
     for (const [k, v] of Object.entries(patch)) {
@@ -558,14 +558,14 @@ export class Store {
       }
     }
     if (Object.keys(changes).length === 0) return;
-    this.replaceSlot(id, (s) => ({ ...s, placement: next }));
+    this.replaceMembership(id, (s) => ({ ...s, placement: next }));
     this.events.emit('node.placementChanged', { id, changes });
-    if (node.slot.parentId) this.resortByPin(node.slot.parentId);
+    if (node.membership.parentId) this.resortByPin(node.membership.parentId);
     this.scheduleNotify();
   }
 
   getPlacement(id: NodeId): Record<string, unknown> {
-    return this.nodesMap.get(id)?.slot?.placement ?? {};
+    return this.nodesMap.get(id)?.membership?.placement ?? {};
   }
 
   setMeta(id: NodeId, patch: Record<string, unknown>): void {
@@ -721,10 +721,10 @@ export class Store {
       // Clear pinned flags from children (locked retained for drag suppression).
       for (const cid of node.container.childOrder) {
         const child = this.nodesMap.get(cid);
-        if (child?.slot?.placement?.pinned) {
-          const nextPlacement = { ...child.slot.placement };
+        if (child?.membership?.placement?.pinned) {
+          const nextPlacement = { ...child.membership.placement };
           delete nextPlacement.pinned;
-          this.replaceSlot(cid, (s) => ({ ...s, placement: nextPlacement }));
+          this.replaceMembership(cid, (s) => ({ ...s, placement: nextPlacement }));
           this.events.emit('node.placementChanged', {
             id: cid,
             changes: { pinned: { from: true, to: undefined } },
@@ -923,11 +923,11 @@ export class Store {
     this.publisher.markDirty(id);
   }
 
-  private replaceSlot(id: NodeId, fn: (s: SlotCap) => SlotCap): void {
+  private replaceMembership(id: NodeId, fn: (s: MembershipCap) => MembershipCap): void {
     const prev = this.nodesMap.get(id);
-    if (!prev?.slot) return;
-    const nextSlot = fn(prev.slot);
-    this.nodesMap.set(id, { ...prev, slot: nextSlot });
+    if (!prev?.membership) return;
+    const nextMembership = fn(prev.membership);
+    this.nodesMap.set(id, { ...prev, membership: nextMembership });
     this.publisher.markDirty(id);
   }
 }
@@ -940,4 +940,4 @@ function clampIndex(at: number | undefined, length: number): number {
 }
 
 // Re-export commonly used types for convenience.
-export type { ContainerCap, FocusCap, SlotCap };
+export type { ContainerCap, FocusCap, MembershipCap };

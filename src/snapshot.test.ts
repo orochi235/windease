@@ -29,17 +29,17 @@ function buildSampleStore(): Store {
   return s;
 }
 
-describe('serialize / deserialize — v2 round-trip', () => {
+describe('serialize / deserialize — v3 round-trip', () => {
   it('preserves tree structure and capabilities', () => {
     const original = buildSampleStore();
     const snap = serialize(original);
-    expect(snap.version).toBe(2);
+    expect(snap.version).toBe(3);
     expect(snap.rootIds).toEqual(['z']);
     const restored = deserialize(snap);
     expect(restored.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2']);
     expect(restored.getContainerView(asNodeId('p2'))?.childOrder).toEqual(['leaf']);
     expect(restored.getNode(asNodeId('p1'))?.meta).toEqual({ title: 'one' });
-    expect(restored.getNode(asNodeId('p1'))?.slot?.placement).toEqual({ pinned: true });
+    expect(restored.getNode(asNodeId('p1'))?.membership?.placement).toEqual({ pinned: true });
   });
 
   it('round-trips focus', () => {
@@ -99,13 +99,13 @@ describe('deserialize — version validation', () => {
 describe('deserialize — broken snapshot', () => {
   it('throws on orphan child', () => {
     const broken: SerializedStore = {
-      version: 2,
+      version: 3,
       nodes: [
         {
           id: 'p',
           kind: 'panel',
           lifecycle: 'mounted',
-          slot: { parentId: 'missing', placement: {} },
+          membership: { parentId: 'missing', placement: {} },
           focus: { state: 'blurred' },
         },
       ],
@@ -156,13 +156,59 @@ describe('deserialize — back-compat for legacy childIds key', () => {
   });
 });
 
+describe('deserialize — back-compat for legacy v2 slot key', () => {
+  // v2 named the parent-membership capability `slot`. Snapshots persisted by
+  // 0.8.0 and earlier must still hydrate.
+  const v2Snapshot = {
+    version: 2,
+    nodes: [
+      {
+        id: 'z',
+        kind: 'zone',
+        lifecycle: 'mounted',
+        container: {
+          strategyId: 'stack',
+          config: {},
+          childOrder: ['p'],
+          allowsPinning: true,
+        },
+      },
+      {
+        id: 'p',
+        kind: 'panel',
+        lifecycle: 'mounted',
+        slot: { parentId: 'z', placement: { pinned: true, size: { h: 120 } } },
+        focus: { state: 'blurred' },
+      },
+    ],
+    rootIds: ['z'],
+    focusedId: null,
+  };
+
+  it('hydrates a v2 slot into membership', () => {
+    const restored = deserialize(structuredClone(v2Snapshot));
+    const p = restored.getNode(asNodeId('p'));
+    expect(p?.membership?.parentId).toBe('z');
+    expect(p?.membership?.placement).toEqual({ pinned: true, size: { h: 120 } });
+    expect(restored.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p']);
+  });
+
+  it('re-serializes a hydrated v2 snapshot as v3 with membership', () => {
+    const reserialized = serialize(deserialize(structuredClone(v2Snapshot)));
+    expect(reserialized.version).toBe(3);
+    const p = reserialized.nodes.find((n) => n.id === 'p');
+    expect(p?.membership?.parentId).toBe('z');
+    expect(p).not.toHaveProperty('slot');
+  });
+});
+
 describe('deserialize — rejects v1 snapshots', () => {
   it('throws on version: 1', () => {
     expect(() => deserialize({ version: 1, zones: [], windows: [] })).toThrow(/version: 1/);
   });
 });
 
-describe('snapshot v2 — activity', () => {
+describe('snapshot v3 — activity', () => {
   it('round-trips activity verbatim', () => {
     const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
@@ -211,7 +257,7 @@ describe('serialize — groups + recursion', () => {
     const group = snap.nodes.find((n) => n.id === 'g');
     expect(group?.kind).toBe('group');
     expect(group?.container?.strategyId).toBe('stack');
-    expect(group?.slot?.parentId).toBe('z');
+    expect(group?.membership?.parentId).toBe('z');
     expect(group?.focus).toBeUndefined();
     const restored = deserialize(snap);
     expect(restored.getNode(asNodeId('g'))?.container).toBeDefined();
@@ -220,7 +266,7 @@ describe('serialize — groups + recursion', () => {
 });
 
 describe('snapshot — placement.size and hints.maxSize', () => {
-  it('round-trips placement.size on a slot', () => {
+  it('round-trips placement.size on a membership', () => {
     const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
@@ -232,7 +278,7 @@ describe('snapshot — placement.size and hints.maxSize', () => {
     );
     const snap = serialize(store);
     const restored = deserialize(snap);
-    const placement = restored.getNode(asNodeId('a'))?.slot?.placement as {
+    const placement = restored.getNode(asNodeId('a'))?.membership?.placement as {
       size: { h: number };
     };
     expect(placement.size).toEqual({ h: 180 });
