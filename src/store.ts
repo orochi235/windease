@@ -260,7 +260,8 @@ export class Store {
     this.scheduleNotify();
   }
 
-  unregisterNode(id: NodeId): void {
+  unregisterNode(id: NodeId, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'destroy', 'unregisterNode', opts);
     const node = this.requireNode(id);
 
     const descendantIds: NodeId[] = [];

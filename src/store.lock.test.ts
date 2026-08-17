@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
+import { LockedError } from './errors.js';
 import { asNodeId, type NodeId } from './node.js';
 import { Store } from './store.js';
 
@@ -95,5 +96,42 @@ describe('Store — setLock / getLock', () => {
   it('returns an empty set for a nonexistent node instead of throwing', () => {
     const { s } = seeded();
     expect(s.getLock(asNodeId('does-not-exist'))).toEqual({});
+  });
+});
+
+describe('Store — destroy lock', () => {
+  it('blocks unregisterNode on a locked node', () => {
+    const { s, p } = seeded();
+    s.setLock(p, { destroy: true });
+    expect(() => s.unregisterNode(p)).toThrow(LockedError);
+    expect(s.getNode(p)).toBeDefined();
+  });
+
+  it('allows unregisterNode with force', () => {
+    const { s, p } = seeded();
+    s.setLock(p, { destroy: true });
+    s.unregisterNode(p, { force: true });
+    expect(s.getNode(p)).toBeUndefined();
+  });
+
+  it('allows unregisterNode inside withLocksSuspended', () => {
+    const { s, p } = seeded();
+    s.setLock(p, { destroy: true });
+    s.withLocksSuspended(() => s.unregisterNode(p));
+    expect(s.getNode(p)).toBeUndefined();
+  });
+
+  it('cascades through a locked child when an ancestor is destroyed', () => {
+    const { s, z, p } = seeded();
+    s.setLock(p, { destroy: true });
+    s.unregisterNode(z);
+    expect(s.getNode(p)).toBeUndefined();
+    expect(s.getNode(z)).toBeUndefined();
+  });
+
+  it('blocks destroying the ancestor when the ancestor itself is locked', () => {
+    const { s, z } = seeded();
+    s.setLock(z, { destroy: true });
+    expect(() => s.unregisterNode(z)).toThrow(LockedError);
   });
 });
