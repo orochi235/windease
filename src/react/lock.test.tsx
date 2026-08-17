@@ -1,13 +1,14 @@
 import { act, cleanup, render, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { useRef } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPanel, createZone } from '../constructors.js';
 import { asNodeId, Store, splitStrategy } from '../index.js';
 import { DragProvider, useDragController } from './dnd/DragProvider.js';
 import { useDragHandle } from './dnd/useDragHandle.js';
 import { type ChromeMap, Container } from './index.js';
 import { Provider } from './Provider.js';
+import { Panel, Zone } from './presets.js';
 import { StrategyRegistryProvider } from './strategies.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
 
@@ -181,5 +182,126 @@ describe('lock — useDragHandle', () => {
       result.current.handlers.onPointerDown(fakeDown());
     });
     expect(result.current.controller.state()).toBeNull();
+  });
+});
+
+describe('lock — declarative `lock` and `pinned` props', () => {
+  it('<Panel lock /> locks every axis the node supports', () => {
+    const store = new Store();
+    render(
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('p')} lock />
+        </Zone>
+      </Provider>,
+    );
+    expect(store.getLock(asNodeId('p'))).toEqual({ move: true, resize: true, destroy: true });
+  });
+
+  it('<Panel lock={{ destroy: true }} /> locks exactly the given axes', () => {
+    const store = new Store();
+    render(
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('p')} lock={{ destroy: true }} />
+        </Zone>
+      </Provider>,
+    );
+    expect(store.getLock(asNodeId('p'))).toEqual({ destroy: true });
+  });
+
+  it('<Panel pinned={0} /> on a panel that is not first moves it to index 0', () => {
+    const store = new Store();
+    render(
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('a')} />
+          <Panel id={asNodeId('b')} pinned={0} />
+          <Panel id={asNodeId('c')} />
+        </Zone>
+      </Provider>,
+    );
+    expect(store.getPinnedIndex(asNodeId('b'))).toBe(0);
+    expect(store.getContainerView(asNodeId('z'))?.childOrder[0]).toBe(asNodeId('b'));
+  });
+
+  it('<Panel pinned /> (bare) holds the current index without moving', () => {
+    const store = new Store();
+    render(
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('a')} />
+          <Panel id={asNodeId('b')} pinned />
+          <Panel id={asNodeId('c')} />
+        </Zone>
+      </Provider>,
+    );
+    expect(store.getPinnedIndex(asNodeId('b'))).toBe(1);
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
+      asNodeId('a'),
+      asNodeId('b'),
+      asNodeId('c'),
+    ]);
+  });
+
+  it('rerendering lock={{ destroy: true }} → lock={false} clears the lock', () => {
+    const store = new Store();
+    const Tree = ({ locked }: { locked: boolean }) => (
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('p')} lock={locked ? { destroy: true } : false} />
+        </Zone>
+      </Provider>
+    );
+    const { rerender } = render(<Tree locked={true} />);
+    expect(store.getLock(asNodeId('p'))).toEqual({ destroy: true });
+    rerender(<Tree locked={false} />);
+    expect(store.getLock(asNodeId('p'))).toEqual({});
+  });
+
+  it('rerendering pinned={0} → pinned={false} unpins', () => {
+    const store = new Store();
+    const Tree = ({ pinned }: { pinned: boolean | number }) => (
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('a')} />
+          <Panel id={asNodeId('b')} pinned={pinned} />
+        </Zone>
+      </Provider>
+    );
+    const { rerender } = render(<Tree pinned={0} />);
+    expect(store.getPinnedIndex(asNodeId('b'))).toBe(0);
+    rerender(<Tree pinned={false} />);
+    expect(store.getPinnedIndex(asNodeId('b'))).toBeNull();
+  });
+
+  it('generic `placement` prop rejects a `pinned` key, naming the dedicated prop', () => {
+    const store = new Store();
+    const Tree = ({ pinnedInPlacement }: { pinnedInPlacement: boolean }) => (
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('p')} placement={pinnedInPlacement ? { pinned: 0 } : {}} />
+        </Zone>
+      </Provider>
+    );
+    const { rerender } = render(<Tree pinnedInPlacement={false} />);
+    // React surfaces the render-time throw via console.error; silence for this assertion.
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => rerender(<Tree pinnedInPlacement={true} />)).toThrow(/dedicated `pinned` prop/);
+    spy.mockRestore();
+  });
+
+  it('generic `placement` prop still applies `size`', () => {
+    const store = new Store();
+    render(
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('p')} placement={{ size: 42 }} />
+        </Zone>
+      </Provider>,
+    );
+    expect(
+      (store.getNode(asNodeId('p'))?.membership?.placement as { size?: unknown } | undefined)?.size,
+    ).toBe(42);
   });
 });

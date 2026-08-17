@@ -8,6 +8,7 @@ import {
 } from 'react';
 import type { Node, NodeId, Store } from '../index.js';
 import { createGroup, createPanel, createZone } from '../index.js';
+import type { LockSet } from '../lock.js';
 import { type ChildSort, defaultChildSort } from './childSort.js';
 import { DragHandle } from './dnd/DragHandle.js';
 import { useDropTarget } from './dnd/useDropTarget.js';
@@ -36,7 +37,16 @@ interface CommonBindingProps {
    *  consumers can drag items into it. The element must have a container
    *  capability (Zone and Group always do; Panel needs the `container` prop). */
   acceptsDrops?: boolean;
+  /** Permissions restricting what the user may do to this node. `true` locks
+   *  every axis the node's capabilities support. */
+  lock?: boolean | LockSet;
+  /** Hold a slot in the parent's childOrder. `true` holds the current index. */
+  pinned?: boolean | number;
 }
+
+/** Zone has no parent, so a held index has nothing to be held in — omit
+ *  `pinned` at the type level rather than accept a prop that always throws. */
+type ZoneBindingProps = Omit<CommonBindingProps, 'pinned'>;
 
 interface PresentationalProps {
   className?: string;
@@ -232,7 +242,7 @@ export function Group(props: GroupProps) {
 
 /* ---------- Zone ---------- */
 
-export interface ZoneProps extends CommonBindingProps, PresentationalProps {
+export interface ZoneProps extends ZoneBindingProps, PresentationalProps {
   strategyId?: string;
   config?: unknown;
   viewport?: { w: number; h: number };
@@ -398,7 +408,17 @@ function makeReconciler(props: CommonBindingProps) {
       store.setMeta(id, props.meta);
     }
     if (props.placement !== undefined) {
+      if ('pinned' in props.placement) {
+        throw new Error(
+          `windease: the generic \`placement\` prop cannot set "pinned" on "${id}" — use the dedicated \`pinned\` prop instead.`,
+        );
+      }
       store.patchPlacement(id, props.placement);
+    }
+    if (props.lock !== undefined) store.setLock(id, props.lock);
+    if (props.pinned !== undefined) {
+      if (props.pinned === false) store.unpin(id);
+      else store.setPinned(id, props.pinned === true ? undefined : props.pinned);
     }
     const node = store.getNode(id);
     if (!node) return;
@@ -475,14 +495,20 @@ function PresetShell({
     const currentIds = view.childOrder;
     const imperativeIds = currentIds.filter((cid) => !jsxIds.has(cid));
     const sortFn = sort ?? defaultChildSort;
+    // A pinned child holds its slot — JSX-order reconciliation must not evict
+    // it, so it's excluded from sorting and its current index is preserved.
+    const pinnedIds = new Set(currentIds.filter((cid) => store.getPinnedIndex(cid) !== null));
     const orderedJsx = sortFn(
-      jsxEntries.map((e) => ({ id: e.id, order: e.order })),
+      jsxEntries.filter((e) => !pinnedIds.has(e.id)).map((e) => ({ id: e.id, order: e.order })),
       currentIds,
     );
-    const finalOrder = [...orderedJsx, ...imperativeIds];
-    // finalOrder is now guaranteed a permutation of currentIds: orderedJsx is
-    // a subset of currentIds (post-filter), imperativeIds is the complement,
-    // and the two sets are disjoint.
+    const fillQueue = [...orderedJsx, ...imperativeIds.filter((cid) => !pinnedIds.has(cid))];
+    let fillIndex = 0;
+    const finalOrder = currentIds.map((cid) =>
+      pinnedIds.has(cid) ? cid : (fillQueue[fillIndex++] as NodeId),
+    );
+    // finalOrder is a permutation of currentIds: pinned ids keep their slot,
+    // fillQueue (orderedJsx + non-pinned imperativeIds) fills the rest.
     let same = finalOrder.length === currentIds.length;
     if (same) {
       for (let i = 0; i < finalOrder.length; i++) {
