@@ -142,6 +142,18 @@ describe('stackStrategy — maxItems', () => {
       ),
     ).toBe(true);
   });
+
+  it('overflows an unpinned child ahead of a pinned one that sorts later in childOrder', () => {
+    const pinned = { id: 'd', meta: { pinned: 3 } };
+    const result = stackStrategy.layout({
+      items: [mkItem('a'), mkItem('b'), mkItem('c'), pinned],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: { maxItems: 3 },
+    });
+    expect(result.unplaced).toEqual(['c']);
+    expect([...result.placements.keys()]).toEqual(['a', 'b', 'd']);
+  });
 });
 
 describe('stackStrategy — preview', () => {
