@@ -135,3 +135,61 @@ describe('Store — destroy lock', () => {
     expect(() => s.unregisterNode(z)).toThrow(LockedError);
   });
 });
+
+function twoZones(): { s: Store; a: NodeId; b: NodeId; p: NodeId } {
+  const s = new Store();
+  s.registerNode(createZone({ id: id('a'), strategyId: 'grid', config: {} }));
+  s.registerNode(createZone({ id: id('b'), strategyId: 'grid', config: {} }));
+  s.registerNode(createPanel({ id: id('p'), parentId: id('a') }));
+  return { s, a: id('a'), b: id('b'), p: id('p') };
+}
+
+describe('Store — move / accept / dragOut locks', () => {
+  it('blocks moveNode when the source is move-locked', () => {
+    const { s, a, b, p } = twoZones();
+    s.setLock(p, { move: true });
+    expect(() => s.moveNode(p, b)).toThrow(LockedError);
+    expect(s.getNode(p)?.membership?.parentId).toBe(a);
+  });
+
+  it('blocks moveNode when the target is accept-locked', () => {
+    const { s, a, b, p } = twoZones();
+    s.setLock(b, { accept: true });
+    expect(() => s.moveNode(p, b)).toThrow(LockedError);
+    expect(s.getNode(p)?.membership?.parentId).toBe(a);
+  });
+
+  it('blocks moveNode when the source parent is dragOut-locked', () => {
+    const { s, a, b, p } = twoZones();
+    s.setLock(a, { dragOut: true });
+    expect(() => s.moveNode(p, b)).toThrow(LockedError);
+    expect(s.getNode(p)?.membership?.parentId).toBe(a);
+  });
+
+  it('allows a move that violates none of the three', () => {
+    const { s, b, p } = twoZones();
+    s.moveNode(p, b);
+    expect(s.getNode(p)?.membership?.parentId).toBe('b');
+  });
+
+  it('allows a blocked move with force', () => {
+    const { s, b, p } = twoZones();
+    s.setLock(p, { move: true });
+    s.moveNode(p, b, undefined, { force: true });
+    expect(s.getNode(p)?.membership?.parentId).toBe('b');
+  });
+
+  it('keeps the lock after a move, since lock is node-intrinsic', () => {
+    const { s, b, p } = twoZones();
+    s.setLock(p, { destroy: true });
+    s.moveNode(p, b);
+    expect(s.getLock(p)).toEqual({ destroy: true });
+  });
+
+  it('blocks reorderInParent when the node is move-locked', () => {
+    const { s, a } = twoZones();
+    s.registerNode(createPanel({ id: id('q'), parentId: a }));
+    s.setLock(id('q'), { move: true });
+    expect(() => s.reorderInParent(id('q'), 0)).toThrow(LockedError);
+  });
+});

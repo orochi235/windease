@@ -320,13 +320,16 @@ export class Store {
 
   // ===== Move / reorder =====
 
-  moveNode(id: NodeId, newParentId: NodeId, at?: number): void {
+  moveNode(id: NodeId, newParentId: NodeId, at?: number, opts?: MutateOptions): void {
     const node = this.requireNode(id);
     if (!node.membership) {
       throw new InvariantViolationError('move-unparented', `cannot move unparented node ${id}`, {
         id,
       });
     }
+    this.assertUnlocked(id, 'move', 'moveNode', opts);
+    this.assertUnlocked(newParentId, 'accept', 'moveNode', opts);
+    this.assertUnlocked(node.membership.parentId, 'dragOut', 'moveNode', opts);
     const newParent = this.requireNode(newParentId);
     if (id === newParentId || this.isDescendantOf(newParentId, id)) {
       throw new CycleError(id, newParentId);
@@ -414,11 +417,12 @@ export class Store {
     this.scheduleNotify();
   }
 
-  reorderInParent(id: NodeId, at: number): void {
+  reorderInParent(id: NodeId, at: number, opts?: MutateOptions): void {
     const node = this.requireNode(id);
     if (!node.membership) {
       throw new InvariantViolationError('reorder-unparented', `node ${id} not parented`, { id });
     }
+    this.assertUnlocked(id, 'move', 'reorderInParent', opts);
     const parentId = node.membership.parentId;
     const parent = this.requireNode(parentId);
     if (!parent.container) {
@@ -733,8 +737,8 @@ export class Store {
     return this.nodesMap.get(id)?.lock?.[axis] === true;
   }
 
-  /** Run `fn` with every lock ignored. Used internally by `deserialize` and
-   *  `HistoryController` so a restore is never fought by locks. */
+  /** Run `fn` with every lock ignored. Used internally by `deserialize`'s
+   *  in-place restore; a caller-side history restore should wrap itself the same way. */
   withLocksSuspended<T>(fn: () => T): T {
     this.locksSuspended += 1;
     try {
