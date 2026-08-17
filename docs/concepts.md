@@ -122,15 +122,19 @@ first.
 | `dragOut` | `container`  | `moveNode` where the source's parent is this node             |
 | `arrange` | `container`  | `setChildOrder`, `setContainerState`, `updateContainerConfig` |
 
-A guarded call on a locked axis throws `LockedError(id, axis, op)`. Host code
-that means to bypass a lock passes `{ force: true }` to the mutating call, or
-wraps in `store.withLocksSuspended(fn)`; the React gesture paths (drag,
-resize, drop) never do either, so "the user cannot do this" holds even though
-host code still can. Locks constrain direct user manipulation, not host code
-generally: a preset's declarative prop reconcile and its unmount cleanup are
-driven by JSX and React's lifecycle, not the user, so both force too.
-`deserialize` and `HistoryController` use `withLocksSuspended` internally, so
-restoring a snapshot or undoing is never blocked by a lock.
+A guarded call on a locked axis throws `LockedError(id, axis, op)`. Locks
+constrain direct user manipulation; imperative host code that means to bypass
+one passes `{ force: true }` to the mutating call, or wraps in
+`store.withLocksSuspended(fn)` — the React gesture paths (drag, resize, drop)
+never do either, so "the user cannot do this" holds. A preset's declarative
+props reconcile the same way: where a user gesture is also a live writer of
+the state being reconciled (child order, container state, pinning — all
+guarded by `arrange`), the reconciler skips under a lock, since forcing a
+stale prop would silently undo the arrangement the lock protects. Where the
+lock's own gesture is the only other writer (`placement.size` under `resize`,
+node existence under `destroy`), it forces, so the host's declared intent
+still lands. `deserialize` and `HistoryController` use `withLocksSuspended`
+internally, so restoring a snapshot or undoing is never blocked by a lock.
 
 `lock.destroy` on a child does not veto an ancestor's cascade destroy — it
 only blocks `unregisterNode` called directly on that node. To protect a

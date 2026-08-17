@@ -427,8 +427,19 @@ function makeReconciler(props: CommonBindingProps) {
     }
     if (props.lock !== undefined) store.setLock(id, props.lock);
     if (props.pinned !== undefined) {
-      if (props.pinned === false) store.unpin(id);
-      else store.setPinned(id, props.pinned === true ? undefined : props.pinned);
+      // setPinned/unpin guard the *parent's* arrange lock; a live drag also
+      // writes childOrder, so skip rather than force a stale prop past it.
+      const parentId = store.getNode(id)?.membership?.parentId;
+      if (parentId !== undefined && store.isLocked(parentId, 'arrange')) {
+        trace(
+          'layout',
+          `pinned prop reconcile skipped for ${id}: parent ${parentId} locked (arrange)`,
+        );
+      } else if (props.pinned === false) {
+        store.unpin(id);
+      } else {
+        store.setPinned(id, props.pinned === true ? undefined : props.pinned);
+      }
     }
     const node = store.getNode(id);
     if (!node) return;

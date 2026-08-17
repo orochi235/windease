@@ -461,3 +461,38 @@ describe('lock — declarative `placement` reconcile forces past lock.resize', (
     expect(container.querySelector('[data-affordance-hit]')).toBeNull();
   });
 });
+
+describe('lock — declarative `pinned` reconcile skips under lock.arrange', () => {
+  it('an arrange-locked Zone with a pinned Panel mounts without throwing and leaves childOrder/pinning untouched', () => {
+    const store = new Store();
+    expect(() => {
+      render(
+        <Provider store={store}>
+          <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }} lock={{ arrange: true }}>
+            <Panel id={asNodeId('a')} />
+            <Panel id={asNodeId('p')} pinned={0} />
+          </Zone>
+        </Provider>,
+      );
+    }).not.toThrow();
+    expect(store.getPinnedIndex(asNodeId('p'))).toBeNull();
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
+      asNodeId('a'),
+      asNodeId('p'),
+    ]);
+  });
+
+  it('the same tree without the lock still pins correctly (control)', () => {
+    const store = new Store();
+    render(
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('a')} />
+          <Panel id={asNodeId('p')} pinned={0} />
+        </Zone>
+      </Provider>,
+    );
+    expect(store.getPinnedIndex(asNodeId('p'))).toBe(0);
+    expect(store.getContainerView(asNodeId('z'))?.childOrder?.[0]).toBe(asNodeId('p'));
+  });
+});
