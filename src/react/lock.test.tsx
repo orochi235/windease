@@ -495,4 +495,22 @@ describe('lock — declarative `pinned` reconcile skips under lock.arrange', () 
     expect(store.getPinnedIndex(asNodeId('p'))).toBe(0);
     expect(store.getContainerView(asNodeId('z'))?.childOrder?.[0]).toBe(asNodeId('p'));
   });
+
+  it('an imperative unlock re-runs the pending `pinned` reconcile with no other render trigger', () => {
+    const store = new Store();
+    render(
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }} lock={{ arrange: true }}>
+          <Panel id={asNodeId('a')} />
+          <Panel id={asNodeId('p')} pinned={0} />
+        </Zone>
+      </Provider>,
+    );
+    expect(store.getPinnedIndex(asNodeId('p'))).toBeNull();
+    act(() => {
+      store.setLock(asNodeId('z'), { arrange: false });
+    });
+    expect(store.getPinnedIndex(asNodeId('p'))).toBe(0);
+    expect(store.getContainerView(asNodeId('z'))?.childOrder?.[0]).toBe(asNodeId('p'));
+  });
 });

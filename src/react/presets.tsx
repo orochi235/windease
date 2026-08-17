@@ -74,6 +74,19 @@ function defined<T extends Record<string, unknown>>(obj: T): Partial<T> {
   return out;
 }
 
+/** Forces a re-render when `targetId`'s lock changes. Nothing else re-renders
+ *  the caller on a bare lock flip, so a render-time reconcile gated on
+ *  `isLocked(targetId, ...)` would otherwise stay stuck after an unlock. */
+function useForceRerenderOnLockChange(store: Store, targetId: NodeId | undefined): void {
+  const [, forceRerender] = useState(0);
+  useEffect(() => {
+    if (targetId === undefined) return;
+    return store.events.on('node.lockChanged', (e) => {
+      if (e.id === targetId) forceRerender((t) => t + 1);
+    });
+  }, [store, targetId]);
+}
+
 /* ---------- Panel ---------- */
 
 export interface PanelProps extends CommonBindingProps, PresentationalProps {
@@ -117,6 +130,11 @@ export function Panel(props: PanelProps) {
     },
     reconcile: makeReconciler(props),
   });
+
+  // A pending `pinned` prop that skipped because the parent was arrange-
+  // locked needs a re-render on unlock to re-run the reconcile above.
+  const store = useStore();
+  useForceRerenderOnLockChange(store, store.getNode(id)?.membership?.parentId);
 
   // Mirror Zone's layout-providing path: if this Panel is a container AND a
   // matching strategy is registered, run the layout and provide placements
@@ -226,6 +244,11 @@ export function Group(props: GroupProps) {
     },
     reconcile: makeReconciler(props),
   });
+
+  // A pending `pinned` prop that skipped because the parent was arrange-
+  // locked needs a re-render on unlock to re-run the reconcile above.
+  const store = useStore();
+  useForceRerenderOnLockChange(store, store.getNode(id)?.membership?.parentId);
 
   return (
     <PresetShell
@@ -499,16 +522,9 @@ function PresetShell({
   // effect re-fires) when imperative siblings appear or disappear.
   useChildren(id);
 
-  // node.lockChanged doesn't otherwise trigger a re-render here (nothing else
-  // subscribed to this id changes when only its lock flips), so an unlock
-  // would leave a pending reconciliation stuck until some unrelated re-render
-  // happened to fire. Force one so the arrange lock's release is picked up.
-  const [, forceRerenderOnLockChange] = useState(0);
-  useEffect(() => {
-    return store.events.on('node.lockChanged', (e) => {
-      if (e.id === id) forceRerenderOnLockChange((t) => t + 1);
-    });
-  }, [store, id]);
+  // A pending sibling-order reconciliation that skipped for lock.arrange
+  // needs a re-render on unlock to re-run the effect below.
+  useForceRerenderOnLockChange(store, id);
 
   // If a parent container's strategy assigned this node a rect, wrap our
   // DOM in an absolute-positioned box so we render at the right place.

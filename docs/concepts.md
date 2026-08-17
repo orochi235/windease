@@ -120,20 +120,22 @@ first.
 | `destroy` | —            | `unregisterNode`                                             |
 | `accept`  | `container`  | `moveNode` (as target)                                       |
 | `dragOut` | `container`  | `moveNode` where the source's parent is this node             |
-| `arrange` | `container`  | `setChildOrder`, `setContainerState`, `updateContainerConfig` |
+| `arrange` | `container`  | `setChildOrder`, `setContainerState`, `updateContainerConfig`, `setPinned`/`unpin` |
 
 A guarded call on a locked axis throws `LockedError(id, axis, op)`. Locks
 constrain direct user manipulation; imperative host code that means to bypass
 one passes `{ force: true }` to the mutating call, or wraps in
 `store.withLocksSuspended(fn)` — the React gesture paths (drag, resize, drop)
 never do either, so "the user cannot do this" holds. A preset's declarative
-props reconcile the same way: where a user gesture is also a live writer of
-the state being reconciled (child order, container state, pinning — all
-guarded by `arrange`), the reconciler skips under a lock, since forcing a
-stale prop would silently undo the arrangement the lock protects. Where the
-lock's own gesture is the only other writer (`placement.size` under `resize`,
-node existence under `destroy`), it forces, so the host's declared intent
-still lands. `deserialize` and `HistoryController` use `withLocksSuspended`
+prop reconcile follows the same rule, but per field, not per axis:
+`childOrder` and `pinned` skip under `lock.arrange` because a `move`-gated
+drag writes the same `childOrder` array, and forcing a stale prop would
+revert it — `arrange` itself never gates that drag; freezing drag-reordering
+needs `lock.move` on the children. `container.state` skips too, for the more
+direct reason that `dispatchAffordance` writes it through the same `arrange`
+check. `placement.size` and node existence force instead, because their only
+other writer is the gesture the very same lock already blocks (`resize`,
+`destroy`). `deserialize` and `HistoryController` use `withLocksSuspended`
 internally, so restoring a snapshot or undoing is never blocked by a lock.
 
 `lock.destroy` on a child does not veto an ancestor's cascade destroy — it
