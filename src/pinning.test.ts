@@ -43,9 +43,16 @@ describe('placeRespectingPins', () => {
     expect(out).toEqual(['e', 'a', 'c', 'b', 'd']);
   });
 
-  it('returns an empty array for an empty order', () => {
-    const out = placeRespectingPins([], asNodeId('a'), 0, pins({}));
-    expect(out).toEqual([]);
+  it('throws when order is empty (movingId cannot be a member of it)', () => {
+    expect(() => placeRespectingPins([], asNodeId('a'), 0, pins({}))).toThrow(
+      /not a member of order/,
+    );
+  });
+
+  it('throws when movingId is not present in order', () => {
+    expect(() => placeRespectingPins(ids('a', 'b', 'c'), asNodeId('z'), 1, pins({}))).toThrow(
+      /not a member of order/,
+    );
   });
 
   it('clamps a negative desired index to the front', () => {

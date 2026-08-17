@@ -1,3 +1,4 @@
+import { InvariantViolationError } from './errors.js';
 import type { NodeId } from './node.js';
 
 export type PinnedIndexOf = (id: NodeId) => number | null;
@@ -6,7 +7,8 @@ export type PinnedIndexOf = (id: NodeId) => number | null;
  * Rebuild `order` with `movingId` placed at (or as near as possible after)
  * `desired`, honoring the held indices of every *other* pinned child. A pinned
  * node holds its slot against third parties but yields when it is itself the
- * node being reordered.
+ * node being reordered. `movingId` must already be a member of `order` —
+ * inserting a new child is the caller's job (splice it in first).
  */
 export function placeRespectingPins(
   order: readonly NodeId[],
@@ -15,7 +17,13 @@ export function placeRespectingPins(
   pinnedIndexOf: PinnedIndexOf,
 ): NodeId[] {
   const n = order.length;
-  if (n === 0) return [];
+  if (!order.includes(movingId)) {
+    throw new InvariantViolationError(
+      'pin-nonmember',
+      `cannot place ${movingId}: not a member of order (length ${n})`,
+      { movingId, length: n },
+    );
+  }
 
   const held = new Map<number, NodeId>();
   for (const cid of order) {
