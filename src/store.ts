@@ -456,7 +456,8 @@ export class Store {
     this.scheduleNotify();
   }
 
-  setChildOrder(parentId: NodeId, orderedIds: readonly NodeId[]): void {
+  setChildOrder(parentId: NodeId, orderedIds: readonly NodeId[], opts?: MutateOptions): void {
+    this.assertUnlocked(parentId, 'arrange', 'setChildOrder', opts);
     const parent = this.requireNode(parentId);
     if (!parent.container) {
       throw new InvariantViolationError(
@@ -542,15 +543,16 @@ export class Store {
 
   // ===== Placement / meta =====
 
-  setPlacement(id: NodeId, key: string, value: unknown): void {
-    this.patchPlacement(id, { [key]: value });
+  setPlacement(id: NodeId, key: string, value: unknown, opts?: MutateOptions): void {
+    this.patchPlacement(id, { [key]: value }, opts);
   }
 
-  patchPlacement(id: NodeId, patch: Record<string, unknown>): void {
+  patchPlacement(id: NodeId, patch: Record<string, unknown>, opts?: MutateOptions): void {
     const node = this.requireNode(id);
     if (!node.membership) {
       throw new CapabilityMissingError(id, 'membership', 'patchPlacement');
     }
+    if ('size' in patch) this.assertUnlocked(id, 'resize', 'patchPlacement', opts);
     const prev = node.membership.placement;
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     const next: Record<string, unknown> = { ...prev };
@@ -665,7 +667,8 @@ export class Store {
 
   // ===== Container config =====
 
-  updateContainerConfig(id: NodeId, patch: unknown): void {
+  updateContainerConfig(id: NodeId, patch: unknown, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'arrange', 'updateContainerConfig', opts);
     const node = this.requireNode(id);
     if (!node.container) {
       throw new CapabilityMissingError(id, 'container', 'updateContainerConfig');
@@ -705,7 +708,8 @@ export class Store {
 
   /** Write strategy state for `id`'s container. Emits `container.stateChanged`
    * and schedules a notify. Throws if `id` has no container capability. */
-  setContainerState(id: NodeId, state: unknown): void {
+  setContainerState(id: NodeId, state: unknown, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'arrange', 'setContainerState', opts);
     const node = this.requireNode(id);
     if (!node.container) {
       throw new CapabilityMissingError(id, 'container', 'setContainerState');

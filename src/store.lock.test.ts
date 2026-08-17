@@ -145,25 +145,43 @@ function twoZones(): { s: Store; a: NodeId; b: NodeId; p: NodeId } {
 }
 
 describe('Store — move / accept / dragOut locks', () => {
+  function expectNoMutation(s: Store, a: NodeId, b: NodeId, p: NodeId): void {
+    expect(s.getNode(p)?.membership?.parentId).toBe(a);
+    expect(s.getNode(a)?.container?.childOrder).toEqual([p]);
+    expect(s.getNode(b)?.container?.childOrder).toEqual([]);
+  }
+
   it('blocks moveNode when the source is move-locked', () => {
     const { s, a, b, p } = twoZones();
+    const moved = vi.fn();
+    const transitioned = vi.fn();
+    s.events.on('node.moved', moved);
+    s.events.on('node.transitioned', transitioned);
     s.setLock(p, { move: true });
     expect(() => s.moveNode(p, b)).toThrow(LockedError);
-    expect(s.getNode(p)?.membership?.parentId).toBe(a);
+    expectNoMutation(s, a, b, p);
+    expect(moved).not.toHaveBeenCalled();
+    expect(transitioned).not.toHaveBeenCalled();
   });
 
   it('blocks moveNode when the target is accept-locked', () => {
     const { s, a, b, p } = twoZones();
+    const moved = vi.fn();
+    s.events.on('node.moved', moved);
     s.setLock(b, { accept: true });
     expect(() => s.moveNode(p, b)).toThrow(LockedError);
-    expect(s.getNode(p)?.membership?.parentId).toBe(a);
+    expectNoMutation(s, a, b, p);
+    expect(moved).not.toHaveBeenCalled();
   });
 
   it('blocks moveNode when the source parent is dragOut-locked', () => {
     const { s, a, b, p } = twoZones();
+    const moved = vi.fn();
+    s.events.on('node.moved', moved);
     s.setLock(a, { dragOut: true });
     expect(() => s.moveNode(p, b)).toThrow(LockedError);
-    expect(s.getNode(p)?.membership?.parentId).toBe(a);
+    expectNoMutation(s, a, b, p);
+    expect(moved).not.toHaveBeenCalled();
   });
 
   it('allows a move that violates none of the three', () => {
@@ -191,5 +209,61 @@ describe('Store — move / accept / dragOut locks', () => {
     s.registerNode(createPanel({ id: id('q'), parentId: a }));
     s.setLock(id('q'), { move: true });
     expect(() => s.reorderInParent(id('q'), 0)).toThrow(LockedError);
+  });
+
+  it('allows reorderInParent with force on a move-locked node', () => {
+    const { s, a } = twoZones();
+    s.registerNode(createPanel({ id: id('q'), parentId: a }));
+    s.setLock(id('q'), { move: true });
+    s.reorderInParent(id('q'), 0, { force: true });
+    expect(s.getNode(a)?.container?.childOrder).toEqual([id('q'), id('p')]);
+  });
+});
+
+describe('Store — arrange and resize locks', () => {
+  it('blocks setChildOrder on an arrange-locked container', () => {
+    const { s, z, p } = seeded();
+    s.registerNode(createPanel({ id: id('q'), parentId: z }));
+    s.setLock(z, { arrange: true });
+    expect(() => s.setChildOrder(z, [id('q'), p])).toThrow(LockedError);
+  });
+
+  it('blocks updateContainerConfig on an arrange-locked container', () => {
+    const { s, z } = seeded();
+    s.setLock(z, { arrange: true });
+    expect(() => s.updateContainerConfig(z, { cols: 3 })).toThrow(LockedError);
+  });
+
+  it('blocks setContainerState on an arrange-locked container', () => {
+    const { s, z } = seeded();
+    s.setLock(z, { arrange: true });
+    expect(() => s.setContainerState(z, { ratio: 0.5 })).toThrow(LockedError);
+  });
+
+  it('blocks writing placement.size on a resize-locked node', () => {
+    const { s, p } = seeded();
+    s.setLock(p, { resize: true });
+    expect(() => s.patchPlacement(p, { size: { w: 100 } })).toThrow(LockedError);
+  });
+
+  it('blocks clearing placement.size on a resize-locked node', () => {
+    const { s, p } = seeded();
+    s.patchPlacement(p, { size: { w: 100 } });
+    s.setLock(p, { resize: true });
+    expect(() => s.patchPlacement(p, { size: undefined })).toThrow(LockedError);
+  });
+
+  it('allows free-form placement keys on a resize-locked node', () => {
+    const { s, p } = seeded();
+    s.setLock(p, { resize: true });
+    s.patchPlacement(p, { collapsed: true });
+    expect(s.getPlacement(p).collapsed).toBe(true);
+  });
+
+  it('allows a size write with force', () => {
+    const { s, p } = seeded();
+    s.setLock(p, { resize: true });
+    s.patchPlacement(p, { size: { w: 100 } }, { force: true });
+    expect(s.getPlacement(p).size).toEqual({ w: 100 });
   });
 });
