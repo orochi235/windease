@@ -174,6 +174,15 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
     const capacity = Math.min(gridCap, itemCap);
     const placedCount = Math.min(items.length, capacity);
+
+    // Pinned children win the capacity race: they survive first, in
+    // childOrder, before unpinned children fill any remaining slots.
+    const isPinned = (it: LayoutItem) => typeof it.meta?.pinned === 'number';
+    const keep = new Set<string>();
+    for (const it of items) if (isPinned(it) && keep.size < placedCount) keep.add(it.id);
+    for (const it of items) if (!keep.has(it.id) && keep.size < placedCount) keep.add(it.id);
+    const placedItems = items.filter((it) => keep.has(it.id));
+
     const rows =
       !fill && rowCap !== undefined ? rowCap : Math.max(1, Math.ceil(placedCount / cols));
 
@@ -182,8 +191,8 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     const cellW = (usableW - gap * (cols - 1)) / cols;
     const cellH = (usableH - gap * (rows - 1)) / rows;
 
-    for (let i = 0; i < placedCount; i++) {
-      const item = items[i]!;
+    for (let i = 0; i < placedItems.length; i++) {
+      const item = placedItems[i]!;
       const col = i % cols;
       const row = Math.floor(i / cols);
       placements.set(item.id, {
@@ -195,9 +204,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     }
 
     const unplaced: string[] = [];
-    for (let i = placedCount; i < items.length; i++) {
-      unplaced.push(items[i]!.id);
-    }
+    for (const it of items) if (!keep.has(it.id)) unplaced.push(it.id);
 
     const result: LayoutResult<string> = { placements, affordances: [] };
     if (unplaced.length > 0) result.unplaced = unplaced;
