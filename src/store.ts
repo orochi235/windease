@@ -388,9 +388,12 @@ export class Store {
     this.replaceMembership(id, (s) => ({ ...s, parentId: newParentId }));
     const insertIndex = clampIndex(at, newParent.container.childOrder.length);
     this.replaceContainer(newParentId, (c) => {
-      const next = [...c.childOrder];
-      next.splice(insertIndex, 0, id);
-      return { ...c, childOrder: next };
+      const spliced = [...c.childOrder];
+      spliced.splice(insertIndex, 0, id);
+      return {
+        ...c,
+        childOrder: placeRespectingPins(spliced, id, insertIndex, this.pinnedIndexOf),
+      };
     });
     const toIndex =
       this.nodesMap.get(newParentId)?.container?.childOrder.indexOf(id) ?? insertIndex;
@@ -416,6 +419,7 @@ export class Store {
     });
 
     this.clampPins(fromParentId);
+    this.clampPins(newParentId);
     this.scheduleNotify();
   }
 
@@ -546,6 +550,13 @@ export class Store {
       throw new CapabilityMissingError(id, 'membership', 'patchPlacement');
     }
     if ('size' in patch) this.assertUnlocked(id, 'resize', 'patchPlacement', opts);
+    if ('pinned' in patch) {
+      throw new InvariantViolationError(
+        'pinned-reserved',
+        `patchPlacement cannot write 'pinned' directly on ${id}; use setPinned/unpin`,
+        { id },
+      );
+    }
     const prev = node.membership.placement;
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     const next: Record<string, unknown> = { ...prev };
@@ -788,6 +799,13 @@ export class Store {
       });
     }
     this.assertUnlocked(parentId, 'arrange', 'setPinned', opts);
+    if (!parent.container.allowsPinning) {
+      throw new InvariantViolationError(
+        'pinning-not-allowed',
+        `parent ${parentId} has allowsPinning: false`,
+        { parentId },
+      );
+    }
     const length = parent.container.childOrder.length;
     const current = parent.container.childOrder.indexOf(id);
     const target = at ?? current;

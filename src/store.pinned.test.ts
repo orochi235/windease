@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
-import { LockedError, PinIndexError } from './errors.js';
+import { InvariantViolationError, LockedError, PinIndexError } from './errors.js';
 import { asNodeId, type NodeId } from './node.js';
 import { Store } from './store.js';
 
@@ -124,5 +124,67 @@ describe('Store — setPinned/unpin arrange lock', () => {
     s.setLock(z, { arrange: true });
     expect(() => s.unpin(id('p1'), { force: true })).not.toThrow();
     expect(s.getPinnedIndex(id('p1'))).toBeNull();
+  });
+});
+
+describe('Store — setPinned/unpin and allowsPinning', () => {
+  function stripNoPinning(count: number): { s: Store; z: NodeId } {
+    const s = new Store();
+    s.registerNode(
+      createZone({ id: id('z'), strategyId: 'strip', config: {}, allowsPinning: false }),
+    );
+    for (let i = 0; i < count; i++) {
+      s.registerNode(createPanel({ id: id(`p${i}`), parentId: id('z') }));
+    }
+    return { s, z: id('z') };
+  }
+
+  it('setPinned throws when the parent has allowsPinning: false', () => {
+    const { s } = stripNoPinning(4);
+    expect(() => s.setPinned(id('p1'))).toThrow(InvariantViolationError);
+  });
+
+  it('unpin still works when the parent has allowsPinning: false', () => {
+    const { s, z } = strip(4);
+    s.setPinned(id('p1'));
+    s.setAllowsPinning(z, false);
+    expect(() => s.unpin(id('p1'))).not.toThrow();
+  });
+});
+
+describe('Store — patchPlacement rejects direct pinned writes', () => {
+  it('throws when patch sets pinned', () => {
+    const { s } = strip(4);
+    expect(() => s.patchPlacement(id('p1'), { pinned: 2 })).toThrow(InvariantViolationError);
+  });
+
+  it('throws when patch clears pinned', () => {
+    const { s } = strip(4);
+    s.setPinned(id('p1'));
+    expect(() => s.patchPlacement(id('p1'), { pinned: undefined })).toThrow(
+      InvariantViolationError,
+    );
+  });
+
+  it('setPinned itself still works (does not route through patchPlacement)', () => {
+    const { s } = strip(4);
+    expect(() => s.setPinned(id('p1'))).not.toThrow();
+    expect(s.getPinnedIndex(id('p1'))).toBe(1);
+  });
+});
+
+describe('Store — moveNode pinned displacement', () => {
+  it('routes a newcomer past a held slot in the destination', () => {
+    const s = new Store();
+    s.registerNode(createZone({ id: id('src'), strategyId: 'strip', config: {} }));
+    s.registerNode(createZone({ id: id('dst'), strategyId: 'strip', config: {} }));
+    s.registerNode(createPanel({ id: id('m'), parentId: id('src') }));
+    s.registerNode(createPanel({ id: id('d0'), parentId: id('dst') }));
+    s.registerNode(createPanel({ id: id('d1'), parentId: id('dst') }));
+    s.setPinned(id('d0'), 0);
+
+    s.moveNode(id('m'), id('dst'), 0);
+    expect(order(s, id('dst'))).toEqual(['d0', 'm', 'd1']);
+    expect(s.getPinnedIndex(id('d0'))).toBe(0);
   });
 });
