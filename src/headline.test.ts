@@ -25,7 +25,7 @@ describe('headline end-to-end', () => {
     //   ├── tray (panel hosting children, stack)
     //   │     ├── leafA (panel, focused)
     //   │     └── leafB (panel)
-    //   ├── solo (panel, pinned)
+    //   ├── solo (panel, pinned to index 0)
     //   └── tabs (group, strip)
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 2 } }));
     store.registerNode(
@@ -37,9 +37,7 @@ describe('headline end-to-end', () => {
     );
     store.registerNode(createPanel({ id: asNodeId('leafA'), parentId: asNodeId('tray') }));
     store.registerNode(createPanel({ id: asNodeId('leafB'), parentId: asNodeId('tray') }));
-    store.registerNode(
-      createPanel({ id: asNodeId('solo'), parentId: asNodeId('z'), placement: { pinned: true } }),
-    );
+    store.registerNode(createPanel({ id: asNodeId('solo'), parentId: asNodeId('z') }));
     store.registerNode(
       createGroup({
         id: asNodeId('tabs'),
@@ -49,15 +47,17 @@ describe('headline end-to-end', () => {
       }),
     );
     store.focusNode(asNodeId('leafA'));
+    store.setPinned(asNodeId('solo'), 0);
 
     // Snapshot + rehydrate.
     const snap = serialize(store);
     expect(snap.version).toBe(3);
     const rehydrated = deserialize(snap);
 
-    // Tree structure preserved (with pinned 'solo' promoted to prefix).
+    // Tree structure, including 'solo's held slot, preserved.
     const zoneChildren = rehydrated.getContainerView(asNodeId('z'))?.childOrder ?? [];
     expect(zoneChildren[0]).toBe('solo');
+    expect(rehydrated.getPinnedIndex(asNodeId('solo'))).toBe(0);
     expect(zoneChildren).toEqual(expect.arrayContaining(['solo', 'tray', 'tabs']));
     expect(rehydrated.getContainerView(asNodeId('tray'))?.childOrder).toEqual(['leafA', 'leafB']);
 
@@ -77,7 +77,7 @@ describe('headline end-to-end', () => {
     expect(rehydrated.getContainerView(asNodeId('tray'))?.childOrder).toEqual(['leafA']);
     const zoneAfter = rehydrated.getContainerView(asNodeId('z'))?.childOrder ?? [];
     expect(zoneAfter).toContain('leafB');
-    // 'solo' is still pinned-prefix.
+    // 'solo' still holds its pinned slot.
     expect(zoneAfter[0]).toBe('solo');
   });
 });

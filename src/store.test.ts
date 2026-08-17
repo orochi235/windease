@@ -191,7 +191,7 @@ describe('Store — moveNode', () => {
   });
 });
 
-describe('Store — reorder + pinned prefix', () => {
+describe('Store — reorder + pinned slots', () => {
   it('reorderInParent emits node.reordered with from/to indices', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
@@ -210,38 +210,17 @@ describe('Store — reorder + pinned prefix', () => {
     });
   });
 
-  it('pinned children stay in prefix on reorder', () => {
+  it('a pinned child holds its slot against a third-party reorder', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('a'), parentId: id('z'), placement: { pinned: true } }));
+    s.registerNode(createPanel({ id: id('a'), parentId: id('z') }));
     s.registerNode(createPanel({ id: id('b'), parentId: id('z') }));
     s.registerNode(createPanel({ id: id('c'), parentId: id('z') }));
-    // Try to put c before a — should snap so a stays first.
+    s.setPinned(id('a'), 0);
+    // Try to put c before a — a holds index 0, so c lands after it.
     s.reorderInParent(id('c'), 0);
     const ids = s.getContainerView(id('z'))?.childOrder ?? [];
     expect(ids[0]).toBe('a');
-  });
-
-  it('setting pinned promotes to prefix', () => {
-    const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('a'), parentId: id('z') }));
-    s.registerNode(createPanel({ id: id('b'), parentId: id('z') }));
-    s.registerNode(createPanel({ id: id('c'), parentId: id('z') }));
-    s.setPlacement(id('c'), 'pinned', true);
-    const ids = s.getContainerView(id('z'))?.childOrder ?? [];
-    expect(ids[0]).toBe('c');
-  });
-
-  it('allowsPinning: false does not resort', () => {
-    const s = fresh();
-    s.registerNode(
-      createZone({ id: id('z'), strategyId: 'grid', config: {}, allowsPinning: false }),
-    );
-    s.registerNode(createPanel({ id: id('a'), parentId: id('z') }));
-    s.registerNode(createPanel({ id: id('b'), parentId: id('z') }));
-    s.setPlacement(id('b'), 'pinned', true);
-    expect(s.getContainerView(id('z'))?.childOrder).toEqual(['a', 'b']);
   });
 });
 
@@ -290,12 +269,14 @@ describe('Store — container config', () => {
     expect(cb).toHaveBeenCalled();
   });
 
-  it('setAllowsPinning false clears pinned flags', () => {
+  it('setAllowsPinning false clears held pins', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('p'), parentId: id('z'), placement: { pinned: true } }));
+    s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
+    s.setPinned(id('p'), 0);
     s.setAllowsPinning(id('z'), false);
     expect(s.getPlacement(id('p'))).toEqual({});
+    expect(s.getPinnedIndex(id('p'))).toBeNull();
   });
 });
 

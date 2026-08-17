@@ -5,10 +5,12 @@ import {
   InvariantViolationError,
   LockedError,
   NodeNotFoundError,
+  PinIndexError,
 } from './errors.js';
 import { TypedEmitter } from './events.js';
 import { type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeId } from './node.js';
+import { placeRespectingPins } from './pinning.js';
 import {
   type MachineName,
   type PendingPublish,
@@ -51,6 +53,7 @@ export interface StoreEvents {
     changes: Record<string, { from: unknown; to: unknown }>;
   };
   'node.lockChanged': { id: NodeId; from: Readonly<LockSet>; to: Readonly<LockSet> };
+  'node.pinnedChanged': { id: NodeId; from: number | null; to: number | null };
   'node.activityChanged': {
     id: NodeId;
     changes: Record<string, { from: unknown; to: unknown }>;
@@ -246,7 +249,6 @@ export class Store {
         childOrder: [...c.childOrder, node.id],
       }));
       this.publisher.markDirty(parent.id, { bypass: true });
-      this.resortByPin(parent.id);
     } else {
       this.nodesMap.set(node.id, node);
       this.publisher.markDirty(node.id, { bypass: true });
@@ -276,7 +278,9 @@ export class Store {
     }
 
     if (this.focusedIdValue === id) this.focusedIdValue = null;
+    const parentId = node.membership?.parentId;
     this.detachAndRemove(id);
+    if (parentId) this.clampPins(parentId);
     this.events.emit('node.unregistered', { id });
     trace('store', `unregister: ${id}`);
     this.scheduleNotify();
@@ -411,7 +415,7 @@ export class Store {
       to: transit.state,
     });
 
-    this.resortByPin(newParentId);
+    this.clampPins(fromParentId);
     this.scheduleNotify();
   }
 
@@ -439,17 +443,17 @@ export class Store {
       );
     }
     const targetIndex = clampIndex(at, parent.container.childOrder.length - 1);
-    if (targetIndex === fromIndex) return;
-    this.replaceContainer(parentId, (c) => {
-      const next = [...c.childOrder];
-      next.splice(fromIndex, 1);
-      next.splice(targetIndex, 0, id);
-      return { ...c, childOrder: next };
-    });
+    if (targetIndex === fromIndex && this.getPinnedIndex(id) === null) return;
+    this.replaceContainer(parentId, (c) => ({
+      ...c,
+      childOrder: placeRespectingPins(c.childOrder, id, targetIndex, this.pinnedIndexOf),
+    }));
     this.publisher.markDirty(parentId, { bypass: true });
-    this.resortByPin(parentId);
     const finalIndex =
       this.nodesMap.get(parentId)?.container?.childOrder.indexOf(id) ?? targetIndex;
+    if (this.getPinnedIndex(id) !== null && finalIndex !== this.getPinnedIndex(id)) {
+      this.writePin(id, finalIndex);
+    }
     this.events.emit('node.reordered', { parentId, id, fromIndex, toIndex: finalIndex });
     this.scheduleNotify();
   }
@@ -502,32 +506,23 @@ export class Store {
 
     this.replaceContainer(parentId, (c) => ({ ...c, childOrder: [...orderedIds] }));
     this.publisher.markDirty(parentId, { bypass: true });
-    this.resortByPin(parentId);
+    this.clampPins(parentId);
     trace('store', `setChildOrder: ${parentId} → [${orderedIds.join(', ')}]`);
     this.scheduleNotify();
   }
 
-  private resortByPin(parentId: NodeId): void {
+  /** Realign every child's recorded `pinned` index to its actual position in
+   *  `parentId`'s childOrder, after a mutation that may have shifted or
+   *  removed slots out from under it. */
+  private clampPins(parentId: NodeId): void {
     const parent = this.nodesMap.get(parentId);
-    if (!parent?.container?.allowsPinning) return;
-    const pinned: NodeId[] = [];
-    const rest: NodeId[] = [];
+    if (!parent?.container) return;
     for (const cid of parent.container.childOrder) {
-      const child = this.nodesMap.get(cid);
-      const placement = child?.membership?.placement;
-      if (placement?.pinned || placement?.locked) pinned.push(cid);
-      else rest.push(cid);
+      const pin = this.getPinnedIndex(cid);
+      if (pin === null) continue;
+      const actual = parent.container.childOrder.indexOf(cid);
+      if (pin !== actual) this.writePin(cid, actual);
     }
-    const next = [...pinned, ...rest];
-    let same = true;
-    for (let i = 0; i < next.length; i++) {
-      if (next[i] !== parent.container.childOrder[i]) {
-        same = false;
-        break;
-      }
-    }
-    if (same) return;
-    this.replaceContainer(parentId, (c) => ({ ...c, childOrder: next }));
   }
 
   private isDescendantOf(maybeDescendant: NodeId, ancestor: NodeId): boolean {
@@ -569,7 +564,6 @@ export class Store {
     if (Object.keys(changes).length === 0) return;
     this.replaceMembership(id, (s) => ({ ...s, placement: next }));
     this.events.emit('node.placementChanged', { id, changes });
-    if (node.membership.parentId) this.resortByPin(node.membership.parentId);
     this.scheduleNotify();
   }
 
@@ -771,24 +765,67 @@ export class Store {
     this.replaceContainer(id, (c) => ({ ...c, allowsPinning: allows }));
     this.events.emit('container.allowsPinningChanged', { id, from, to: allows });
     if (!allows) {
-      // Clear pinned flags from children (locked retained for drag suppression).
       for (const cid of node.container.childOrder) {
-        const child = this.nodesMap.get(cid);
-        if (child?.membership?.placement?.pinned) {
-          const nextPlacement = { ...child.membership.placement };
-          delete nextPlacement.pinned;
-          this.replaceMembership(cid, (s) => ({ ...s, placement: nextPlacement }));
-          this.events.emit('node.placementChanged', {
-            id: cid,
-            changes: { pinned: { from: true, to: undefined } },
-          });
-        }
+        const pinFrom = this.getPinnedIndex(cid);
+        if (pinFrom === null) continue;
+        this.writePin(cid, null);
+        this.events.emit('node.pinnedChanged', { id: cid, from: pinFrom, to: null });
       }
-    } else {
-      this.resortByPin(id);
     }
     this.scheduleNotify();
   }
+
+  setPinned(id: NodeId, at?: number, opts?: MutateOptions): void {
+    const node = this.requireNode(id);
+    if (!node.membership) {
+      throw new InvariantViolationError('pin-unparented', `node ${id} not parented`, { id });
+    }
+    const parentId = node.membership.parentId;
+    const parent = this.requireNode(parentId);
+    if (!parent.container) {
+      throw new InvariantViolationError('parent-not-container', `parent ${parentId}`, {
+        parentId,
+      });
+    }
+    this.assertUnlocked(parentId, 'arrange', 'setPinned', opts);
+    const length = parent.container.childOrder.length;
+    const current = parent.container.childOrder.indexOf(id);
+    const target = at ?? current;
+    if (target < 0 || target >= length) throw new PinIndexError(id, target, length);
+
+    const from = this.getPinnedIndex(id);
+    if (target !== current) this.reorderInParent(id, target, { force: true });
+    this.writePin(id, target);
+    this.events.emit('node.pinnedChanged', { id, from, to: target });
+    trace('store', `setPinned: ${id} @ ${target}`);
+    this.scheduleNotify();
+  }
+
+  unpin(id: NodeId, opts?: MutateOptions): void {
+    const from = this.getPinnedIndex(id);
+    if (from === null) return;
+    const parentId = this.requireNode(id).membership?.parentId;
+    if (parentId) this.assertUnlocked(parentId, 'arrange', 'unpin', opts);
+    this.writePin(id, null);
+    this.events.emit('node.pinnedChanged', { id, from, to: null });
+    this.scheduleNotify();
+  }
+
+  getPinnedIndex(id: NodeId): number | null {
+    const raw = this.nodesMap.get(id)?.membership?.placement?.pinned;
+    return typeof raw === 'number' ? raw : null;
+  }
+
+  private writePin(id: NodeId, at: number | null): void {
+    this.replaceMembership(id, (m) => {
+      const placement = { ...m.placement };
+      if (at === null) delete placement.pinned;
+      else placement.pinned = at;
+      return { ...m, placement };
+    });
+  }
+
+  private pinnedIndexOf = (id: NodeId): number | null => this.getPinnedIndex(id);
 
   // ===== Lifecycle: show / hide =====
 

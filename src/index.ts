@@ -78,6 +78,7 @@ export {
   type NodeKind,
   type TransitCap,
 } from './node.js';
+export { type PinnedIndexOf, placeRespectingPins } from './pinning.js';
 export {
   deserialize,
   type SerializedNode,
