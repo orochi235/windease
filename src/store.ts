@@ -50,7 +50,7 @@ export interface StoreEvents {
     id: NodeId;
     changes: Record<string, { from: unknown; to: unknown }>;
   };
-  'node.lockChanged': { id: NodeId; from: LockSet; to: LockSet };
+  'node.lockChanged': { id: NodeId; from: Readonly<LockSet>; to: Readonly<LockSet> };
   'node.activityChanged': {
     id: NodeId;
     changes: Record<string, { from: unknown; to: unknown }>;
@@ -718,13 +718,13 @@ export class Store {
     const to = resolveLock(node, input);
     if (sameLock(from, to)) return;
     this.replaceNode(id, (n) => (Object.keys(to).length === 0 ? omitLock(n) : { ...n, lock: to }));
-    this.events.emit('node.lockChanged', { id, from, to });
+    this.events.emit('node.lockChanged', { id, from: { ...from }, to: { ...to } });
     trace('store', `setLock: ${id} → {${Object.keys(to).join(',')}}`);
     this.scheduleNotify();
   }
 
   getLock(id: NodeId): Readonly<LockSet> {
-    return this.requireNode(id).lock ?? {};
+    return this.nodesMap.get(id)?.lock ?? {};
   }
 
   isLocked(id: NodeId, axis: LockAxis): boolean {
@@ -991,15 +991,13 @@ export interface MutateOptions {
 }
 
 function sameLock(a: LockSet, b: LockSet): boolean {
-  const ak = Object.keys(a);
-  const bk = Object.keys(b);
-  if (ak.length !== bk.length) return false;
-  return ak.every((k) => a[k as LockAxis] === b[k as LockAxis]);
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((k) => !a[k as LockAxis] === !b[k as LockAxis]);
 }
 
 function omitLock(n: Node): Node {
   const { lock: _lock, ...rest } = n;
-  return rest as Node;
+  return rest;
 }
 
 // Re-export commonly used types for convenience.

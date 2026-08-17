@@ -79,4 +79,21 @@ describe('Store — setLock / getLock', () => {
     const { s } = seeded();
     expect(s.withLocksSuspended(() => 42)).toBe(42);
   });
+
+  it('stays suspended across nested calls until the outermost exits', () => {
+    const { s, p } = seeded();
+    s.setLock(p, true);
+    s.withLocksSuspended(() => {
+      s.withLocksSuspended(() => {
+        expect(s.isLocked(p, 'move')).toBe(false);
+      });
+      expect(s.isLocked(p, 'move')).toBe(false);
+    });
+    expect(s.isLocked(p, 'move')).toBe(true);
+  });
+
+  it('returns an empty set for a nonexistent node instead of throwing', () => {
+    const { s } = seeded();
+    expect(s.getLock(asNodeId('does-not-exist'))).toEqual({});
+  });
 });
