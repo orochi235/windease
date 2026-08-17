@@ -288,7 +288,13 @@ export function Zone(props: ZoneProps) {
     reconcile: (store, id) => {
       const base = makeReconciler(props);
       base(store, id);
-      if (props.state !== undefined) store.setContainerState(id, props.state);
+      if (props.state !== undefined) {
+        if (store.isLocked(id, 'arrange')) {
+          trace('layout', `<Zone> state prop reconcile skipped for ${id}: locked (arrange)`);
+          return;
+        }
+        store.setContainerState(id, props.state);
+      }
     },
   });
 

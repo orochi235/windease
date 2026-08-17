@@ -369,3 +369,44 @@ describe('lock — declarative `lock` and `pinned` props', () => {
     ).toBe(42);
   });
 });
+
+describe('lock — Zone `state` prop reconcile', () => {
+  it('an arrange-locked Zone with a `state` prop mounts without throwing and leaves container state unchanged', () => {
+    const store = new Store();
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => {
+      render(
+        withProviders(
+          store,
+          <Zone
+            id={asNodeId('z')}
+            strategyId="split"
+            config={{}}
+            viewport={{ w: 200, h: 100 }}
+            lock={{ arrange: true }}
+            state={{ kind: 'leaf', id: 'x' }}
+          />,
+        ),
+      );
+    }).not.toThrow();
+    spy.mockRestore();
+    expect(store.getContainerState(asNodeId('z'))).toBeUndefined();
+  });
+
+  it('an unlocked Zone with a `state` prop applies it (control)', () => {
+    const store = new Store();
+    render(
+      withProviders(
+        store,
+        <Zone
+          id={asNodeId('z')}
+          strategyId="split"
+          config={{}}
+          viewport={{ w: 200, h: 100 }}
+          state={{ kind: 'leaf', id: 'x' }}
+        />,
+      ),
+    );
+    expect(store.getContainerState(asNodeId('z'))).toEqual({ kind: 'leaf', id: 'x' });
+  });
+});
