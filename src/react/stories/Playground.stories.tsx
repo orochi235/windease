@@ -121,7 +121,8 @@ function makeStore(): Store {
         meta: { title, kind: 'controls' },
       }),
     );
-    s.patchPlacement(nid, { locked: true, pinned: true });
+    s.patchPlacement(nid, { locked: true });
+    s.setPinned(nid, 0);
     s.showNode(nid);
   };
   seedControls('main-controls', MAIN, 'Main controls');
@@ -131,9 +132,9 @@ function makeStore(): Store {
   // Resizable-children demo: pin the sidebar controls to an explicit 180px
   // height so siblings stay below regardless of available space. The other
   // sidebar widgets get interactive resize edges from the stack strategy.
+  // Already pinned to index 0 by seedControls above; this call only fixes the height.
   s.patchPlacement(asNodeId('sidebar-controls'), {
     locked: true,
-    pinned: true,
     size: { h: 180 },
   });
   seed('widget-1', SIDEBAR, 'Widget 1', 120);
@@ -217,13 +218,16 @@ export const Playground: Story = () => {
                 <span className="pg-panel-actions">
                   <button
                     type="button"
-                    className={`pg-panel-btn pg-panel-btn--pin${node.membership?.placement?.pinned ? ' is-active' : ''}`}
-                    title={node.membership?.placement?.pinned ? 'Unpin' : 'Pin'}
+                    className={`pg-panel-btn pg-panel-btn--pin${store.getPinnedIndex(node.id) !== null ? ' is-active' : ''}`}
+                    title={store.getPinnedIndex(node.id) !== null ? 'Unpin' : 'Pin'}
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
-                      const pinned = !node.membership?.placement?.pinned;
-                      store.patchPlacement(node.id, { pinned: pinned ? true : undefined });
+                      if (store.getPinnedIndex(node.id) !== null) {
+                        store.unpin(node.id);
+                      } else {
+                        store.setPinned(node.id);
+                      }
                     }}
                   >
                     📌
@@ -257,6 +261,7 @@ export const Playground: Story = () => {
       store.events.on('node.registered', () => force((n) => n + 1)),
       store.events.on('node.unregistered', () => force((n) => n + 1)),
       store.events.on('node.moved', () => force((n) => n + 1)),
+      store.events.on('node.pinnedChanged', () => force((n) => n + 1)),
     ];
     return () => {
       for (const off of offs) off();
