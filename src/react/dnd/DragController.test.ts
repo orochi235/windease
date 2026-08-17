@@ -27,7 +27,7 @@ describe('DragController', () => {
 
   it('tryBegin returns false for locked node', () => {
     const s = buildStore();
-    s.patchPlacement(asNodeId('p'), { locked: true });
+    s.setLock(asNodeId('p'), { move: true });
     const c = new DragController(s);
     expect(c.tryBegin(asNodeId('p'))).toBe(false);
   });

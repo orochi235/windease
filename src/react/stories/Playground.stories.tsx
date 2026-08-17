@@ -121,7 +121,7 @@ function makeStore(): Store {
         meta: { title, kind: 'controls' },
       }),
     );
-    s.patchPlacement(nid, { locked: true });
+    s.setLock(nid, { move: true });
     s.setPinned(nid, 0);
     s.showNode(nid);
   };
@@ -132,11 +132,8 @@ function makeStore(): Store {
   // Resizable-children demo: pin the sidebar controls to an explicit 180px
   // height so siblings stay below regardless of available space. The other
   // sidebar widgets get interactive resize edges from the stack strategy.
-  // Already pinned to index 0 by seedControls above; this call only fixes the height.
-  s.patchPlacement(asNodeId('sidebar-controls'), {
-    locked: true,
-    size: { h: 180 },
-  });
+  // Already pinned to index 0 and move-locked by seedControls above; this call only fixes the height.
+  s.patchPlacement(asNodeId('sidebar-controls'), { size: { h: 180 } });
   seed('widget-1', SIDEBAR, 'Widget 1', 120);
   seed('widget-2', SIDEBAR, 'Widget 2', 80);
   seed('tool-1', DOCK, 'Tool 1', undefined, 100);

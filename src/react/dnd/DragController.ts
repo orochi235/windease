@@ -109,8 +109,8 @@ export class DragController {
       trace('dnd', `tryBegin ${sourceId}: REJECTED (no membership)`);
       return false;
     }
-    if (node.membership.placement?.locked === true) {
-      trace('dnd', `tryBegin ${sourceId}: REJECTED (placement.locked=true)`);
+    if (this.store.isLocked(sourceId, 'move')) {
+      trace('dnd', `tryBegin ${sourceId}: REJECTED (lock.move)`);
       return false;
     }
     if (this.store.isLocked(node.membership.parentId, 'dragOut')) {

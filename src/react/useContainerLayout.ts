@@ -1,6 +1,6 @@
 import { type RefObject, useCallback, useEffect, useMemo, useState } from 'react';
 import type { Affordance, LayoutEvent, LayoutResult, NodeId, Rect } from '../index.js';
-import { nodeToLayoutItem, runStrategyForContainer } from '../index.js';
+import { nodeToLayoutItem, runStrategyForContainer, trace } from '../index.js';
 import { useNode } from './hooks.js';
 import { useStore } from './Provider.js';
 import { useStrategyRegistry } from './strategies.js';
@@ -68,42 +68,62 @@ export function useContainerLayout(
     });
   }, [store, parentId]);
 
+  // Subscribe to node.lockChanged so affordance suppression (lock.arrange /
+  // lock.resize) re-evaluates. useNode(parentId) alone doesn't catch this: a
+  // resize lock lands on a child, not parentId, so the parent node reference
+  // never changes and the layout memo would otherwise stay stale.
+  const [lockTick, setLockTick] = useState(0);
+  useEffect(() => {
+    return store.events.on('node.lockChanged', (e) => {
+      if (e.id === parentId || store.getChildren(parentId).some((c) => c.id === e.id)) {
+        setLockTick((t) => t + 1);
+      }
+    });
+  }, [store, parentId]);
+
   const dispatchAffordance = useCallback<ContainerLayout['dispatchAffordance']>(
     (event) => {
       const container = node?.container;
       if (!container || !viewport) return;
       const strategy = registry.get(container.strategyId);
       if (!strategy) return;
+      if (store.isLocked(parentId, 'arrange')) {
+        trace('layout', `dispatchAffordance ${parentId}: REJECTED (lock.arrange)`);
+        return;
+      }
       // Use the canonical adapter so strategies see the same shape they get in
       // the layout path: hints (min/max), placement.size, and meta flags.
       const visibleChildren = store
         .getChildren(parentId)
         .filter((c) => c.lifecycle.state === 'visible')
         .map((c) => nodeToLayoutItem(c));
+      const lastLayout = strategy.layout({
+        items: visibleChildren,
+        container: viewport,
+        state: (store.getContainerState(parentId) ??
+          (strategy.initialState ? strategy.initialState(visibleChildren) : undefined)) as never,
+        options: (container.config ?? {}) as Record<string, unknown>,
+      });
+      const aff = lastLayout.affordances.find((a) => a.id === event.affordanceId);
+      const blocked = aff?.affects?.some((cid) => store.isLocked(cid as NodeId, 'resize'));
+      if (blocked === true) {
+        trace('layout', `dispatchAffordance ${event.affordanceId}: REJECTED (pane lock.resize)`);
+        return;
+      }
       // Route store-mutating affordances (e.g. resize edges) to the strategy's
       // dispatchAffordance hook. This runs in addition to reduce — strategies
       // may use both (split clears placement.size here, then updates ratio
       // in reduce).
-      if (strategy.dispatchAffordance) {
-        const lastLayout = strategy.layout({
-          items: visibleChildren,
+      if (strategy.dispatchAffordance && aff) {
+        strategy.dispatchAffordance({
+          event,
+          affordance: aff,
+          store,
+          parentId,
           container: viewport,
-          state: (store.getContainerState(parentId) ??
-            (strategy.initialState ? strategy.initialState(visibleChildren) : undefined)) as never,
           options: (container.config ?? {}) as Record<string, unknown>,
+          items: visibleChildren,
         });
-        const aff = lastLayout.affordances.find((a) => a.id === event.affordanceId);
-        if (aff) {
-          strategy.dispatchAffordance({
-            event,
-            affordance: aff,
-            store,
-            parentId,
-            container: viewport,
-            options: (container.config ?? {}) as Record<string, unknown>,
-            items: visibleChildren,
-          });
-        }
       }
       if (!strategy.reduce) return;
       const current =
@@ -182,14 +202,23 @@ export function useContainerLayout(
       state as never,
       preview,
     );
+    // Suppress affordances the lock forbids so a gutter the user can see but
+    // not drag never renders. Complements (not replaces) the dispatch guard
+    // above, which also covers a custom affordance renderer that bypasses
+    // this default rendering path.
+    const visibleAffordances = store.isLocked(parentId, 'arrange')
+      ? []
+      : result.affordances.filter(
+          (a) => !a.affects?.some((cid) => store.isLocked(cid as NodeId, 'resize')),
+        );
     return {
       placements: result.placements,
-      affordances: result.affordances,
+      affordances: visibleAffordances,
       unplaced: result.unplaced ?? [],
       viewport,
       isPreview: result.isPreview ?? false,
     };
-  }, [store, node?.container, viewport, registry, parentId, stateTick, previewKey]);
+  }, [store, node?.container, viewport, registry, parentId, stateTick, lockTick, previewKey]);
 
   return { ...layout, dispatchAffordance };
 }

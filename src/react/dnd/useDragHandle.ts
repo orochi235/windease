@@ -76,7 +76,7 @@ export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
     controller.cancel('outside');
   }, [controller]);
 
-  if (node?.membership?.placement?.locked === true) {
+  if (store.isLocked(nodeId, 'move')) {
     return NOOP_HANDLERS;
   }
   if (node?.membership && store.isLocked(node.membership.parentId, 'dragOut')) {
