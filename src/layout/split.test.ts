@@ -347,6 +347,42 @@ describe('splitStrategy — maxSize', () => {
   });
 });
 
+describe('splitStrategy — gutter affects', () => {
+  it('names the leaves on both sides of a gutter', () => {
+    const state = split('horizontal', 0.5, leaf('a'), leaf('b'));
+    const result = splitStrategy.layout({
+      items: [{ id: 'a' }, { id: 'b' }],
+      container: { w: 200, h: 100 },
+      state,
+      options: { gutterSize: 4 },
+    });
+    expect(result.affordances).toHaveLength(1);
+    expect(result.affordances[0]!.affects).toEqual(['a', 'b']);
+  });
+
+  it('includes every leaf of a nested subtree', () => {
+    // buildTree's right-leaning nesting for 3 items: root splits 'a' from a
+    // nested split of 'b' and 'c'.
+    const state = split(
+      'horizontal',
+      0.5,
+      leaf('a'),
+      split('horizontal', 0.5, leaf('b'), leaf('c')),
+    );
+    const result = splitStrategy.layout({
+      items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+      container: { w: 300, h: 100 },
+      state,
+      options: { gutterSize: 4 },
+    });
+    expect(result.affordances).toHaveLength(2);
+    const outer = result.affordances.find((a) => (a.meta as { path: number[] }).path.length === 0);
+    const inner = result.affordances.find((a) => (a.meta as { path: number[] }).path.length === 1);
+    expect(outer?.affects).toEqual(['a', 'b', 'c']);
+    expect(inner?.affects).toEqual(['b', 'c']);
+  });
+});
+
 describe('splitStrategy — preview', () => {
   it('marks isPreview=true on the result when preview is set', () => {
     const result = splitStrategy.layout({

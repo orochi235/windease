@@ -74,6 +74,11 @@ export interface Affordance<TMeta = unknown> {
    * strategy's `dispatchAffordance` hook fires.
    */
   childId?: NodeId | string;
+  /**
+   * Ids whose rect changes when this affordance is dragged. Present on gutters
+   * so the React layer can suppress one whose panes are resize-locked.
+   */
+  affects?: (NodeId | string)[];
 }
 
 /**

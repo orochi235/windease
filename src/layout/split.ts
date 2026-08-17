@@ -39,6 +39,16 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, x));
 }
 
+function leafIds(node: SplitNode, out: string[] = []): string[] {
+  if (node.kind === 'leaf') {
+    if (node.id) out.push(node.id);
+    return out;
+  }
+  leafIds(node.a, out);
+  leafIds(node.b, out);
+  return out;
+}
+
 /** Required pixel extent of a subtree along `axis`. Leaves contribute their
  *  hints.minSize; nested splits add along the parallel axis and max along
  *  the perpendicular axis. Unknown sizes contribute 0. */
@@ -181,6 +191,7 @@ function walk(
       rect: { x: rect.x + aSize, y: rect.y, w: gutter, h: rect.h },
       cursor: 'col-resize',
       meta: { path, direction: 'horizontal' },
+      affects: [...leafIds(node.a), ...leafIds(node.b)],
     });
   } else {
     const by = rect.y + aSize + gutter;
@@ -210,6 +221,7 @@ function walk(
       rect: { x: rect.x, y: rect.y + aSize, w: rect.w, h: gutter },
       cursor: 'row-resize',
       meta: { path, direction: 'vertical' },
+      affects: [...leafIds(node.a), ...leafIds(node.b)],
     });
   }
 }
