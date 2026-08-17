@@ -355,15 +355,15 @@ export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
     if (!affordance.id.startsWith('split-')) return;
     const meta = affordance.meta as SplitMeta | undefined;
     if (!meta) return;
-    // Conservative implementation: clear `size` on every leaf in the items
-    // list whose stored placement carries one. Targeted clearing of only the
-    // two leaves on either side of this gutter is a follow-up; the plan
-    // accepts this scope.
+    // Clear `size` only on the leaves this gutter actually moves — not every
+    // leaf in the container.
+    const affects = new Set(affordance.affects ?? []);
     const s = store as unknown as {
       getNode: (id: string) => { membership?: { placement?: Record<string, unknown> } } | undefined;
       patchPlacement: (id: string, patch: Record<string, unknown>) => void;
     };
     for (const it of items) {
+      if (!affects.has(it.id)) continue;
       const placement = s.getNode(it.id)?.membership?.placement;
       if (placement && 'size' in placement) {
         s.patchPlacement(it.id, { size: undefined });
