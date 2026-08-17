@@ -54,25 +54,6 @@ describe('serialize / deserialize — v3 round-trip', () => {
     expect(restored.getNode(asNodeId('p'))?.focus?.state).toBe('focused');
   });
 
-  it('round-trips allowsDrop / allowsDragOut, omits when default true', () => {
-    const s = new Store();
-    s.registerNode(createZone({ id: asNodeId('open'), strategyId: 'stack', config: {} }));
-    s.registerNode(createZone({ id: asNodeId('sealed'), strategyId: 'stack', config: {} }));
-    s.setAllowsDrop(asNodeId('sealed'), false);
-    s.setAllowsDragOut(asNodeId('sealed'), false);
-    const snap = serialize(s);
-    const openSnap = snap.nodes.find((n) => n.id === 'open');
-    const sealedSnap = snap.nodes.find((n) => n.id === 'sealed');
-    expect(openSnap?.container?.allowsDrop).toBeUndefined();
-    expect(openSnap?.container?.allowsDragOut).toBeUndefined();
-    expect(sealedSnap?.container?.allowsDrop).toBe(false);
-    expect(sealedSnap?.container?.allowsDragOut).toBe(false);
-    const restored = deserialize(snap);
-    expect(restored.getNode(asNodeId('open'))?.container?.allowsDrop).toBe(true);
-    expect(restored.getNode(asNodeId('sealed'))?.container?.allowsDrop).toBe(false);
-    expect(restored.getNode(asNodeId('sealed'))?.container?.allowsDragOut).toBe(false);
-  });
-
   it('round-trips container state (e.g. splitStrategy ratio)', () => {
     const s = new Store();
     s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'split', config: {} }));

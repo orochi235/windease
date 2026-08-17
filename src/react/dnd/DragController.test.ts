@@ -62,16 +62,16 @@ describe('DragController', () => {
     expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p']);
   });
 
-  it('tryBegin returns false when parent has allowsDragOut=false', () => {
+  it('tryBegin returns false when parent is dragOut-locked', () => {
     const s = buildStore();
-    s.setAllowsDragOut(asNodeId('z1'), false);
+    s.setLock(asNodeId('z1'), { dragOut: true });
     const c = new DragController(s);
     expect(c.tryBegin(asNodeId('p'))).toBe(false);
   });
 
-  it('hover is rejected when target has allowsDrop=false', async () => {
+  it('hover is rejected when target is accept-locked', async () => {
     const s = buildStore();
-    s.setAllowsDrop(asNodeId('z2'), false);
+    s.setLock(asNodeId('z2'), { accept: true });
     const c = new DragController(s);
     c.tryBegin(asNodeId('p'));
     c.registerDropTarget(asNodeId('z2'), makeFakeElement(0, 0, 100, 100));

@@ -266,4 +266,37 @@ describe('Store — arrange and resize locks', () => {
     s.patchPlacement(p, { size: { w: 100 } }, { force: true });
     expect(s.getPlacement(p).size).toEqual({ w: 100 });
   });
+
+  it('blocks setPlacement(id, "size", undefined) on a resize-locked node', () => {
+    const { s, p } = seeded();
+    s.setLock(p, { resize: true });
+    expect(() => s.setPlacement(p, 'size', undefined)).toThrow(LockedError);
+  });
+});
+
+describe('Store — allows* flags are gone', () => {
+  it('no longer exposes setAllowsDrop or setAllowsDragOut', () => {
+    const { s } = seeded();
+    expect((s as unknown as Record<string, unknown>).setAllowsDrop).toBeUndefined();
+    expect((s as unknown as Record<string, unknown>).setAllowsDragOut).toBeUndefined();
+  });
+
+  it('accepts lock at construction via createZone', () => {
+    const s = new Store();
+    s.registerNode(
+      createZone({
+        id: id('z'),
+        strategyId: 'grid',
+        config: {},
+        lock: { accept: true },
+      }),
+    );
+    expect(s.getLock(id('z'))).toEqual({ accept: true });
+  });
+
+  it('keeps allowsPinning, which governs a different concept', () => {
+    const { s, z } = seeded();
+    s.setAllowsPinning(z, false);
+    expect(s.getContainerView(z)?.allowsPinning).toBe(false);
+  });
 });

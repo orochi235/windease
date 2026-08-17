@@ -83,7 +83,6 @@ function makeStore(): Store {
       container: {
         strategyId: 'strip',
         config: { axis: 'x', gap: 6, padding: 6, fill: true },
-        allowsDrop: true,
       },
     }),
   );
@@ -316,10 +315,7 @@ function ZoneControls({
   const [, force] = useState(0);
   useEffect(() => {
     const offs = [
-      store.events.on('container.allowsDropChanged', (e) => {
-        if (e.id === zoneId) force((n) => n + 1);
-      }),
-      store.events.on('container.allowsDragOutChanged', (e) => {
+      store.events.on('node.lockChanged', (e) => {
         if (e.id === zoneId) force((n) => n + 1);
       }),
       store.events.on('container.allowsPinningChanged', (e) => {
@@ -337,6 +333,7 @@ function ZoneControls({
   const node = store.getNode(zoneId);
   const container = node?.container;
   if (!container) return null;
+  const lock = store.getLock(zoneId);
 
   const cfg = (container.config ?? {}) as {
     cols?: number;
@@ -360,18 +357,18 @@ function ZoneControls({
       <label>
         <input
           type="checkbox"
-          checked={container.allowsDrop}
-          onChange={(e) => store.setAllowsDrop(zoneId, e.target.checked)}
+          checked={lock.accept === true}
+          onChange={(e) => store.setLock(zoneId, { ...lock, accept: e.target.checked })}
         />
-        allowsDrop
+        lock.accept
       </label>
       <label>
         <input
           type="checkbox"
-          checked={container.allowsDragOut}
-          onChange={(e) => store.setAllowsDragOut(zoneId, e.target.checked)}
+          checked={lock.dragOut === true}
+          onChange={(e) => store.setLock(zoneId, { ...lock, dragOut: e.target.checked })}
         />
-        allowsDragOut
+        lock.dragOut
       </label>
       <label>
         <input

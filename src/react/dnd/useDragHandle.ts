@@ -79,11 +79,8 @@ export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
   if (node?.membership?.placement?.locked === true) {
     return NOOP_HANDLERS;
   }
-  if (node?.membership) {
-    const parent = store.getNode(node.membership.parentId);
-    if (parent?.container?.allowsDragOut === false) {
-      return NOOP_HANDLERS;
-    }
+  if (node?.membership && store.isLocked(node.membership.parentId, 'dragOut')) {
+    return NOOP_HANDLERS;
   }
   return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel };
 }

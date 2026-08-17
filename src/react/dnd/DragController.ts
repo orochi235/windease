@@ -113,12 +113,8 @@ export class DragController {
       trace('dnd', `tryBegin ${sourceId}: REJECTED (placement.locked=true)`);
       return false;
     }
-    const parent = this.store.getNode(node.membership.parentId);
-    if (parent?.container?.allowsDragOut === false) {
-      trace(
-        'dnd',
-        `tryBegin ${sourceId}: REJECTED (parent ${node.membership.parentId} allowsDragOut=false)`,
-      );
+    if (this.store.isLocked(node.membership.parentId, 'dragOut')) {
+      trace('dnd', `tryBegin ${sourceId}: REJECTED (parent lock.dragOut)`);
       return false;
     }
     this.active = { draggingId: sourceId, cursor: { x: 0, y: 0 }, hover: null };
@@ -182,8 +178,8 @@ export class DragController {
     }
 
     const targetNode = this.store.getNode(targetId);
-    if (targetNode?.container?.allowsDrop === false) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (target.container.allowsDrop=false)`);
+    if (this.store.isLocked(targetId, 'accept')) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (lock.accept)`);
       return false;
     }
 

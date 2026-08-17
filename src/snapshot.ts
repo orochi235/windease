@@ -23,10 +23,6 @@ export interface SerializedNode {
     config: unknown;
     childOrder: string[];
     allowsPinning: boolean;
-    /** Omitted when true (the default). */
-    allowsDrop?: boolean;
-    /** Omitted when true (the default). */
-    allowsDragOut?: boolean;
     state?: unknown;
   };
   membership?: {
@@ -69,8 +65,6 @@ export function serialize(store: Store): SerializedStore {
         childOrder: [...node.container.childOrder],
         allowsPinning: node.container.allowsPinning,
       };
-      if (node.container.allowsDrop === false) c.allowsDrop = false;
-      if (node.container.allowsDragOut === false) c.allowsDragOut = false;
       if (node.container.state !== undefined) c.state = node.container.state;
       out.container = c;
     }
@@ -291,8 +285,6 @@ function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildOrder: bo
       config: sn.container.config,
       childOrder: opts.emptyChildOrder ? [] : sn.container.childOrder.map(asNodeId),
       allowsPinning: sn.container.allowsPinning,
-      allowsDrop: sn.container.allowsDrop ?? true,
-      allowsDragOut: sn.container.allowsDragOut ?? true,
     };
     if (sn.container.state !== undefined) {
       node.container.state = sn.container.state;
