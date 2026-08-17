@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createGroup, createPanel, createZone } from './constructors.js';
-import { resolveLock, supportedAxes } from './lock.js';
+import { type LockSet, resolveLock, supportedAxes } from './lock.js';
 import { asNodeId } from './node.js';
 
 const id = (s: string) => asNodeId(s);
@@ -58,5 +58,10 @@ describe('resolveLock', () => {
   it('resolves false to an empty set', () => {
     const panel = createPanel({ id: id('p'), parentId: id('z') });
     expect(resolveLock(panel, false)).toEqual({});
+  });
+
+  it('drops a key that is not a real axis', () => {
+    const panel = createPanel({ id: id('p'), parentId: id('z') });
+    expect(resolveLock(panel, { bogus: true } as LockSet)).toEqual({});
   });
 });

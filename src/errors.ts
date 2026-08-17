@@ -1,3 +1,4 @@
+import type { LockAxis } from './lock.js';
 import type { NodeId } from './node.js';
 
 export type WindeaseErrorCode =
@@ -100,9 +101,9 @@ export class StrategyRejectionError extends WindeaseError {
 /** @group Errors */
 export class LockedError extends WindeaseError {
   readonly id: NodeId;
-  readonly axis: string;
+  readonly axis: LockAxis;
   readonly operation: string;
-  constructor(id: NodeId, axis: string, operation: string) {
+  constructor(id: NodeId, axis: LockAxis, operation: string) {
     super('locked', `Operation ${operation} on ${id} is blocked by lock.${axis}`);
     this.name = 'LockedError';
     this.id = id;

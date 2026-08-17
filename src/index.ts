@@ -12,7 +12,9 @@ export {
   DuplicateNodeError,
   InvalidThrottlePolicyError,
   InvariantViolationError,
+  LockedError,
   NodeNotFoundError,
+  PinIndexError,
   StrategyRejectionError,
   WindeaseError,
   type WindeaseErrorCode,
@@ -47,6 +49,7 @@ export type {
   Rect,
   Size,
 } from './layout-types.js';
+export { type LockAxis, type LockSet, resolveLock, supportedAxes } from './lock.js';
 export {
   createFocusMachine,
   type FocusEvent,
@@ -81,7 +84,7 @@ export {
   type SerializedStore,
   serialize,
 } from './snapshot.js';
-export { Store, type StoreEvents } from './store.js';
+export { type MutateOptions, Store, type StoreEvents } from './store.js';
 export {
   type Clock,
   type MachineName,

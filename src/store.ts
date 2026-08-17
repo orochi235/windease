@@ -3,9 +3,11 @@ import {
   CycleError,
   DuplicateNodeError,
   InvariantViolationError,
+  LockedError,
   NodeNotFoundError,
 } from './errors.js';
 import { TypedEmitter } from './events.js';
+import { type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeId } from './node.js';
 import {
   type MachineName,
@@ -48,6 +50,7 @@ export interface StoreEvents {
     id: NodeId;
     changes: Record<string, { from: unknown; to: unknown }>;
   };
+  'node.lockChanged': { id: NodeId; from: LockSet; to: LockSet };
   'node.activityChanged': {
     id: NodeId;
     changes: Record<string, { from: unknown; to: unknown }>;
@@ -96,6 +99,7 @@ export class Store {
   private focusedIdValue: NodeId | null = null;
   private readonly subscribers = new Set<() => void>();
   private readonly publisher: Publisher;
+  private locksSuspended = 0;
 
   constructor(options: StoreOptions = {}) {
     this.publisher = new Publisher({
@@ -708,6 +712,48 @@ export class Store {
     this.scheduleNotify();
   }
 
+  setLock(id: NodeId, input: boolean | LockSet): void {
+    const node = this.requireNode(id);
+    const from = node.lock ?? {};
+    const to = resolveLock(node, input);
+    if (sameLock(from, to)) return;
+    this.replaceNode(id, (n) => (Object.keys(to).length === 0 ? omitLock(n) : { ...n, lock: to }));
+    this.events.emit('node.lockChanged', { id, from, to });
+    trace('store', `setLock: ${id} → {${Object.keys(to).join(',')}}`);
+    this.scheduleNotify();
+  }
+
+  getLock(id: NodeId): Readonly<LockSet> {
+    return this.requireNode(id).lock ?? {};
+  }
+
+  isLocked(id: NodeId, axis: LockAxis): boolean {
+    if (this.locksSuspended > 0) return false;
+    return this.nodesMap.get(id)?.lock?.[axis] === true;
+  }
+
+  /** Run `fn` with every lock ignored. Used internally by `deserialize` and
+   *  `HistoryController` so a restore is never fought by locks. */
+  withLocksSuspended<T>(fn: () => T): T {
+    this.locksSuspended += 1;
+    try {
+      return fn();
+    } finally {
+      this.locksSuspended -= 1;
+    }
+  }
+
+  private assertUnlocked(
+    id: NodeId,
+    axis: LockAxis,
+    operation: string,
+    opts?: MutateOptions,
+  ): void {
+    if (opts?.force === true) return;
+    if (!this.isLocked(id, axis)) return;
+    throw new LockedError(id, axis, operation);
+  }
+
   setAllowsPinning(id: NodeId, allows: boolean): void {
     const node = this.requireNode(id);
     if (!node.container) {
@@ -937,6 +983,23 @@ function clampIndex(at: number | undefined, length: number): number {
   if (at < 0) return 0;
   if (at > length) return length;
   return at;
+}
+
+export interface MutateOptions {
+  /** Bypass lock guards for this call. */
+  force?: boolean;
+}
+
+function sameLock(a: LockSet, b: LockSet): boolean {
+  const ak = Object.keys(a);
+  const bk = Object.keys(b);
+  if (ak.length !== bk.length) return false;
+  return ak.every((k) => a[k as LockAxis] === b[k as LockAxis]);
+}
+
+function omitLock(n: Node): Node {
+  const { lock: _lock, ...rest } = n;
+  return rest as Node;
 }
 
 // Re-export commonly used types for convenience.
