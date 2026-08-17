@@ -299,3 +299,14 @@ describe('snapshot — placement.size and hints.maxSize', () => {
     expect(restored.getNode(asNodeId('a'))?.hints?.maxSize).toEqual({ w: 400, h: 400 });
   });
 });
+
+describe('deserialize — in-place restore with a destroy-locked root', () => {
+  it('does not throw when the target store has a destroy-locked root', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.setLock(asNodeId('z'), { destroy: true });
+    const snap = serialize(store);
+    expect(() => deserialize(store, snap)).not.toThrow();
+    expect(store.getNode(asNodeId('z'))).toBeDefined();
+  });
+});

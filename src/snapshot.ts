@@ -214,9 +214,12 @@ function hydrate(snap: SerializedStore, target?: Store): Store {
     // Wholesale replacement: drop every existing node (cascading from each
     // root) before repopulating from the snapshot. Truth reads only — the
     // published view is meaningless mid-hydrate and gets resynced below.
-    for (const rootId of [...target.rootIdsTruth]) {
-      target.unregisterNode(rootId);
-    }
+    // Suspend locks so a destroy-locked root doesn't abort the restore.
+    target.withLocksSuspended(() => {
+      for (const rootId of [...target.rootIdsTruth]) {
+        target.unregisterNode(rootId);
+      }
+    });
   }
 
   // Visit nodes in tree order: each root, then DFS through its childOrder,
