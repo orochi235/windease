@@ -19,6 +19,8 @@ export type WindeaseErrorCode =
   | 'capability-missing'
   | 'cycle-detected'
   | 'strategy-rejected'
+  | 'locked'
+  | 'pin-index-out-of-range'
   // codes (throttling)
   | 'invalid-throttle-policy'
   // Free-form code surface for InvariantViolationError.
@@ -92,6 +94,37 @@ export class StrategyRejectionError extends WindeaseError {
     this.name = 'StrategyRejectionError';
     this.parentId = parentId;
     this.reason = reason;
+  }
+}
+
+/** @group Errors */
+export class LockedError extends WindeaseError {
+  readonly id: NodeId;
+  readonly axis: string;
+  readonly operation: string;
+  constructor(id: NodeId, axis: string, operation: string) {
+    super('locked', `Operation ${operation} on ${id} is blocked by lock.${axis}`);
+    this.name = 'LockedError';
+    this.id = id;
+    this.axis = axis;
+    this.operation = operation;
+  }
+}
+
+/** @group Errors */
+export class PinIndexError extends WindeaseError {
+  readonly id: NodeId;
+  readonly requested: number;
+  readonly length: number;
+  constructor(id: NodeId, requested: number, length: number) {
+    super(
+      'pin-index-out-of-range',
+      `Cannot pin ${id} to index ${requested}: parent has ${length} children`,
+    );
+    this.name = 'PinIndexError';
+    this.id = id;
+    this.requested = requested;
+    this.length = length;
   }
 }
 

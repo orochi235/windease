@@ -1,4 +1,5 @@
 import type { Machine } from './fsm.js';
+import type { LockSet } from './lock.js';
 import type { FocusEvent, FocusState } from './machines/focus.js';
 import type { LifecycleEvent, LifecycleState } from './machines/lifecycle.js';
 import type { TransitEvent, TransitState } from './machines/transit.js';
@@ -86,4 +87,8 @@ export interface Node {
   container?: ContainerCap;
   membership?: MembershipCap;
   focus?: FocusCap;
+
+  /** Permissions restricting what may be done to this node. Node-intrinsic:
+   *  survives `moveNode`, unlike `membership.placement`. */
+  lock?: LockSet;
 }
