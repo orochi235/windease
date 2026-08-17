@@ -126,6 +126,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
             rect: { x: x + w - 2, y, w: 4, h },
             cursor: 'ew-resize',
             childId: item.id,
+            affects: [item.id],
           });
         }
         x += w + gap;
@@ -145,6 +146,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
             rect: { x, y: y + h - 2, w, h: 4 },
             cursor: 'ns-resize',
             childId: item.id,
+            affects: [item.id],
           });
         }
         y += h + gap;

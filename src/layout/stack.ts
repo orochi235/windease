@@ -129,6 +129,7 @@ export const stackStrategy: LayoutStrategy<void, string> = {
           rect: { x: colX, y: y + h - 2, w: colW, h: 4 },
           cursor: 'ns-resize',
           childId: item.id,
+          affects: [item.id],
         });
       }
       y += h + gap;

@@ -69,14 +69,16 @@ export interface Affordance<TMeta = unknown> {
   cursor?: string;
   meta?: TMeta;
   /**
-   * Present on resize affordances; absent on existing gutter/drag affordances.
-   * Identifies the child whose `placement.size` will be mutated when the
-   * strategy's `dispatchAffordance` hook fires.
+   * The single child whose stored `placement.size` this affordance mutates
+   * via `dispatchAffordance`. Present only on single-child resize
+   * affordances (strip/stack); gutters have no one child to name.
    */
   childId?: NodeId | string;
   /**
-   * Ids whose rect changes when this affordance is dragged. Present on gutters
-   * so the React layer can suppress one whose panes are resize-locked.
+   * Every id whose rendered rect changes when this affordance is dragged.
+   * Populated on gutters (all leaves on both sides) and on single-child
+   * resize affordances (`[childId]`), so the React layer can suppress a
+   * drag when any affected pane is resize-locked without branching on kind.
    */
   affects?: (NodeId | string)[];
 }

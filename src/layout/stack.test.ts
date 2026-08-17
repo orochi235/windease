@@ -274,6 +274,17 @@ describe('stackStrategy — placement.size', () => {
     expect(resizes[1]!.childId).toBe('b');
   });
 
+  it('affects contains exactly the childId on a resize-y affordance', () => {
+    const result = stackStrategy.layout({
+      items: [{ id: 'a' }, { id: 'b' }],
+      container: { w: 100, h: 300 },
+      state: undefined as void,
+      options: {},
+    });
+    const resize = result.affordances.find((a) => a.kind === 'resize-y')!;
+    expect(resize.affects).toEqual([resize.childId]);
+  });
+
   it('dispatchAffordance patches placement.size on the targeted child', () => {
     const fakeStore = {
       patchPlacement: vi.fn(),

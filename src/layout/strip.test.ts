@@ -135,6 +135,17 @@ describe('stripStrategy — placement.size', () => {
     expect(resizes.map((a) => a.childId)).toEqual(['a', 'b']);
   });
 
+  it('affects contains exactly the childId on a resize-x affordance', () => {
+    const result = stripStrategy.layout({
+      items: [{ id: 'a' }, { id: 'b' }],
+      container: { w: 200, h: 50 },
+      state: undefined as void,
+      options: { axis: 'x' },
+    });
+    const resize = result.affordances.find((a) => a.kind === 'resize-x')!;
+    expect(resize.affects).toEqual([resize.childId]);
+  });
+
   it('dispatchAffordance patches placement.size on resize drag (axis=x)', () => {
     const fakeStore = {
       patchPlacement: vi.fn(),
