@@ -2,12 +2,14 @@ import {
   type CSSProperties,
   type ReactNode,
   type RefObject,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import type { Node, NodeId, Store } from '../index.js';
-import { createGroup, createPanel, createZone } from '../index.js';
+import { createGroup, createPanel, createZone, trace } from '../index.js';
 import type { LockSet } from '../lock.js';
 import { type ChildSort, defaultChildSort } from './childSort.js';
 import { DragHandle } from './dnd/DragHandle.js';
@@ -478,6 +480,17 @@ function PresetShell({
   // effect re-fires) when imperative siblings appear or disappear.
   useChildren(id);
 
+  // node.lockChanged doesn't otherwise trigger a re-render here (nothing else
+  // subscribed to this id changes when only its lock flips), so an unlock
+  // would leave a pending reconciliation stuck until some unrelated re-render
+  // happened to fire. Force one so the arrange lock's release is picked up.
+  const [, forceRerenderOnLockChange] = useState(0);
+  useEffect(() => {
+    return store.events.on('node.lockChanged', (e) => {
+      if (e.id === id) forceRerenderOnLockChange((t) => t + 1);
+    });
+  }, [store, id]);
+
   // If a parent container's strategy assigned this node a rect, wrap our
   // DOM in an absolute-positioned box so we render at the right place.
   const selfRect = useLayoutForSelf(id);
@@ -518,7 +531,13 @@ function PresetShell({
         }
       }
     }
-    if (!same) store.setChildOrder(id, finalOrder);
+    if (!same) {
+      if (store.isLocked(id, 'arrange')) {
+        trace('layout', `sibling-order reconcile skipped for ${id}: locked (arrange)`);
+        return;
+      }
+      store.setChildOrder(id, finalOrder);
+    }
   });
 
   const wrapperClass =

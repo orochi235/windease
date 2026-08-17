@@ -133,6 +133,70 @@ describe('lock — dispatchAffordance refusal', () => {
       (store.getNode(a)?.membership?.placement as { size?: unknown } | undefined)?.size,
     ).toBeUndefined();
   });
+
+  it('dragging an unrelated gutter does not throw when another pane is resize-locked and sized', () => {
+    // root: split(split(a,b), split(c,d)) — d is resize-locked with an
+    // explicit size; dragging the a/b gutter must not touch d, so it must
+    // not hit d's lock.resize guard either.
+    const store = new Store();
+    const z = asNodeId('z');
+    const a = asNodeId('a');
+    const b = asNodeId('b');
+    const c = asNodeId('c');
+    const d = asNodeId('d');
+    store.registerNode(createZone({ id: z, strategyId: 'split', config: {} }));
+    for (const id of [a, b, c, d]) {
+      store.registerNode(createPanel({ id, parentId: z }));
+      store.showNode(id);
+    }
+    store.setContainerState(z, {
+      kind: 'split',
+      direction: 'horizontal',
+      ratio: 0.5,
+      a: {
+        kind: 'split',
+        direction: 'horizontal',
+        ratio: 0.5,
+        a: { kind: 'leaf', id: a },
+        b: { kind: 'leaf', id: b },
+      },
+      b: {
+        kind: 'split',
+        direction: 'horizontal',
+        ratio: 0.5,
+        a: { kind: 'leaf', id: c },
+        b: { kind: 'leaf', id: d },
+      },
+    });
+    store.patchPlacement(d, { size: { w: 50 } });
+    store.setLock(d, { resize: true });
+
+    let layoutCapture: ContainerLayout | null = null;
+    function Probe() {
+      const ref = useRef<HTMLDivElement>(null);
+      const layout = useContainerLayout(z, ref, { w: 400, h: 100 });
+      layoutCapture = layout;
+      return <div ref={ref} />;
+    }
+    render(withProviders(store, <Probe />));
+    expect(layoutCapture).not.toBeNull();
+    const abGutter = layoutCapture!.affordances.find(
+      (aff) => aff.affects?.join(',') === `${a},${b}`,
+    );
+    expect(abGutter).toBeDefined();
+    expect(() => {
+      act(() => {
+        layoutCapture?.dispatchAffordance({
+          affordanceId: abGutter!.id,
+          kind: 'drag',
+          payload: { dx: 20 },
+        });
+      });
+    }).not.toThrow();
+    expect(
+      (store.getNode(d)?.membership?.placement as { size?: unknown } | undefined)?.size,
+    ).toEqual({ w: 50 });
+  });
 });
 
 describe('lock — useDragHandle', () => {
