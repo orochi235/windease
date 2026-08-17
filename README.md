@@ -17,9 +17,9 @@ if you import from `windease/react`).
 > <https://orochi235.github.io/windease/api/>.
 
 See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
-(the capability model, which of the four state buckets owns what, and how
-reserved keys like `pinned` / `locked` / `size` interact with layout and
-DnD).
+(the capability model, which of the four state buckets owns what, how
+`node.lock` restricts operations, and how reserved keys like `pinned` /
+`size` interact with layout and DnD).
 
 - **Node + capabilities, not classes.** Every node optionally carries
   `container` / `membership` / `focus` / `lifecycle`. The core enforces only
@@ -158,9 +158,9 @@ DnD is opt-in. Wrap your panel chrome in `<DragHandle>`, register each
 container as a drop target with `useDropTarget(zoneId, ref)`, and put
 the tree under `<DragProvider>`. The drag controller honors:
 
-- `membership.placement.locked` — per-child drag suppression.
-- `container.allowsDragOut` — zone-level drag suppression.
-- `container.allowsDrop` — zone-level drop refusal.
+- `lock.move` on the source — per-node drag suppression.
+- `lock.dragOut` on the source's parent — zone-level drag suppression.
+- `lock.accept` on the target — zone-level drop refusal.
 - The destination strategy's `canAccept(prospective-items, options)` — e.g.
   `splitStrategy` with `recursive: false` refuses anything that wouldn't
   leave exactly two children.
@@ -283,7 +283,29 @@ before the snapshot lands.
 
 ## Breaking changes
 
-### Unreleased — `slot` renamed to `membership`
+### 0.9.0 — `node.lock` added, `pinned` redefined
+
+`node.lock` is a new node-intrinsic `LockSet` restricting what may be done to
+a node — see `docs/concepts.md` for the axis table. `membership.placement.pinned`
+changes from a boolean (promote to the front of `childOrder`) to a number
+(hold that exact index).
+
+- `setAllowsDrop` / `setAllowsDragOut` are removed. Use
+  `store.setLock(id, { accept: true })` and `{ dragOut: true }`.
+- `membership.placement.locked` is no longer read. Use `store.setLock(id, ...)`,
+  which is node-intrinsic and survives `moveNode`.
+- `membership.placement.pinned` is a number (the held index), not a boolean,
+  and can no longer be written through `patchPlacement` / `setPlacement` —
+  both throw. Use `store.setPinned(id, at?)` / `store.unpin(id)`.
+- Locking no longer reorders. Previously `locked` implied promotion to the
+  front of the parent's `childOrder`; a locked node now stays exactly where
+  it is.
+- `container.allowsDropChanged` / `container.allowsDragOutChanged` are
+  replaced by `node.lockChanged` and `node.pinnedChanged`.
+- Snapshots are v4. `deserialize` still accepts v2 and v3 and migrates on
+  read.
+
+### 0.9.0 — `slot` renamed to `membership`
 
 The parent-membership capability is now `node.membership`, not `node.slot`.
 "Slot" was borrowed from web components, where a slot is a hole the *parent*

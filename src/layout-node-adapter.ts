@@ -5,7 +5,7 @@ import type { Store } from './store.js';
 /**
  * Convert a Node into the legacy LayoutItem shape consumed by existing
  * strategies. `placement` (per-membership) projects into `meta` because that
- * is the field strategies read for flags like `pinned`/`locked` today.
+ * is the field strategies read for flags like `pinned` today.
  *
  * Phase 7 may collapse LayoutItem and LayoutNode; until then this adapter
  * lets nodes flow through unchanged strategy code.
@@ -22,7 +22,7 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
   if (placement && Object.keys(placement).length > 0) {
     item.meta = { ...placement };
     // Surface `size` as the typed, public placement intent strategies read
-    // (the `meta` projection above still carries flags like pinned/locked).
+    // (the `meta` projection above still carries flags like `pinned`).
     const size = (placement as { size?: { w?: number; h?: number } }).size;
     if (size) item.placement = { size };
   }

@@ -25,9 +25,9 @@ export interface LayoutItem {
     size?: { w?: number; h?: number };
   };
   /**
-   * Free-form per-item meta carried over from the zone's `itemMeta` map.
-   * Strategies can read flags like `pinned` here; consumers set values via
-   * `store.setItemMeta` / `store.patchItemMeta`.
+   * The node's whole `membership.placement` bag, projected by
+   * `nodeToLayoutItem`. Strategies read flags like `pinned` here rather than
+   * from `placement`, which surfaces only the typed `size` key.
    */
   meta?: Record<string, unknown>;
 }
@@ -35,7 +35,7 @@ export interface LayoutItem {
 /**
  * shape strategies see when running over `Store` nodes.
  * Built from a Node via `nodeToLayoutItem` / `getLayoutNodes`. `placement`
- * carries the per-membership bag (pinned/locked etc.); `meta` is intrinsic.
+ * carries the per-membership bag (`pinned` etc.); `meta` is intrinsic.
  */
 export interface LayoutNode {
   id: string;
