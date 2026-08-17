@@ -5,6 +5,14 @@ import { useNode } from './hooks.js';
 import { useStore } from './Provider.js';
 import { useStrategyRegistry } from './strategies.js';
 
+/** `affects` carries only real child ids, so a miss resolves to false rather than throwing. */
+function affectsResizeLocked(
+  store: ReturnType<typeof useStore>,
+  affects: Affordance['affects'],
+): boolean {
+  return affects?.some((cid) => store.isLocked(cid as NodeId, 'resize')) === true;
+}
+
 export interface ContainerLayout {
   placements: Map<NodeId, Rect>;
   affordances: Affordance[];
@@ -105,8 +113,7 @@ export function useContainerLayout(
         options: (container.config ?? {}) as Record<string, unknown>,
       });
       const aff = lastLayout.affordances.find((a) => a.id === event.affordanceId);
-      const blocked = aff?.affects?.some((cid) => store.isLocked(cid as NodeId, 'resize'));
-      if (blocked === true) {
+      if (affectsResizeLocked(store, aff?.affects)) {
         trace('layout', `dispatchAffordance ${event.affordanceId}: REJECTED (pane lock.resize)`);
         return;
       }
@@ -208,9 +215,7 @@ export function useContainerLayout(
     // this default rendering path.
     const visibleAffordances = store.isLocked(parentId, 'arrange')
       ? []
-      : result.affordances.filter(
-          (a) => !a.affects?.some((cid) => store.isLocked(cid as NodeId, 'resize')),
-        );
+      : result.affordances.filter((a) => !affectsResizeLocked(store, a.affects));
     return {
       placements: result.placements,
       affordances: visibleAffordances,
