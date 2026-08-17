@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
-import { InvariantViolationError, LockedError, PinIndexError } from './errors.js';
+import {
+  InvariantViolationError,
+  LockedError,
+  NodeNotFoundError,
+  PinIndexError,
+} from './errors.js';
 import { asNodeId, type NodeId } from './node.js';
 import { Store } from './store.js';
 
@@ -63,6 +68,28 @@ describe('Store — setPinned', () => {
     s.setPinned(id('p3'));
     expect(order(s, z)).toEqual(['p0', 'p1', 'p2', 'p3']);
   });
+
+  it('records the actual landed index on a slot collision, not the requested one', () => {
+    const { s, z } = strip(5);
+    s.setPinned(id('p1'), 2);
+    s.setPinned(id('p3'), 2);
+    expect(order(s, z)).toEqual(['p0', 'p2', 'p1', 'p3', 'p4']);
+    expect(s.getPinnedIndex(id('p1'))).toBe(2);
+    expect(s.getPinnedIndex(id('p3'))).toBe(3);
+    const childOrder = order(s, z) ?? [];
+    for (const nid of [id('p1'), id('p3')]) {
+      expect(childOrder[s.getPinnedIndex(nid) as number]).toBe(nid);
+    }
+  });
+
+  it('does not emit node.pinnedChanged when already pinned at the target index', () => {
+    const { s } = strip(4);
+    s.setPinned(id('p2'));
+    const spy = vi.fn();
+    s.events.on('node.pinnedChanged', spy);
+    s.setPinned(id('p2'));
+    expect(spy).not.toHaveBeenCalled();
+  });
 });
 
 describe('Store — pinned displacement', () => {
@@ -124,6 +151,19 @@ describe('Store — setPinned/unpin arrange lock', () => {
     s.setLock(z, { arrange: true });
     expect(() => s.unpin(id('p1'), { force: true })).not.toThrow();
     expect(s.getPinnedIndex(id('p1'))).toBeNull();
+  });
+
+  it('unpin throws LockedError for an already-unpinned node in an arrange-locked container', () => {
+    const { s, z } = strip(4);
+    s.setLock(z, { arrange: true });
+    expect(() => s.unpin(id('p1'))).toThrow(LockedError);
+  });
+});
+
+describe('Store — unpin existence check', () => {
+  it('throws NodeNotFoundError for an unregistered id', () => {
+    const { s } = strip(4);
+    expect(() => s.unpin(id('ghost'))).toThrow(NodeNotFoundError);
   });
 });
 

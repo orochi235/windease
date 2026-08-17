@@ -550,6 +550,8 @@ export class Store {
       throw new CapabilityMissingError(id, 'membership', 'patchPlacement');
     }
     if ('size' in patch) this.assertUnlocked(id, 'resize', 'patchPlacement', opts);
+    // Unlike `size`, a direct `pinned` write can't be lock-gated and allowed through:
+    // it skips the bounds check and displacement routing, desyncing it from childOrder.
     if ('pinned' in patch) {
       throw new InvariantViolationError(
         'pinned-reserved',
@@ -813,17 +815,22 @@ export class Store {
 
     const from = this.getPinnedIndex(id);
     if (target !== current) this.reorderInParent(id, target, { force: true });
-    this.writePin(id, target);
-    this.events.emit('node.pinnedChanged', { id, from, to: target });
-    trace('store', `setPinned: ${id} @ ${target}`);
+    // reorderInParent may have already landed the node and recorded its
+    // actual slot internally; only write here if that didn't happen.
+    const actual = this.nodesMap.get(parentId)?.container?.childOrder.indexOf(id) ?? target;
+    if (this.getPinnedIndex(id) !== actual) this.writePin(id, actual);
+    if (from === actual) return;
+    this.events.emit('node.pinnedChanged', { id, from, to: actual });
+    trace('store', `setPinned: ${id} @ ${actual}`);
     this.scheduleNotify();
   }
 
   unpin(id: NodeId, opts?: MutateOptions): void {
+    const node = this.requireNode(id);
+    const parentId = node.membership?.parentId;
+    if (parentId) this.assertUnlocked(parentId, 'arrange', 'unpin', opts);
     const from = this.getPinnedIndex(id);
     if (from === null) return;
-    const parentId = this.requireNode(id).membership?.parentId;
-    if (parentId) this.assertUnlocked(parentId, 'arrange', 'unpin', opts);
     this.writePin(id, null);
     this.events.emit('node.pinnedChanged', { id, from, to: null });
     this.scheduleNotify();

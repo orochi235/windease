@@ -56,7 +56,8 @@ export interface MembershipCap {
   /**
    * Per-membership bag of placement state. Reserved keys recognized by the
    * shipped layout strategies and React layer:
-   *  - `pinned: boolean` — pinned to the prefix of the parent's childOrder.
+   *  - `pinned?: number` — the index in the parent's childOrder this child
+   *     holds against third-party reorders. Set via `Store.setPinned`/`unpin`.
    *  - `size?: { w?: number; h?: number }` — user intent; honored by stack /
    *     strip / split along their main axis. Either dimension is optional.
    *     Gutter drags on split *clear* this key on the two affected panes.
