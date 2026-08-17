@@ -402,9 +402,7 @@ describe('gridStrategy — pinned capacity', () => {
   });
 
   it('excess pinned children still overflow once capacity is full of pins', () => {
-    // capacity 2, three pinned children — pins fill capacity in childOrder
-    // order; the third pinned child still overflows. Pinning cannot expand
-    // a hard capacity limit.
+    // capacity 2, three pinned — pins fill capacity in childOrder; the third still overflows.
     const result = gridStrategy.layout({
       items: [pinned('a', 0), pinned('b', 1), pinned('c', 2)],
       container: { w: 200, h: 100 },

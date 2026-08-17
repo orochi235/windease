@@ -7,6 +7,8 @@ const mkItem = (id: string, preferredH?: number): LayoutItem => ({
   ...(preferredH ? { hints: { preferredSize: { w: 0, h: preferredH } } } : {}),
 });
 
+const pinned = (id: string, at: number): LayoutItem => ({ id, meta: { pinned: at } });
+
 describe('stackStrategy', () => {
   it('stacks items vertically using preferredSize.h, gap, padding', () => {
     const result = stackStrategy.layout({
@@ -144,15 +146,36 @@ describe('stackStrategy — maxItems', () => {
   });
 
   it('overflows an unpinned child ahead of a pinned one that sorts later in childOrder', () => {
-    const pinned = { id: 'd', meta: { pinned: 3 } };
     const result = stackStrategy.layout({
-      items: [mkItem('a'), mkItem('b'), mkItem('c'), pinned],
+      items: [mkItem('a'), mkItem('b'), mkItem('c'), pinned('d', 3)],
       container: { w: 100, h: 200 },
       state: undefined as void,
       options: { maxItems: 3 },
     });
     expect(result.unplaced).toEqual(['c']);
     expect([...result.placements.keys()]).toEqual(['a', 'b', 'd']);
+  });
+
+  it('leaves ordering untouched when everything fits', () => {
+    const result = stackStrategy.layout({
+      items: [mkItem('a'), pinned('b', 1)],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: {},
+    });
+    expect(result.unplaced).toBeUndefined();
+    expect([...result.placements.keys()]).toEqual(['a', 'b']);
+  });
+
+  it('excess pinned children still overflow once capacity is full of pins', () => {
+    const result = stackStrategy.layout({
+      items: [pinned('a', 0), pinned('b', 1), pinned('c', 2)],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: { maxItems: 2 },
+    });
+    expect(result.unplaced).toEqual(['c']);
+    expect([...result.placements.keys()]).toEqual(['a', 'b']);
   });
 });
 

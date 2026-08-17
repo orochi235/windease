@@ -1,4 +1,5 @@
 import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
+import { selectByCapacity } from './capacity.js';
 
 interface GridConfig {
   cols?: number;
@@ -174,14 +175,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
     const capacity = Math.min(gridCap, itemCap);
     const placedCount = Math.min(items.length, capacity);
-
-    // Pinned children win the capacity race: they survive first, in
-    // childOrder, before unpinned children fill any remaining slots.
-    const isPinned = (it: LayoutItem) => typeof it.meta?.pinned === 'number';
-    const keep = new Set<string>();
-    for (const it of items) if (isPinned(it) && keep.size < placedCount) keep.add(it.id);
-    for (const it of items) if (!keep.has(it.id) && keep.size < placedCount) keep.add(it.id);
-    const placedItems = items.filter((it) => keep.has(it.id));
+    const { placed: placedItems, unplaced } = selectByCapacity(items, placedCount);
 
     const rows =
       !fill && rowCap !== undefined ? rowCap : Math.max(1, Math.ceil(placedCount / cols));
@@ -202,9 +196,6 @@ export const gridStrategy: LayoutStrategy<void, string> = {
         h: cellH,
       });
     }
-
-    const unplaced: string[] = [];
-    for (const it of items) if (!keep.has(it.id)) unplaced.push(it.id);
 
     const result: LayoutResult<string> = { placements, affordances: [] };
     if (unplaced.length > 0) result.unplaced = unplaced;

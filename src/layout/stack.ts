@@ -6,6 +6,7 @@ import type {
   Rect,
   Size,
 } from '../layout-types.js';
+import { selectByCapacity } from './capacity.js';
 import { clampExplicitSizes } from './resize.js';
 
 interface StackConfig {
@@ -84,14 +85,7 @@ export const stackStrategy: LayoutStrategy<void, string> = {
     const itemCap =
       cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
     const placedCount = Math.min(items.length, itemCap);
-
-    // Pinned children win the capacity race: they survive first, in
-    // childOrder, before unpinned children fill any remaining slots.
-    const isPinned = (it: LayoutItem) => typeof it.meta?.pinned === 'number';
-    const keep = new Set<string>();
-    for (const it of items) if (isPinned(it) && keep.size < placedCount) keep.add(it.id);
-    for (const it of items) if (!keep.has(it.id) && keep.size < placedCount) keep.add(it.id);
-    const placedItems = items.filter((it) => keep.has(it.id));
+    const { placed: placedItems, unplaced } = selectByCapacity(items, placedCount);
 
     const colX = padding;
     const colW = container.w - 2 * padding;
@@ -139,8 +133,6 @@ export const stackStrategy: LayoutStrategy<void, string> = {
       }
       y += h + gap;
     }
-    const unplaced: string[] = [];
-    for (const it of items) if (!keep.has(it.id)) unplaced.push(it.id);
     const result: LayoutResult<string> = { placements, affordances };
     if (unplaced.length > 0) result.unplaced = unplaced;
     if (preview) result.isPreview = true;
