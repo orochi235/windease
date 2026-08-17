@@ -136,8 +136,10 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
       if (reconcile) reconcile(store, id);
     }
     return () => {
+      // force:true — a node cannot outlive the JSX that owns it; lock.destroy
+      // stops user/host destroy calls, not React unmount.
       if (store.getNode(id)) {
-        store.unregisterNode(id);
+        store.unregisterNode(id, { force: true });
       }
     };
   }, [id]);

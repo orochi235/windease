@@ -1,8 +1,9 @@
 import { cleanup, render } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from '../index.js';
+import { asNodeId, createPanel, createZone, LockedError, Store } from '../index.js';
 import { Provider } from './Provider.js';
+import { Panel, Zone } from './presets.js';
 import { useNodeBinding } from './useNodeBinding.js';
 
 afterEach(cleanup);
@@ -115,5 +116,42 @@ describe('useNodeBinding', () => {
       </StrictMode>,
     );
     expect((store.getNode(asNodeId('a'))!.meta as Record<string, unknown>).title).toBe('initial');
+  });
+
+  describe('unmount cleanup forces past lock.destroy', () => {
+    it('unmounting a destroy-locked Panel does not throw and removes the node', () => {
+      const store = setupStore();
+      const { unmount } = render(
+        <Provider store={store}>
+          <Panel id={asNodeId('p')} parentId={asNodeId('root')} lock={{ destroy: true }} />
+        </Provider>,
+      );
+      expect(store.getNode(asNodeId('p'))).toBeTruthy();
+      expect(() => unmount()).not.toThrow();
+      expect(store.getNode(asNodeId('p'))).toBeUndefined();
+    });
+
+    it('remounting a destroy-locked Panel at the same id after unmount works', () => {
+      const store = new Store();
+      const Tree = ({ mounted }: { mounted: boolean }) => (
+        <Provider store={store}>
+          <Zone id={asNodeId('root')} strategyId="stack" config={{}}>
+            {mounted && <Panel id={asNodeId('p')} lock={{ destroy: true }} />}
+          </Zone>
+        </Provider>
+      );
+      const { rerender } = render(<Tree mounted={true} />);
+      rerender(<Tree mounted={false} />);
+      expect(store.getNode(asNodeId('p'))).toBeUndefined();
+      expect(() => rerender(<Tree mounted={true} />)).not.toThrow();
+      expect(store.getNode(asNodeId('p'))).toBeTruthy();
+    });
+
+    it('a direct user-path store.unregisterNode is still blocked under lock.destroy', () => {
+      const store = setupStore();
+      store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('root') }));
+      store.setLock(asNodeId('p'), { destroy: true });
+      expect(() => store.unregisterNode(asNodeId('p'))).toThrow(LockedError);
+    });
   });
 });

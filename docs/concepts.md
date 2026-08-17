@@ -124,14 +124,19 @@ first.
 
 A guarded call on a locked axis throws `LockedError(id, axis, op)`. Host code
 that means to bypass a lock passes `{ force: true }` to the mutating call, or
-wraps in `store.withLocksSuspended(fn)`; the React gesture paths never do
-either, so "the user cannot do this" holds even though host code still can.
+wraps in `store.withLocksSuspended(fn)`; the React gesture paths (drag,
+resize, drop) never do either, so "the user cannot do this" holds even though
+host code still can. Locks constrain direct user manipulation, not host code
+generally: a preset's declarative prop reconcile and its unmount cleanup are
+driven by JSX and React's lifecycle, not the user, so both force too.
 `deserialize` and `HistoryController` use `withLocksSuspended` internally, so
 restoring a snapshot or undoing is never blocked by a lock.
 
 `lock.destroy` on a child does not veto an ancestor's cascade destroy — it
 only blocks `unregisterNode` called directly on that node. To protect a
-subtree, lock the ancestor.
+subtree, lock the ancestor. It also doesn't keep a node mounted: a node
+cannot outlive the JSX that owns it, so removing a locked `<Panel>` from JSX
+still unregisters it on unmount.
 
 ### `acceptsDrops` vs. `lock.accept`
 

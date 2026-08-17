@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPanel, createZone } from '../constructors.js';
-import { asNodeId, Store, splitStrategy } from '../index.js';
+import { asNodeId, LockedError, Store, splitStrategy } from '../index.js';
 import { DragProvider, useDragController } from './dnd/DragProvider.js';
 import { useDragHandle } from './dnd/useDragHandle.js';
 import { type ChromeMap, Container } from './index.js';
@@ -408,5 +408,56 @@ describe('lock — Zone `state` prop reconcile', () => {
       ),
     );
     expect(store.getContainerState(asNodeId('z'))).toEqual({ kind: 'leaf', id: 'x' });
+  });
+});
+
+describe('lock — declarative `placement` reconcile forces past lock.resize', () => {
+  it('a locked, fixed-size Panel survives repeated re-renders and applies its size', () => {
+    const store = new Store();
+    const Tree = () => (
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('p')} lock={{ resize: true }} placement={{ size: { w: 200 } }} />
+        </Zone>
+      </Provider>
+    );
+    const { rerender } = render(<Tree />);
+    expect(() => rerender(<Tree />)).not.toThrow();
+    expect(() => rerender(<Tree />)).not.toThrow();
+    expect(
+      (store.getNode(asNodeId('p'))?.membership?.placement as { size?: unknown } | undefined)?.size,
+    ).toEqual({ w: 200 });
+  });
+
+  it('a free-form placement key still writes under a resize lock', () => {
+    const store = new Store();
+    render(
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={asNodeId('p')} lock={{ resize: true }} placement={{ note: 'pinned-wide' }} />
+        </Zone>
+      </Provider>,
+    );
+    expect(
+      (store.getNode(asNodeId('p'))?.membership?.placement as { note?: unknown } | undefined)?.note,
+    ).toBe('pinned-wide');
+  });
+
+  it('a direct user-path store.patchPlacement resize is still blocked under lock.resize', () => {
+    const { store, a } = makeSplitStore();
+    store.setLock(a, { resize: true });
+    expect(() => store.patchPlacement(a, { size: { w: 50 } })).toThrow(LockedError);
+  });
+
+  it('affordance suppression from lock.resize is unaffected (gutter still hidden)', () => {
+    const { store, z, a } = makeSplitStore();
+    store.setLock(a, { resize: true });
+    const { container } = render(
+      withProviders(
+        store,
+        <Container parentId={z} chrome={PANEL_CHROME} viewport={{ w: 200, h: 100 }} affordances />,
+      ),
+    );
+    expect(container.querySelector('[data-affordance-hit]')).toBeNull();
   });
 });

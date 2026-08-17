@@ -421,7 +421,9 @@ function makeReconciler(props: CommonBindingProps) {
           `windease: the generic \`placement\` prop cannot set "pinned" on "${id}" — use the dedicated \`pinned\` prop instead.`,
         );
       }
-      store.patchPlacement(id, props.placement);
+      // force:true — declarative props are host code, not the user; lets a
+      // locked, fixed-size pane (lock.resize + placement.size) survive re-renders.
+      store.patchPlacement(id, props.placement, { force: true });
     }
     if (props.lock !== undefined) store.setLock(id, props.lock);
     if (props.pinned !== undefined) {
