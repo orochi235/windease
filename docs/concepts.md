@@ -122,6 +122,11 @@ first.
 | `dragOut` | `container`  | `moveNode` where the source's parent is this node             |
 | `arrange` | `container`  | `setChildOrder`, `setContainerState`, `updateContainerConfig`, `setPinned`/`unpin` |
 
+`setPinned`/`unpin` check the *parent's* `arrange`, not the child's `move`:
+pinning is an arrangement of the container, and any reorder it causes is one
+`arrange` already covers. Guarding it elsewhere would leave a side door around
+`setChildOrder`.
+
 A guarded call on a locked axis throws `LockedError(id, axis, op)`. Locks
 constrain direct user manipulation; imperative host code that means to bypass
 one passes `{ force: true }` to the mutating call, or wraps in
@@ -241,10 +246,14 @@ expose an optional `reduce(state, event, context)` that turns affordance
 drag events into new state, and an optional `canAccept(items, options)`
 that the drag controller consults before accepting a drop.
 
-A `LayoutNode` shape (with `placement` and `isContainer` fields) projects
-each child for the strategy. The adapter
-`runStrategyForContainer(store, parentId, viewport, strategy, state)` maps
-a node tree onto the strategy signature.
+`items` are `LayoutItem`s, projected from each child by `nodeToLayoutItem`.
+It splits `membership.placement` two ways: the whole bag lands in `meta`, and
+`size` alone is re-surfaced as the typed `placement.size`. So a strategy reads
+`pinned` from `item.meta`, never from `item.placement`. Both entry points —
+`runStrategyForContainer(store, parentId, viewport, strategy, state)` and the
+React `useContainerLayout` — feed strategies through that adapter. The exported
+`LayoutNode` shape is a separate projection (`nodeToLayoutNode`) that no
+strategy receives.
 
 **Recursion is mount-time, not strategy-time.** A strategy lays out the
 children it's handed. When a child is itself a container
