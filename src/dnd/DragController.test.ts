@@ -6,7 +6,7 @@ import {
   type LayoutStrategy,
   Store,
   splitStrategy,
-} from '../../index.js';
+} from '../index.js';
 import { DragController } from './DragController.js';
 
 function buildStore(): Store {

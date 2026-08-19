@@ -10,9 +10,9 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
 import type { Affordance, NodeId } from '../index.js';
 import { DragContext } from './dnd/DragProvider.js';
-import { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
 import { useChildren, useNode } from './hooks.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';

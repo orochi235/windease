@@ -1,3 +1,12 @@
+// DnD. DragController and insertionIndex live in core; re-exported here so
+// `windease/react` consumers keep the import path they had before 0.10.
+export type { DropTargetOptions } from '../dnd/DragController.js';
+export {
+  type DragCancelReason,
+  DragController,
+  type DragState,
+} from '../dnd/DragController.js';
+export { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
 export {
   type AffordanceRenderArgs,
   type AffordanceRenderer,
@@ -7,13 +16,6 @@ export {
   type OverlayRenderer,
 } from './Container.js';
 export { type ChildSort, type ChildSortEntry, defaultChildSort } from './childSort.js';
-export type { DropTargetOptions } from './dnd/DragController.js';
-// DnD
-export {
-  type DragCancelReason,
-  DragController,
-  type DragState,
-} from './dnd/DragController.js';
 export { DragHandle, type DragHandleProps } from './dnd/DragHandle.js';
 export { DragContext, DragProvider, useDragController } from './dnd/DragProvider.js';
 export {
@@ -21,7 +23,6 @@ export {
   type DragOverlayRenderer,
   defaultDragOverlay,
 } from './dnd/defaultDragOverlay.js';
-export { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
 export { type DragHandleHandlers, useDragHandle } from './dnd/useDragHandle.js';
 export { useDragState } from './dnd/useDragState.js';
 export { useDropTarget } from './dnd/useDropTarget.js';

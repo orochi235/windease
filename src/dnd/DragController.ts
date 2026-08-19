@@ -1,5 +1,7 @@
-import type { LayoutStrategy, NodeId, Store } from '../../index.js';
-import { trace } from '../../index.js';
+import type { LayoutStrategy } from '../layout-types.js';
+import type { NodeId } from '../node.js';
+import type { Store } from '../store.js';
+import { trace } from '../trace.js';
 
 /** Looks up a strategy by id. DragController uses it to consult
  *  `strategy.canAccept` on the prospective post-drop child list. */

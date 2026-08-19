@@ -7,6 +7,14 @@ export {
   createZone,
 } from './constructors.js';
 export {
+  type DragCancelReason,
+  DragController,
+  type DragState,
+  type DropTargetOptions,
+  type StrategyLookup,
+} from './dnd/DragController.js';
+export { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
+export {
   CapabilityMissingError,
   CycleError,
   DuplicateNodeError,
