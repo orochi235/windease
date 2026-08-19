@@ -79,7 +79,7 @@ describe('Throttling stories smoke test', () => {
     vi.useFakeTimers();
     try {
       const { getByRole } = render(
-        <TruthVsPublished throttled={true} notifyMs={16} dwellMs={100} />,
+        <TruthVsPublished throttled={true} notifyMs={16} dwellMs={100} churnMs={120} />,
       );
       const churnButton = getByRole('button', { name: 'Start churn' });
 

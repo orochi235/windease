@@ -1,4 +1,4 @@
-export default { title: 'Recursive zones / Split (resize)' };
+export default { title: 'Recursive zones' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
@@ -38,7 +38,7 @@ const TREE: SplitNode = {
   },
 };
 
-export const RecursiveSplit: Story = () => {
+export const SplitResize: Story = () => {
   const store = useMemo(() => {
     const s = new Store();
     s.registerNode(

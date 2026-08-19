@@ -1,4 +1,4 @@
-export default { title: 'Parallel zones (drag between)' };
+export default { title: 'Parallel zones' };
 
 import type { Story } from '@ladle/react';
 import { type RefObject, useMemo, useRef } from 'react';
@@ -81,7 +81,7 @@ function ZoneShell({
   );
 }
 
-export const ParallelZonesDnd: Story = () => {
+export const DragBetween: Story = () => {
   const store = useMemo(() => makeStore(), []);
 
   const chrome: ChromeMap = useMemo(

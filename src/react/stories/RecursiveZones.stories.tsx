@@ -1,4 +1,4 @@
-export default { title: 'Recursive zones / Trays' };
+export default { title: 'Recursive zones' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
@@ -29,7 +29,7 @@ interface Args {
  * hosts its own children via the `container` capability. Demonstrates
  * arbitrary-depth recursion using the same primitives.
  */
-export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
+export const Trays: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
   const store = useMemo(() => {
     const s = new Store();
     s.registerNode(
@@ -130,13 +130,13 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
   );
 };
 
-RecursiveZones.args = {
+Trays.args = {
   cols: 2,
   trayChildren: 3,
   showSecondTray: true,
 };
 
-RecursiveZones.argTypes = {
+Trays.argTypes = {
   cols: { control: { type: 'range', min: 1, max: 4, step: 1 } },
   trayChildren: { control: { type: 'range', min: 0, max: 6, step: 1 } },
   showSecondTray: { control: { type: 'boolean' } },

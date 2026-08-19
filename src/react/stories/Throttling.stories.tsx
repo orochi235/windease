@@ -453,12 +453,11 @@ interface TvpArgs {
   throttled: boolean;
   notifyMs: number;
   dwellMs: number;
+  churnMs: number;
 }
 
 const TVP_ZONE = asNodeId('tvp-zone');
 const TVP_PANEL_IDS: NodeId[] = ['tvp-1', 'tvp-2', 'tvp-3', 'tvp-4'].map((s) => asNodeId(s));
-const CHURN_INTERVAL_MS = 120;
-
 function buildTvpStore(throttled: boolean, notifyMs: number, dwellMs: number): Store {
   const store = new Store(
     throttled ? { throttle: { notifyMs, dwell: { lifecycle: dwellMs } } } : {},
@@ -485,7 +484,7 @@ function readoutSnapshot(store: Store, ids: readonly NodeId[]): string {
     .join('|');
 }
 
-function TvpDemo({ store }: { store: Store }) {
+function TvpDemo({ store, churnMs }: { store: Store; churnMs: number }) {
   const renders = useRef(0);
   renders.current += 1;
 
@@ -504,9 +503,9 @@ function TvpDemo({ store }: { store: Store }) {
       const state = store.getNodeTruth(id)?.lifecycle.state;
       if (state === 'visible') store.hideNode(id);
       else if (state === 'mounted' || state === 'hidden') store.showNode(id);
-    }, CHURN_INTERVAL_MS);
+    }, churnMs);
     return () => clearInterval(handle);
-  }, [churning, store]);
+  }, [churning, store, churnMs]);
 
   const snapshot = useSyncExternalStore(
     (cb) => store.subscribe(cb),
@@ -520,9 +519,9 @@ function TvpDemo({ store }: { store: Store }) {
   return (
     <div className="throttling-demo">
       <p className="throttling-caption">
-        Click <strong>Start churn</strong>: an interval flips a few panels' truth visibility every
-        120ms. Watch for highlighted rows — a highlighted row means truth has already changed but
-        the published column hasn't caught up yet; that lag is the whole point of throttling.
+        Click <strong>Start churn</strong>: an interval flips a few panels' truth visibility every{' '}
+        {churnMs}ms. Watch for highlighted rows — a highlighted row means truth has already changed
+        but the published column hasn't caught up yet; that lag is the whole point of throttling.
       </p>
       <div className="throttling-toolbar">
         <button type="button" onClick={() => setChurning((v) => !v)}>
@@ -560,7 +559,7 @@ function TvpDemo({ store }: { store: Store }) {
   );
 }
 
-export const TruthVsPublished: Story<TvpArgs> = ({ throttled, notifyMs, dwellMs }) => {
+export const TruthVsPublished: Story<TvpArgs> = ({ throttled, notifyMs, dwellMs, churnMs }) => {
   const store = useMemo(
     () => buildTvpStore(throttled, notifyMs, dwellMs),
     [throttled, notifyMs, dwellMs],
@@ -568,7 +567,7 @@ export const TruthVsPublished: Story<TvpArgs> = ({ throttled, notifyMs, dwellMs 
   return (
     <Provider key={`${throttled}:${notifyMs}:${dwellMs}`} store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
-        <TvpDemo store={store} />
+        <TvpDemo store={store} churnMs={churnMs} />
       </StrategyRegistryProvider>
     </Provider>
   );
@@ -578,10 +577,12 @@ TruthVsPublished.args = {
   throttled: true,
   notifyMs: 32,
   dwellMs: 150,
+  churnMs: 120,
 };
 
 TruthVsPublished.argTypes = {
   throttled: { control: { type: 'boolean' } },
   notifyMs: { control: { type: 'range', min: 0, max: 200, step: 8 } },
   dwellMs: { control: { type: 'range', min: 0, max: 400, step: 10 } },
+  churnMs: { control: { type: 'range', min: 20, max: 1000, step: 20 } },
 };
