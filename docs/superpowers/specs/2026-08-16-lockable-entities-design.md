@@ -107,9 +107,16 @@ store.unpin(id);
   holders never yield to a third party.
 - Sibling removal clamps held indices to the new bounds. Removal never throws;
   only `setPinned` does.
-- Over capacity, pinned children win. Strategies read `pinned` from the existing
-  `LayoutNode` placement projection and send unpinned children to
+- Over capacity, pinned children win. Strategies send unpinned children to
   `LayoutResult.unplaced` first, so a pinned node is the last to fall out.
+
+Strategies read `pinned` from **`LayoutItem.meta`**, not `LayoutItem.placement`.
+`nodeToLayoutItem` projects the whole `membership.placement` bag into `meta` and
+surfaces only `size` as typed `placement`; `useContainerLayout` and
+`runStrategyForContainer` both feed strategies through that adapter, so
+`LayoutNode` never reaches a strategy in the render path. A strategy reading
+`placement.pinned` compiles, passes hand-built tests, and is dead code against
+real nodes.
 
 `resortByPin` is deleted. `container.allowsPinning` survives unchanged, now
 governing index-holding only.

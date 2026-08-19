@@ -6,6 +6,31 @@ import type { ChildSort } from './childSort.js';
 import { Provider } from './Provider.js';
 import { Panel, Zone } from './presets.js';
 
+function Tree({ reversed, locked }: { reversed: boolean; locked: boolean }) {
+  return (
+    <Zone
+      id={asNodeId('z')}
+      strategyId="grid"
+      config={{ cols: 1 }}
+      lock={locked ? { arrange: true } : false}
+    >
+      {reversed ? (
+        <>
+          <Panel key="c" id={asNodeId('c')} />
+          <Panel key="b" id={asNodeId('b')} />
+          <Panel key="a" id={asNodeId('a')} />
+        </>
+      ) : (
+        <>
+          <Panel key="a" id={asNodeId('a')} />
+          <Panel key="b" id={asNodeId('b')} />
+          <Panel key="c" id={asNodeId('c')} />
+        </>
+      )}
+    </Zone>
+  );
+}
+
 afterEach(cleanup);
 
 describe('sibling order reconciliation', () => {
@@ -124,6 +149,51 @@ describe('sibling order reconciliation', () => {
       asNodeId('jsx-b'),
       asNodeId('jsx-a'),
       asNodeId('imp-1'),
+    ]);
+  });
+
+  it('lock.arrange blocks reconciliation: reordering JSX siblings does not throw and leaves childOrder unchanged', () => {
+    const store = new Store();
+    const { rerender } = render(
+      <Provider store={store}>
+        <Tree reversed={false} locked={true} />
+      </Provider>,
+    );
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
+      asNodeId('a'),
+      asNodeId('b'),
+      asNodeId('c'),
+    ]);
+    expect(() =>
+      rerender(
+        <Provider store={store}>
+          <Tree reversed={true} locked={true} />
+        </Provider>,
+      ),
+    ).not.toThrow();
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
+      asNodeId('a'),
+      asNodeId('b'),
+      asNodeId('c'),
+    ]);
+  });
+
+  it('without the lock, the same JSX reorder does reorder childOrder (control)', () => {
+    const store = new Store();
+    const { rerender } = render(
+      <Provider store={store}>
+        <Tree reversed={false} locked={false} />
+      </Provider>,
+    );
+    rerender(
+      <Provider store={store}>
+        <Tree reversed={true} locked={false} />
+      </Provider>,
+    );
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual([
+      asNodeId('c'),
+      asNodeId('b'),
+      asNodeId('a'),
     ]);
   });
 });

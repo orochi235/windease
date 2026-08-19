@@ -29,11 +29,11 @@ function buildSampleStore(): Store {
   return s;
 }
 
-describe('serialize / deserialize — v3 round-trip', () => {
+describe('serialize / deserialize — v4 round-trip', () => {
   it('preserves tree structure and capabilities', () => {
     const original = buildSampleStore();
     const snap = serialize(original);
-    expect(snap.version).toBe(3);
+    expect(snap.version).toBe(4);
     expect(snap.rootIds).toEqual(['z']);
     const restored = deserialize(snap);
     expect(restored.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2']);
@@ -52,25 +52,6 @@ describe('serialize / deserialize — v3 round-trip', () => {
     const restored = deserialize(snap);
     expect(restored.focusedId).toBe('p');
     expect(restored.getNode(asNodeId('p'))?.focus?.state).toBe('focused');
-  });
-
-  it('round-trips allowsDrop / allowsDragOut, omits when default true', () => {
-    const s = new Store();
-    s.registerNode(createZone({ id: asNodeId('open'), strategyId: 'stack', config: {} }));
-    s.registerNode(createZone({ id: asNodeId('sealed'), strategyId: 'stack', config: {} }));
-    s.setAllowsDrop(asNodeId('sealed'), false);
-    s.setAllowsDragOut(asNodeId('sealed'), false);
-    const snap = serialize(s);
-    const openSnap = snap.nodes.find((n) => n.id === 'open');
-    const sealedSnap = snap.nodes.find((n) => n.id === 'sealed');
-    expect(openSnap?.container?.allowsDrop).toBeUndefined();
-    expect(openSnap?.container?.allowsDragOut).toBeUndefined();
-    expect(sealedSnap?.container?.allowsDrop).toBe(false);
-    expect(sealedSnap?.container?.allowsDragOut).toBe(false);
-    const restored = deserialize(snap);
-    expect(restored.getNode(asNodeId('open'))?.container?.allowsDrop).toBe(true);
-    expect(restored.getNode(asNodeId('sealed'))?.container?.allowsDrop).toBe(false);
-    expect(restored.getNode(asNodeId('sealed'))?.container?.allowsDragOut).toBe(false);
   });
 
   it('round-trips container state (e.g. splitStrategy ratio)', () => {
@@ -99,7 +80,7 @@ describe('deserialize — version validation', () => {
 describe('deserialize — broken snapshot', () => {
   it('throws on orphan child', () => {
     const broken: SerializedStore = {
-      version: 3,
+      version: 4,
       nodes: [
         {
           id: 'p',
@@ -185,17 +166,17 @@ describe('deserialize — back-compat for legacy v2 slot key', () => {
     focusedId: null,
   };
 
-  it('hydrates a v2 slot into membership', () => {
+  it('hydrates a v2 slot into membership, migrating boolean pinned to its held index', () => {
     const restored = deserialize(structuredClone(v2Snapshot));
     const p = restored.getNode(asNodeId('p'));
     expect(p?.membership?.parentId).toBe('z');
-    expect(p?.membership?.placement).toEqual({ pinned: true, size: { h: 120 } });
+    expect(p?.membership?.placement).toEqual({ pinned: 0, size: { h: 120 } });
     expect(restored.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p']);
   });
 
-  it('re-serializes a hydrated v2 snapshot as v3 with membership', () => {
+  it('re-serializes a hydrated v2 snapshot as v4 with membership', () => {
     const reserialized = serialize(deserialize(structuredClone(v2Snapshot)));
-    expect(reserialized.version).toBe(3);
+    expect(reserialized.version).toBe(4);
     const p = reserialized.nodes.find((n) => n.id === 'p');
     expect(p?.membership?.parentId).toBe('z');
     expect(p).not.toHaveProperty('slot');
@@ -297,5 +278,278 @@ describe('snapshot — placement.size and hints.maxSize', () => {
     const snap = serialize(store);
     const restored = deserialize(snap);
     expect(restored.getNode(asNodeId('a'))?.hints?.maxSize).toEqual({ w: 400, h: 400 });
+  });
+});
+
+describe('snapshot v4 — lock round-trip', () => {
+  it('round-trips a single-axis lock', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.setLock(asNodeId('p'), { destroy: true });
+    const snap = serialize(store);
+    expect(snap.nodes.find((n) => n.id === 'p')?.lock).toEqual({ destroy: true });
+    const restored = deserialize(snap);
+    expect(restored.getLock(asNodeId('p'))).toEqual({ destroy: true });
+  });
+
+  it('round-trips lock(true) resolved to all supported axes', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.setLock(asNodeId('p'), true);
+    const snap = serialize(store);
+    const restored = deserialize(snap);
+    expect(restored.getLock(asNodeId('p'))).toEqual({ move: true, resize: true, destroy: true });
+  });
+
+  it('omits lock and pinned from a node that has neither', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    const snap = serialize(store);
+    const pSnap = snap.nodes.find((n) => n.id === 'p');
+    expect(pSnap?.lock).toBeUndefined();
+    expect(pSnap?.membership?.placement).not.toHaveProperty('pinned');
+  });
+});
+
+describe('snapshot v4 — pinned round-trip', () => {
+  it('round-trips a held index', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('p2'), parentId: asNodeId('z') }));
+    store.setPinned(asNodeId('p1'), 0);
+    const snap = serialize(store);
+    expect(snap.version).toBe(4);
+    const restored = deserialize(snap);
+    expect(restored.getPinnedIndex(asNodeId('p1'))).toBe(0);
+  });
+});
+
+describe('deserialize — v3 migration to v4', () => {
+  function v3Fixture(nodes: unknown[], rootIds: string[]): unknown {
+    return { version: 3, nodes, rootIds, focusedId: null };
+  }
+
+  it('migrates container.allowsDrop: false to lock.accept', () => {
+    const snap = v3Fixture(
+      [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: {
+            strategyId: 'stack',
+            config: {},
+            childOrder: [],
+            allowsPinning: true,
+            allowsDrop: false,
+          },
+        },
+      ],
+      ['z'],
+    );
+    const restored = deserialize(snap);
+    expect(restored.getLock(asNodeId('z'))).toEqual({ accept: true });
+  });
+
+  it('migrates container.allowsDragOut: false to lock.dragOut', () => {
+    const snap = v3Fixture(
+      [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: {
+            strategyId: 'stack',
+            config: {},
+            childOrder: [],
+            allowsPinning: true,
+            allowsDragOut: false,
+          },
+        },
+      ],
+      ['z'],
+    );
+    const restored = deserialize(snap);
+    expect(restored.getLock(asNodeId('z'))).toEqual({ dragOut: true });
+  });
+
+  it('produces no lock when allowsDrop/allowsDragOut are true or absent', () => {
+    const snap = v3Fixture(
+      [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: {
+            strategyId: 'stack',
+            config: {},
+            childOrder: [],
+            allowsPinning: true,
+            allowsDrop: true,
+            allowsDragOut: true,
+          },
+        },
+      ],
+      ['z'],
+    );
+    const restored = deserialize(snap);
+    expect(restored.getLock(asNodeId('z'))).toEqual({});
+  });
+
+  it('migrates placement.locked: true to a full move/resize/destroy lock and drops the key', () => {
+    const snap = v3Fixture(
+      [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: {
+            strategyId: 'stack',
+            config: {},
+            childOrder: ['p'],
+            allowsPinning: true,
+          },
+        },
+        {
+          id: 'p',
+          kind: 'panel',
+          lifecycle: 'mounted',
+          membership: { parentId: 'z', placement: { locked: true } },
+          focus: { state: 'blurred' },
+        },
+      ],
+      ['z'],
+    );
+    const restored = deserialize(snap);
+    expect(restored.getLock(asNodeId('p'))).toEqual({ move: true, resize: true, destroy: true });
+    expect(restored.getPlacement(asNodeId('p'))).not.toHaveProperty('locked');
+  });
+
+  it('migrates boolean placement.pinned to the held index without promoting the node', () => {
+    const snap = v3Fixture(
+      [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: {
+            strategyId: 'stack',
+            config: {},
+            childOrder: ['p1', 'p2'],
+            allowsPinning: true,
+          },
+        },
+        {
+          id: 'p1',
+          kind: 'panel',
+          lifecycle: 'mounted',
+          membership: { parentId: 'z', placement: {} },
+          focus: { state: 'blurred' },
+        },
+        {
+          id: 'p2',
+          kind: 'panel',
+          lifecycle: 'mounted',
+          membership: { parentId: 'z', placement: { pinned: true } },
+          focus: { state: 'blurred' },
+        },
+      ],
+      ['z'],
+    );
+    const restored = deserialize(snap);
+    // p2 held index 1 — its position in the v3 childOrder, not promoted to 0.
+    expect(restored.getPinnedIndex(asNodeId('p2'))).toBe(1);
+    expect(restored.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2']);
+  });
+
+  it('does not mutate the caller-supplied v3 snapshot object', () => {
+    const original = v3Fixture(
+      [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: {
+            strategyId: 'stack',
+            config: {},
+            childOrder: ['p'],
+            allowsPinning: true,
+            allowsDrop: false,
+          },
+        },
+        {
+          id: 'p',
+          kind: 'panel',
+          lifecycle: 'mounted',
+          membership: { parentId: 'z', placement: { locked: true, pinned: true } },
+          focus: { state: 'blurred' },
+        },
+      ],
+      ['z'],
+    );
+    const snapshot = structuredClone(original);
+    deserialize(original);
+    expect(original).toEqual(snapshot);
+  });
+
+  it('a v2 snapshot still deserializes without throwing', () => {
+    const v2 = {
+      version: 2,
+      nodes: [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: { strategyId: 'stack', config: {}, childOrder: ['p'], allowsPinning: true },
+        },
+        {
+          id: 'p',
+          kind: 'panel',
+          lifecycle: 'mounted',
+          slot: { parentId: 'z', placement: {} },
+          focus: { state: 'blurred' },
+        },
+      ],
+      rootIds: ['z'],
+      focusedId: null,
+    };
+    expect(() => deserialize(v2)).not.toThrow();
+  });
+});
+
+describe('deserialize — capability filtering on lock (defense against malformed snapshots)', () => {
+  it('drops an axis a container-only node does not support', () => {
+    const snap: SerializedStore = {
+      version: 4,
+      nodes: [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: { strategyId: 'stack', config: {}, childOrder: [], allowsPinning: true },
+          // Malformed: 'move' requires membership, which this node lacks.
+          lock: { move: true, accept: true },
+        },
+      ],
+      rootIds: ['z'],
+      focusedId: null,
+    };
+    const restored = deserialize(snap);
+    expect(restored.getLock(asNodeId('z'))).toEqual({ accept: true });
+  });
+});
+
+describe('deserialize — in-place restore with a destroy-locked root', () => {
+  it('does not throw when the target store has a destroy-locked root', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.setLock(asNodeId('z'), { destroy: true });
+    const snap = serialize(store);
+    expect(() => deserialize(store, snap)).not.toThrow();
+    expect(store.getNode(asNodeId('z'))).toBeDefined();
   });
 });

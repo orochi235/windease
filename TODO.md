@@ -107,10 +107,11 @@ cannot recur.
 
 ## Pinning items within a zone
 
-Baseline shipped: `placement.pinned: true` promotes a node to the
-pinned-prefix of the parent's `childOrder` via `resortByPin`. Strategies see the
-flag through `LayoutItem.meta.pinned` if they want extra behavior. Snapshot
-round-trips, undo works (history captures full store state).
+Baseline shipped: `placement.pinned` is the numeric index a node holds in its
+parent's `childOrder`, set through `store.setPinned` / `unpin` (0.9.0 replaced
+the boolean-plus-`resortByPin` prefix model). Strategies see it through
+`LayoutItem.meta.pinned` if they want extra behavior. Snapshot round-trips,
+undo works (history captures full store state).
 
 Followups:
 
@@ -228,6 +229,36 @@ Ladle's playground stories already represent the canonical fixtures —
 e2e specs would drive them with `@playwright/test`, screenshot key
 flows, and assert DOM/store state afterward. Medium priority; not a
 publish blocker but a desirable hardening pass.
+
+## Aspect-ratio hint
+
+Consumers have no way to say "keep this node 16:9." `NodeHints` carries only
+absolute pixel sizes (`minSize` / `maxSize` / `preferredSize`), and hint
+coverage is uneven — `grid` reads none of them, sizing every cell uniformly
+from `cols`/`rows`.
+
+There is no consumer-side workaround, which is what makes this worth doing.
+Every node gets an absolute rect from its strategy, so a node cannot
+self-size: CSS `aspect-ratio` on panel content letterboxes inside a
+wrongly-shaped rect rather than changing it. The only alternative is
+measuring in app code and writing `placement.size` back — the ResizeObserver
+hack `maxSize` was added to retire.
+
+An aspect hint does not require the engine to measure the DOM; it is a pure
+w-to-h constraint on a rect the strategy already computes. The work is that
+each strategy answers it differently:
+
+- **strip / stack** — clean. The cross axis is fully container-determined,
+  so aspect just derives the main-axis extent, replacing `preferredSize`.
+- **grid** — where aspect matters most (tiles, thumbnails, video) and the
+  most work, since grid honors no hints at all today. Either letterbox
+  within uniform cells or choose `cols`/`rows` to best fit the aspect.
+- **split** — over-constrained in general: a pane's aspect fights both the
+  ratio and the sibling's claim on the remainder. Probably bails out the way
+  an over-constrained `minSize` > `maxSize` already does.
+
+Also open: whether an aspect hint makes resize drags proportional, which is a
+`reduce`-path question, not a placement one.
 
 ## Loose ends
 

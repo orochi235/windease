@@ -3,10 +3,14 @@ import {
   CycleError,
   DuplicateNodeError,
   InvariantViolationError,
+  LockedError,
   NodeNotFoundError,
+  PinIndexError,
 } from './errors.js';
 import { TypedEmitter } from './events.js';
+import { type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeId } from './node.js';
+import { placeRespectingPins } from './pinning.js';
 import {
   type MachineName,
   type PendingPublish,
@@ -48,6 +52,8 @@ export interface StoreEvents {
     id: NodeId;
     changes: Record<string, { from: unknown; to: unknown }>;
   };
+  'node.lockChanged': { id: NodeId; from: Readonly<LockSet>; to: Readonly<LockSet> };
+  'node.pinnedChanged': { id: NodeId; from: number | null; to: number | null };
   'node.activityChanged': {
     id: NodeId;
     changes: Record<string, { from: unknown; to: unknown }>;
@@ -58,8 +64,6 @@ export interface StoreEvents {
   };
   'container.configChanged': { id: NodeId; from: unknown; to: unknown };
   'container.allowsPinningChanged': { id: NodeId; from: boolean; to: boolean };
-  'container.allowsDropChanged': { id: NodeId; from: boolean; to: boolean };
-  'container.allowsDragOutChanged': { id: NodeId; from: boolean; to: boolean };
   /**
    * Per-container strategy state (e.g. splitStrategy ratio) changed. Stored on
    * `node.container.state`; round-trips through snapshot. By design this
@@ -96,6 +100,7 @@ export class Store {
   private focusedIdValue: NodeId | null = null;
   private readonly subscribers = new Set<() => void>();
   private readonly publisher: Publisher;
+  private locksSuspended = 0;
 
   constructor(options: StoreOptions = {}) {
     this.publisher = new Publisher({
@@ -244,7 +249,6 @@ export class Store {
         childOrder: [...c.childOrder, node.id],
       }));
       this.publisher.markDirty(parent.id, { bypass: true });
-      this.resortByPin(parent.id);
     } else {
       this.nodesMap.set(node.id, node);
       this.publisher.markDirty(node.id, { bypass: true });
@@ -256,7 +260,8 @@ export class Store {
     this.scheduleNotify();
   }
 
-  unregisterNode(id: NodeId): void {
+  unregisterNode(id: NodeId, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'destroy', 'unregisterNode', opts);
     const node = this.requireNode(id);
 
     const descendantIds: NodeId[] = [];
@@ -273,7 +278,9 @@ export class Store {
     }
 
     if (this.focusedIdValue === id) this.focusedIdValue = null;
+    const parentId = node.membership?.parentId;
     this.detachAndRemove(id);
+    if (parentId) this.clampPins(parentId);
     this.events.emit('node.unregistered', { id });
     trace('store', `unregister: ${id}`);
     this.scheduleNotify();
@@ -315,13 +322,16 @@ export class Store {
 
   // ===== Move / reorder =====
 
-  moveNode(id: NodeId, newParentId: NodeId, at?: number): void {
+  moveNode(id: NodeId, newParentId: NodeId, at?: number, opts?: MutateOptions): void {
     const node = this.requireNode(id);
     if (!node.membership) {
       throw new InvariantViolationError('move-unparented', `cannot move unparented node ${id}`, {
         id,
       });
     }
+    this.assertUnlocked(id, 'move', 'moveNode', opts);
+    this.assertUnlocked(newParentId, 'accept', 'moveNode', opts);
+    this.assertUnlocked(node.membership.parentId, 'dragOut', 'moveNode', opts);
     const newParent = this.requireNode(newParentId);
     if (id === newParentId || this.isDescendantOf(newParentId, id)) {
       throw new CycleError(id, newParentId);
@@ -378,9 +388,12 @@ export class Store {
     this.replaceMembership(id, (s) => ({ ...s, parentId: newParentId }));
     const insertIndex = clampIndex(at, newParent.container.childOrder.length);
     this.replaceContainer(newParentId, (c) => {
-      const next = [...c.childOrder];
-      next.splice(insertIndex, 0, id);
-      return { ...c, childOrder: next };
+      const spliced = [...c.childOrder];
+      spliced.splice(insertIndex, 0, id);
+      return {
+        ...c,
+        childOrder: placeRespectingPins(spliced, id, insertIndex, this.pinnedIndexOf),
+      };
     });
     const toIndex =
       this.nodesMap.get(newParentId)?.container?.childOrder.indexOf(id) ?? insertIndex;
@@ -405,15 +418,17 @@ export class Store {
       to: transit.state,
     });
 
-    this.resortByPin(newParentId);
+    this.clampPins(fromParentId);
+    this.clampPins(newParentId);
     this.scheduleNotify();
   }
 
-  reorderInParent(id: NodeId, at: number): void {
+  reorderInParent(id: NodeId, at: number, opts?: MutateOptions): void {
     const node = this.requireNode(id);
     if (!node.membership) {
       throw new InvariantViolationError('reorder-unparented', `node ${id} not parented`, { id });
     }
+    this.assertUnlocked(id, 'move', 'reorderInParent', opts);
     const parentId = node.membership.parentId;
     const parent = this.requireNode(parentId);
     if (!parent.container) {
@@ -432,22 +447,23 @@ export class Store {
       );
     }
     const targetIndex = clampIndex(at, parent.container.childOrder.length - 1);
-    if (targetIndex === fromIndex) return;
-    this.replaceContainer(parentId, (c) => {
-      const next = [...c.childOrder];
-      next.splice(fromIndex, 1);
-      next.splice(targetIndex, 0, id);
-      return { ...c, childOrder: next };
-    });
+    if (targetIndex === fromIndex && this.getPinnedIndex(id) === null) return;
+    this.replaceContainer(parentId, (c) => ({
+      ...c,
+      childOrder: placeRespectingPins(c.childOrder, id, targetIndex, this.pinnedIndexOf),
+    }));
     this.publisher.markDirty(parentId, { bypass: true });
-    this.resortByPin(parentId);
     const finalIndex =
       this.nodesMap.get(parentId)?.container?.childOrder.indexOf(id) ?? targetIndex;
+    if (this.getPinnedIndex(id) !== null && finalIndex !== this.getPinnedIndex(id)) {
+      this.writePin(id, finalIndex);
+    }
     this.events.emit('node.reordered', { parentId, id, fromIndex, toIndex: finalIndex });
     this.scheduleNotify();
   }
 
-  setChildOrder(parentId: NodeId, orderedIds: readonly NodeId[]): void {
+  setChildOrder(parentId: NodeId, orderedIds: readonly NodeId[], opts?: MutateOptions): void {
+    this.assertUnlocked(parentId, 'arrange', 'setChildOrder', opts);
     const parent = this.requireNode(parentId);
     if (!parent.container) {
       throw new InvariantViolationError(
@@ -494,32 +510,23 @@ export class Store {
 
     this.replaceContainer(parentId, (c) => ({ ...c, childOrder: [...orderedIds] }));
     this.publisher.markDirty(parentId, { bypass: true });
-    this.resortByPin(parentId);
+    this.clampPins(parentId);
     trace('store', `setChildOrder: ${parentId} → [${orderedIds.join(', ')}]`);
     this.scheduleNotify();
   }
 
-  private resortByPin(parentId: NodeId): void {
+  /** Realign every child's recorded `pinned` index to its actual position in
+   *  `parentId`'s childOrder, after a mutation that may have shifted or
+   *  removed slots out from under it. */
+  private clampPins(parentId: NodeId): void {
     const parent = this.nodesMap.get(parentId);
-    if (!parent?.container?.allowsPinning) return;
-    const pinned: NodeId[] = [];
-    const rest: NodeId[] = [];
+    if (!parent?.container) return;
     for (const cid of parent.container.childOrder) {
-      const child = this.nodesMap.get(cid);
-      const placement = child?.membership?.placement;
-      if (placement?.pinned || placement?.locked) pinned.push(cid);
-      else rest.push(cid);
+      const pin = this.getPinnedIndex(cid);
+      if (pin === null) continue;
+      const actual = parent.container.childOrder.indexOf(cid);
+      if (pin !== actual) this.writePin(cid, actual);
     }
-    const next = [...pinned, ...rest];
-    let same = true;
-    for (let i = 0; i < next.length; i++) {
-      if (next[i] !== parent.container.childOrder[i]) {
-        same = false;
-        break;
-      }
-    }
-    if (same) return;
-    this.replaceContainer(parentId, (c) => ({ ...c, childOrder: next }));
   }
 
   private isDescendantOf(maybeDescendant: NodeId, ancestor: NodeId): boolean {
@@ -533,14 +540,24 @@ export class Store {
 
   // ===== Placement / meta =====
 
-  setPlacement(id: NodeId, key: string, value: unknown): void {
-    this.patchPlacement(id, { [key]: value });
+  setPlacement(id: NodeId, key: string, value: unknown, opts?: MutateOptions): void {
+    this.patchPlacement(id, { [key]: value }, opts);
   }
 
-  patchPlacement(id: NodeId, patch: Record<string, unknown>): void {
+  patchPlacement(id: NodeId, patch: Record<string, unknown>, opts?: MutateOptions): void {
     const node = this.requireNode(id);
     if (!node.membership) {
       throw new CapabilityMissingError(id, 'membership', 'patchPlacement');
+    }
+    if ('size' in patch) this.assertUnlocked(id, 'resize', 'patchPlacement', opts);
+    // Unlike `size`, a direct `pinned` write can't be lock-gated and allowed through:
+    // it skips the bounds check and displacement routing, desyncing it from childOrder.
+    if ('pinned' in patch) {
+      throw new InvariantViolationError(
+        'pinned-reserved',
+        `patchPlacement cannot write 'pinned' directly on ${id}; use setPinned/unpin`,
+        { id },
+      );
     }
     const prev = node.membership.placement;
     const changes: Record<string, { from: unknown; to: unknown }> = {};
@@ -560,7 +577,6 @@ export class Store {
     if (Object.keys(changes).length === 0) return;
     this.replaceMembership(id, (s) => ({ ...s, placement: next }));
     this.events.emit('node.placementChanged', { id, changes });
-    if (node.membership.parentId) this.resortByPin(node.membership.parentId);
     this.scheduleNotify();
   }
 
@@ -656,7 +672,8 @@ export class Store {
 
   // ===== Container config =====
 
-  updateContainerConfig(id: NodeId, patch: unknown): void {
+  updateContainerConfig(id: NodeId, patch: unknown, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'arrange', 'updateContainerConfig', opts);
     const node = this.requireNode(id);
     if (!node.container) {
       throw new CapabilityMissingError(id, 'container', 'updateContainerConfig');
@@ -696,7 +713,8 @@ export class Store {
 
   /** Write strategy state for `id`'s container. Emits `container.stateChanged`
    * and schedules a notify. Throws if `id` has no container capability. */
-  setContainerState(id: NodeId, state: unknown): void {
+  setContainerState(id: NodeId, state: unknown, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'arrange', 'setContainerState', opts);
     const node = this.requireNode(id);
     if (!node.container) {
       throw new CapabilityMissingError(id, 'container', 'setContainerState');
@@ -706,6 +724,48 @@ export class Store {
     this.replaceContainer(id, (c) => ({ ...c, state }));
     this.events.emit('container.stateChanged', { id, from, to: state });
     this.scheduleNotify();
+  }
+
+  setLock(id: NodeId, input: boolean | LockSet): void {
+    const node = this.requireNode(id);
+    const from = node.lock ?? {};
+    const to = resolveLock(node, input);
+    if (sameLock(from, to)) return;
+    this.replaceNode(id, (n) => (Object.keys(to).length === 0 ? omitLock(n) : { ...n, lock: to }));
+    this.events.emit('node.lockChanged', { id, from: { ...from }, to: { ...to } });
+    trace('store', `setLock: ${id} → {${Object.keys(to).join(',')}}`);
+    this.scheduleNotify();
+  }
+
+  getLock(id: NodeId): Readonly<LockSet> {
+    return this.nodesMap.get(id)?.lock ?? {};
+  }
+
+  isLocked(id: NodeId, axis: LockAxis): boolean {
+    if (this.locksSuspended > 0) return false;
+    return this.nodesMap.get(id)?.lock?.[axis] === true;
+  }
+
+  /** Run `fn` with every lock ignored. Used internally by `deserialize`'s
+   *  in-place restore; a caller-side history restore should wrap itself the same way. */
+  withLocksSuspended<T>(fn: () => T): T {
+    this.locksSuspended += 1;
+    try {
+      return fn();
+    } finally {
+      this.locksSuspended -= 1;
+    }
+  }
+
+  private assertUnlocked(
+    id: NodeId,
+    axis: LockAxis,
+    operation: string,
+    opts?: MutateOptions,
+  ): void {
+    if (opts?.force === true) return;
+    if (!this.isLocked(id, axis)) return;
+    throw new LockedError(id, axis, operation);
   }
 
   setAllowsPinning(id: NodeId, allows: boolean): void {
@@ -718,48 +778,79 @@ export class Store {
     this.replaceContainer(id, (c) => ({ ...c, allowsPinning: allows }));
     this.events.emit('container.allowsPinningChanged', { id, from, to: allows });
     if (!allows) {
-      // Clear pinned flags from children (locked retained for drag suppression).
       for (const cid of node.container.childOrder) {
-        const child = this.nodesMap.get(cid);
-        if (child?.membership?.placement?.pinned) {
-          const nextPlacement = { ...child.membership.placement };
-          delete nextPlacement.pinned;
-          this.replaceMembership(cid, (s) => ({ ...s, placement: nextPlacement }));
-          this.events.emit('node.placementChanged', {
-            id: cid,
-            changes: { pinned: { from: true, to: undefined } },
-          });
-        }
+        const pinFrom = this.getPinnedIndex(cid);
+        if (pinFrom === null) continue;
+        this.writePin(cid, null);
+        this.events.emit('node.pinnedChanged', { id: cid, from: pinFrom, to: null });
       }
-    } else {
-      this.resortByPin(id);
     }
     this.scheduleNotify();
   }
 
-  setAllowsDrop(id: NodeId, allows: boolean): void {
+  setPinned(id: NodeId, at?: number, opts?: MutateOptions): void {
     const node = this.requireNode(id);
-    if (!node.container) {
-      throw new CapabilityMissingError(id, 'container', 'setAllowsDrop');
+    if (!node.membership) {
+      throw new InvariantViolationError('pin-unparented', `node ${id} not parented`, { id });
     }
-    const from = node.container.allowsDrop;
-    if (from === allows) return;
-    this.replaceContainer(id, (c) => ({ ...c, allowsDrop: allows }));
-    this.events.emit('container.allowsDropChanged', { id, from, to: allows });
+    const parentId = node.membership.parentId;
+    const parent = this.requireNode(parentId);
+    if (!parent.container) {
+      throw new InvariantViolationError('parent-not-container', `parent ${parentId}`, {
+        parentId,
+      });
+    }
+    this.assertUnlocked(parentId, 'arrange', 'setPinned', opts);
+    if (!parent.container.allowsPinning) {
+      throw new InvariantViolationError(
+        'pinning-not-allowed',
+        `parent ${parentId} has allowsPinning: false`,
+        { parentId },
+      );
+    }
+    const length = parent.container.childOrder.length;
+    const current = parent.container.childOrder.indexOf(id);
+    const target = at ?? current;
+    if (target < 0 || target >= length) throw new PinIndexError(id, target, length);
+
+    const from = this.getPinnedIndex(id);
+    if (target !== current) this.reorderInParent(id, target, { force: true });
+    // reorderInParent may have already landed the node and recorded its
+    // actual slot internally; only write here if that didn't happen.
+    const actual = this.nodesMap.get(parentId)?.container?.childOrder.indexOf(id) ?? target;
+    if (this.getPinnedIndex(id) !== actual) this.writePin(id, actual);
+    if (from === actual) return;
+    this.events.emit('node.pinnedChanged', { id, from, to: actual });
+    trace('store', `setPinned: ${id} @ ${actual}`);
     this.scheduleNotify();
   }
 
-  setAllowsDragOut(id: NodeId, allows: boolean): void {
+  unpin(id: NodeId, opts?: MutateOptions): void {
     const node = this.requireNode(id);
-    if (!node.container) {
-      throw new CapabilityMissingError(id, 'container', 'setAllowsDragOut');
-    }
-    const from = node.container.allowsDragOut;
-    if (from === allows) return;
-    this.replaceContainer(id, (c) => ({ ...c, allowsDragOut: allows }));
-    this.events.emit('container.allowsDragOutChanged', { id, from, to: allows });
+    const parentId = node.membership?.parentId;
+    if (parentId) this.assertUnlocked(parentId, 'arrange', 'unpin', opts);
+    const from = this.getPinnedIndex(id);
+    if (from === null) return;
+    this.writePin(id, null);
+    this.events.emit('node.pinnedChanged', { id, from, to: null });
     this.scheduleNotify();
   }
+
+  getPinnedIndex(id: NodeId): number | null {
+    const raw = this.nodesMap.get(id)?.membership?.placement?.pinned;
+    return typeof raw === 'number' ? raw : null;
+  }
+
+  private writePin(id: NodeId, at: number | null): void {
+    this.replaceMembership(id, (m) => {
+      const placement = { ...m.placement };
+      if (at === null) delete placement.pinned;
+      else placement.pinned = at;
+      return { ...m, placement };
+    });
+  }
+
+  private pinnedIndexOf = (id: NodeId): number | null => this.getPinnedIndex(id);
 
   // ===== Lifecycle: show / hide =====
 
@@ -937,6 +1028,21 @@ function clampIndex(at: number | undefined, length: number): number {
   if (at < 0) return 0;
   if (at > length) return length;
   return at;
+}
+
+export interface MutateOptions {
+  /** Bypass lock guards for this call. */
+  force?: boolean;
+}
+
+function sameLock(a: LockSet, b: LockSet): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((k) => !a[k as LockAxis] === !b[k as LockAxis]);
+}
+
+function omitLock(n: Node): Node {
+  const { lock: _lock, ...rest } = n;
+  return rest;
 }
 
 // Re-export commonly used types for convenience.

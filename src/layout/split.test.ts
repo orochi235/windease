@@ -189,6 +189,7 @@ describe('splitStrategy — placement.size', () => {
         kind: 'drag-y',
         rect: { x: 0, y: 0, w: 200, h: 4 },
         meta: { path: [], direction: 'vertical' } as never,
+        affects: ['top', 'bot'],
       },
       store: fakeStore as never,
       parentId: 'root' as never,
@@ -198,6 +199,45 @@ describe('splitStrategy — placement.size', () => {
     } as never);
     expect(fakeStore.patchPlacement).toHaveBeenCalledWith('top', { size: undefined });
     expect(fakeStore.patchPlacement).toHaveBeenCalledWith('bot', { size: undefined });
+  });
+
+  it('dispatchAffordance does NOT clear size on a pane the dragged gutter does not affect', () => {
+    // root: split(split(a,b), split(c,d)) — the a/b gutter's `affects` is
+    // exactly [a, b]; c and d are unrelated and must be left alone.
+    const state: SplitNode = split(
+      'horizontal',
+      0.5,
+      split('horizontal', 0.5, leaf('a'), leaf('b')),
+      split('horizontal', 0.5, leaf('c'), leaf('d')),
+    );
+    const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+    const result = splitStrategy.layout({
+      items,
+      container: { w: 400, h: 100 },
+      state,
+      options: { gutterSize: 4 },
+    });
+    const abGutter = result.affordances.find((aff) => aff.affects?.join(',') === 'a,b');
+    expect(abGutter).toBeDefined();
+    const cleared: string[] = [];
+    const fakeStore = {
+      patchPlacement: (id: string, patch: Record<string, unknown>) => {
+        if ('size' in patch) cleared.push(id);
+      },
+      getNode: (_id: string) => ({ membership: { placement: { size: { w: 10 } } } }),
+    };
+    splitStrategy.dispatchAffordance?.({
+      event: { affordanceId: abGutter!.id, kind: 'drag', payload: { dx: 0 } },
+      affordance: abGutter!,
+      store: fakeStore as never,
+      parentId: 'root' as never,
+      container: { w: 400, h: 100 },
+      options: {},
+      items,
+    } as never);
+    expect(cleared.sort()).toEqual(['a', 'b']);
+    expect(cleared).not.toContain('c');
+    expect(cleared).not.toContain('d');
   });
 });
 
@@ -344,6 +384,42 @@ describe('splitStrategy — maxSize', () => {
     );
     if (next.kind !== 'split') throw new Error('expected split');
     expect(next.ratio).toBeCloseTo(0.7, 5);
+  });
+});
+
+describe('splitStrategy — gutter affects', () => {
+  it('names the leaves on both sides of a gutter', () => {
+    const state = split('horizontal', 0.5, leaf('a'), leaf('b'));
+    const result = splitStrategy.layout({
+      items: [{ id: 'a' }, { id: 'b' }],
+      container: { w: 200, h: 100 },
+      state,
+      options: { gutterSize: 4 },
+    });
+    expect(result.affordances).toHaveLength(1);
+    expect(result.affordances[0]!.affects).toEqual(['a', 'b']);
+  });
+
+  it('includes every leaf of a nested subtree', () => {
+    // buildTree's right-leaning nesting for 3 items: root splits 'a' from a
+    // nested split of 'b' and 'c'.
+    const state = split(
+      'horizontal',
+      0.5,
+      leaf('a'),
+      split('horizontal', 0.5, leaf('b'), leaf('c')),
+    );
+    const result = splitStrategy.layout({
+      items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+      container: { w: 300, h: 100 },
+      state,
+      options: { gutterSize: 4 },
+    });
+    expect(result.affordances).toHaveLength(2);
+    const outer = result.affordances.find((a) => (a.meta as { path: number[] }).path.length === 0);
+    const inner = result.affordances.find((a) => (a.meta as { path: number[] }).path.length === 1);
+    expect(outer?.affects).toEqual(['a', 'b', 'c']);
+    expect(inner?.affects).toEqual(['b', 'c']);
   });
 });
 

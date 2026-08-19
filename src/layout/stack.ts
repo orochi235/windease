@@ -6,6 +6,7 @@ import type {
   Rect,
   Size,
 } from '../layout-types.js';
+import { selectByCapacity } from './capacity.js';
 import { clampExplicitSizes } from './resize.js';
 
 interface StackConfig {
@@ -84,7 +85,7 @@ export const stackStrategy: LayoutStrategy<void, string> = {
     const itemCap =
       cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
     const placedCount = Math.min(items.length, itemCap);
-    const placedItems = items.slice(0, placedCount);
+    const { placed: placedItems, unplaced } = selectByCapacity(items, placedCount);
 
     const colX = padding;
     const colW = container.w - 2 * padding;
@@ -128,13 +129,10 @@ export const stackStrategy: LayoutStrategy<void, string> = {
           rect: { x: colX, y: y + h - 2, w: colW, h: 4 },
           cursor: 'ns-resize',
           childId: item.id,
+          affects: [item.id],
         });
       }
       y += h + gap;
-    }
-    const unplaced: string[] = [];
-    for (let i = placedCount; i < items.length; i++) {
-      unplaced.push(items[i]!.id);
     }
     const result: LayoutResult<string> = { placements, affordances };
     if (unplaced.length > 0) result.unplaced = unplaced;

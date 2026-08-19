@@ -30,6 +30,26 @@ describe('createZone', () => {
     expect(node.container?.allowsPinning).toBe(false);
   });
 
+  it('resolves lock at construction, filtering to supported axes', () => {
+    const node = createZone({
+      id: asNodeId('z-lock'),
+      strategyId: 'grid',
+      config: {},
+      lock: { accept: true, move: true },
+    });
+    expect(node.lock).toEqual({ accept: true });
+  });
+
+  it('omits lock when the resolved set is empty', () => {
+    const node = createZone({
+      id: asNodeId('z-nolock'),
+      strategyId: 'grid',
+      config: {},
+      lock: false,
+    });
+    expect(node.lock).toBeUndefined();
+  });
+
   it('carries meta and hints when provided', () => {
     const node = createZone({
       id: asNodeId('z3'),
@@ -73,6 +93,24 @@ describe('createGroup', () => {
     });
     expect(node.container?.allowsPinning).toBe(false);
     expect(node.membership?.placement).toEqual({ pinned: true });
+  });
+
+  it('resolves lock using the full container + membership shape', () => {
+    const node = createGroup({
+      id: asNodeId('g-lock'),
+      parentId: asNodeId('z1'),
+      strategyId: 'stack',
+      config: {},
+      lock: true,
+    });
+    expect(node.lock).toEqual({
+      move: true,
+      resize: true,
+      destroy: true,
+      accept: true,
+      dragOut: true,
+      arrange: true,
+    });
   });
 });
 
@@ -123,6 +161,16 @@ describe('createPanel', () => {
     expect(node.meta).toEqual({ title: 'Editor' });
     expect(node.hints?.minSize).toEqual({ w: 200, h: 100 });
     expect(node.membership?.placement).toEqual({ locked: true });
+  });
+
+  it('resolves a top-level lock on a childless panel', () => {
+    const node = createPanel({
+      id: asNodeId('p5'),
+      parentId: asNodeId('z1'),
+      lock: { move: true, arrange: true },
+    });
+    expect(node.container).toBeUndefined();
+    expect(node.lock).toEqual({ move: true });
   });
 });
 

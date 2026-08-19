@@ -7,6 +7,8 @@ const mkItem = (id: string, preferredH?: number): LayoutItem => ({
   ...(preferredH ? { hints: { preferredSize: { w: 0, h: preferredH } } } : {}),
 });
 
+const pinned = (id: string, at: number): LayoutItem => ({ id, meta: { pinned: at } });
+
 describe('stackStrategy', () => {
   it('stacks items vertically using preferredSize.h, gap, padding', () => {
     const result = stackStrategy.layout({
@@ -142,6 +144,39 @@ describe('stackStrategy — maxItems', () => {
       ),
     ).toBe(true);
   });
+
+  it('overflows an unpinned child ahead of a pinned one that sorts later in childOrder', () => {
+    const result = stackStrategy.layout({
+      items: [mkItem('a'), mkItem('b'), mkItem('c'), pinned('d', 3)],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: { maxItems: 3 },
+    });
+    expect(result.unplaced).toEqual(['c']);
+    expect([...result.placements.keys()]).toEqual(['a', 'b', 'd']);
+  });
+
+  it('leaves ordering untouched when everything fits', () => {
+    const result = stackStrategy.layout({
+      items: [mkItem('a'), pinned('b', 1)],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: {},
+    });
+    expect(result.unplaced).toBeUndefined();
+    expect([...result.placements.keys()]).toEqual(['a', 'b']);
+  });
+
+  it('excess pinned children still overflow once capacity is full of pins', () => {
+    const result = stackStrategy.layout({
+      items: [pinned('a', 0), pinned('b', 1), pinned('c', 2)],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: { maxItems: 2 },
+    });
+    expect(result.unplaced).toEqual(['c']);
+    expect([...result.placements.keys()]).toEqual(['a', 'b']);
+  });
 });
 
 describe('stackStrategy — preview', () => {
@@ -237,6 +272,17 @@ describe('stackStrategy — placement.size', () => {
     expect(resizes).toHaveLength(2);
     expect(resizes[0]!.childId).toBe('a');
     expect(resizes[1]!.childId).toBe('b');
+  });
+
+  it('affects contains exactly the childId on a resize-y affordance', () => {
+    const result = stackStrategy.layout({
+      items: [{ id: 'a' }, { id: 'b' }],
+      container: { w: 100, h: 300 },
+      state: undefined as void,
+      options: {},
+    });
+    const resize = result.affordances.find((a) => a.kind === 'resize-y')!;
+    expect(resize.affects).toEqual([resize.childId]);
   });
 
   it('dispatchAffordance patches placement.size on the targeted child', () => {

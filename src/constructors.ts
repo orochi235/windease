@@ -1,3 +1,4 @@
+import { type LockSet, resolveLock } from './lock.js';
 import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
@@ -8,8 +9,7 @@ export interface CreateZoneInput {
   strategyId: string;
   config: unknown;
   allowsPinning?: boolean;
-  allowsDrop?: boolean;
-  allowsDragOut?: boolean;
+  lock?: boolean | LockSet;
   meta?: Record<string, unknown>;
   hints?: NodeHints;
   /** See `Node.order`. */
@@ -27,13 +27,15 @@ export function createZone(input: CreateZoneInput): Node {
       config: input.config,
       childOrder: [],
       allowsPinning: input.allowsPinning ?? true,
-      allowsDrop: input.allowsDrop ?? true,
-      allowsDragOut: input.allowsDragOut ?? true,
     },
   };
   if (input.meta !== undefined) node.meta = input.meta;
   if (input.hints !== undefined) node.hints = input.hints;
   if (input.order !== undefined) node.order = input.order;
+  if (input.lock !== undefined) {
+    const resolved = resolveLock(node, input.lock);
+    if (Object.keys(resolved).length > 0) node.lock = resolved;
+  }
   return node;
 }
 
@@ -43,8 +45,7 @@ export interface CreateGroupInput {
   strategyId: string;
   config: unknown;
   allowsPinning?: boolean;
-  allowsDrop?: boolean;
-  allowsDragOut?: boolean;
+  lock?: boolean | LockSet;
   placement?: Record<string, unknown>;
   meta?: Record<string, unknown>;
   hints?: NodeHints;
@@ -63,8 +64,6 @@ export function createGroup(input: CreateGroupInput): Node {
       config: input.config,
       childOrder: [],
       allowsPinning: input.allowsPinning ?? true,
-      allowsDrop: input.allowsDrop ?? true,
-      allowsDragOut: input.allowsDragOut ?? true,
     },
     membership: {
       parentId: input.parentId,
@@ -75,6 +74,10 @@ export function createGroup(input: CreateGroupInput): Node {
   if (input.meta !== undefined) node.meta = input.meta;
   if (input.hints !== undefined) node.hints = input.hints;
   if (input.order !== undefined) node.order = input.order;
+  if (input.lock !== undefined) {
+    const resolved = resolveLock(node, input.lock);
+    if (Object.keys(resolved).length > 0) node.lock = resolved;
+  }
   return node;
 }
 
@@ -86,12 +89,11 @@ export interface CreatePanelInput {
   hints?: NodeHints;
   /** See `Node.order`. */
   order?: number;
+  lock?: boolean | LockSet;
   container?: {
     strategyId: string;
     config: unknown;
     allowsPinning?: boolean;
-    allowsDrop?: boolean;
-    allowsDragOut?: boolean;
   };
 }
 
@@ -117,9 +119,11 @@ export function createPanel(input: CreatePanelInput): Node {
       config: input.container.config,
       childOrder: [],
       allowsPinning: input.container.allowsPinning ?? true,
-      allowsDrop: input.container.allowsDrop ?? true,
-      allowsDragOut: input.container.allowsDragOut ?? true,
     };
+  }
+  if (input.lock !== undefined) {
+    const resolved = resolveLock(node, input.lock);
+    if (Object.keys(resolved).length > 0) node.lock = resolved;
   }
   return node;
 }

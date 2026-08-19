@@ -76,26 +76,85 @@ Two paths for free-form data on a node; lifetimes differ:
 | Where                  | Lifetime                                       | Use for                                                 |
 | ---------------------- | ---------------------------------------------- | ------------------------------------------------------- |
 | `node.meta`            | Intrinsic; survives `moveNode`                 | Window-intrinsic consumer data (title, URL, etc.)       |
-| `node.membership.placement`  | Per-membership; cleared on detach              | State that exists *because of this placement* — pin flags, placement-specific UI state |
+| `node.membership.placement`  | Per-membership; cleared on detach              | State that exists *because of this placement* — the held pin index, placement-specific UI state |
 | `node.container.config` | Container-strategy options                    | Strategy options (`cols`, `gap`, etc.)                  |
 | `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `order`          |
 
 **Reserved keys on `membership.placement`:**
 
-- `pinned: true` — promotes to the **pinned-prefix** of the parent's
-  `childOrder`. Strategies render the node earlier; reorder operations that
-  try to put it past an unpinned sibling are silently snapped back.
-- `locked: true` — implies pinned at the layout layer, AND the React layer
-  refuses to start a drag from this node. Use for system chrome that owns
-  its placement for the session.
+- `pinned: number` — the index this node holds in the parent's `childOrder`.
+  A pinned node keeps that slot against third parties: another node's insert
+  or reorder is routed around it. The pin itself yields only when the pinned
+  node is the one being reordered. Not writable through `patchPlacement` /
+  `setPlacement` — both throw and name `setPinned`/`unpin` instead. See
+  `store.setPinned` / `unpin` / `getPinnedIndex` below, and `node.lock` for
+  the separate, unrelated notion of permission.
 - `size: { w?, h? }` — fixed pixel extent honored by strip / stack / split
   along their main axis (the public "fixed-px pane" API; set via
   `store.patchPlacement`). On `split`, a gutter drag **clears** this key on
   the two affected panes, reverting them to ratio control. Pair with
   `hints.maxSize` for an "auto up to a cap" pane.
 
-`setAllowsPinning(id, false)` opts a container out of the pinned-prefix
-invariant (a tool strip, a tabbed group). `locked` still suppresses drag.
+`setAllowsPinning(id, false)` opts a container out of the pin invariant
+entirely (a tool strip, a tabbed group) — children can no longer hold an
+index in it.
+
+## `node.lock`
+
+`node.lock` answers *who may operate on this node?* — the opposite question
+from `pinned`, which answers *where does this node end up?* A node can be
+pinned and unlocked (holds its slot, user can still drag it away), locked
+and unpinned (untouchable, but free to be reordered by others), both, or
+neither.
+
+`lock` is a `LockSet` — `Partial<Record<LockAxis, boolean>>` — node-intrinsic
+like `meta`, so it survives `moveNode`. Which axes apply depends on the
+node's capabilities; axes a node doesn't support are dropped silently on
+write, so `store.setLock(id, true)` is safe to call without checking shape
+first.
+
+| Axis      | Requires     | Guards                                                     |
+| --------- | ------------ | ----------------------------------------------------------- |
+| `move`    | `membership` | `moveNode` (as source), `reorderInParent`                   |
+| `resize`  | `membership` | `patchPlacement`, reserved `size` key only                  |
+| `destroy` | —            | `unregisterNode`                                             |
+| `accept`  | `container`  | `moveNode` (as target)                                       |
+| `dragOut` | `container`  | `moveNode` where the source's parent is this node             |
+| `arrange` | `container`  | `setChildOrder`, `setContainerState`, `updateContainerConfig`, `setPinned`/`unpin` |
+
+`setPinned`/`unpin` check the *parent's* `arrange`, not the child's `move`:
+pinning is an arrangement of the container, and any reorder it causes is one
+`arrange` already covers. Guarding it elsewhere would leave a side door around
+`setChildOrder`.
+
+A guarded call on a locked axis throws `LockedError(id, axis, op)`. Locks
+constrain direct user manipulation; imperative host code that means to bypass
+one passes `{ force: true }` to the mutating call, or wraps in
+`store.withLocksSuspended(fn)` — the React gesture paths (drag, resize, drop)
+never do either, so "the user cannot do this" holds. A preset's declarative
+prop reconcile follows the same rule, but per field, not per axis:
+`childOrder` and `pinned` skip under `lock.arrange` because a `move`-gated
+drag writes the same `childOrder` array, and forcing a stale prop would
+revert it — `arrange` itself never gates that drag; freezing drag-reordering
+needs `lock.move` on the children. `container.state` skips too, for the more
+direct reason that `dispatchAffordance` writes it through the same `arrange`
+check. `placement.size` and node existence force instead, because their only
+other writer is the gesture the very same lock already blocks (`resize`,
+`destroy`). `deserialize` and `HistoryController` use `withLocksSuspended`
+internally, so restoring a snapshot or undoing is never blocked by a lock.
+
+`lock.destroy` on a child does not veto an ancestor's cascade destroy — it
+only blocks `unregisterNode` called directly on that node. To protect a
+subtree, lock the ancestor. It also doesn't keep a node mounted: a node
+cannot outlive the JSX that owns it, so removing a locked `<Panel>` from JSX
+still unregisters it on unmount.
+
+### `acceptsDrops` vs. `lock.accept`
+
+Easily confused, answer different questions. `acceptsDrops` (a React preset
+prop) registers the element as a drop target at all. `lock.accept` rejects
+drops that arrive at one that's already registered. Setting the wrong one
+produces silence — the drop target exists but nothing lands, or vice versa.
 
 ## Store API
 
@@ -109,12 +168,17 @@ methods:
 - `moveNode(id, newParentId, at?)` — atomic transit
   `idle → releasing → claiming → idle`. Throws `CycleError` on a move into
   the node's own descendant.
-- `reorderInParent(id, at)` — pinned-prefix preserved.
-- `setPlacement` / `patchPlacement` — membership.placement merge-patches.
+- `reorderInParent(id, at)` — held pin slots preserved.
+- `setPlacement` / `patchPlacement` — membership.placement merge-patches;
+  throw if the patch contains `pinned`.
 - `setMeta` — node.meta merge-patch.
 - `updateContainerConfig` — strategy config merge-patch.
-- `setAllowsPinning` / `setAllowsDrop` / `setAllowsDragOut` — container
-  policy flags.
+- `setAllowsPinning` — container policy flag; opts out of the pin invariant.
+- `setLock(id, input)` / `getLock(id)` / `isLocked(id, axis)` —
+  read/write `node.lock`.
+- `withLocksSuspended(fn)` — runs `fn` with every lock guard bypassed.
+- `setPinned(id, at?)` / `unpin(id)` / `getPinnedIndex(id)` — hold or
+  release a `childOrder` index.
 - `setContainerState` / `getContainerState` — persist strategy state (e.g.
   resize ratios) on the container.
 - `showNode` / `hideNode` — lifecycle transitions. Hidden children are
@@ -182,10 +246,14 @@ expose an optional `reduce(state, event, context)` that turns affordance
 drag events into new state, and an optional `canAccept(items, options)`
 that the drag controller consults before accepting a drop.
 
-A `LayoutNode` shape (with `placement` and `isContainer` fields) projects
-each child for the strategy. The adapter
-`runStrategyForContainer(store, parentId, viewport, strategy, state)` maps
-a node tree onto the strategy signature.
+`items` are `LayoutItem`s, projected from each child by `nodeToLayoutItem`.
+It splits `membership.placement` two ways: the whole bag lands in `meta`, and
+`size` alone is re-surfaced as the typed `placement.size`. So a strategy reads
+`pinned` from `item.meta`, never from `item.placement`. Both entry points —
+`runStrategyForContainer(store, parentId, viewport, strategy, state)` and the
+React `useContainerLayout` — feed strategies through that adapter. The exported
+`LayoutNode` shape is a separate projection (`nodeToLayoutNode`) that no
+strategy receives.
 
 **Recursion is mount-time, not strategy-time.** A strategy lays out the
 children it's handed. When a child is itself a container
@@ -238,13 +306,20 @@ Hooks: `useNode(id)`, `useNodeSelector(id, select)`, `useChildren(parentId)`,
 DnD scaffolding: `<DragProvider>`, `useDragHandle(id)`, `<DragHandle>`,
 `useDropTarget(id, ref, canAccept?)`, `useDragState()`. Drop targets register
 element rects; the controller's innermost-wins hit-test runs on pointermove
-and calls `store.moveNode` on drop. The controller honors:
-`container.allowsDrop`, `container.allowsDragOut`, `membership.placement.locked`,
-and the destination strategy's `canAccept`.
+and calls `store.moveNode` on drop. The controller honors `lock.accept`
+(target), `lock.dragOut` (source's parent), `lock.move` (source), and the
+destination strategy's `canAccept`.
 
-Pass `affordances` to `<Container>` to render the strategy's
-interactive gutters; `affordanceHitPad` (default 4) widens the pointer-hit
-area beyond the visual rect.
+Pass `affordances` to `<Container>` to render the strategy's interactive
+gutters; `affordanceHitPad` (default 4) widens the pointer-hit area beyond
+the visual rect. Affordances are suppressed — not rendered, dispatch
+refused — when the container has `lock.arrange`, or when any pane the
+affordance would resize has `lock.resize`.
+
+`<Panel>` / `<Group>` accept `lock` and `pinned` props, reconciled like
+`meta` / `placement`. `<Zone>` accepts `lock` but not `pinned` — a zone has
+no parent, so there's no `childOrder` slot for it to hold. The generic
+`placement` prop throws if given a `pinned` key; use the dedicated prop.
 
 ## Events
 
@@ -253,10 +328,10 @@ node.registered                  | node.unregistered
 node.transitioned (lifecycle/transit/focus)
 node.moved                       | node.reordered
 node.placementChanged (batched) | node.metaChanged (batched)
+node.lockChanged                 | node.pinnedChanged
 node.activityChanged
 node.cascadeDestroyed
 container.configChanged          | container.allowsPinningChanged
-container.allowsDropChanged      | container.allowsDragOutChanged
 container.stateChanged
 ```
 
@@ -264,8 +339,9 @@ One bus on the store (`store.events`); DnD events fire from the controller.
 
 ## Snapshot
 
-`serialize(store)` produces a v2 snapshot. `deserialize(snap)` validates the
-version and returns a fresh `Store`. Transit state is not
+`serialize(store)` produces a v4 snapshot. `deserialize(snap)` accepts v2,
+v3, and v4, migrating older shapes on read, and returns a fresh `Store`.
+Transit state is not
 serialized; hydrate always initializes to `'idle'`. Hydrate validates
 bidirectional parent-child links, multi-focus, cycles.
 
@@ -278,6 +354,8 @@ Class hierarchy under `WindeaseError`:
 - `CapabilityMissingError` (`'capability-missing'`)
 - `CycleError` (`'cycle-detected'`)
 - `StrategyRejectionError` (`'strategy-rejected'`)
+- `LockedError` (`'locked'`)
+- `PinIndexError` (`'pin-index-out-of-range'`)
 - `InvariantViolationError` (free-form `code` + `context`)
 
 Catch on `instanceof` or `.code`, not message text.

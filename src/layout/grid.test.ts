@@ -362,3 +362,54 @@ describe('gridStrategy — placement.size is currently ignored', () => {
     expect(result.placements.get('b')?.w).toBe(100);
   });
 });
+
+describe('gridStrategy — pinned capacity', () => {
+  const pinned = (id: string, at: number) => ({ id, meta: { pinned: at } });
+
+  it('overflows unpinned children before pinned ones', () => {
+    const result = gridStrategy.layout({
+      items: [mkItem('a'), mkItem('b'), pinned('c', 2), mkItem('d')],
+      container: { w: 300, h: 100 },
+      state: undefined as void,
+      options: { maxItems: 3 },
+    });
+    expect(result.unplaced).toEqual(['d']);
+    expect([...result.placements.keys()]).toEqual(['a', 'b', 'c']);
+  });
+
+  it('overflows an unpinned child ahead of a pinned one that sorts later in childOrder', () => {
+    // 'd' is pinned but LAST in childOrder — naive first-N truncation would
+    // drop it. Priority selection must keep it and overflow 'c' instead.
+    const result = gridStrategy.layout({
+      items: [mkItem('a'), mkItem('b'), mkItem('c'), pinned('d', 3)],
+      container: { w: 300, h: 100 },
+      state: undefined as void,
+      options: { maxItems: 3 },
+    });
+    expect(result.unplaced).toEqual(['c']);
+    expect([...result.placements.keys()]).toEqual(['a', 'b', 'd']);
+  });
+
+  it('leaves ordering untouched when everything fits', () => {
+    const result = gridStrategy.layout({
+      items: [mkItem('a'), pinned('b', 1)],
+      container: { w: 200, h: 100 },
+      state: undefined as void,
+      options: { cols: 2 },
+    });
+    expect(result.unplaced).toBeUndefined();
+    expect([...result.placements.keys()]).toEqual(['a', 'b']);
+  });
+
+  it('excess pinned children still overflow once capacity is full of pins', () => {
+    // capacity 2, three pinned — pins fill capacity in childOrder; the third still overflows.
+    const result = gridStrategy.layout({
+      items: [pinned('a', 0), pinned('b', 1), pinned('c', 2)],
+      container: { w: 200, h: 100 },
+      state: undefined as void,
+      options: { maxItems: 2 },
+    });
+    expect(result.unplaced).toEqual(['c']);
+    expect([...result.placements.keys()]).toEqual(['a', 'b']);
+  });
+});

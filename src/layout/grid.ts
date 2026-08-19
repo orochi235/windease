@@ -1,4 +1,5 @@
 import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
+import { selectByCapacity } from './capacity.js';
 
 interface GridConfig {
   cols?: number;
@@ -174,6 +175,8 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
     const capacity = Math.min(gridCap, itemCap);
     const placedCount = Math.min(items.length, capacity);
+    const { placed: placedItems, unplaced } = selectByCapacity(items, placedCount);
+
     const rows =
       !fill && rowCap !== undefined ? rowCap : Math.max(1, Math.ceil(placedCount / cols));
 
@@ -182,8 +185,8 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     const cellW = (usableW - gap * (cols - 1)) / cols;
     const cellH = (usableH - gap * (rows - 1)) / rows;
 
-    for (let i = 0; i < placedCount; i++) {
-      const item = items[i]!;
+    for (let i = 0; i < placedItems.length; i++) {
+      const item = placedItems[i]!;
       const col = i % cols;
       const row = Math.floor(i / cols);
       placements.set(item.id, {
@@ -192,11 +195,6 @@ export const gridStrategy: LayoutStrategy<void, string> = {
         w: cellW,
         h: cellH,
       });
-    }
-
-    const unplaced: string[] = [];
-    for (let i = placedCount; i < items.length; i++) {
-      unplaced.push(items[i]!.id);
     }
 
     const result: LayoutResult<string> = { placements, affordances: [] };

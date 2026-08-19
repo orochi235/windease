@@ -83,7 +83,6 @@ function makeStore(): Store {
       container: {
         strategyId: 'strip',
         config: { axis: 'x', gap: 6, padding: 6, fill: true },
-        allowsDrop: true,
       },
     }),
   );
@@ -122,7 +121,8 @@ function makeStore(): Store {
         meta: { title, kind: 'controls' },
       }),
     );
-    s.patchPlacement(nid, { locked: true, pinned: true });
+    s.setLock(nid, { move: true });
+    s.setPinned(nid, 0);
     s.showNode(nid);
   };
   seedControls('main-controls', MAIN, 'Main controls');
@@ -132,11 +132,8 @@ function makeStore(): Store {
   // Resizable-children demo: pin the sidebar controls to an explicit 180px
   // height so siblings stay below regardless of available space. The other
   // sidebar widgets get interactive resize edges from the stack strategy.
-  s.patchPlacement(asNodeId('sidebar-controls'), {
-    locked: true,
-    pinned: true,
-    size: { h: 180 },
-  });
+  // Already pinned to index 0 and move-locked by seedControls above; this call only fixes the height.
+  s.patchPlacement(asNodeId('sidebar-controls'), { size: { h: 180 } });
   seed('widget-1', SIDEBAR, 'Widget 1', 120);
   seed('widget-2', SIDEBAR, 'Widget 2', 80);
   seed('tool-1', DOCK, 'Tool 1', undefined, 100);
@@ -218,13 +215,16 @@ export const Playground: Story = () => {
                 <span className="pg-panel-actions">
                   <button
                     type="button"
-                    className={`pg-panel-btn pg-panel-btn--pin${node.membership?.placement?.pinned ? ' is-active' : ''}`}
-                    title={node.membership?.placement?.pinned ? 'Unpin' : 'Pin'}
+                    className={`pg-panel-btn pg-panel-btn--pin${store.getPinnedIndex(node.id) !== null ? ' is-active' : ''}`}
+                    title={store.getPinnedIndex(node.id) !== null ? 'Unpin' : 'Pin'}
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
-                      const pinned = !node.membership?.placement?.pinned;
-                      store.patchPlacement(node.id, { pinned: pinned ? true : undefined });
+                      if (store.getPinnedIndex(node.id) !== null) {
+                        store.unpin(node.id);
+                      } else {
+                        store.setPinned(node.id);
+                      }
                     }}
                   >
                     📌
@@ -258,6 +258,7 @@ export const Playground: Story = () => {
       store.events.on('node.registered', () => force((n) => n + 1)),
       store.events.on('node.unregistered', () => force((n) => n + 1)),
       store.events.on('node.moved', () => force((n) => n + 1)),
+      store.events.on('node.pinnedChanged', () => force((n) => n + 1)),
     ];
     return () => {
       for (const off of offs) off();
@@ -316,10 +317,7 @@ function ZoneControls({
   const [, force] = useState(0);
   useEffect(() => {
     const offs = [
-      store.events.on('container.allowsDropChanged', (e) => {
-        if (e.id === zoneId) force((n) => n + 1);
-      }),
-      store.events.on('container.allowsDragOutChanged', (e) => {
+      store.events.on('node.lockChanged', (e) => {
         if (e.id === zoneId) force((n) => n + 1);
       }),
       store.events.on('container.allowsPinningChanged', (e) => {
@@ -337,6 +335,7 @@ function ZoneControls({
   const node = store.getNode(zoneId);
   const container = node?.container;
   if (!container) return null;
+  const lock = store.getLock(zoneId);
 
   const cfg = (container.config ?? {}) as {
     cols?: number;
@@ -360,18 +359,18 @@ function ZoneControls({
       <label>
         <input
           type="checkbox"
-          checked={container.allowsDrop}
-          onChange={(e) => store.setAllowsDrop(zoneId, e.target.checked)}
+          checked={lock.accept === true}
+          onChange={(e) => store.setLock(zoneId, { ...lock, accept: e.target.checked })}
         />
-        allowsDrop
+        lock.accept
       </label>
       <label>
         <input
           type="checkbox"
-          checked={container.allowsDragOut}
-          onChange={(e) => store.setAllowsDragOut(zoneId, e.target.checked)}
+          checked={lock.dragOut === true}
+          onChange={(e) => store.setLock(zoneId, { ...lock, dragOut: e.target.checked })}
         />
-        allowsDragOut
+        lock.dragOut
       </label>
       <label>
         <input

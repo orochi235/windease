@@ -1,4 +1,5 @@
 import type { Machine } from './fsm.js';
+import type { LockSet } from './lock.js';
 import type { FocusEvent, FocusState } from './machines/focus.js';
 import type { LifecycleEvent, LifecycleState } from './machines/lifecycle.js';
 import type { TransitEvent, TransitState } from './machines/transit.js';
@@ -47,11 +48,6 @@ export interface ContainerCap {
    */
   childOrder: NodeId[];
   allowsPinning: boolean;
-  /** When false, this container rejects all DnD drops. Default true. */
-  allowsDrop: boolean;
-  /** When false, this container suppresses drag handles on all its children
-   *  (in addition to per-child `membership.placement.locked`). Default true. */
-  allowsDragOut: boolean;
   state?: unknown;
 }
 
@@ -60,8 +56,8 @@ export interface MembershipCap {
   /**
    * Per-membership bag of placement state. Reserved keys recognized by the
    * shipped layout strategies and React layer:
-   *  - `pinned: boolean` — pinned to the prefix of the parent's childOrder.
-   *  - `locked: boolean` — pinned, AND the React layer refuses drag/destroy.
+   *  - `pinned?: number` — the index in the parent's childOrder this child
+   *     holds against third-party reorders. Set via `Store.setPinned`/`unpin`.
    *  - `size?: { w?: number; h?: number }` — user intent; honored by stack /
    *     strip / split along their main axis. Either dimension is optional.
    *     Gutter drags on split *clear* this key on the two affected panes.
@@ -86,4 +82,8 @@ export interface Node {
   container?: ContainerCap;
   membership?: MembershipCap;
   focus?: FocusCap;
+
+  /** Permissions restricting what may be done to this node. Node-intrinsic:
+   *  survives `moveNode`, unlike `membership.placement`. */
+  lock?: LockSet;
 }

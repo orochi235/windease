@@ -2,12 +2,15 @@ import {
   type CSSProperties,
   type ReactNode,
   type RefObject,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import type { Node, NodeId, Store } from '../index.js';
-import { createGroup, createPanel, createZone } from '../index.js';
+import { createGroup, createPanel, createZone, trace } from '../index.js';
+import type { LockSet } from '../lock.js';
 import { type ChildSort, defaultChildSort } from './childSort.js';
 import { DragHandle } from './dnd/DragHandle.js';
 import { useDropTarget } from './dnd/useDropTarget.js';
@@ -36,7 +39,16 @@ interface CommonBindingProps {
    *  consumers can drag items into it. The element must have a container
    *  capability (Zone and Group always do; Panel needs the `container` prop). */
   acceptsDrops?: boolean;
+  /** Permissions restricting what the user may do to this node. `true` locks
+   *  every axis the node's capabilities support. */
+  lock?: boolean | LockSet;
+  /** Hold a slot in the parent's childOrder. `true` holds the current index. */
+  pinned?: boolean | number;
 }
+
+/** Zone has no parent, so a held index has nothing to be held in — omit
+ *  `pinned` at the type level rather than accept a prop that always throws. */
+type ZoneBindingProps = Omit<CommonBindingProps, 'pinned'>;
 
 interface PresentationalProps {
   className?: string;
@@ -60,6 +72,19 @@ function defined<T extends Record<string, unknown>>(obj: T): Partial<T> {
     if (v !== undefined) (out as Record<string, unknown>)[k] = v;
   }
   return out;
+}
+
+/** Forces a re-render when `targetId`'s lock changes. Nothing else re-renders
+ *  the caller on a bare lock flip, so a render-time reconcile gated on
+ *  `isLocked(targetId, ...)` would otherwise stay stuck after an unlock. */
+function useForceRerenderOnLockChange(store: Store, targetId: NodeId | undefined): void {
+  const [, forceRerender] = useState(0);
+  useEffect(() => {
+    if (targetId === undefined) return;
+    return store.events.on('node.lockChanged', (e) => {
+      if (e.id === targetId) forceRerender((t) => t + 1);
+    });
+  }, [store, targetId]);
 }
 
 /* ---------- Panel ---------- */
@@ -105,6 +130,11 @@ export function Panel(props: PanelProps) {
     },
     reconcile: makeReconciler(props),
   });
+
+  // A pending `pinned` prop that skipped because the parent was arrange-
+  // locked needs a re-render on unlock to re-run the reconcile above.
+  const store = useStore();
+  useForceRerenderOnLockChange(store, store.getNode(id)?.membership?.parentId);
 
   // Mirror Zone's layout-providing path: if this Panel is a container AND a
   // matching strategy is registered, run the layout and provide placements
@@ -215,6 +245,11 @@ export function Group(props: GroupProps) {
     reconcile: makeReconciler(props),
   });
 
+  // A pending `pinned` prop that skipped because the parent was arrange-
+  // locked needs a re-render on unlock to re-run the reconcile above.
+  const store = useStore();
+  useForceRerenderOnLockChange(store, store.getNode(id)?.membership?.parentId);
+
   return (
     <PresetShell
       kind="group"
@@ -232,7 +267,7 @@ export function Group(props: GroupProps) {
 
 /* ---------- Zone ---------- */
 
-export interface ZoneProps extends CommonBindingProps, PresentationalProps {
+export interface ZoneProps extends ZoneBindingProps, PresentationalProps {
   strategyId?: string;
   config?: unknown;
   viewport?: { w: number; h: number };
@@ -276,7 +311,13 @@ export function Zone(props: ZoneProps) {
     reconcile: (store, id) => {
       const base = makeReconciler(props);
       base(store, id);
-      if (props.state !== undefined) store.setContainerState(id, props.state);
+      if (props.state !== undefined) {
+        if (store.isLocked(id, 'arrange')) {
+          trace('layout', `<Zone> state prop reconcile skipped for ${id}: locked (arrange)`);
+          return;
+        }
+        store.setContainerState(id, props.state);
+      }
     },
   });
 
@@ -398,7 +439,30 @@ function makeReconciler(props: CommonBindingProps) {
       store.setMeta(id, props.meta);
     }
     if (props.placement !== undefined) {
-      store.patchPlacement(id, props.placement);
+      if ('pinned' in props.placement) {
+        throw new Error(
+          `windease: the generic \`placement\` prop cannot set "pinned" on "${id}" — use the dedicated \`pinned\` prop instead.`,
+        );
+      }
+      // force:true — declarative props are host code, not the user; lets a
+      // locked, fixed-size pane (lock.resize + placement.size) survive re-renders.
+      store.patchPlacement(id, props.placement, { force: true });
+    }
+    if (props.lock !== undefined) store.setLock(id, props.lock);
+    if (props.pinned !== undefined) {
+      // setPinned/unpin guard the *parent's* arrange lock; a live drag also
+      // writes childOrder, so skip rather than force a stale prop past it.
+      const parentId = store.getNode(id)?.membership?.parentId;
+      if (parentId !== undefined && store.isLocked(parentId, 'arrange')) {
+        trace(
+          'layout',
+          `pinned prop reconcile skipped for ${id}: parent ${parentId} locked (arrange)`,
+        );
+      } else if (props.pinned === false) {
+        store.unpin(id);
+      } else {
+        store.setPinned(id, props.pinned === true ? undefined : props.pinned);
+      }
     }
     const node = store.getNode(id);
     if (!node) return;
@@ -458,6 +522,10 @@ function PresetShell({
   // effect re-fires) when imperative siblings appear or disappear.
   useChildren(id);
 
+  // A pending sibling-order reconciliation that skipped for lock.arrange
+  // needs a re-render on unlock to re-run the effect below.
+  useForceRerenderOnLockChange(store, id);
+
   // If a parent container's strategy assigned this node a rect, wrap our
   // DOM in an absolute-positioned box so we render at the right place.
   const selfRect = useLayoutForSelf(id);
@@ -475,14 +543,20 @@ function PresetShell({
     const currentIds = view.childOrder;
     const imperativeIds = currentIds.filter((cid) => !jsxIds.has(cid));
     const sortFn = sort ?? defaultChildSort;
+    // A pinned child holds its slot — JSX-order reconciliation must not evict
+    // it, so it's excluded from sorting and its current index is preserved.
+    const pinnedIds = new Set(currentIds.filter((cid) => store.getPinnedIndex(cid) !== null));
     const orderedJsx = sortFn(
-      jsxEntries.map((e) => ({ id: e.id, order: e.order })),
+      jsxEntries.filter((e) => !pinnedIds.has(e.id)).map((e) => ({ id: e.id, order: e.order })),
       currentIds,
     );
-    const finalOrder = [...orderedJsx, ...imperativeIds];
-    // finalOrder is now guaranteed a permutation of currentIds: orderedJsx is
-    // a subset of currentIds (post-filter), imperativeIds is the complement,
-    // and the two sets are disjoint.
+    const fillQueue = [...orderedJsx, ...imperativeIds.filter((cid) => !pinnedIds.has(cid))];
+    let fillIndex = 0;
+    const finalOrder = currentIds.map((cid) =>
+      pinnedIds.has(cid) ? cid : (fillQueue[fillIndex++] as NodeId),
+    );
+    // finalOrder is a permutation of currentIds: pinned ids keep their slot,
+    // fillQueue (orderedJsx + non-pinned imperativeIds) fills the rest.
     let same = finalOrder.length === currentIds.length;
     if (same) {
       for (let i = 0; i < finalOrder.length; i++) {
@@ -492,7 +566,13 @@ function PresetShell({
         }
       }
     }
-    if (!same) store.setChildOrder(id, finalOrder);
+    if (!same) {
+      if (store.isLocked(id, 'arrange')) {
+        trace('layout', `sibling-order reconcile skipped for ${id}: locked (arrange)`);
+        return;
+      }
+      store.setChildOrder(id, finalOrder);
+    }
   });
 
   const wrapperClass =

@@ -1,4 +1,5 @@
 import { InvariantViolationError, WindeaseError } from './errors.js';
+import { type LockSet, resolveLock } from './lock.js';
 import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
@@ -23,10 +24,6 @@ export interface SerializedNode {
     config: unknown;
     childOrder: string[];
     allowsPinning: boolean;
-    /** Omitted when true (the default). */
-    allowsDrop?: boolean;
-    /** Omitted when true (the default). */
-    allowsDragOut?: boolean;
     state?: unknown;
   };
   membership?: {
@@ -34,17 +31,18 @@ export interface SerializedNode {
     placement: Record<string, unknown>;
   };
   focus?: { state: 'focused' | 'blurred' };
+  lock?: LockSet;
 }
 
 export interface SerializedStore {
-  version: 3;
+  version: 4;
   nodes: SerializedNode[];
   rootIds: string[];
   focusedId: string | null;
 }
 
 /**
- * Serialize a Store into a v3 snapshot. Destroyed nodes and
+ * Serialize a Store into a v4 snapshot. Destroyed nodes and
  * transit state are deliberately not included — see spec section 8.
  *
  * @group Snapshots
@@ -69,8 +67,6 @@ export function serialize(store: Store): SerializedStore {
         childOrder: [...node.container.childOrder],
         allowsPinning: node.container.allowsPinning,
       };
-      if (node.container.allowsDrop === false) c.allowsDrop = false;
-      if (node.container.allowsDragOut === false) c.allowsDragOut = false;
       if (node.container.state !== undefined) c.state = node.container.state;
       out.container = c;
     }
@@ -83,10 +79,11 @@ export function serialize(store: Store): SerializedStore {
     if (node.focus) {
       out.focus = { state: node.focus.state };
     }
+    if (node.lock && Object.keys(node.lock).length > 0) out.lock = { ...node.lock };
     nodes.push(out);
   }
   return {
-    version: 3,
+    version: 4,
     nodes,
     rootIds: [...store.rootIdsTruth],
     focusedId: store.focusedIdTruth,
@@ -94,8 +91,8 @@ export function serialize(store: Store): SerializedStore {
 }
 
 /**
- * Hydrate a Store from a v3 snapshot. v2 snapshots are accepted and migrated
- * on read — see `normalizeLegacyMembership`.
+ * Hydrate a Store from a v4 snapshot. v2 and v3 snapshots are accepted and
+ * migrated on read — see `normalizeLegacyMembership` and `migrateToV4`.
  *
  * Two forms:
  * - `deserialize(snap)` builds and returns a fresh `Store`.
@@ -119,8 +116,8 @@ export function deserialize(a: unknown, b?: unknown): Store | void {
       'snapshot is missing a numeric version field',
     );
   }
-  if (versioned.version === 2 || versioned.version === 3) {
-    const hydrated = hydrate(snap as SerializedStore, target);
+  if (versioned.version === 2 || versioned.version === 3 || versioned.version === 4) {
+    const hydrated = hydrate(snap as SerializedStore, versioned.version, target);
     return target ? undefined : hydrated;
   }
   throw new WindeaseError(
@@ -159,15 +156,72 @@ function normalizeLegacyMembership(nodes: SerializedNode[]): void {
   }
 }
 
-function hydrate(snap: SerializedStore, target?: Store): Store {
-  normalizeLegacyChildOrder(snap.nodes);
-  normalizeLegacyMembership(snap.nodes);
+/** Back-compat: fold v3's `allowsDrop`/`allowsDragOut`/`placement.locked`
+ *  into `lock` and drop the old keys. Mutates `sn` — caller must clone first. */
+function migrateLockFields(sn: SerializedNode): void {
+  const container = sn.container as
+    | (NonNullable<SerializedNode['container']> & { allowsDrop?: boolean; allowsDragOut?: boolean })
+    | undefined;
+  const placement = sn.membership?.placement as
+    | (Record<string, unknown> & { locked?: boolean })
+    | undefined;
+  const lock: LockSet = { ...(sn.lock ?? {}) };
+  let changed = false;
+  if (container?.allowsDrop === false) {
+    lock.accept = true;
+    changed = true;
+  }
+  if (container?.allowsDragOut === false) {
+    lock.dragOut = true;
+    changed = true;
+  }
+  if (container) {
+    delete container.allowsDrop;
+    delete container.allowsDragOut;
+  }
+  if (placement?.locked === true) {
+    lock.move = true;
+    lock.resize = true;
+    lock.destroy = true;
+    changed = true;
+    delete placement.locked;
+  }
+  if (changed) sn.lock = lock;
+}
+
+/** Back-compat: resolve boolean `placement.pinned: true` to the child's
+ *  actual position in `childOrder`, without moving it there. */
+function migratePinnedIndices(nodes: SerializedNode[]): void {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  for (const sn of nodes) {
+    if (!sn.container) continue;
+    for (const childId of sn.container.childOrder) {
+      const placement = byId.get(childId)?.membership?.placement;
+      if (placement?.pinned === true) {
+        placement.pinned = sn.container.childOrder.indexOf(childId);
+      }
+    }
+  }
+}
+
+function migrateToV4(nodes: SerializedNode[]): void {
+  for (const sn of nodes) migrateLockFields(sn);
+  migratePinnedIndices(nodes);
+}
+
+function hydrate(snap: SerializedStore, version: number, target?: Store): Store {
+  // Clone before any migration touches node contents — the caller may reuse
+  // the snapshot object they passed in.
+  const nodes = snap.nodes.map((sn) => structuredClone(sn));
+  normalizeLegacyChildOrder(nodes);
+  normalizeLegacyMembership(nodes);
+  if (version < 4) migrateToV4(nodes);
   // Build a lookup so we can validate links + multi-focus before mutating.
   const byId = new Map<string, SerializedNode>();
-  for (const sn of snap.nodes) byId.set(sn.id, sn);
+  for (const sn of nodes) byId.set(sn.id, sn);
 
   // Validate bidirectional link.
-  for (const sn of snap.nodes) {
+  for (const sn of nodes) {
     if (!sn.membership) continue;
     const parent = byId.get(sn.membership.parentId);
     if (!parent) {
@@ -195,7 +249,7 @@ function hydrate(snap: SerializedStore, target?: Store): Store {
 
   // Multi-focus check.
   let focusedSeen: string | null = null;
-  for (const sn of snap.nodes) {
+  for (const sn of nodes) {
     if (sn.focus?.state === 'focused') {
       if (focusedSeen) {
         throw new InvariantViolationError(
@@ -214,9 +268,12 @@ function hydrate(snap: SerializedStore, target?: Store): Store {
     // Wholesale replacement: drop every existing node (cascading from each
     // root) before repopulating from the snapshot. Truth reads only — the
     // published view is meaningless mid-hydrate and gets resynced below.
-    for (const rootId of [...target.rootIdsTruth]) {
-      target.unregisterNode(rootId);
-    }
+    // Suspend locks so a destroy-locked root doesn't abort the restore.
+    target.withLocksSuspended(() => {
+      for (const rootId of [...target.rootIdsTruth]) {
+        target.unregisterNode(rootId);
+      }
+    });
   }
 
   // Visit nodes in tree order: each root, then DFS through its childOrder,
@@ -236,7 +293,7 @@ function hydrate(snap: SerializedStore, target?: Store): Store {
   for (const rid of snap.rootIds) visit(rid);
   // Any nodes not reached via rootIds (e.g. unparented but not listed as
   // roots) — register them as additional roots in stable order.
-  for (const sn of snap.nodes) {
+  for (const sn of nodes) {
     if (store.getNodeTruth(asNodeId(sn.id))) continue;
     if (sn.membership) {
       // Already-orphan branches were validated above; if we get here the
@@ -288,8 +345,6 @@ function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildOrder: bo
       config: sn.container.config,
       childOrder: opts.emptyChildOrder ? [] : sn.container.childOrder.map(asNodeId),
       allowsPinning: sn.container.allowsPinning,
-      allowsDrop: sn.container.allowsDrop ?? true,
-      allowsDragOut: sn.container.allowsDragOut ?? true,
     };
     if (sn.container.state !== undefined) {
       node.container.state = sn.container.state;
@@ -306,6 +361,12 @@ function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildOrder: bo
     // Focus state is restored via store.focusNode after registration to keep
     // focusedId in sync; here we always init blurred.
     node.focus = createFocusMachine();
+  }
+  if (sn.lock) {
+    // Capability-filtered even for a native v4 lock: a hand-crafted or
+    // corrupted snapshot must not smuggle in an axis this node doesn't support.
+    const resolved = resolveLock(node, sn.lock);
+    if (Object.keys(resolved).length > 0) node.lock = resolved;
   }
   return node;
 }
