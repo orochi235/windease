@@ -50,9 +50,10 @@ describe('ContainerHost', () => {
     h.destroy();
   });
 
-  it('notifies subscribers when a child is added', async () => {
+  it('sees a new child synchronously, with no tick in between', () => {
     const store = build();
     const h = host(store);
+    h.layout();
     let calls = 0;
     h.subscribe(() => {
       calls += 1;
@@ -60,18 +61,54 @@ describe('ContainerHost', () => {
     const p3 = asNodeId('p3');
     store.registerNode(createPanel({ id: p3, parentId: Z }));
     store.showNode(p3);
-    // `store.subscribe` notifies on a later tick, unlike the `node.*` events
-    // — so a read taken synchronously after a mutation still sees the old
-    // snapshot. React never notices because the notify precedes its re-render.
-    await new Promise((r) => setTimeout(r, 20));
+    // The value of the whole host: mutate, then read on the next line.
     expect(calls).toBeGreaterThan(0);
     expect([...h.layout().placements.keys()]).toContain('p3');
+    h.destroy();
+  });
+
+  it('reflects a reorder synchronously', () => {
+    const store = build();
+    const h = host(store);
+    expect([...h.layout().placements.keys()]).toEqual(['p1', 'p2']);
+    store.reorderInParent(asNodeId('p2'), 0);
+    expect([...h.layout().placements.keys()]).toEqual(['p2', 'p1']);
+    h.destroy();
+  });
+
+  it('reflects a hidden child synchronously', () => {
+    const store = build();
+    const h = host(store);
+    store.hideNode(asNodeId('p1'));
+    expect([...h.layout().placements.keys()]).toEqual(['p2']);
+    h.destroy();
+  });
+
+  it('notifies once per read however many events a mutation fires', () => {
+    const store = build();
+    const h = host(store);
+    h.layout();
+    let calls = 0;
+    h.subscribe(() => {
+      calls += 1;
+    });
+    const p3 = asNodeId('p3');
+    store.registerNode(createPanel({ id: p3, parentId: Z }));
+    store.showNode(p3);
+    store.reorderInParent(p3, 0);
+    // Several synchronous events plus the later catch-all, but nobody has
+    // read since the first — one notification is all a listener needs.
+    expect(calls).toBe(1);
+    h.layout();
+    store.hideNode(p3);
+    expect(calls).toBe(2);
     h.destroy();
   });
 
   it('stops notifying after destroy', async () => {
     const store = build();
     const h = host(store);
+    h.layout();
     let calls = 0;
     h.subscribe(() => {
       calls += 1;

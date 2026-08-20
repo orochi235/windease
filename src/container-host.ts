@@ -53,6 +53,7 @@ export class ContainerHost {
   #preview: LayoutPreview | null = null;
   #observer: ResizeObserver | null = null;
   #cache: ContainerLayout | null = null;
+  #dirty = false;
   #containerRef: ContainerCap | undefined;
   #destroyed = false;
 
@@ -73,9 +74,48 @@ export class ContainerHost {
         }
       }),
     );
+    // `store.subscribe` above notifies on a later tick, so on its own it
+    // leaves a window where a read taken right after a mutation sees the old
+    // snapshot. These events fire synchronously and close it. The catch-all
+    // stays as the backstop: anything not enumerated here is still caught,
+    // just a tick late.
+    const self = (e: { id: NodeId }) => e.id === this.#parentId;
+    const child = (e: { id: NodeId }) =>
+      this.#store.getChildren(this.#parentId).some((c) => c.id === e.id);
+
+    for (const name of ['container.stateChanged', 'container.configChanged'] as const) {
+      this.#unsubs.push(store.events.on(name, (e) => self(e) && this.#invalidate()));
+    }
+    for (const name of [
+      'node.registered',
+      'node.unregistered',
+      'node.placementChanged',
+      'node.pinnedChanged',
+      'node.metaChanged',
+    ] as const) {
+      this.#unsubs.push(store.events.on(name, (e) => (self(e) || child(e)) && this.#invalidate()));
+    }
+    // Lifecycle decides which children are visible, so it changes the item set.
     this.#unsubs.push(
-      store.events.on('container.stateChanged', (e) => {
-        if (e.id === this.#parentId) this.#invalidate();
+      store.events.on('node.transitioned', (e) => {
+        if (e.machine === 'lifecycle' && (self(e) || child(e))) this.#invalidate();
+      }),
+    );
+    this.#unsubs.push(
+      store.events.on('node.reordered', (e) => {
+        if (e.parentId === this.#parentId) this.#invalidate();
+      }),
+    );
+    this.#unsubs.push(
+      store.events.on('node.moved', (e) => {
+        if (e.fromParentId === this.#parentId || e.toParentId === this.#parentId) {
+          this.#invalidate();
+        }
+      }),
+    );
+    this.#unsubs.push(
+      store.events.on('node.cascadeDestroyed', (e) => {
+        if (e.parentId === this.#parentId) this.#invalidate();
       }),
     );
     // A resize lock lands on a *child*, leaving the parent's reference
@@ -136,11 +176,18 @@ export class ContainerHost {
    * a fresh object per call loops the render forever.
    */
   layout = (): ContainerLayout => {
-    if (this.#cache) return this.#cache;
+    if (this.#cache && !this.#dirty) return this.#cache;
     this.#cache = this.#compute();
+    this.#dirty = false;
     return this.#cache;
   };
 
+  /**
+   * Notified when the layout goes stale. Notifications describe a transition
+   * away from a value already read, so a listener that subscribes before the
+   * first `layout()` hears nothing until it has read once — there is no
+   * "changed" to report before then.
+   */
   subscribe = (fn: () => void): (() => void) => {
     this.#listeners.add(fn);
     return () => {
@@ -218,9 +265,13 @@ export class ContainerHost {
       .map((c) => nodeToLayoutItem(c));
   }
 
+  // Coalesces: a mutation fires a synchronous `node.*` event and then, later,
+  // the catch-all `store.subscribe`. Notifying once per read is enough — a
+  // listener already told the layout is stale gains nothing from being told
+  // again before it looks.
   #invalidate(): void {
-    if (this.#destroyed) return;
-    this.#cache = null;
+    if (this.#destroyed || this.#dirty) return;
+    this.#dirty = true;
     for (const fn of this.#listeners) fn();
   }
 
