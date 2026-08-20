@@ -1,7 +1,14 @@
-import { DuplicateNodeError, InvariantViolationError, NodeNotFoundError } from './errors.js';
+import { createGroup, createPanel } from './constructors.js';
+import {
+  DuplicateNodeError,
+  InvariantViolationError,
+  LockedError,
+  NodeNotFoundError,
+} from './errors.js';
 import type { NodeId } from './node.js';
 import type { SplitInput } from './split-types.js';
 import type { Store } from './store.js';
+import { trace } from './trace.js';
 
 export type SplitMode = 'wrap' | 'flatten' | 'reconfigure';
 
@@ -99,11 +106,113 @@ export function validateSplit(store: Store, id: NodeId, input: SplitInput): Spli
   return mode;
 }
 
+/** Strip config for an axis, with the caller's config merged over it. */
+function stripConfig(axis: 'x' | 'y', extra?: Record<string, unknown>): Record<string, unknown> {
+  return { axis, ...extra };
+}
+
+/** Lock axes `split` enforces itself. Internal calls then run suspended, so a
+ *  guard on a public method cannot fire partway and leave a half-built tree. */
+function assertSplitUnlocked(store: Store, id: NodeId, mode: SplitMode, force: boolean): void {
+  if (force) return;
+  const node = store.getNodeTruth(id);
+  const check = (target: NodeId, axis: 'move' | 'arrange' | 'dragOut') => {
+    if (store.isLocked(target, axis)) {
+      throw new LockedError(target, axis, 'split');
+    }
+  };
+  if (mode === 'reconfigure') {
+    check(id, 'arrange');
+    return;
+  }
+  const parentId = node?.membership?.parentId;
+  if (!parentId) return;
+  if (mode === 'flatten') {
+    check(parentId, 'arrange');
+    return;
+  }
+  check(id, 'move');
+  check(parentId, 'dragOut');
+  check(parentId, 'arrange');
+}
+
 export function splitNode(store: Store, id: NodeId, input: SplitInput): void {
-  validateSplit(store, id, input);
+  const mode = validateSplit(store, id, input);
+  assertSplitUnlocked(store, id, mode, input.force === true);
+
+  store.transact(() => {
+    store.withLocksSuspended(() => {
+      if (mode === 'flatten') {
+        applyFlatten(store, id, input);
+      } else if (mode === 'wrap') {
+        applyWrap(store, id, input);
+      } else {
+        applyReconfigure(store, id, input);
+      }
+    });
+  }, 'split');
+}
+
+function applyFlatten(store: Store, id: NodeId, input: SplitInput): void {
+  const node = store.getNodeTruth(id);
+  const parentId = node?.membership?.parentId;
+  if (!parentId) return;
+  const order = store.getContainerView(parentId)?.childOrder ?? [];
+  let at = order.indexOf(id);
+  for (const newId of input.newIds) {
+    at += 1;
+    store.registerNode(createPanel({ id: newId, parentId }));
+    store.reorderInParent(newId, at);
+  }
+  trace(
+    'store',
+    `split: flatten ${id} → ${parentId}@${order.indexOf(id)} (+${input.newIds.length})`,
+  );
+}
+
+function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
+  if (input.direction === 'both' || input.direction === 'grid') {
+    throw new InvariantViolationError('split-unimplemented', 'both/grid land in tasks 4-5', { id });
+  }
+  const node = store.getNodeTruth(id);
+  const parentId = node?.membership?.parentId;
+  const groupId = input.groupId;
+  if (!parentId || !groupId) return;
+
+  const order = store.getContainerView(parentId)?.childOrder ?? [];
+  const at = order.indexOf(id);
+  const placement = { ...(node?.membership?.placement ?? {}) };
+  const pinned = store.getPinnedIndex(id);
+  delete placement.pinned;
+
+  store.registerNode(
+    createGroup({
+      id: groupId,
+      parentId,
+      strategyId: 'strip',
+      config: stripConfig(input.direction, input.config),
+      placement,
+    }),
+  );
+  store.reorderInParent(groupId, at);
+  store.moveNode(id, groupId, 0);
+  store.patchPlacement(id, { size: undefined });
+  store.unpin(id);
+  for (const newId of input.newIds) {
+    store.registerNode(createPanel({ id: newId, parentId: groupId }));
+  }
+  if (pinned !== null) store.setPinned(groupId, pinned);
+
+  trace(
+    'store',
+    `split: wrap ${id} → ${groupId}@${at} (strip ${input.direction}, ${input.newIds.length + 1} children)`,
+  );
+}
+
+function applyReconfigure(_store: Store, id: NodeId, _input: SplitInput): void {
   throw new InvariantViolationError(
     'split-unimplemented',
-    'split-unimplemented: modes land in tasks 3-5',
+    'split-unimplemented: reconfigure lands in task 4',
     { id },
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from './index.js';
+import { asNodeId, createGroup, createPanel, createZone, Store } from './index.js';
 
 function seeded(): Store {
   const store = new Store();
@@ -101,7 +101,7 @@ describe('Store.split validation', () => {
         groupId: asNodeId('z'),
         newIds: [asNodeId('p2')],
       }),
-    ).toThrow(/split-unimplemented/);
+    ).not.toThrow();
   });
 
   it('leaves the store untouched when validation throws', () => {
@@ -112,5 +112,218 @@ describe('Store.split validation', () => {
     ).toThrow();
     expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(before);
     expect(store.getNode(asNodeId('p2'))).toBeUndefined();
+  });
+});
+
+describe('Store.split — wrap mode', () => {
+  it('interposes a group at the target index and puts the target at 0', () => {
+    const store = new Store();
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+    );
+    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'g', 'b']);
+    expect(store.getContainerView(asNodeId('g'))?.childOrder).toEqual(['p1', 'p2']);
+    expect(store.getNode(asNodeId('p1'))?.membership?.parentId).toBe('g');
+  });
+
+  it('gives the group a strip container on the requested axis', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    const g = store.getNode(asNodeId('g'));
+    expect(g?.container?.strategyId).toBe('strip');
+    expect(g?.container?.config).toMatchObject({ axis: 'y' });
+  });
+
+  it('merges config over the strip config', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+      config: { gap: 8 },
+    });
+
+    expect(store.getNode(asNodeId('g'))?.container?.config).toMatchObject({ axis: 'y', gap: 8 });
+  });
+
+  it('honors into for more than two children', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      into: 4,
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4')],
+    });
+
+    expect(store.getContainerView(asNodeId('g'))?.childOrder).toEqual(['p1', 'p2', 'p3', 'p4']);
+  });
+
+  it('transfers the target placement to the group and clears the target', () => {
+    const store = seeded();
+    store.patchPlacement(asNodeId('p1'), { size: { w: 300 } });
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getPlacement(asNodeId('g'))).toMatchObject({ size: { w: 300 } });
+    expect(store.getPlacement(asNodeId('p1')).size).toBeUndefined();
+  });
+
+  it('transfers a pinned index to the group', () => {
+    const store = new Store();
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+    );
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.setPinned(asNodeId('p1'), 0);
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getPinnedIndex(asNodeId('g'))).toBe(0);
+    expect(store.getPinnedIndex(asNodeId('p1'))).toBeNull();
+  });
+
+  it('wraps a group target the same way it wraps a panel', () => {
+    const store = new Store();
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+    );
+    // createGroup, not createZone({parentId}) — that arrives in Task 8.
+    store.registerNode(
+      createGroup({
+        id: asNodeId('inner'),
+        parentId: asNodeId('z'),
+        strategyId: 'stack',
+        config: {},
+      }),
+    );
+
+    store.split(asNodeId('inner'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getContainerView(asNodeId('g'))?.childOrder).toEqual(['inner', 'p2']);
+  });
+});
+
+describe('Store.split — flatten mode', () => {
+  it('inserts siblings after the target when the parent axis matches', () => {
+    const store = new Store();
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+    );
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+
+    store.split(asNodeId('p1'), {
+      direction: 'x',
+      groupId: asNodeId('unused'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2', 'b']);
+    expect(store.getNode(asNodeId('unused'))).toBeUndefined();
+  });
+
+  it('needs no groupId when flattening', () => {
+    const store = seeded();
+    expect(() =>
+      store.split(asNodeId('p1'), { direction: 'x', newIds: [asNodeId('p2')] }),
+    ).not.toThrow();
+  });
+
+  it('treats a strip with no explicit axis as x', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'strip', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+
+    store.split(asNodeId('p1'), { direction: 'x', newIds: [asNodeId('p2')] });
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2']);
+  });
+
+  it('wraps rather than flattens when the axis differs', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['g']);
+  });
+
+  it('wraps rather than flattens when the parent is not a strip', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+
+    store.split(asNodeId('p1'), {
+      direction: 'x',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['g']);
+  });
+});
+
+describe('Store.split — atomicity', () => {
+  it('emits one transaction pair per split', () => {
+    const store = seeded();
+    let pairs = 0;
+    store.events.on('transaction.end', () => {
+      pairs += 1;
+    });
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(pairs).toBe(1);
+  });
+
+  it('notifies subscribers once', async () => {
+    const store = seeded();
+    let notifications = 0;
+    store.subscribe(() => {
+      notifications += 1;
+    });
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+    await Promise.resolve();
+
+    expect(notifications).toBe(1);
   });
 });
