@@ -3,5 +3,5 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src/**/*", "vitest.config.ts", "vitest.setup.ts"]
+  "include": ["src/**/*", "e2e/**/*", "vitest.config.ts", "vitest.setup.ts", "playwright.config.ts"]
 }

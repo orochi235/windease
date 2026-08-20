@@ -11,3 +11,8 @@ yarn.lock
 .claude
 .playwright-mcp
 docs-api
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/

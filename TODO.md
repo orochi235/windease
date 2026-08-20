@@ -214,51 +214,33 @@ happens to a single-member group when its last sibling leaves.
 
 ## Playwright e2e suite
 
-The vitest suite + jsdom covers store logic and React component output,
-but DnD and resize gestures are only exercised through synthetic pointer
-events. A real-browser pass via Playwright (or @web/test-runner) would
-catch:
+Shipped. `npm run test:e2e` drives the Ladle stories in real Chromium; the
+config starts Ladle itself, so there is nothing to run first. 11 specs across
+four files cover the gestures jsdom cannot: gutter resize including
+pointer-capture tracking after the cursor leaves the handle, cross-zone drag
+with escape-cancel and drop-outside, ResizeObserver relayout on viewport
+change, and insertion index against a pinned head.
 
-- pointer capture / setPointerCapture behavior across browsers
-- ResizeObserver-driven layout under actual reflow
-- CSS stacking interactions between affordance hit areas and chrome
-- focus management across drag-induced re-renders
-- snapshot/hydrate cycle with persisted container state (resize ratios)
+Still uncovered:
 
-Ladle's playground stories already represent the canonical fixtures —
-e2e specs would drive them with `@playwright/test`, screenshot key
-flows, and assert DOM/store state afterward. Medium priority; not a
-publish blocker but a desirable hardening pass.
+- **Only Chromium runs.** The stated cross-browser value was pointer capture;
+  adding webkit/firefox is a line in `playwright.config.ts` projects plus
+  install time on every CI run.
+- Focus management across drag-induced re-renders.
+- Snapshot/hydrate with persisted container state (resize ratios).
+- CSS stacking between affordance hit areas and consumer chrome.
 
-## Aspect-ratio hint
+Two things the suite surfaced that are worth knowing:
 
-Consumers have no way to say "keep this node 16:9." `NodeHints` carries only
-absolute pixel sizes (`minSize` / `maxSize` / `preferredSize`), and hint
-coverage is uneven — `grid` reads none of them, sizing every cell uniformly
-from `cols`/`rows`.
-
-There is no consumer-side workaround, which is what makes this worth doing.
-Every node gets an absolute rect from its strategy, so a node cannot
-self-size: CSS `aspect-ratio` on panel content letterboxes inside a
-wrongly-shaped rect rather than changing it. The only alternative is
-measuring in app code and writing `placement.size` back — the ResizeObserver
-hack `maxSize` was added to retire.
-
-An aspect hint does not require the engine to measure the DOM; it is a pure
-w-to-h constraint on a rect the strategy already computes. The work is that
-each strategy answers it differently:
-
-- **strip / stack** — clean. The cross axis is fully container-determined,
-  so aspect just derives the main-axis extent, replacing `preferredSize`.
-- **grid** — where aspect matters most (tiles, thumbnails, video) and the
-  most work, since grid honors no hints at all today. Either letterbox
-  within uniform cells or choose `cols`/`rows` to best fit the aspect.
-- **split** — over-constrained in general: a pane's aspect fights both the
-  ratio and the sibling's claim on the remainder. Probably bails out the way
-  an over-constrained `minSize` > `maxSize` already does.
-
-Also open: whether an aspect hint makes resize drags proportional, which is a
-`reduce`-path question, not a placement one.
+- `ParallelZonesDnd` registers `useDropTarget` for the same zone id its
+  `<Container>` already registered. Child effects run before parent effects,
+  so the story's registration wins and it loses the default
+  `getInsertionIndex` — every drop there appends. `Playground` documents the
+  trap and avoids it. The story is inconsistent with its own demo intent;
+  `DragController` traces the overwrite but nothing surfaces it to a consumer.
+- The split story passes an explicit `viewport` prop, so it never exercises
+  the ResizeObserver path at all. Reflow coverage has to use a ref-measured
+  fixture.
 
 ## Loose ends
 
