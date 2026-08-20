@@ -10,14 +10,14 @@ export type SplitInput =
   | {
       direction: 'x' | 'y';
       /** Total children after the split. Default 2, must be >= 2. */
-      into?: number;
+      into?: number | undefined;
       /** Required in wrap mode; unused when flattening or reconfiguring. */
-      groupId?: NodeId;
+      groupId?: NodeId | undefined;
       /** Length must be `into - 1`. */
       newIds: readonly NodeId[];
       /** Merged over every container config this call writes. */
-      config?: Record<string, unknown>;
-      force?: boolean;
+      config?: Record<string, unknown> | undefined;
+      force?: boolean | undefined;
     }
   | {
       direction: 'both';
@@ -27,8 +27,8 @@ export type SplitInput =
       groupIds: readonly NodeId[];
       /** Length must be `cols * rows - 1`. Fills column-major. */
       newIds: readonly NodeId[];
-      config?: Record<string, unknown>;
-      force?: boolean;
+      config?: Record<string, unknown> | undefined;
+      force?: boolean | undefined;
     }
   | {
       /**
@@ -41,9 +41,9 @@ export type SplitInput =
       direction: 'grid';
       into: number;
       /** Passed through to the grid config; grid's default applies if omitted. */
-      cols?: number;
-      groupId?: NodeId;
+      cols?: number | undefined;
+      groupId?: NodeId | undefined;
       newIds: readonly NodeId[];
-      config?: Record<string, unknown>;
-      force?: boolean;
+      config?: Record<string, unknown> | undefined;
+      force?: boolean | undefined;
     };

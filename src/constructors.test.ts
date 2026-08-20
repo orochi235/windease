@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
-import { asNodeId } from './node.js';
+import { asNodeId, type NodeId } from './node.js';
 import { Store } from './store.js';
 
 describe('createZone', () => {
@@ -297,5 +297,36 @@ describe('createZone with a parentId', () => {
 
     expect(store.rootIds).toEqual(['outer']);
     expect(store.getContainerView(asNodeId('outer'))?.childOrder).toEqual(['inner']);
+  });
+});
+
+describe('optional inputs accept an explicit undefined', () => {
+  it('forwards optional props without narrowing', () => {
+    // Shape of a consumer forwarding optional React props straight through.
+    const props: { meta?: Record<string, unknown>; order?: number } = {};
+
+    const node = createPanel({
+      id: asNodeId('p'),
+      parentId: asNodeId('z'),
+      meta: props.meta,
+      order: props.order,
+    });
+
+    expect(node.meta).toBeUndefined();
+    expect(node.order).toBeUndefined();
+  });
+
+  it('does the same for a zone', () => {
+    const props: { meta?: Record<string, unknown>; parentId?: NodeId } = {};
+
+    const node = createZone({
+      id: asNodeId('z'),
+      strategyId: 'strip',
+      config: {},
+      parentId: props.parentId,
+      meta: props.meta,
+    });
+
+    expect(node.membership).toBeUndefined();
   });
 });

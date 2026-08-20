@@ -3,20 +3,6 @@
 Future work, sectioned by item. Append new ideas here rather than scattering
 them. Tag major items with `[HIGH]`.
 
-## Surfaced by turning the type-checker on over the test tree
-
-`npm run typecheck` now covers tests and stories (`tsconfig.test.json`).
-Two findings from that first pass are real and still open:
-
-- **Public constructor inputs are hostile to
-  `exactOptionalPropertyTypes`.** `createPanel({ meta: props.meta })`
-  where `props.meta` is `Record | undefined` is a type error even though
-  the constructor guards with `!== undefined` and handles it fine. Every
-  consumer forwarding optional React props hits this immediately; the
-  repo's own answer is the `defined()` helper in `presets.tsx`, which is
-  not exported. Either widen the input bags to `prop?: T | undefined` or
-  export `defined()` as public API.
-
 ## Test-harness gaps
 
 - **An `expect` inside a `store.events` handler can never fail a test.**

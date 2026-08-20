@@ -10,13 +10,13 @@ export interface CreateZoneInput {
   config: unknown;
   /** Omit for a root. With a parent, the node gains `membership`. */
   parentId?: NodeId | undefined;
-  placement?: Record<string, unknown>;
-  allowsPinning?: boolean;
-  lock?: boolean | LockSet;
-  meta?: Record<string, unknown>;
-  hints?: NodeHints;
+  placement?: Record<string, unknown> | undefined;
+  allowsPinning?: boolean | undefined;
+  lock?: boolean | LockSet | undefined;
+  meta?: Record<string, unknown> | undefined;
+  hints?: NodeHints | undefined;
   /** See `Node.order`. */
-  order?: number;
+  order?: number | undefined;
 }
 
 function createContainerNode(input: CreateZoneInput, kind: string): Node {
@@ -56,17 +56,19 @@ export function createZone(input: CreateZoneInput): Node {
 export interface CreatePanelInput {
   id: NodeId;
   parentId: NodeId;
-  placement?: Record<string, unknown>;
-  meta?: Record<string, unknown>;
-  hints?: NodeHints;
+  placement?: Record<string, unknown> | undefined;
+  meta?: Record<string, unknown> | undefined;
+  hints?: NodeHints | undefined;
   /** See `Node.order`. */
-  order?: number;
-  lock?: boolean | LockSet;
-  container?: {
-    strategyId: string;
-    config: unknown;
-    allowsPinning?: boolean;
-  };
+  order?: number | undefined;
+  lock?: boolean | LockSet | undefined;
+  container?:
+    | {
+        strategyId: string;
+        config: unknown;
+        allowsPinning?: boolean | undefined;
+      }
+    | undefined;
 }
 
 /** @group Constructors */

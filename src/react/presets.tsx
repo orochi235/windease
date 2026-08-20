@@ -120,11 +120,9 @@ export function Panel(props: PanelProps) {
       return createPanel({
         id,
         parentId,
-        ...defined({
-          meta: props.meta,
-          placement: props.placement,
-          order: props.order,
-        }),
+        meta: props.meta,
+        placement: props.placement,
+        order: props.order,
         ...(props.container
           ? {
               container: {
@@ -258,7 +256,9 @@ export function Zone(props: ZoneProps) {
         id,
         strategyId: props.strategyId,
         config: props.config,
-        ...defined({ parentId: parentId ?? undefined, meta: props.meta, order: props.order }),
+        parentId: parentId ?? undefined,
+        meta: props.meta,
+        order: props.order,
       });
       if (props.kind !== undefined) node.kind = props.kind;
       return node;
