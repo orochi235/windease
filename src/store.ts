@@ -1067,6 +1067,7 @@ export class Store {
    *
    * All ids are caller-supplied — the store has no id generator. Validation
    * runs before any mutation, so a rejected split leaves the store untouched.
+   * Every node it registers is shown, unlike a bare `registerNode`.
    *
    * Runs inside `transact`, so a history integration bracketed on
    * `transaction.begin` / `transaction.end` records one undo step.

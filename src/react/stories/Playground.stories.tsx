@@ -52,13 +52,10 @@ function makeStore(): Store {
   s.split(ROOT, { direction: 'x', newIds: [SIDEBAR] });
   s.ensureContainer(SIDEBAR, 'stack', { axis: 'y', fill: true, gap: 6, padding: 6 });
   s.setMeta(SIDEBAR, { title: 'Sidebar' });
-  s.showNode(SIDEBAR);
 
   s.split(MAIN, { direction: 'y', groupId: MAIN_DOCK_GROUP, newIds: [DOCK], config: { gap: 6 } });
-  s.showNode(MAIN_DOCK_GROUP);
   s.ensureContainer(DOCK, 'strip', { axis: 'x', gap: 6, padding: 6, fill: true });
   s.setMeta(DOCK, { title: 'Dock' });
-  s.showNode(DOCK);
 
   // Seed content.
   const seed = (

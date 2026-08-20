@@ -166,6 +166,7 @@ function buildColumns(
       strategyId: 'strip',
       config: stripConfig('y', extra),
     });
+    store.showNode(columnId);
     for (let row = 0; row < rows; row += 1) {
       if (col === 0 && row === 0) {
         store.moveNode(id, columnId, 0);
@@ -183,6 +184,7 @@ function buildColumns(
         );
       }
       store.registerNode(createPanel({ id: newId, parentId: columnId }));
+      store.showNode(newId);
     }
   });
 }
@@ -260,6 +262,7 @@ function applyFlatten(store: Store, id: NodeId, input: SplitInput): void {
     at += 1;
     store.registerNode(createPanel({ id: newId, parentId }));
     store.reorderInParent(newId, at);
+    store.showNode(newId);
   }
   trace(
     'store',
@@ -299,6 +302,7 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
     config: outerConfig,
     placement,
   });
+  store.showNode(groupId);
   store.reorderInParent(groupId, at);
 
   if (input.direction === 'both') {
@@ -317,6 +321,7 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
     store.unpin(id);
     for (const newId of input.newIds) {
       store.registerNode(createPanel({ id: newId, parentId: groupId }));
+      store.showNode(newId);
     }
   }
   if (pinned !== null) store.setPinned(groupId, pinned);
@@ -339,11 +344,13 @@ function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
         strategyId: 'strip',
         config: stripConfig('y', input.config),
       });
+      store.showNode(columnId);
       for (let row = 0; row < input.into[1]; row += 1) {
         const newId = input.newIds[cursor];
         cursor += 1;
         if (newId === undefined) break;
         store.registerNode(createPanel({ id: newId, parentId: columnId }));
+        store.showNode(newId);
       }
     }
     trace('store', `split: reconfigure ${id} (both ${input.into[0]}x${input.into[1]})`);
@@ -358,6 +365,7 @@ function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
   becomeContainer(store, id, strategyId, config);
   for (const newId of input.newIds) {
     store.registerNode(createPanel({ id: newId, parentId: id }));
+    store.showNode(newId);
   }
   trace(
     'store',

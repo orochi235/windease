@@ -31,17 +31,12 @@ function buildTree(): Store {
   s.showNode(a);
 
   s.split(rs, { direction: 'x', newIds: [b] });
-  s.showNode(b);
   s.setMeta(b, { title: 'b' });
 
   s.split(b, { direction: 'y', groupId: g1, newIds: [c], config: { gap: 6 } });
-  s.showNode(g1);
-  s.showNode(c);
   s.setMeta(c, { title: 'c' });
 
   s.split(c, { direction: 'x', groupId: g2, newIds: [d], config: { gap: 6 } });
-  s.showNode(g2);
-  s.showNode(d);
   s.setMeta(d, { title: 'd' });
 
   return s;

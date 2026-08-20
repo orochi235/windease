@@ -50,51 +50,34 @@ export const SplitAndUnsplit: Story = () => {
     return ids[ids.length - 1] ?? asNodeId('p1');
   };
 
-  // split() registers new nodes but never shows them — that call is the
-  // consumer's, same as any other registerNode.
-  const showIfPresent = (ids: readonly NodeId[]) => {
-    for (const id of ids) {
-      if (store.getNode(id)) store.showNode(id);
-    }
-  };
-
   const splitX = () => {
-    const groupId = mintGroup();
-    const newId = mintPanel();
-    store.split(target(), { direction: 'x', groupId, newIds: [newId] });
-    showIfPresent([groupId, newId]);
+    store.split(target(), { direction: 'x', groupId: mintGroup(), newIds: [mintPanel()] });
   };
   const splitY = () => {
     const groupId = mintGroup();
-    const newId = mintPanel();
-    store.split(target(), { direction: 'y', groupId, newIds: [newId] });
-    showIfPresent([groupId, newId]);
+    store.split(target(), { direction: 'y', groupId, newIds: [mintPanel()] });
     setLastGroup(groupId);
   };
   const splitBoth = () => {
     const groupId = mintGroup();
     const cols = [asNodeId(`${groupId}-c0`), asNodeId(`${groupId}-c1`)];
-    const newIds = [mintPanel(), mintPanel(), mintPanel()];
     store.split(target(), {
       direction: 'both',
       into: [2, 2],
       groupIds: [groupId, ...cols],
-      newIds,
+      newIds: [mintPanel(), mintPanel(), mintPanel()],
     });
-    showIfPresent([groupId, ...cols, ...newIds]);
     setLastGroup(groupId);
   };
   const splitGrid = () => {
     const groupId = mintGroup();
-    const newIds = [mintPanel(), mintPanel(), mintPanel()];
     store.split(target(), {
       direction: 'grid',
       into: 4,
       cols: 2,
       groupId,
-      newIds,
+      newIds: [mintPanel(), mintPanel(), mintPanel()],
     });
-    showIfPresent([groupId, ...newIds]);
     setLastGroup(groupId);
   };
   const unsplit = () => {

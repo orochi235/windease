@@ -354,6 +354,50 @@ describe('Store.split — atomicity', () => {
   });
 });
 
+describe('Store.split — visibility', () => {
+  it('shows every node it registers', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), {
+      direction: 'both',
+      into: [2, 2],
+      groupIds: [asNodeId('g'), asNodeId('c0'), asNodeId('c1')],
+      newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4')],
+    });
+
+    for (const id of ['g', 'c0', 'c1', 'p2', 'p3', 'p4']) {
+      expect(store.getNode(asNodeId(id))?.lifecycle.state).toBe('visible');
+    }
+  });
+
+  it('shows the interposed group and new panel when wrapping', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getNode(asNodeId('g'))?.lifecycle.state).toBe('visible');
+    expect(store.getNode(asNodeId('p2'))?.lifecycle.state).toBe('visible');
+  });
+
+  it('shows the new panel when flattening', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), { direction: 'x', newIds: [asNodeId('p2')] });
+
+    expect(store.getNode(asNodeId('p2'))?.lifecycle.state).toBe('visible');
+  });
+
+  it('shows the new panels when reconfiguring a root', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+
+    store.split(asNodeId('z'), { direction: 'x', newIds: [asNodeId('p1')] });
+
+    expect(store.getNode(asNodeId('p1'))?.lifecycle.state).toBe('visible');
+  });
+});
+
 describe('Store.split — reconfigure mode', () => {
   it('makes an empty root the container and registers the new panels', () => {
     const store = new Store();
