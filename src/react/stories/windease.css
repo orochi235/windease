@@ -315,3 +315,14 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+.story-split-host {
+  width: 720px;
+  height: 440px;
+}
+
+.story-split-controls {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
