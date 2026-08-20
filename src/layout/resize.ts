@@ -6,6 +6,8 @@ export interface ClampItem {
   explicit: number | undefined;
   /** Minimum acceptable size along the main axis (0 if no hint). */
   min: number;
+  /** Maximum acceptable size along the main axis, or undefined for no ceiling. */
+  max?: number | undefined;
 }
 
 export interface ClampInput {
@@ -20,8 +22,11 @@ export interface ClampInput {
  *
  * Rules:
  *  1. Unconstrained items collectively need at least sum(min).
- *  2. Explicit items get their intent, then are scaled proportionally
- *     down until the leftover accommodates the unconstrained mins.
+ *  2. Explicit items are clamped to their own [min, max] first — a
+ *     contradictory `min > max` resolves to `max`, matching
+ *     `dispatchAffordance`'s clamp order — then scaled proportionally down
+ *     until the leftover accommodates the unconstrained mins. Space a cap
+ *     frees up flows into the leftover pool rather than being lost.
  *  3. Leftover after explicit items is distributed equally among
  *     unconstrained items (their min is honored as a floor).
  */
@@ -32,7 +37,15 @@ export function clampExplicitSizes(input: ClampInput): Map<string, number> {
   const explicits = input.items.filter((it) => it.explicit !== undefined);
   const unconstrained = input.items.filter((it) => it.explicit === undefined);
   const unconstrainedMinSum = unconstrained.reduce((s, it) => s + it.min, 0);
-  const sumExplicit = explicits.reduce((s, it) => s + (it.explicit ?? 0), 0);
+
+  const requested = new Map<string, number>();
+  for (const it of explicits) {
+    let v = it.explicit ?? 0;
+    if (v < it.min) v = it.min;
+    if (it.max !== undefined && v > it.max) v = it.max;
+    requested.set(it.id, v);
+  }
+  const sumExplicit = explicits.reduce((s, it) => s + (requested.get(it.id) ?? 0), 0);
 
   // Budget available for explicit items: total minus what we MUST reserve
   // for unconstrained items' minimums.
@@ -45,7 +58,7 @@ export function clampExplicitSizes(input: ClampInput): Map<string, number> {
 
   let usedByExplicit = 0;
   for (const it of explicits) {
-    const v = (it.explicit ?? 0) * scale;
+    const v = (requested.get(it.id) ?? 0) * scale;
     out.set(it.id, v);
     usedByExplicit += v;
   }

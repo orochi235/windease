@@ -171,6 +171,55 @@ describe('stripStrategy — placement.size', () => {
   });
 });
 
+describe('stripStrategy — maxSize on explicit children', () => {
+  it('caps an explicit placement.size.w above hints.maxSize.w on initial layout (axis=x)', () => {
+    const result = stripStrategy.layout({
+      items: [
+        { id: 'a', placement: { size: { w: 500 } }, hints: { maxSize: { w: 100, h: 0 } } } as never,
+        { id: 'b' },
+      ],
+      container: { w: 1000, h: 50 },
+      state: undefined as void,
+      options: { axis: 'x' },
+    });
+    expect(result.placements.get('a')?.w).toBe(100);
+    // The 900 freed by the cap goes to b, not nowhere — the row still fills.
+    expect(result.placements.get('b')?.w).toBe(900);
+  });
+
+  it('caps an explicit placement.size.h above hints.maxSize.h on initial layout (axis=y)', () => {
+    const result = stripStrategy.layout({
+      items: [
+        { id: 'a', placement: { size: { h: 500 } }, hints: { maxSize: { w: 0, h: 100 } } } as never,
+        { id: 'b' },
+      ],
+      container: { w: 50, h: 1000 },
+      state: undefined as void,
+      options: { axis: 'y' },
+    });
+    expect(result.placements.get('a')?.h).toBe(100);
+    expect(result.placements.get('b')?.h).toBe(900);
+  });
+
+  it("honors an unconstrained sibling's minSize alongside a capped explicit child", () => {
+    const result = stripStrategy.layout({
+      items: [
+        {
+          id: 'a',
+          placement: { size: { w: 1000 } },
+          hints: { maxSize: { w: 300, h: 0 } },
+        } as never,
+        { id: 'b', hints: { minSize: { w: 150, h: 0 } } } as never,
+      ],
+      container: { w: 400, h: 50 },
+      state: undefined as void,
+      options: { axis: 'x' },
+    });
+    expect(result.placements.get('a')?.w).toBeCloseTo(250);
+    expect(result.placements.get('b')?.w).toBeCloseTo(150);
+  });
+});
+
 describe('stripStrategy capacity', () => {
   const items = (n: number): LayoutItem[] =>
     Array.from({ length: n }, (_, i) => ({

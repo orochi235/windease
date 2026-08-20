@@ -120,6 +120,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
           id: it.id,
           explicit: explicitAxis(it, axis),
           min: effectiveMinAxis(it, axis),
+          max: effectiveMaxAxis(it, axis),
         })),
       });
       sizes = placedItems.map((it) => clamp.get(it.id) ?? 0);
