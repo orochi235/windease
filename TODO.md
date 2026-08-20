@@ -292,11 +292,3 @@ required would remove it.
   `strip`). Deliberate — replacing wholesale would discard consumer intent like
   `gap` — and pinned by a test. Revisit only if a strategy ever rejects unknown
   keys.
-- **The `<Group pinned>` migration to `<Zone parentId kind="group">` is
-  incomplete: `ZoneProps` has no `pinned` prop at all.** `ZoneBindingProps`
-  omits it unconditionally (`Omit<CommonBindingProps, 'pinned'>`) on the
-  reasoning that a rootless zone has no parent slot to hold — true before
-  `parentId` became optional, not true now. `setPinned` itself works fine on a
-  parented zone; only the declarative prop is missing. Needs a type that makes
-  `pinned` available exactly when `parentId` is present, or a documented
-  workaround (`useEffect` + `store.setPinned` directly).

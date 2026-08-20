@@ -311,10 +311,6 @@ Breaking. Three exports are removed; each has a direct replacement.
 - **Migrating `stackStrategy` requires the `fill: true`.** Strip's default is
   off, which sizes a child with no `preferredSize` to zero. That difference
   between the two strategies is why they were folded together.
-- **`<Zone parentId kind="group">` has no `pinned` prop.** `<Group>` accepted
-  one; `<Zone>`'s type omits it unconditionally, a leftover from when a zone
-  could never have a parent. Use `store.setPinned(id, at?)` imperatively until
-  this is closed — see `TODO.md`.
 
 ### 0.9.0 — `node.lock` added, `pinned` redefined
 

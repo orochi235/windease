@@ -46,7 +46,13 @@ export function reconcilePlacement(
  */
 export function reconcilePinned(store: Store, id: NodeId, pinned: number | boolean): void {
   const parentId = store.getNode(id)?.membership?.parentId;
-  if (parentId !== undefined && store.isLocked(parentId, 'arrange')) {
+  // A root has no childOrder to hold a slot in. Skip rather than throw: with
+  // `parentId` usually arriving from context, one component renders both ways.
+  if (parentId === undefined) {
+    trace('layout', `pinned reconcile skipped for ${id}: no parent to hold a slot in`);
+    return;
+  }
+  if (store.isLocked(parentId, 'arrange')) {
     trace('layout', `pinned reconcile skipped for ${id}: parent ${parentId} locked (arrange)`);
     return;
   }

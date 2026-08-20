@@ -53,10 +53,6 @@ interface CommonBindingProps {
   pinned?: boolean | number;
 }
 
-/** Zone has no parent, so a held index has nothing to be held in — omit
- *  `pinned` at the type level rather than accept a prop that always throws. */
-type ZoneBindingProps = Omit<CommonBindingProps, 'pinned'>;
-
 interface PresentationalProps {
   className?: string;
   style?: CSSProperties;
@@ -213,7 +209,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
 
 /* ---------- Zone ---------- */
 
-export interface ZoneProps extends ZoneBindingProps, PresentationalProps {
+export interface ZoneProps extends CommonBindingProps, PresentationalProps {
   strategyId?: string;
   config?: unknown;
   viewport?: { w: number; h: number };
