@@ -7,8 +7,8 @@ replacement. It defines a `split` store operation, its inverse, the transaction
 primitive a composite operation needs to be one undo step, and the preset cleanup
 that falls out of it.
 
-It does not remove `splitStrategy`. That is a 1.0 concern; this ships as 0.10.0
-and is additive.
+It removes `splitStrategy`, `stackStrategy`, and `createGroup`, so it ships as
+1.0.0.
 
 ## Problem
 
@@ -47,8 +47,9 @@ in the tree, not by its `kind`.
 Modes are tested in that order, with flatten shadowing wrap.
 
 The bag is named `SplitInput`, matching `CreateZoneInput` / `CreatePanelInput`.
-`SplitOptions` is already exported as `splitStrategy`'s config type and stays
-until 1.0.
+It could not be `SplitOptions` — that name belonged to `splitStrategy`'s config
+type, which this release deletes but which was still live while `split` was being
+built.
 
 ```ts
 export type SplitInput =
@@ -79,7 +80,12 @@ Every id is caller-supplied. The store has no id generator and gains none, so
 the same call against the same tree produces the same result and replay,
 hydration, and undo are unaffected.
 
-`'x'` and `'y'` map 1:1 onto `stripStrategy`'s `axis` config.
+`'x'` and `'y'` map 1:1 onto `stripStrategy`'s `axis` config, and `split` also
+writes `fill: true`. Strip's own default is `fill: false`, which sizes a child
+carrying no `preferredSize` to `defaultItemSize` — itself `0`. Since `split`
+mints panels with no hints, inheriting that default lays every pane out at zero
+extent: a correct tree that renders nothing. A caller can still override it
+through `config`.
 
 ### `direction: 'both'`
 
@@ -237,9 +243,8 @@ feature means *windows that move, drag, and resize as a unit*. The shipped
 `createGroup` means "a container that has a parent," which is not a group in any
 sense a user would recognize.
 
-`createGroup` and `<Group>` are marked `@deprecated`, pointing at
-`createZone({ parentId })`. Two presets remain, and they name two real
-capabilities:
+`createGroup` and `<Group>` are **removed**. Two presets remain, and they name
+two real capabilities:
 
 | | means | `container` | `membership` | `focus` |
 |---|---|---|---|---|
@@ -257,15 +262,43 @@ and merely unconstructible. Nothing here needs it; note it in TODO.md.
 
 ## Release
 
-0.10.0, additive.
+**1.0.0.** Three exports are removed, so this is breaking by definition; there is
+no deprecation cycle.
 
-- `splitStrategy`, `SplitNode`, `SplitOptions`, and `SplitMeta` stay exported and
-  working, marked `@deprecated` and pointing at `split`. Removal is 1.0.
-- Snapshot stays at v4. `split` produces ordinary nodes with ordinary
-  `placement`, so there is no schema change and no migration.
-- `e2e/resize.spec.ts` drives `splitStrategy` gutter ids and keeps passing
-  untouched. A new e2e covers gutter drag on a strip tree built by `split`.
-- README gets one migration note covering both deprecations.
+- **`splitStrategy` is deleted**, along with `SplitNode`, `SplitOptions`, and
+  `SplitMeta`. Everything driving it migrates rather than being dropped:
+  `e2e/resize.spec.ts` (its gutter ids come from `SplitNode` tree paths),
+  `RecursiveSplit.stories.tsx`, `Playground.stories.tsx`,
+  `DragController.test.tsx`, `react/lock.test.tsx`, `Container.test.tsx`, and a
+  `snapshot.test.ts` case.
+- **`stackStrategy` is deleted.** It was strip on one axis; see the strip/stack
+  section.
+- **`createGroup` and `<Group>` are deleted.** Migration is
+  `createZone({ parentId })` and `<Zone parentId kind="group">`, which keeps
+  `.windease-group`, `.windease-group__title`, and `chrome['group']` firing, so
+  the documented CSS surface does not move.
+- **Snapshot goes to v5 with a real migration.** A v4 snapshot can name a
+  strategy that no longer exists, so hydrate walks any stored `SplitNode` tree
+  and builds the equivalent nested strip groups as real nodes, clearing
+  `container.state`. Saved layouts keep working and land on the new model. This
+  is the same tree `split` builds, driven from a different source.
+- README gets one migration section, not a deprecation list.
+
+## `stack` is `strip` on one axis
+
+`stackStrategy` and `stripStrategy` are one algorithm written twice, ~200 lines
+each. Stack is strip with `axis: 'y'`, and the only thing it has that strip
+lacks is capacity handling (`maxItems`, `canAccept`, `unplaced`).
+
+Their `fill` defaults had drifted — strip `false`, stack `true` — and that
+divergence is what sized every split-created pane to zero. Two implementations
+of "lay children out in a line" disagreeing about a hintless child is the
+failure mode of keeping them apart.
+
+Strip gains capacity; `stackStrategy` is removed. Migration is `stripStrategy`
+with `{ axis: 'y', fill: true }` — and the `fill` is not optional in that
+migration, because strip's default is off and omitting it collapses hintless
+children to zero.
 
 ## Testing
 
@@ -286,7 +319,9 @@ and merely unconstructible. Nothing here needs it; note it in TODO.md.
   pair still closes when `fn` throws, and a second `transact` afterward still
   emits. Undo through a `HistoryController` bracketed on the pair restores the
   pre-split tree in one step.
-- **Round-trip** — `serialize`/`deserialize` of a split-built tree at v4.
+- **Round-trip** — `serialize`/`deserialize` of a split-built tree at v5, and
+  a v4 snapshot carrying a `SplitNode` tree hydrating into nested strip groups
+  whose leaves keep their ids and order.
 - **`unsplit`** — children land at the group's index in order; capability
   guard; round-trips with `split`.
 - **Presets** — `<Zone>` inside `<Zone>` nests instead of registering as a root.

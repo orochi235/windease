@@ -398,7 +398,7 @@ import type { NodeId } from './node.js';
  * requires exactly the ids it needs.
  *
  * Named `SplitInput` to match `CreateZoneInput` / `CreatePanelInput`, and
- * because `SplitOptions` is already taken by the deprecated `splitStrategy`.
+ * because `SplitOptions` belonged to the `splitStrategy` this release removes.
  */
 export type SplitInput =
   | {
@@ -849,9 +849,11 @@ import { trace } from './trace.js';
 Add these helpers above `splitNode`:
 
 ```ts
-/** Strip config for an axis, with the caller's config merged over it. */
+/** Strip config for an axis, with the caller's config merged over it.
+ *  `fill` defaults on: strip's own default is off, which sizes hintless
+ *  children to zero — right for a toolbar, wrong for a split pane. */
 function stripConfig(axis: 'x' | 'y', extra?: Record<string, unknown>): Record<string, unknown> {
-  return { axis, ...extra };
+  return { axis, fill: true, ...extra };
 }
 
 /** Lock axes `split` enforces itself. Internal calls then run suspended, so a
@@ -1907,9 +1909,8 @@ export function createZone(input: CreateZoneInput): Node {
 
 /**
  * @group Constructors
- * @deprecated Use `createZone({ parentId })`. After `parentId` became optional
- * on `createZone`, this produces an identical node but for `kind`. The word is
- * reserved for the unbuilt feature that means windows moving as a unit.
+ * @deprecated Use `createZone({ parentId })`. Kept only until Task 9 migrates
+ * the call sites; deleted in the same release.
  */
 export function createGroup(input: CreateGroupInput): Node {
   return createContainerNode(input, 'group');
@@ -2028,50 +2029,411 @@ git commit -m "feat(presets): make parentId optional on createZone and add a kin
 
 ---
 
-## Task 9: Deprecations, docs, and the version bump
+## Task 8b: Collapse `stack` into `strip`
+
+`stackStrategy` (197 lines) and `stripStrategy` (214 lines) are one algorithm
+written twice. Stack is strip on the y axis, and the only thing it has that
+strip lacks is capacity handling. Their `fill` defaults drifted apart —
+strip `false`, stack `true` — and that divergence is what sized every
+split-created pane to zero until `stripConfig` started forcing `fill: true`.
+Two implementations of "lay children out in a line" that disagree about a
+hintless child is the failure mode of keeping them separate.
+
+`stackStrategy` is **removed**. Strip gains capacity first so nothing is lost,
+then every call site migrates to `stripStrategy` with `{ axis: 'y', fill: true }`.
+
+**Files:**
+- Modify: `src/layout/strip.ts` (gain capacity), `src/layout/stack.ts` (become a wrapper)
+- Test: `src/layout/strip.test.ts`, `src/layout/stack.test.ts`
+
+- [ ] **Step 1: Write the failing tests for strip capacity**
+
+Append to `src/layout/strip.test.ts`:
+
+```ts
+describe('stripStrategy capacity', () => {
+  const items = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ id: `i${i}`, hints: { preferredSize: { w: 100, h: 10 } } }));
+
+  it('overflows items past maxItems into unplaced', () => {
+    const res = stripStrategy.layout({
+      items: items(5),
+      container: { w: 1000, h: 100 },
+      state: undefined as never,
+      options: { axis: 'x', maxItems: 3 },
+    });
+
+    expect([...res.placements.keys()]).toEqual(['i0', 'i1', 'i2']);
+    expect(res.unplaced).toEqual(['i3', 'i4']);
+  });
+
+  it('lets pinned items win the capacity race', () => {
+    const list = items(4);
+    list[3]!.meta = { pinned: 0 };
+    const res = stripStrategy.layout({
+      items: list,
+      container: { w: 1000, h: 100 },
+      state: undefined as never,
+      options: { axis: 'x', maxItems: 2 },
+    });
+
+    expect([...res.placements.keys()]).toEqual(['i0', 'i3']);
+    expect(res.unplaced).toEqual(['i1', 'i2']);
+  });
+
+  it('reports no unplaced key when under capacity', () => {
+    const res = stripStrategy.layout({
+      items: items(2),
+      container: { w: 1000, h: 100 },
+      state: undefined as never,
+      options: { axis: 'x', maxItems: 5 },
+    });
+
+    expect(res.unplaced).toBeUndefined();
+  });
+
+  it('rejects a drop that would overflow maxItems', () => {
+    expect(stripStrategy.canAccept?.(items(4), { axis: 'x', maxItems: 3 })).toBe(false);
+    expect(stripStrategy.canAccept?.(items(3), { axis: 'x', maxItems: 3 })).toBe(true);
+  });
+
+  it('accepts anything when maxItems is unset', () => {
+    expect(stripStrategy.canAccept?.(items(50), { axis: 'x' })).toBe(true);
+  });
+
+  it('sizes gaps from the placed count, not the item count', () => {
+    const res = stripStrategy.layout({
+      items: items(5),
+      container: { w: 1000, h: 100 },
+      state: undefined as never,
+      options: { axis: 'x', maxItems: 2, gap: 10, fill: true },
+    });
+
+    // 1000 - one 10px gap, split between two panes.
+    expect(res.placements.get('i0')?.w).toBeCloseTo(495, 5);
+  });
+});
+```
+
+- [ ] **Step 2: Run them and watch them fail**
+
+Run: `npx vitest run src/layout/strip.test.ts`
+Expected: FAIL — `maxItems` is not honored and `canAccept` is undefined.
+
+- [ ] **Step 3: Port capacity into strip**
+
+In `src/layout/strip.ts`: import `selectByCapacity` from `./capacity.js`, add
+`maxItems?: number` to `StripConfig` (copy stack's JSDoc for it), add a
+`canAccept` mirroring stack's, and in `layout` select by capacity before
+computing sizes. Every subsequent use of `items` becomes the placed subset, and
+the gap arithmetic uses the placed count. Set `result.unplaced` when non-empty.
+
+The affordance ids strip already emits for `axis: 'y'` (`resize-y-<childId>`)
+are byte-identical to stack's, as is the rect it computes, so nothing consuming
+stack's affordances can tell the difference after Step 4.
+
+- [ ] **Step 4: Delete `stack.ts` and migrate its call sites**
+
+`git rm src/layout/stack.ts`, drop the `stackStrategy` export from
+`src/index.ts`, and migrate every consumer to `stripStrategy` with
+`{ axis: 'y', fill: true }`. Find them with:
+
+```bash
+grep -rn "stackStrategy\|'stack'\|strategyId=\"stack\"" src e2e --include="*.ts" --include="*.tsx"
+```
+
+**The `fill: true` is not optional in that migration.** Strip's default is off,
+so a call site that migrates without it collapses hintless children to zero —
+the exact bug that motivated this task. Any registry entry mapping the string
+`'stack'` to a strategy should map to `stripStrategy`, and the container configs
+of nodes registered with `strategyId: 'stack'` need the axis and fill.
+
+The old wrapper shape, for reference if a delegation turns out to be needed
+after all:
+
+```ts
+import type { LayoutStrategy } from '../layout-types.js';
+import { stripStrategy } from './strip.js';
+
+/** Stack config keys are strip's, minus `axis`. */
+export interface StackConfig {
+  gap?: number;
+  padding?: number;
+  fill?: boolean;
+  defaultItemSize?: number;
+  resizable?: boolean;
+  maxItems?: number;
+}
+
+/** Strip on the y axis. `fill` defaults on here and off in strip — that is the
+ *  one behavioral difference between the two, and it is load-bearing. */
+function stackOptions(options: Record<string, unknown>): Record<string, unknown> {
+  return { fill: true, ...options, axis: 'y' };
+}
+
+/**
+ * @group Strategies
+ * @deprecated Use `stripStrategy` with `{ axis: 'y', fill: true }`. Stack is
+ * strip on one axis; the two are one algorithm. Note the `fill` default differs
+ * — migrating without it collapses hintless children to zero. Removed at 1.0.
+ */
+export const stackStrategy: LayoutStrategy<void, string> = {
+  name: 'stack',
+  canAccept: (items, options) => stripStrategy.canAccept?.(items, stackOptions(options ?? {})) ?? true,
+  layout: (args) => stripStrategy.layout({ ...args, options: stackOptions(args.options) }),
+  dispatchAffordance: (args) =>
+    stripStrategy.dispatchAffordance?.({ ...args, options: stackOptions(args.options) }),
+};
+```
+
+`axis` is written AFTER the spread so a caller cannot make a stack horizontal;
+`fill` is written before it so a caller can still turn filling off.
+
+- [ ] **Step 5: Port the stack tests onto strip**
+
+`src/layout/stack.test.ts` is the behavioral contract for this algorithm and must
+not simply be deleted. Move its cases into `src/layout/strip.test.ts`, rewritten
+to call `stripStrategy` with `{ axis: 'y', fill: true }`. Every assertion should
+survive the move untouched — if one has to change, strip and stack differed in a
+way this task did not account for, so **stop and report it** rather than editing
+the expectation.
+
+Run: `npx vitest run src/layout/strip.test.ts`
+
+- [ ] **Step 6: Run the full suite**
+
+Run: `npm test && npm run lint && npm run typecheck`
+Expected: all pass. `src/layout/stack.ts` should now be well under 60 lines.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add -A src/layout src/index.ts
+git commit -m "refactor(layout): fold stack into strip as an axis"
+```
+
+---
+
+## Task 8c: Snapshot v5 — migrate `SplitNode` trees into real nodes
+
+Removing `splitStrategy` orphans every saved layout that used it: a v4 snapshot
+can name a strategy that no longer exists, and carry its whole `SplitNode` tree
+in `container.state`. Hydrate converts it.
+
+This is the same tree `split` builds, driven from a different source — a
+`SplitNode` binary tree of `{direction, ratio, a, b}` becomes nested strip groups
+whose leaves are the original panels, in the original order.
+
+**Files:**
+- Modify: `src/snapshot.ts`
+- Test: `src/snapshot.test.ts`
+
+- [ ] **Step 1: Read the shape you are migrating from**
+
+`git show 74f8bd2:src/layout/split.ts` still has it (this task runs after the
+deletion). The type was:
+
+```ts
+type SplitNode =
+  | { kind: 'leaf'; id: string }
+  | { kind: 'split'; direction: 'horizontal' | 'vertical'; ratio: number; a: SplitNode; b: SplitNode };
+```
+
+`direction: 'horizontal'` splits left/right, so it maps to strip `axis: 'x'`;
+`'vertical'` maps to `axis: 'y'`. Note the old vocabulary is the opposite of the
+intuitive reading — check `walk()` in that file before trusting this sentence.
+
+- [ ] **Step 2: Write the failing tests**
+
+Append to `src/snapshot.test.ts`:
+
+```ts
+describe('v4 → v5 split migration', () => {
+  function v4WithSplit() {
+    return {
+      version: 4,
+      rootIds: ['z'],
+      focusedId: null,
+      nodes: [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'visible',
+          container: {
+            strategyId: 'split',
+            config: { gutterSize: 4 },
+            childOrder: ['a', 'b', 'c'],
+            allowsPinning: true,
+            state: {
+              kind: 'split',
+              direction: 'horizontal',
+              ratio: 0.5,
+              a: { kind: 'leaf', id: 'a' },
+              b: {
+                kind: 'split',
+                direction: 'vertical',
+                ratio: 0.5,
+                a: { kind: 'leaf', id: 'b' },
+                b: { kind: 'leaf', id: 'c' },
+              },
+            },
+          },
+        },
+        { id: 'a', kind: 'panel', lifecycle: 'visible', membership: { parentId: 'z', placement: {} }, focus: 'blurred' },
+        { id: 'b', kind: 'panel', lifecycle: 'visible', membership: { parentId: 'z', placement: {} }, focus: 'blurred' },
+        { id: 'c', kind: 'panel', lifecycle: 'visible', membership: { parentId: 'z', placement: {} }, focus: 'blurred' },
+      ],
+    };
+  }
+
+  it('turns the split root into a strip and drops the state', () => {
+    const store = deserialize(v4WithSplit() as never);
+
+    const z = store.getNode(asNodeId('z'));
+    expect(z?.container?.strategyId).toBe('strip');
+    expect(z?.container?.config).toMatchObject({ axis: 'x', fill: true });
+    expect(store.getContainerState(asNodeId('z'))).toBeUndefined();
+  });
+
+  it('rebuilds the nested split as a real group', () => {
+    const store = deserialize(v4WithSplit() as never);
+
+    const top = store.getContainerView(asNodeId('z'))?.childOrder ?? [];
+    expect(top).toHaveLength(2);
+    expect(top[0]).toBe('a');
+
+    const inner = store.getNode(top[1] as never);
+    expect(inner?.container?.strategyId).toBe('strip');
+    expect(inner?.container?.config).toMatchObject({ axis: 'y' });
+    expect(store.getContainerView(top[1] as never)?.childOrder).toEqual(['b', 'c']);
+  });
+
+  it('keeps every original leaf, none orphaned', () => {
+    const store = deserialize(v4WithSplit() as never);
+
+    for (const id of ['a', 'b', 'c']) {
+      expect(store.getNode(asNodeId(id))).toBeDefined();
+      expect(store.getParent(asNodeId(id))).toBeDefined();
+    }
+  });
+
+  it('leaves a v4 snapshot with no split container alone', () => {
+    const snap = v4WithSplit();
+    snap.nodes[0]!.container!.strategyId = 'strip';
+    delete snap.nodes[0]!.container!.state;
+
+    const store = deserialize(snap as never);
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'b', 'c']);
+  });
+
+  it('serializes at v5', () => {
+    expect(serialize(new Store()).version).toBe(5);
+  });
+
+  it('round-trips a v5 snapshot unchanged', () => {
+    const store = deserialize(v4WithSplit() as never);
+    const once = serialize(store);
+    const twice = serialize(deserialize(once));
+    expect(twice).toEqual(once);
+  });
+});
+```
+
+- [ ] **Step 3: Run them and watch them fail**
+
+Run: `npx vitest run src/snapshot.test.ts`
+Expected: FAIL — version is still 4 and the split container is untouched.
+
+- [ ] **Step 4: Implement the migration**
+
+In `src/snapshot.ts`: bump `SerializedStore['version']` to `5`, accept `5` in the
+version guard alongside 2/3/4, and add `migrateToV5(nodes)` running after
+`migrateToV4` when `version < 5`.
+
+For each node whose `container.strategyId === 'split'`:
+1. Read `container.state` as a `SplitNode`. If absent or not an object, just
+   rewrite the strategy to `strip` with `{ axis: 'x', fill: true }` and stop —
+   there is nothing to rebuild.
+2. Otherwise walk the tree. Each `split` node becomes a container: the ROOT
+   split reuses the existing node, and every nested split becomes a NEW group
+   node parented to its parent split. Each `leaf` keeps its existing serialized
+   node, reparented to whichever split contains it.
+3. Set every rebuilt container's config to `{ axis, fill: true }` where `axis`
+   is `'x'` for `'horizontal'` and `'y'` for `'vertical'`, and clear `state`.
+4. Mint ids for the new group nodes deterministically from the owning node and
+   the path — e.g. `${rootId}:s0`, `${rootId}:s01` — and **guard against
+   collision** with an id already in the snapshot; a snapshot is consumer data
+   and may legitimately contain anything.
+
+`ratio` is dropped. Strip derives extents from `placement.size` and hints, and a
+ratio has no equivalent — record that in the README migration note rather than
+inventing a pixel size from a container width the snapshot does not carry.
+
+- [ ] **Step 5: Run the tests**
+
+Run: `npx vitest run src/snapshot.test.ts`
+Expected: PASS
+
+- [ ] **Step 6: Full suite**
+
+Run: `npm test && npm run lint && npm run typecheck`
+Expected: all pass.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/snapshot.ts src/snapshot.test.ts
+git commit -m "feat(snapshot): migrate v4 split trees into strip groups at v5"
+```
+
+---
+
+## Task 9: Removals, docs, and the 1.0.0 bump
 
 **Files:**
 - Modify: `src/layout/split.ts`, `src/react/presets.tsx`, `src/index.ts`, `package.json`
 - Modify: `README.md`, `TODO.md`, `docs/concepts.md`, `docs/superpowers/specs/2026-06-04-history-undo-redo-design.md`
 
-- [ ] **Step 1: Deprecate `splitStrategy`**
+- [ ] **Step 1: Delete `splitStrategy` and migrate everything driving it**
 
-In `src/layout/split.ts`, extend the JSDoc above `export const splitStrategy`:
-
-```ts
-/**
- * ...existing text...
- *
- * @deprecated Use `store.split(id, { direction })` and lay the result out with
- * `stripStrategy`. This strategy keeps a `SplitNode` tree in `container.state`
- * describing structure the node tree already describes; every known split bug
- * is the two disagreeing. Removed at 1.0.
- * @group Strategies
- */
+```bash
+git rm src/layout/split.ts src/layout/split.test.ts src/layout/split.direction.test.ts
 ```
 
-Add the same `@deprecated` line to the `SplitNode`, `SplitMeta`, and `SplitOptions` declarations in that file.
+Drop the `splitStrategy` / `SplitNode` / `SplitOptions` / `SplitMeta` exports from
+`src/index.ts`. Then migrate each consumer — these are rewrites, not deletions,
+and each one is a place the old strategy was being exercised for a reason:
 
-- [ ] **Step 2: Deprecate `<Group>`**
+| Site | What to do |
+|---|---|
+| `src/react/stories/RecursiveSplit.stories.tsx` | Rebuild the same 4-pane tiling with `store.split` calls and `strip`. Keep the story name so its Ladle id survives. |
+| `src/react/stories/Playground.stories.tsx` | Its root arranges three sub-zones with `split`; use `strip` with an explicit axis. |
+| `e2e/resize.spec.ts` | Its gutter selectors are `[data-affordance-hit="split-…"]`, built from `SplitNode` tree paths. Strip emits `resize-x-<childId>` / `resize-y-<childId>` instead. Retarget the selectors; keep every assertion. |
+| `src/dnd/DragController.test.tsx` | Used `splitStrategy` with `recursive: false` for a `canAccept` that refuses anything but 2 items. Replace with a local stub strategy — the test is about `DragController`, not about split. |
+| `src/react/lock.test.tsx`, `src/react/Container.test.tsx` | Registry entries; swap to `stripStrategy`. |
+| `src/snapshot.test.ts` | The "round-trips container state" case. Task 8c replaced it; confirm nothing still asserts a `SplitNode`. |
 
-In `src/react/presets.tsx`, above `export function Group`:
+Verify nothing is left: `grep -rn "splitStrategy\|SplitNode\|SplitMeta" src e2e --include="*.ts" --include="*.tsx"` returns nothing.
 
-```tsx
-/**
- * @group Components
- * @deprecated Use `<Zone parentId kind="group">`. After `parentId` became
- * optional on `createZone`, a group is a zone with a parent. `kind="group"`
- * keeps `.windease-group`, `.windease-group__title` and `chrome['group']`
- * firing unchanged. Removed at 1.0.
- */
-```
+- [ ] **Step 2: Delete `createGroup` and `<Group>`**
 
-- [ ] **Step 3: Bump the version**
+Remove both, plus `CreateGroupInput`, from `src/constructors.ts`,
+`src/react/presets.tsx`, and the `src/index.ts` / `src/react/index.ts` exports.
+Migrate call sites to `createZone({ parentId })` and `<Zone parentId kind="group">`.
 
-In `package.json`, set `"version": "0.10.0"`. In `src/index.ts`, set:
+`grep -rn "createGroup\|<Group" src e2e --include="*.ts" --include="*.tsx"` must
+come back empty. Note `src/split.ts` uses `createGroup` internally for the
+interposed group — it becomes `createZone({ parentId, ... })`, and the node's
+`kind` should stay `'group'` so consumer `ChromeMap`s keep dispatching, which
+means passing `kind` explicitly or setting it after construction.
+
+- [ ] **Step 3: Bump to 1.0.0**
+
+In `package.json`, set `"version": "1.0.0"`. In `src/index.ts`, set:
 
 ```ts
-export const VERSION = '0.10.0';
+export const VERSION = '1.0.0';
 ```
 
 - [ ] **Step 4: Check for a VERSION test**
@@ -2099,22 +2461,37 @@ At the top of `docs/superpowers/specs/2026-06-04-history-undo-redo-design.md`, i
 Replace the body of "## Replace `splitStrategy` with a split *operation* [HIGH]" with a shipped note:
 
 ```markdown
-## Shipped in 0.10.0
+## Shipped in 1.0.0
 
 - **`split` / `unsplit` store operations.** Split is a verb over the node tree,
   not a strategy: `store.split(id, { direction })` wraps a node in a strip
   group, flattens into a matching-axis parent, or reconfigures a root in place.
   Directions are `'x'`, `'y'`, `'both'` (nested strips, `into: [cols, rows]`)
   and `'grid'`. All ids are caller-supplied. `store.unsplit(groupId)` dissolves
-  a group into its parent; nothing auto-collapses. `splitStrategy` is
-  deprecated and removed at 1.0.
+  a group into its parent; nothing auto-collapses.
 - **`Store.transact(fn, label?)`** with `transaction.begin` /
   `transaction.end`, so a composite operation is one undo step. Also
-  `setStrategy` and `ensureContainer`.
-- **`createZone` takes an optional `parentId`**, which fixes `<Zone>` inside
-  `<Zone>` silently registering as a root. `createGroup` / `<Group>` are
-  deprecated — a group is a zone with a parent, and the word is reserved for
-  the feature under "## Groups". `<Zone>` gained a `kind` prop.
+  `setStrategy` — which clears `container.state`, since it belongs to the
+  outgoing strategy — and `ensureContainer`.
+- **`createZone` takes an optional `parentId`**, which fixed `<Zone>` inside
+  `<Zone>` silently registering as a root. `<Zone>` gained a `kind` prop.
+
+## Removed in 1.0.0
+
+- **`splitStrategy`** and its `SplitNode` / `SplitOptions` / `SplitMeta` types.
+  It kept a second tree in `container.state` describing what the node tree
+  already described, and every known split bug was the two disagreeing. Use
+  `store.split`. Saved layouts migrate automatically at snapshot v5.
+- **`stackStrategy`.** It was `stripStrategy` on the y axis; strip gained the
+  capacity handling that was the only thing stack had. Use
+  `stripStrategy` with `{ axis: 'y', fill: true }` — the `fill` matters, since
+  strip's default is off and omitting it collapses hintless children to zero.
+- **`createGroup` and `<Group>`.** Once `parentId` became optional on
+  `createZone`, a group was a zone with a parent and nothing else. The word is
+  reserved for the feature under "## Groups" — windows that move as a unit —
+  which is what a user means by it. Use `createZone({ parentId })` and
+  `<Zone parentId kind="group">`, which keeps `.windease-group` and
+  `chrome['group']` working.
 ```
 
 Delete the now-fixed `<Zone>` bullet from "Surfaced by turning the type-checker on over the test tree". Then append to "## Loose ends":
@@ -2122,7 +2499,7 @@ Delete the now-fixed `<Zone>` bullet from "Surfaced by turning the type-checker 
 ```markdown
 - `gridStrategy` ignores `placement.size`, so `split(id, { direction: 'grid' })`
   produces a tiling with no draggable gutters. Honoring explicit sizes there
-  would close the last capability gap against the deprecated `splitStrategy`.
+  would close the last capability gap against the `splitStrategy` this release removed.
 - `focus` is offered only by `createPanel`. The store's single-focus invariant
   is store-wide and does not care which node carries the capability, so a
   focusable container is structurally fine and merely unconstructible.
@@ -2148,9 +2525,9 @@ Delete the now-fixed `<Zone>` bullet from "Surfaced by turning the type-checker 
 In the "Mental model" section, after the sentence ending "that is the whole distinction between the two presets", add:
 
 ```markdown
-As of 0.10.0 that distinction is only a label: `createZone` takes an optional
+As of 1.0.0 that distinction is only a label: `createZone` takes an optional
 `parentId`, and with one it produces exactly what `createGroup` produces but for
-`kind`. `createGroup` is deprecated. So `kind: 'zone'` no longer implies "root" —
+`kind`. `createGroup` is gone. So `kind: 'zone'` no longer implies "root" —
 a nested zone carries `kind: 'zone'` and styles as `.windease-zone` unless you
 pass a `kind` override.
 ```
@@ -2160,20 +2537,32 @@ pass a `kind` override.
 Add a migration note under the changelog or API section:
 
 ```markdown
-### 0.10.0
+### 1.0.0
 
-- `store.split(id, input)` / `store.unsplit(groupId)` replace `splitStrategy`,
-  which is deprecated and removed at 1.0. Split rearranges real nodes and lays
-  them out with `stripStrategy`, so registering a child, removing one, and
-  dragging one all behave — they are ordinary store mutations now.
-- `store.transact(fn, label?)` emits `transaction.begin` / `transaction.end`.
-  Bracket history pushes on that pair to get one undo step per composite
-  operation.
-- `createZone` accepts an optional `parentId`. `createGroup` and `<Group>` are
-  deprecated: migrate to `createZone({ parentId })` and
-  `<Zone parentId kind="group">`, which keeps `.windease-group` and
-  `chrome['group']` working.
-- Snapshots are unchanged at v4.
+Breaking. Three exports are removed; each has a direct replacement.
+
+| Removed | Use instead |
+|---|---|
+| `splitStrategy` (+ `SplitNode`, `SplitOptions`, `SplitMeta`) | `store.split(id, input)` |
+| `stackStrategy` | `stripStrategy` with `{ axis: 'y', fill: true }` |
+| `createGroup`, `<Group>` | `createZone({ parentId })`, `<Zone parentId kind="group">` |
+
+- **`store.split(id, input)` / `store.unsplit(groupId)`.** Split is a verb over
+  the node tree rather than a strategy holding its own tree, so registering a
+  child, removing one, and dragging one all behave — they are ordinary store
+  mutations now. Directions are `'x'`, `'y'`, `'both'` and `'grid'`; all ids are
+  caller-supplied.
+- **`store.transact(fn, label?)`** emits `transaction.begin` /
+  `transaction.end`. Bracket history pushes on that pair to get one undo step
+  per composite operation — the `node.*` events are per-mutation and would give
+  you one entry per node touched.
+- **Snapshots are v5.** A v4 snapshot using `splitStrategy` migrates on read:
+  its `SplitNode` tree becomes real nested strip groups. Pane *ratios* do not
+  survive — strip derives extents from `placement.size` and hints, and a ratio
+  has no equivalent — so a migrated layout comes back evenly divided.
+- **Migrating `stackStrategy` requires the `fill: true`.** Strip's default is
+  off, which sizes a child with no `preferredSize` to zero. That difference
+  between the two strategies is why they were folded together.
 ```
 
 - [ ] **Step 9: Run everything**
@@ -2185,7 +2574,7 @@ Expected: all pass
 
 ```bash
 git add -A
-git commit -m "chore: 0.10.0 — deprecate splitStrategy and createGroup"
+git commit -m "chore: 1.0.0 — remove splitStrategy, stackStrategy and createGroup"
 ```
 
 ---
@@ -2201,7 +2590,7 @@ git commit -m "chore: 0.10.0 — deprecate splitStrategy and createGroup"
 
 Run: `sed -n '1,60p' src/react/stories/RecursiveSplit.stories.tsx && sed -n '1,40p' e2e/resize.spec.ts`
 
-Match their registry wiring, `data-testid` conventions, and Playwright selectors. `e2e/resize.spec.ts` targets `splitStrategy` gutter ids and must keep passing untouched — the strategy is deprecated, not removed.
+Match their registry wiring, `data-testid` conventions, and Playwright selectors. Note Task 9 already retargeted `e2e/resize.spec.ts` off `splitStrategy`'s gutter ids onto strip's `resize-x-<childId>` / `resize-y-<childId>`; follow the same selector shape here.
 
 - [ ] **Step 2: Add the story stylesheet rule**
 
@@ -2480,10 +2869,10 @@ npm run test:e2e
 npm run build
 ```
 
-Expected: lint clean, typecheck clean, ~700 unit tests passing across ~61 files, 15 e2e passing, build emits `dist/`.
+Expected: lint clean, typecheck clean, unit tests passing, e2e passing, build emits `dist/`. Do not treat a specific count as the target — record the actual number and confirm it only ever moved for a reason you can name.
 
 Then confirm by hand:
 
-- [ ] `grep -rn "SplitNode" src/ --include="*.ts" | grep -v "layout/split"` returns nothing outside the deprecated strategy and its tests.
+- [ ] `grep -rn "SplitNode\|splitStrategy\|stackStrategy\|createGroup" src e2e --include="*.ts" --include="*.tsx"` returns **nothing**. Every removed name is gone, not merely unexported.
 - [ ] `npx tsc --noEmit -p tsconfig.test.json` is clean, so the stories typecheck too.
 - [ ] `WINDEASE_TRACE=store npx vitest run src/split.test.ts 2>&1 | grep "split:"` shows one trace line per split, naming the mode.
