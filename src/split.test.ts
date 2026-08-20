@@ -739,3 +739,95 @@ describe('Store.split — geometry', () => {
     expect(placements.get('p2')!.w).toBe(0);
   });
 });
+
+describe('Store.unsplit', () => {
+  it('moves children up to the group index in order, then removes the group', () => {
+    const store = new Store();
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+    );
+    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      into: 3,
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2'), asNodeId('p3')],
+    });
+
+    store.unsplit(asNodeId('g'));
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'p1', 'p2', 'p3', 'b']);
+    expect(store.getNode(asNodeId('g'))).toBeUndefined();
+  });
+
+  it('round-trips with split', () => {
+    const store = seeded();
+    const before = store.getContainerView(asNodeId('z'))?.childOrder;
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+    store.unregisterNode(asNodeId('p2'));
+    store.unsplit(asNodeId('g'));
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(before);
+  });
+
+  it('throws when the target has no container', () => {
+    const store = seeded();
+    expect(() => store.unsplit(asNodeId('p1'))).toThrow(/container/);
+  });
+
+  it('throws when the target has no parent', () => {
+    const store = seeded();
+    expect(() => store.unsplit(asNodeId('z'))).toThrow(/membership|parent/);
+  });
+
+  it('emits one transaction pair', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+    let pairs = 0;
+    store.events.on('transaction.end', () => {
+      pairs += 1;
+    });
+
+    store.unsplit(asNodeId('g'));
+
+    expect(pairs).toBe(1);
+  });
+
+  it('refuses when the group is locked against destroy', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+    store.setLock(asNodeId('g'), { destroy: true });
+
+    expect(() => store.unsplit(asNodeId('g'))).toThrow();
+    expect(store.getNode(asNodeId('g'))).toBeDefined();
+  });
+
+  it('force overrides the lock', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+    store.setLock(asNodeId('g'), { destroy: true });
+
+    store.unsplit(asNodeId('g'), { force: true });
+
+    expect(store.getNode(asNodeId('g'))).toBeUndefined();
+  });
+});

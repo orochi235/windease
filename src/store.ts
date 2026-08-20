@@ -11,7 +11,7 @@ import { TypedEmitter } from './events.js';
 import { type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeId } from './node.js';
 import { placeRespectingPins } from './pinning.js';
-import { splitNode } from './split.js';
+import { splitNode, unsplitNode } from './split.js';
 import type { SplitInput } from './split-types.js';
 import {
   type MachineName,
@@ -1073,6 +1073,18 @@ export class Store {
    */
   split(id: NodeId, input: SplitInput): void {
     splitNode(this, id, input);
+  }
+
+  /**
+   * Dissolve a group into its parent: its children move up to the group's
+   * index, in order, then the group is unregistered.
+   *
+   * Nothing calls this automatically. Removing the second-to-last child of a
+   * split group leaves a one-child strip, which renders full-bleed and is
+   * harmless; collapsing it is the consumer's call.
+   */
+  unsplit(groupId: NodeId, opts?: MutateOptions): void {
+    unsplitNode(this, groupId, opts);
   }
 
   /**

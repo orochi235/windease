@@ -1,5 +1,6 @@
 import { createGroup, createPanel } from './constructors.js';
 import {
+  CapabilityMissingError,
   DuplicateNodeError,
   InvariantViolationError,
   LockedError,
@@ -7,7 +8,7 @@ import {
 } from './errors.js';
 import type { NodeId } from './node.js';
 import type { SplitInput } from './split-types.js';
-import type { Store } from './store.js';
+import type { MutateOptions, Store } from './store.js';
 import { trace } from './trace.js';
 
 export type SplitMode = 'wrap' | 'flatten' | 'reconfigure';
@@ -168,7 +169,13 @@ function buildColumns(
       }
       const newId = newIds[cursor];
       cursor += 1;
-      if (newId === undefined) return;
+      if (newId === undefined) {
+        throw new InvariantViolationError(
+          'split-invariant',
+          `buildColumns ran out of newIds at col ${col} row ${row}; validateSplit should have caught this`,
+          { col, row },
+        );
+      }
       store.registerNode(createPanel({ id: newId, parentId: columnId }));
     }
   });
@@ -197,6 +204,21 @@ function assertSplitUnlocked(store: Store, id: NodeId, mode: SplitMode, force: b
   check(id, 'move');
   check(parentId, 'dragOut');
   check(parentId, 'arrange');
+}
+
+/** Lock axes `unsplit` enforces itself, checked up front so an internal
+ *  guard cannot fire partway through `withLocksSuspended`. */
+function assertUnsplitUnlocked(
+  store: Store,
+  groupId: NodeId,
+  parentId: NodeId,
+  force: boolean,
+): void {
+  if (force) return;
+  for (const axis of ['destroy', 'dragOut'] as const) {
+    if (store.isLocked(groupId, axis)) throw new LockedError(groupId, axis, 'unsplit');
+  }
+  if (store.isLocked(parentId, 'arrange')) throw new LockedError(parentId, 'arrange', 'unsplit');
 }
 
 export function splitNode(store: Store, id: NodeId, input: SplitInput): void {
@@ -339,4 +361,32 @@ function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
     'store',
     `split: reconfigure ${id} (${strategyId} ${input.direction}, +${input.newIds.length})`,
   );
+}
+
+/** Dissolve `groupId` into its parent: its children move up to the group's
+ *  index in order, then the group is unregistered. */
+export function unsplitNode(store: Store, groupId: NodeId, opts?: MutateOptions): void {
+  const group = store.getNodeTruth(groupId);
+  if (!group) {
+    throw new NodeNotFoundError(groupId);
+  }
+  if (!group.container) throw new CapabilityMissingError(groupId, 'container', 'unsplit');
+  if (!group.membership) throw new CapabilityMissingError(groupId, 'membership', 'unsplit');
+
+  const parentId = group.membership.parentId;
+  assertUnsplitUnlocked(store, groupId, parentId, opts?.force === true);
+
+  const children = [...group.container.childOrder];
+  const at = store.getContainerView(parentId)?.childOrder.indexOf(groupId) ?? 0;
+
+  store.transact(() => {
+    store.withLocksSuspended(() => {
+      children.forEach((childId, i) => {
+        store.moveNode(childId, parentId, at + i);
+      });
+      store.unregisterNode(groupId);
+    });
+  }, 'unsplit');
+
+  trace('store', `unsplit: ${groupId} → ${parentId}@${at} (${children.length} children)`);
 }
