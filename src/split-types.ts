@@ -4,8 +4,7 @@ import type { NodeId } from './node.js';
  * Input bag for `Store.split`. Discriminated on `direction`, so each mode
  * requires exactly the ids it needs.
  *
- * Named `SplitInput` to match `CreateZoneInput` / `CreatePanelInput`, and
- * because `SplitOptions` is already taken by the deprecated `splitStrategy`.
+ * Named `SplitInput` to match `CreateZoneInput` / `CreatePanelInput`.
  */
 export type SplitInput =
   | {

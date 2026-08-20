@@ -185,7 +185,7 @@ export class DragController {
       return false;
     }
 
-    // Strategy-level constraint: e.g. splitStrategy refuses anything but 2 items.
+    // Strategy-level constraint: e.g. a strategy refusing anything but 2 items.
     if (targetNode?.container && this.getStrategy) {
       const strategy = this.getStrategy(targetNode.container.strategyId);
       if (strategy?.canAccept) {

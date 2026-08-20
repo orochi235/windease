@@ -67,7 +67,7 @@ export interface StoreEvents {
   'container.configChanged': { id: NodeId; from: unknown; to: unknown };
   'container.allowsPinningChanged': { id: NodeId; from: boolean; to: boolean };
   /**
-   * Per-container strategy state (e.g. splitStrategy ratio) changed. Stored on
+   * Per-container strategy state (e.g. a resize ratio) changed. Stored on
    * `node.container.state`; round-trips through snapshot. By design this
    * field should NOT participate in undo/redo when v2 history lands —
    * resize gestures shouldn't pollute the timeline.
@@ -712,7 +712,7 @@ export class Store {
   }
 
   /**
-   * Read the persisted strategy state for `id`'s container (e.g. splitStrategy
+   * Read the persisted strategy state for `id`'s container (e.g. a resize
    * ratio), or undefined if nothing has been written yet — in which case the
    * consumer initializes via `strategy.initialState`. Lives on
    * `node.container.state`, round-trips through snapshot/hydrate.

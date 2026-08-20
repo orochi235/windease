@@ -8,11 +8,7 @@ export interface CreateZoneInput {
   id: NodeId;
   strategyId: string;
   config: unknown;
-  /**
-   * Omit for a root. With a parent, the node gains `membership` and is
-   * structurally what `createGroup` produces — the presets differ only in
-   * `kind` and in whether this field is required.
-   */
+  /** Omit for a root. With a parent, the node gains `membership`. */
   parentId?: NodeId | undefined;
   placement?: Record<string, unknown>;
   allowsPinning?: boolean;
@@ -21,10 +17,6 @@ export interface CreateZoneInput {
   hints?: NodeHints;
   /** See `Node.order`. */
   order?: number;
-}
-
-export interface CreateGroupInput extends CreateZoneInput {
-  parentId: NodeId;
 }
 
 function createContainerNode(input: CreateZoneInput, kind: string): Node {
@@ -59,15 +51,6 @@ function createContainerNode(input: CreateZoneInput, kind: string): Node {
 /** @group Constructors */
 export function createZone(input: CreateZoneInput): Node {
   return createContainerNode(input, 'zone');
-}
-
-/**
- * @group Constructors
- * @deprecated Use `createZone({ parentId })`. Kept only until Task 9 migrates
- * the call sites; deleted in the same release.
- */
-export function createGroup(input: CreateGroupInput): Node {
-  return createContainerNode(input, 'group');
 }
 
 export interface CreatePanelInput {

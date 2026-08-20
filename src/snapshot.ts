@@ -215,41 +215,40 @@ function migrateToV4(nodes: SerializedNode[]): void {
   migratePinnedIndices(nodes);
 }
 
-/** Shape of the deleted `splitStrategy`'s `container.state`. Kept as a local
- *  type rather than imported — `src/layout/split.ts` goes away with it. */
-type LegacySplitNode =
+/** Shape of the removed split layout strategy's `container.state`. Kept as a
+ *  local type rather than imported — that strategy's module is gone. */
+type LegacySplitTree =
   | { kind: 'leaf'; id: string }
   | {
       kind: 'split';
       direction: 'horizontal' | 'vertical';
       ratio: number;
-      a: LegacySplitNode;
-      b: LegacySplitNode;
+      a: LegacySplitTree;
+      b: LegacySplitTree;
     };
 
-function isLegacySplitNode(v: unknown): v is LegacySplitNode {
+function isLegacySplitTree(v: unknown): v is LegacySplitTree {
   if (!v || typeof v !== 'object') return false;
   const o = v as Record<string, unknown>;
   if (o.kind === 'leaf') return typeof o.id === 'string';
   if (o.kind === 'split') {
     return (
       (o.direction === 'horizontal' || o.direction === 'vertical') &&
-      isLegacySplitNode(o.a) &&
-      isLegacySplitNode(o.b)
+      isLegacySplitTree(o.a) &&
+      isLegacySplitTree(o.b)
     );
   }
   return false;
 }
 
-/** `walk()` in the deleted `src/layout/split.ts` lays `horizontal` children
- *  side by side along `rect.w` (x) and `vertical` children stacked along
- *  `rect.h` (y) — verified against that code, not assumed. */
+/** The removed strategy laid `horizontal` children side by side along
+ *  `rect.w` (x) and `vertical` children stacked along `rect.h` (y). */
 function stripConfigFor(direction: 'horizontal' | 'vertical'): Record<string, unknown> {
   return { axis: direction === 'horizontal' ? 'x' : 'y', fill: true };
 }
 
 /**
- * v4 → v5: `splitStrategy` containers carried a binary `SplitNode` tree in
+ * v4 → v5: the removed split strategy's containers carried a binary tree in
  * `container.state`. Rebuild it as nested strip groups so the leaves survive
  * the strategy's removal: the root split reuses its node, each nested split
  * mints a new group node, and `ratio` is dropped (strip has no equivalent).
@@ -266,7 +265,7 @@ function migrateToV5(nodes: SerializedNode[]): void {
 
     // A degenerate single-item split serializes its state as a bare leaf —
     // nothing to rebuild beyond the strategy swap already done above.
-    if (!isLegacySplitNode(state) || state.kind === 'leaf') {
+    if (!isLegacySplitTree(state) || state.kind === 'leaf') {
       sn.container.config = stripConfigFor('horizontal');
       continue;
     }
@@ -286,7 +285,7 @@ function migrateToV5(nodes: SerializedNode[]): void {
     // Returns the id to place in `parentId`'s childOrder for `node`: the
     // node's own id (reparented) for a leaf, or a freshly minted group id
     // for a nested split, whose own children are built recursively.
-    const convert = (node: LegacySplitNode, path: number[], parentId: string): string => {
+    const convert = (node: LegacySplitTree, path: number[], parentId: string): string => {
       if (node.kind === 'leaf') {
         const leaf = byId.get(node.id);
         if (leaf) leaf.membership = { parentId, placement: leaf.membership?.placement ?? {} };

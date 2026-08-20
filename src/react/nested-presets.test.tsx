@@ -2,23 +2,24 @@ import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { asNodeId, Store } from '../index.js';
 import { Provider } from './Provider.js';
-import { Group, Panel, Zone } from './presets.js';
+import { Panel, Zone } from './presets.js';
 
 afterEach(cleanup);
 
 describe('nested declarative presets', () => {
-  it('Zone > Group > Panel produces the correct parent chain', () => {
+  it('Zone > Zone(kind=group) > Panel produces the correct parent chain', () => {
     const store = new Store();
     render(
       <Provider store={store}>
         <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
-          <Group id={asNodeId('mid')} strategyId="stack" config={{}}>
+          <Zone id={asNodeId('mid')} strategyId="stack" config={{}} kind="group">
             <Panel id={asNodeId('inner')} />
-          </Group>
+          </Zone>
         </Zone>
       </Provider>,
     );
     expect(store.getNode(asNodeId('z'))?.container).toBeTruthy();
+    expect(store.getNode(asNodeId('mid'))?.kind).toBe('group');
     expect(store.getNode(asNodeId('mid'))?.membership?.parentId).toBe(asNodeId('z'));
     expect(store.getNode(asNodeId('inner'))?.membership?.parentId).toBe(asNodeId('mid'));
   });

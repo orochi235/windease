@@ -56,9 +56,9 @@ export {
 // Declarative tree binding
 export { ParentContext, ParentScope, useParentId } from './ParentContext.js';
 export { Context, Provider, useStore } from './Provider.js';
-export type { GroupProps, PanelProps, ZoneProps } from './presets.js';
+export type { PanelProps, ZoneProps } from './presets.js';
 // Preset components
-export { Group, Panel, Zone } from './presets.js';
+export { Panel, Zone } from './presets.js';
 // Strategy + layout
 export {
   type StrategyRegistry,

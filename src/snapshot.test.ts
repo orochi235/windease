@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGroup, createPanel, createZone } from './constructors.js';
+import { createPanel, createZone } from './constructors.js';
 import { WindeaseError } from './errors.js';
 import { asNodeId } from './node.js';
 import { deserialize, type SerializedStore, serialize } from './snapshot.js';
@@ -54,7 +54,7 @@ describe('serialize / deserialize — v4 round-trip', () => {
     expect(restored.getNode(asNodeId('p'))?.focus?.state).toBe('focused');
   });
 
-  it('round-trips container state (e.g. splitStrategy ratio)', () => {
+  it('round-trips container state (e.g. a resize ratio)', () => {
     const s = new Store();
     s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'split', config: {} }));
     s.setContainerState(asNodeId('z'), { ratio: 0.7 });
@@ -226,14 +226,14 @@ describe('serialize — groups + recursion', () => {
   it('serializes a group inside a zone', () => {
     const s = new Store();
     s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    s.registerNode(
-      createGroup({
-        id: asNodeId('g'),
-        parentId: asNodeId('z'),
-        strategyId: 'stack',
-        config: { axis: 'horizontal' },
-      }),
-    );
+    const groupNode = createZone({
+      id: asNodeId('g'),
+      parentId: asNodeId('z'),
+      strategyId: 'stack',
+      config: { axis: 'horizontal' },
+    });
+    groupNode.kind = 'group';
+    s.registerNode(groupNode);
     const snap = serialize(s);
     const group = snap.nodes.find((n) => n.id === 'g');
     expect(group?.kind).toBe('group');
@@ -673,7 +673,7 @@ describe('v4 → v5 split migration', () => {
     expect(z?.container?.config).toMatchObject({ axis: 'x', fill: true });
   });
 
-  it('does not throw when container.state is malformed, not a SplitNode', () => {
+  it('does not throw when container.state is malformed, not a legacy split tree', () => {
     const snap = v4WithSplit();
     (snap.nodes[0]!.container as { state: unknown }).state = { totally: 'not-a-split-node' };
 

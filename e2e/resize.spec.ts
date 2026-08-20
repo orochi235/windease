@@ -3,10 +3,11 @@ import { boxOf, centerOf, dragMouse, openStory } from './fixtures.js';
 
 const STORY = 'recursive-zones--split-resize';
 
-// Gutter ids come from splitStrategy's walk over the SplitNode tree:
-// '' is the root, '1' its b-side, '1.1' that side's own b-split.
-const ROOT_GUTTER = '[data-affordance-hit="split-"]';
-const MID_GUTTER = '[data-affordance-hit="split-1"]';
+// Gutter ids come from strip's own affordances: `resize-<axis>-<childId>`,
+// emitted after every non-last child. The root strip is a/g1 (x axis); the
+// nested group g1 is b/g2 (y axis).
+const ROOT_GUTTER = '[data-affordance-hit="resize-x-a"]';
+const MID_GUTTER = '[data-affordance-hit="resize-y-b"]';
 
 test.describe('split resize', () => {
   test('dragging the root gutter right widens the left pane', async ({ page }) => {

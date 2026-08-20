@@ -11,7 +11,6 @@ import {
 import type { ChildSort } from '../child-sort.js';
 import type { Node, NodeId, Store } from '../index.js';
 import {
-  createGroup,
   createPanel,
   createZone,
   reconcileChildOrder,
@@ -45,7 +44,7 @@ interface CommonBindingProps {
   hidden?: boolean;
   /** When true, registers this preset's wrapper element as a drop target so
    *  consumers can drag items into it. The element must have a container
-   *  capability (Zone and Group always do; Panel needs the `container` prop). */
+   *  capability (Zone always does; Panel needs the `container` prop). */
   acceptsDrops?: boolean;
   /** Permissions restricting what the user may do to this node. `true` locks
    *  every axis the node's capabilities support. */
@@ -214,65 +213,6 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   );
 }
 
-/* ---------- Group ---------- */
-
-export interface GroupProps extends CommonBindingProps, PresentationalProps {
-  strategyId?: string;
-  config?: unknown;
-  /** When true, wraps the group's rendered content in a DragHandle so the
-   *  user can drag this group to another acceptsDrops target. */
-  draggable?: boolean;
-}
-
-/** @group Components */
-export function Group(props: GroupProps) {
-  const { id } = useNodeBinding({
-    ...defined({ id: props.id, parentId: props.parentId, order: props.order }),
-    kindHintForAutoId: 'group',
-    factory: (id, parentId) => {
-      if (!parentId) {
-        throw new Error(
-          `windease: <Group id="${id}"> needs a parent — wrap it in a <Zone> or pass parentId explicitly.`,
-        );
-      }
-      if (!props.strategyId) {
-        throw new Error(`windease: <Group id="${id}"> requires a strategyId prop.`);
-      }
-      return createGroup({
-        id,
-        parentId,
-        strategyId: props.strategyId,
-        config: props.config,
-        ...defined({
-          meta: props.meta,
-          placement: props.placement,
-          order: props.order,
-        }),
-      });
-    },
-    reconcile: makeReconciler(props),
-  });
-
-  // A pending `pinned` prop that skipped because the parent was arrange-
-  // locked needs a re-render on unlock to re-run the reconcile above.
-  const store = useStore();
-  useForceRerenderOnLockChange(store, store.getNode(id)?.membership?.parentId);
-
-  return (
-    <PresetShell
-      kind="group"
-      id={id}
-      className={props.className}
-      style={props.style}
-      title={props.title}
-      testId={props['data-testid']}
-      acceptsDrops={props.acceptsDrops}
-    >
-      {props.draggable ? <DragHandle nodeId={id}>{props.children}</DragHandle> : props.children}
-    </PresetShell>
-  );
-}
-
 /* ---------- Zone ---------- */
 
 export interface ZoneProps extends ZoneBindingProps, PresentationalProps {
@@ -300,7 +240,7 @@ export interface ZoneProps extends ZoneBindingProps, PresentationalProps {
   renderImperative?: (node: Node) => ReactNode;
   /**
    * Overrides the `kind` label, which drives the wrapper class and
-   * `ChromeMap` dispatch. Migration path for `<Group>`: `kind="group"`.
+   * `ChromeMap` dispatch — pass `kind="group"` for the old removed group preset.
    */
   kind?: string;
 }

@@ -1,9 +1,7 @@
 export { type ChildSort, type ChildSortEntry, defaultChildSort } from './child-sort.js';
 export {
-  type CreateGroupInput,
   type CreatePanelInput,
   type CreateZoneInput,
-  createGroup,
   createPanel,
   createZone,
 } from './constructors.js';
@@ -33,12 +31,6 @@ export { type EventMap, TypedEmitter } from './events.js';
 export { Machine, type MachineDef, type MachineSubscriber } from './fsm.js';
 export { HistoryController, type HistoryControllerOptions } from './history.js';
 export { gridStrategy } from './layout/grid.js';
-export {
-  type SplitMeta,
-  type SplitNode,
-  type SplitOptions,
-  splitStrategy,
-} from './layout/split.js';
 export { stripStrategy } from './layout/strip.js';
 export {
   getLayoutNodes,
@@ -124,4 +116,4 @@ export {
   trace,
 } from './trace.js';
 
-export const VERSION = '0.9.0';
+export const VERSION = '1.0.0';

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPanel, createZone } from '../constructors.js';
-import { asNodeId, LockedError, Store, splitStrategy } from '../index.js';
+import { asNodeId, LockedError, Store, stripStrategy } from '../index.js';
 import { DragProvider, useDragController } from './dnd/DragProvider.js';
 import { useDragHandle } from './dnd/useDragHandle.js';
 import { type ChromeMap, Container } from './index.js';
@@ -18,7 +18,7 @@ const PANEL_CHROME: ChromeMap = {
   panel: ({ node }) => <div data-testid={`p-${node.id}`}>{String(node.id)}</div>,
 };
 
-function makeSplitStore(): {
+function makeStripStore(): {
   store: Store;
   z: ReturnType<typeof asNodeId>;
   a: ReturnType<typeof asNodeId>;
@@ -28,7 +28,7 @@ function makeSplitStore(): {
   const z = asNodeId('z');
   const a = asNodeId('a');
   const b = asNodeId('b');
-  store.registerNode(createZone({ id: z, strategyId: 'split', config: {} }));
+  store.registerNode(createZone({ id: z, strategyId: 'strip', config: { axis: 'x' } }));
   store.registerNode(createPanel({ id: a, parentId: z }));
   store.registerNode(createPanel({ id: b, parentId: z }));
   store.showNode(a);
@@ -39,7 +39,7 @@ function makeSplitStore(): {
 function withProviders(store: Store, ui: ReactNode) {
   return (
     <Provider store={store}>
-      <StrategyRegistryProvider strategies={{ split: splitStrategy } as never}>
+      <StrategyRegistryProvider strategies={{ strip: stripStrategy } as never}>
         {ui}
       </StrategyRegistryProvider>
     </Provider>
@@ -48,7 +48,7 @@ function withProviders(store: Store, ui: ReactNode) {
 
 describe('lock — affordance rendering', () => {
   it('gutter is present when no pane is resize-locked', () => {
-    const { store, z } = makeSplitStore();
+    const { store, z } = makeStripStore();
     const { container } = render(
       withProviders(
         store,
@@ -59,7 +59,7 @@ describe('lock — affordance rendering', () => {
   });
 
   it('gutter is absent when an adjacent pane is resize-locked', () => {
-    const { store, z, a } = makeSplitStore();
+    const { store, z, a } = makeStripStore();
     store.setLock(a, { resize: true });
     const { container } = render(
       withProviders(
@@ -71,7 +71,7 @@ describe('lock — affordance rendering', () => {
   });
 
   it('gutter disappears when a pane is locked after mount (memo invalidation)', () => {
-    const { store, z, a } = makeSplitStore();
+    const { store, z, a } = makeStripStore();
     const { container } = render(
       withProviders(
         store,
@@ -87,8 +87,8 @@ describe('lock — affordance rendering', () => {
 });
 
 describe('lock — dispatchAffordance refusal', () => {
-  it('dispatch updates persisted container state when unlocked (control)', () => {
-    const { store, z } = makeSplitStore();
+  it('dispatch updates persisted placement size when unlocked (control)', () => {
+    const { store, z, a } = makeStripStore();
     let layoutCapture: ContainerLayout | null = null;
     function Probe() {
       const ref = useRef<HTMLDivElement>(null);
@@ -100,17 +100,18 @@ describe('lock — dispatchAffordance refusal', () => {
     expect(layoutCapture).not.toBeNull();
     act(() => {
       layoutCapture?.dispatchAffordance({
-        affordanceId: 'split-',
+        affordanceId: 'resize-x-a',
         kind: 'drag',
         payload: { dx: 40 },
       });
     });
-    const state = store.getContainerState(z) as { ratio?: number } | undefined;
-    expect(state?.ratio).toBeCloseTo(0.5 + 40 / 200, 5);
+    expect(
+      (store.getNode(a)?.membership?.placement as { size?: { w?: number } } | undefined)?.size?.w,
+    ).toBeCloseTo(100 + 40, 5);
   });
 
   it('dispatch is refused on an arrange-locked container', () => {
-    const { store, z, a } = makeSplitStore();
+    const { store, z, a } = makeStripStore();
     store.setLock(z, { arrange: true });
     let layoutCapture: ContainerLayout | null = null;
     function Probe() {
@@ -123,51 +124,31 @@ describe('lock — dispatchAffordance refusal', () => {
     expect(layoutCapture).not.toBeNull();
     act(() => {
       layoutCapture?.dispatchAffordance({
-        affordanceId: 'split-',
+        affordanceId: 'resize-x-a',
         kind: 'drag',
         payload: { dx: 40 },
       });
     });
-    expect(store.getContainerState(z)).toBeUndefined();
     expect(
       (store.getNode(a)?.membership?.placement as { size?: unknown } | undefined)?.size,
     ).toBeUndefined();
   });
 
   it('dragging an unrelated gutter does not throw when another pane is resize-locked and sized', () => {
-    // root: split(split(a,b), split(c,d)) — d is resize-locked with an
-    // explicit size; dragging the a/b gutter must not touch d, so it must
-    // not hit d's lock.resize guard either.
+    // A single strip of a,b,c,d — d is resize-locked with an explicit size;
+    // dragging the a/b gutter (affects only `a`) must not touch d, so it
+    // must not hit d's lock.resize guard either.
     const store = new Store();
     const z = asNodeId('z');
     const a = asNodeId('a');
     const b = asNodeId('b');
     const c = asNodeId('c');
     const d = asNodeId('d');
-    store.registerNode(createZone({ id: z, strategyId: 'split', config: {} }));
+    store.registerNode(createZone({ id: z, strategyId: 'strip', config: { axis: 'x' } }));
     for (const id of [a, b, c, d]) {
       store.registerNode(createPanel({ id, parentId: z }));
       store.showNode(id);
     }
-    store.setContainerState(z, {
-      kind: 'split',
-      direction: 'horizontal',
-      ratio: 0.5,
-      a: {
-        kind: 'split',
-        direction: 'horizontal',
-        ratio: 0.5,
-        a: { kind: 'leaf', id: a },
-        b: { kind: 'leaf', id: b },
-      },
-      b: {
-        kind: 'split',
-        direction: 'horizontal',
-        ratio: 0.5,
-        a: { kind: 'leaf', id: c },
-        b: { kind: 'leaf', id: d },
-      },
-    });
     store.patchPlacement(d, { size: { w: 50 } });
     store.setLock(d, { resize: true });
 
@@ -180,9 +161,7 @@ describe('lock — dispatchAffordance refusal', () => {
     }
     render(withProviders(store, <Probe />));
     expect(layoutCapture).not.toBeNull();
-    const abGutter = layoutCapture!.affordances.find(
-      (aff) => aff.affects?.join(',') === `${a},${b}`,
-    );
+    const abGutter = layoutCapture!.affordances.find((aff) => aff.affects?.join(',') === a);
     expect(abGutter).toBeDefined();
     expect(() => {
       act(() => {
@@ -444,13 +423,13 @@ describe('lock — declarative `placement` reconcile forces past lock.resize', (
   });
 
   it('a direct user-path store.patchPlacement resize is still blocked under lock.resize', () => {
-    const { store, a } = makeSplitStore();
+    const { store, a } = makeStripStore();
     store.setLock(a, { resize: true });
     expect(() => store.patchPlacement(a, { size: { w: 50 } })).toThrow(LockedError);
   });
 
   it('affordance suppression from lock.resize is unaffected (gutter still hidden)', () => {
-    const { store, z, a } = makeSplitStore();
+    const { store, z, a } = makeStripStore();
     store.setLock(a, { resize: true });
     const { container } = render(
       withProviders(

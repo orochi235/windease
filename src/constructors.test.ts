@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGroup, createPanel, createZone } from './constructors.js';
+import { createPanel, createZone } from './constructors.js';
 import { asNodeId } from './node.js';
 import { Store } from './store.js';
 
@@ -64,15 +64,15 @@ describe('createZone', () => {
   });
 });
 
-describe('createGroup', () => {
-  it('produces a group-kind node with container + membership', () => {
-    const node = createGroup({
+describe('createZone with a parentId — full capability shape', () => {
+  it('produces a zone-kind node with container + membership', () => {
+    const node = createZone({
       id: asNodeId('g1'),
       parentId: asNodeId('z1'),
       strategyId: 'stack',
       config: { axis: 'vertical' },
     });
-    expect(node.kind).toBe('group');
+    expect(node.kind).toBe('zone');
     expect(node.container).toBeDefined();
     expect(node.container?.strategyId).toBe('stack');
     expect(node.membership).toBeDefined();
@@ -84,7 +84,7 @@ describe('createGroup', () => {
   });
 
   it('honors allowsPinning and placement', () => {
-    const node = createGroup({
+    const node = createZone({
       id: asNodeId('g2'),
       parentId: asNodeId('z1'),
       strategyId: 'strip',
@@ -97,7 +97,7 @@ describe('createGroup', () => {
   });
 
   it('resolves lock using the full container + membership shape', () => {
-    const node = createGroup({
+    const node = createZone({
       id: asNodeId('g-lock'),
       parentId: asNodeId('z1'),
       strategyId: 'stack',
@@ -185,8 +185,8 @@ describe('node factories — order', () => {
     expect(n.order).toBe(7);
   });
 
-  it('round-trips on createGroup and createZone', () => {
-    const g = createGroup({
+  it('round-trips on createZone, parented and root', () => {
+    const g = createZone({
       id: asNodeId('g'),
       parentId: asNodeId('root'),
       strategyId: 'stack',
@@ -239,37 +239,41 @@ describe('createZone with a parentId', () => {
     expect(node.membership?.placement).toEqual({ size: { w: 100 } });
   });
 
-  it('keeps kind zone, unlike createGroup', () => {
+  it('keeps kind zone by default, overridable after construction', () => {
     const zone = createZone({
       id: asNodeId('a'),
       parentId: asNodeId('p'),
       strategyId: 'strip',
       config: {},
     });
-    const group = createGroup({
+    expect(zone.kind).toBe('zone');
+
+    // The migration path for the removed group constructor: build a zone,
+    // then set kind — what `Store.split`'s interposed groups do internally.
+    const group = createZone({
       id: asNodeId('b'),
       parentId: asNodeId('p'),
       strategyId: 'strip',
       config: {},
     });
-
-    expect(zone.kind).toBe('zone');
+    group.kind = 'group';
     expect(group.kind).toBe('group');
   });
 
-  it('produces the same capability set as createGroup', () => {
+  it('capability set is unaffected by a kind override', () => {
     const zone = createZone({
       id: asNodeId('a'),
       parentId: asNodeId('p'),
       strategyId: 'strip',
       config: {},
     });
-    const group = createGroup({
+    const group = createZone({
       id: asNodeId('b'),
       parentId: asNodeId('p'),
       strategyId: 'strip',
       config: {},
     });
+    group.kind = 'group';
 
     const caps = (n: typeof zone) => ({
       container: !!n.container,

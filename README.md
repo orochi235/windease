@@ -24,8 +24,9 @@ See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
 - **Node + capabilities, not classes.** Every node optionally carries
   `container` / `membership` / `focus` / `lifecycle`. The core enforces only
   structural invariants (no cycles, single focus, bidirectional links).
-  `Panel` / `Group` / `Zone` are convention names with shipped presets,
-  not built-in types.
+  `Panel` / `Zone` are convention names with shipped presets, not built-in
+  types; `Group` is the same shape reached via `createZone({ parentId })`
+  and `<Zone parentId kind="group">`, not a separate preset.
 - **Recursive containers** — any node with a `container` capability hosts
   children, and a child may itself be a container. "Tray inside a window"
   is just a panel whose `container` is set.
@@ -36,10 +37,11 @@ See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
   reference; React's `useSyncExternalStore` invalidates correctly by
   default.
 - **JSON-safe snapshots** via `serialize(store)` / `deserialize(snap)`.
-- **Layout strategies** are pure functions. Built-ins: `gridStrategy`,
-  `stackStrategy`, `stripStrategy`, `splitStrategy` (binary by default,
-  recursive when `recursive: true` in config). Strategies work unchanged
-  on recursive trees via the `LayoutNode` adapter.
+- **Layout strategies** are pure functions. Built-ins: `gridStrategy` and
+  `stripStrategy` (main-axis stack with capacity handling; `{ axis: 'y' }`
+  is what "stack" was). Strategies work unchanged on recursive trees via the
+  `LayoutNode` adapter. `store.split(id, input)` builds nested `stripStrategy`
+  trees without a dedicated strategy of its own.
 
 ## Quick start
 
@@ -75,9 +77,9 @@ export function App() {
 }
 ```
 
-`<Panel>` / `<Group>` / `<Zone>` register themselves with the underlying
-store on mount and unregister on unmount. JSX is the source of truth for
-the shape of the tree.
+`<Panel>` / `<Zone>` register themselves with the underlying store on mount
+and unregister on unmount. JSX is the source of truth for the shape of the
+tree.
 
 Import the baseline stylesheet once at the top of your app:
 
@@ -162,29 +164,29 @@ the tree under `<DragProvider>`. The drag controller honors:
 - `lock.dragOut` on the source's parent — zone-level drag suppression.
 - `lock.accept` on the target — zone-level drop refusal.
 - The destination strategy's `canAccept(prospective-items, options)` — e.g.
-  `splitStrategy` with `recursive: false` refuses anything that wouldn't
-  leave exactly two children.
+  a strategy with a `maxItems` config refusing a drop that would overflow it.
 - An optional consumer-supplied `canAccept(sourceId)` on the drop target.
 
 See the **Parallel zones / Drag between** story for the canonical setup.
 
 ## Resize
 
-Pass `affordances` to `<Container>` to render the strategy's interactive
-gutters. `splitStrategy` ships draggable gutters out of the box (binary
-by default; pass `recursive: true` for arbitrary trees). State persists
-on `node.container.state` and survives snapshot/hydrate. Per-child
-`hints.minSize` is honored as a pixel floor so manual gutter drags can't
-push a panel below its declared minimum, and `hints.maxSize` as a ceiling
-so a pane can't grow past it (on initial layout, explicit sizing, and
-gutter drags). The default 4px gutter ships with an 8px-wide hit area
-(`affordanceHitPad`).
+Pass `affordances` to `<Container>` to render `stripStrategy`'s interactive
+gutters — `resize-x-<childId>` / `resize-y-<childId>`, one after every
+non-last child. Dragging one writes an explicit pixel size straight to
+`membership.placement.size`, which round-trips through snapshot/hydrate as an
+ordinary node field — no separate strategy state. Per-child `hints.minSize`
+is honored as a pixel floor so manual gutter drags can't push a panel below
+its declared minimum, and `hints.maxSize` as a ceiling so a pane can't grow
+past it (on initial layout, explicit sizing, and gutter drags). The default
+4px gutter ships with an 8px-wide hit area (`affordanceHitPad`).
 
-To pin a pane to a fixed pixel extent along the split's axis, set
+To pin a pane to a fixed pixel extent along strip's main axis, set
 `placement.size` via `store.patchPlacement(id, { size: { w } })` (or `{ h }`);
-the sibling auto-takes the remainder, and a gutter drag clears it, reverting
-that pane to ratio control. Combine with `hints.maxSize` for an
-"auto up to a cap" pane.
+siblings without an explicit size of their own share the remainder. Combine
+with `hints.maxSize` for an "auto up to a cap" pane. `store.split(id, input)`
+builds the nested `stripStrategy` groups a multi-pane layout needs; see
+`docs/concepts.md`.
 
 ## Optional transition throttling
 
@@ -282,6 +284,37 @@ This clears the target in place before repopulating it, emitting
 before the snapshot lands.
 
 ## Breaking changes
+
+### 1.0.0
+
+Breaking. Three exports are removed; each has a direct replacement.
+
+| Removed | Use instead |
+|---|---|
+| `splitStrategy` (+ `SplitNode`, `SplitOptions`, `SplitMeta`) | `store.split(id, input)` |
+| `stackStrategy` | `stripStrategy` with `{ axis: 'y', fill: true }` |
+| `createGroup`, `<Group>` | `createZone({ parentId })`, `<Zone parentId kind="group">` |
+
+- **`store.split(id, input)` / `store.unsplit(groupId)`.** Split is a verb over
+  the node tree rather than a strategy holding its own tree, so registering a
+  child, removing one, and dragging one all behave — they are ordinary store
+  mutations now. Directions are `'x'`, `'y'`, `'both'` and `'grid'`; all ids are
+  caller-supplied.
+- **`store.transact(fn, label?)`** emits `transaction.begin` /
+  `transaction.end`. Bracket history pushes on that pair to get one undo step
+  per composite operation — the `node.*` events are per-mutation and would give
+  you one entry per node touched.
+- **Snapshots are v5.** A v4 snapshot using `splitStrategy` migrates on read:
+  its `SplitNode` tree becomes real nested strip groups. Pane *ratios* do not
+  survive — strip derives extents from `placement.size` and hints, and a ratio
+  has no equivalent — so a migrated layout comes back evenly divided.
+- **Migrating `stackStrategy` requires the `fill: true`.** Strip's default is
+  off, which sizes a child with no `preferredSize` to zero. That difference
+  between the two strategies is why they were folded together.
+- **`<Zone parentId kind="group">` has no `pinned` prop.** `<Group>` accepted
+  one; `<Zone>`'s type omits it unconditionally, a leftover from when a zone
+  could never have a parent. Use `store.setPinned(id, at?)` imperatively until
+  this is closed — see `TODO.md`.
 
 ### 0.9.0 — `node.lock` added, `pinned` redefined
 

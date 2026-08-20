@@ -1,6 +1,6 @@
 import { act, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, gridStrategy, Store, splitStrategy } from '../index.js';
+import { asNodeId, createPanel, createZone, gridStrategy, Store, stripStrategy } from '../index.js';
 import { type ChromeMap, Container } from './index.js';
 import { Provider } from './Provider.js';
 import { StrategyRegistryProvider } from './strategies.js';
@@ -87,7 +87,9 @@ describe('Container — overlay callback', () => {
 describe('Container — affordances callback', () => {
   it('custom affordance renderer replaces the default per affordance', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('s'), strategyId: 'split', config: {} }));
+    store.registerNode(
+      createZone({ id: asNodeId('s'), strategyId: 'strip', config: { axis: 'x' } }),
+    );
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('s') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('s') }));
     store.showNode(asNodeId('a'));
@@ -95,7 +97,7 @@ describe('Container — affordances callback', () => {
     const { container } = render(
       withProviders(
         store,
-        { split: splitStrategy },
+        { strip: stripStrategy },
         <Container
           parentId={asNodeId('s')}
           chrome={PANEL_CHROME}
@@ -107,13 +109,15 @@ describe('Container — affordances callback', () => {
       ),
     );
     // Custom marker present; the default [data-affordance-hit] outer div is not.
-    expect(container.querySelector('[data-testid="custom-split-"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="custom-resize-x-a"]')).not.toBeNull();
     expect(container.querySelector('[data-affordance-hit]')).toBeNull();
   });
 
-  it('custom affordance dispatch updates persisted container state', () => {
+  it('custom affordance dispatch updates persisted placement size', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('s'), strategyId: 'split', config: {} }));
+    store.registerNode(
+      createZone({ id: asNodeId('s'), strategyId: 'strip', config: { axis: 'x' } }),
+    );
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('s') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('s') }));
     store.showNode(asNodeId('a'));
@@ -122,7 +126,7 @@ describe('Container — affordances callback', () => {
     render(
       withProviders(
         store,
-        { split: splitStrategy },
+        { strip: stripStrategy },
         <Container
           parentId={asNodeId('s')}
           chrome={PANEL_CHROME}
@@ -136,11 +140,9 @@ describe('Container — affordances callback', () => {
     );
     expect(capturedDispatch).not.toBeNull();
     act(() => {
-      capturedDispatch?.({ affordanceId: 'split-', kind: 'drag', payload: { dx: 40 } });
+      capturedDispatch?.({ affordanceId: 'resize-x-a', kind: 'drag', payload: { dx: 40 } });
     });
-    const state = store.getContainerState(asNodeId('s')) as { kind: string; ratio?: number };
-    expect(state.kind).toBe('split');
-    expect(state.ratio).toBeCloseTo(0.5 + 40 / 200, 5);
+    expect(store.getPlacement(asNodeId('a')).size).toMatchObject({ w: 140 });
   });
 });
 

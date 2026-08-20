@@ -1,4 +1,4 @@
-import { createGroup, createPanel } from './constructors.js';
+import { createPanel, createZone } from './constructors.js';
 import {
   CapabilityMissingError,
   DuplicateNodeError,
@@ -122,6 +122,14 @@ function gridConfig(
   return cols === undefined ? { ...extra } : { cols, ...extra };
 }
 
+/** A `split`-interposed group is a parented zone with `kind: 'group'`, so
+ *  consumer `ChromeMap`s dispatching on that kind still fire. */
+function registerGroup(store: Store, input: Parameters<typeof createZone>[0]): void {
+  const node = createZone(input);
+  node.kind = 'group';
+  store.registerNode(node);
+}
+
 /** Give `id` a container with `strategyId`/`config`, whether it had one already.
  *  Skips the redundant setStrategy/updateContainerConfig writes when
  *  `ensureContainer` just created the container with this exact config. */
@@ -152,14 +160,12 @@ function buildColumns(
 ): void {
   let cursor = 0;
   columnIds.forEach((columnId, col) => {
-    store.registerNode(
-      createGroup({
-        id: columnId,
-        parentId: outerId,
-        strategyId: 'strip',
-        config: stripConfig('y', extra),
-      }),
-    );
+    registerGroup(store, {
+      id: columnId,
+      parentId: outerId,
+      strategyId: 'strip',
+      config: stripConfig('y', extra),
+    });
     for (let row = 0; row < rows; row += 1) {
       if (col === 0 && row === 0) {
         store.moveNode(id, columnId, 0);
@@ -286,15 +292,13 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
         ? gridConfig(input.cols, input.config)
         : stripConfig(input.direction, input.config);
 
-  store.registerNode(
-    createGroup({
-      id: groupId,
-      parentId,
-      strategyId: input.direction === 'grid' ? 'grid' : 'strip',
-      config: outerConfig,
-      placement,
-    }),
-  );
+  registerGroup(store, {
+    id: groupId,
+    parentId,
+    strategyId: input.direction === 'grid' ? 'grid' : 'strip',
+    config: outerConfig,
+    placement,
+  });
   store.reorderInParent(groupId, at);
 
   if (input.direction === 'both') {
@@ -329,14 +333,12 @@ function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
     becomeContainer(store, id, 'strip', config);
     let cursor = 0;
     for (const columnId of input.groupIds.slice(1)) {
-      store.registerNode(
-        createGroup({
-          id: columnId,
-          parentId: id,
-          strategyId: 'strip',
-          config: stripConfig('y', input.config),
-        }),
-      );
+      registerGroup(store, {
+        id: columnId,
+        parentId: id,
+        strategyId: 'strip',
+        config: stripConfig('y', input.config),
+      });
       for (let row = 0; row < input.into[1]; row += 1) {
         const newId = input.newIds[cursor];
         cursor += 1;

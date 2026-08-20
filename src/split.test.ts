@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   asNodeId,
   configureTrace,
-  createGroup,
   createPanel,
   createZone,
   deserialize,
@@ -161,6 +160,7 @@ describe('Store.split — wrap mode', () => {
     expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'g', 'b']);
     expect(store.getContainerView(asNodeId('g'))?.childOrder).toEqual(['p1', 'p2']);
     expect(store.getNode(asNodeId('p1'))?.membership?.parentId).toBe('g');
+    expect(store.getNode(asNodeId('g'))?.kind).toBe('group');
   });
 
   it('gives the group a strip container on the requested axis', () => {
@@ -238,15 +238,14 @@ describe('Store.split — wrap mode', () => {
     store.registerNode(
       createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
     );
-    // createGroup, not createZone({parentId}) — that arrives in Task 8.
-    store.registerNode(
-      createGroup({
-        id: asNodeId('inner'),
-        parentId: asNodeId('z'),
-        strategyId: 'stack',
-        config: {},
-      }),
-    );
+    const inner = createZone({
+      id: asNodeId('inner'),
+      parentId: asNodeId('z'),
+      strategyId: 'stack',
+      config: {},
+    });
+    inner.kind = 'group';
+    store.registerNode(inner);
 
     store.split(asNodeId('inner'), {
       direction: 'y',
@@ -604,7 +603,7 @@ describe('Store.setStrategy', () => {
     expect(store.getContainerState(asNodeId('z'))).toEqual({ keep: true });
   });
 
-  it('reconfiguring a split root clears its SplitNode tree', () => {
+  it('reconfiguring a split root clears its persisted strategy state', () => {
     const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'split', config: {} }));
     store.setContainerState(asNodeId('z'), { kind: 'leaf', id: 'old' });

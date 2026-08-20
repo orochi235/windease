@@ -8,19 +8,6 @@ them. Tag major items with `[HIGH]`.
 `npm run typecheck` now covers tests and stories (`tsconfig.test.json`).
 Two findings from that first pass are real and still open:
 
-- **[HIGH] `<Zone>` silently drops `parentId`, so a nested JSX zone
-  registers as a root.** `CreateZoneInput` has no `parentId`
-  (`src/constructors.ts:6`), but the `Zone` preset passes one
-  (`src/react/presets.tsx:274`) through the `defined()` spread — and a
-  spread of `Partial<T>` skips excess-property checking, so nothing ever
-  complained. The zone gets no `membership`, and `registerNode` files it under
-  `rootIds` instead of the parent's `childOrder`. No test covers
-  `<Zone>` inside `<Zone>` — `nested-presets.test.tsx` nests via
-  `<Group>`, which does accept `parentId`. Needs a decision before a
-  fix: a zone with a parent is structurally a group, so either
-  `CreateZoneInput` grows `parentId` (and a zone becomes membership-capable)
-  or `<Zone>` should refuse to nest loudly. `livePreview.test.tsx` had
-  the same dead `parentId` and has been corrected.
 - **Public constructor inputs are hostile to
   `exactOptionalPropertyTypes`.** `createPanel({ meta: props.meta })`
   where `props.meta` is `Record | undefined` is a type error even though
@@ -242,52 +229,46 @@ Two things the suite surfaced that are worth knowing:
   the ResizeObserver path at all. Reflow coverage has to use a ref-measured
   fixture.
 
-## Replace `splitStrategy` with a split *operation* [HIGH]
+## Shipped in 1.0.0
 
-**Decision (2026-08-19): split is not a strategy, it is a verb applied to
-zones.** `splitStrategy` keeps a `SplitNode` tree in `container.state` that
-describes the same structure the node tree already describes, and every known
-split bug is a synchronization failure between those two trees. The node tree
-should be the only tree.
+- **`split` / `unsplit` store operations.** Split is a verb over the node tree,
+  not a strategy: `store.split(id, { direction })` wraps a node in a strip
+  group, flattens into a matching-axis parent, or reconfigures a root in place.
+  Directions are `'x'`, `'y'`, `'both'` (nested strips, `into: [cols, rows]`)
+  and `'grid'`. All ids are caller-supplied. `store.unsplit(groupId)` dissolves
+  a group into its parent; nothing auto-collapses.
+- **`Store.transact(fn, label?)`** with `transaction.begin` /
+  `transaction.end`, so a composite operation is one undo step. Also
+  `setStrategy` — which clears `container.state`, since it belongs to the
+  outgoing strategy — and `ensureContainer`.
+- **`createZone` takes an optional `parentId`**, which fixed `<Zone>` inside
+  `<Zone>` silently registering as a root. `<Zone>` gained a `kind` prop.
 
-Shape: a store operation — roughly `split(zoneId, { direction, into = 2 })` —
-turns a node into a container of N children. Layout is then `strip` with a
-fixed direction; gutters are strip's existing resize affordances; geometry is
-per-child `placement.size`; undo works because it is ordinary store mutation.
+## Removed in 1.0.0
 
-What that dissolves, from a consumer report against 0.8.0 (reproduced at
-0.9.0 — a sixteen-panel workbench in `blitsklieg`, `packages/core/dev/tube-lab`,
-blocked on the first two):
-
-- **A child registered after the tree exists is dropped silently**, with
-  `unplaced` empty so the consumer gets no signal. Becomes `registerNode`.
-- **A removed child's space is not reclaimed.** Becomes `unregisterNode`.
-- **Dragging a panel does not move it** — DnD rewrites `childOrder`, which
-  `splitStrategy` never reads. Becomes `reorderInParent`, which strip already
-  honors.
-- **`buildTree` cannot tile** (`src/layout/split.ts`): a right-leaning spine at
-  ratio 0.5, so panel *k* gets `W / 2^k` — 16 panels in 1200x800 leaves 9 with
-  zero or negative extent and 7 outside the container. `buildTree` disappears.
-- **`walk` never clamps a pane to zero**, so once a pane is narrower than the
-  gutter the recursion marches children past the container edge.
-
-Verified for contrast: `strip` handles add, remove and reorder correctly today,
-because it is a pure function of `items` and holds no second structure.
-
-Sequencing question still open: the consumer needs something before this lands,
-so either patch `splitStrategy`'s tiling as throwaway work, or give them the
-verb early. `direction` was already fixed (it was documented but inert).
-
-Migration to plan for: `splitStrategy` is public API at 0.9.0 and snapshot v4
-persists `SplitNode` in container state.
+- **`splitStrategy`** and its `SplitNode` / `SplitOptions` / `SplitMeta` types.
+  It kept a second tree in `container.state` describing what the node tree
+  already described, and every known split bug was the two disagreeing. Use
+  `store.split`. Saved layouts migrate automatically at snapshot v5.
+- **`stackStrategy`.** It was `stripStrategy` on the y axis; strip gained the
+  capacity handling that was the only thing stack had. Use
+  `stripStrategy` with `{ axis: 'y', fill: true }` — the `fill` matters, since
+  strip's default is off and omitting it collapses hintless children to zero.
+- **`createGroup` and `<Group>`.** Once `parentId` became optional on
+  `createZone`, a group was a zone with a parent and nothing else. The word is
+  reserved for the feature under "## Groups" — windows that move as a unit —
+  which is what a user means by it. Use `createZone({ parentId })` and
+  `<Zone parentId kind="group">`, which keeps `.windease-group` and
+  `chrome['group']` working.
 
 ## Type papercut: `initialState` optional, `layout`'s `state` required
 
 `initialState` is optional on `LayoutStrategy` but `layout`'s `state` is
-required (`src/layout-types.ts`), so `splitStrategy.initialState?.(items)` is
-`T | undefined` and `tsc` rejects passing it straight to `layout`. Every
-consumer testing a strategy without a store narrows it by hand. Typing a
-strategy so its own `initialState` stays required would remove it.
+required (`src/layout-types.ts`), so a strategy implementing it has
+`strategy.initialState?.(items)` typed `T | undefined`, and `tsc` rejects
+passing it straight to `layout`. Every consumer testing a strategy without a
+store narrows it by hand. Typing a strategy so its own `initialState` stays
+required would remove it.
 
 ## Loose ends
 
@@ -298,3 +279,32 @@ strategy so its own `initialState` stays required would remove it.
   comment.
 - TypeScript is held at 6.x because typedoc 0.28's peer range stops at
   `6.0.x`. Revisit TS 7 (the Go port) once typedoc ships support.
+- `gridStrategy` ignores `placement.size`, so `split(id, { direction: 'grid' })`
+  produces a tiling with no draggable gutters. Honoring explicit sizes there
+  would close the last capability gap against the `splitStrategy` this release removed.
+- `focus` is offered only by `createPanel`. The store's single-focus invariant
+  is store-wide and does not care which node carries the capability, so a
+  focusable container is structurally fine and merely unconstructible.
+- **A node cannot be locked against gaining a container.** `resolveLock` drops
+  axes the node's current capabilities don't support, and `arrange` requires an
+  existing `container` — so `setLock(panel, { arrange: true })` silently stores
+  nothing and `ensureContainer` proceeds. The guard works only once a container
+  is already present, which is the case it is least needed for.
+- **`ensureContainer` emits no event**, unlike every other structural mutation
+  (`registerNode` → `node.registered`, `setStrategy` → `container.strategyChanged`).
+  An event-driven consumer sees a node silently acquire children. A
+  `container.added` event would close it; it is new public surface, so it is
+  recorded rather than assumed.
+- `applyReconfigure` merge-patches the container config, so a key from the
+  abandoned strategy survives (a `grid` root's `cols` outlives the switch to
+  `strip`). Deliberate — replacing wholesale would discard consumer intent like
+  `gap` — and pinned by a test. Revisit only if a strategy ever rejects unknown
+  keys.
+- **The `<Group pinned>` migration to `<Zone parentId kind="group">` is
+  incomplete: `ZoneProps` has no `pinned` prop at all.** `ZoneBindingProps`
+  omits it unconditionally (`Omit<CommonBindingProps, 'pinned'>`) on the
+  reasoning that a rootless zone has no parent slot to hold — true before
+  `parentId` became optional, not true now. `setPinned` itself works fine on a
+  parented zone; only the declarative prop is missing. Needs a type that makes
+  `pinned` available exactly when `parentId` is present, or a documented
+  workaround (`useEffect` + `store.setPinned` directly).
