@@ -69,6 +69,41 @@ describe('Store.split validation', () => {
     );
   });
 
+  it('throws duplicate-id when groupId collides in wrap mode', () => {
+    const store = seeded();
+    expect(() =>
+      store.split(asNodeId('p1'), {
+        direction: 'y',
+        groupId: asNodeId('z'),
+        newIds: [asNodeId('p2')],
+      }),
+    ).toThrow(/z/);
+  });
+
+  it('throws duplicate-id when groupId repeats a newId', () => {
+    const store = seeded();
+    expect(() =>
+      store.split(asNodeId('p1'), {
+        direction: 'y',
+        groupId: asNodeId('p2'),
+        newIds: [asNodeId('p2')],
+      }),
+    ).toThrow(/p2/);
+  });
+
+  it('ignores a colliding groupId when flattening, since it is never registered', () => {
+    const store = seeded();
+    // Parent axis is 'x' and direction is 'x', so this flattens and no group
+    // is created — a collision on the unused groupId must not be raised.
+    expect(() =>
+      store.split(asNodeId('p1'), {
+        direction: 'x',
+        groupId: asNodeId('z'),
+        newIds: [asNodeId('p2')],
+      }),
+    ).toThrow(/split-unimplemented/);
+  });
+
   it('leaves the store untouched when validation throws', () => {
     const store = seeded();
     const before = store.getContainerView(asNodeId('z'))?.childOrder;

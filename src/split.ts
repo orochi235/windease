@@ -12,10 +12,15 @@ function totalChildren(input: SplitInput): number {
   return input.into ?? 2;
 }
 
-/** Every id this call will register. Group ids first, then the new panels. */
-function mintedIds(input: SplitInput): NodeId[] {
-  const groups = input.direction === 'both' ? [...input.groupIds] : [];
-  return [...groups, ...input.newIds];
+/** Ids this call will actually register, which depends on the mode: a
+ *  `groupId` is unused when flattening or reconfiguring. */
+function mintedIds(input: SplitInput, mode: SplitMode): NodeId[] {
+  if (input.direction === 'both') {
+    const groups = mode === 'reconfigure' ? input.groupIds.slice(1) : [...input.groupIds];
+    return [...groups, ...input.newIds];
+  }
+  const group = mode === 'wrap' && input.groupId ? [input.groupId] : [];
+  return [...group, ...input.newIds];
 }
 
 export function resolveMode(store: Store, id: NodeId, input: SplitInput): SplitMode {
@@ -35,6 +40,8 @@ export function validateSplit(store: Store, id: NodeId, input: SplitInput): Spli
   if (!store.getNodeTruth(id)) {
     throw new NodeNotFoundError(id);
   }
+
+  const mode = resolveMode(store, id, input);
 
   const total = totalChildren(input);
   if (input.direction === 'both') {
@@ -62,7 +69,7 @@ export function validateSplit(store: Store, id: NodeId, input: SplitInput): Spli
     );
   }
 
-  const minted = mintedIds(input);
+  const minted = mintedIds(input, mode);
   const seen = new Set<NodeId>();
   for (const mid of minted) {
     if (seen.has(mid)) {
@@ -72,11 +79,7 @@ export function validateSplit(store: Store, id: NodeId, input: SplitInput): Spli
     if (store.getNodeTruth(mid)) throw new DuplicateNodeError(mid);
   }
 
-  const mode = resolveMode(store, id, input);
-
-  // 'both' needs its column groups in every mode — at a root the outer entry is
-  // ignored (the target is the outer container) but the columns are still built,
-  // so the count is the same either way.
+  // 'both' needs its column groups validated in every mode, not only wrap.
   if (input.direction === 'both') {
     const needed = 1 + input.into[0];
     if (input.groupIds.length !== needed) {
@@ -98,5 +101,9 @@ export function validateSplit(store: Store, id: NodeId, input: SplitInput): Spli
 
 export function splitNode(store: Store, id: NodeId, input: SplitInput): void {
   validateSplit(store, id, input);
-  throw new InvariantViolationError('split-unimplemented', 'split modes land in tasks 3-5', { id });
+  throw new InvariantViolationError(
+    'split-unimplemented',
+    'split-unimplemented: modes land in tasks 3-5',
+    { id },
+  );
 }
