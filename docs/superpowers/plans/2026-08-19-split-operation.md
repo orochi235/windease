@@ -351,8 +351,33 @@ describe('Store.split validation', () => {
     expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(before);
     expect(store.getNode(asNodeId('p2'))).toBeUndefined();
   });
+
+  it('throws duplicate-id when groupId collides in wrap mode', () => {
+    const store = seeded();
+    expect(() =>
+      store.split(asNodeId('p1'), { direction: 'y', groupId: asNodeId('z'), newIds: [asNodeId('p2')] }),
+    ).toThrow(/z/);
+  });
+
+  it('throws duplicate-id when groupId repeats a newId', () => {
+    const store = seeded();
+    expect(() =>
+      store.split(asNodeId('p1'), { direction: 'y', groupId: asNodeId('p2'), newIds: [asNodeId('p2')] }),
+    ).toThrow(/p2/);
+  });
+
+  it('ignores a colliding groupId when flattening, since it is never registered', () => {
+    const store = seeded();
+    expect(() =>
+      store.split(asNodeId('p1'), { direction: 'x', groupId: asNodeId('z'), newIds: [asNodeId('p2')] }),
+    ).toThrow(/split-unimplemented/);
+  });
 });
 ```
+
+The last one asserts `split-unimplemented` because it has to get *past* validation
+and reach the placeholder — an unused `groupId` colliding must not be rejected.
+Once Task 3 lands, change that assertion to `not.toThrow()`.
 
 Note: `direction: 'y'` in the last two tests resolves to wrap mode, because the seeded zone's strip axis is `'x'`. That is what makes `groupId` required there.
 
@@ -435,10 +460,15 @@ function totalChildren(input: SplitInput): number {
   return input.into ?? 2;
 }
 
-/** Every id this call will register. Group ids first, then the new panels. */
-function mintedIds(input: SplitInput): NodeId[] {
-  const groups = input.direction === 'both' ? [...input.groupIds] : [];
-  return [...groups, ...input.newIds];
+/** Ids this call will actually register, which depends on the mode: a
+ *  `groupId` is unused when flattening or reconfiguring. */
+function mintedIds(input: SplitInput, mode: SplitMode): NodeId[] {
+  if (input.direction === 'both') {
+    const groups = mode === 'reconfigure' ? input.groupIds.slice(1) : [...input.groupIds];
+    return [...groups, ...input.newIds];
+  }
+  const group = mode === 'wrap' && input.groupId ? [input.groupId] : [];
+  return [...group, ...input.newIds];
 }
 
 export function resolveMode(store: Store, id: NodeId, input: SplitInput): SplitMode {
@@ -458,6 +488,10 @@ export function validateSplit(store: Store, id: NodeId, input: SplitInput): Spli
   if (!store.getNodeTruth(id)) {
     throw new NodeNotFoundError(id);
   }
+
+  // Resolved before the arity checks because the duplicate scan below needs to
+  // know which ids this mode will actually register.
+  const mode = resolveMode(store, id, input);
 
   const total = totalChildren(input);
   if (input.direction === 'both') {
@@ -485,9 +519,8 @@ export function validateSplit(store: Store, id: NodeId, input: SplitInput): Spli
     );
   }
 
-  const minted = mintedIds(input);
   const seen = new Set<NodeId>();
-  for (const mid of minted) {
+  for (const mid of mintedIds(input, mode)) {
     if (seen.has(mid)) {
       throw new DuplicateNodeError(mid);
     }
@@ -495,11 +528,8 @@ export function validateSplit(store: Store, id: NodeId, input: SplitInput): Spli
     if (store.getNodeTruth(mid)) throw new DuplicateNodeError(mid);
   }
 
-  const mode = resolveMode(store, id, input);
-
-  // 'both' needs its column groups in every mode — at a root the outer entry is
-  // ignored (the target is the outer container) but the columns are still built,
-  // so the count is the same either way.
+  // Counted in every mode: at a root the outer entry is unused, but the column
+  // groups are still built, so the required length is the same either way.
   if (input.direction === 'both') {
     const needed = 1 + input.into[0];
     if (input.groupIds.length !== needed) {
@@ -568,7 +598,7 @@ export type { SplitInput } from './split-types.js';
 - [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `npx vitest run src/split.test.ts`
-Expected: PASS, 7 tests
+Expected: PASS, 10 tests
 
 - [ ] **Step 8: Run the full suite**
 
