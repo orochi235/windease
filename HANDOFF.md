@@ -9,7 +9,7 @@ breakdown in `docs/superpowers/plans/2026-08-19-split-operation.md`.
   pushed. The earlier headless-layout-host work (steps 1–3 of its spec) is on the
   same branch; the split work grew on top of it, so the branch now covers both
   and wants slicing into two PRs at the end.
-- **Green:** 666 unit tests / 59 files, lint, typecheck.
+- **Green:** 688 unit tests / 59 files, lint, typecheck.
 
 ## What this is
 
@@ -19,8 +19,9 @@ disagreeing. It is being replaced by a `split` **store operation** that
 rearranges real nodes, laid out by `stripStrategy` — which handles add, remove,
 reorder and resize correctly today because it is a pure function of `items`.
 
-Ships as 0.10.0, additive: `splitStrategy` is deprecated but keeps working, and
-the snapshot stays at v4.
+Ships as **1.0.0, breaking**. `splitStrategy`, `stackStrategy`, and
+`createGroup`/`<Group>` are all deleted, and the snapshot goes to v5 with a
+migration that converts stored `SplitNode` trees into real strip groups.
 
 ## Done
 
@@ -30,12 +31,14 @@ the snapshot stays at v4.
 | 2 | `2f4cd51`, `f07d1aa` | `SplitInput`, validation, mode resolution |
 | 3 | `aab31fe` | `wrap` and `flatten` modes, `'x'`/`'y'` |
 | 4 | `2d2c81c`, `a22f7e3`, `80ac759` | `reconfigure` mode, `setStrategy`, `ensureContainer` |
+| 5 | `c6e01f6`, `26514e3` | `'both'` / `'grid'` directions; the `fill` fix |
+| 6 | `339767f` | `unsplit` |
 
 ## Next
 
-Task 5 (`'both'` / `'grid'` directions) is in flight. Then 6 `unsplit`, 7 locks
-and undo coverage, 8 the preset merge, 9 deprecations and the version bump, 10
-story and e2e. Each task is one commit and independently shippable.
+Task 7 (locks, round-trip and undo coverage — tests only) is in flight. Then 8
+the preset merge, 8b folding `stack` into `strip`, 8c snapshot v5, 9 the
+removals and the 1.0.0 bump, 10 story and e2e.
 
 ## Decisions made in conversation, not visible in the code
 
@@ -64,6 +67,13 @@ story and e2e. Each task is one commit and independently shippable.
 - **`'grid'` ships without gutters**, warned in its JSDoc. `gridStrategy`
   ignores `placement.size`, so that one direction has no draggable dividers — a
   capability regression against `splitStrategy`, accepted knowingly.
+- **`stack` was `strip` on one axis.** Two implementations of the same algorithm
+  whose `fill` defaults had drifted apart, which is what sized split panes to
+  zero. Strip gains stack's capacity handling and `stackStrategy` is removed.
+- **Snapshot ratios do not survive the v5 migration.** Strip derives extents
+  from `placement.size` and hints; a `SplitNode` ratio has no equivalent, and
+  inventing a pixel size from a container width the snapshot does not carry
+  would be worse. Migrated layouts come back evenly divided.
 
 ## Traps
 
@@ -84,6 +94,14 @@ story and e2e. Each task is one commit and independently shippable.
   container. A test pins it; do not "fix" it.
 - **`toThrow(/…/)` in vitest matches `error.message`, not `error.code`.**
   `InvariantViolationError` does not put its code in the message.
+- **`stripStrategy` defaults `fill: false`**, which sizes a child with no
+  `preferredSize` to zero. `split` must write `fill: true` into every strip
+  config it creates. This produced a correct tree that rendered nothing, and all
+  675 tests passed through it because every one asserted tree shape and none
+  asserted geometry.
+- **An `expect` inside a `store.events` handler can never fail a test** —
+  `TypedEmitter.emit` swallows listener throws. Use `recordEvents` and assert
+  after the mutation returns.
 
 ## Process note
 
