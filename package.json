@@ -63,6 +63,7 @@
     "ladle:build": "ladle build",
     "docs:api": "typedoc",
     "prepublishOnly": "npm run build",
+    "postversion": "git push --follow-tags",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
