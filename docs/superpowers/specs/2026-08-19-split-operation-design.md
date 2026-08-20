@@ -80,6 +80,13 @@ Every id is caller-supplied. The store has no id generator and gains none, so
 the same call against the same tree produces the same result and replay,
 hydration, and undo are unaffected.
 
+`split` **shows** every node it registers, unlike bare `registerNode`. Nodes
+start at lifecycle `'mounted'` and `Container` renders only `'visible'` children,
+so a split that skipped this would build a correct tree that draws nothing — and
+a hidden group takes its whole subtree with it. `split` is the high-level
+operation; leaving the `showNode` loop to every caller makes forgetting it a
+silent blank pane.
+
 `'x'` and `'y'` map 1:1 onto `stripStrategy`'s `axis` config, and `split` also
 writes `fill: true`. Strip's own default is `fill: false`, which sizes a child
 carrying no `preferredSize` to `defaultItemSize` — itself `0`. Since `split`
