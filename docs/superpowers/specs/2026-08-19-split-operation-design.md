@@ -3,8 +3,9 @@
 `splitStrategy` keeps a `SplitNode` tree in `container.state` that describes the
 same structure the node tree already describes. Every known split bug is a
 synchronization failure between the two. This spec is for whoever implements the
-replacement. It defines a `split` store operation, its inverse, and the preset
-cleanup that falls out of it.
+replacement. It defines a `split` store operation, its inverse, the transaction
+primitive a composite operation needs to be one undo step, and the preset cleanup
+that falls out of it.
 
 It does not remove `splitStrategy`. That is a 1.0 concern; this ships as 0.10.0
 and is additive.
@@ -157,23 +158,48 @@ Lock axes, all bypassable with `force`:
 - **unsplit** — `destroy` on the group, `move` on each child, `arrange` on the
   grandparent
 
-## Atomicity
+## Atomicity, and `Store.transact`
 
-The Store does not own a `HistoryController`; consumers wire one by pushing
-`serialize(store)`. So `split` cannot open a history transaction, and does not
-try to.
+`split` is the store's first composite operation, and neither way of wiring
+history today can express "this is one thing the user did":
 
-It does not need to. `split` mutates synchronously, and the default `Publisher`
-schedules through `queueMicrotask` behind a `scheduled` flag, so any number of
-synchronous mutations produce exactly **one** subscriber notification and
-therefore one history push.
+- **Subscriber-driven under-counts.** The default `Publisher` schedules through
+  `queueMicrotask` behind a `scheduled` flag, so undo granularity is whatever
+  happened in one tick. A handler calling `split()` and then `moveNode()`
+  collapses two user-meaningful actions into one undo step, and the boundary
+  moves when the consumer restructures a callback.
+- **Event-driven over-counts.** The `node.*` events are synchronous and fire
+  once per underlying mutation, so one `split` is eleven undo steps.
 
-This holds for subscriber-driven history only. The `node.*` events are
-synchronous and fire once per underlying mutation; an event-driven history
-integration sees the whole burst and must bracket it with the
-`beginTransaction` / `endTransaction` pair `HistoryController` already exposes.
-Say this in the `split` JSDoc — it is the difference between one undo step and
-eleven.
+Coalescing is not transaction semantics. So this ships the missing primitive:
+
+```ts
+transact(fn: () => void, label?: string): void
+```
+
+Re-entrant by depth counter — only the outermost call emits — matching
+`HistoryController`'s own transaction semantics. Two events join `StoreEvents`:
+
+```ts
+'transaction.begin': { label?: string }
+'transaction.end': { label?: string }
+```
+
+`split` and `unsplit` wrap themselves in it. An event-driven history integration
+brackets on the pair and gets a correct boundary for those and for any composite
+a consumer writes.
+
+**`transact` does not roll back.** If `fn` throws, `transaction.end` still fires
+from a `finally` so the depth counter cannot stick, the throw propagates, and
+whatever was already mutated stays mutated. Say so in the JSDoc. `split` does not
+depend on rollback: it validates everything before touching the store, so it
+either does all of its work or none of it.
+
+The React half of `2026-06-04-history-undo-redo-design.md` — the `<Provider
+history>` slot, `useHistory()`, and auto-bracketing around drags — was never
+built, and that doc brackets events (`window.created`, `zone.claimed`) that the
+unified node model removed. Add a note at its head saying so. Rewriting it is out
+of scope here.
 
 ## Preset cleanup
 
@@ -247,8 +273,11 @@ and merely unconstructible. Nothing here needs it; note it in TODO.md.
 - **Validation** — every row of the error table, each asserting the store is
   unchanged afterward.
 - **Locks** — each axis refuses, and `force` overrides.
-- **Atomicity** — one `subscribe` notification per `split`, and undo through a
-  subscriber-driven `HistoryController` restores the pre-split tree in one step.
+- **Atomicity** — one `subscribe` notification per `split`; one
+  `transaction.begin`/`transaction.end` pair however deeply `transact` nests; the
+  pair still closes when `fn` throws, and a second `transact` afterward still
+  emits. Undo through a `HistoryController` bracketed on the pair restores the
+  pre-split tree in one step.
 - **Round-trip** — `serialize`/`deserialize` of a split-built tree at v4.
 - **`unsplit`** — children land at the group's index in order; capability
   guard; round-trips with `split`.
@@ -269,6 +298,9 @@ unsplit: g → zone@2 (3 children)
 - Teaching `gridStrategy` to honor `placement.size`, which is what `'grid'`
   needs before it has gutters.
 - A focusable container.
+- The React history hookup — `<Provider history>`, `useHistory()`, and
+  auto-bracketing around DnD drops. Needs its own spec pass against current
+  event names.
 - Step 4 of the headless-layout-host spec, the second binding. Deferred by
   decision; core is public after steps 1–3, so a vanilla consumer can build a
   host by hand today.
