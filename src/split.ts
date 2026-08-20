@@ -209,10 +209,16 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
   );
 }
 
-function applyReconfigure(_store: Store, id: NodeId, _input: SplitInput): void {
-  throw new InvariantViolationError(
-    'split-unimplemented',
-    'split-unimplemented: reconfigure lands in task 4',
-    { id },
-  );
+function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
+  if (input.direction === 'both' || input.direction === 'grid') {
+    throw new InvariantViolationError('split-unimplemented', 'both/grid land in task 5', { id });
+  }
+  const config = stripConfig(input.direction, input.config);
+  store.ensureContainer(id, 'strip', config);
+  store.setStrategy(id, 'strip');
+  store.updateContainerConfig(id, config);
+  for (const newId of input.newIds) {
+    store.registerNode(createPanel({ id: newId, parentId: id }));
+  }
+  trace('store', `split: reconfigure ${id} (strip ${input.direction}, +${input.newIds.length})`);
 }

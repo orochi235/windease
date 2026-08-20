@@ -327,3 +327,64 @@ describe('Store.split — atomicity', () => {
     expect(notifications).toBe(1);
   });
 });
+
+describe('Store.split — reconfigure mode', () => {
+  it('makes an empty root the container and registers the new panels', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+
+    store.split(asNodeId('z'), {
+      direction: 'x',
+      into: 3,
+      newIds: [asNodeId('p1'), asNodeId('p2')],
+    });
+
+    expect(store.getNode(asNodeId('z'))?.container?.strategyId).toBe('strip');
+    expect(store.getNode(asNodeId('z'))?.container?.config).toMatchObject({ axis: 'x' });
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2']);
+  });
+
+  it('takes into - 1 newIds even at a root, so an empty root gains into - 1 children', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+
+    store.split(asNodeId('z'), { direction: 'x', into: 3, newIds: [asNodeId('a'), asNodeId('b')] });
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'b']);
+  });
+
+  it('keeps existing children ahead of the new ones', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('old'), parentId: asNodeId('z') }));
+
+    store.split(asNodeId('z'), { direction: 'y', newIds: [asNodeId('new')] });
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['old', 'new']);
+  });
+
+  it('ignores groupId at a root', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+
+    store.split(asNodeId('z'), {
+      direction: 'x',
+      groupId: asNodeId('unused'),
+      newIds: [asNodeId('p1')],
+    });
+
+    expect(store.getNode(asNodeId('unused'))).toBeUndefined();
+  });
+
+  it('gives a container-less root a container', () => {
+    const store = new Store();
+    const orphan = createZone({ id: asNodeId('o'), strategyId: 'stack', config: {} });
+    delete (orphan as { container?: unknown }).container;
+    store.registerNode(orphan);
+
+    store.split(asNodeId('o'), { direction: 'x', newIds: [asNodeId('p1')] });
+
+    expect(store.getNode(asNodeId('o'))?.container?.strategyId).toBe('strip');
+    expect(store.getContainerView(asNodeId('o'))?.childOrder).toEqual(['p1']);
+  });
+});

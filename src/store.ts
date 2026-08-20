@@ -73,6 +73,7 @@ export interface StoreEvents {
    * resize gestures shouldn't pollute the timeline.
    */
   'container.stateChanged': { id: NodeId; from: unknown; to: unknown };
+  'container.strategyChanged': { id: NodeId; from: string; to: string };
   /**
    * A composite operation started. Bracket history pushes on this pair to get
    * one undo step for the whole operation: the `node.*` events are synchronous
@@ -735,6 +736,39 @@ export class Store {
     if (from === state) return;
     this.replaceContainer(id, (c) => ({ ...c, state }));
     this.events.emit('container.stateChanged', { id, from, to: state });
+    this.scheduleNotify();
+  }
+
+  /**
+   * Swap the layout strategy for `id`'s container. The config is not
+   * migrated — pass a matching one through `updateContainerConfig`.
+   */
+  setStrategy(id: NodeId, strategyId: string, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'arrange', 'setStrategy', opts);
+    const node = this.requireNode(id);
+    if (!node.container) throw new CapabilityMissingError(id, 'container', 'setStrategy');
+    const from = node.container.strategyId;
+    if (from === strategyId) return;
+    this.replaceContainer(id, (c) => ({ ...c, strategyId }));
+    this.events.emit('container.strategyChanged', { id, from, to: strategyId });
+    trace('store', `strategy: ${id} ${from} → ${strategyId}`);
+    this.scheduleNotify();
+  }
+
+  /**
+   * Give `id` a container capability if it has none. No-op when it already
+   * has one — the existing `childOrder` and config are left alone.
+   */
+  ensureContainer(id: NodeId, strategyId: string, config: unknown, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'arrange', 'ensureContainer', opts);
+    const node = this.requireNode(id);
+    if (node.container) return;
+    this.nodesMap.set(id, {
+      ...node,
+      container: { strategyId, config, childOrder: [], allowsPinning: true },
+    });
+    this.publisher.markDirty(id, { bypass: true });
+    trace('store', `ensureContainer: ${id} (${strategyId})`);
     this.scheduleNotify();
   }
 
