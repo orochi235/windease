@@ -72,6 +72,15 @@ export interface StoreEvents {
    */
   'container.stateChanged': { id: NodeId; from: unknown; to: unknown };
   /**
+   * A composite operation started. Bracket history pushes on this pair to get
+   * one undo step for the whole operation: the `node.*` events are synchronous
+   * and per-mutation, so an unbracketed listener sees one `split` as eleven
+   * changes.
+   */
+  'transaction.begin': { label?: string };
+  /** Closes a `transaction.begin`. Fires even when the callback threw. */
+  'transaction.end': { label?: string };
+  /**
    * A node started being withheld by throttling. Only ever emitted by a
    * store constructed with a `throttle` policy.
    */
@@ -101,6 +110,7 @@ export class Store {
   private readonly subscribers = new Set<() => void>();
   private readonly publisher: Publisher;
   private locksSuspended = 0;
+  private txnDepth = 0;
 
   constructor(options: StoreOptions = {}) {
     this.publisher = new Publisher({
@@ -973,6 +983,28 @@ export class Store {
    */
   flushNow(): void {
     this.publisher.flushNow();
+  }
+
+  /**
+   * Run `fn` as one logical change, emitting `transaction.begin` /
+   * `transaction.end` around it. Re-entrant: only the outermost call emits.
+   *
+   * Does NOT roll back. If `fn` throws, the pair still closes and the throw
+   * propagates, but whatever was already mutated stays mutated.
+   */
+  transact(fn: () => void, label?: string): void {
+    const payload = label === undefined ? {} : { label };
+    if (this.txnDepth === 0) this.events.emit('transaction.begin', payload);
+    this.txnDepth += 1;
+    try {
+      fn();
+    } finally {
+      this.txnDepth -= 1;
+      if (this.txnDepth === 0) {
+        this.events.emit('transaction.end', payload);
+        trace('store', `transact: ${label ?? '(unlabeled)'}`);
+      }
+    }
   }
 
   /**
