@@ -5,6 +5,7 @@ import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
 import { asNodeId, type Node, type NodeKind } from './node.js';
 import { Store } from './store.js';
+import { trace } from './trace.js';
 
 export interface SerializedNode {
   id: string;
@@ -227,15 +228,26 @@ type LegacySplitTree =
       b: LegacySplitTree;
     };
 
-function isLegacySplitTree(v: unknown): v is LegacySplitTree {
+const MAX_LEGACY_SPLIT_DEPTH = 500;
+
+/** `container.state` is consumer data of unknown provenance — a cyclic or
+ *  absurdly deep structure must fail the check rather than blow the stack,
+ *  so migration can fall back instead of crashing hydrate. */
+function isLegacySplitTree(
+  v: unknown,
+  seen: WeakSet<object> = new WeakSet(),
+  depth = 0,
+): v is LegacySplitTree {
   if (!v || typeof v !== 'object') return false;
+  if (depth > MAX_LEGACY_SPLIT_DEPTH || seen.has(v)) return false;
+  seen.add(v);
   const o = v as Record<string, unknown>;
   if (o.kind === 'leaf') return typeof o.id === 'string';
   if (o.kind === 'split') {
     return (
       (o.direction === 'horizontal' || o.direction === 'vertical') &&
-      isLegacySplitTree(o.a) &&
-      isLegacySplitTree(o.b)
+      isLegacySplitTree(o.a, seen, depth + 1) &&
+      isLegacySplitTree(o.b, seen, depth + 1)
     );
   }
   return false;
@@ -247,29 +259,86 @@ function stripConfigFor(direction: 'horizontal' | 'vertical'): Record<string, un
   return { axis: direction === 'horizontal' ? 'x' : 'y', fill: true };
 }
 
+/** Every leaf id reachable from `node`, or `null` if one repeats — a tree
+ *  that names the same node twice can't be reparented safely. */
+function collectLeafIds(node: LegacySplitTree): Set<string> | null {
+  const ids = new Set<string>();
+  const walk = (n: LegacySplitTree): boolean => {
+    if (n.kind === 'leaf') {
+      if (ids.has(n.id)) return false;
+      ids.add(n.id);
+      return true;
+    }
+    return walk(n.a) && walk(n.b);
+  };
+  return walk(node) ? ids : null;
+}
+
+/** A split tree only earns a rebuild if its leaves are exactly the
+ *  container's original children: no repeats, none naming a node absent
+ *  from the snapshot, and none of the container's children left uncovered. */
+function treeMatchesChildren(
+  state: LegacySplitTree,
+  childOrder: readonly string[],
+  byId: Map<string, SerializedNode>,
+): boolean {
+  const leafIds = collectLeafIds(state);
+  if (!leafIds) return false;
+  for (const id of leafIds) {
+    if (!byId.has(id)) return false;
+  }
+  const order = new Set(childOrder);
+  if (leafIds.size !== order.size) return false;
+  for (const id of order) {
+    if (!leafIds.has(id)) return false;
+  }
+  return true;
+}
+
 /**
  * v4 → v5: the removed split strategy's containers carried a binary tree in
  * `container.state`. Rebuild it as nested strip groups so the leaves survive
  * the strategy's removal: the root split reuses its node, each nested split
  * mints a new group node, and `ratio` is dropped (strip has no equivalent).
+ *
+ * `container.state` is consumer data of unknown provenance — a snapshot
+ * written by code we don't control, possibly hand-edited or drifted. Anything
+ * that doesn't validate as a coherent tree over the container's own children
+ * falls back to a flat strip with `childOrder` left untouched, rather than
+ * throwing and bricking the snapshot.
  */
 function migrateToV5(nodes: SerializedNode[]): void {
   const byId = new Map(nodes.map((sn) => [sn.id, sn] as const));
   const usedIds = new Set(nodes.map((sn) => sn.id));
 
   for (const sn of [...nodes]) {
-    if (sn.container?.strategyId !== 'split') continue;
-    const state = sn.container.state;
-    sn.container.strategyId = 'strip';
-    delete sn.container.state;
+    const container = sn.container;
+    if (container?.strategyId !== 'split') continue;
+    const state = container.state;
+    const originalChildOrder = container.childOrder;
+    container.strategyId = 'strip';
+    delete container.state;
 
-    // A degenerate single-item split serializes its state as a bare leaf —
-    // nothing to rebuild beyond the strategy swap already done above.
-    if (!isLegacySplitTree(state) || state.kind === 'leaf') {
-      sn.container.config = stripConfigFor('horizontal');
+    const flatten = (reason: string): void => {
+      container.config = stripConfigFor('horizontal');
+      trace('store', `snapshot: split container ${sn.id} kept flat — ${reason}`);
+    };
+
+    if (!isLegacySplitTree(state)) {
+      flatten('state is not a recognizable split tree');
       continue;
     }
-    sn.container.config = stripConfigFor(state.direction);
+    // A degenerate single-item split serializes its state as a bare leaf —
+    // nothing to rebuild beyond the strategy swap already done above.
+    if (state.kind === 'leaf') {
+      flatten('single-leaf state, nothing to rebuild');
+      continue;
+    }
+    if (!treeMatchesChildren(state, originalChildOrder, byId)) {
+      flatten("tree's leaves don't match childOrder one-to-one");
+      continue;
+    }
+    container.config = stripConfigFor(state.direction);
 
     const mintId = (path: number[]): string => {
       let candidate = `${sn.id}:s${path.join('')}`;
@@ -313,7 +382,7 @@ function migrateToV5(nodes: SerializedNode[]): void {
       return groupId;
     };
 
-    sn.container.childOrder = [convert(state.a, [0], sn.id), convert(state.b, [1], sn.id)];
+    container.childOrder = [convert(state.a, [0], sn.id), convert(state.b, [1], sn.id)];
   }
 }
 

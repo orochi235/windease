@@ -774,3 +774,144 @@ describe('v4 → v5 split migration', () => {
     expect(store.getContainerView(top[1] as never)?.childOrder).toEqual(['b', 'c']);
   });
 });
+
+describe('v4 → v5 split migration — hostile input', () => {
+  // container.state is consumer data of unknown provenance; every case here
+  // must fall back to a flat strip rather than throw, per the spec's own
+  // premise that a v4 snapshot may have drifted from any version we control.
+  function v4SplitContainer(state: unknown, childOrder: string[]) {
+    return {
+      version: 4,
+      rootIds: ['z'],
+      focusedId: null,
+      nodes: [
+        {
+          id: 'z',
+          kind: 'zone',
+          lifecycle: 'visible',
+          container: {
+            strategyId: 'split',
+            config: { gutterSize: 4 },
+            childOrder,
+            allowsPinning: true,
+            state,
+          },
+        },
+        ...childOrder.map((id) => ({
+          id,
+          kind: 'panel',
+          lifecycle: 'visible',
+          membership: { parentId: 'z', placement: {} },
+          focus: 'blurred',
+        })),
+      ],
+    };
+  }
+
+  it('falls back when the tree covers only some of childOrder, keeping the rest as flat siblings', () => {
+    const snap = v4SplitContainer(
+      {
+        kind: 'split',
+        direction: 'horizontal',
+        ratio: 0.5,
+        a: { kind: 'leaf', id: 'a' },
+        b: { kind: 'leaf', id: 'b' },
+      },
+      ['a', 'b', 'c'],
+    );
+
+    expect(() => deserialize(snap as never)).not.toThrow();
+    const store = deserialize(snap as never);
+
+    expect(store.getNode(asNodeId('z'))?.container?.strategyId).toBe('strip');
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'b', 'c']);
+    for (const id of ['a', 'b', 'c']) {
+      expect(store.getParent(asNodeId(id))).toBeDefined();
+    }
+  });
+
+  it('falls back when a leaf names a node absent from the snapshot entirely', () => {
+    const snap = v4SplitContainer(
+      {
+        kind: 'split',
+        direction: 'horizontal',
+        ratio: 0.5,
+        a: { kind: 'leaf', id: 'ghost' },
+        b: { kind: 'leaf', id: 'a' },
+      },
+      ['a'],
+    );
+
+    expect(() => deserialize(snap as never)).not.toThrow();
+    const store = deserialize(snap as never);
+
+    expect(store.getNode(asNodeId('z'))?.container?.strategyId).toBe('strip');
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a']);
+    expect(store.getParent(asNodeId('a'))).toBeDefined();
+  });
+
+  it('falls back when the same leaf id appears twice in the tree', () => {
+    const snap = v4SplitContainer(
+      {
+        kind: 'split',
+        direction: 'horizontal',
+        ratio: 0.5,
+        a: { kind: 'leaf', id: 'a' },
+        b: { kind: 'leaf', id: 'a' },
+      },
+      ['a', 'b'],
+    );
+
+    expect(() => deserialize(snap as never)).not.toThrow();
+    const store = deserialize(snap as never);
+
+    expect(store.getNode(asNodeId('z'))?.container?.strategyId).toBe('strip');
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'b']);
+    for (const id of ['a', 'b']) {
+      expect(store.getParent(asNodeId(id))).toBeDefined();
+    }
+  });
+
+  it('falls back instead of overflowing the stack on a cyclic state', () => {
+    const cyclic: Record<string, unknown> = {
+      kind: 'split',
+      direction: 'horizontal',
+      ratio: 0.5,
+      a: { kind: 'leaf', id: 'a' },
+    };
+    cyclic.b = cyclic;
+    const snap = v4SplitContainer(cyclic, ['a']);
+
+    expect(() => deserialize(snap as never)).not.toThrow();
+    const store = deserialize(snap as never);
+
+    expect(store.getNode(asNodeId('z'))?.container?.strategyId).toBe('strip');
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a']);
+    expect(store.getParent(asNodeId('a'))).toBeDefined();
+  });
+
+  it('still rebuilds a well-formed tree exactly as before (no false-positive fallback)', () => {
+    const snap = v4SplitContainer(
+      {
+        kind: 'split',
+        direction: 'horizontal',
+        ratio: 0.5,
+        a: { kind: 'leaf', id: 'a' },
+        b: {
+          kind: 'split',
+          direction: 'vertical',
+          ratio: 0.5,
+          a: { kind: 'leaf', id: 'b' },
+          b: { kind: 'leaf', id: 'c' },
+        },
+      },
+      ['a', 'b', 'c'],
+    );
+
+    const store = deserialize(snap as never);
+
+    const top = store.getContainerView(asNodeId('z'))?.childOrder ?? [];
+    expect(top).toEqual(['a', expect.any(String)]);
+    expect(store.getContainerView(top[1] as never)?.childOrder).toEqual(['b', 'c']);
+  });
+});
