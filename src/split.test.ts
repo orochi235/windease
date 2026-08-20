@@ -401,3 +401,35 @@ describe('Store.split — reconfigure mode', () => {
     expect(store.getNode(asNodeId('z'))?.container?.config).toEqual({ cols: 3, gap: 8, axis: 'x' });
   });
 });
+
+describe('Store.setStrategy', () => {
+  it('drops container state belonging to the outgoing strategy', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'split', config: {} }));
+    store.setContainerState(asNodeId('z'), { kind: 'leaf', id: 'old' });
+
+    store.setStrategy(asNodeId('z'), 'strip');
+
+    expect(store.getContainerState(asNodeId('z'))).toBeUndefined();
+  });
+
+  it('leaves state alone when the strategy is unchanged', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'strip', config: {} }));
+    store.setContainerState(asNodeId('z'), { keep: true });
+
+    store.setStrategy(asNodeId('z'), 'strip');
+
+    expect(store.getContainerState(asNodeId('z'))).toEqual({ keep: true });
+  });
+
+  it('reconfiguring a split root clears its SplitNode tree', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'split', config: {} }));
+    store.setContainerState(asNodeId('z'), { kind: 'leaf', id: 'old' });
+
+    store.split(asNodeId('z'), { direction: 'x', newIds: [asNodeId('p1')] });
+
+    expect(store.getContainerState(asNodeId('z'))).toBeUndefined();
+  });
+});

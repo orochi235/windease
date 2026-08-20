@@ -213,10 +213,13 @@ function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
   if (input.direction === 'both' || input.direction === 'grid') {
     throw new InvariantViolationError('split-unimplemented', 'both/grid land in task 5', { id });
   }
+  const hadContainer = store.getNodeTruth(id)?.container !== undefined;
   const config = stripConfig(input.direction, input.config);
   store.ensureContainer(id, 'strip', config);
-  store.setStrategy(id, 'strip');
-  store.updateContainerConfig(id, config);
+  if (hadContainer) {
+    store.setStrategy(id, 'strip');
+    store.updateContainerConfig(id, config);
+  }
   for (const newId of input.newIds) {
     store.registerNode(createPanel({ id: newId, parentId: id }));
   }

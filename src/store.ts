@@ -740,7 +740,8 @@ export class Store {
   }
 
   /**
-   * Swap the layout strategy for `id`'s container. The config is not
+   * Swap the layout strategy for `id`'s container. Drops the persisted
+   * `state`, since it belongs to the outgoing strategy; the config is not
    * migrated — pass a matching one through `updateContainerConfig`.
    */
   setStrategy(id: NodeId, strategyId: string, opts?: MutateOptions): void {
@@ -749,9 +750,13 @@ export class Store {
     if (!node.container) throw new CapabilityMissingError(id, 'container', 'setStrategy');
     const from = node.container.strategyId;
     if (from === strategyId) return;
-    this.replaceContainer(id, (c) => ({ ...c, strategyId }));
+    const priorState = node.container.state;
+    this.replaceContainer(id, (c) => ({ ...c, strategyId, state: undefined }));
     this.events.emit('container.strategyChanged', { id, from, to: strategyId });
-    trace('store', `strategy: ${id} ${from} → ${strategyId}`);
+    if (priorState !== undefined) {
+      this.events.emit('container.stateChanged', { id, from: priorState, to: undefined });
+    }
+    trace('store', `strategy: ${id} ${from} → ${strategyId} (state cleared)`);
     this.scheduleNotify();
   }
 
