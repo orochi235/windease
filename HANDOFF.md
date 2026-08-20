@@ -9,7 +9,7 @@ breakdown in `docs/superpowers/plans/2026-08-19-split-operation.md`.
   pushed. The earlier headless-layout-host work (steps 1–3 of its spec) is on the
   same branch; the split work grew on top of it, so the branch now covers both
   and wants slicing into two PRs at the end.
-- **Green:** 713 unit tests / 59 files, lint, typecheck.
+- **Green:** 715 unit tests / 57 files, 15 e2e, lint, typecheck, build. Version 1.0.0.
 
 ## What this is
 
@@ -39,20 +39,20 @@ migration that converts stored `SplitNode` trees into real strip groups.
 
 ## Next
 
-Tasks 8 and 8b are done. The remaining queue, approved to run unattended:
+**All 12 tasks are landed.** Two fixes from the release review are the only
+work still in flight:
 
-| Task | |
-|---|---|
-| 8c | snapshot v5 + `SplitNode` → strip-group migration |
-| 9 | remove `splitStrategy` / `stackStrategy` / `createGroup`, migrate 7 call sites, bump 1.0.0 |
-| 10 | `split`/`unsplit` story + e2e |
-| 11 | `exactOptionalPropertyTypes` sweep over public constructor inputs |
-| 12 | grid honors explicit cell spans |
+1. `migrateToV5` throws on malformed v4 input — a leaf/`childOrder` mismatch, a
+   duplicate leaf id, or a cyclic `container.state` each crash `deserialize`
+   rather than degrading. Must fall back to a flat strip instead.
+2. `stripStrategy` ignores `hints.maxSize` when placing an explicitly-sized
+   child. `clampExplicitSizes` models only `min`; `effectiveMaxAxis` is used
+   only at drag time. Contradicts `NodeHints.maxSize`'s own JSDoc.
 
-Each keeps its implement → spec review → quality review loop. **Task 9 is the
-riskiest**: it deletes three public exports and rewrites seven call sites
-including the e2e's gutter selectors. If something is going to need unpicking,
-it is that one.
+**Known open, deliberately not done:** grid has spans but no gutters — what a
+grid gutter resizes (one pane's span, or a whole column) is an unsettled design
+question. `<Zone>` has no `pinned` prop, so `<Group>` → `<Zone kind="group">`
+is not full parity.
 
 **Task 12 carries a design decision already made:** do NOT follow the
 `TODO(0.6+)` comment in `src/layout/grid.ts`, which proposes reusing
