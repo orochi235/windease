@@ -2,7 +2,7 @@
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ChildSort } from '../child-sort.js';
-import { asNodeId, createPanel, Store } from '../index.js';
+import { asNodeId, createNode, Store } from '../index.js';
 import { Provider } from './Provider.js';
 import { Panel, Zone } from './presets.js';
 
@@ -139,7 +139,9 @@ describe('sibling order reconciliation', () => {
     // Now add an imperative child. Then trigger a re-render so the parent's
     // useChildren subscription fires the layout effect and reconciles.
     store.registerNode(
-      createPanel({
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: asNodeId('imp-1'),
         parentId: asNodeId('z'),
       }),

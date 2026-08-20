@@ -1,6 +1,6 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, gridStrategy, Store } from '../index.js';
+import { asNodeId, createNode, gridStrategy, Store } from '../index.js';
 import { Provider } from './Provider.js';
 import { Panel, Zone } from './presets.js';
 import { StrategyRegistryProvider } from './strategies.js';
@@ -57,7 +57,14 @@ describe('declarative layout via strategy', () => {
     expect(container.querySelector('[data-testid="imp-imp-1"]')).toBeNull();
 
     await act(async () => {
-      store.registerNode(createPanel({ id: asNodeId('imp-1'), parentId: asNodeId('z') }));
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: asNodeId('imp-1'),
+          parentId: asNodeId('z'),
+        }),
+      );
       store.showNode(asNodeId('imp-1'));
     });
 

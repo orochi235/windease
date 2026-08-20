@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createPanel, createZone } from './constructors.js';
+import { createNode } from './constructors.js';
 import {
   InvariantViolationError,
   LockedError,
@@ -13,9 +13,22 @@ const id = (s: string) => asNodeId(s);
 
 function strip(count: number): { s: Store; z: NodeId } {
   const s = new Store();
-  s.registerNode(createZone({ id: id('z'), strategyId: 'strip', config: {} }));
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'strip', config: {} },
+      id: id('z'),
+    }),
+  );
   for (let i = 0; i < count; i++) {
-    s.registerNode(createPanel({ id: id(`p${i}`), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id(`p${i}`),
+        parentId: id('z'),
+      }),
+    );
   }
   return { s, z: id('z') };
 }
@@ -171,10 +184,21 @@ describe('Store — setPinned/unpin and allowsPinning', () => {
   function stripNoPinning(count: number): { s: Store; z: NodeId } {
     const s = new Store();
     s.registerNode(
-      createZone({ id: id('z'), strategyId: 'strip', config: {}, allowsPinning: false }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: {}, allowsPinning: false },
+        id: id('z'),
+      }),
     );
     for (let i = 0; i < count; i++) {
-      s.registerNode(createPanel({ id: id(`p${i}`), parentId: id('z') }));
+      s.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: id(`p${i}`),
+          parentId: id('z'),
+        }),
+      );
     }
     return { s, z: id('z') };
   }
@@ -216,11 +240,44 @@ describe('Store — patchPlacement rejects direct pinned writes', () => {
 describe('Store — moveNode pinned displacement', () => {
   it('routes a newcomer past a held slot in the destination', () => {
     const s = new Store();
-    s.registerNode(createZone({ id: id('src'), strategyId: 'strip', config: {} }));
-    s.registerNode(createZone({ id: id('dst'), strategyId: 'strip', config: {} }));
-    s.registerNode(createPanel({ id: id('m'), parentId: id('src') }));
-    s.registerNode(createPanel({ id: id('d0'), parentId: id('dst') }));
-    s.registerNode(createPanel({ id: id('d1'), parentId: id('dst') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: {} },
+        id: id('src'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: {} },
+        id: id('dst'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('m'),
+        parentId: id('src'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('d0'),
+        parentId: id('dst'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('d1'),
+        parentId: id('dst'),
+      }),
+    );
     s.setPinned(id('d0'), 0);
 
     s.moveNode(id('m'), id('dst'), 0);

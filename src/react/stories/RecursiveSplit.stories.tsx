@@ -2,7 +2,7 @@ export default { title: 'Recursive zones' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import { asNodeId, createPanel, createZone, Store, stripStrategy } from '../../index.js';
+import { asNodeId, createNode, Store, stripStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
@@ -26,8 +26,22 @@ function buildTree(): Store {
   const g1 = asNodeId('g1');
   const g2 = asNodeId('g2');
 
-  s.registerNode(createZone({ id: rs, strategyId: 'strip', config: { axis: 'x', gap: 6 } }));
-  s.registerNode(createPanel({ id: a, parentId: rs, meta: { title: 'a' } }));
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'strip', config: { axis: 'x', gap: 6 } },
+      id: rs,
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
+      id: a,
+      parentId: rs,
+      meta: { title: 'a' },
+    }),
+  );
   s.showNode(a);
 
   s.split(rs, { direction: 'x', newIds: [b] });

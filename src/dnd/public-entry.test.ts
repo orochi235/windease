@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  DragController,
-  insertionIndexByMidpoint,
-  Store,
-} from '../index.js';
+import { asNodeId, createNode, DragController, insertionIndexByMidpoint, Store } from '../index.js';
 
 /**
  * Guards the promise of the core relocation: a consumer using no framework
@@ -24,9 +17,28 @@ function fakeElement(x: number, y: number, w: number, h: number): Element {
 describe('drag from the core entry point, with no binding', () => {
   it('begins, hovers, and drops a panel into another zone', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z1'), strategyId: 'stack', config: {} }));
-    store.registerNode(createZone({ id: asNodeId('z2'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z1') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z1'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z2'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z1'),
+      }),
+    );
 
     const controller = new DragController(store);
     expect(controller.tryBegin(asNodeId('p'))).toBe(true);
@@ -43,8 +55,21 @@ describe('drag from the core entry point, with no binding', () => {
 
   it('honors lock.move without any binding in the loop', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z1'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z1') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z1'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z1'),
+      }),
+    );
     store.setLock(asNodeId('p'), { move: true });
 
     expect(new DragController(store).tryBegin(asNodeId('p'))).toBe(false);

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createPanel, createZone } from './constructors.js';
+import { createNode } from './constructors.js';
 import { LockedError } from './errors.js';
 import { asNodeId, type NodeId } from './node.js';
 import { Store } from './store.js';
@@ -8,8 +8,21 @@ const id = (s: string) => asNodeId(s);
 
 function seeded(): { s: Store; z: NodeId; p: NodeId } {
   const s = new Store();
-  s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-  s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'grid', config: {} },
+      id: id('z'),
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
+      id: id('p'),
+      parentId: id('z'),
+    }),
+  );
   return { s, z: id('z'), p: id('p') };
 }
 
@@ -138,9 +151,28 @@ describe('Store — destroy lock', () => {
 
 function twoZones(): { s: Store; a: NodeId; b: NodeId; p: NodeId } {
   const s = new Store();
-  s.registerNode(createZone({ id: id('a'), strategyId: 'grid', config: {} }));
-  s.registerNode(createZone({ id: id('b'), strategyId: 'grid', config: {} }));
-  s.registerNode(createPanel({ id: id('p'), parentId: id('a') }));
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'grid', config: {} },
+      id: id('a'),
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'grid', config: {} },
+      id: id('b'),
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
+      id: id('p'),
+      parentId: id('a'),
+    }),
+  );
   return { s, a: id('a'), b: id('b'), p: id('p') };
 }
 
@@ -206,14 +238,28 @@ describe('Store — move / accept / dragOut locks', () => {
 
   it('blocks reorderInParent when the node is move-locked', () => {
     const { s, a } = twoZones();
-    s.registerNode(createPanel({ id: id('q'), parentId: a }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('q'),
+        parentId: a,
+      }),
+    );
     s.setLock(id('q'), { move: true });
     expect(() => s.reorderInParent(id('q'), 0)).toThrow(LockedError);
   });
 
   it('allows reorderInParent with force on a move-locked node', () => {
     const { s, a } = twoZones();
-    s.registerNode(createPanel({ id: id('q'), parentId: a }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('q'),
+        parentId: a,
+      }),
+    );
     s.setLock(id('q'), { move: true });
     s.reorderInParent(id('q'), 0, { force: true });
     expect(s.getNode(a)?.container?.childOrder).toEqual([id('q'), id('p')]);
@@ -223,7 +269,14 @@ describe('Store — move / accept / dragOut locks', () => {
 describe('Store — arrange and resize locks', () => {
   it('blocks setChildOrder on an arrange-locked container', () => {
     const { s, z, p } = seeded();
-    s.registerNode(createPanel({ id: id('q'), parentId: z }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('q'),
+        parentId: z,
+      }),
+    );
     s.setLock(z, { arrange: true });
     expect(() => s.setChildOrder(z, [id('q'), p])).toThrow(LockedError);
   });
@@ -281,13 +334,13 @@ describe('Store — allows* flags are gone', () => {
     expect((s as unknown as Record<string, unknown>).setAllowsDragOut).toBeUndefined();
   });
 
-  it('accepts lock at construction via createZone', () => {
+  it('accepts lock at construction via createNode', () => {
     const s = new Store();
     s.registerNode(
-      createZone({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
         id: id('z'),
-        strategyId: 'grid',
-        config: {},
         lock: { accept: true },
       }),
     );

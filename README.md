@@ -21,12 +21,13 @@ See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
 `node.lock` restricts operations, and how reserved keys like `pinned` /
 `size` interact with layout and DnD).
 
-- **Node + capabilities, not classes.** Every node optionally carries
-  `container` / `membership` / `focus` / `lifecycle`. The core enforces only
-  structural invariants (no cycles, single focus, bidirectional links).
-  `Panel` / `Zone` are convention names with shipped presets, not built-in
-  types; `Group` is the same shape reached via `createZone({ parentId })`
-  and `<Zone parentId kind="group">`, not a separate preset.
+- **Node + capabilities, not classes.** Every node carries `lifecycle` and
+  optionally `container` / `membership` / `focus`, all built by one
+  constructor, `createNode`. The core enforces only structural invariants (no
+  cycles, single focus, bidirectional links). `Panel` / `Zone` are convention
+  names with shipped React presets, not built-in types; `Group` is the same
+  shape reached via `createNode({ container, parentId })` and
+  `<Zone parentId kind="group">`, not a separate preset.
 - **Recursive containers** — any node with a `container` capability hosts
   children, and a child may itself be a container. "Tray inside a window"
   is just a panel whose `container` is set.
@@ -96,10 +97,10 @@ For server-loaded layouts, programmatically generated nodes, or anything
 that can't be expressed as static JSX, use the store directly:
 
 ```tsx
-import { Store, createPanel, asNodeId } from 'windease';
+import { Store, createNode, asNodeId } from 'windease';
 
 const store = new Store();
-store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('root') }));
+store.registerNode(createNode({ id: asNodeId('p1'), parentId: asNodeId('root'), focus: true }));
 
 <Provider store={store}>{/* ... */}</Provider>
 ```
@@ -284,6 +285,32 @@ This clears the target in place before repopulating it, emitting
 before the snapshot lands.
 
 ## Breaking changes
+
+### 1.0.1
+
+`createZone` and `createPanel` are collapsed into one constructor,
+`createNode`. The split was arbitrary: a zone with a `parentId` was already
+what the removed `createGroup` built, and a panel with a `container` was
+already the documented recursive-panel case. `container`, `membership` (via
+`parentId`), and `focus` are now independent opt-in fields on one input.
+
+| Removed | Use instead |
+|---|---|
+| `createZone`, `CreateZoneInput` | `createNode` |
+| `createPanel`, `CreatePanelInput` | `createNode` |
+
+Two mechanical rewrites cover every call site:
+
+```ts
+// createPanel({ id, parentId, ...rest }) →
+createNode({ id, parentId, focus: true, ...rest });
+
+// createZone({ id, strategyId, config, allowsPinning, ...rest }) →
+createNode({ id, container: { strategyId, config, allowsPinning }, ...rest });
+```
+
+`<Zone>` and `<Panel>` are unchanged — they're React presets over
+`createNode` now, but their props and behavior are the same.
 
 ### 1.0.0
 

@@ -2,14 +2,7 @@ export default { title: 'Recursive zones' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  gridStrategy,
-  Store,
-  stripStrategy,
-} from '../../index.js';
+import { asNodeId, createNode, gridStrategy, Store, stripStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider, Zone } from '../index.js';
 import './windease.css';
 
@@ -33,15 +26,17 @@ export const Trays: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
   const store = useMemo(() => {
     const s = new Store();
     s.registerNode(
-      createZone({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols, gap: 12, padding: 12 } },
         id: asNodeId('z'),
-        strategyId: 'grid',
-        config: { cols, gap: 12, padding: 12 },
       }),
     );
 
     s.registerNode(
-      createPanel({
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: asNodeId('tray-1'),
         parentId: asNodeId('z'),
         meta: { title: 'Tray 1' },
@@ -52,14 +47,22 @@ export const Trays: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
     for (let i = 0; i < trayChildren; i++) {
       const id = asNodeId(`tray-1-child-${i + 1}`);
       s.registerNode(
-        createPanel({ id, parentId: asNodeId('tray-1'), meta: { title: `Item ${i + 1}` } }),
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id,
+          parentId: asNodeId('tray-1'),
+          meta: { title: `Item ${i + 1}` },
+        }),
       );
       s.showNode(id);
     }
 
     if (showSecondTray) {
       s.registerNode(
-        createPanel({
+        createNode({
+          kind: 'panel',
+          focus: true,
           id: asNodeId('tray-2'),
           parentId: asNodeId('z'),
           meta: { title: 'Tray 2' },
@@ -73,13 +76,21 @@ export const Trays: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
       for (let i = 0; i < 2; i++) {
         const id = asNodeId(`tray-2-child-${i + 1}`);
         s.registerNode(
-          createPanel({ id, parentId: asNodeId('tray-2'), meta: { title: `Note ${i + 1}` } }),
+          createNode({
+            kind: 'panel',
+            focus: true,
+            id,
+            parentId: asNodeId('tray-2'),
+            meta: { title: `Note ${i + 1}` },
+          }),
         );
         s.showNode(id);
       }
     } else {
       s.registerNode(
-        createPanel({
+        createNode({
+          kind: 'panel',
+          focus: true,
           id: asNodeId('solo'),
           parentId: asNodeId('z'),
           meta: { title: 'Solo' },

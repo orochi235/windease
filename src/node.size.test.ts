@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createPanel } from './constructors.js';
+import { createNode } from './constructors.js';
 import { asNodeId } from './node.js';
 
 describe('NodeHints.maxSize', () => {
-  it('round-trips maxSize via createPanel hints', () => {
-    const node = createPanel({
+  it('round-trips maxSize via createNode hints', () => {
+    const node = createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('p'),
       parentId: asNodeId('parent'),
       hints: { minSize: { w: 10, h: 10 }, maxSize: { w: 200, h: 300 } },
@@ -13,7 +15,9 @@ describe('NodeHints.maxSize', () => {
   });
 
   it('accepts placement.size on creation', () => {
-    const node = createPanel({
+    const node = createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('p'),
       parentId: asNodeId('parent'),
       placement: { size: { h: 180 } },

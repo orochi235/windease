@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPanel, createZone } from './constructors.js';
+import { createNode } from './constructors.js';
 import { stripStrategy } from './layout/strip.js';
 import {
   getLayoutNodes,
@@ -12,7 +12,9 @@ import { Store } from './store.js';
 
 describe('nodeToLayoutItem', () => {
   it('converts hints', () => {
-    const n = createPanel({
+    const n = createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('p'),
       parentId: asNodeId('z'),
       hints: { minSize: { w: 10, h: 20 }, preferredSize: { w: 100, h: 200 } },
@@ -26,7 +28,9 @@ describe('nodeToLayoutItem', () => {
   });
 
   it('projects placement → meta', () => {
-    const n = createPanel({
+    const n = createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('p'),
       parentId: asNodeId('z'),
       placement: { pinned: true, locked: false },
@@ -36,13 +40,20 @@ describe('nodeToLayoutItem', () => {
   });
 
   it('omits meta when placement is empty', () => {
-    const n = createPanel({ id: asNodeId('p'), parentId: asNodeId('z') });
+    const n = createNode({
+      kind: 'panel',
+      focus: true,
+      id: asNodeId('p'),
+      parentId: asNodeId('z'),
+    });
     const item = nodeToLayoutItem(n);
     expect(item.meta).toBeUndefined();
   });
 
   it('propagates hints.maxSize', () => {
-    const n = createPanel({
+    const n = createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('p'),
       parentId: asNodeId('z'),
       hints: { minSize: { w: 10, h: 10 }, maxSize: { w: 200, h: 300 } },
@@ -52,7 +63,9 @@ describe('nodeToLayoutItem', () => {
   });
 
   it('surfaces placement.size as item.placement.size', () => {
-    const n = createPanel({
+    const n = createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('p'),
       parentId: asNodeId('z'),
       placement: { pinned: true, size: { h: 180 } },
@@ -64,7 +77,9 @@ describe('nodeToLayoutItem', () => {
   });
 
   it('omits placement when there is no size', () => {
-    const n = createPanel({
+    const n = createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('p'),
       parentId: asNodeId('z'),
       placement: { pinned: true },
@@ -76,7 +91,9 @@ describe('nodeToLayoutItem', () => {
 
 describe('nodeToLayoutNode', () => {
   it('copies all fields including isContainer', () => {
-    const recursive = createPanel({
+    const recursive = createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('p'),
       parentId: asNodeId('z'),
       meta: { title: 't' },
@@ -92,7 +109,12 @@ describe('nodeToLayoutNode', () => {
   });
 
   it('isContainer false for leaf panels', () => {
-    const leaf = createPanel({ id: asNodeId('p'), parentId: asNodeId('z') });
+    const leaf = createNode({
+      kind: 'panel',
+      focus: true,
+      id: asNodeId('p'),
+      parentId: asNodeId('z'),
+    });
     expect(nodeToLayoutNode(leaf).isContainer).toBe(false);
   });
 });
@@ -100,10 +122,37 @@ describe('nodeToLayoutNode', () => {
 describe('getLayoutNodes', () => {
   it('returns visible children in childOrder order, excludes hidden', () => {
     const s = new Store();
-    s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-    s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
-    s.registerNode(createPanel({ id: asNodeId('c'), parentId: asNodeId('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('c'),
+        parentId: asNodeId('z'),
+      }),
+    );
     s.showNode(asNodeId('a'));
     s.showNode(asNodeId('b'));
     s.showNode(asNodeId('c'));
@@ -116,8 +165,21 @@ describe('getLayoutNodes', () => {
 describe('layout-node-adapter — activity passthrough', () => {
   it('nodeToLayoutNode populates activity (defaults to {})', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const before = nodeToLayoutNode(store.getNode(asNodeId('p'))!);
     expect(before.activity).toEqual({});
 
@@ -128,9 +190,29 @@ describe('layout-node-adapter — activity passthrough', () => {
 
   it('runStrategyForContainer exposes activity to LayoutNodes (via getLayoutNodes)', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('p2'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p2'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.showNode(asNodeId('p1'));
     store.showNode(asNodeId('p2'));
     store.patchActivity(asNodeId('p2'), { lastAt: 100 });
@@ -143,14 +225,28 @@ describe('runStrategyForContainer', () => {
   it('runs stripStrategy on a container, returns NodeId-keyed placements', () => {
     const s = new Store();
     s.registerNode(
-      createZone({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'y', fill: true, defaultItemSize: 50 } },
         id: asNodeId('z'),
-        strategyId: 'strip',
-        config: { axis: 'y', fill: true, defaultItemSize: 50 },
       }),
     );
-    s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-    s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const initial = stripStrategy.initialState
       ? stripStrategy.initialState([{ id: 'a' }, { id: 'b' }])
       : undefined;

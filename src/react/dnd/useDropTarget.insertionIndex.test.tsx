@@ -1,7 +1,7 @@
 import { cleanup, render } from '@testing-library/react';
 import { useEffect, useRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from '../../index.js';
+import { asNodeId, createNode, Store } from '../../index.js';
 import { Provider } from '../Provider.js';
 import { DragProvider, useDragController } from './DragProvider.js';
 import { useDropTarget } from './useDropTarget.js';
@@ -49,9 +49,29 @@ function ControllerCapture({
 describe('useDropTarget — getInsertionIndex', () => {
   it('passes the insertion index callback through to DragController', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('src'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('tgt'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('tgt'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const spy = vi.fn(() => 7);
     let controller: ReturnType<typeof useDragController> | null = null;
     render(

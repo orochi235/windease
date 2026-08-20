@@ -1,7 +1,7 @@
 import { cleanup, render } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { asNodeId, createPanel, createZone, LockedError, Store } from '../index.js';
+import { asNodeId, createNode, LockedError, Store } from '../index.js';
 import { Provider } from './Provider.js';
 import { Panel, Zone } from './presets.js';
 import { useNodeBinding } from './useNodeBinding.js';
@@ -18,7 +18,9 @@ function TestPanel(props: {
     parentId: asNodeId(props.parentId),
     kindHintForAutoId: 'panel',
     factory: (id, parentId) =>
-      createPanel({
+      createNode({
+        kind: 'panel',
+        focus: true,
         id,
         parentId: parentId ?? asNodeId(props.parentId),
         ...(props.meta !== undefined ? { meta: props.meta } : {}),
@@ -32,7 +34,13 @@ function TestPanel(props: {
 
 function setupStore(): Store {
   const s = new Store();
-  s.registerNode(createZone({ id: asNodeId('root'), strategyId: 'stack', config: {} }));
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: {} },
+      id: asNodeId('root'),
+    }),
+  );
   return s;
 }
 
@@ -149,7 +157,14 @@ describe('useNodeBinding', () => {
 
     it('a direct user-path store.unregisterNode is still blocked under lock.destroy', () => {
       const store = setupStore();
-      store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('root') }));
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: asNodeId('p'),
+          parentId: asNodeId('root'),
+        }),
+      );
       store.setLock(asNodeId('p'), { destroy: true });
       expect(() => store.unregisterNode(asNodeId('p'))).toThrow(LockedError);
     });

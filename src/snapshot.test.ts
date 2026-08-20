@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPanel, createZone } from './constructors.js';
+import { createNode } from './constructors.js';
 import { WindeaseError } from './errors.js';
 import { asNodeId } from './node.js';
 import { deserialize, type SerializedStore, serialize } from './snapshot.js';
@@ -8,10 +8,16 @@ import { Store } from './store.js';
 function buildSampleStore(): Store {
   const s = new Store();
   s.registerNode(
-    createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'vertical' } }),
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: { axis: 'vertical' } },
+      id: asNodeId('z'),
+    }),
   );
   s.registerNode(
-    createPanel({
+    createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('p1'),
       parentId: asNodeId('z'),
       meta: { title: 'one' },
@@ -19,13 +25,22 @@ function buildSampleStore(): Store {
     }),
   );
   s.registerNode(
-    createPanel({
+    createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('p2'),
       parentId: asNodeId('z'),
       container: { strategyId: 'stack', config: {} },
     }),
   );
-  s.registerNode(createPanel({ id: asNodeId('leaf'), parentId: asNodeId('p2') }));
+  s.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
+      id: asNodeId('leaf'),
+      parentId: asNodeId('p2'),
+    }),
+  );
   return s;
 }
 
@@ -44,8 +59,21 @@ describe('serialize / deserialize — v4 round-trip', () => {
 
   it('round-trips focus', () => {
     const s = new Store();
-    s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    s.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     s.focusNode(asNodeId('p'));
     const snap = serialize(s);
     expect(snap.focusedId).toBe('p');
@@ -56,7 +84,13 @@ describe('serialize / deserialize — v4 round-trip', () => {
 
   it('round-trips container state (e.g. a resize ratio)', () => {
     const s = new Store();
-    s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'split', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'split', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
     s.setContainerState(asNodeId('z'), { ratio: 0.7 });
     const snap = serialize(s);
     const zoneSnap = snap.nodes.find((n) => n.id === 'z');
@@ -192,8 +226,21 @@ describe('deserialize — rejects v1 snapshots', () => {
 describe('snapshot v3 — activity', () => {
   it('round-trips activity verbatim', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.patchActivity(asNodeId('p'), { busy: true, lastAt: 1234 });
     const snap = serialize(store);
     const pSerialized = snap.nodes.find((n) => n.id === 'p')!;
@@ -205,16 +252,42 @@ describe('snapshot v3 — activity', () => {
 
   it('omits activity from snapshot when empty', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const snap = serialize(store);
     expect(snap.nodes.find((n) => n.id === 'p')!.activity).toBeUndefined();
   });
 
   it('omits activity after setActivity({}) clears it', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.patchActivity(asNodeId('p'), { busy: true });
     store.setActivity(asNodeId('p'), {});
     const snap = serialize(store);
@@ -225,12 +298,18 @@ describe('snapshot v3 — activity', () => {
 describe('serialize — groups + recursion', () => {
   it('serializes a group inside a zone', () => {
     const s = new Store();
-    s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    const groupNode = createZone({
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    const groupNode = createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: { axis: 'horizontal' } },
       id: asNodeId('g'),
       parentId: asNodeId('z'),
-      strategyId: 'stack',
-      config: { axis: 'horizontal' },
     });
     groupNode.kind = 'group';
     s.registerNode(groupNode);
@@ -249,9 +328,17 @@ describe('serialize — groups + recursion', () => {
 describe('snapshot — placement.size and hints.maxSize', () => {
   it('round-trips placement.size on a membership', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
-      createPanel({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: asNodeId('a'),
         parentId: asNodeId('z'),
         placement: { size: { h: 180 } },
@@ -267,9 +354,17 @@ describe('snapshot — placement.size and hints.maxSize', () => {
 
   it('round-trips hints.maxSize', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
-      createPanel({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: asNodeId('a'),
         parentId: asNodeId('z'),
         hints: { minSize: { w: 10, h: 10 }, maxSize: { w: 400, h: 400 } },
@@ -284,8 +379,21 @@ describe('snapshot — placement.size and hints.maxSize', () => {
 describe('snapshot v4 — lock round-trip', () => {
   it('round-trips a single-axis lock', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.setLock(asNodeId('p'), { destroy: true });
     const snap = serialize(store);
     expect(snap.nodes.find((n) => n.id === 'p')?.lock).toEqual({ destroy: true });
@@ -295,8 +403,21 @@ describe('snapshot v4 — lock round-trip', () => {
 
   it('round-trips lock(true) resolved to all supported axes', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.setLock(asNodeId('p'), true);
     const snap = serialize(store);
     const restored = deserialize(snap);
@@ -305,8 +426,21 @@ describe('snapshot v4 — lock round-trip', () => {
 
   it('omits lock and pinned from a node that has neither', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const snap = serialize(store);
     const pSnap = snap.nodes.find((n) => n.id === 'p');
     expect(pSnap?.lock).toBeUndefined();
@@ -317,9 +451,29 @@ describe('snapshot v4 — lock round-trip', () => {
 describe('snapshot v4 — pinned round-trip', () => {
   it('round-trips a held index', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('p2'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p2'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.setPinned(asNodeId('p1'), 0);
     const snap = serialize(store);
     expect(snap.version).toBe(5);
@@ -546,7 +700,13 @@ describe('deserialize — capability filtering on lock (defense against malforme
 describe('deserialize — in-place restore with a destroy-locked root', () => {
   it('does not throw when the target store has a destroy-locked root', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
     store.setLock(asNodeId('z'), { destroy: true });
     const snap = serialize(store);
     expect(() => deserialize(store, snap)).not.toThrow();

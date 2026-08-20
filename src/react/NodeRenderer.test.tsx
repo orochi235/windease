@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from '../index.js';
+import { asNodeId, createNode, Store } from '../index.js';
 import { type ChromeMap, Root } from './NodeRenderer.js';
 
 const chrome: ChromeMap = {
@@ -25,12 +25,30 @@ const chrome: ChromeMap = {
 describe('Root', () => {
   it('renders a zone with two panels via chrome dispatch', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
-      createPanel({ id: asNodeId('a'), parentId: asNodeId('z'), meta: { title: 'A' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
     );
     store.registerNode(
-      createPanel({ id: asNodeId('b'), parentId: asNodeId('z'), meta: { title: 'B' } }),
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+        meta: { title: 'A' },
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+        meta: { title: 'B' },
+      }),
     );
     const { getByTestId } = render(<Root store={store} chrome={chrome} />);
     expect(getByTestId('zone-z')).toBeDefined();
@@ -40,9 +58,17 @@ describe('Root', () => {
 
   it('recursive panel renders children inside its chrome', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
-      createPanel({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: asNodeId('tray'),
         parentId: asNodeId('z'),
         meta: { title: 'Tray' },
@@ -50,7 +76,13 @@ describe('Root', () => {
       }),
     );
     store.registerNode(
-      createPanel({ id: asNodeId('leaf'), parentId: asNodeId('tray'), meta: { title: 'Leaf' } }),
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('leaf'),
+        parentId: asNodeId('tray'),
+        meta: { title: 'Leaf' },
+      }),
     );
     const { getByTestId } = render(<Root store={store} chrome={chrome} />);
     const tray = getByTestId('panel-tray');
@@ -60,9 +92,29 @@ describe('Root', () => {
 
   it('hidden nodes do not render', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.showNode(asNodeId('a'));
     store.showNode(asNodeId('b'));
     store.hideNode(asNodeId('b'));
@@ -73,8 +125,21 @@ describe('Root', () => {
 
   it('chrome can be a single function instead of a kind-keyed map', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const single = ({ node, children }: import('./NodeRenderer.js').ChromeArgs) => (
       <div data-testid={`x-${node.id}`}>{children}</div>
     );
@@ -85,8 +150,21 @@ describe('Root', () => {
 
   it('map chrome falls back to "default" when no kind handler matches', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const onlyDefault: ChromeMap = {
       default: ({ node, children }) => <div data-testid={`d-${node.id}`}>{children}</div>,
     };

@@ -2,14 +2,7 @@ export default { title: 'Playground' };
 
 import type { Story } from '@ladle/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  gridStrategy,
-  Store,
-  stripStrategy,
-} from '../../index.js';
+import { asNodeId, createNode, gridStrategy, Store, stripStrategy } from '../../index.js';
 import {
   type ChromeMap,
   Container,
@@ -38,9 +31,17 @@ function makeStore(): Store {
   const s = new Store();
   // Root arranges three sub-zones: main+dock vertical on the left, sidebar
   // on the right — built with store.split rather than a fixed tree literal.
-  s.registerNode(createZone({ id: ROOT, strategyId: 'strip', config: { axis: 'x', gap: 6 } }));
   s.registerNode(
-    createPanel({
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'strip', config: { axis: 'x', gap: 6 } },
+      id: ROOT,
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
       id: MAIN,
       parentId: ROOT,
       meta: { title: 'Main' },
@@ -67,7 +68,9 @@ function makeStore(): Store {
   ) => {
     const nid = asNodeId(id);
     s.registerNode(
-      createPanel({
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: nid,
         parentId: parent,
         meta: { title },
@@ -83,7 +86,9 @@ function makeStore(): Store {
   const seedControls = (id: string, parent: ReturnType<typeof asNodeId>, title: string) => {
     const nid = asNodeId(id);
     s.registerNode(
-      createPanel({
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: nid,
         parentId: parent,
         meta: { title, kind: 'controls' },
@@ -139,7 +144,9 @@ export const Playground: Story = () => {
             ? { preferredSize: { w: 100, h: 0 } }
             : undefined;
       store.registerNode(
-        createPanel({
+        createNode({
+          kind: 'panel',
+          focus: true,
           id,
           parentId: zone,
           meta: { title },

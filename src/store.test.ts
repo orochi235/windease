@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createPanel, createZone } from './constructors.js';
+import { createNode } from './constructors.js';
 import {
   CapabilityMissingError,
   CycleError,
@@ -20,39 +20,90 @@ function id(s: string): NodeId {
 describe('Store — register / unregister', () => {
   it('registers a zone as a root node', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     expect(s.rootIds).toEqual(['z']);
     expect(s.getNode(id('z'))?.kind).toBe('zone');
   });
 
   it('registers a panel under a zone, appending to childOrder', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('p1'), parentId: id('z') }));
-    s.registerNode(createPanel({ id: id('p2'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p1'),
+        parentId: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p2'),
+        parentId: id('z'),
+      }),
+    );
     expect(s.getContainerView(id('z'))?.childOrder).toEqual(['p1', 'p2']);
   });
 
   it('throws DuplicateNodeError on re-register', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     expect(() =>
-      s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} })),
+      s.registerNode(
+        createNode({
+          kind: 'zone',
+          container: { strategyId: 'grid', config: {} },
+          id: id('z'),
+        }),
+      ),
     ).toThrow(DuplicateNodeError);
   });
 
   it('throws NodeNotFoundError when parent does not exist', () => {
     const s = fresh();
-    expect(() => s.registerNode(createPanel({ id: id('p1'), parentId: id('missing') }))).toThrow(
-      NodeNotFoundError,
-    );
+    expect(() =>
+      s.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: id('p1'),
+          parentId: id('missing'),
+        }),
+      ),
+    ).toThrow(NodeNotFoundError);
   });
 
   it('emits node.registered', () => {
     const s = fresh();
     const cb = vi.fn();
     s.events.on('node.registered', cb);
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     expect(cb).toHaveBeenCalledWith({ id: 'z' });
   });
 
@@ -60,8 +111,21 @@ describe('Store — register / unregister', () => {
     const s = fresh();
     const cb = vi.fn();
     s.events.on('node.unregistered', cb);
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p'),
+        parentId: id('z'),
+      }),
+    );
     s.unregisterNode(id('p'));
     expect(s.getNode(id('p'))).toBeUndefined();
     expect(s.getContainerView(id('z'))?.childOrder).toEqual([]);
@@ -70,16 +134,38 @@ describe('Store — register / unregister', () => {
 
   it('cascade-destroys descendants depth-first, leaves first', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
     s.registerNode(
-      createPanel({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: id('tray'),
         parentId: id('z'),
         container: { strategyId: 'stack', config: {} },
       }),
     );
-    s.registerNode(createPanel({ id: id('a'), parentId: id('tray') }));
-    s.registerNode(createPanel({ id: id('b'), parentId: id('tray') }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('a'),
+        parentId: id('tray'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('b'),
+        parentId: id('tray'),
+      }),
+    );
 
     const order: string[] = [];
     s.events.on('node.unregistered', (e) => order.push(`unreg:${e.id}`));
@@ -99,10 +185,36 @@ describe('Store — register / unregister', () => {
 describe('Store — moveNode', () => {
   function buildTwoZones(): Store {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z1'), strategyId: 'grid', config: {} }));
-    s.registerNode(createZone({ id: id('z2'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('p1'), parentId: id('z1') }));
-    s.registerNode(createPanel({ id: id('p2'), parentId: id('z1') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z1'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z2'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p1'),
+        parentId: id('z1'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p2'),
+        parentId: id('z1'),
+      }),
+    );
     return s;
   }
 
@@ -135,17 +247,39 @@ describe('Store — moveNode', () => {
 
   it('honors `at` insertion index', () => {
     const s = buildTwoZones();
-    s.registerNode(createPanel({ id: id('p3'), parentId: id('z2') }));
-    s.registerNode(createPanel({ id: id('p4'), parentId: id('z2') }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p3'),
+        parentId: id('z2'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p4'),
+        parentId: id('z2'),
+      }),
+    );
     s.moveNode(id('p1'), id('z2'), 1);
     expect(s.getContainerView(id('z2'))?.childOrder).toEqual(['p3', 'p1', 'p4']);
   });
 
   it('throws CycleError on self-move', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
     s.registerNode(
-      createPanel({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: id('p'),
         parentId: id('z'),
         container: { strategyId: 'stack', config: {} },
@@ -156,16 +290,26 @@ describe('Store — moveNode', () => {
 
   it('throws CycleError on moving under a descendant', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
     s.registerNode(
-      createPanel({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: id('a'),
         parentId: id('z'),
         container: { strategyId: 'stack', config: {} },
       }),
     );
     s.registerNode(
-      createPanel({
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: id('b'),
         parentId: id('a'),
         container: { strategyId: 'stack', config: {} },
@@ -194,10 +338,37 @@ describe('Store — moveNode', () => {
 describe('Store — reorder + pinned slots', () => {
   it('reorderInParent emits node.reordered with from/to indices', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('a'), parentId: id('z') }));
-    s.registerNode(createPanel({ id: id('b'), parentId: id('z') }));
-    s.registerNode(createPanel({ id: id('c'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('a'),
+        parentId: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('b'),
+        parentId: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('c'),
+        parentId: id('z'),
+      }),
+    );
     const cb = vi.fn();
     s.events.on('node.reordered', cb);
     s.reorderInParent(id('c'), 0);
@@ -212,10 +383,37 @@ describe('Store — reorder + pinned slots', () => {
 
   it('a pinned child holds its slot against a third-party reorder', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('a'), parentId: id('z') }));
-    s.registerNode(createPanel({ id: id('b'), parentId: id('z') }));
-    s.registerNode(createPanel({ id: id('c'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('a'),
+        parentId: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('b'),
+        parentId: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('c'),
+        parentId: id('z'),
+      }),
+    );
     s.setPinned(id('a'), 0);
     // Try to put c before a — a holds index 0, so c lands after it.
     s.reorderInParent(id('c'), 0);
@@ -227,8 +425,22 @@ describe('Store — reorder + pinned slots', () => {
 describe('Store — placement / meta', () => {
   it('patchPlacement merges and undefined deletes; emits batched changes', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('p'), parentId: id('z'), placement: { a: 1 } }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p'),
+        parentId: id('z'),
+        placement: { a: 1 },
+      }),
+    );
     const cb = vi.fn();
     s.events.on('node.placementChanged', cb);
     s.patchPlacement(id('p'), { a: 2, b: 3 });
@@ -244,14 +456,25 @@ describe('Store — placement / meta', () => {
 
   it('patchPlacement throws when membership is missing', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     expect(() => s.patchPlacement(id('z'), { a: 1 })).toThrow(CapabilityMissingError);
   });
 
   it('setMeta merges and undefined deletes', () => {
     const s = fresh();
     s.registerNode(
-      createZone({ id: id('z'), strategyId: 'grid', config: {}, meta: { title: 'x' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+        meta: { title: 'x' },
+      }),
     );
     s.setMeta(id('z'), { title: 'y', desc: 'd' });
     expect(s.getMeta(id('z'))).toEqual({ title: 'y', desc: 'd' });
@@ -261,7 +484,13 @@ describe('Store — placement / meta', () => {
 describe('Store — container config', () => {
   it('merge-patches object configs; emits configChanged', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: { cols: 2, rows: 3 } }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols: 2, rows: 3 } },
+        id: id('z'),
+      }),
+    );
     const cb = vi.fn();
     s.events.on('container.configChanged', cb);
     s.updateContainerConfig(id('z'), { cols: 4 });
@@ -271,8 +500,21 @@ describe('Store — container config', () => {
 
   it('setAllowsPinning false clears held pins', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p'),
+        parentId: id('z'),
+      }),
+    );
     s.setPinned(id('p'), 0);
     s.setAllowsPinning(id('z'), false);
     expect(s.getPlacement(id('p'))).toEqual({});
@@ -283,8 +525,21 @@ describe('Store — container config', () => {
 describe('Store — lifecycle', () => {
   it('show / hide transition lifecycle FSM', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p'),
+        parentId: id('z'),
+      }),
+    );
     expect(s.getNode(id('p'))?.lifecycle.state).toBe('mounted');
     s.showNode(id('p'));
     expect(s.getNode(id('p'))?.lifecycle.state).toBe('visible');
@@ -296,9 +551,29 @@ describe('Store — lifecycle', () => {
 describe('Store — focus', () => {
   it('focusNode blurs previous before focusing new', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('a'), parentId: id('z') }));
-    s.registerNode(createPanel({ id: id('b'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('a'),
+        parentId: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('b'),
+        parentId: id('z'),
+      }),
+    );
     const events: StoreEvents['node.transitioned'][] = [];
     s.events.on('node.transitioned', (e) => {
       if (e.machine === 'focus') events.push(e);
@@ -315,14 +590,33 @@ describe('Store — focus', () => {
 
   it('focusNode on a node without focus capability throws', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     expect(() => s.focusNode(id('z'))).toThrow(CapabilityMissingError);
   });
 
   it('unregistering the focused node clears focusedId', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p'),
+        parentId: id('z'),
+      }),
+    );
     s.focusNode(id('p'));
     s.unregisterNode(id('p'));
     expect(s.focusedId).toBeNull();
@@ -332,38 +626,106 @@ describe('Store — focus', () => {
 describe('Store — selectors', () => {
   it('getChildren returns nodes in childOrder order', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('a'), parentId: id('z') }));
-    s.registerNode(createPanel({ id: id('b'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('a'),
+        parentId: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('b'),
+        parentId: id('z'),
+      }),
+    );
     expect(s.getChildren(id('z')).map((n) => n.id)).toEqual(['a', 'b']);
   });
 
   it('getParent returns the parent node', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p'),
+        parentId: id('z'),
+      }),
+    );
     expect(s.getParent(id('p'))?.id).toBe('z');
   });
 
   it('getAncestors returns root-to-self chain', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
     s.registerNode(
-      createPanel({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: id('tray'),
         parentId: id('z'),
         container: { strategyId: 'stack', config: {} },
       }),
     );
-    s.registerNode(createPanel({ id: id('leaf'), parentId: id('tray') }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('leaf'),
+        parentId: id('tray'),
+      }),
+    );
     expect(s.getAncestors(id('leaf')).map((n) => n.id)).toEqual(['z', 'tray', 'leaf']);
   });
 
   it('isContainer / isMember / hasFocus', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createZone({ id: id('g'), parentId: id('z'), strategyId: 'stack', config: {} }));
-    s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: id('g'),
+        parentId: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p'),
+        parentId: id('z'),
+      }),
+    );
     expect(s.isContainer(id('z'))).toBe(true);
     expect(s.isContainer(id('g'))).toBe(true);
     expect(s.isContainer(id('p'))).toBe(false);
@@ -381,7 +743,13 @@ describe('Store — subscribe', () => {
     const s = fresh();
     const cb = vi.fn();
     s.subscribe(cb);
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     expect(cb).not.toHaveBeenCalled(); // batched to microtask
     await Promise.resolve();
     expect(cb).toHaveBeenCalled();
@@ -391,13 +759,25 @@ describe('Store — subscribe', () => {
 describe('Store — activity', () => {
   it('getActivity returns {} when unset', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     expect(s.getActivity(id('z'))).toEqual({});
   });
 
   it('setActivity replaces the entire bag and emits a single event', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     s.patchActivity(id('z'), { busy: true, count: 1 });
     const cb = vi.fn();
     s.events.on('node.activityChanged', cb);
@@ -416,7 +796,13 @@ describe('Store — activity', () => {
 
   it('setActivity({}) clears the bag', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     s.patchActivity(id('z'), { busy: true });
     s.setActivity(id('z'), {});
     expect(s.getActivity(id('z'))).toEqual({});
@@ -425,7 +811,13 @@ describe('Store — activity', () => {
 
   it('patchActivity merges; undefined keys delete', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     const cb = vi.fn();
     s.events.on('node.activityChanged', cb);
     s.patchActivity(id('z'), { busy: true, count: 1 });
@@ -445,7 +837,13 @@ describe('Store — activity', () => {
 
   it('no-op patches do not emit', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     s.patchActivity(id('z'), { busy: true });
     const cb = vi.fn();
     s.events.on('node.activityChanged', cb);
@@ -455,7 +853,13 @@ describe('Store — activity', () => {
 
   it('no-op setActivity (same keys + values) does not emit', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     s.setActivity(id('z'), { busy: true });
     const cb = vi.fn();
     s.events.on('node.activityChanged', cb);
@@ -465,7 +869,13 @@ describe('Store — activity', () => {
 
   it('produces a fresh Node reference on change', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
     const before = s.getNode(id('z'));
     s.patchActivity(id('z'), { busy: true });
     const after = s.getNode(id('z'));
@@ -487,17 +897,46 @@ describe('Store — activity', () => {
 describe('Store — integration', () => {
   it('builds and rearranges a 3-level tree', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
     s.registerNode(
-      createPanel({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: id('tray'),
         parentId: id('z'),
         container: { strategyId: 'stack', config: {} },
       }),
     );
-    s.registerNode(createPanel({ id: id('leaf1'), parentId: id('tray') }));
-    s.registerNode(createPanel({ id: id('leaf2'), parentId: id('tray') }));
-    s.registerNode(createPanel({ id: id('other'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('leaf1'),
+        parentId: id('tray'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('leaf2'),
+        parentId: id('tray'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('other'),
+        parentId: id('z'),
+      }),
+    );
 
     expect(s.getContainerView(id('z'))?.childOrder).toEqual(['tray', 'other']);
     expect(s.getContainerView(id('tray'))?.childOrder).toEqual(['leaf1', 'leaf2']);
@@ -513,7 +952,13 @@ describe('Store — integration', () => {
 describe('Store — container state (side-channel)', () => {
   it('round-trips state via get/setContainerState', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'split', config: {} },
+        id: id('z'),
+      }),
+    );
     expect(s.getContainerState(id('z'))).toBeUndefined();
     s.setContainerState(id('z'), { ratio: 0.7 });
     expect(s.getContainerState(id('z'))).toEqual({ ratio: 0.7 });
@@ -521,7 +966,13 @@ describe('Store — container state (side-channel)', () => {
 
   it('emits container.stateChanged on write', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'split', config: {} },
+        id: id('z'),
+      }),
+    );
     const spy = vi.fn();
     s.events.on('container.stateChanged', spy);
     s.setContainerState(id('z'), { ratio: 0.4 });
@@ -530,7 +981,13 @@ describe('Store — container state (side-channel)', () => {
 
   it('skips emit + notify when state reference is unchanged', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'split', config: {} },
+        id: id('z'),
+      }),
+    );
     const state = { ratio: 0.5 };
     s.setContainerState(id('z'), state);
     const spy = vi.fn();
@@ -541,23 +998,54 @@ describe('Store — container state (side-channel)', () => {
 
   it('throws CapabilityMissingError for nodes without container', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: id('p'),
+        parentId: id('z'),
+      }),
+    );
     expect(() => s.setContainerState(id('p'), { ratio: 0.5 })).toThrow(CapabilityMissingError);
   });
 
   it('clears state when the container is unregistered', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'split', config: {} },
+        id: id('z'),
+      }),
+    );
     s.setContainerState(id('z'), { ratio: 0.7 });
     s.unregisterNode(id('z'));
-    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'split', config: {} },
+        id: id('z'),
+      }),
+    );
     expect(s.getContainerState(id('z'))).toBeUndefined();
   });
 
   it('stores state on node.container.state (so snapshot picks it up)', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'split', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'split', config: {} },
+        id: id('z'),
+      }),
+    );
     s.setContainerState(id('z'), { ratio: 0.3 });
     expect(s.getNode(id('z'))?.container?.state).toEqual({ ratio: 0.3 });
   });
@@ -566,7 +1054,13 @@ describe('Store — container state (side-channel)', () => {
 describe('Store — accept / dragOut locks', () => {
   it('setLock({ accept: true }) locks drop-acceptance and emits node.lockChanged', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'stack', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: id('z'),
+      }),
+    );
     const spy = vi.fn();
     s.events.on('node.lockChanged', spy);
     s.setLock(id('z'), { accept: true });
@@ -576,7 +1070,13 @@ describe('Store — accept / dragOut locks', () => {
 
   it('setLock({ dragOut: true }) locks drag-out and emits node.lockChanged', () => {
     const s = fresh();
-    s.registerNode(createZone({ id: id('z'), strategyId: 'stack', config: {} }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: id('z'),
+      }),
+    );
     const spy = vi.fn();
     s.events.on('node.lockChanged', spy);
     s.setLock(id('z'), { dragOut: true });

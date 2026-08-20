@@ -2,7 +2,7 @@ import { act, cleanup, render, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { useRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createPanel, createZone } from '../constructors.js';
+import { createNode } from '../constructors.js';
 import { asNodeId, LockedError, Store, stripStrategy } from '../index.js';
 import { DragProvider, useDragController } from './dnd/DragProvider.js';
 import { useDragHandle } from './dnd/useDragHandle.js';
@@ -28,9 +28,29 @@ function makeStripStore(): {
   const z = asNodeId('z');
   const a = asNodeId('a');
   const b = asNodeId('b');
-  store.registerNode(createZone({ id: z, strategyId: 'strip', config: { axis: 'x' } }));
-  store.registerNode(createPanel({ id: a, parentId: z }));
-  store.registerNode(createPanel({ id: b, parentId: z }));
+  store.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'strip', config: { axis: 'x' } },
+      id: z,
+    }),
+  );
+  store.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
+      id: a,
+      parentId: z,
+    }),
+  );
+  store.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
+      id: b,
+      parentId: z,
+    }),
+  );
   store.showNode(a);
   store.showNode(b);
   return { store, z, a, b };
@@ -144,9 +164,22 @@ describe('lock — dispatchAffordance refusal', () => {
     const b = asNodeId('b');
     const c = asNodeId('c');
     const d = asNodeId('d');
-    store.registerNode(createZone({ id: z, strategyId: 'strip', config: { axis: 'x' } }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x' } },
+        id: z,
+      }),
+    );
     for (const id of [a, b, c, d]) {
-      store.registerNode(createPanel({ id, parentId: z }));
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id,
+          parentId: z,
+        }),
+      );
       store.showNode(id);
     }
     store.patchPlacement(d, { size: { w: 50 } });
@@ -200,8 +233,21 @@ describe('lock — useDragHandle', () => {
 
   it('a move-unlocked node begins a drag (control)', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const { result } = renderHook(
       () => ({ controller: useDragController(), handlers: useDragHandle(asNodeId('p')) }),
       { wrapper: wrapper(store) },
@@ -214,8 +260,21 @@ describe('lock — useDragHandle', () => {
 
   it('a move-locked node yields no-op drag handlers', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.setLock(asNodeId('p'), { move: true });
     const { result } = renderHook(
       () => ({ controller: useDragController(), handlers: useDragHandle(asNodeId('p')) }),

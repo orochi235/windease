@@ -11,8 +11,7 @@ import {
 import type { ChildSort } from '../child-sort.js';
 import type { Node, NodeId, Store } from '../index.js';
 import {
-  createPanel,
-  createZone,
+  createNode,
   reconcileChildOrder,
   reconcileContainerState,
   reconcilePinned,
@@ -113,9 +112,11 @@ export function Panel(props: PanelProps) {
           `windease: <Panel id="${id}"> needs a parent — wrap it in a <Zone> or pass parentId explicitly.`,
         );
       }
-      return createPanel({
+      return createNode({
         id,
         parentId,
+        focus: true,
+        kind: 'panel',
         meta: props.meta,
         placement: props.placement,
         order: props.order,
@@ -248,16 +249,14 @@ export function Zone(props: ZoneProps) {
       if (!props.strategyId) {
         throw new Error(`windease: <Zone id="${id}"> requires a strategyId prop.`);
       }
-      const node = createZone({
+      return createNode({
         id,
-        strategyId: props.strategyId,
-        config: props.config,
+        kind: props.kind ?? 'zone',
+        container: { strategyId: props.strategyId, config: props.config },
         parentId: parentId ?? undefined,
         meta: props.meta,
         order: props.order,
       });
-      if (props.kind !== undefined) node.kind = props.kind;
-      return node;
     },
     reconcile: (store, id) => {
       const base = makeReconciler(props);

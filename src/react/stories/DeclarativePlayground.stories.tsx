@@ -1,6 +1,6 @@
 import type { Story } from '@ladle/react';
 import { useEffect, useMemo, useState } from 'react';
-import { asNodeId, createPanel, gridStrategy, Store } from '../../index.js';
+import { asNodeId, createNode, gridStrategy, Store } from '../../index.js';
 import {
   DragProvider,
   defaultDragOverlay,
@@ -24,7 +24,9 @@ export const MixedProvenance: Story = () => {
   useEffect(() => {
     if (store.getNode(asNodeId('root')) && !store.getNode(asNodeId('imp-1'))) {
       store.registerNode(
-        createPanel({
+        createNode({
+          kind: 'panel',
+          focus: true,
           id: asNodeId('imp-1'),
           parentId: asNodeId('root'),
           meta: { title: 'imp-1' },
@@ -33,7 +35,9 @@ export const MixedProvenance: Story = () => {
     }
     if (store.getNode(asNodeId('root')) && !store.getNode(asNodeId('imp-2'))) {
       store.registerNode(
-        createPanel({
+        createNode({
+          kind: 'panel',
+          focus: true,
           id: asNodeId('imp-2'),
           parentId: asNodeId('root'),
           meta: { title: 'imp-2' },
@@ -73,7 +77,9 @@ export const MixedProvenance: Story = () => {
               setImpCount(next);
               const id = asNodeId(`imp-${next}`);
               store.registerNode(
-                createPanel({
+                createNode({
+                  kind: 'panel',
+                  focus: true,
                   id,
                   parentId: asNodeId('root'),
                   meta: { title: `imp-${next}` },
@@ -92,7 +98,9 @@ export const MixedProvenance: Story = () => {
             onAttemptCollision={() => {
               try {
                 store.registerNode(
-                  createPanel({
+                  createNode({
+                    kind: 'panel',
+                    focus: true,
                     id: asNodeId('jsx-a'),
                     parentId: asNodeId('root'),
                   }),

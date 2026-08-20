@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPanel, createZone } from './constructors.js';
+import { createNode } from './constructors.js';
 import { ContainerHost } from './container-host.js';
 import { stripStrategy } from './layout/strip.js';
 import type { StrategyRegistry } from './layout-types.js';
@@ -11,10 +11,23 @@ const Z = asNodeId('z');
 
 function build(): Store {
   const s = new Store();
-  s.registerNode(createZone({ id: Z, strategyId: 'stack', config: { axis: 'y', fill: true } }));
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
+      id: Z,
+    }),
+  );
   for (const id of ['p1', 'p2']) {
     const nid = asNodeId(id);
-    s.registerNode(createPanel({ id: nid, parentId: Z }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: nid,
+        parentId: Z,
+      }),
+    );
     s.showNode(nid);
   }
   return s;
@@ -59,7 +72,14 @@ describe('ContainerHost', () => {
       calls += 1;
     });
     const p3 = asNodeId('p3');
-    store.registerNode(createPanel({ id: p3, parentId: Z }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: p3,
+        parentId: Z,
+      }),
+    );
     store.showNode(p3);
     // The value of the whole host: mutate, then read on the next line.
     expect(calls).toBeGreaterThan(0);
@@ -93,7 +113,14 @@ describe('ContainerHost', () => {
       calls += 1;
     });
     const p3 = asNodeId('p3');
-    store.registerNode(createPanel({ id: p3, parentId: Z }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: p3,
+        parentId: Z,
+      }),
+    );
     store.showNode(p3);
     store.reorderInParent(p3, 0);
     // Several synchronous events plus the later catch-all, but nobody has
@@ -114,7 +141,14 @@ describe('ContainerHost', () => {
       calls += 1;
     });
     h.destroy();
-    store.registerNode(createPanel({ id: asNodeId('p9'), parentId: Z }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p9'),
+        parentId: Z,
+      }),
+    );
     await new Promise((r) => setTimeout(r, 20));
     expect(calls).toBe(0);
   });

@@ -2,8 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   asNodeId,
   configureTrace,
-  createPanel,
-  createZone,
+  createNode,
   deserialize,
   gridStrategy,
   HistoryController,
@@ -29,8 +28,21 @@ function layoutOf(store: Store, parentId: NodeId, container = { w: 1200, h: 800 
 
 function seeded(): Store {
   const store = new Store();
-  store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }));
-  store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+  store.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'strip', config: { axis: 'x' } },
+      id: asNodeId('z'),
+    }),
+  );
+  store.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
+      id: asNodeId('p1'),
+      parentId: asNodeId('z'),
+    }),
+  );
   return store;
 }
 
@@ -145,11 +157,36 @@ describe('Store.split — wrap mode', () => {
   it('interposes a group at the target index and puts the target at 0', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x' } },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('p1'), {
       direction: 'y',
@@ -217,10 +254,28 @@ describe('Store.split — wrap mode', () => {
   it('transfers a pinned index to the group', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x' } },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.setPinned(asNodeId('p1'), 0);
 
     store.split(asNodeId('p1'), {
@@ -236,13 +291,17 @@ describe('Store.split — wrap mode', () => {
   it('wraps a group target the same way it wraps a panel', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x' } },
+        id: asNodeId('z'),
+      }),
     );
-    const inner = createZone({
+    const inner = createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: {} },
       id: asNodeId('inner'),
       parentId: asNodeId('z'),
-      strategyId: 'stack',
-      config: {},
     });
     inner.kind = 'group';
     store.registerNode(inner);
@@ -261,10 +320,28 @@ describe('Store.split — flatten mode', () => {
   it('inserts siblings after the target when the parent axis matches', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x' } },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('p1'), {
       direction: 'x',
@@ -285,8 +362,21 @@ describe('Store.split — flatten mode', () => {
 
   it('treats a strip with no explicit axis as x', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'strip', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('p1'), { direction: 'x', newIds: [asNodeId('p2')] });
 
@@ -306,8 +396,21 @@ describe('Store.split — flatten mode', () => {
 
   it('wraps rather than flattens when the parent is not a strip', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('p1'), {
       direction: 'x',
@@ -390,7 +493,13 @@ describe('Store.split — visibility', () => {
 
   it('shows the new panels when reconfiguring a root', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('z'), { direction: 'x', newIds: [asNodeId('p1')] });
 
@@ -401,7 +510,13 @@ describe('Store.split — visibility', () => {
 describe('Store.split — reconfigure mode', () => {
   it('makes an empty root the container and registers the new panels', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('z'), {
       direction: 'x',
@@ -416,7 +531,13 @@ describe('Store.split — reconfigure mode', () => {
 
   it('takes into - 1 newIds even at a root, so an empty root gains into - 1 children', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('z'), { direction: 'x', into: 3, newIds: [asNodeId('a'), asNodeId('b')] });
 
@@ -425,8 +546,21 @@ describe('Store.split — reconfigure mode', () => {
 
   it('keeps existing children ahead of the new ones', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('old'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('old'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('z'), { direction: 'y', newIds: [asNodeId('new')] });
 
@@ -435,7 +569,13 @@ describe('Store.split — reconfigure mode', () => {
 
   it('ignores groupId at a root', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('z'), {
       direction: 'x',
@@ -448,7 +588,11 @@ describe('Store.split — reconfigure mode', () => {
 
   it('gives a container-less root a container', () => {
     const store = new Store();
-    const orphan = createZone({ id: asNodeId('o'), strategyId: 'stack', config: {} });
+    const orphan = createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: {} },
+      id: asNodeId('o'),
+    });
     delete (orphan as { container?: unknown }).container;
     store.registerNode(orphan);
 
@@ -461,7 +605,11 @@ describe('Store.split — reconfigure mode', () => {
   it('merges over the existing config rather than replacing it', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 3, gap: 8 } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols: 3, gap: 8 } },
+        id: asNodeId('z'),
+      }),
     );
 
     store.split(asNodeId('z'), { direction: 'x', newIds: [asNodeId('p1')] });
@@ -524,9 +672,29 @@ describe("Store.split — direction 'both'", () => {
 
   it('replaces the target at its old index in the parent', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('p1'), {
       direction: 'both',
@@ -540,7 +708,13 @@ describe("Store.split — direction 'both'", () => {
 
   it('makes the target itself the outer container at a root', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('z'), {
       direction: 'both',
@@ -590,7 +764,13 @@ describe("Store.split — direction 'grid'", () => {
 
   it('reconfigures a root into a grid', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('z'), {
       direction: 'grid',
@@ -612,9 +792,20 @@ describe('Store.split — Task 3 nits', () => {
   it('reports flatten trace with the axis, like wrap', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x' } },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     configureTrace('store');
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -629,7 +820,13 @@ describe('Store.split — Task 3 nits', () => {
 describe('Store.setStrategy', () => {
   it('drops container state belonging to the outgoing strategy', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'split', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'split', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
     store.setContainerState(asNodeId('z'), { kind: 'leaf', id: 'old' });
 
     store.setStrategy(asNodeId('z'), 'strip');
@@ -639,7 +836,13 @@ describe('Store.setStrategy', () => {
 
   it('leaves state alone when the strategy is unchanged', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'strip', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
     store.setContainerState(asNodeId('z'), { keep: true });
 
     store.setStrategy(asNodeId('z'), 'strip');
@@ -649,7 +852,13 @@ describe('Store.setStrategy', () => {
 
   it('reconfiguring a split root clears its persisted strategy state', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'split', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'split', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
     store.setContainerState(asNodeId('z'), { kind: 'leaf', id: 'old' });
 
     store.split(asNodeId('z'), { direction: 'x', newIds: [asNodeId('p1')] });
@@ -661,8 +870,21 @@ describe('Store.setStrategy', () => {
 describe('Store.split — geometry', () => {
   it('fills the container on a two-pane x split', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('p1'), {
       direction: 'x',
@@ -703,8 +925,21 @@ describe('Store.split — geometry', () => {
 
   it('gives every pane non-zero width on a four-pane x split, not W/2^k', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('p1'), {
       direction: 'x',
@@ -771,8 +1006,21 @@ describe('Store.split — geometry', () => {
 
   it('honors an explicit fill: false override rather than hardcoding fill on', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     store.split(asNodeId('p1'), {
       direction: 'x',
@@ -791,11 +1039,36 @@ describe('Store.unsplit', () => {
   it('moves children up to the group index in order, then removes the group', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x' } },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.split(asNodeId('p1'), {
       direction: 'y',
       into: 3,
@@ -844,10 +1117,28 @@ describe('Store.unsplit', () => {
   it('returns a transferred pin to a sole surviving child', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x' } },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.setPinned(asNodeId('p1'), 0);
     store.split(asNodeId('p1'), {
       direction: 'y',

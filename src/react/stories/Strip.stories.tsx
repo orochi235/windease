@@ -2,7 +2,7 @@ export default { title: 'Strip' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import { asNodeId, createPanel, createZone, Store, stripStrategy } from '../../index.js';
+import { asNodeId, createNode, Store, stripStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
@@ -14,17 +14,19 @@ function makeStripStore(axis: 'x' | 'y', sizes: number[]): Store {
   const s = new Store();
   const zoneId = asNodeId(`strip-${axis}`);
   s.registerNode(
-    createZone({
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'strip', config: { axis, gap: 6, padding: 6 } },
       id: zoneId,
-      strategyId: 'strip',
-      config: { axis, gap: 6, padding: 6 },
     }),
   );
   sizes.forEach((size, i) => {
     const id = asNodeId(`tool-${axis}-${i + 1}`);
     const preferredSize = axis === 'x' ? { w: size, h: 0 } : { w: 0, h: size };
     s.registerNode(
-      createPanel({
+      createNode({
+        kind: 'panel',
+        focus: true,
         id,
         parentId: zoneId,
         hints: { preferredSize },

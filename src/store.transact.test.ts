@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from './index.js';
+import { asNodeId, createNode, Store } from './index.js';
 
 describe('Store.transact', () => {
   it('emits one begin/end pair around the callback', () => {
@@ -9,8 +9,21 @@ describe('Store.transact', () => {
     store.events.on('transaction.end', () => seen.push('end'));
 
     store.transact(() => {
-      store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'strip', config: {} }));
-      store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+      store.registerNode(
+        createNode({
+          kind: 'zone',
+          container: { strategyId: 'strip', config: {} },
+          id: asNodeId('z'),
+        }),
+      );
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: asNodeId('a'),
+          parentId: asNodeId('z'),
+        }),
+      );
     });
 
     expect(seen).toEqual(['begin', 'end']);
@@ -74,11 +87,24 @@ describe('Store.transact', () => {
 
   it('does not roll back mutations made before a throw', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'strip', config: {} }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
 
     expect(() =>
       store.transact(() => {
-        store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+        store.registerNode(
+          createNode({
+            kind: 'panel',
+            focus: true,
+            id: asNodeId('a'),
+            parentId: asNodeId('z'),
+          }),
+        );
         throw new Error('boom');
       }),
     ).toThrow();
@@ -125,9 +151,29 @@ describe('Store.transact', () => {
     });
 
     store.transact(() => {
-      store.registerNode(createZone({ id: asNodeId('z1'), strategyId: 'strip', config: {} }));
-      store.registerNode(createPanel({ id: asNodeId('a1'), parentId: asNodeId('z1') }));
-      store.registerNode(createPanel({ id: asNodeId('b1'), parentId: asNodeId('z1') }));
+      store.registerNode(
+        createNode({
+          kind: 'zone',
+          container: { strategyId: 'strip', config: {} },
+          id: asNodeId('z1'),
+        }),
+      );
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: asNodeId('a1'),
+          parentId: asNodeId('z1'),
+        }),
+      );
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: asNodeId('b1'),
+          parentId: asNodeId('z1'),
+        }),
+      );
     });
 
     await Promise.resolve();

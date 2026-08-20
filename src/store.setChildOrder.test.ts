@@ -1,13 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from './index.js';
+import { asNodeId, createNode, Store } from './index.js';
 
 describe('Store.setChildOrder', () => {
   it('applies a full reordering atomically', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('root'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('root') }));
-    store.registerNode(createPanel({ id: asNodeId('c'), parentId: asNodeId('root') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('root'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('root'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('root'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('c'),
+        parentId: asNodeId('root'),
+      }),
+    );
 
     store.setChildOrder(asNodeId('root'), [asNodeId('c'), asNodeId('a'), asNodeId('b')]);
 
@@ -16,9 +43,29 @@ describe('Store.setChildOrder', () => {
 
   it('is a no-op when the order is already correct', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('root'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('root') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('root'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('root'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('root'),
+      }),
+    );
 
     let notifications = 0;
     store.subscribe(() => notifications++);
@@ -29,9 +76,29 @@ describe('Store.setChildOrder', () => {
 
   it('throws if orderedIds is not a permutation of current childOrder', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('root'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('root') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('root'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('root'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('root'),
+      }),
+    );
 
     expect(() => store.setChildOrder(asNodeId('root'), [asNodeId('a')])).toThrow(/permutation/i);
     expect(() =>
@@ -44,8 +111,21 @@ describe('Store.setChildOrder', () => {
 
   it('throws when parent has no container capability', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('root'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('lone'), parentId: asNodeId('root') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('root'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('lone'),
+        parentId: asNodeId('root'),
+      }),
+    );
     expect(() => store.setChildOrder(asNodeId('lone'), [])).toThrow();
   });
 });

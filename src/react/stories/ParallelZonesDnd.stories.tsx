@@ -2,7 +2,7 @@ export default { title: 'Parallel zones' };
 
 import type { Story } from '@ladle/react';
 import { type RefObject, useMemo, useRef } from 'react';
-import { asNodeId, createPanel, createZone, Store, stripStrategy } from '../../index.js';
+import { asNodeId, createNode, Store, stripStrategy } from '../../index.js';
 import {
   type ChromeMap,
   Container,
@@ -27,10 +27,10 @@ function makeStore(): Store {
   const s = new Store();
   for (const zid of [LEFT, RIGHT]) {
     s.registerNode(
-      createZone({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true, gap: 8, padding: 12 } },
         id: zid,
-        strategyId: 'stack',
-        config: { axis: 'y', fill: true, gap: 8, padding: 12 },
       }),
     );
   }
@@ -43,7 +43,15 @@ function makeStore(): Store {
   ];
   for (const [id, parentId, title] of seed) {
     const nid = asNodeId(id);
-    s.registerNode(createPanel({ id: nid, parentId, meta: { title } }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: nid,
+        parentId,
+        meta: { title },
+      }),
+    );
     s.showNode(nid);
   }
   return s;

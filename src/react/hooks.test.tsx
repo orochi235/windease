@@ -1,6 +1,6 @@
 import { act, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from '../index.js';
+import { asNodeId, createNode, Store } from '../index.js';
 import { useActivity } from './hooks.js';
 import { Provider } from './Provider.js';
 
@@ -11,8 +11,21 @@ function withStore(store: Store, ui: React.ReactNode) {
 describe('useActivity', () => {
   it('returns undefined when no activity is set', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     let observed: Record<string, unknown> | undefined = { sentinel: true };
     function Probe() {
       observed = useActivity(asNodeId('p'));
@@ -24,8 +37,21 @@ describe('useActivity', () => {
 
   it('returns the activity bag and re-renders on change', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const seen: Array<Record<string, unknown> | undefined> = [];
     function Probe() {
       seen.push(useActivity(asNodeId('p')));

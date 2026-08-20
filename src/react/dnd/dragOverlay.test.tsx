@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { useEffect, useRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { NodeId } from '../../index.js';
-import { asNodeId, createPanel, createZone, Store } from '../../index.js';
+import { asNodeId, createNode, Store } from '../../index.js';
 import { Provider } from '../Provider.js';
 import { DragProvider, useDragController } from './DragProvider.js';
 import { useDropTarget } from './useDropTarget.js';
@@ -44,11 +44,30 @@ function ControllerHandle({
 describe('DragProvider overlay', () => {
   it('renders the default overlay during drag with the node title', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
-      createPanel({ id: asNodeId('src'), parentId: asNodeId('z'), meta: { title: 'My Panel' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('tgt'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('z'),
+        meta: { title: 'My Panel' },
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('tgt'),
+        parentId: asNodeId('z'),
+      }),
+    );
     let controller: ReturnType<typeof useDragController> | null = null;
     const { queryByTestId, findByTestId } = render(
       <Provider store={store}>
@@ -75,11 +94,30 @@ describe('DragProvider overlay', () => {
 
   it('passes rejected=true when the hover is rejected', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
-      createPanel({ id: asNodeId('src'), parentId: asNodeId('z'), meta: { title: 'S' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('tgt'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('z'),
+        meta: { title: 'S' },
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('tgt'),
+        parentId: asNodeId('z'),
+      }),
+    );
     let controller: ReturnType<typeof useDragController> | null = null;
     const { findByTestId } = render(
       <Provider store={store}>
@@ -104,11 +142,30 @@ describe('DragProvider overlay', () => {
 
   it('accepts a custom dragOverlay renderer', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
     store.registerNode(
-      createPanel({ id: asNodeId('src'), parentId: asNodeId('z'), meta: { title: 'Custom' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('tgt'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('z'),
+        meta: { title: 'Custom' },
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('tgt'),
+        parentId: asNodeId('z'),
+      }),
+    );
     let controller: ReturnType<typeof useDragController> | null = null;
     const { findByTestId } = render(
       <Provider store={store}>

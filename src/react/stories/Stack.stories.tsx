@@ -2,7 +2,7 @@ export default { title: 'Stack' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import { asNodeId, createPanel, createZone, Store, stripStrategy } from '../../index.js';
+import { asNodeId, createNode, Store, stripStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
@@ -21,17 +21,19 @@ export const Stack: Story<Args> = ({ gap, padding }) => {
   const store = useMemo(() => {
     const s = new Store();
     s.registerNode(
-      createZone({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true, gap, padding } },
         id: ZONE_ID,
-        strategyId: 'stack',
-        config: { axis: 'y', fill: true, gap, padding },
       }),
     );
     const heights = [80, 140, 200];
     heights.forEach((h, i) => {
       const id = asNodeId(`stack-${i + 1}`);
       s.registerNode(
-        createPanel({
+        createNode({
+          kind: 'panel',
+          focus: true,
           id,
           parentId: ZONE_ID,
           hints: { preferredSize: { w: 0, h } },

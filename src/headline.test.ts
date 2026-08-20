@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, deserialize, Store, serialize } from './index.js';
+import { asNodeId, createNode, deserialize, Store, serialize } from './index.js';
 
 /**
  * Headline end-to-end test for the unified node model.
@@ -19,23 +19,52 @@ describe('headline end-to-end', () => {
     //   │     └── leafB (panel)
     //   ├── solo (panel, pinned to index 0)
     //   └── tabs (zone, strip)
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 2 } }));
     store.registerNode(
-      createPanel({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols: 2 } },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
         id: asNodeId('tray'),
         parentId: asNodeId('z'),
         container: { strategyId: 'stack', config: { axis: 'vertical' } },
       }),
     );
-    store.registerNode(createPanel({ id: asNodeId('leafA'), parentId: asNodeId('tray') }));
-    store.registerNode(createPanel({ id: asNodeId('leafB'), parentId: asNodeId('tray') }));
-    store.registerNode(createPanel({ id: asNodeId('solo'), parentId: asNodeId('z') }));
     store.registerNode(
-      createZone({
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('leafA'),
+        parentId: asNodeId('tray'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('leafB'),
+        parentId: asNodeId('tray'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('solo'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'horizontal' } },
         id: asNodeId('tabs'),
         parentId: asNodeId('z'),
-        strategyId: 'strip',
-        config: { axis: 'horizontal' },
       }),
     );
     store.focusNode(asNodeId('leafA'));

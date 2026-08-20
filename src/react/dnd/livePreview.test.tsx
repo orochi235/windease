@@ -1,6 +1,6 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from '../../index.js';
+import { asNodeId, createNode, Store } from '../../index.js';
 import { gridStrategy } from '../../layout/grid.js';
 import { stripStrategy } from '../../layout/strip.js';
 import { Container } from '../Container.js';
@@ -20,20 +20,44 @@ describe('Container — live drop preview', () => {
   it('passes preview to strategy when hovered + accepted and stamps data-preview', async () => {
     const store = new Store();
     store.registerNode(
-      createZone({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
         id: asNodeId('src-parent'),
-        strategyId: 'stack',
-        config: { axis: 'y', fill: true },
       }),
     );
     store.registerNode(
-      createZone({ id: asNodeId('tgt'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
+        id: asNodeId('tgt'),
+      }),
     );
     store.registerNode(
-      createPanel({ id: asNodeId('src'), parentId: asNodeId('src-parent'), meta: { title: 'S' } }),
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('src-parent'),
+        meta: { title: 'S' },
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('tgt') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('tgt') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('tgt'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('tgt'),
+      }),
+    );
     store.showNode(asNodeId('src'));
     store.showNode(asNodeId('a'));
     store.showNode(asNodeId('b'));
@@ -81,13 +105,35 @@ describe('Container — live drop preview', () => {
   it('reverts to real layout on rejection (canAccept=false)', async () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
+        id: asNodeId('z'),
+      }),
     );
     store.registerNode(
-      createZone({ id: asNodeId('tgt'), strategyId: 'grid', config: { maxItems: 1 } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { maxItems: 1 } },
+        id: asNodeId('tgt'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('src'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('occupant'), parentId: asNodeId('tgt') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('occupant'),
+        parentId: asNodeId('tgt'),
+      }),
+    );
     store.showNode(asNodeId('src'));
     store.showNode(asNodeId('occupant'));
     let controller: ReturnType<typeof useDragController> | null = null;
@@ -135,16 +181,37 @@ describe('Container — live drop preview', () => {
   it("suppresses the source's chrome during preview (rendered as ghost only)", async () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
+        id: asNodeId('z'),
+      }),
     );
     store.registerNode(
-      createZone({ id: asNodeId('tgt'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
+        id: asNodeId('tgt'),
+      }),
     );
     // Source is already a child of tgt — same-parent preview.
     store.registerNode(
-      createPanel({ id: asNodeId('src'), parentId: asNodeId('tgt'), meta: { title: 'S' } }),
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('tgt'),
+        meta: { title: 'S' },
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('tgt') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('tgt'),
+      }),
+    );
     store.showNode(asNodeId('src'));
     store.showNode(asNodeId('a'));
     let controller: ReturnType<typeof useDragController> | null = null;
@@ -199,19 +266,36 @@ describe('Container — getDropPreview fast path', () => {
   it('uses strategy.getDropPreview when defined', async () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
-    );
-    store.registerNode(
-      createZone({
-        id: asNodeId('tgt'),
-        strategyId: 'grid',
-        config: { cols: 2 },
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
+        id: asNodeId('z'),
       }),
     );
     store.registerNode(
-      createPanel({ id: asNodeId('src'), parentId: asNodeId('z'), meta: { title: 'S' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols: 2 } },
+        id: asNodeId('tgt'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('tgt') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('z'),
+        meta: { title: 'S' },
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('tgt'),
+      }),
+    );
     store.showNode(asNodeId('src'));
     store.showNode(asNodeId('a'));
 

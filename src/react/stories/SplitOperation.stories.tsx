@@ -4,8 +4,7 @@ import type { Story } from '@ladle/react';
 import { useMemo, useRef, useState } from 'react';
 import {
   asNodeId,
-  createPanel,
-  createZone,
+  createNode,
   gridStrategy,
   type NodeId,
   Store,
@@ -27,9 +26,21 @@ export const SplitAndUnsplit: Story = () => {
     // fill: true — strip's default sizes hintless children to zero, which is
     // right for a toolbar but collapses a split pane to nothing.
     s.registerNode(
-      createZone({ id: ROOT, strategyId: 'strip', config: { axis: 'x', gap: 6, fill: true } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x', gap: 6, fill: true } },
+        id: ROOT,
+      }),
     );
-    s.registerNode(createPanel({ id: asNodeId('p1'), parentId: ROOT, meta: { title: 'p1' } }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p1'),
+        parentId: ROOT,
+        meta: { title: 'p1' },
+      }),
+    );
     s.showNode(asNodeId('p1'));
     return s;
   }, []);

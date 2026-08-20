@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPanel, createZone } from './constructors.js';
+import { createNode } from './constructors.js';
 import { asNodeId } from './node.js';
 import {
   reconcileChildOrder,
@@ -13,10 +13,23 @@ const Z = asNodeId('z');
 
 function build(childIds: string[] = ['a', 'b', 'c']): Store {
   const s = new Store();
-  s.registerNode(createZone({ id: Z, strategyId: 'stack', config: {} }));
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: {} },
+      id: Z,
+    }),
+  );
   for (const id of childIds) {
     const nid = asNodeId(id);
-    s.registerNode(createPanel({ id: nid, parentId: Z }));
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: nid,
+        parentId: Z,
+      }),
+    );
     s.showNode(nid);
   }
   return s;

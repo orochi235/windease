@@ -1,7 +1,7 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { useRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createPanel, createZone } from '../constructors.js';
+import { createNode } from '../constructors.js';
 import { asNodeId, Store, stripStrategy } from '../index.js';
 import { Provider } from './Provider.js';
 import { StrategyRegistryProvider } from './strategies.js';
@@ -13,10 +13,28 @@ describe('resize affordance dispatch wiring', () => {
   it('useContainerLayout routes resize events to strategy.dispatchAffordance', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.showNode(asNodeId('a'));
     store.showNode(asNodeId('b'));
 

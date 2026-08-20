@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPanel, createZone } from './constructors.js';
+import { createNode } from './constructors.js';
 import { stripStrategy } from './layout/strip.js';
 import { runStrategyForContainer } from './layout-node-adapter.js';
 import { asNodeId } from './node.js';
@@ -9,10 +9,28 @@ describe('runStrategyForContainer — preview', () => {
   it('splices the insertId at insertIndex when previewing', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.showNode(asNodeId('a'));
     store.showNode(asNodeId('b'));
     const result = runStrategyForContainer(
@@ -34,9 +52,20 @@ describe('runStrategyForContainer — preview', () => {
   it('appends the insertId when insertIndex is undefined', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.showNode(asNodeId('a'));
     const result = runStrategyForContainer(
       store,
@@ -55,11 +84,36 @@ describe('runStrategyForContainer — preview', () => {
   it('reorders existing source for same-parent preview', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true } },
+        id: asNodeId('z'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('c'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('c'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.showNode(asNodeId('a'));
     store.showNode(asNodeId('b'));
     store.showNode(asNodeId('c'));

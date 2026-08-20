@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { asNodeId, createPanel, createZone, type LayoutStrategy, Store } from '../index.js';
+import { asNodeId, createNode, type LayoutStrategy, Store } from '../index.js';
 import { DragController } from './DragController.js';
 
 /** Refuses anything but exactly 2 items — enough to exercise
@@ -12,9 +12,28 @@ const exactlyTwoStrategy: LayoutStrategy<unknown, string, unknown> = {
 
 function buildStore(): Store {
   const s = new Store();
-  s.registerNode(createZone({ id: asNodeId('z1'), strategyId: 'stack', config: {} }));
-  s.registerNode(createZone({ id: asNodeId('z2'), strategyId: 'stack', config: {} }));
-  s.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z1') }));
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: {} },
+      id: asNodeId('z1'),
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: {} },
+      id: asNodeId('z2'),
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
+      id: asNodeId('p'),
+      parentId: asNodeId('z1'),
+    }),
+  );
   return s;
 }
 
@@ -89,11 +108,44 @@ describe('DragController', () => {
     // z2's strategy enforces exactly 2 items; it already has 2, so a drop of
     // a third should be rejected.
     const s = new Store();
-    s.registerNode(createZone({ id: asNodeId('z1'), strategyId: 'stack', config: {} }));
-    s.registerNode(createZone({ id: asNodeId('z2'), strategyId: 'exactly-two', config: {} }));
-    s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z2') }));
-    s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z2') }));
-    s.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z1') }));
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z1'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'exactly-two', config: {} },
+        id: asNodeId('z2'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z2'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z2'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z1'),
+      }),
+    );
     const getStrategy = (sid: string): LayoutStrategy<unknown, string, unknown> | undefined =>
       sid === 'exactly-two' ? exactlyTwoStrategy : undefined;
     const c = new DragController(s, getStrategy);
@@ -118,9 +170,29 @@ describe('DragController', () => {
 describe('DragController — rAF throttle + cursor', () => {
   it('coalesces multiple updateHoverByPoint calls within one frame', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('src'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('tgt'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('tgt'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const controller = new DragController(store);
 
     const el = makeRectEl({ left: 0, top: 0, right: 100, bottom: 100 });
@@ -145,9 +217,29 @@ describe('DragController — rAF throttle + cursor', () => {
 
   it('cancels pending rAF on drop()', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('src'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('tgt'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('tgt'),
+        parentId: asNodeId('z'),
+      }),
+    );
     const controller = new DragController(store);
     controller.registerDropTarget(
       asNodeId('tgt'),
@@ -165,11 +257,44 @@ describe('DragController — rAF throttle + cursor', () => {
 
   it('drop() passes hover.insertIndex to moveNode', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('src-parent'), strategyId: 'stack', config: {} }));
-    store.registerNode(createZone({ id: asNodeId('tgt'), strategyId: 'stack', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('src'), parentId: asNodeId('src-parent') }));
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('tgt') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('tgt') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('src-parent'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('tgt'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('src'),
+        parentId: asNodeId('src-parent'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('tgt'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('tgt'),
+      }),
+    );
     const moveSpy = vi.spyOn(store, 'moveNode');
     const controller = new DragController(store);
     controller.registerDropTarget(

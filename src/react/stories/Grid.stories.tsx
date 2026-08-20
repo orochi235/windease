@@ -2,7 +2,7 @@ export default { title: 'Grid' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import { asNodeId, createPanel, createZone, gridStrategy, Store } from '../../index.js';
+import { asNodeId, createNode, gridStrategy, Store } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
@@ -23,15 +23,23 @@ export const Grid: Story<Args> = ({ cols, gap, padding, panelCount }) => {
   const store = useMemo(() => {
     const s = new Store();
     s.registerNode(
-      createZone({
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols, gap, padding } },
         id: ZONE_ID,
-        strategyId: 'grid',
-        config: { cols, gap, padding },
       }),
     );
     for (let i = 0; i < panelCount; i++) {
       const id = asNodeId(`panel-${i + 1}`);
-      s.registerNode(createPanel({ id, parentId: ZONE_ID, meta: { title: `Window ${id}` } }));
+      s.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id,
+          parentId: ZONE_ID,
+          meta: { title: `Window ${id}` },
+        }),
+      );
       s.showNode(id);
     }
     return s;

@@ -247,6 +247,16 @@ Two things the suite surfaced that are worth knowing:
   `<Zone parentId kind="group">`, which keeps `.windease-group` and
   `chrome['group']` working.
 
+## Shipped in 1.0.1
+
+- **`createZone` / `createPanel` collapsed into one `createNode`.** The split
+  between them was arbitrary — both "middles" were already reachable (a zone
+  with a `parentId` was what `createGroup` used to build; a panel with a
+  `container` was the documented recursive-panel case). `container`,
+  `membership` (via `parentId`), and `focus` are now independent opt-in
+  fields on one constructor. `<Zone>` and `<Panel>` stay as React presets over
+  `createNode`. See README for the mechanical call-site rewrite.
+
 ## Type papercut: `initialState` optional, `layout`'s `state` required
 
 `initialState` is optional on `LayoutStrategy` but `layout`'s `state` is
@@ -274,9 +284,6 @@ required would remove it.
   `span` — a resize-locked node's grid span can still be changed directly.
   Unguarded because nothing writes `span` yet (see the gutter gap above); fold
   the gate in when a gutter lands.
-- `focus` is offered only by `createPanel`. The store's single-focus invariant
-  is store-wide and does not care which node carries the capability, so a
-  focusable container is structurally fine and merely unconstructible.
 - **A node cannot be locked against gaining a container.** `resolveLock` drops
   axes the node's current capabilities don't support, and `arrange` requires an
   existing `container` — so `setLock(panel, { arrange: true })` silently stores

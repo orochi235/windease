@@ -4,8 +4,7 @@ import type { Story } from '@ladle/react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   asNodeId,
-  createPanel,
-  createZone,
+  createNode,
   gridStrategy,
   type NodeId,
   Store,
@@ -66,14 +65,16 @@ const BOUNCE_PANEL = asNodeId('bounce-panel');
 function buildBounceStore(throttled: boolean, dwellMs: number): Store {
   const store = new Store(throttled ? { throttle: { dwell: { lifecycle: dwellMs } } } : {});
   store.registerNode(
-    createZone({
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: { axis: 'y', fill: true, gap: 8, padding: 8 } },
       id: BOUNCE_ZONE,
-      strategyId: 'stack',
-      config: { axis: 'y', fill: true, gap: 8, padding: 8 },
     }),
   );
   store.registerNode(
-    createPanel({
+    createNode({
+      kind: 'panel',
+      focus: true,
       id: BOUNCE_PANEL,
       parentId: BOUNCE_ZONE,
       meta: { title: 'Bounced panel' },
@@ -352,7 +353,11 @@ function buildFloodStore(
     throttled ? { throttle: { notifyMs, stagger: { batch: staggerBatch, ms: staggerMs } } } : {},
   );
   store.registerNode(
-    createZone({ id: FLOOD_ZONE, strategyId: 'grid', config: { cols: 6, gap: 6, padding: 6 } }),
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'grid', config: { cols: 6, gap: 6, padding: 6 } },
+      id: FLOOD_ZONE,
+    }),
   );
   store.flushNow();
   return store;
@@ -369,7 +374,15 @@ function FloodDemo({ store }: { store: Store }) {
     for (let i = 0; i < FLOOD_COUNT; i++) {
       const id = floodPanelId(i);
       if (store.getNodeTruth(id)) continue;
-      store.registerNode(createPanel({ id, parentId: FLOOD_ZONE, meta: { title: `#${i}` } }));
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id,
+          parentId: FLOOD_ZONE,
+          meta: { title: `#${i}` },
+        }),
+      );
       store.showNode(id);
     }
   }, [store]);
@@ -467,14 +480,22 @@ function buildTvpStore(throttled: boolean, notifyMs: number, dwellMs: number): S
     throttled ? { throttle: { notifyMs, dwell: { lifecycle: dwellMs } } } : {},
   );
   store.registerNode(
-    createZone({
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'stack', config: { axis: 'y', fill: true, gap: 6, padding: 6 } },
       id: TVP_ZONE,
-      strategyId: 'stack',
-      config: { axis: 'y', fill: true, gap: 6, padding: 6 },
     }),
   );
   TVP_PANEL_IDS.forEach((id, i) => {
-    store.registerNode(createPanel({ id, parentId: TVP_ZONE, meta: { title: id } }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id,
+        parentId: TVP_ZONE,
+        meta: { title: id },
+      }),
+    );
     if (i % 2 === 0) store.showNode(id);
   });
   store.flushNow();

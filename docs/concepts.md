@@ -5,15 +5,18 @@ the mental model; jump to a section when you hit a term you don't recognize.
 
 ## Mental model
 
-A windease tree is made of **nodes**. A node can hold any combination of
-four optional capabilities — `lifecycle`, `container`, `membership`, `focus` —
-and the public API mostly cares about which ones are present. There are
-no fundamentally distinct "window" and "zone" types; everything is the
-same Node shape with different capabilities set.
+A windease tree is made of **nodes**. Every node carries `lifecycle`; on top
+of that it can hold any combination of three optional capabilities —
+`container`, `membership`, `focus` — and the public API mostly cares about
+which ones are present. There are no fundamentally distinct "window" and
+"zone" types; everything is the same Node shape with different capabilities
+set.
 
-Three combinations show up so often that windease ships **presets** for
-them. These live entirely in the consumer-facing surface — the core
-doesn't enforce or interpret them:
+There is one node constructor, `createNode`, and `container`, `membership`
+(via `parentId`), and `focus` are independent opt-in flags on its input. Some
+combinations show up often enough to have names, but the names are just
+vocabulary for talking about a capability shape — nothing in the core
+distinguishes them:
 
 - **Zone** — `container`, no `membership`. A rootless container; the top of a
   sub-tree. Has a layout strategy that places its visible children.
@@ -25,8 +28,8 @@ doesn't enforce or interpret them:
   pattern. No separate type for a recursive panel; it's just a panel that
   happens to be a container.
 
-The two capabilities are independent axes, and it's worth reading them
-separately because they answer opposite questions:
+`container` and `membership` are independent axes, and it's worth reading
+them separately because they answer opposite questions:
 
 - `container` — **can I have children?** It holds `childOrder`, the canonical
   record of this node's children and their order.
@@ -35,20 +38,17 @@ separately because they answer opposite questions:
 
 So a zone is not the childless one — it's the one that has children but no
 parent, i.e. a **root**. The childless one is a panel. A node with both is a
-group, which means *a zone with a parent is structurally just a group*; that
-is the whole distinction between the two presets.
+group: `createNode({ container: {...}, parentId })` is a zone with a parent,
+which is structurally just a group — the two are the same call with an
+optional field, not two different constructors.
 
-As of 1.0.0 that distinction is only a label: `createZone` takes an optional
-`parentId`, and with one it produces exactly what the removed `createGroup`
-produced but for `kind`. So `kind: 'zone'` no longer implies "root" —
-a nested zone carries `kind: 'zone'` and styles as `.windease-zone` unless you
-pass a `kind` override.
-
-Presets ship two ways: `createPanel` / `createZone` node constructors, and the
-React components `<Panel>` / `<Zone>` that supply default chrome. Both set
-`node.kind` to `'panel'` / `'zone'` by default so a `ChromeMap` can dispatch
-on it; pass `kind="group"` (constructor: set `.kind` after construction) for
-the group shape's `.windease-group` styling.
+`createNode` never sets a default `kind` — pass one to drive React's
+`ChromeMap` dispatch and CSS classes, or omit it if nothing downstream reads
+it. The React components `<Zone>` / `<Panel>` are presets built over
+`createNode`: they call it with `kind: 'zone'` / `kind: 'panel'` by default
+(`<Zone>` always builds `container`; `<Panel>` always builds `membership` +
+`focus`, with `container` optional for the recursive case), and `<Zone
+kind="group">` gets the group shape's `.windease-group` styling.
 
 `node.kind` is just a free-form string — the core stores it, the React
 chrome map dispatches on it, nothing inside windease enforces it. Build

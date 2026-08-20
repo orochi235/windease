@@ -1,4 +1,4 @@
-import { createPanel, createZone } from './constructors.js';
+import { createNode } from './constructors.js';
 import {
   CapabilityMissingError,
   DuplicateNodeError,
@@ -124,9 +124,28 @@ function gridConfig(
 
 /** A `split`-interposed group is a parented zone with `kind: 'group'`, so
  *  consumer `ChromeMap`s dispatching on that kind still fire. */
-function registerGroup(store: Store, input: Parameters<typeof createZone>[0]): void {
-  const node = createZone(input);
-  node.kind = 'group';
+function registerGroup(
+  store: Store,
+  input: {
+    id: NodeId;
+    parentId: NodeId;
+    strategyId: string;
+    config: unknown;
+    placement?: Record<string, unknown> | undefined;
+    allowsPinning?: boolean | undefined;
+  },
+): void {
+  const node = createNode({
+    id: input.id,
+    parentId: input.parentId,
+    container: {
+      strategyId: input.strategyId,
+      config: input.config,
+      allowsPinning: input.allowsPinning,
+    },
+    placement: input.placement,
+    kind: 'group',
+  });
   store.registerNode(node);
 }
 
@@ -183,7 +202,14 @@ function buildColumns(
           { col, row },
         );
       }
-      store.registerNode(createPanel({ id: newId, parentId: columnId }));
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: newId,
+          parentId: columnId,
+        }),
+      );
       store.showNode(newId);
     }
   });
@@ -260,7 +286,14 @@ function applyFlatten(store: Store, id: NodeId, input: SplitInput): void {
   let at = order.indexOf(id);
   for (const newId of input.newIds) {
     at += 1;
-    store.registerNode(createPanel({ id: newId, parentId }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: newId,
+        parentId,
+      }),
+    );
     store.reorderInParent(newId, at);
     store.showNode(newId);
   }
@@ -320,7 +353,14 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
     store.patchPlacement(id, { size: undefined });
     store.unpin(id);
     for (const newId of input.newIds) {
-      store.registerNode(createPanel({ id: newId, parentId: groupId }));
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: newId,
+          parentId: groupId,
+        }),
+      );
       store.showNode(newId);
     }
   }
@@ -349,7 +389,14 @@ function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
         const newId = input.newIds[cursor];
         cursor += 1;
         if (newId === undefined) break;
-        store.registerNode(createPanel({ id: newId, parentId: columnId }));
+        store.registerNode(
+          createNode({
+            kind: 'panel',
+            focus: true,
+            id: newId,
+            parentId: columnId,
+          }),
+        );
         store.showNode(newId);
       }
     }
@@ -364,7 +411,14 @@ function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
       : stripConfig(input.direction, input.config);
   becomeContainer(store, id, strategyId, config);
   for (const newId of input.newIds) {
-    store.registerNode(createPanel({ id: newId, parentId: id }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: newId,
+        parentId: id,
+      }),
+    );
     store.showNode(newId);
   }
   trace(

@@ -1,6 +1,6 @@
 import { act, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, gridStrategy, Store, stripStrategy } from '../index.js';
+import { asNodeId, createNode, gridStrategy, Store, stripStrategy } from '../index.js';
 import { type ChromeMap, Container } from './index.js';
 import { Provider } from './Provider.js';
 import { StrategyRegistryProvider } from './strategies.js';
@@ -11,9 +11,29 @@ const PANEL_CHROME: ChromeMap = {
 
 function makeGridStore(): Store {
   const s = new Store();
-  s.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 2 } }));
-  s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-  s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'grid', config: { cols: 2 } },
+      id: asNodeId('z'),
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
+      id: asNodeId('a'),
+      parentId: asNodeId('z'),
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'panel',
+      focus: true,
+      id: asNodeId('b'),
+      parentId: asNodeId('z'),
+    }),
+  );
   s.showNode(asNodeId('a'));
   s.showNode(asNodeId('b'));
   return s;
@@ -88,10 +108,28 @@ describe('Container — affordances callback', () => {
   it('custom affordance renderer replaces the default per affordance', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('s'), strategyId: 'strip', config: { axis: 'x' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x' } },
+        id: asNodeId('s'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('s') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('s') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('s'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('s'),
+      }),
+    );
     store.showNode(asNodeId('a'));
     store.showNode(asNodeId('b'));
     const { container } = render(
@@ -116,10 +154,28 @@ describe('Container — affordances callback', () => {
   it('custom affordance dispatch updates persisted placement size', () => {
     const store = new Store();
     store.registerNode(
-      createZone({ id: asNodeId('s'), strategyId: 'strip', config: { axis: 'x' } }),
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x' } },
+        id: asNodeId('s'),
+      }),
     );
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('s') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('s') }));
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('s'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('s'),
+      }),
+    );
     store.showNode(asNodeId('a'));
     store.showNode(asNodeId('b'));
     let capturedDispatch: ((e: import('../index.js').LayoutEvent) => void) | null = null;
@@ -149,7 +205,13 @@ describe('Container — affordances callback', () => {
 describe('Container declarative children', () => {
   it('renders provided children directly', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 1 } }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols: 1 } },
+        id: asNodeId('z'),
+      }),
+    );
     const { getByText } = render(
       <Provider store={store}>
         <Container parentId={asNodeId('z')}>

@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createPanel, createZone, getLayoutNodes, Store } from './index.js';
+import { asNodeId, createNode, getLayoutNodes, Store } from './index.js';
 
 describe('preset constructors — capability shape', () => {
   it('builds a 3-level tree of zone → recursive panel → leaf panel', () => {
-    const trayHost = createPanel({
+    const trayHost = createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('tray'),
       parentId: asNodeId('z'),
       container: { strategyId: 'stack', config: { axis: 'vertical' } },
     });
-    const leaf = createPanel({
+    const leaf = createNode({
+      kind: 'panel',
+      focus: true,
       id: asNodeId('leaf'),
       parentId: asNodeId('tray'),
     });
@@ -18,11 +22,11 @@ describe('preset constructors — capability shape', () => {
   });
 
   it('builds a group inside a zone', () => {
-    const group = createZone({
+    const group = createNode({
+      kind: 'zone',
+      container: { strategyId: 'strip', config: { axis: 'horizontal' } },
       id: asNodeId('g'),
       parentId: asNodeId('z'),
-      strategyId: 'strip',
-      config: { axis: 'horizontal' },
     });
     expect(group.container?.strategyId).toBe('strip');
     expect(group.membership?.parentId).toBe('z');
@@ -33,10 +37,37 @@ describe('preset constructors — capability shape', () => {
 describe('integration: activity-aware consumer strategy', () => {
   it('sorts children by activity.lastAt descending', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: {} }));
-    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
-    store.registerNode(createPanel({ id: asNodeId('c'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('a'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('b'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('c'),
+        parentId: asNodeId('z'),
+      }),
+    );
     store.showNode(asNodeId('a'));
     store.showNode(asNodeId('b'));
     store.showNode(asNodeId('c'));

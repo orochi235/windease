@@ -1,10 +1,5 @@
 export { type ChildSort, type ChildSortEntry, defaultChildSort } from './child-sort.js';
-export {
-  type CreatePanelInput,
-  type CreateZoneInput,
-  createPanel,
-  createZone,
-} from './constructors.js';
+export { type CreateNodeInput, createNode } from './constructors.js';
 export { ContainerHost, type ContainerLayout } from './container-host.js';
 export {
   type DragCancelReason,

@@ -1,6 +1,6 @@
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { asNodeId, createPanel, createZone, Store } from '../index.js';
+import { asNodeId, createNode, Store } from '../index.js';
 import { Provider } from './Provider.js';
 import { Panel, Zone } from './presets.js';
 
@@ -9,8 +9,21 @@ afterEach(cleanup);
 describe('id collisions between JSX and imperative', () => {
   it('throws when JSX mounts an id already imperatively registered', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 1 } }));
-    store.registerNode(createPanel({ id: asNodeId('collide'), parentId: asNodeId('z') }));
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols: 1 } },
+        id: asNodeId('z'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('collide'),
+        parentId: asNodeId('z'),
+      }),
+    );
 
     // React surfaces the throw via console.error; silence for this test.
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -36,7 +49,14 @@ describe('id collisions between JSX and imperative', () => {
       </Provider>,
     );
     expect(() =>
-      store.registerNode(createPanel({ id: asNodeId('jsx-owned'), parentId: asNodeId('z') })),
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: asNodeId('jsx-owned'),
+          parentId: asNodeId('z'),
+        }),
+      ),
     ).toThrow(/duplicate|already/i);
   });
 });
