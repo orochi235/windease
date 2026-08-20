@@ -2859,6 +2859,181 @@ git commit -m "test(split): add a split/unsplit story and e2e coverage"
 
 ---
 
+## Task 11: Make constructor inputs `exactOptionalPropertyTypes`-friendly
+
+`TODO.md` records this as open: `createPanel({ meta: props.meta })` where
+`props.meta` is `Record | undefined` is a type error, even though the constructor
+guards with `!== undefined` and handles it fine. Every consumer forwarding an
+optional React prop hits it immediately. The repo's own workaround is the
+`defined()` helper in `presets.tsx`, which is not exported.
+
+Task 8 already did this for one field — `CreateZoneInput.parentId?: NodeId | undefined`
+— because `presets.tsx` passes `parentId ?? undefined` and it would not compile
+otherwise. This task finishes the sweep.
+
+**Files:**
+- Modify: `src/constructors.ts`, and any other public input bag with optional fields
+- Test: `src/constructors.test.ts`
+
+- [ ] **Step 1: Find every public optional input field**
+
+```bash
+grep -rn "^  [a-zA-Z]*?: " src/constructors.ts src/split-types.ts
+```
+
+Widen each to `field?: T | undefined`. Do NOT widen internal types — only bags a
+consumer constructs and passes in. `SplitInput` counts; so do
+`CreateZoneInput`, `CreateGroupInput`, `CreatePanelInput`.
+
+- [ ] **Step 2: Write the test that proves it**
+
+The test must fail to COMPILE today, not fail at runtime, so it belongs in a file
+`tsconfig.test.json` covers. Append to `src/constructors.test.ts`:
+
+```ts
+describe('optional inputs accept an explicit undefined', () => {
+  it('forwards optional props without narrowing', () => {
+    // Shape of a consumer forwarding optional React props straight through.
+    const props: { meta?: Record<string, unknown>; order?: number } = {};
+
+    const node = createPanel({
+      id: asNodeId('p'),
+      parentId: asNodeId('z'),
+      meta: props.meta,
+      order: props.order,
+    });
+
+    expect(node.meta).toBeUndefined();
+    expect(node.order).toBeUndefined();
+  });
+
+  it('does the same for a zone', () => {
+    const props: { meta?: Record<string, unknown>; parentId?: NodeId } = {};
+
+    const node = createZone({
+      id: asNodeId('z'),
+      strategyId: 'strip',
+      config: {},
+      parentId: props.parentId,
+      meta: props.meta,
+    });
+
+    expect(node.membership).toBeUndefined();
+  });
+});
+```
+
+- [ ] **Step 3: Confirm it fails first**
+
+Run: `npm run typecheck`
+Expected: FAIL on the new test file before the widening, PASS after. If it passes
+before you touch anything, the sweep is unnecessary for those fields — report
+that rather than making a no-op change.
+
+- [ ] **Step 4: Decide `defined()`'s fate**
+
+`TODO.md` offers two answers: widen the bags, or export `defined()`. With the
+bags widened, `defined()` should no longer be needed in `presets.tsx` for these
+fields. Try removing its uses. If they all collapse, say so — the helper may be
+deletable, which is the better outcome than exporting it. If some uses remain
+load-bearing, leave them and report which and why.
+
+- [ ] **Step 5: Full suite and commit**
+
+```bash
+npm test && npm run lint && npm run typecheck
+git add -A src
+git commit -m "fix(types): let optional constructor inputs take an explicit undefined"
+```
+
+Then update `TODO.md`: this closes the second bullet under "Surfaced by turning
+the type-checker on over the test tree".
+
+---
+
+## Task 12: Grid honors explicit spans
+
+`gridStrategy` ignores `placement.size` entirely; cells are uniform. That is why
+`split(id, { direction: 'grid' })` produces a tiling with no draggable gutters,
+and it is the last capability gap against the `splitStrategy` this release
+removed. `src/layout/grid.ts` carries a `TODO(0.6+)` describing planned
+semantics.
+
+**Design decision, made — do not follow the TODO comment literally.** That
+comment proposes reusing `placement.size.w` as a column span. Do not. In strip
+and stack, `placement.size.w` is **pixels**; making it a **cell count** under
+grid overloads one reserved key with two units depending on which strategy the
+parent happens to run. Anything reading placement generically — snapshot
+migration, DnD preview, consumer chrome — would have to know the parent's
+strategy to interpret it.
+
+Use a separate reserved key instead:
+
+```ts
+placement.span?: { cols?: number; rows?: number }
+```
+
+Unambiguous, additive, and it leaves `size` meaning pixels everywhere.
+
+**Files:**
+- Modify: `src/layout/grid.ts`, `src/node.ts` (document the reserved key), `docs/concepts.md`
+- Test: `src/layout/grid.test.ts`
+
+- [ ] **Step 1: Write the failing tests**
+
+Cover, in `src/layout/grid.test.ts`:
+- A child with `span: { cols: 2 }` occupies two horizontal cells; its rect is
+  twice a normal cell's width plus the intervening gap.
+- `span: { rows: 2 }` likewise vertically.
+- `span: { cols: 2, rows: 2 }` occupies a 2×2 block.
+- **Reservation and skipping**: with `cols: 3` and children `[a(span 2), b, c]`,
+  `a` takes cells 0–1, `b` takes cell 2, `c` wraps to the next row. Assert the
+  actual rects, not just relative ordering.
+- A span wider than `cols` clamps to `cols` rather than overflowing the container.
+- A child with no `span` is unaffected — every existing grid test must still pass
+  untouched, which is the regression net for this change.
+- `unplaced` still works: a spanning child that cannot fit within the capacity
+  goes to `unplaced` rather than being drawn outside the container.
+
+- [ ] **Step 2: Implement**
+
+Row-major cell reservation: walk children in `childOrder`, and for each, find the
+first free cell where its whole span fits, mark those cells occupied, and emit
+one rect covering the block. Later children skip reserved cells.
+
+Re-examine `gridCapacity`'s arithmetic — it counts *items* against
+`cols * rowCap`, which is wrong once one item can occupy several cells. Capacity
+should count *cells consumed*. This is the part most likely to be subtly wrong;
+give it its own tests.
+
+- [ ] **Step 3: Document the reserved key**
+
+Add `span` to the reserved-keys JSDoc on `MembershipCap.placement` in
+`src/node.ts`, next to `pinned` and `size`, stating plainly that `size` is pixels
+and `span` is cell counts, and that grid reads `span` while strip reads `size`.
+Mirror it in `docs/concepts.md`'s placement section.
+
+- [ ] **Step 4: Wire up gutters — only if the tests above are green**
+
+With spans honored, grid can emit resize affordances that write `span` deltas.
+This is genuinely more speculative than the rest of this task. **If it is not
+clean, stop and report rather than forcing it** — spans alone are the valuable
+half, and `split(id, { direction: 'grid' })` having no gutters is already
+documented and accepted.
+
+- [ ] **Step 5: Full suite and commit**
+
+```bash
+npm test && npm run lint && npm run typecheck
+git commit -m "feat(grid): honor explicit cell spans"
+```
+
+Then update `TODO.md`: remove the grid/`placement.size` loose end and the
+`TODO(0.6+)` comment in `src/layout/grid.ts`, replacing them with whatever
+genuinely remains open.
+
+---
+
 ## Verification
 
 Before calling this done, run all four and paste the output:

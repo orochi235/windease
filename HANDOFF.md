@@ -36,9 +36,26 @@ migration that converts stored `SplitNode` trees into real strip groups.
 
 ## Next
 
-Task 7 (locks, round-trip and undo coverage — tests only) is in flight. Then 8
-the preset merge, 8b folding `stack` into `strip`, 8c snapshot v5, 9 the
-removals and the 1.0.0 bump, 10 story and e2e.
+Tasks 8 and 8b are done. The remaining queue, approved to run unattended:
+
+| Task | |
+|---|---|
+| 8c | snapshot v5 + `SplitNode` → strip-group migration |
+| 9 | remove `splitStrategy` / `stackStrategy` / `createGroup`, migrate 7 call sites, bump 1.0.0 |
+| 10 | `split`/`unsplit` story + e2e |
+| 11 | `exactOptionalPropertyTypes` sweep over public constructor inputs |
+| 12 | grid honors explicit cell spans |
+
+Each keeps its implement → spec review → quality review loop. **Task 9 is the
+riskiest**: it deletes three public exports and rewrites seven call sites
+including the e2e's gutter selectors. If something is going to need unpicking,
+it is that one.
+
+**Task 12 carries a design decision already made:** do NOT follow the
+`TODO(0.6+)` comment in `src/layout/grid.ts`, which proposes reusing
+`placement.size.w` as a column span. `size` is pixels under strip and stack;
+making it a cell count under grid overloads one reserved key with two units
+depending on the parent's strategy. Use a separate `placement.span?: { cols?, rows? }`.
 
 ## Decisions made in conversation, not visible in the code
 

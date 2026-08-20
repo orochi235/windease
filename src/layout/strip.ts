@@ -57,6 +57,16 @@ function effectiveMaxAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined
   return typeof v === 'number' ? v : undefined;
 }
 
+/** Capacity-selected subset both `layout` and `dispatchAffordance` must agree
+ *  on — the two drifting apart is the whole class of bug this closes. */
+function placedOf(
+  items: LayoutItem[],
+  cfg: StripConfig,
+): { placed: LayoutItem[]; unplaced: string[] } {
+  const cap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
+  return selectByCapacity(items, Math.min(items.length, cap));
+}
+
 /** @group Strategies */
 export const stripStrategy: LayoutStrategy<void, string> = {
   name: 'strip',
@@ -93,13 +103,10 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       return empty;
     }
 
-    const itemCap =
-      cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
-    const placedCount = Math.min(items.length, itemCap);
-    const { placed: placedItems, unplaced } = selectByCapacity(items, placedCount);
+    const { placed: placedItems, unplaced } = placedOf(items, cfg);
 
     const main = axis === 'x' ? container.w : container.h;
-    const usableMain = main - 2 * padding - gap * (placedCount - 1);
+    const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
 
     // If any child has explicit placement.size on the main axis, use the
     // clamp helper for the whole row. Otherwise fall back to the existing
@@ -182,20 +189,24 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const axis: 'x' | 'y' = affordance.kind === 'resize-x' ? 'x' : 'y';
     const delta = axis === 'x' ? (event.payload.dx ?? 0) : (event.payload.dy ?? 0);
     if (delta === 0) return;
-    const item = items.find((it) => it.id === childId);
-    if (!item) return;
 
     const cfg = options as StripConfig;
+    // A resize affordance is only ever emitted for a placed item (see `layout`),
+    // but `items` is caller-supplied — guard rather than assume.
+    const { placed: placedItems } = placedOf(items, cfg);
+    const item = placedItems.find((it) => it.id === childId);
+    if (!item) return;
+
     const gap = cfg.gap ?? 0;
     const padding = cfg.padding ?? 0;
     const main = axis === 'x' ? container.w : container.h;
-    const usableMain = main - 2 * padding - gap * (items.length - 1);
+    const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
 
     let base = explicitAxis(item, axis);
     if (base === undefined) {
-      const explicits = items.filter((it) => explicitAxis(it, axis) !== undefined);
+      const explicits = placedItems.filter((it) => explicitAxis(it, axis) !== undefined);
       const explicitSum = explicits.reduce((s, it) => s + (explicitAxis(it, axis) ?? 0), 0);
-      const unconstrainedCount = items.length - explicits.length;
+      const unconstrainedCount = placedItems.length - explicits.length;
       base =
         unconstrainedCount > 0 ? Math.max(0, (usableMain - explicitSum) / unconstrainedCount) : 0;
     }
@@ -205,7 +216,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const max = effectiveMaxAxis(item, axis);
     if (next < min) next = min;
     if (max !== undefined && next > max) next = max;
-    const otherMinSum = items
+    const otherMinSum = placedItems
       .filter((it) => it.id !== childId)
       .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
     const ceiling = usableMain - otherMinSum;
