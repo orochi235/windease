@@ -11,6 +11,8 @@ import { TypedEmitter } from './events.js';
 import { type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeId } from './node.js';
 import { placeRespectingPins } from './pinning.js';
+import { splitNode } from './split.js';
+import type { SplitInput } from './split-types.js';
 import {
   type MachineName,
   type PendingPublish,
@@ -1013,6 +1015,25 @@ export class Store {
         trace('store', `transact: ${label ?? '(unlabeled)'}${threw ? ' (threw)' : ''}`);
       }
     }
+  }
+
+  /**
+   * Put this node's content in child 0 of a strip or grid container.
+   *
+   * Which of three things that means is forced by the node's position:
+   * a node with a parent is **wrapped** in a new group; a node whose parent is
+   * already a strip on the requested axis gets its new siblings **flattened**
+   * in beside it; a root has nothing above it to interpose, so it **becomes**
+   * the container.
+   *
+   * All ids are caller-supplied — the store has no id generator. Validation
+   * runs before any mutation, so a rejected split leaves the store untouched.
+   *
+   * Runs inside `transact`, so a history integration bracketed on
+   * `transaction.begin` / `transaction.end` records one undo step.
+   */
+  split(id: NodeId, input: SplitInput): void {
+    splitNode(this, id, input);
   }
 
   /**

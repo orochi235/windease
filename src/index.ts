@@ -104,6 +104,7 @@ export {
   type SerializedStore,
   serialize,
 } from './snapshot.js';
+export type { SplitInput } from './split-types.js';
 export { type MutateOptions, Store, type StoreEvents } from './store.js';
 export {
   type Clock,
