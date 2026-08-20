@@ -106,9 +106,11 @@ export function validateSplit(store: Store, id: NodeId, input: SplitInput): Spli
   return mode;
 }
 
-/** Strip config for an axis, with the caller's config merged over it. */
+/** Strip config for an axis, with the caller's config merged over it.
+ *  `fill` defaults on: strip's own default is off, which sizes hintless
+ *  children to zero — right for a toolbar, wrong for a split pane. */
 function stripConfig(axis: 'x' | 'y', extra?: Record<string, unknown>): Record<string, unknown> {
-  return { axis, ...extra };
+  return { axis, fill: true, ...extra };
 }
 
 /** Grid config with the caller's config merged over it; `cols` omitted when unset. */

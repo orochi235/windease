@@ -1,5 +1,28 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { asNodeId, configureTrace, createGroup, createPanel, createZone, Store } from './index.js';
+import {
+  asNodeId,
+  configureTrace,
+  createGroup,
+  createPanel,
+  createZone,
+  gridStrategy,
+  type NodeId,
+  nodeToLayoutItem,
+  Store,
+  stripStrategy,
+} from './index.js';
+
+function layoutOf(store: Store, parentId: NodeId, container = { w: 1200, h: 800 }) {
+  const node = store.getNode(parentId);
+  if (!node?.container) throw new Error(`${parentId} has no container`);
+  const strategy = node.container.strategyId === 'grid' ? gridStrategy : stripStrategy;
+  return strategy.layout({
+    items: store.getChildren(parentId).map((n) => nodeToLayoutItem(n)),
+    container,
+    state: undefined as never,
+    options: node.container.config as Record<string, unknown>,
+  });
+}
 
 function seeded(): Store {
   const store = new Store();
@@ -398,7 +421,12 @@ describe('Store.split — reconfigure mode', () => {
 
     // `gap` survives because it is consumer intent, not strategy-specific.
     // `cols` survives too and is inert — strip never reads it.
-    expect(store.getNode(asNodeId('z'))?.container?.config).toEqual({ cols: 3, gap: 8, axis: 'x' });
+    expect(store.getNode(asNodeId('z'))?.container?.config).toEqual({
+      cols: 3,
+      gap: 8,
+      axis: 'x',
+      fill: true,
+    });
   });
 });
 
@@ -580,5 +608,134 @@ describe('Store.setStrategy', () => {
     store.split(asNodeId('z'), { direction: 'x', newIds: [asNodeId('p1')] });
 
     expect(store.getContainerState(asNodeId('z'))).toBeUndefined();
+  });
+});
+
+describe('Store.split — geometry', () => {
+  it('fills the container on a two-pane x split', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+
+    store.split(asNodeId('p1'), {
+      direction: 'x',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    const { placements } = layoutOf(store, asNodeId('g'));
+    const p1 = placements.get('p1')!;
+    const p2 = placements.get('p2')!;
+    expect(p1.w).toBe(600);
+    expect(p2.w).toBe(600);
+    expect(p1.h).toBe(800);
+    expect(p2.h).toBe(800);
+    expect(p1.x + p1.w).toBe(p2.x);
+    expect(p1.w + p2.w).toBe(1200);
+  });
+
+  it('fills the container on a two-pane y split', () => {
+    const store = seeded();
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    const { placements } = layoutOf(store, asNodeId('g'));
+    const p1 = placements.get('p1')!;
+    const p2 = placements.get('p2')!;
+    expect(p1.h).toBe(400);
+    expect(p2.h).toBe(400);
+    expect(p1.w).toBe(1200);
+    expect(p2.w).toBe(1200);
+    expect(p1.y + p1.h).toBe(p2.y);
+    expect(p1.h + p2.h).toBe(800);
+  });
+
+  it('gives every pane non-zero width on a four-pane x split, not W/2^k', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+
+    store.split(asNodeId('p1'), {
+      direction: 'x',
+      into: 4,
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4')],
+    });
+
+    const { placements } = layoutOf(store, asNodeId('g'));
+    const widths = ['p1', 'p2', 'p3', 'p4'].map((id) => placements.get(id)!.w);
+    for (const w of widths) expect(w).toBe(300);
+    expect(widths.reduce((sum, w) => sum + w, 0)).toBe(1200);
+  });
+
+  it('fills both levels of a both[2,2] split', () => {
+    const store = seeded();
+
+    store.split(asNodeId('p1'), {
+      direction: 'both',
+      into: [2, 2],
+      groupIds: [asNodeId('g'), asNodeId('c0'), asNodeId('c1')],
+      newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4')],
+    });
+
+    const outer = layoutOf(store, asNodeId('g'));
+    const c0Rect = outer.placements.get('c0')!;
+    const c1Rect = outer.placements.get('c1')!;
+    expect(c0Rect.w).toBe(600);
+    expect(c1Rect.w).toBe(600);
+    expect(c0Rect.w + c1Rect.w).toBe(1200);
+
+    const col0 = layoutOf(store, asNodeId('c0'), { w: c0Rect.w, h: c0Rect.h });
+    const p1 = col0.placements.get('p1')!;
+    const p2 = col0.placements.get('p2')!;
+    expect(p1.h).toBe(400);
+    expect(p2.h).toBe(400);
+    expect(p1.h + p2.h).toBe(800);
+
+    const col1 = layoutOf(store, asNodeId('c1'), { w: c1Rect.w, h: c1Rect.h });
+    const p3 = col1.placements.get('p3')!;
+    const p4 = col1.placements.get('p4')!;
+    expect(p3.h).toBe(400);
+    expect(p4.h).toBe(400);
+  });
+
+  it('fills every cell of a grid split', () => {
+    const store = seeded();
+
+    store.split(asNodeId('p1'), {
+      direction: 'grid',
+      into: 4,
+      cols: 2,
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4')],
+    });
+
+    const { placements } = layoutOf(store, asNodeId('g'));
+    for (const id of ['p1', 'p2', 'p3', 'p4']) {
+      const rect = placements.get(id)!;
+      expect(rect.w).toBeGreaterThan(0);
+      expect(rect.h).toBeGreaterThan(0);
+    }
+  });
+
+  it('honors an explicit fill: false override rather than hardcoding fill on', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+
+    store.split(asNodeId('p1'), {
+      direction: 'x',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+      config: { fill: false },
+    });
+
+    const { placements } = layoutOf(store, asNodeId('g'));
+    expect(placements.get('p1')!.w).toBe(0);
+    expect(placements.get('p2')!.w).toBe(0);
   });
 });
