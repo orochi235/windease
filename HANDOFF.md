@@ -9,7 +9,7 @@ breakdown in `docs/superpowers/plans/2026-08-19-split-operation.md`.
   pushed. The earlier headless-layout-host work (steps 1–3 of its spec) is on the
   same branch; the split work grew on top of it, so the branch now covers both
   and wants slicing into two PRs at the end.
-- **Green:** 688 unit tests / 59 files, lint, typecheck.
+- **Green:** 713 unit tests / 59 files, lint, typecheck.
 
 ## What this is
 
@@ -32,7 +32,10 @@ migration that converts stored `SplitNode` trees into real strip groups.
 | 3 | `aab31fe` | `wrap` and `flatten` modes, `'x'`/`'y'` |
 | 4 | `2d2c81c`, `a22f7e3`, `80ac759` | `reconfigure` mode, `setStrategy`, `ensureContainer` |
 | 5 | `c6e01f6`, `26514e3` | `'both'` / `'grid'` directions; the `fill` fix |
-| 6 | `339767f` | `unsplit` |
+| 6 | `339767f`, `ebfb2b9` | `unsplit`, incl. placement handback to a sole child |
+| 7 | `9eeec5f` | lock / round-trip / single-step-undo coverage |
+| 8 | `02ba8ad` | `parentId` on `createZone`, `<Zone kind>`; fixes the [HIGH] nesting bug |
+| 8b | `93baf9f` | `stack` folded into `strip` as an axis |
 
 ## Next
 
