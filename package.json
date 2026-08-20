@@ -1,7 +1,7 @@
 {
   "name": "windease",
-  "version": "1.0.0",
-  "description": "Browser window/zone/workspace model with pluggable layout strategies, opt-in drag-and-drop, snapshot persistence \u2014 headless core and React bindings in one package.",
+  "version": "1.0.1",
+  "description": "Browser window/zone/workspace model with pluggable layout strategies, opt-in drag-and-drop, snapshot persistence — headless core and React bindings in one package.",
   "keywords": [
     "windease",
     "window-manager",
