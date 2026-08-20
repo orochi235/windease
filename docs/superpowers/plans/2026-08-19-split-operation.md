@@ -410,7 +410,7 @@ export function validateSplit(store: Store, id: NodeId, input: SplitInput): Spli
   if (total < 2 || !Number.isInteger(total)) {
     throw new InvariantViolationError(
       'split-arity',
-      `split must produce at least 2 children, got ${total}`,
+      `into must produce at least 2 children, got ${total}`,
       { into: input.into },
     );
   }
