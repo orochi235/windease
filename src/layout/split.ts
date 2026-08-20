@@ -29,6 +29,8 @@ export interface SplitOptions {
   /** When false, the strategy refuses anything but exactly 2 items —
    *  mirrors the old binarySplit strict-pair behavior. Default true. */
   recursive?: boolean;
+  /** Direction of the splits `initialState` builds. Default horizontal. */
+  direction?: 'horizontal' | 'vertical';
 }
 
 const DEFAULT_MIN = 0.05;
@@ -248,16 +250,16 @@ function nodeAtPath(node: SplitNode, path: number[]): SplitNode | undefined {
 }
 
 /** Build a leftward-leaning chain of horizontal splits from N items. */
-function buildTree(items: LayoutItem[], _direction: 'horizontal' | 'vertical'): SplitNode {
+function buildTree(items: LayoutItem[], direction: 'horizontal' | 'vertical'): SplitNode {
   if (items.length === 0) return { kind: 'leaf', id: '' };
   if (items.length === 1) return { kind: 'leaf', id: items[0]!.id };
   const [head, ...rest] = items;
   return {
     kind: 'split',
-    direction: _direction,
+    direction,
     ratio: 0.5,
     a: { kind: 'leaf', id: head!.id },
-    b: buildTree(rest, _direction),
+    b: buildTree(rest, direction),
   };
 }
 
@@ -308,8 +310,8 @@ function rectAtPath(
  */
 export const splitStrategy: LayoutStrategy<SplitNode, string, SplitMeta> = {
   name: 'split',
-  initialState(items: LayoutItem[]): SplitNode {
-    return buildTree(items, 'horizontal');
+  initialState(items: LayoutItem[], options?: Record<string, unknown>): SplitNode {
+    return buildTree(items, ((options ?? {}) as SplitOptions).direction ?? 'horizontal');
   },
   canAccept(items, options): boolean {
     const cfg = (options ?? {}) as SplitOptions;

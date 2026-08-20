@@ -214,7 +214,9 @@ export class ContainerHost {
       items,
       container: viewport,
       state: (this.#store.getContainerState(this.#parentId) ??
-        (strategy.initialState ? strategy.initialState(items) : undefined)) as never,
+        (strategy.initialState
+          ? strategy.initialState(items, (container.config ?? {}) as Record<string, unknown>)
+          : undefined)) as never,
       options: (container.config ?? {}) as Record<string, unknown>,
     });
     const aff = lastLayout.affordances.find((a) => a.id === event.affordanceId);
@@ -238,7 +240,9 @@ export class ContainerHost {
     if (!strategy.reduce) return;
     const current =
       this.#store.getContainerState(this.#parentId) ??
-      (strategy.initialState ? strategy.initialState(items) : undefined);
+      (strategy.initialState
+        ? strategy.initialState(items, (container.config ?? {}) as Record<string, unknown>)
+        : undefined);
     const next = strategy.reduce(current as never, event, {
       container: viewport,
       options: (container.config ?? {}) as Record<string, unknown>,
@@ -315,6 +319,7 @@ export class ContainerHost {
               .getChildren(this.#parentId)
               .filter((c) => c.lifecycle.state === 'visible')
               .map((c) => ({ id: c.id })),
+            (container.config ?? {}) as Record<string, unknown>,
           )
         : undefined);
     const result: LayoutResult<NodeId, unknown> = runStrategyForContainer(

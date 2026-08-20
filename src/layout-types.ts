@@ -126,7 +126,9 @@ export interface LayoutEvent {
 
 export interface LayoutStrategy<TState = void, TId extends string = string, TMeta = unknown> {
   name: string;
-  initialState?(items: LayoutItem[]): TState;
+  /** Seed state for a container that has none persisted yet. `options` is the
+   *  container's strategy config, so the seed can honor it. */
+  initialState?(items: LayoutItem[], options?: Record<string, unknown>): TState;
   layout(input: {
     items: LayoutItem[];
     container: Size;
