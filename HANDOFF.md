@@ -1,4 +1,4 @@
-# Handoff — the split operation, mid-implementation
+# Handoff — windease 1.0.0, complete and unpushed
 
 Session state for `feat/core-drag-controller`. Nothing here is the only copy of
 anything: the design is in
@@ -9,7 +9,8 @@ breakdown in `docs/superpowers/plans/2026-08-19-split-operation.md`.
   pushed. The earlier headless-layout-host work (steps 1–3 of its spec) is on the
   same branch; the split work grew on top of it, so the branch now covers both
   and wants slicing into two PRs at the end.
-- **Green:** 715 unit tests / 57 files, 15 e2e, lint, typecheck, build. Version 1.0.0.
+- **Green:** 728 unit tests / 57 files, 15 e2e, lint, typecheck, build. Version 1.0.0.
+- **54 commits**, nothing pushed, working tree clean.
 
 ## What this is
 
@@ -39,20 +40,24 @@ migration that converts stored `SplitNode` trees into real strip groups.
 
 ## Next
 
-**All 12 tasks are landed.** Two fixes from the release review are the only
-work still in flight:
+**All 12 tasks are landed, and both release-review findings are fixed**
+(`e9b9586` migration robustness, `504998e` maxSize clamping).
 
-1. `migrateToV5` throws on malformed v4 input — a leaf/`childOrder` mismatch, a
-   duplicate leaf id, or a cyclic `container.state` each crash `deserialize`
-   rather than degrading. Must fall back to a flat strip instead.
-2. `stripStrategy` ignores `hints.maxSize` when placing an explicitly-sized
-   child. `clampExplicitSizes` models only `min`; `effectiveMaxAxis` is used
-   only at drag time. Contradicts `NodeHints.maxSize`'s own JSDoc.
+**The one thing left is deciding how to slice this into PRs.** The branch
+carries two distinct bodies of work: the earlier headless-layout-host extraction
+(steps 1–3 of its own spec) and everything in this 1.0.0. They want separating.
 
-**Known open, deliberately not done:** grid has spans but no gutters — what a
-grid gutter resizes (one pane's span, or a whole column) is an unsettled design
-question. `<Zone>` has no `pinned` prop, so `<Group>` → `<Zone kind="group">`
-is not full parity.
+## Known open, deliberately not done
+
+- **Grid has spans but no gutters.** What a grid gutter resizes — one pane's
+  span, or a whole column — is an unsettled design question. Forcing an answer
+  would have produced a mechanism to unpick.
+- **`patchPlacement` lock-gates `size` behind the `resize` axis but not `span`.**
+  Harmless today because nothing writes `span`; it becomes a real hole the
+  moment a grid gutter lands.
+- **`<Zone>` has no `pinned` prop** (`Omit<CommonBindingProps, 'pinned'>`), so
+  `<Group>` → `<Zone kind="group">` is not full parity. `store.setPinned` works
+  on a parented zone; only the declarative prop is missing.
 
 **Task 12 carries a design decision already made:** do NOT follow the
 `TODO(0.6+)` comment in `src/layout/grid.ts`, which proposes reusing
