@@ -124,6 +124,57 @@ describe('Store.transact', () => {
 
     expect(store.getNode(asNodeId('a'))).toBeDefined();
   });
+
+  it('collapses a transact called from a begin listener', () => {
+    const store = new Store();
+    const seen: string[] = [];
+    store.events.on('transaction.begin', () => {
+      seen.push('begin');
+      if (seen.length === 1) store.transact(() => {});
+    });
+    store.events.on('transaction.end', () => seen.push('end'));
+
+    store.transact(() => {});
+
+    expect(seen).toEqual(['begin', 'end']);
+  });
+
+  it('closes correctly when a nested frame throws', () => {
+    const store = new Store();
+    const seen: string[] = [];
+    store.events.on('transaction.begin', () => seen.push('begin'));
+    store.events.on('transaction.end', () => seen.push('end'));
+
+    expect(() =>
+      store.transact(() => {
+        store.transact(() => {
+          throw new Error('boom');
+        });
+      }),
+    ).toThrow('boom');
+
+    expect(seen).toEqual(['begin', 'end']);
+    // Depth reset, so the next transaction still emits.
+    store.transact(() => {});
+    expect(seen).toEqual(['begin', 'end', 'begin', 'end']);
+  });
+
+  it('still coalesces subscriber notifications to one', async () => {
+    const store = new Store();
+    let notifications = 0;
+    store.subscribe(() => {
+      notifications += 1;
+    });
+
+    store.transact(() => {
+      store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'strip', config: {} }));
+      store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+      store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    });
+    await Promise.resolve();
+
+    expect(notifications).toBe(1);
+  });
 });
 ```
 
@@ -140,8 +191,8 @@ In `src/store.ts`, inside `interface StoreEvents`, add after the `'container.sta
   /**
    * A composite operation started. Bracket history pushes on this pair to get
    * one undo step for the whole operation: the `node.*` events are synchronous
-   * and per-mutation, so an unbracketed listener sees one `split` as eleven
-   * changes.
+   * and per-mutation, so an unbracketed listener sees one `split` as many
+   * separate changes.
    */
   'transaction.begin': { label?: string };
   /** Closes a `transaction.begin`. Fires even when the callback threw. */
@@ -167,30 +218,42 @@ And after `flushNow()` (ends line 976), add:
    * propagates, but whatever was already mutated stays mutated.
    */
   transact(fn: () => void, label?: string): void {
-    const payload = label === undefined ? {} : { label };
-    if (this.txnDepth === 0) this.events.emit('transaction.begin', payload);
+    // Increment BEFORE emitting: a `transaction.begin` listener that itself
+    // calls `transact` must not read depth 0 and start a second transaction.
+    const outermost = this.txnDepth === 0;
     this.txnDepth += 1;
+    if (outermost) this.events.emit('transaction.begin', label === undefined ? {} : { label });
+    let threw = false;
     try {
       fn();
+    } catch (e) {
+      threw = true;
+      throw e;
     } finally {
       this.txnDepth -= 1;
       if (this.txnDepth === 0) {
-        this.events.emit('transaction.end', payload);
-        trace('store', `transact: ${label ?? '(unlabeled)'}`);
+        this.events.emit('transaction.end', label === undefined ? {} : { label });
+        trace('store', `transact: ${label ?? '(unlabeled)'}${threw ? ' (threw)' : ''}`);
       }
     }
   }
 ```
 
+The begin and end payloads are separate literals on purpose: sharing one object
+would let a `begin` listener mutate what `end` listeners receive.
+
+The `end` side needs no equivalent guard — depth is already back to 0 before it
+emits, so a `transact` from an `end` listener correctly starts a new transaction.
+
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run src/store.transact.test.ts`
-Expected: PASS, 6 tests
+Expected: PASS, 9 tests
 
 - [ ] **Step 6: Run the full suite and lint**
 
 Run: `npm test && npm run lint && npm run typecheck`
-Expected: all pass, 630 tests
+Expected: all pass, 633 tests
 
 - [ ] **Step 7: Commit**
 
