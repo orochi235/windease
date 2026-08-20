@@ -298,6 +298,11 @@ export interface ZoneProps extends ZoneBindingProps, PresentationalProps {
    * but render no DOM — preserves previous behavior.
    */
   renderImperative?: (node: Node) => ReactNode;
+  /**
+   * Overrides the `kind` label, which drives the wrapper class and
+   * `ChromeMap` dispatch. Migration path for `<Group>`: `kind="group"`.
+   */
+  kind?: string;
 }
 
 /** @group Components */
@@ -309,12 +314,14 @@ export function Zone(props: ZoneProps) {
       if (!props.strategyId) {
         throw new Error(`windease: <Zone id="${id}"> requires a strategyId prop.`);
       }
-      return createZone({
+      const node = createZone({
         id,
         strategyId: props.strategyId,
         config: props.config,
         ...defined({ parentId: parentId ?? undefined, meta: props.meta, order: props.order }),
       });
+      if (props.kind !== undefined) node.kind = props.kind;
+      return node;
     },
     reconcile: (store, id) => {
       const base = makeReconciler(props);
@@ -340,7 +347,7 @@ export function Zone(props: ZoneProps) {
   const zoneStyle = composeZoneStyle(props);
   return (
     <PresetShell
-      kind="zone"
+      kind={props.kind ?? 'zone'}
       id={id}
       className={props.className}
       style={zoneStyle}
@@ -414,7 +421,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   return (
     <LayoutScope value={layoutInfo}>
       <PresetShell
-        kind="zone"
+        kind={props.kind ?? 'zone'}
         id={props.id}
         className={props.className}
         style={zoneStyle}
@@ -454,7 +461,7 @@ function makeReconciler(props: CommonBindingProps) {
 }
 
 interface PresetShellProps {
-  kind: 'panel' | 'group' | 'zone';
+  kind: string;
   id: NodeId;
   children?: ReactNode | undefined;
   className?: string | undefined;

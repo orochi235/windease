@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createGroup, createPanel, createZone } from './constructors.js';
 import { asNodeId } from './node.js';
+import { Store } from './store.js';
 
 describe('createZone', () => {
   it('produces a zone-kind node with container only', () => {
@@ -204,5 +205,93 @@ describe('node factories — order', () => {
 
   it('leaves order undefined when not provided', () => {
     expect(createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }).order).toBeUndefined();
+  });
+});
+
+describe('createZone with a parentId', () => {
+  it('attaches membership when given a parentId', () => {
+    const node = createZone({
+      id: asNodeId('inner'),
+      parentId: asNodeId('outer'),
+      strategyId: 'strip',
+      config: {},
+    });
+
+    expect(node.membership?.parentId).toBe('outer');
+    expect(node.membership?.placement).toEqual({});
+    expect(node.container?.strategyId).toBe('strip');
+  });
+
+  it('omits membership when given none', () => {
+    const node = createZone({ id: asNodeId('root'), strategyId: 'strip', config: {} });
+    expect(node.membership).toBeUndefined();
+  });
+
+  it('takes a placement alongside a parentId', () => {
+    const node = createZone({
+      id: asNodeId('inner'),
+      parentId: asNodeId('outer'),
+      strategyId: 'strip',
+      config: {},
+      placement: { size: { w: 100 } },
+    });
+
+    expect(node.membership?.placement).toEqual({ size: { w: 100 } });
+  });
+
+  it('keeps kind zone, unlike createGroup', () => {
+    const zone = createZone({
+      id: asNodeId('a'),
+      parentId: asNodeId('p'),
+      strategyId: 'strip',
+      config: {},
+    });
+    const group = createGroup({
+      id: asNodeId('b'),
+      parentId: asNodeId('p'),
+      strategyId: 'strip',
+      config: {},
+    });
+
+    expect(zone.kind).toBe('zone');
+    expect(group.kind).toBe('group');
+  });
+
+  it('produces the same capability set as createGroup', () => {
+    const zone = createZone({
+      id: asNodeId('a'),
+      parentId: asNodeId('p'),
+      strategyId: 'strip',
+      config: {},
+    });
+    const group = createGroup({
+      id: asNodeId('b'),
+      parentId: asNodeId('p'),
+      strategyId: 'strip',
+      config: {},
+    });
+
+    const caps = (n: typeof zone) => ({
+      container: !!n.container,
+      membership: !!n.membership,
+      focus: !!n.focus,
+    });
+    expect(caps(zone)).toEqual(caps(group));
+  });
+
+  it('registers under the parent rather than as a root', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('outer'), strategyId: 'strip', config: {} }));
+    store.registerNode(
+      createZone({
+        id: asNodeId('inner'),
+        parentId: asNodeId('outer'),
+        strategyId: 'stack',
+        config: {},
+      }),
+    );
+
+    expect(store.rootIds).toEqual(['outer']);
+    expect(store.getContainerView(asNodeId('outer'))?.childOrder).toEqual(['inner']);
   });
 });
