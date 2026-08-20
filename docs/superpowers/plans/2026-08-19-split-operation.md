@@ -1076,8 +1076,9 @@ node a `container` — reconfigure needs both. In `src/store.ts`, after
 
 ```ts
   /**
-   * Swap the layout strategy for `id`'s container. The config is not
-   * migrated — pass a matching one through `updateContainerConfig`.
+   * Swap the layout strategy for `id`'s container. The persisted `state` is
+   * dropped — it belongs to the outgoing strategy — but the config is NOT
+   * migrated; pass a matching one through `updateContainerConfig`.
    */
   setStrategy(id: NodeId, strategyId: string, opts?: MutateOptions): void {
     this.assertUnlocked(id, 'arrange', 'setStrategy', opts);
@@ -1085,9 +1086,13 @@ node a `container` — reconfigure needs both. In `src/store.ts`, after
     if (!node.container) throw new CapabilityMissingError(id, 'container', 'setStrategy');
     const from = node.container.strategyId;
     if (from === strategyId) return;
-    this.replaceContainer(id, (c) => ({ ...c, strategyId }));
+    const priorState = node.container.state;
+    this.replaceContainer(id, (c) => ({ ...c, strategyId, state: undefined }));
     this.events.emit('container.strategyChanged', { id, from, to: strategyId });
-    trace('store', `strategy: ${id} ${from} → ${strategyId}`);
+    if (priorState !== undefined) {
+      this.events.emit('container.stateChanged', { id, from: priorState, to: undefined });
+    }
+    trace('store', `strategy: ${id} ${from} → ${strategyId} (state cleared)`);
     this.scheduleNotify();
   }
 
@@ -1124,16 +1129,27 @@ function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
   if (input.direction === 'both' || input.direction === 'grid') {
     throw new InvariantViolationError('split-unimplemented', 'both/grid land in task 5', { id });
   }
+  const hadContainer = store.getNodeTruth(id)?.container !== undefined;
   const config = stripConfig(input.direction, input.config);
   store.ensureContainer(id, 'strip', config);
-  store.setStrategy(id, 'strip');
-  store.updateContainerConfig(id, config);
+  if (hadContainer) {
+    store.setStrategy(id, 'strip');
+    store.updateContainerConfig(id, config);
+  }
   for (const newId of input.newIds) {
     store.registerNode(createPanel({ id: newId, parentId: id }));
   }
   trace('store', `split: reconfigure ${id} (strip ${input.direction}, +${input.newIds.length})`);
 }
 ```
+
+The `hadContainer` gate is not an optimization. `ensureContainer` already writes
+the final config when it creates one, and `updateContainerConfig`'s no-op guard
+is reference equality — so calling it again would emit `container.configChanged`
+for a change that did not semantically happen.
+
+Task 5 needs this same sequence twice more. Extract it there as a
+`becomeContainer(store, id, strategyId, config)` helper rather than repeating it.
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
