@@ -8,14 +8,14 @@ import {
   createZone,
   gridStrategy,
   Store,
-  stackStrategy,
+  stripStrategy,
 } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider, Zone } from '../index.js';
 import './windease.css';
 
 const STRATEGIES = {
   grid: gridStrategy as never,
-  stack: stackStrategy as never,
+  stack: stripStrategy as never,
 };
 
 interface Args {
@@ -45,7 +45,7 @@ export const Trays: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
         id: asNodeId('tray-1'),
         parentId: asNodeId('z'),
         meta: { title: 'Tray 1' },
-        container: { strategyId: 'stack', config: { axis: 'vertical', gap: 6, padding: 8 } },
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true, gap: 6, padding: 8 } },
       }),
     );
     s.showNode(asNodeId('tray-1'));
@@ -65,7 +65,7 @@ export const Trays: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
           meta: { title: 'Tray 2' },
           container: {
             strategyId: 'stack',
-            config: { axis: 'vertical', gap: 6, padding: 8 },
+            config: { axis: 'y', fill: true, gap: 6, padding: 8 },
           },
         }),
       );

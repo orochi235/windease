@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
 import { ContainerHost } from './container-host.js';
-import { stackStrategy } from './layout/stack.js';
+import { stripStrategy } from './layout/strip.js';
 import type { StrategyRegistry } from './layout-types.js';
 import { asNodeId } from './node.js';
 import { Store } from './store.js';
 
-const REGISTRY: StrategyRegistry = new Map([['stack', stackStrategy as never]]);
+const REGISTRY: StrategyRegistry = new Map([['stack', stripStrategy as never]]);
 const Z = asNodeId('z');
 
 function build(): Store {
   const s = new Store();
-  s.registerNode(createZone({ id: Z, strategyId: 'stack', config: {} }));
+  s.registerNode(createZone({ id: Z, strategyId: 'stack', config: { axis: 'y', fill: true } }));
   for (const id of ['p1', 'p2']) {
     const nid = asNodeId(id);
     s.registerNode(createPanel({ id: nid, parentId: Z }));

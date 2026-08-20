@@ -9,7 +9,7 @@ import {
   gridStrategy,
   type NodeId,
   Store,
-  stackStrategy,
+  stripStrategy,
 } from '../../index.js';
 import {
   type ChromeMap,
@@ -23,7 +23,7 @@ import './windease.css';
 import './throttling.css';
 
 const STRATEGIES = {
-  stack: stackStrategy as never,
+  stack: stripStrategy as never,
   grid: gridStrategy as never,
 };
 
@@ -66,7 +66,11 @@ const BOUNCE_PANEL = asNodeId('bounce-panel');
 function buildBounceStore(throttled: boolean, dwellMs: number): Store {
   const store = new Store(throttled ? { throttle: { dwell: { lifecycle: dwellMs } } } : {});
   store.registerNode(
-    createZone({ id: BOUNCE_ZONE, strategyId: 'stack', config: { gap: 8, padding: 8 } }),
+    createZone({
+      id: BOUNCE_ZONE,
+      strategyId: 'stack',
+      config: { axis: 'y', fill: true, gap: 8, padding: 8 },
+    }),
   );
   store.registerNode(
     createPanel({
@@ -463,7 +467,11 @@ function buildTvpStore(throttled: boolean, notifyMs: number, dwellMs: number): S
     throttled ? { throttle: { notifyMs, dwell: { lifecycle: dwellMs } } } : {},
   );
   store.registerNode(
-    createZone({ id: TVP_ZONE, strategyId: 'stack', config: { gap: 6, padding: 6 } }),
+    createZone({
+      id: TVP_ZONE,
+      strategyId: 'stack',
+      config: { axis: 'y', fill: true, gap: 6, padding: 6 },
+    }),
   );
   TVP_PANEL_IDS.forEach((id, i) => {
     store.registerNode(createPanel({ id, parentId: TVP_ZONE, meta: { title: id } }));

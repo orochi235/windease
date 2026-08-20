@@ -39,7 +39,6 @@ export {
   type SplitOptions,
   splitStrategy,
 } from './layout/split.js';
-export { stackStrategy } from './layout/stack.js';
 export { stripStrategy } from './layout/strip.js';
 export {
   getLayoutNodes,

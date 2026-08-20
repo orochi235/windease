@@ -10,7 +10,6 @@ import {
   type SplitNode,
   Store,
   splitStrategy,
-  stackStrategy,
   stripStrategy,
 } from '../../index.js';
 import {
@@ -28,7 +27,7 @@ import './playground.css';
 const STRATEGIES = {
   split: splitStrategy as never,
   grid: gridStrategy as never,
-  stack: stackStrategy as never,
+  stack: stripStrategy as never,
   strip: stripStrategy as never,
 };
 
@@ -71,7 +70,7 @@ function makeStore(): Store {
       id: SIDEBAR,
       parentId: ROOT,
       meta: { title: 'Sidebar' },
-      container: { strategyId: 'stack', config: { gap: 6, padding: 6 } },
+      container: { strategyId: 'stack', config: { axis: 'y', fill: true, gap: 6, padding: 6 } },
     }),
   );
   s.showNode(SIDEBAR);
@@ -131,7 +130,7 @@ function makeStore(): Store {
   seedControls('sidebar-controls', SIDEBAR, 'Sidebar controls');
   // Resizable-children demo: pin the sidebar controls to an explicit 180px
   // height so siblings stay below regardless of available space. The other
-  // sidebar widgets get interactive resize edges from the stack strategy.
+  // sidebar widgets get interactive resize edges from strip.
   // Already pinned to index 0 and move-locked by seedControls above; this call only fixes the height.
   s.patchPlacement(asNodeId('sidebar-controls'), { size: { h: 180 } });
   seed('widget-1', SIDEBAR, 'Widget 1', 120);

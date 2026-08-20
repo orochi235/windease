@@ -2,12 +2,12 @@ export default { title: 'Stack' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import { asNodeId, createPanel, createZone, Store, stackStrategy } from '../../index.js';
+import { asNodeId, createPanel, createZone, Store, stripStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
 const STRATEGIES = {
-  stack: stackStrategy as never,
+  stack: stripStrategy as never,
 };
 
 const ZONE_ID = asNodeId('stack');
@@ -24,7 +24,7 @@ export const Stack: Story<Args> = ({ gap, padding }) => {
       createZone({
         id: ZONE_ID,
         strategyId: 'stack',
-        config: { gap, padding },
+        config: { axis: 'y', fill: true, gap, padding },
       }),
     );
     const heights = [80, 140, 200];
