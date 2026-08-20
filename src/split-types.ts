@@ -34,9 +34,9 @@ export type SplitInput =
       /**
        * One `gridStrategy` container, no nesting.
        *
-       * NOTE: `gridStrategy` ignores `placement.size`, so a tiling built this
-       * way has **no draggable gutters**. Use `'both'` if the panes must be
-       * resizable.
+       * NOTE: `gridStrategy` honors `placement.span` but has no resize
+       * affordances that write it, so a tiling built this way has **no
+       * draggable gutters**. Use `'both'` if the panes must be resizable.
        */
       direction: 'grid';
       into: number;

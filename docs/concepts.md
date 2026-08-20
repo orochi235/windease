@@ -96,11 +96,16 @@ Two paths for free-form data on a node; lifetimes differ:
   `setPlacement` — both throw and name `setPinned`/`unpin` instead. See
   `store.setPinned` / `unpin` / `getPinnedIndex` below, and `node.lock` for
   the separate, unrelated notion of permission.
-- `size: { w?, h? }` — fixed pixel extent honored by strip / split
+- `size: { w?, h? }` — fixed **pixel** extent honored by strip / split
   along their main axis (the public "fixed-px pane" API; set via
   `store.patchPlacement`). On `split`, a gutter drag **clears** this key on
   the two affected panes, reverting them to ratio control. Pair with
   `hints.maxSize` for an "auto up to a cap" pane.
+- `span: { cols?, rows? }` — fixed **cell-count** extent honored by `grid`
+  only. Kept separate from `size` (pixels) rather than reusing it, so the
+  same key doesn't mean two different units depending on which strategy the
+  parent runs. A span wider than the grid's `cols` (or taller than a fixed
+  `rows`/`maxRows`) clamps rather than overflowing the container.
 
 `setAllowsPinning(id, false)` opts a container out of the pin invariant
 entirely (a tool strip, a tabbed group) — children can no longer hold an

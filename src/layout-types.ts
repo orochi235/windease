@@ -20,9 +20,13 @@ export interface LayoutItem {
    * to pin a pane's main-axis extent. The strip / stack / split strategies
    * honor it; split's gutter drag clears it (reverting to ratio control).
    * Either `Size` dimension is optional.
+   *
+   * `span` is grid's cell-count analog of `size` — `cols`/`rows` are counts,
+   * not pixels. Only `gridStrategy` reads it.
    */
   placement?: {
     size?: { w?: number; h?: number };
+    span?: { cols?: number; rows?: number };
   };
   /**
    * The node's whole `membership.placement` bag, projected by

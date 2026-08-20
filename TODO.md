@@ -265,9 +265,15 @@ required would remove it.
   comment.
 - TypeScript is held at 6.x because typedoc 0.28's peer range stops at
   `6.0.x`. Revisit TS 7 (the Go port) once typedoc ships support.
-- `gridStrategy` ignores `placement.size`, so `split(id, { direction: 'grid' })`
-  produces a tiling with no draggable gutters. Honoring explicit sizes there
-  would close the last capability gap against the `splitStrategy` this release removed.
+- `gridStrategy` honors `placement.span` (cell-count spans, reserved and
+  clamped) but has no resize affordances that write it, so
+  `split(id, { direction: 'grid' })` still produces a tiling with no
+  draggable gutters. Wiring a gutter that mutates `span` on drag is the
+  remaining capability gap against the `splitStrategy` this release removed.
+- `patchPlacement` lock-gates `size` writes behind the `resize` axis but not
+  `span` — a resize-locked node's grid span can still be changed directly.
+  Unguarded because nothing writes `span` yet (see the gutter gap above); fold
+  the gate in when a gutter lands.
 - `focus` is offered only by `createPanel`. The store's single-focus invariant
   is store-wide and does not care which node carries the capability, so a
   focusable container is structurally fine and merely unconstructible.

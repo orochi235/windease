@@ -58,9 +58,13 @@ export interface MembershipCap {
    * shipped layout strategies and React layer:
    *  - `pinned?: number` — the index in the parent's childOrder this child
    *     holds against third-party reorders. Set via `Store.setPinned`/`unpin`.
-   *  - `size?: { w?: number; h?: number }` — user intent; honored by stack /
-   *     strip / split along their main axis. Either dimension is optional.
-   *     Gutter drags on split *clear* this key on the two affected panes.
+   *  - `size?: { w?: number; h?: number }` — user intent, in **pixels**;
+   *     honored by stack / strip / split along their main axis. Either
+   *     dimension is optional. Gutter drags on split *clear* this key on the
+   *     two affected panes.
+   *  - `span?: { cols?: number; rows?: number }` — user intent, in **cell
+   *     counts**; honored by grid only. Kept separate from `size` so one key
+   *     doesn't mean pixels under one strategy and cells under another.
    *  Free-form keys are ignored by core; consumers may add their own.
    */
   placement: Record<string, unknown>;
