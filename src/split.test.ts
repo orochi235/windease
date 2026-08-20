@@ -5,10 +5,14 @@ import {
   createGroup,
   createPanel,
   createZone,
+  deserialize,
   gridStrategy,
+  HistoryController,
   type NodeId,
   nodeToLayoutItem,
+  type SerializedStore,
   Store,
+  serialize,
   stripStrategy,
 } from './index.js';
 
@@ -828,6 +832,129 @@ describe('Store.unsplit', () => {
 
     store.unsplit(asNodeId('g'), { force: true });
 
+    expect(store.getNode(asNodeId('g'))).toBeUndefined();
+  });
+});
+
+describe('Store.split — locks', () => {
+  it('refuses when the target is locked against move', () => {
+    const store = seeded();
+    store.setLock(asNodeId('p1'), { move: true });
+
+    expect(() =>
+      store.split(asNodeId('p1'), {
+        direction: 'y',
+        groupId: asNodeId('g'),
+        newIds: [asNodeId('p2')],
+      }),
+    ).toThrow();
+    expect(store.getNode(asNodeId('g'))).toBeUndefined();
+  });
+
+  it('refuses when the parent is locked against arrange', () => {
+    const store = seeded();
+    store.setLock(asNodeId('z'), { arrange: true });
+
+    expect(() =>
+      store.split(asNodeId('p1'), {
+        direction: 'y',
+        groupId: asNodeId('g'),
+        newIds: [asNodeId('p2')],
+      }),
+    ).toThrow();
+  });
+
+  it('refuses a flatten when the parent is locked against arrange', () => {
+    const store = seeded();
+    store.setLock(asNodeId('z'), { arrange: true });
+
+    expect(() =>
+      store.split(asNodeId('p1'), { direction: 'x', newIds: [asNodeId('p2')] }),
+    ).toThrow();
+  });
+
+  it('force overrides every axis', () => {
+    const store = seeded();
+    store.setLock(asNodeId('p1'), { move: true });
+    store.setLock(asNodeId('z'), { arrange: true, dragOut: true });
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+      force: true,
+    });
+
+    expect(store.getContainerView(asNodeId('g'))?.childOrder).toEqual(['p1', 'p2']);
+  });
+
+  it('does not refuse when the new group is registered under a parent locked against accept', () => {
+    const store = seeded();
+    store.setLock(asNodeId('z'), { accept: true });
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getContainerView(asNodeId('g'))?.childOrder).toEqual(['p1', 'p2']);
+  });
+
+  // registerNode never checks 'accept', so the case above passes with or without
+  // suspension. This one is the real proof: applyWrap's internal patchPlacement
+  // call does check 'resize', and that axis is not in split's own up-front list.
+  it('runs internal calls suspended, so an axis outside the contract does not refuse', () => {
+    const store = seeded();
+    store.setLock(asNodeId('p1'), { resize: true });
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getContainerView(asNodeId('g'))?.childOrder).toEqual(['p1', 'p2']);
+    expect(store.getPlacement(asNodeId('p1')).size).toBeUndefined();
+  });
+});
+
+describe('Store.split — persistence and undo', () => {
+  it('round-trips a split tree through serialize/deserialize', () => {
+    const store = seeded();
+    store.split(asNodeId('p1'), {
+      direction: 'both',
+      into: [2, 2],
+      groupIds: [asNodeId('g'), asNodeId('c0'), asNodeId('c1')],
+      newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4')],
+    });
+
+    const snap = serialize(store);
+    const revived = deserialize(snap);
+
+    expect(revived.getContainerView(asNodeId('c0'))?.childOrder).toEqual(['p1', 'p2']);
+    expect(revived.getContainerView(asNodeId('c1'))?.childOrder).toEqual(['p3', 'p4']);
+  });
+
+  it('undoes a split in one step when history brackets the transaction pair', () => {
+    const store = seeded();
+    const history = new HistoryController<SerializedStore>();
+    history.push(serialize(store));
+    store.events.on('transaction.begin', () => history.beginTransaction());
+    store.events.on('transaction.end', () => history.endTransaction(serialize(store)));
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      into: 3,
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2'), asNodeId('p3')],
+    });
+
+    const previous = history.undo();
+    expect(previous).toBeDefined();
+    if (previous) store.withLocksSuspended(() => deserialize(store, previous));
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1']);
     expect(store.getNode(asNodeId('g'))).toBeUndefined();
   });
 });
