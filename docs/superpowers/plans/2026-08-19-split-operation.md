@@ -1006,7 +1006,7 @@ describe('Store.split — reconfigure mode', () => {
 
     store.split(asNodeId('z'), {
       direction: 'x',
-      into: 2,
+      into: 3,
       newIds: [asNodeId('p1'), asNodeId('p2')],
     });
 
@@ -2098,6 +2098,21 @@ Delete the now-fixed `<Zone>` bullet from "Surfaced by turning the type-checker 
 - `focus` is offered only by `createPanel`. The store's single-focus invariant
   is store-wide and does not care which node carries the capability, so a
   focusable container is structurally fine and merely unconstructible.
+- **A node cannot be locked against gaining a container.** `resolveLock` drops
+  axes the node's current capabilities don't support, and `arrange` requires an
+  existing `container` — so `setLock(panel, { arrange: true })` silently stores
+  nothing and `ensureContainer` proceeds. The guard works only once a container
+  is already present, which is the case it is least needed for.
+- **`ensureContainer` emits no event**, unlike every other structural mutation
+  (`registerNode` → `node.registered`, `setStrategy` → `container.strategyChanged`).
+  An event-driven consumer sees a node silently acquire children. A
+  `container.added` event would close it; it is new public surface, so it is
+  recorded rather than assumed.
+- `applyReconfigure` merge-patches the container config, so a key from the
+  abandoned strategy survives (a `grid` root's `cols` outlives the switch to
+  `strip`). Deliberate — replacing wholesale would discard consumer intent like
+  `gap` — and pinned by a test. Revisit only if a strategy ever rejects unknown
+  keys.
 ```
 
 - [ ] **Step 7: Update `docs/concepts.md`**
