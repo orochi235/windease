@@ -1082,6 +1082,9 @@ export class Store {
    * Nothing calls this automatically. Removing the second-to-last child of a
    * split group leaves a one-child strip, which renders full-bleed and is
    * harmless; collapsing it is the consumer's call.
+   *
+   * A sole surviving child inherits the group's placement (size, pin); with
+   * several children the group's placement is simply dropped.
    */
   unsplit(groupId: NodeId, opts?: MutateOptions): void {
     unsplitNode(this, groupId, opts);

@@ -769,6 +769,7 @@ describe('Store.unsplit', () => {
   it('round-trips with split', () => {
     const store = seeded();
     const before = store.getContainerView(asNodeId('z'))?.childOrder;
+    const beforeSnapshot = serialize(store);
 
     store.split(asNodeId('p1'), {
       direction: 'y',
@@ -779,6 +780,58 @@ describe('Store.unsplit', () => {
     store.unsplit(asNodeId('g'));
 
     expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(before);
+    expect(serialize(store)).toEqual(beforeSnapshot);
+  });
+
+  it('returns the group placement to a sole surviving child', () => {
+    const store = seeded();
+    store.patchPlacement(asNodeId('p1'), { size: { w: 300 } });
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+    store.unregisterNode(asNodeId('p2'));
+
+    store.unsplit(asNodeId('g'));
+
+    expect(store.getPlacement(asNodeId('p1'))).toMatchObject({ size: { w: 300 } });
+  });
+
+  it('returns a transferred pin to a sole surviving child', () => {
+    const store = new Store();
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+    );
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
+    store.setPinned(asNodeId('p1'), 0);
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+    store.unregisterNode(asNodeId('p2'));
+
+    store.unsplit(asNodeId('g'));
+
+    expect(store.getPinnedIndex(asNodeId('p1'))).toBe(0);
+  });
+
+  it('drops the group placement when several children survive', () => {
+    const store = seeded();
+    store.patchPlacement(asNodeId('p1'), { size: { w: 300 } });
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    store.unsplit(asNodeId('g'));
+
+    // One slot's size cannot describe two siblings; picking one would be arbitrary.
+    expect(store.getPlacement(asNodeId('p1')).size).toBeUndefined();
+    expect(store.getPlacement(asNodeId('p2')).size).toBeUndefined();
   });
 
   it('throws when the target has no container', () => {
@@ -901,9 +954,8 @@ describe('Store.split — locks', () => {
     expect(store.getContainerView(asNodeId('g'))?.childOrder).toEqual(['p1', 'p2']);
   });
 
-  // registerNode never checks 'accept', so the case above passes with or without
-  // suspension. This one is the real proof: applyWrap's internal patchPlacement
-  // call does check 'resize', and that axis is not in split's own up-front list.
+  // registerNode never checks 'accept', so the case above passes either way.
+  // This is the real proof: applyWrap's patchPlacement checks 'resize', which is not in split's own list.
   it('runs internal calls suspended, so an axis outside the contract does not refuse', () => {
     const store = seeded();
     store.setLock(asNodeId('p1'), { resize: true });

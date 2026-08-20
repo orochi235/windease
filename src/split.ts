@@ -364,7 +364,9 @@ function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
 }
 
 /** Dissolve `groupId` into its parent: its children move up to the group's
- *  index in order, then the group is unregistered. */
+ *  index in order, then the group is unregistered. A sole surviving child
+ *  inherits the group's placement (the slot it now occupies); with several
+ *  children there is no single right owner, so the group's placement is dropped. */
 export function unsplitNode(store: Store, groupId: NodeId, opts?: MutateOptions): void {
   const group = store.getNodeTruth(groupId);
   if (!group) {
@@ -378,12 +380,20 @@ export function unsplitNode(store: Store, groupId: NodeId, opts?: MutateOptions)
 
   const children = [...group.container.childOrder];
   const at = store.getContainerView(parentId)?.childOrder.indexOf(groupId) ?? 0;
+  const groupPlacement = { ...group.membership.placement };
+  const groupPinnedIndex = store.getPinnedIndex(groupId);
 
   store.transact(() => {
     store.withLocksSuspended(() => {
       children.forEach((childId, i) => {
         store.moveNode(childId, parentId, at + i);
       });
+      if (children.length === 1 && children[0] !== undefined) {
+        const childId = children[0];
+        const { pinned: _pinned, ...rest } = groupPlacement;
+        if (Object.keys(rest).length > 0) store.patchPlacement(childId, rest);
+        if (groupPinnedIndex !== null) store.setPinned(childId, groupPinnedIndex);
+      }
       store.unregisterNode(groupId);
     });
   }, 'unsplit');
