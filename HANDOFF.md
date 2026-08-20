@@ -1,70 +1,93 @@
-# Handoff — headless layout host, and what to do about `splitStrategy`
+# Handoff — the split operation, mid-implementation
 
-Session state for `feat/core-drag-controller`. The consumer report that used to
-live in this file has been folded into `TODO.md` (see "Replace `splitStrategy`
-with a split *operation*"), so nothing here is the only copy of anything.
+Session state for `feat/core-drag-controller`. Nothing here is the only copy of
+anything: the design is in
+`docs/superpowers/specs/2026-08-19-split-operation-design.md` and the task
+breakdown in `docs/superpowers/plans/2026-08-19-split-operation.md`.
 
-- **Branch:** `feat/core-drag-controller`, cut from `main` after v0.9.0 shipped.
-  Nothing pushed. Eight commits.
-- **Spec:** `docs/superpowers/specs/2026-08-19-headless-layout-host-design.md`
-- **Green:** lint, typecheck, 624 unit tests / 57 files, 11 Playwright e2e,
-  `npm run build`.
+- **Branch:** `feat/core-drag-controller`, cut from `main` after v0.9.0. Nothing
+  pushed. The earlier headless-layout-host work (steps 1–3 of its spec) is on the
+  same branch; the split work grew on top of it, so the branch now covers both
+  and wants slicing into two PRs at the end.
+- **Green:** 666 unit tests / 59 files, lint, typecheck.
+
+## What this is
+
+`splitStrategy` keeps a `SplitNode` tree in `container.state` describing the same
+structure the node tree already describes, and every known split bug is the two
+disagreeing. It is being replaced by a `split` **store operation** that
+rearranges real nodes, laid out by `stripStrategy` — which handles add, remove,
+reorder and resize correctly today because it is a pure function of `items`.
+
+Ships as 0.10.0, additive: `splitStrategy` is deprecated but keeps working, and
+the snapshot stays at v4.
 
 ## Done
 
-Steps 1-3 of the spec, plus the e2e suite it named as a prerequisite.
-
-| Commit | |
-|---|---|
-| `b35d92c` | `DragController` + `insertionIndex` into core |
-| `18101e1` | Ladle: flatten tree, churn slider, Playground height |
-| `134efbf` | Playwright e2e suite |
-| `29a9185` | `ContainerHost` extracted from `useContainerLayout` |
-| `6d6bca9` | synchronous invalidation + notification coalescing |
-| `0c99ae6` | biome excludes for Playwright artifacts |
-| `6951b94` | reconcile decisions into core |
-| `3890209` | `fix(split)`: honor the documented `direction` option |
-
-`useContainerLayout` went 229 lines to 72 and kept its exact signature, so
-`Container.tsx` is untouched and `windease/react`'s public surface is unchanged.
+| Task | Commits | |
+|---|---|---|
+| 1 | `01765e3`, `859e776` | `Store.transact` + `transaction.begin`/`end` |
+| 2 | `2f4cd51`, `f07d1aa` | `SplitInput`, validation, mode resolution |
+| 3 | `aab31fe` | `wrap` and `flatten` modes, `'x'`/`'y'` |
+| 4 | `2d2c81c`, `a22f7e3`, `80ac759` | `reconfigure` mode, `setStrategy`, `ensureContainer` |
 
 ## Next
 
-**The open decision is sequencing, not design.** `TODO.md` records the call:
-split becomes a store operation, layout becomes `strip` with a direction, the
-node tree is the only tree. What is not decided is what the blocked consumer
-gets in the meantime — patch `splitStrategy`'s tiling as throwaway work on a
-structure that is going away, or give them the verb early.
+Task 5 (`'both'` / `'grid'` directions) is in flight. Then 6 `unsplit`, 7 locks
+and undo coverage, 8 the preset merge, 9 deprecations and the version bump, 10
+story and e2e. Each task is one commit and independently shippable.
 
-Step 4 of the spec (a second binding) is still deliberately open between
-`windease/vanilla` and `windease/elements`. Steps 1-3 were identical either way;
-this is the point where it has to be decided. The three deciding facts are in
-the spec's last section.
+## Decisions made in conversation, not visible in the code
+
+- **`split` is a verb over the node tree, not a strategy.** Modes are forced by
+  the target's position, not its `kind`: a node with a parent is *wrapped*, a
+  node whose parent is already a strip on the requested axis gets siblings
+  *flattened* in beside it, and a root *becomes* the container because nothing
+  exists above it to interpose.
+- **All ids are caller-supplied.** The store has no id generator and gains none,
+  so replay and hydration stay deterministic.
+- **`createGroup` is being deprecated, not kept.** After `parentId` becomes
+  optional on `createZone` (Task 8) the two produce identical nodes but for
+  `kind`, and two names for one shape leave a consumer with no basis to choose.
+  The word is also reserved for the unbuilt feature under TODO.md's "Groups" —
+  windows that move as a unit — which is what a user means by the term. The
+  shipped `createGroup` means "a container that has a parent", which is not a
+  group in any sense a user would recognize.
+- **The config merge on reconfigure is deliberate.** A key from the abandoned
+  strategy survives; replacing wholesale would discard consumer intent like
+  `gap` when flipping a strip's axis, and a stale key is inert because
+  strategies read only their own keys. Pinned by a test.
+- **`setStrategy` clears `container.state`** — the opposite call from config,
+  because `state` is handed to `layout()` as one blob typed for whichever
+  strategy is now attached, with no runtime check. Leaving it would recreate the
+  two-trees bug this whole plan deletes.
+- **`'grid'` ships without gutters**, warned in its JSDoc. `gridStrategy`
+  ignores `placement.size`, so that one direction has no draggable dividers — a
+  capability regression against `splitStrategy`, accepted knowingly.
 
 ## Traps
 
-- **`store.subscribe` notifies asynchronously**; the `node.*` events are
-  synchronous. `ContainerHost` subscribes to both — the events to close the
-  stale-read window, `subscribe` as the catch-all so anything not enumerated is
-  still caught, a tick late. Do not drop either.
-- **`ContainerHost.layout()` must stay identity-stable.** It is React's
-  `getSnapshot`; returning a fresh object per call loops the render forever.
-  Recomputing on demand was measured and rejected (0.01us cached against
-  2.8-70us recomputed, and it breaks `getSnapshot` regardless).
-- **Host notifications describe a transition away from a value already read.**
-  A listener subscribing before the first `layout()` hears nothing until it has
-  read once. React never hits this; a vanilla consumer can.
-- **`ParallelZonesDnd` registers a drop target for the same zone id its
-  `<Container>` already registered.** Child effects run before parent effects,
-  so the story's registration wins and loses the default `getInsertionIndex` —
-  every drop there appends. `Playground` documents the trap and avoids it.
-- **The split story passes an explicit `viewport`**, so it never exercises the
-  ResizeObserver path. Reflow coverage needs a ref-measured fixture.
-- **`test-results/` is gitignored but biome reads the filesystem**, so a local
-  e2e run can fail `npm run lint` until the excludes in `biome.jsonc` cover it.
+- **`patchPlacement` refuses to write `pinned` at all**, even as `undefined`
+  (`store.ts:566-573`). Clear a pin with `unpin`.
+- **In `wrap`, the new group must be reordered to the target's index before
+  `moveNode` pulls the target out.** `registerNode` appends, so the group starts
+  at the end.
+- **`split` checks its lock axes up front and then runs inside
+  `withLocksSuspended`.** `moveNode` alone asserts `move`, `accept` and
+  `dragOut`, so an internal guard firing partway would leave a half-built tree —
+  nothing rolls back.
+- **The interposed group takes the target's placement**, not the reverse. The
+  group occupies the position the target held, so `size` describes the group.
+  Backwards produces a layout that is wrong but not obviously wrong.
+- **Arity is uniform: `newIds.length === into - 1` in every mode**, including at
+  a root, where the target counts as the first child even though it is the
+  container. A test pins it; do not "fix" it.
+- **`toThrow(/…/)` in vitest matches `error.message`, not `error.code`.**
+  `InvariantViolationError` does not put its code in the message.
 
-## Parked
+## Process note
 
-`scratchpad/split.tiling.test.ts` — five failing tests for balanced tiling and
-extent clamping, written before the split-as-verb decision. Useful if
-`splitStrategy` gets patched; delete if it gets replaced.
+Every defect found so far has been in the plan, not in the implementations —
+the reviewers are earning their keep. Keep dispatching a spec-and-quality review
+per task, and keep folding each correction back into the plan file so it does
+not drift from the code.

@@ -1304,6 +1304,23 @@ function gridConfig(cols: number | undefined, extra?: Record<string, unknown>): 
   return cols === undefined ? { ...extra } : { cols, ...extra };
 }
 
+/** Make `id` a container running `strategyId`. Extracted from Task 4's inline
+ *  gate, which must survive: re-writing the config `ensureContainer` just
+ *  created would emit a `configChanged` for a change that did not happen. */
+function becomeContainer(
+  store: Store,
+  id: NodeId,
+  strategyId: string,
+  config: Record<string, unknown>,
+): void {
+  const had = store.getNodeTruth(id)?.container !== undefined;
+  store.ensureContainer(id, strategyId, config);
+  if (had) {
+    store.setStrategy(id, strategyId);
+    store.updateContainerConfig(id, config);
+  }
+}
+
 /** Build the nested column groups for `direction: 'both'` under `outerId`,
  *  with `id` already sitting at column 0 row 0. */
 function buildColumns(
@@ -1398,10 +1415,7 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
 ```ts
 function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
   if (input.direction === 'both') {
-    const config = stripConfig('x', input.config);
-    store.ensureContainer(id, 'strip', config);
-    store.setStrategy(id, 'strip');
-    store.updateContainerConfig(id, config);
+    becomeContainer(store, id, 'strip', stripConfig('x', input.config));
     let cursor = 0;
     input.groupIds.slice(1).forEach((columnId) => {
       store.registerNode(
@@ -1423,9 +1437,7 @@ function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
     input.direction === 'grid'
       ? gridConfig(input.cols, input.config)
       : stripConfig(input.direction, input.config);
-  store.ensureContainer(id, strategyId, config);
-  store.setStrategy(id, strategyId);
-  store.updateContainerConfig(id, config);
+  becomeContainer(store, id, strategyId, config);
   for (const newId of input.newIds) {
     store.registerNode(createPanel({ id: newId, parentId: id }));
   }
