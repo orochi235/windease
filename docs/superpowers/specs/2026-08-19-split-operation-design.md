@@ -311,9 +311,14 @@ children to zero.
   is wrapped; the group holds both and the target's placement is empty.
 - **Validation** — every row of the error table, each asserting the store is
   unchanged afterward.
-- **Locks** — each axis in the list refuses, and `force` overrides. Also: a lock
-  on an axis *not* in the list (`accept` on the new group's parent) does not
-  refuse, which is what proves the internal calls run suspended.
+- **Locks** — each axis in the list refuses, and `force` overrides. Plus one
+  test that genuinely proves the suspension: lock `resize` on the target.
+  `applyWrap`'s internal `patchPlacement(id, { size: undefined })` asserts
+  `resize`, and `resize` is deliberately not one of the axes checked up front,
+  so that call throws if the mutations are not running suspended. Locking
+  `accept` on the parent does NOT prove it — `registerNode` checks no axis at
+  all, and `moveNode`'s `accept` check targets the new group rather than its
+  parent, so such a test passes with or without the suspension.
 - **Atomicity** — one `subscribe` notification per `split`; one
   `transaction.begin`/`transaction.end` pair however deeply `transact` nests; the
   pair still closes when `fn` throws, and a second `transact` afterward still

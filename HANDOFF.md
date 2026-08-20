@@ -49,7 +49,7 @@ removals and the 1.0.0 bump, 10 story and e2e.
   exists above it to interpose.
 - **All ids are caller-supplied.** The store has no id generator and gains none,
   so replay and hydration stay deterministic.
-- **`createGroup` is being deprecated, not kept.** After `parentId` becomes
+- **`createGroup` is being removed, not kept.** After `parentId` becomes
   optional on `createZone` (Task 8) the two produce identical nodes but for
   `kind`, and two names for one shape leave a consumer with no basis to choose.
   The word is also reserved for the unbuilt feature under TODO.md's "Groups" —
