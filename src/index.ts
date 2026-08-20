@@ -1,3 +1,4 @@
+export { type ChildSort, type ChildSortEntry, defaultChildSort } from './child-sort.js';
 export {
   type CreateGroupInput,
   type CreatePanelInput,
@@ -90,6 +91,13 @@ export {
   type TransitCap,
 } from './node.js';
 export { type PinnedIndexOf, placeRespectingPins } from './pinning.js';
+export {
+  type ObservedChild,
+  reconcileChildOrder,
+  reconcileContainerState,
+  reconcilePinned,
+  reconcilePlacement,
+} from './reconcile.js';
 export {
   deserialize,
   type SerializedNode,
