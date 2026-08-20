@@ -946,7 +946,8 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
   );
   store.reorderInParent(groupId, at);
   store.moveNode(id, groupId, 0);
-  store.patchPlacement(id, { size: undefined, pinned: undefined });
+  store.patchPlacement(id, { size: undefined });
+  store.unpin(id);
   for (const newId of input.newIds) {
     store.registerNode(createPanel({ id: newId, parentId: groupId }));
   }
@@ -955,6 +956,18 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
   trace('store', `split: wrap ${id} → ${groupId}@${at} (strip ${input.direction}, ${input.newIds.length + 1} children)`);
 }
 ```
+
+Two traps in that function, both of which produce a silently wrong tree rather
+than an error:
+
+- **`patchPlacement` refuses to write `pinned` at all**, even as `undefined`
+  (`src/store.ts:566-573`) — a direct write skips the bounds check and
+  displacement routing and desyncs from `childOrder`. Clear it with `unpin`.
+- **The group must be reordered to the target's index before `moveNode` pulls
+  the target out.** `registerNode` appends, so the group starts at the end.
+
+`splitNode`'s `else` branch names `applyReconfigure`, so a stub that throws the
+placeholder has to exist in this task; its body is Task 4.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -1299,7 +1312,8 @@ function buildColumns(
     for (let row = 0; row < rows; row += 1) {
       if (col === 0 && row === 0) {
         store.moveNode(id, columnId, 0);
-        store.patchPlacement(id, { size: undefined, pinned: undefined });
+        store.patchPlacement(id, { size: undefined });
+        store.unpin(id);
         continue;
       }
       const newId = newIds[cursor];
@@ -1351,7 +1365,8 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
     buildColumns(store, id, groupId, input.groupIds.slice(1), input.newIds, input.into[1], input.config);
   } else {
     store.moveNode(id, groupId, 0);
-    store.patchPlacement(id, { size: undefined, pinned: undefined });
+    store.patchPlacement(id, { size: undefined });
+    store.unpin(id);
     for (const newId of input.newIds) {
       store.registerNode(createPanel({ id: newId, parentId: groupId }));
     }
