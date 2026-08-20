@@ -203,17 +203,16 @@ Still uncovered:
 - Snapshot/hydrate with persisted container state (resize ratios).
 - CSS stacking between affordance hit areas and consumer chrome.
 
-Two things the suite surfaced that are worth knowing:
+One thing the suite surfaced that is worth knowing: the split story passes an
+explicit `viewport` prop, so it never exercises the ResizeObserver path at
+all. Reflow coverage has to use a ref-measured fixture.
 
-- `ParallelZonesDnd` registers `useDropTarget` for the same zone id its
-  `<Container>` already registered. Child effects run before parent effects,
-  so the story's registration wins and it loses the default
-  `getInsertionIndex` — every drop there appends. `Playground` documents the
-  trap and avoids it. The story is inconsistent with its own demo intent;
-  `DragController` traces the overwrite but nothing surfaces it to a consumer.
-- The split story passes an explicit `viewport` prop, so it never exercises
-  the ResizeObserver path at all. Reflow coverage has to use a ref-measured
-  fixture.
+A consumer registering `useDropTarget` for a zone id its `<Container>` already
+registered silently loses the default `getInsertionIndex` — child effects run
+before parent effects, so the consumer's registration wins and every drop
+appends. `DragController` traces the overwrite but nothing surfaces it to a
+consumer. Both `Playground` and `ParallelZonesDnd` document the trap and avoid
+it; `e2e/drag.spec.ts` pins the parallel-zones case.
 
 ## Shipped in 1.0.0
 
@@ -247,6 +246,18 @@ Two things the suite surfaced that are worth knowing:
   `<Zone parentId kind="group">`, which keeps `.windease-group` and
   `chrome['group']` working.
 
+## Shipped in 1.1.0
+
+- **`container.added` event.** `ensureContainer` now emits
+  `{ id, strategyId }` when it actually adds a container, closing the one
+  structural mutation that changed a node's capabilities silently. Not emitted
+  for a node registered with a container already on it, nor on the no-op path.
+- **`StatefulLayoutStrategy<TState>`.** A `LayoutStrategy` with `initialState`
+  required rather than optional, so a strategy author can hand its result
+  straight to `layout({ state })` without narrowing. `LayoutStrategy` keeps the
+  optional signature, because a host resolving one out of a `StrategyRegistry`
+  cannot know whether it seeds.
+
 ## Shipped in 1.0.1
 
 - **`createZone` / `createPanel` collapsed into one `createNode`.** The split
@@ -256,15 +267,6 @@ Two things the suite surfaced that are worth knowing:
   `membership` (via `parentId`), and `focus` are now independent opt-in
   fields on one constructor. `<Zone>` and `<Panel>` stay as React presets over
   `createNode`. See README for the mechanical call-site rewrite.
-
-## Type papercut: `initialState` optional, `layout`'s `state` required
-
-`initialState` is optional on `LayoutStrategy` but `layout`'s `state` is
-required (`src/layout-types.ts`), so a strategy implementing it has
-`strategy.initialState?.(items)` typed `T | undefined`, and `tsc` rejects
-passing it straight to `layout`. Every consumer testing a strategy without a
-store narrows it by hand. Typing a strategy so its own `initialState` stays
-required would remove it.
 
 ## Loose ends
 
@@ -289,11 +291,6 @@ required would remove it.
   existing `container` — so `setLock(panel, { arrange: true })` silently stores
   nothing and `ensureContainer` proceeds. The guard works only once a container
   is already present, which is the case it is least needed for.
-- **`ensureContainer` emits no event**, unlike every other structural mutation
-  (`registerNode` → `node.registered`, `setStrategy` → `container.strategyChanged`).
-  An event-driven consumer sees a node silently acquire children. A
-  `container.added` event would close it; it is new public surface, so it is
-  recorded rather than assumed.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like

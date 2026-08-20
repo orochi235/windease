@@ -1,7 +1,7 @@
 export default { title: 'Parallel zones' };
 
 import type { Story } from '@ladle/react';
-import { type RefObject, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { asNodeId, createNode, Store, stripStrategy } from '../../index.js';
 import {
   type ChromeMap,
@@ -11,7 +11,6 @@ import {
   Provider,
   StrategyRegistryProvider,
   useDragState,
-  useDropTarget,
 } from '../index.js';
 import './windease.css';
 import './parallel-zones-dnd.css';
@@ -66,8 +65,9 @@ function ZoneShell({
   label: string;
   chrome: ChromeMap;
 }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useDropTarget(zoneId, ref as RefObject<Element | null>);
+  // `<Container>` registers the zone as a drop target itself, with the default
+  // getInsertionIndex. A useDropTarget call here would clobber that — child
+  // effects run before parent effects — and every drop would append.
   const drag = useDragState();
   const isTarget = drag?.hover?.targetId === zoneId;
   const accepted = isTarget && drag?.hover?.accepted === true;
@@ -82,7 +82,7 @@ function ZoneShell({
   return (
     <section className="pz-column">
       <header className="pz-column__header">{label}</header>
-      <div ref={ref} className={className}>
+      <div className={className}>
         <Container parentId={zoneId} chrome={chrome} className="pz-zone__inner" />
       </div>
     </section>

@@ -5,8 +5,7 @@ import { boxOf, centerOf, openStory } from './fixtures.js';
  * Insertion ordering is only observable where `<Container>`'s own drop-target
  * registration survives. A consumer that calls `useDropTarget` for the same
  * zone id clobbers it — child effects run before parent effects — and every
- * drop appends instead. The Playground avoids that deliberately; the
- * parallel-zones story does not, which is why this spec does not use it.
+ * drop appends instead.
  */
 const STORY = 'playground--playground';
 

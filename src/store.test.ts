@@ -8,6 +8,7 @@ import {
 } from './errors.js';
 import { asNodeId, type NodeId } from './node.js';
 import { Store, type StoreEvents } from './store.js';
+import { recordEvents } from './test-utils/record-events.js';
 
 function fresh(): Store {
   return new Store();
@@ -519,6 +520,34 @@ describe('Store — container config', () => {
     s.setAllowsPinning(id('z'), false);
     expect(s.getPlacement(id('p'))).toEqual({});
     expect(s.getPinnedIndex(id('p'))).toBeNull();
+  });
+});
+
+describe('Store — ensureContainer', () => {
+  it('emits container.added when a node gains a container', () => {
+    const s = fresh();
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('p') }));
+    const rec = recordEvents(s, 'container.added');
+    s.ensureContainer(id('p'), 'strip', { axis: 'x', fill: true });
+    expect(rec.of('container.added')).toEqual([{ id: id('p'), strategyId: 'strip' }]);
+    expect(s.getNode(id('p'))?.container?.strategyId).toBe('strip');
+    rec.stop();
+  });
+
+  it('is silent when the node already has a container', () => {
+    const s = fresh();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols: 2 } },
+        id: id('z'),
+      }),
+    );
+    const rec = recordEvents(s, 'container.added');
+    s.ensureContainer(id('z'), 'strip', { axis: 'x' });
+    expect(rec.of('container.added')).toEqual([]);
+    expect(s.getNode(id('z'))?.container?.strategyId).toBe('grid');
+    rec.stop();
   });
 });
 

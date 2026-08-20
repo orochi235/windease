@@ -197,7 +197,8 @@ methods:
   drops the outgoing strategy's `container.state`, since it belongs to the
   strategy leaving.
 - `ensureContainer(id, strategyId, config)` — give a container-less node a
-  container; no-op if it already has one.
+  container; no-op if it already has one. Emits `container.added` when it
+  does add one.
 - `split(id, input)` / `unsplit(groupId)` — composite operations built on
   the primitives above. `split` wraps a node in a new strip/grid group,
   flattens new siblings into a matching-axis strip parent, or reconfigures
@@ -364,15 +365,18 @@ node.lockChanged                 | node.pinnedChanged
 node.activityChanged
 node.cascadeDestroyed
 container.configChanged          | container.allowsPinningChanged
-container.stateChanged
+container.stateChanged           | container.strategyChanged
+container.added
+transaction.begin                | transaction.end
+throttle.pending                 | throttle.published
 ```
 
 One bus on the store (`store.events`); DnD events fire from the controller.
 
 ## Snapshot
 
-`serialize(store)` produces a v4 snapshot. `deserialize(snap)` accepts v2,
-v3, and v4, migrating older shapes on read, and returns a fresh `Store`.
+`serialize(store)` produces a v5 snapshot. `deserialize(snap)` accepts v2
+through v5, migrating older shapes on read, and returns a fresh `Store`.
 Transit state is not
 serialized; hydrate always initializes to `'idle'`. Hydrate validates
 bidirectional parent-child links, multi-focus, cycles.

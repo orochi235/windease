@@ -128,6 +128,22 @@ export interface LayoutEvent {
   payload: { dx?: number; dy?: number; key?: string };
 }
 
+/**
+ * A `LayoutStrategy` that seeds its own state, with `initialState` required
+ * rather than optional. Declare a stateful strategy as this and
+ * `strategy.initialState(items)` types as `TState`, so its result can be
+ * handed straight to `layout({ state })` without narrowing. `LayoutStrategy`
+ * keeps the optional signature because a host reading one out of a
+ * `StrategyRegistry` cannot know whether it seeds.
+ */
+export type StatefulLayoutStrategy<
+  TState,
+  TId extends string = string,
+  TMeta = unknown,
+> = LayoutStrategy<TState, TId, TMeta> & {
+  initialState(items: LayoutItem[], options?: Record<string, unknown>): TState;
+};
+
 export interface LayoutStrategy<TState = void, TId extends string = string, TMeta = unknown> {
   name: string;
   /** Seed state for a container that has none persisted yet. `options` is the

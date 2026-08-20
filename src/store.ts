@@ -74,6 +74,9 @@ export interface StoreEvents {
    */
   'container.stateChanged': { id: NodeId; from: unknown; to: unknown };
   'container.strategyChanged': { id: NodeId; from: string; to: string };
+  /** A node that had no container gained one, via `ensureContainer`. Not
+   *  emitted for a node registered with a container already on it. */
+  'container.added': { id: NodeId; strategyId: string };
   /**
    * A composite operation started. Bracket history pushes on this pair to get
    * one undo step for the whole operation: the `node.*` events are synchronous
@@ -773,6 +776,7 @@ export class Store {
       container: { strategyId, config, childOrder: [], allowsPinning: true },
     });
     this.publisher.markDirty(id, { bypass: true });
+    this.events.emit('container.added', { id, strategyId });
     trace('store', `ensureContainer: ${id} (${strategyId})`);
     this.scheduleNotify();
   }

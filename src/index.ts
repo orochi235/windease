@@ -45,6 +45,7 @@ export type {
   LayoutStrategy,
   Rect,
   Size,
+  StatefulLayoutStrategy,
   StrategyRegistry,
 } from './layout-types.js';
 export { type LockAxis, type LockSet, resolveLock, supportedAxes } from './lock.js';
