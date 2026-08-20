@@ -51,7 +51,7 @@ describe('headline end-to-end', () => {
 
     // Snapshot + rehydrate.
     const snap = serialize(store);
-    expect(snap.version).toBe(4);
+    expect(snap.version).toBe(5);
     const rehydrated = deserialize(snap);
 
     // Tree structure, including 'solo's held slot, preserved.
