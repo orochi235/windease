@@ -387,4 +387,17 @@ describe('Store.split — reconfigure mode', () => {
     expect(store.getNode(asNodeId('o'))?.container?.strategyId).toBe('strip');
     expect(store.getContainerView(asNodeId('o'))?.childOrder).toEqual(['p1']);
   });
+
+  it('merges over the existing config rather than replacing it', () => {
+    const store = new Store();
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 3, gap: 8 } }),
+    );
+
+    store.split(asNodeId('z'), { direction: 'x', newIds: [asNodeId('p1')] });
+
+    // `gap` survives because it is consumer intent, not strategy-specific.
+    // `cols` survives too and is inert — strip never reads it.
+    expect(store.getNode(asNodeId('z'))?.container?.config).toEqual({ cols: 3, gap: 8, axis: 'x' });
+  });
 });
