@@ -89,7 +89,7 @@ Two paths for free-form data on a node; lifetimes differ:
   `setPlacement` — both throw and name `setPinned`/`unpin` instead. See
   `store.setPinned` / `unpin` / `getPinnedIndex` below, and `node.lock` for
   the separate, unrelated notion of permission.
-- `size: { w?, h? }` — fixed pixel extent honored by strip / stack / split
+- `size: { w?, h? }` — fixed pixel extent honored by strip / split
   along their main axis (the public "fixed-px pane" API; set via
   `store.patchPlacement`). On `split`, a gutter drag **clears** this key on
   the two affected panes, reverting them to ratio control. Pair with
@@ -259,7 +259,7 @@ strategy receives.
 children it's handed. When a child is itself a container
 (`isContainer: true`), the strategy treats it as any other parented item.
 The React `NodeRenderer` then mounts the child's own strategy inside the
-placement rect. Built-in strategies (grid, stack, strip, split) work
+placement rect. Built-in strategies (grid, strip, split) work
 unchanged on recursive trees.
 
 Built-ins:
@@ -267,8 +267,10 @@ Built-ins:
 - **`gridStrategy`** — `cols`, `rows`, `orientation`, `maxCols`, `maxRows`,
   `maxItems`, `gap`, `padding`. `maxItems` mutually exclusive with
   `maxCols`/`maxRows`.
-- **`stackStrategy`** / **`stripStrategy`** — main-axis stacks with
-  `fill`, `defaultItemSize`, `axis` (strip only), `gap`, `padding`.
+- **`stripStrategy`** — main-axis stack with `axis` ('x' or 'y'), `fill`,
+  `defaultItemSize`, `gap`, `padding`, `maxItems`. There is no separate
+  "stack" strategy — `{ axis: 'y', fill: true }` is what stack was; strip
+  covers both axes.
 - **`splitStrategy`** — workspace-level splits with draggable gutters.
   Default behavior accepts any N≥2 items; pass `recursive: false` in
   config to require exactly 2 items. Honors child `hints.minSize` as a
@@ -279,7 +281,7 @@ Built-ins:
 
 ```tsx
 <Provider store={store}>
-  <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
+  <StrategyRegistryProvider strategies={{ grid: gridStrategy, strip: stripStrategy }}>
     <Container
       parentId={asNodeId('z')}
       chrome={{ panel: panelHandler, zone: zoneHandler }}

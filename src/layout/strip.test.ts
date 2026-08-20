@@ -238,6 +238,58 @@ describe('stripStrategy capacity', () => {
     // 1000 - one 10px gap (2 placed, not 5), split between two panes.
     expect(res.placements.get('i0')?.w).toBeCloseTo(495, 5);
   });
+
+  it('sizes a resize drag from the placed count, not the item count', () => {
+    const fakeStore = {
+      patchPlacement: vi.fn(),
+      getNode: vi.fn(() => ({ membership: { placement: {} } })),
+    };
+    const list = Array.from({ length: 5 }, (_, i) => ({ id: `i${i}` }));
+
+    stripStrategy.dispatchAffordance?.({
+      event: { affordanceId: 'resize-y-i0', kind: 'drag', payload: { dx: 0, dy: 20 } },
+      affordance: {
+        id: 'resize-y-i0',
+        kind: 'resize-y',
+        rect: { x: 0, y: 0, w: 0, h: 0 },
+        childId: 'i0',
+      },
+      store: fakeStore as never,
+      parentId: 'root' as never,
+      container: { w: 100, h: 300 },
+      options: { axis: 'y', fill: true, maxItems: 3 },
+      items: list as never,
+    });
+
+    // Three placed panes in 300px are 100 each; a +20 drag stores 120, not 80.
+    expect(fakeStore.patchPlacement).toHaveBeenCalledWith('i0', { size: { h: 120 } });
+  });
+
+  it('sizes an x-axis resize drag from the placed count too', () => {
+    const fakeStore = {
+      patchPlacement: vi.fn(),
+      getNode: vi.fn(() => ({ membership: { placement: {} } })),
+    };
+    const list = Array.from({ length: 5 }, (_, i) => ({ id: `i${i}` }));
+
+    stripStrategy.dispatchAffordance?.({
+      event: { affordanceId: 'resize-x-i0', kind: 'drag', payload: { dx: 20, dy: 0 } },
+      affordance: {
+        id: 'resize-x-i0',
+        kind: 'resize-x',
+        rect: { x: 0, y: 0, w: 0, h: 0 },
+        childId: 'i0',
+      },
+      store: fakeStore as never,
+      parentId: 'root' as never,
+      container: { w: 300, h: 100 },
+      options: { axis: 'x', fill: true, maxItems: 3 },
+      items: list as never,
+    });
+
+    // Three placed panes in 300px are 100 each; a +20 drag stores 120, not 80.
+    expect(fakeStore.patchPlacement).toHaveBeenCalledWith('i0', { size: { w: 120 } });
+  });
 });
 
 // Migrated from src/layout/stack.test.ts (removed — stack is now strip on the
