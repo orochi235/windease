@@ -38,10 +38,17 @@ parent, i.e. a **root**. The childless one is a panel. A node with both is a
 group, which means *a zone with a parent is structurally just a group*; that
 is the whole distinction between the two presets.
 
-Presets ship two ways: `createPanel` / `createGroup` / `createZone` node
-constructors, and the React components `<Panel>` / `<Group>` / `<Zone>`
-that supply default chrome. Both set `node.kind` to `'panel'` / `'group'`
-/ `'zone'` as a label so a `ChromeMap` can dispatch on it.
+As of 1.0.0 that distinction is only a label: `createZone` takes an optional
+`parentId`, and with one it produces exactly what the removed `createGroup`
+produced but for `kind`. So `kind: 'zone'` no longer implies "root" —
+a nested zone carries `kind: 'zone'` and styles as `.windease-zone` unless you
+pass a `kind` override.
+
+Presets ship two ways: `createPanel` / `createZone` node constructors, and the
+React components `<Panel>` / `<Zone>` that supply default chrome. Both set
+`node.kind` to `'panel'` / `'zone'` by default so a `ChromeMap` can dispatch
+on it; pass `kind="group"` (constructor: set `.kind` after construction) for
+the group shape's `.windease-group` styling.
 
 `node.kind` is just a free-form string — the core stores it, the React
 chrome map dispatches on it, nothing inside windease enforces it. Build
@@ -89,11 +96,16 @@ Two paths for free-form data on a node; lifetimes differ:
   `setPlacement` — both throw and name `setPinned`/`unpin` instead. See
   `store.setPinned` / `unpin` / `getPinnedIndex` below, and `node.lock` for
   the separate, unrelated notion of permission.
-- `size: { w?, h? }` — fixed pixel extent honored by strip / stack / split
+- `size: { w?, h? }` — fixed **pixel** extent honored by strip / split
   along their main axis (the public "fixed-px pane" API; set via
   `store.patchPlacement`). On `split`, a gutter drag **clears** this key on
   the two affected panes, reverting them to ratio control. Pair with
   `hints.maxSize` for an "auto up to a cap" pane.
+- `span: { cols?, rows? }` — fixed **cell-count** extent honored by `grid`
+  only. Kept separate from `size` (pixels) rather than reusing it, so the
+  same key doesn't mean two different units depending on which strategy the
+  parent runs. A span wider than the grid's `cols` (or taller than a fixed
+  `rows`/`maxRows`) clamps rather than overflowing the container.
 
 `setAllowsPinning(id, false)` opts a container out of the pin invariant
 entirely (a tool strip, a tabbed group) — children can no longer hold an
@@ -181,6 +193,22 @@ methods:
   release a `childOrder` index.
 - `setContainerState` / `getContainerState` — persist strategy state (e.g.
   resize ratios) on the container.
+- `setStrategy(id, strategyId)` — swap a container's layout strategy;
+  drops the outgoing strategy's `container.state`, since it belongs to the
+  strategy leaving.
+- `ensureContainer(id, strategyId, config)` — give a container-less node a
+  container; no-op if it already has one.
+- `split(id, input)` / `unsplit(groupId)` — composite operations built on
+  the primitives above. `split` wraps a node in a new strip/grid group,
+  flattens new siblings into a matching-axis strip parent, or reconfigures
+  a root in place, depending on the target's position; `unsplit` dissolves
+  a group into its parent. See
+  `docs/superpowers/specs/2026-08-19-split-operation-design.md`.
+- `transact(fn, label?)` — runs `fn` as one logical change, emitting
+  `transaction.begin` / `transaction.end` around it (re-entrant: only the
+  outermost call emits). Bracket history pushes on that pair to get one
+  undo step per composite operation. `split` and `unsplit` already run
+  inside one.
 - `showNode` / `hideNode` — lifecycle transitions. Hidden children are
   excluded from layout.
 - `focusNode` / `blurAll` — single-focus invariant enforced.
@@ -259,7 +287,7 @@ strategy receives.
 children it's handed. When a child is itself a container
 (`isContainer: true`), the strategy treats it as any other parented item.
 The React `NodeRenderer` then mounts the child's own strategy inside the
-placement rect. Built-in strategies (grid, stack, strip, split) work
+placement rect. Built-in strategies (grid, strip, split) work
 unchanged on recursive trees.
 
 Built-ins:
@@ -267,19 +295,20 @@ Built-ins:
 - **`gridStrategy`** — `cols`, `rows`, `orientation`, `maxCols`, `maxRows`,
   `maxItems`, `gap`, `padding`. `maxItems` mutually exclusive with
   `maxCols`/`maxRows`.
-- **`stackStrategy`** / **`stripStrategy`** — main-axis stacks with
-  `fill`, `defaultItemSize`, `axis` (strip only), `gap`, `padding`.
-- **`splitStrategy`** — workspace-level splits with draggable gutters.
-  Default behavior accepts any N≥2 items; pass `recursive: false` in
-  config to require exactly 2 items. Honors child `hints.minSize` as a
-  pixel floor and `hints.maxSize` as a ceiling, plus `placement.size` for
-  a fixed-px pane (cleared on gutter drag).
+- **`stripStrategy`** — main-axis stack with `axis` ('x' or 'y'), `fill`,
+  `defaultItemSize`, `gap`, `padding`, `maxItems`. There is no separate
+  "stack" strategy — `{ axis: 'y', fill: true }` is what stack was; strip
+  covers both axes. Honors child `hints.minSize` as a pixel floor and
+  `hints.maxSize` as a ceiling, plus `placement.size` for a fixed-px pane.
+  `store.split(id, input)` (see Store API) builds nested strip trees —
+  workspace-level splits with draggable gutters — without a dedicated
+  strategy of its own.
 
 ## React layer
 
 ```tsx
 <Provider store={store}>
-  <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
+  <StrategyRegistryProvider strategies={{ grid: gridStrategy, strip: stripStrategy }}>
     <Container
       parentId={asNodeId('z')}
       chrome={{ panel: panelHandler, zone: zoneHandler }}
@@ -295,10 +324,11 @@ receive `{ node, children }`. A recursive panel mounts
 `<Container parentId={node.id} chrome={chrome} />` inside its own
 template at the position it wants the tray to live.
 
-For the convention `kind` values `'panel'`, `'group'`, `'zone'` the
-React layer ships preset chrome components — `<Panel>`, `<Group>`,
-`<Zone>` — that supply default styling. They're plain wrappers; pass
-`className`/`style` to override, or write your own from scratch.
+For the convention `kind` values `'panel'` and `'zone'` (which also covers
+`'group'` — pass `<Zone kind="group">`) the React layer ships preset chrome
+components — `<Panel>`, `<Zone>` — that supply default styling. They're
+plain wrappers; pass `className`/`style` to override, or write your own
+from scratch.
 
 Hooks: `useNode(id)`, `useNodeSelector(id, select)`, `useChildren(parentId)`,
 `useFocusedNode()`, `useRootNodes()`, `useContainerLayout(parentId, ref, viewport?)`.
@@ -316,10 +346,12 @@ the visual rect. Affordances are suppressed — not rendered, dispatch
 refused — when the container has `lock.arrange`, or when any pane the
 affordance would resize has `lock.resize`.
 
-`<Panel>` / `<Group>` accept `lock` and `pinned` props, reconciled like
-`meta` / `placement`. `<Zone>` accepts `lock` but not `pinned` — a zone has
-no parent, so there's no `childOrder` slot for it to hold. The generic
-`placement` prop throws if given a `pinned` key; use the dedicated prop.
+`<Panel>` accepts `lock` and `pinned` props, reconciled like `meta` /
+`placement`. `<Zone>` accepts `lock` but not `pinned` at all — even with a
+`parentId`, where `store.setPinned` would work fine — a leftover from when a
+zone could never have a parent; see `TODO.md`. The generic `placement` prop
+throws if given a `pinned` key on either preset; use the dedicated prop, or
+`store.setPinned` directly on a parented zone.
 
 ## Events
 

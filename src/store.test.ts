@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createGroup, createPanel, createZone } from './constructors.js';
+import { createPanel, createZone } from './constructors.js';
 import {
   CapabilityMissingError,
   CycleError,
@@ -362,9 +362,7 @@ describe('Store — selectors', () => {
   it('isContainer / isMember / hasFocus', () => {
     const s = fresh();
     s.registerNode(createZone({ id: id('z'), strategyId: 'grid', config: {} }));
-    s.registerNode(
-      createGroup({ id: id('g'), parentId: id('z'), strategyId: 'stack', config: {} }),
-    );
+    s.registerNode(createZone({ id: id('g'), parentId: id('z'), strategyId: 'stack', config: {} }));
     s.registerNode(createPanel({ id: id('p'), parentId: id('z') }));
     expect(s.isContainer(id('z'))).toBe(true);
     expect(s.isContainer(id('g'))).toBe(true);

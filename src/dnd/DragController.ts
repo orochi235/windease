@@ -1,5 +1,7 @@
-import type { LayoutStrategy, NodeId, Store } from '../../index.js';
-import { trace } from '../../index.js';
+import type { LayoutStrategy } from '../layout-types.js';
+import type { NodeId } from '../node.js';
+import type { Store } from '../store.js';
+import { trace } from '../trace.js';
 
 /** Looks up a strategy by id. DragController uses it to consult
  *  `strategy.canAccept` on the prospective post-drop child list. */
@@ -183,7 +185,7 @@ export class DragController {
       return false;
     }
 
-    // Strategy-level constraint: e.g. splitStrategy refuses anything but 2 items.
+    // Strategy-level constraint: e.g. a strategy refusing anything but 2 items.
     if (targetNode?.container && this.getStrategy) {
       const strategy = this.getStrategy(targetNode.container.strategyId);
       if (strategy?.canAccept) {

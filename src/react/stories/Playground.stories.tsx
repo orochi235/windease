@@ -7,10 +7,7 @@ import {
   createPanel,
   createZone,
   gridStrategy,
-  type SplitNode,
   Store,
-  splitStrategy,
-  stackStrategy,
   stripStrategy,
 } from '../../index.js';
 import {
@@ -26,9 +23,8 @@ import './windease.css';
 import './playground.css';
 
 const STRATEGIES = {
-  split: splitStrategy as never,
   grid: gridStrategy as never,
-  stack: stackStrategy as never,
+  stack: stripStrategy as never,
   strip: stripStrategy as never,
 };
 
@@ -36,27 +32,13 @@ const ROOT = asNodeId('root');
 const MAIN = asNodeId('main');
 const SIDEBAR = asNodeId('sidebar');
 const DOCK = asNodeId('dock');
-
-// Workspace tree: main+dock vertical on the left, sidebar on the right.
-const INITIAL_TREE: SplitNode = {
-  kind: 'split',
-  direction: 'horizontal',
-  ratio: 0.75,
-  a: {
-    kind: 'split',
-    direction: 'vertical',
-    ratio: 0.82,
-    a: { kind: 'leaf', id: 'main' },
-    b: { kind: 'leaf', id: 'dock' },
-  },
-  b: { kind: 'leaf', id: 'sidebar' },
-};
+const MAIN_DOCK_GROUP = asNodeId('main-dock');
 
 function makeStore(): Store {
   const s = new Store();
-  // Root is a splitStrategy container that arranges three sub-zones.
-  s.registerNode(createZone({ id: ROOT, strategyId: 'split', config: { gutterSize: 6 } }));
-  // Each zone is itself a child of root with its own strategy.
+  // Root arranges three sub-zones: main+dock vertical on the left, sidebar
+  // on the right — built with store.split rather than a fixed tree literal.
+  s.registerNode(createZone({ id: ROOT, strategyId: 'strip', config: { axis: 'x', gap: 6 } }));
   s.registerNode(
     createPanel({
       id: MAIN,
@@ -66,28 +48,14 @@ function makeStore(): Store {
     }),
   );
   s.showNode(MAIN);
-  s.registerNode(
-    createPanel({
-      id: SIDEBAR,
-      parentId: ROOT,
-      meta: { title: 'Sidebar' },
-      container: { strategyId: 'stack', config: { gap: 6, padding: 6 } },
-    }),
-  );
-  s.showNode(SIDEBAR);
-  s.registerNode(
-    createPanel({
-      id: DOCK,
-      parentId: ROOT,
-      meta: { title: 'Dock' },
-      container: {
-        strategyId: 'strip',
-        config: { axis: 'x', gap: 6, padding: 6, fill: true },
-      },
-    }),
-  );
-  s.showNode(DOCK);
-  s.setContainerState(ROOT, INITIAL_TREE);
+
+  s.split(ROOT, { direction: 'x', newIds: [SIDEBAR] });
+  s.ensureContainer(SIDEBAR, 'stack', { axis: 'y', fill: true, gap: 6, padding: 6 });
+  s.setMeta(SIDEBAR, { title: 'Sidebar' });
+
+  s.split(MAIN, { direction: 'y', groupId: MAIN_DOCK_GROUP, newIds: [DOCK], config: { gap: 6 } });
+  s.ensureContainer(DOCK, 'strip', { axis: 'x', gap: 6, padding: 6, fill: true });
+  s.setMeta(DOCK, { title: 'Dock' });
 
   // Seed content.
   const seed = (
@@ -131,7 +99,7 @@ function makeStore(): Store {
   seedControls('sidebar-controls', SIDEBAR, 'Sidebar controls');
   // Resizable-children demo: pin the sidebar controls to an explicit 180px
   // height so siblings stay below regardless of available space. The other
-  // sidebar widgets get interactive resize edges from the stack strategy.
+  // sidebar widgets get interactive resize edges from strip.
   // Already pinned to index 0 and move-locked by seedControls above; this call only fixes the height.
   s.patchPlacement(asNodeId('sidebar-controls'), { size: { h: 180 } });
   seed('widget-1', SIDEBAR, 'Widget 1', 120);
@@ -189,6 +157,11 @@ export const Playground: Story = () => {
 
   const chrome: ChromeMap = useMemo(
     () => ({
+      // The group `split` interposes to nest Main above Dock — just a
+      // pass-through layout level, no chrome of its own.
+      group: ({ node }) => (
+        <Container parentId={node.id} chrome={chrome} style={{ width: '100%', height: '100%' }} />
+      ),
       panel: ({ node }) => {
         // The three top-level zone hosts render as ZoneShell drop targets.
         if (node.id === MAIN || node.id === SIDEBAR || node.id === DOCK) {

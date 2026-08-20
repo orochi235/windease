@@ -3,33 +3,6 @@
 Future work, sectioned by item. Append new ideas here rather than scattering
 them. Tag major items with `[HIGH]`.
 
-## Surfaced by turning the type-checker on over the test tree
-
-`npm run typecheck` now covers tests and stories (`tsconfig.test.json`).
-Two findings from that first pass are real and still open:
-
-- **[HIGH] `<Zone>` silently drops `parentId`, so a nested JSX zone
-  registers as a root.** `CreateZoneInput` has no `parentId`
-  (`src/constructors.ts:6`), but the `Zone` preset passes one
-  (`src/react/presets.tsx:274`) through the `defined()` spread — and a
-  spread of `Partial<T>` skips excess-property checking, so nothing ever
-  complained. The zone gets no `membership`, and `registerNode` files it under
-  `rootIds` instead of the parent's `childOrder`. No test covers
-  `<Zone>` inside `<Zone>` — `nested-presets.test.tsx` nests via
-  `<Group>`, which does accept `parentId`. Needs a decision before a
-  fix: a zone with a parent is structurally a group, so either
-  `CreateZoneInput` grows `parentId` (and a zone becomes membership-capable)
-  or `<Zone>` should refuse to nest loudly. `livePreview.test.tsx` had
-  the same dead `parentId` and has been corrected.
-- **Public constructor inputs are hostile to
-  `exactOptionalPropertyTypes`.** `createPanel({ meta: props.meta })`
-  where `props.meta` is `Record | undefined` is a type error even though
-  the constructor guards with `!== undefined` and handles it fine. Every
-  consumer forwarding optional React props hits this immediately; the
-  repo's own answer is the `defined()` helper in `presets.tsx`, which is
-  not exported. Either widen the input bags to `prop?: T | undefined` or
-  export `defined()` as public API.
-
 ## Test-harness gaps
 
 - **An `expect` inside a `store.events` handler can never fail a test.**
@@ -214,51 +187,74 @@ happens to a single-member group when its last sibling leaves.
 
 ## Playwright e2e suite
 
-The vitest suite + jsdom covers store logic and React component output,
-but DnD and resize gestures are only exercised through synthetic pointer
-events. A real-browser pass via Playwright (or @web/test-runner) would
-catch:
+Shipped. `npm run test:e2e` drives the Ladle stories in real Chromium; the
+config starts Ladle itself, so there is nothing to run first. 11 specs across
+four files cover the gestures jsdom cannot: gutter resize including
+pointer-capture tracking after the cursor leaves the handle, cross-zone drag
+with escape-cancel and drop-outside, ResizeObserver relayout on viewport
+change, and insertion index against a pinned head.
 
-- pointer capture / setPointerCapture behavior across browsers
-- ResizeObserver-driven layout under actual reflow
-- CSS stacking interactions between affordance hit areas and chrome
-- focus management across drag-induced re-renders
-- snapshot/hydrate cycle with persisted container state (resize ratios)
+Still uncovered:
 
-Ladle's playground stories already represent the canonical fixtures —
-e2e specs would drive them with `@playwright/test`, screenshot key
-flows, and assert DOM/store state afterward. Medium priority; not a
-publish blocker but a desirable hardening pass.
+- **Only Chromium runs.** The stated cross-browser value was pointer capture;
+  adding webkit/firefox is a line in `playwright.config.ts` projects plus
+  install time on every CI run.
+- Focus management across drag-induced re-renders.
+- Snapshot/hydrate with persisted container state (resize ratios).
+- CSS stacking between affordance hit areas and consumer chrome.
 
-## Aspect-ratio hint
+Two things the suite surfaced that are worth knowing:
 
-Consumers have no way to say "keep this node 16:9." `NodeHints` carries only
-absolute pixel sizes (`minSize` / `maxSize` / `preferredSize`), and hint
-coverage is uneven — `grid` reads none of them, sizing every cell uniformly
-from `cols`/`rows`.
+- `ParallelZonesDnd` registers `useDropTarget` for the same zone id its
+  `<Container>` already registered. Child effects run before parent effects,
+  so the story's registration wins and it loses the default
+  `getInsertionIndex` — every drop there appends. `Playground` documents the
+  trap and avoids it. The story is inconsistent with its own demo intent;
+  `DragController` traces the overwrite but nothing surfaces it to a consumer.
+- The split story passes an explicit `viewport` prop, so it never exercises
+  the ResizeObserver path at all. Reflow coverage has to use a ref-measured
+  fixture.
 
-There is no consumer-side workaround, which is what makes this worth doing.
-Every node gets an absolute rect from its strategy, so a node cannot
-self-size: CSS `aspect-ratio` on panel content letterboxes inside a
-wrongly-shaped rect rather than changing it. The only alternative is
-measuring in app code and writing `placement.size` back — the ResizeObserver
-hack `maxSize` was added to retire.
+## Shipped in 1.0.0
 
-An aspect hint does not require the engine to measure the DOM; it is a pure
-w-to-h constraint on a rect the strategy already computes. The work is that
-each strategy answers it differently:
+- **`split` / `unsplit` store operations.** Split is a verb over the node tree,
+  not a strategy: `store.split(id, { direction })` wraps a node in a strip
+  group, flattens into a matching-axis parent, or reconfigures a root in place.
+  Directions are `'x'`, `'y'`, `'both'` (nested strips, `into: [cols, rows]`)
+  and `'grid'`. All ids are caller-supplied. `store.unsplit(groupId)` dissolves
+  a group into its parent; nothing auto-collapses.
+- **`Store.transact(fn, label?)`** with `transaction.begin` /
+  `transaction.end`, so a composite operation is one undo step. Also
+  `setStrategy` — which clears `container.state`, since it belongs to the
+  outgoing strategy — and `ensureContainer`.
+- **`createZone` takes an optional `parentId`**, which fixed `<Zone>` inside
+  `<Zone>` silently registering as a root. `<Zone>` gained a `kind` prop.
 
-- **strip / stack** — clean. The cross axis is fully container-determined,
-  so aspect just derives the main-axis extent, replacing `preferredSize`.
-- **grid** — where aspect matters most (tiles, thumbnails, video) and the
-  most work, since grid honors no hints at all today. Either letterbox
-  within uniform cells or choose `cols`/`rows` to best fit the aspect.
-- **split** — over-constrained in general: a pane's aspect fights both the
-  ratio and the sibling's claim on the remainder. Probably bails out the way
-  an over-constrained `minSize` > `maxSize` already does.
+## Removed in 1.0.0
 
-Also open: whether an aspect hint makes resize drags proportional, which is a
-`reduce`-path question, not a placement one.
+- **`splitStrategy`** and its `SplitNode` / `SplitOptions` / `SplitMeta` types.
+  It kept a second tree in `container.state` describing what the node tree
+  already described, and every known split bug was the two disagreeing. Use
+  `store.split`. Saved layouts migrate automatically at snapshot v5.
+- **`stackStrategy`.** It was `stripStrategy` on the y axis; strip gained the
+  capacity handling that was the only thing stack had. Use
+  `stripStrategy` with `{ axis: 'y', fill: true }` — the `fill` matters, since
+  strip's default is off and omitting it collapses hintless children to zero.
+- **`createGroup` and `<Group>`.** Once `parentId` became optional on
+  `createZone`, a group was a zone with a parent and nothing else. The word is
+  reserved for the feature under "## Groups" — windows that move as a unit —
+  which is what a user means by it. Use `createZone({ parentId })` and
+  `<Zone parentId kind="group">`, which keeps `.windease-group` and
+  `chrome['group']` working.
+
+## Type papercut: `initialState` optional, `layout`'s `state` required
+
+`initialState` is optional on `LayoutStrategy` but `layout`'s `state` is
+required (`src/layout-types.ts`), so a strategy implementing it has
+`strategy.initialState?.(items)` typed `T | undefined`, and `tsc` rejects
+passing it straight to `layout`. Every consumer testing a strategy without a
+store narrows it by hand. Typing a strategy so its own `initialState` stays
+required would remove it.
 
 ## Loose ends
 
@@ -269,3 +265,38 @@ Also open: whether an aspect hint makes resize drags proportional, which is a
   comment.
 - TypeScript is held at 6.x because typedoc 0.28's peer range stops at
   `6.0.x`. Revisit TS 7 (the Go port) once typedoc ships support.
+- `gridStrategy` honors `placement.span` (cell-count spans, reserved and
+  clamped) but has no resize affordances that write it, so
+  `split(id, { direction: 'grid' })` still produces a tiling with no
+  draggable gutters. Wiring a gutter that mutates `span` on drag is the
+  remaining capability gap against the `splitStrategy` this release removed.
+- `patchPlacement` lock-gates `size` writes behind the `resize` axis but not
+  `span` — a resize-locked node's grid span can still be changed directly.
+  Unguarded because nothing writes `span` yet (see the gutter gap above); fold
+  the gate in when a gutter lands.
+- `focus` is offered only by `createPanel`. The store's single-focus invariant
+  is store-wide and does not care which node carries the capability, so a
+  focusable container is structurally fine and merely unconstructible.
+- **A node cannot be locked against gaining a container.** `resolveLock` drops
+  axes the node's current capabilities don't support, and `arrange` requires an
+  existing `container` — so `setLock(panel, { arrange: true })` silently stores
+  nothing and `ensureContainer` proceeds. The guard works only once a container
+  is already present, which is the case it is least needed for.
+- **`ensureContainer` emits no event**, unlike every other structural mutation
+  (`registerNode` → `node.registered`, `setStrategy` → `container.strategyChanged`).
+  An event-driven consumer sees a node silently acquire children. A
+  `container.added` event would close it; it is new public surface, so it is
+  recorded rather than assumed.
+- `applyReconfigure` merge-patches the container config, so a key from the
+  abandoned strategy survives (a `grid` root's `cols` outlives the switch to
+  `strip`). Deliberate — replacing wholesale would discard consumer intent like
+  `gap` — and pinned by a test. Revisit only if a strategy ever rejects unknown
+  keys.
+- **The `<Group pinned>` migration to `<Zone parentId kind="group">` is
+  incomplete: `ZoneProps` has no `pinned` prop at all.** `ZoneBindingProps`
+  omits it unconditionally (`Omit<CommonBindingProps, 'pinned'>`) on the
+  reasoning that a rootless zone has no parent slot to hold — true before
+  `parentId` became optional, not true now. `setPinned` itself works fine on a
+  parented zone; only the declarative prop is missing. Needs a type that makes
+  `pinned` available exactly when `parentId` is present, or a documented
+  workaround (`useEffect` + `store.setPinned` directly).

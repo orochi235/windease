@@ -11,6 +11,8 @@ import { TypedEmitter } from './events.js';
 import { type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeId } from './node.js';
 import { placeRespectingPins } from './pinning.js';
+import { splitNode, unsplitNode } from './split.js';
+import type { SplitInput } from './split-types.js';
 import {
   type MachineName,
   type PendingPublish,
@@ -65,12 +67,22 @@ export interface StoreEvents {
   'container.configChanged': { id: NodeId; from: unknown; to: unknown };
   'container.allowsPinningChanged': { id: NodeId; from: boolean; to: boolean };
   /**
-   * Per-container strategy state (e.g. splitStrategy ratio) changed. Stored on
+   * Per-container strategy state (e.g. a resize ratio) changed. Stored on
    * `node.container.state`; round-trips through snapshot. By design this
    * field should NOT participate in undo/redo when v2 history lands —
    * resize gestures shouldn't pollute the timeline.
    */
   'container.stateChanged': { id: NodeId; from: unknown; to: unknown };
+  'container.strategyChanged': { id: NodeId; from: string; to: string };
+  /**
+   * A composite operation started. Bracket history pushes on this pair to get
+   * one undo step for the whole operation: the `node.*` events are synchronous
+   * and per-mutation, so an unbracketed listener sees one `split` as many separate
+   * changes.
+   */
+  'transaction.begin': { label?: string };
+  /** Closes a `transaction.begin`. Fires even when the callback threw. */
+  'transaction.end': { label?: string };
   /**
    * A node started being withheld by throttling. Only ever emitted by a
    * store constructed with a `throttle` policy.
@@ -101,6 +113,7 @@ export class Store {
   private readonly subscribers = new Set<() => void>();
   private readonly publisher: Publisher;
   private locksSuspended = 0;
+  private txnDepth = 0;
 
   constructor(options: StoreOptions = {}) {
     this.publisher = new Publisher({
@@ -699,7 +712,7 @@ export class Store {
   }
 
   /**
-   * Read the persisted strategy state for `id`'s container (e.g. splitStrategy
+   * Read the persisted strategy state for `id`'s container (e.g. a resize
    * ratio), or undefined if nothing has been written yet — in which case the
    * consumer initializes via `strategy.initialState`. Lives on
    * `node.container.state`, round-trips through snapshot/hydrate.
@@ -723,6 +736,44 @@ export class Store {
     if (from === state) return;
     this.replaceContainer(id, (c) => ({ ...c, state }));
     this.events.emit('container.stateChanged', { id, from, to: state });
+    this.scheduleNotify();
+  }
+
+  /**
+   * Swap the layout strategy for `id`'s container. Drops the persisted
+   * `state`, since it belongs to the outgoing strategy; the config is not
+   * migrated — pass a matching one through `updateContainerConfig`.
+   */
+  setStrategy(id: NodeId, strategyId: string, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'arrange', 'setStrategy', opts);
+    const node = this.requireNode(id);
+    if (!node.container) throw new CapabilityMissingError(id, 'container', 'setStrategy');
+    const from = node.container.strategyId;
+    if (from === strategyId) return;
+    const priorState = node.container.state;
+    this.replaceContainer(id, (c) => ({ ...c, strategyId, state: undefined }));
+    this.events.emit('container.strategyChanged', { id, from, to: strategyId });
+    if (priorState !== undefined) {
+      this.events.emit('container.stateChanged', { id, from: priorState, to: undefined });
+    }
+    trace('store', `strategy: ${id} ${from} → ${strategyId} (state cleared)`);
+    this.scheduleNotify();
+  }
+
+  /**
+   * Give `id` a container capability if it has none. No-op when it already
+   * has one — the existing `childOrder` and config are left alone.
+   */
+  ensureContainer(id: NodeId, strategyId: string, config: unknown, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'arrange', 'ensureContainer', opts);
+    const node = this.requireNode(id);
+    if (node.container) return;
+    this.nodesMap.set(id, {
+      ...node,
+      container: { strategyId, config, childOrder: [], allowsPinning: true },
+    });
+    this.publisher.markDirty(id, { bypass: true });
+    trace('store', `ensureContainer: ${id} (${strategyId})`);
     this.scheduleNotify();
   }
 
@@ -973,6 +1024,71 @@ export class Store {
    */
   flushNow(): void {
     this.publisher.flushNow();
+  }
+
+  /**
+   * Run `fn` as one logical change, emitting `transaction.begin` /
+   * `transaction.end` around it. Re-entrant: only the outermost call emits.
+   *
+   * Does NOT roll back. If `fn` throws, the pair still closes and the throw
+   * propagates, but whatever was already mutated stays mutated.
+   */
+  transact(fn: () => void, label?: string): void {
+    const outermost = this.txnDepth === 0;
+    this.txnDepth += 1;
+    if (outermost) {
+      const beginPayload = label === undefined ? {} : { label };
+      this.events.emit('transaction.begin', beginPayload);
+    }
+    let threw = false;
+    try {
+      fn();
+    } catch (e) {
+      threw = true;
+      throw e;
+    } finally {
+      this.txnDepth -= 1;
+      if (outermost) {
+        const endPayload = label === undefined ? {} : { label };
+        this.events.emit('transaction.end', endPayload);
+        trace('store', `transact: ${label ?? '(unlabeled)'}${threw ? ' (threw)' : ''}`);
+      }
+    }
+  }
+
+  /**
+   * Put this node's content in child 0 of a strip or grid container.
+   *
+   * Which of three things that means is forced by the node's position:
+   * a node with a parent is **wrapped** in a new group; a node whose parent is
+   * already a strip on the requested axis gets its new siblings **flattened**
+   * in beside it; a root has nothing above it to interpose, so it **becomes**
+   * the container.
+   *
+   * All ids are caller-supplied — the store has no id generator. Validation
+   * runs before any mutation, so a rejected split leaves the store untouched.
+   * Every node it registers is shown, unlike a bare `registerNode`.
+   *
+   * Runs inside `transact`, so a history integration bracketed on
+   * `transaction.begin` / `transaction.end` records one undo step.
+   */
+  split(id: NodeId, input: SplitInput): void {
+    splitNode(this, id, input);
+  }
+
+  /**
+   * Dissolve a group into its parent: its children move up to the group's
+   * index, in order, then the group is unregistered.
+   *
+   * Nothing calls this automatically. Removing the second-to-last child of a
+   * split group leaves a one-child strip, which renders full-bleed and is
+   * harmless; collapsing it is the consumer's call.
+   *
+   * A sole surviving child inherits the group's placement (size, pin); with
+   * several children the group's placement is simply dropped.
+   */
+  unsplit(groupId: NodeId, opts?: MutateOptions): void {
+    unsplitNode(this, groupId, opts);
   }
 
   /**

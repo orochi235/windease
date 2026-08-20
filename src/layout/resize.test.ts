@@ -63,4 +63,63 @@ describe('clampExplicitSizes', () => {
     const out = clampExplicitSizes({ available: 100, items: [] });
     expect(out.size).toBe(0);
   });
+
+  it('caps an explicit size above max on initial layout', () => {
+    const out = clampExplicitSizes({
+      available: 1000,
+      items: [{ id: 'a', explicit: 500, min: 0, max: 100 }],
+    });
+    expect(out.get('a')).toBe(100);
+  });
+
+  it('sends space freed by a cap to the other items, not nowhere', () => {
+    // a wants 500 but is capped to 100; the freed 400 must reach b, not vanish.
+    const out = clampExplicitSizes({
+      available: 500,
+      items: [
+        { id: 'a', explicit: 500, min: 0, max: 100 },
+        { id: 'b', explicit: undefined, min: 0 },
+      ],
+    });
+    expect(out.get('a')).toBe(100);
+    expect(out.get('b')).toBe(400);
+    expect((out.get('a') ?? 0) + (out.get('b') ?? 0)).toBe(500);
+  });
+
+  it("honors an unconstrained sibling's min after a cap still forces proportional scaling", () => {
+    // a's cap (300) still exceeds its share of the budget once b's min (150) is
+    // reserved, so the existing scale-down runs on the capped value: 250/300.
+    const out = clampExplicitSizes({
+      available: 400,
+      items: [
+        { id: 'a', explicit: 1000, min: 0, max: 300 },
+        { id: 'b', explicit: undefined, min: 150 },
+      ],
+    });
+    expect(out.get('a')).toBeCloseTo(250);
+    expect(out.get('b')).toBeCloseTo(150);
+  });
+
+  it('resolves a contradictory min > max on one item to max, matching dispatchAffordance', () => {
+    // explicit (50) is below min (300), so the min-floor raises it to 300 first;
+    // the max-ceiling (100) then overrides, exactly as in dispatchAffordance's
+    // sequential min-then-max clamp.
+    const out = clampExplicitSizes({
+      available: 1000,
+      items: [{ id: 'a', explicit: 50, min: 300, max: 100 }],
+    });
+    expect(out.get('a')).toBe(100);
+  });
+
+  it('leaves an item with no maxSize unaffected', () => {
+    const out = clampExplicitSizes({
+      available: 500,
+      items: [
+        { id: 'a', explicit: 200, min: 0, max: undefined },
+        { id: 'b', explicit: undefined, min: 50 },
+      ],
+    });
+    expect(out.get('a')).toBe(200);
+    expect(out.get('b')).toBe(300);
+  });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createGroup, createPanel, createZone } from './constructors.js';
-import { asNodeId } from './node.js';
+import { createPanel, createZone } from './constructors.js';
+import { asNodeId, type NodeId } from './node.js';
+import { Store } from './store.js';
 
 describe('createZone', () => {
   it('produces a zone-kind node with container only', () => {
@@ -63,15 +64,15 @@ describe('createZone', () => {
   });
 });
 
-describe('createGroup', () => {
-  it('produces a group-kind node with container + membership', () => {
-    const node = createGroup({
+describe('createZone with a parentId — full capability shape', () => {
+  it('produces a zone-kind node with container + membership', () => {
+    const node = createZone({
       id: asNodeId('g1'),
       parentId: asNodeId('z1'),
       strategyId: 'stack',
       config: { axis: 'vertical' },
     });
-    expect(node.kind).toBe('group');
+    expect(node.kind).toBe('zone');
     expect(node.container).toBeDefined();
     expect(node.container?.strategyId).toBe('stack');
     expect(node.membership).toBeDefined();
@@ -83,7 +84,7 @@ describe('createGroup', () => {
   });
 
   it('honors allowsPinning and placement', () => {
-    const node = createGroup({
+    const node = createZone({
       id: asNodeId('g2'),
       parentId: asNodeId('z1'),
       strategyId: 'strip',
@@ -96,7 +97,7 @@ describe('createGroup', () => {
   });
 
   it('resolves lock using the full container + membership shape', () => {
-    const node = createGroup({
+    const node = createZone({
       id: asNodeId('g-lock'),
       parentId: asNodeId('z1'),
       strategyId: 'stack',
@@ -184,8 +185,8 @@ describe('node factories — order', () => {
     expect(n.order).toBe(7);
   });
 
-  it('round-trips on createGroup and createZone', () => {
-    const g = createGroup({
+  it('round-trips on createZone, parented and root', () => {
+    const g = createZone({
       id: asNodeId('g'),
       parentId: asNodeId('root'),
       strategyId: 'stack',
@@ -204,5 +205,128 @@ describe('node factories — order', () => {
 
   it('leaves order undefined when not provided', () => {
     expect(createPanel({ id: asNodeId('a'), parentId: asNodeId('root') }).order).toBeUndefined();
+  });
+});
+
+describe('createZone with a parentId', () => {
+  it('attaches membership when given a parentId', () => {
+    const node = createZone({
+      id: asNodeId('inner'),
+      parentId: asNodeId('outer'),
+      strategyId: 'strip',
+      config: {},
+    });
+
+    expect(node.membership?.parentId).toBe('outer');
+    expect(node.membership?.placement).toEqual({});
+    expect(node.container?.strategyId).toBe('strip');
+  });
+
+  it('omits membership when given none', () => {
+    const node = createZone({ id: asNodeId('root'), strategyId: 'strip', config: {} });
+    expect(node.membership).toBeUndefined();
+  });
+
+  it('takes a placement alongside a parentId', () => {
+    const node = createZone({
+      id: asNodeId('inner'),
+      parentId: asNodeId('outer'),
+      strategyId: 'strip',
+      config: {},
+      placement: { size: { w: 100 } },
+    });
+
+    expect(node.membership?.placement).toEqual({ size: { w: 100 } });
+  });
+
+  it('keeps kind zone by default, overridable after construction', () => {
+    const zone = createZone({
+      id: asNodeId('a'),
+      parentId: asNodeId('p'),
+      strategyId: 'strip',
+      config: {},
+    });
+    expect(zone.kind).toBe('zone');
+
+    // The migration path for the removed group constructor: build a zone,
+    // then set kind — what `Store.split`'s interposed groups do internally.
+    const group = createZone({
+      id: asNodeId('b'),
+      parentId: asNodeId('p'),
+      strategyId: 'strip',
+      config: {},
+    });
+    group.kind = 'group';
+    expect(group.kind).toBe('group');
+  });
+
+  it('capability set is unaffected by a kind override', () => {
+    const zone = createZone({
+      id: asNodeId('a'),
+      parentId: asNodeId('p'),
+      strategyId: 'strip',
+      config: {},
+    });
+    const group = createZone({
+      id: asNodeId('b'),
+      parentId: asNodeId('p'),
+      strategyId: 'strip',
+      config: {},
+    });
+    group.kind = 'group';
+
+    const caps = (n: typeof zone) => ({
+      container: !!n.container,
+      membership: !!n.membership,
+      focus: !!n.focus,
+    });
+    expect(caps(zone)).toEqual(caps(group));
+  });
+
+  it('registers under the parent rather than as a root', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('outer'), strategyId: 'strip', config: {} }));
+    store.registerNode(
+      createZone({
+        id: asNodeId('inner'),
+        parentId: asNodeId('outer'),
+        strategyId: 'stack',
+        config: {},
+      }),
+    );
+
+    expect(store.rootIds).toEqual(['outer']);
+    expect(store.getContainerView(asNodeId('outer'))?.childOrder).toEqual(['inner']);
+  });
+});
+
+describe('optional inputs accept an explicit undefined', () => {
+  it('forwards optional props without narrowing', () => {
+    // Shape of a consumer forwarding optional React props straight through.
+    const props: { meta?: Record<string, unknown>; order?: number } = {};
+
+    const node = createPanel({
+      id: asNodeId('p'),
+      parentId: asNodeId('z'),
+      meta: props.meta,
+      order: props.order,
+    });
+
+    expect(node.meta).toBeUndefined();
+    expect(node.order).toBeUndefined();
+  });
+
+  it('does the same for a zone', () => {
+    const props: { meta?: Record<string, unknown>; parentId?: NodeId } = {};
+
+    const node = createZone({
+      id: asNodeId('z'),
+      strategyId: 'strip',
+      config: {},
+      parentId: props.parentId,
+      meta: props.meta,
+    });
+
+    expect(node.membership).toBeUndefined();
   });
 });

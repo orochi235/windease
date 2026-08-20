@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGroup, createPanel, createZone } from './constructors.js';
+import { createPanel, createZone } from './constructors.js';
 import { type LockSet, resolveLock, supportedAxes } from './lock.js';
 import { asNodeId } from './node.js';
 
@@ -17,7 +17,7 @@ describe('supportedAxes', () => {
   });
 
   it('gives a group every axis', () => {
-    const group = createGroup({
+    const group = createZone({
       id: id('g'),
       parentId: id('z'),
       strategyId: 'grid',

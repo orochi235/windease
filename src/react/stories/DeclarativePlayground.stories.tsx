@@ -12,7 +12,7 @@ import {
 import './windease.css';
 import './playground.css';
 
-export default { title: 'Declarative / Mixed Provenance' };
+export default { title: 'Declarative' };
 
 export const MixedProvenance: Story = () => {
   const store = useMemo(() => new Store(), []);

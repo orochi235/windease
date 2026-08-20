@@ -10,9 +10,9 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
 import type { Affordance, NodeId } from '../index.js';
 import { DragContext } from './dnd/DragProvider.js';
-import { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
 import { useChildren, useNode } from './hooks.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
@@ -42,7 +42,7 @@ export interface ContainerProps {
    *  Optional when `children` is provided. */
   chrome?: Chrome;
   /** When provided, Container renders these directly and skips the chrome
-   *  dispatch. Use this for declarative trees built with <Panel>/<Group>/<Zone>.
+   *  dispatch. Use this for declarative trees built with Panel/Zone presets.
    *  When omitted, Container reads children from the store and renders each
    *  via `chrome`. */
   children?: ReactNode;
@@ -63,7 +63,7 @@ export interface ContainerProps {
    */
   settleMs?: number;
   /**
-   * Render the strategy's affordances (e.g. splitStrategy's gutter) as
+   * Render the strategy's affordances (e.g. strip's resize gutter) as
    * interactive elements. `true` ships the default rect renderer with a
    * widened hit area and auto-suppresses the settle animation during drag.
    *

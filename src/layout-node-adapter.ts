@@ -21,10 +21,17 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
   const placement = node.membership?.placement;
   if (placement && Object.keys(placement).length > 0) {
     item.meta = { ...placement };
-    // Surface `size` as the typed, public placement intent strategies read
-    // (the `meta` projection above still carries flags like `pinned`).
-    const size = (placement as { size?: { w?: number; h?: number } }).size;
-    if (size) item.placement = { size };
+    // Surface `size`/`span` as the typed, public placement intent strategies
+    // read (the `meta` projection above still carries flags like `pinned`).
+    const { size, span } = placement as {
+      size?: { w?: number; h?: number };
+      span?: { cols?: number; rows?: number };
+    };
+    if (size || span) {
+      item.placement = {};
+      if (size) item.placement.size = size;
+      if (span) item.placement.span = span;
+    }
   }
   return item;
 }

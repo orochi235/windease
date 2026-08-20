@@ -1,65 +1,60 @@
-export default { title: 'Recursive zones / Split (resize)' };
+export default { title: 'Recursive zones' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  type SplitNode,
-  Store,
-  splitStrategy,
-} from '../../index.js';
+import { asNodeId, createPanel, createZone, Store, stripStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
 const STRATEGIES = {
-  split: splitStrategy as never,
+  strip: stripStrategy as never,
 };
 
-// Three nested splits — exercises every gutter direction.
-const TREE: SplitNode = {
-  kind: 'split',
-  direction: 'horizontal',
-  ratio: 0.55,
-  a: { kind: 'leaf', id: 'a' },
-  b: {
-    kind: 'split',
-    direction: 'vertical',
-    ratio: 0.5,
-    a: { kind: 'leaf', id: 'b' },
-    b: {
-      kind: 'split',
-      direction: 'horizontal',
-      ratio: 0.5,
-      a: { kind: 'leaf', id: 'c' },
-      b: { kind: 'leaf', id: 'd' },
-    },
-  },
-};
+/**
+ * Builds the same 4-pane tiling the old split layout strategy demo did — an
+ * outer horizontal split of `a` and a vertical group, whose second slot is
+ * itself a horizontal group of `c`/`d` — but as real nested strip
+ * containers via `store.split`, one gutter drag at a time.
+ */
+function buildTree(): Store {
+  const s = new Store();
+  const rs = asNodeId('rs');
+  const a = asNodeId('a');
+  const b = asNodeId('b');
+  const c = asNodeId('c');
+  const d = asNodeId('d');
+  const g1 = asNodeId('g1');
+  const g2 = asNodeId('g2');
 
-export const RecursiveSplit: Story = () => {
-  const store = useMemo(() => {
-    const s = new Store();
-    s.registerNode(
-      createZone({
-        id: asNodeId('rs'),
-        strategyId: 'split',
-        config: { gutterSize: 6 },
-      }),
-    );
-    for (const id of ['a', 'b', 'c', 'd'] as const) {
-      const nid = asNodeId(id);
-      s.registerNode(createPanel({ id: nid, parentId: asNodeId('rs'), meta: { title: id } }));
-      s.showNode(nid);
-    }
-    s.setContainerState(asNodeId('rs'), TREE);
-    return s;
-  }, []);
+  s.registerNode(createZone({ id: rs, strategyId: 'strip', config: { axis: 'x', gap: 6 } }));
+  s.registerNode(createPanel({ id: a, parentId: rs, meta: { title: 'a' } }));
+  s.showNode(a);
+
+  s.split(rs, { direction: 'x', newIds: [b] });
+  s.setMeta(b, { title: 'b' });
+
+  s.split(b, { direction: 'y', groupId: g1, newIds: [c], config: { gap: 6 } });
+  s.setMeta(c, { title: 'c' });
+
+  s.split(c, { direction: 'x', groupId: g2, newIds: [d], config: { gap: 6 } });
+  s.setMeta(d, { title: 'd' });
+
+  return s;
+}
+
+export const SplitResize: Story = () => {
+  const store = useMemo(buildTree, []);
 
   const chrome: ChromeMap = useMemo(
     () => ({
-      zone: ({ children }) => <>{children}</>,
+      group: ({ node }) => (
+        <Container
+          parentId={node.id}
+          chrome={chrome}
+          affordances
+          style={{ flex: 1, minHeight: 0 }}
+        />
+      ),
       panel: ({ node }) => (
         <div className="windease-panel">
           <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
@@ -80,8 +75,8 @@ export const RecursiveSplit: Story = () => {
           affordances
         />
         <p style={{ marginTop: 12, font: '12px/1.4 system-ui, sans-serif', color: '#64748b' }}>
-          Three nested splits. Each gutter resizes independently. State persists on{' '}
-          <code>node.container.state</code>.
+          Three nested strip groups, built with <code>store.split</code>. Each gutter resizes its
+          own group; sizes persist on <code>membership.placement.size</code>.
         </p>
       </StrategyRegistryProvider>
     </Provider>

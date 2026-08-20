@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, useContext, useMemo } from 'react';
-import type { LayoutStrategy } from '../index.js';
+import type { LayoutStrategy, StrategyRegistry } from '../index.js';
 
-export type StrategyRegistry = ReadonlyMap<string, LayoutStrategy<unknown, string, unknown>>;
+export type { StrategyRegistry };
 
 const StrategyRegistryContext = createContext<StrategyRegistry | null>(null);
 

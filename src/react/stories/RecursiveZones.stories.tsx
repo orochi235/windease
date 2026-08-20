@@ -1,4 +1,4 @@
-export default { title: 'Recursive zones / Trays' };
+export default { title: 'Recursive zones' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
@@ -8,14 +8,14 @@ import {
   createZone,
   gridStrategy,
   Store,
-  stackStrategy,
+  stripStrategy,
 } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider, Zone } from '../index.js';
 import './windease.css';
 
 const STRATEGIES = {
   grid: gridStrategy as never,
-  stack: stackStrategy as never,
+  stack: stripStrategy as never,
 };
 
 interface Args {
@@ -29,7 +29,7 @@ interface Args {
  * hosts its own children via the `container` capability. Demonstrates
  * arbitrary-depth recursion using the same primitives.
  */
-export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
+export const Trays: Story<Args> = ({ cols, trayChildren, showSecondTray }) => {
   const store = useMemo(() => {
     const s = new Store();
     s.registerNode(
@@ -45,7 +45,7 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
         id: asNodeId('tray-1'),
         parentId: asNodeId('z'),
         meta: { title: 'Tray 1' },
-        container: { strategyId: 'stack', config: { axis: 'vertical', gap: 6, padding: 8 } },
+        container: { strategyId: 'stack', config: { axis: 'y', fill: true, gap: 6, padding: 8 } },
       }),
     );
     s.showNode(asNodeId('tray-1'));
@@ -65,7 +65,7 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
           meta: { title: 'Tray 2' },
           container: {
             strategyId: 'stack',
-            config: { axis: 'vertical', gap: 6, padding: 8 },
+            config: { axis: 'y', fill: true, gap: 6, padding: 8 },
           },
         }),
       );
@@ -130,13 +130,13 @@ export const RecursiveZones: Story<Args> = ({ cols, trayChildren, showSecondTray
   );
 };
 
-RecursiveZones.args = {
+Trays.args = {
   cols: 2,
   trayChildren: 3,
   showSecondTray: true,
 };
 
-RecursiveZones.argTypes = {
+Trays.argTypes = {
   cols: { control: { type: 'range', min: 1, max: 4, step: 1 } },
   trayChildren: { control: { type: 'range', min: 0, max: 6, step: 1 } },
   showSecondTray: { control: { type: 'boolean' } },

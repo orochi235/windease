@@ -8,93 +8,67 @@ export interface CreateZoneInput {
   id: NodeId;
   strategyId: string;
   config: unknown;
-  allowsPinning?: boolean;
-  lock?: boolean | LockSet;
-  meta?: Record<string, unknown>;
-  hints?: NodeHints;
+  /** Omit for a root. With a parent, the node gains `membership`. */
+  parentId?: NodeId | undefined;
+  placement?: Record<string, unknown> | undefined;
+  allowsPinning?: boolean | undefined;
+  lock?: boolean | LockSet | undefined;
+  meta?: Record<string, unknown> | undefined;
+  hints?: NodeHints | undefined;
   /** See `Node.order`. */
-  order?: number;
+  order?: number | undefined;
+}
+
+function createContainerNode(input: CreateZoneInput, kind: string): Node {
+  const node: Node = {
+    id: input.id,
+    kind,
+    lifecycle: createLifecycleMachine(),
+    container: {
+      strategyId: input.strategyId,
+      config: input.config,
+      childOrder: [],
+      allowsPinning: input.allowsPinning ?? true,
+    },
+  };
+  if (input.parentId !== undefined) {
+    node.membership = {
+      parentId: input.parentId,
+      placement: input.placement ?? {},
+      transit: createTransitMachine(),
+    };
+  }
+  if (input.meta !== undefined) node.meta = input.meta;
+  if (input.hints !== undefined) node.hints = input.hints;
+  if (input.order !== undefined) node.order = input.order;
+  if (input.lock !== undefined) {
+    const resolved = resolveLock(node, input.lock);
+    if (Object.keys(resolved).length > 0) node.lock = resolved;
+  }
+  return node;
 }
 
 /** @group Constructors */
 export function createZone(input: CreateZoneInput): Node {
-  const node: Node = {
-    id: input.id,
-    kind: 'zone',
-    lifecycle: createLifecycleMachine(),
-    container: {
-      strategyId: input.strategyId,
-      config: input.config,
-      childOrder: [],
-      allowsPinning: input.allowsPinning ?? true,
-    },
-  };
-  if (input.meta !== undefined) node.meta = input.meta;
-  if (input.hints !== undefined) node.hints = input.hints;
-  if (input.order !== undefined) node.order = input.order;
-  if (input.lock !== undefined) {
-    const resolved = resolveLock(node, input.lock);
-    if (Object.keys(resolved).length > 0) node.lock = resolved;
-  }
-  return node;
-}
-
-export interface CreateGroupInput {
-  id: NodeId;
-  parentId: NodeId;
-  strategyId: string;
-  config: unknown;
-  allowsPinning?: boolean;
-  lock?: boolean | LockSet;
-  placement?: Record<string, unknown>;
-  meta?: Record<string, unknown>;
-  hints?: NodeHints;
-  /** See `Node.order`. */
-  order?: number;
-}
-
-/** @group Constructors */
-export function createGroup(input: CreateGroupInput): Node {
-  const node: Node = {
-    id: input.id,
-    kind: 'group',
-    lifecycle: createLifecycleMachine(),
-    container: {
-      strategyId: input.strategyId,
-      config: input.config,
-      childOrder: [],
-      allowsPinning: input.allowsPinning ?? true,
-    },
-    membership: {
-      parentId: input.parentId,
-      placement: input.placement ?? {},
-      transit: createTransitMachine(),
-    },
-  };
-  if (input.meta !== undefined) node.meta = input.meta;
-  if (input.hints !== undefined) node.hints = input.hints;
-  if (input.order !== undefined) node.order = input.order;
-  if (input.lock !== undefined) {
-    const resolved = resolveLock(node, input.lock);
-    if (Object.keys(resolved).length > 0) node.lock = resolved;
-  }
-  return node;
+  return createContainerNode(input, 'zone');
 }
 
 export interface CreatePanelInput {
   id: NodeId;
   parentId: NodeId;
-  placement?: Record<string, unknown>;
-  meta?: Record<string, unknown>;
-  hints?: NodeHints;
+  placement?: Record<string, unknown> | undefined;
+  meta?: Record<string, unknown> | undefined;
+  hints?: NodeHints | undefined;
   /** See `Node.order`. */
-  order?: number;
-  lock?: boolean | LockSet;
-  container?: {
-    strategyId: string;
-    config: unknown;
-    allowsPinning?: boolean;
-  };
+  order?: number | undefined;
+  lock?: boolean | LockSet | undefined;
+  container?:
+    | {
+        strategyId: string;
+        config: unknown;
+        allowsPinning?: boolean | undefined;
+      }
+    | undefined;
 }
 
 /** @group Constructors */

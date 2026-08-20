@@ -1,7 +1,7 @@
 {
   "name": "windease",
-  "version": "0.9.0",
-  "description": "Browser window/zone/workspace model with pluggable layout strategies, opt-in drag-and-drop, snapshot persistence — headless core and React bindings in one package.",
+  "version": "1.0.0",
+  "description": "Browser window/zone/workspace model with pluggable layout strategies, opt-in drag-and-drop, snapshot persistence \u2014 headless core and React bindings in one package.",
   "keywords": [
     "windease",
     "window-manager",
@@ -62,11 +62,14 @@
     "ladle": "ladle serve",
     "ladle:build": "ladle build",
     "docs:api": "typedoc",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
     "@ladle/react": "^5.1.1",
+    "@playwright/test": "^1.62.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.18",

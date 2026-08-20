@@ -20,9 +20,13 @@ export interface LayoutItem {
    * to pin a pane's main-axis extent. The strip / stack / split strategies
    * honor it; split's gutter drag clears it (reverting to ratio control).
    * Either `Size` dimension is optional.
+   *
+   * `span` is grid's cell-count analog of `size` — `cols`/`rows` are counts,
+   * not pixels. Only `gridStrategy` reads it.
    */
   placement?: {
     size?: { w?: number; h?: number };
+    span?: { cols?: number; rows?: number };
   };
   /**
    * The node's whole `membership.placement` bag, projected by
@@ -51,6 +55,10 @@ export interface LayoutNode {
   isContainer: boolean;
   activity: Record<string, unknown>;
 }
+
+/** Strategies by `container.strategyId`. Lives here rather than in the React
+ *  layer because `ContainerHost` resolves strategies with no binding present. */
+export type StrategyRegistry = ReadonlyMap<string, LayoutStrategy<unknown, string, unknown>>;
 
 export type BuiltinAffordanceKind =
   | 'drag-x'
@@ -122,7 +130,9 @@ export interface LayoutEvent {
 
 export interface LayoutStrategy<TState = void, TId extends string = string, TMeta = unknown> {
   name: string;
-  initialState?(items: LayoutItem[]): TState;
+  /** Seed state for a container that has none persisted yet. `options` is the
+   *  container's strategy config, so the seed can honor it. */
+  initialState?(items: LayoutItem[], options?: Record<string, unknown>): TState;
   layout(input: {
     items: LayoutItem[];
     container: Size;

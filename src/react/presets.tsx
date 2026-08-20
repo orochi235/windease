@@ -8,10 +8,17 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { ChildSort } from '../child-sort.js';
 import type { Node, NodeId, Store } from '../index.js';
-import { createGroup, createPanel, createZone, trace } from '../index.js';
+import {
+  createPanel,
+  createZone,
+  reconcileChildOrder,
+  reconcileContainerState,
+  reconcilePinned,
+  reconcilePlacement,
+} from '../index.js';
 import type { LockSet } from '../lock.js';
-import { type ChildSort, defaultChildSort } from './childSort.js';
 import { DragHandle } from './dnd/DragHandle.js';
 import { useDropTarget } from './dnd/useDropTarget.js';
 import { useChildren } from './hooks.js';
@@ -37,7 +44,7 @@ interface CommonBindingProps {
   hidden?: boolean;
   /** When true, registers this preset's wrapper element as a drop target so
    *  consumers can drag items into it. The element must have a container
-   *  capability (Zone and Group always do; Panel needs the `container` prop). */
+   *  capability (Zone always does; Panel needs the `container` prop). */
   acceptsDrops?: boolean;
   /** Permissions restricting what the user may do to this node. `true` locks
    *  every axis the node's capabilities support. */
@@ -113,11 +120,9 @@ export function Panel(props: PanelProps) {
       return createPanel({
         id,
         parentId,
-        ...defined({
-          meta: props.meta,
-          placement: props.placement,
-          order: props.order,
-        }),
+        meta: props.meta,
+        placement: props.placement,
+        order: props.order,
         ...(props.container
           ? {
               container: {
@@ -206,65 +211,6 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   );
 }
 
-/* ---------- Group ---------- */
-
-export interface GroupProps extends CommonBindingProps, PresentationalProps {
-  strategyId?: string;
-  config?: unknown;
-  /** When true, wraps the group's rendered content in a DragHandle so the
-   *  user can drag this group to another acceptsDrops target. */
-  draggable?: boolean;
-}
-
-/** @group Components */
-export function Group(props: GroupProps) {
-  const { id } = useNodeBinding({
-    ...defined({ id: props.id, parentId: props.parentId, order: props.order }),
-    kindHintForAutoId: 'group',
-    factory: (id, parentId) => {
-      if (!parentId) {
-        throw new Error(
-          `windease: <Group id="${id}"> needs a parent — wrap it in a <Zone> or pass parentId explicitly.`,
-        );
-      }
-      if (!props.strategyId) {
-        throw new Error(`windease: <Group id="${id}"> requires a strategyId prop.`);
-      }
-      return createGroup({
-        id,
-        parentId,
-        strategyId: props.strategyId,
-        config: props.config,
-        ...defined({
-          meta: props.meta,
-          placement: props.placement,
-          order: props.order,
-        }),
-      });
-    },
-    reconcile: makeReconciler(props),
-  });
-
-  // A pending `pinned` prop that skipped because the parent was arrange-
-  // locked needs a re-render on unlock to re-run the reconcile above.
-  const store = useStore();
-  useForceRerenderOnLockChange(store, store.getNode(id)?.membership?.parentId);
-
-  return (
-    <PresetShell
-      kind="group"
-      id={id}
-      className={props.className}
-      style={props.style}
-      title={props.title}
-      testId={props['data-testid']}
-      acceptsDrops={props.acceptsDrops}
-    >
-      {props.draggable ? <DragHandle nodeId={id}>{props.children}</DragHandle> : props.children}
-    </PresetShell>
-  );
-}
-
 /* ---------- Zone ---------- */
 
 export interface ZoneProps extends ZoneBindingProps, PresentationalProps {
@@ -290,6 +236,11 @@ export interface ZoneProps extends ZoneBindingProps, PresentationalProps {
    * but render no DOM — preserves previous behavior.
    */
   renderImperative?: (node: Node) => ReactNode;
+  /**
+   * Overrides the `kind` label, which drives the wrapper class and
+   * `ChromeMap` dispatch — pass `kind="group"` for the old removed group preset.
+   */
+  kind?: string;
 }
 
 /** @group Components */
@@ -301,23 +252,21 @@ export function Zone(props: ZoneProps) {
       if (!props.strategyId) {
         throw new Error(`windease: <Zone id="${id}"> requires a strategyId prop.`);
       }
-      return createZone({
+      const node = createZone({
         id,
         strategyId: props.strategyId,
         config: props.config,
-        ...defined({ parentId: parentId ?? undefined, meta: props.meta, order: props.order }),
+        parentId: parentId ?? undefined,
+        meta: props.meta,
+        order: props.order,
       });
+      if (props.kind !== undefined) node.kind = props.kind;
+      return node;
     },
     reconcile: (store, id) => {
       const base = makeReconciler(props);
       base(store, id);
-      if (props.state !== undefined) {
-        if (store.isLocked(id, 'arrange')) {
-          trace('layout', `<Zone> state prop reconcile skipped for ${id}: locked (arrange)`);
-          return;
-        }
-        store.setContainerState(id, props.state);
-      }
+      if (props.state !== undefined) reconcileContainerState(store, id, props.state);
     },
   });
 
@@ -338,7 +287,7 @@ export function Zone(props: ZoneProps) {
   const zoneStyle = composeZoneStyle(props);
   return (
     <PresetShell
-      kind="zone"
+      kind={props.kind ?? 'zone'}
       id={id}
       className={props.className}
       style={zoneStyle}
@@ -412,7 +361,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   return (
     <LayoutScope value={layoutInfo}>
       <PresetShell
-        kind="zone"
+        kind={props.kind ?? 'zone'}
         id={props.id}
         className={props.className}
         style={zoneStyle}
@@ -438,32 +387,9 @@ function makeReconciler(props: CommonBindingProps) {
       // stamped by useNodeBinding survives untouched.
       store.setMeta(id, props.meta);
     }
-    if (props.placement !== undefined) {
-      if ('pinned' in props.placement) {
-        throw new Error(
-          `windease: the generic \`placement\` prop cannot set "pinned" on "${id}" — use the dedicated \`pinned\` prop instead.`,
-        );
-      }
-      // force:true — declarative props are host code, not the user; lets a
-      // locked, fixed-size pane (lock.resize + placement.size) survive re-renders.
-      store.patchPlacement(id, props.placement, { force: true });
-    }
+    if (props.placement !== undefined) reconcilePlacement(store, id, props.placement);
     if (props.lock !== undefined) store.setLock(id, props.lock);
-    if (props.pinned !== undefined) {
-      // setPinned/unpin guard the *parent's* arrange lock; a live drag also
-      // writes childOrder, so skip rather than force a stale prop past it.
-      const parentId = store.getNode(id)?.membership?.parentId;
-      if (parentId !== undefined && store.isLocked(parentId, 'arrange')) {
-        trace(
-          'layout',
-          `pinned prop reconcile skipped for ${id}: parent ${parentId} locked (arrange)`,
-        );
-      } else if (props.pinned === false) {
-        store.unpin(id);
-      } else {
-        store.setPinned(id, props.pinned === true ? undefined : props.pinned);
-      }
-    }
+    if (props.pinned !== undefined) reconcilePinned(store, id, props.pinned);
     const node = store.getNode(id);
     if (!node) return;
     if (props.hidden) {
@@ -475,7 +401,7 @@ function makeReconciler(props: CommonBindingProps) {
 }
 
 interface PresetShellProps {
-  kind: 'panel' | 'group' | 'zone';
+  kind: string;
   id: NodeId;
   children?: ReactNode | undefined;
   className?: string | undefined;
@@ -534,45 +460,16 @@ function PresetShell({
   useLayoutEffect(() => {
     const view = store.getContainerView(id);
     if (!view) return; // Not a container (e.g. Panel with no nested presets).
+    // Drop reported entries that aren't children of THIS parent: a preset can
+    // override parentId to point elsewhere and still report to the nearest
+    // ChildRegistry by context. Core drops them too; doing it here keeps the
+    // observed list honest about what JSX actually nested.
     const currentSet = new Set(view.childOrder);
-    // Drop any reported entries that aren't actually children of THIS parent
-    // (a preset can override parentId to point elsewhere; it still reports to
-    // the nearest ChildRegistry by context).
-    const jsxEntries = registry.snapshot().filter((e) => currentSet.has(e.id));
-    const jsxIds = new Set(jsxEntries.map((e) => e.id));
-    const currentIds = view.childOrder;
-    const imperativeIds = currentIds.filter((cid) => !jsxIds.has(cid));
-    const sortFn = sort ?? defaultChildSort;
-    // A pinned child holds its slot — JSX-order reconciliation must not evict
-    // it, so it's excluded from sorting and its current index is preserved.
-    const pinnedIds = new Set(currentIds.filter((cid) => store.getPinnedIndex(cid) !== null));
-    const orderedJsx = sortFn(
-      jsxEntries.filter((e) => !pinnedIds.has(e.id)).map((e) => ({ id: e.id, order: e.order })),
-      currentIds,
-    );
-    const fillQueue = [...orderedJsx, ...imperativeIds.filter((cid) => !pinnedIds.has(cid))];
-    let fillIndex = 0;
-    const finalOrder = currentIds.map((cid) =>
-      pinnedIds.has(cid) ? cid : (fillQueue[fillIndex++] as NodeId),
-    );
-    // finalOrder is a permutation of currentIds: pinned ids keep their slot,
-    // fillQueue (orderedJsx + non-pinned imperativeIds) fills the rest.
-    let same = finalOrder.length === currentIds.length;
-    if (same) {
-      for (let i = 0; i < finalOrder.length; i++) {
-        if (finalOrder[i] !== currentIds[i]) {
-          same = false;
-          break;
-        }
-      }
-    }
-    if (!same) {
-      if (store.isLocked(id, 'arrange')) {
-        trace('layout', `sibling-order reconcile skipped for ${id}: locked (arrange)`);
-        return;
-      }
-      store.setChildOrder(id, finalOrder);
-    }
+    const observed = registry
+      .snapshot()
+      .filter((e) => currentSet.has(e.id))
+      .map((e) => ({ id: e.id, order: e.order }));
+    reconcileChildOrder(store, id, observed, sort ? { sort } : undefined);
   });
 
   const wrapperClass =

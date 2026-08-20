@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asNodeId, createPanel, createZone, Store } from '../../index.js';
 import { gridStrategy } from '../../layout/grid.js';
-import { stackStrategy } from '../../layout/stack.js';
+import { stripStrategy } from '../../layout/strip.js';
 import { Container } from '../Container.js';
 import { Provider } from '../Provider.js';
 import { StrategyRegistryProvider } from '../strategies.js';
@@ -19,8 +19,16 @@ function Handle({ onReady }: { onReady: (c: ReturnType<typeof useDragController>
 describe('Container — live drop preview', () => {
   it('passes preview to strategy when hovered + accepted and stamps data-preview', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('src-parent'), strategyId: 'stack', config: {} }));
-    store.registerNode(createZone({ id: asNodeId('tgt'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createZone({
+        id: asNodeId('src-parent'),
+        strategyId: 'stack',
+        config: { axis: 'y', fill: true },
+      }),
+    );
+    store.registerNode(
+      createZone({ id: asNodeId('tgt'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+    );
     store.registerNode(
       createPanel({ id: asNodeId('src'), parentId: asNodeId('src-parent'), meta: { title: 'S' } }),
     );
@@ -32,7 +40,7 @@ describe('Container — live drop preview', () => {
     let controller: ReturnType<typeof useDragController> | null = null;
     const { container } = render(
       <Provider store={store}>
-        <StrategyRegistryProvider strategies={{ stack: stackStrategy }}>
+        <StrategyRegistryProvider strategies={{ stack: stripStrategy }}>
           <DragProvider>
             <Handle
               onReady={(c) => {
@@ -72,7 +80,9 @@ describe('Container — live drop preview', () => {
 
   it('reverts to real layout on rejection (canAccept=false)', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+    );
     store.registerNode(
       createZone({ id: asNodeId('tgt'), strategyId: 'grid', config: { maxItems: 1 } }),
     );
@@ -124,8 +134,12 @@ describe('Container — live drop preview', () => {
 
   it("suppresses the source's chrome during preview (rendered as ghost only)", async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
-    store.registerNode(createZone({ id: asNodeId('tgt'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+    );
+    store.registerNode(
+      createZone({ id: asNodeId('tgt'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+    );
     // Source is already a child of tgt — same-parent preview.
     store.registerNode(
       createPanel({ id: asNodeId('src'), parentId: asNodeId('tgt'), meta: { title: 'S' } }),
@@ -136,7 +150,7 @@ describe('Container — live drop preview', () => {
     let controller: ReturnType<typeof useDragController> | null = null;
     const { queryByTestId, container } = render(
       <Provider store={store}>
-        <StrategyRegistryProvider strategies={{ stack: stackStrategy }}>
+        <StrategyRegistryProvider strategies={{ stack: stripStrategy }}>
           <DragProvider>
             <Handle
               onReady={(c) => {
@@ -184,7 +198,9 @@ describe('Container — live drop preview', () => {
 describe('Container — getDropPreview fast path', () => {
   it('uses strategy.getDropPreview when defined', async () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+    );
     store.registerNode(
       createZone({
         id: asNodeId('tgt'),
@@ -203,7 +219,7 @@ describe('Container — getDropPreview fast path', () => {
     let controller: ReturnType<typeof useDragController> | null = null;
     const { container } = render(
       <Provider store={store}>
-        <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stackStrategy }}>
+        <StrategyRegistryProvider strategies={{ grid: gridStrategy, stack: stripStrategy }}>
           <DragProvider>
             <Handle
               onReady={(c) => {

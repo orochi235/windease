@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
-import { stackStrategy } from './layout/stack.js';
+import { stripStrategy } from './layout/strip.js';
 import { runStrategyForContainer } from './layout-node-adapter.js';
 import { asNodeId } from './node.js';
 import { Store } from './store.js';
@@ -8,7 +8,9 @@ import { Store } from './store.js';
 describe('runStrategyForContainer — preview', () => {
   it('splices the insertId at insertIndex when previewing', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+    );
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
     store.showNode(asNodeId('a'));
@@ -17,7 +19,7 @@ describe('runStrategyForContainer — preview', () => {
       store,
       asNodeId('z'),
       { w: 100, h: 300 },
-      stackStrategy,
+      stripStrategy,
       undefined,
       {
         insertId: 'ghost',
@@ -31,14 +33,16 @@ describe('runStrategyForContainer — preview', () => {
 
   it('appends the insertId when insertIndex is undefined', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+    );
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     store.showNode(asNodeId('a'));
     const result = runStrategyForContainer(
       store,
       asNodeId('z'),
       { w: 100, h: 200 },
-      stackStrategy,
+      stripStrategy,
       undefined,
       {
         insertId: 'ghost',
@@ -50,7 +54,9 @@ describe('runStrategyForContainer — preview', () => {
 
   it('reorders existing source for same-parent preview', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+    );
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
     store.registerNode(createPanel({ id: asNodeId('c'), parentId: asNodeId('z') }));
@@ -61,7 +67,7 @@ describe('runStrategyForContainer — preview', () => {
       store,
       asNodeId('z'),
       { w: 100, h: 300 },
-      stackStrategy,
+      stripStrategy,
       undefined,
       {
         insertId: 'a',

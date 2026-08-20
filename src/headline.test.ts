@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  asNodeId,
-  createGroup,
-  createPanel,
-  createZone,
-  deserialize,
-  Store,
-  serialize,
-} from './index.js';
+import { asNodeId, createPanel, createZone, deserialize, Store, serialize } from './index.js';
 
 /**
  * Headline end-to-end test for the unified node model.
@@ -26,7 +18,7 @@ describe('headline end-to-end', () => {
     //   │     ├── leafA (panel, focused)
     //   │     └── leafB (panel)
     //   ├── solo (panel, pinned to index 0)
-    //   └── tabs (group, strip)
+    //   └── tabs (zone, strip)
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'grid', config: { cols: 2 } }));
     store.registerNode(
       createPanel({
@@ -39,7 +31,7 @@ describe('headline end-to-end', () => {
     store.registerNode(createPanel({ id: asNodeId('leafB'), parentId: asNodeId('tray') }));
     store.registerNode(createPanel({ id: asNodeId('solo'), parentId: asNodeId('z') }));
     store.registerNode(
-      createGroup({
+      createZone({
         id: asNodeId('tabs'),
         parentId: asNodeId('z'),
         strategyId: 'strip',
@@ -51,7 +43,7 @@ describe('headline end-to-end', () => {
 
     // Snapshot + rehydrate.
     const snap = serialize(store);
-    expect(snap.version).toBe(4);
+    expect(snap.version).toBe(5);
     const rehydrated = deserialize(snap);
 
     // Tree structure, including 'solo's held slot, preserved.

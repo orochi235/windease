@@ -1,8 +1,8 @@
-export default { title: 'Parallel zones (drag between)' };
+export default { title: 'Parallel zones' };
 
 import type { Story } from '@ladle/react';
 import { type RefObject, useMemo, useRef } from 'react';
-import { asNodeId, createPanel, createZone, Store, stackStrategy } from '../../index.js';
+import { asNodeId, createPanel, createZone, Store, stripStrategy } from '../../index.js';
 import {
   type ChromeMap,
   Container,
@@ -17,7 +17,7 @@ import './windease.css';
 import './parallel-zones-dnd.css';
 
 const STRATEGIES = {
-  stack: stackStrategy as never,
+  stack: stripStrategy as never,
 };
 
 const LEFT = asNodeId('left-zone');
@@ -30,7 +30,7 @@ function makeStore(): Store {
       createZone({
         id: zid,
         strategyId: 'stack',
-        config: { axis: 'vertical', gap: 8, padding: 12 },
+        config: { axis: 'y', fill: true, gap: 8, padding: 12 },
       }),
     );
   }
@@ -81,7 +81,7 @@ function ZoneShell({
   );
 }
 
-export const ParallelZonesDnd: Story = () => {
+export const DragBetween: Story = () => {
   const store = useMemo(() => makeStore(), []);
 
   const chrome: ChromeMap = useMemo(

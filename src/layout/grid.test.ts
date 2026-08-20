@@ -413,3 +413,136 @@ describe('gridStrategy — pinned capacity', () => {
     expect([...result.placements.keys()]).toEqual(['a', 'b']);
   });
 });
+
+describe('gridStrategy — span', () => {
+  const spanned = (id: string, span: { cols?: number; rows?: number }) => ({
+    id,
+    placement: { span },
+  });
+
+  it('cols span occupies horizontal cells plus the intervening gap', () => {
+    // a(span 2) + b(1) fill the row exactly — no wrap, so rows stays 1.
+    const result = gridStrategy.layout({
+      items: [spanned('a', { cols: 2 }), mkItem('b')],
+      container: { w: 320, h: 100 },
+      state: undefined as void,
+      options: { cols: 3, gap: 10 },
+    });
+    // cellW = (320 - 2*10) / 3 = 100
+    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, w: 210, h: 100 });
+    expect(result.placements.get('b')).toEqual({ x: 220, y: 0, w: 100, h: 100 });
+  });
+
+  it('rows span occupies vertical cells', () => {
+    const result = gridStrategy.layout({
+      items: [spanned('a', { rows: 2 }), mkItem('b'), mkItem('c')],
+      container: { w: 100, h: 200 },
+      state: undefined as void,
+      options: { cols: 2 },
+    });
+    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, w: 50, h: 200 });
+  });
+
+  it('cols+rows span occupies a block', () => {
+    const result = gridStrategy.layout({
+      items: [spanned('a', { cols: 2, rows: 2 }), mkItem('b')],
+      container: { w: 300, h: 200 },
+      state: undefined as void,
+      options: { cols: 3 },
+    });
+    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, w: 200, h: 200 });
+    expect(result.placements.get('b')).toEqual({ x: 200, y: 0, w: 100, h: 100 });
+  });
+
+  it('reserves cells and skips over them in row-major order', () => {
+    // cols:3, [a(span 2), b, c] -> a takes 0-1 on row0, b takes cell2 row0,
+    // c wraps to row1 col0.
+    const result = gridStrategy.layout({
+      items: [spanned('a', { cols: 2 }), mkItem('b'), mkItem('c')],
+      container: { w: 300, h: 200 },
+      state: undefined as void,
+      options: { cols: 3 },
+    });
+    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, w: 200, h: 100 });
+    expect(result.placements.get('b')).toEqual({ x: 200, y: 0, w: 100, h: 100 });
+    expect(result.placements.get('c')).toEqual({ x: 0, y: 100, w: 100, h: 100 });
+  });
+
+  it('a span wider than cols clamps to cols rather than overflowing', () => {
+    const result = gridStrategy.layout({
+      items: [spanned('a', { cols: 5 })],
+      container: { w: 200, h: 100 },
+      state: undefined as void,
+      options: { cols: 2 },
+    });
+    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, w: 200, h: 100 });
+  });
+
+  it('a spanning child that cannot fit within capacity goes to unplaced', () => {
+    const result = gridStrategy.layout({
+      items: [spanned('a', { cols: 2, rows: 2 }), mkItem('b')],
+      container: { w: 200, h: 200 },
+      state: undefined as void,
+      options: { maxCols: 2, maxRows: 2 },
+    });
+    expect(result.placements.has('a')).toBe(true);
+    expect(result.placements.has('b')).toBe(false);
+    expect(result.unplaced).toEqual(['b']);
+  });
+
+  it('span survives a serialize/deserialize round-trip as plain data', () => {
+    const item = spanned('a', { cols: 2, rows: 3 });
+    const round = JSON.parse(JSON.stringify(item));
+    expect(round).toEqual(item);
+  });
+});
+
+describe('gridStrategy — capacity counts cells, not items, once spans are involved', () => {
+  it('a single item spanning the whole capacity leaves no room for another', () => {
+    const result = gridStrategy.layout({
+      items: [{ id: 'a', placement: { span: { cols: 2, rows: 2 } } }, { id: 'b' }, { id: 'c' }],
+      container: { w: 200, h: 200 },
+      state: undefined as void,
+      options: { maxCols: 2, maxRows: 2 },
+    });
+    expect([...result.placements.keys()]).toEqual(['a']);
+    expect(result.unplaced).toEqual(['b', 'c']);
+  });
+
+  it('canAccept rejects a prospective list whose spans exceed capacity even though item count fits', () => {
+    // 2x2 grid = 4 cells; one item spanning all 4 plus a second item is over
+    // capacity even though there are only 2 items (well under the old
+    // items<=4 check).
+    expect(
+      gridStrategy.canAccept?.(
+        [{ id: 'a', placement: { span: { cols: 2, rows: 2 } } }, { id: 'b' }],
+        {
+          maxCols: 2,
+          maxRows: 2,
+        },
+      ),
+    ).toBe(false);
+  });
+
+  it('canAccept still accepts when spans fit within capacity', () => {
+    expect(
+      gridStrategy.canAccept?.(
+        [{ id: 'a', placement: { span: { cols: 2 } } }, { id: 'b' }, { id: 'c' }],
+        { maxCols: 2, maxRows: 2 },
+      ),
+    ).toBe(true);
+  });
+
+  it('unplaced items after span overflow do not produce rects outside the container', () => {
+    const result = gridStrategy.layout({
+      items: [{ id: 'a', placement: { span: { cols: 2, rows: 2 } } }, { id: 'b' }],
+      container: { w: 200, h: 200 },
+      state: undefined as void,
+      options: { maxCols: 2, maxRows: 2 },
+    });
+    for (const rect of result.placements.values()) {
+      expect(rect.x + rect.w).toBeLessThanOrEqual(200);
+      expect(rect.y + rect.h).toBeLessThanOrEqual(200);
+    }
+  });
+});

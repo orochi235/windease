@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { useRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPanel, createZone } from '../constructors.js';
-import { asNodeId, Store, stackStrategy } from '../index.js';
+import { asNodeId, Store, stripStrategy } from '../index.js';
 import { Provider } from './Provider.js';
 import { StrategyRegistryProvider } from './strategies.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
@@ -12,7 +12,9 @@ afterEach(cleanup);
 describe('resize affordance dispatch wiring', () => {
   it('useContainerLayout routes resize events to strategy.dispatchAffordance', () => {
     const store = new Store();
-    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'stack', config: { axis: 'y', fill: true } }),
+    );
     store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     store.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
     store.showNode(asNodeId('a'));
@@ -28,7 +30,7 @@ describe('resize affordance dispatch wiring', () => {
 
     render(
       <Provider store={store}>
-        <StrategyRegistryProvider strategies={{ stack: stackStrategy } as never}>
+        <StrategyRegistryProvider strategies={{ stack: stripStrategy } as never}>
           <Probe
             capture={(l) => {
               layoutCapture = l;

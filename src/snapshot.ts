@@ -5,6 +5,7 @@ import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
 import { asNodeId, type Node, type NodeKind } from './node.js';
 import { Store } from './store.js';
+import { trace } from './trace.js';
 
 export interface SerializedNode {
   id: string;
@@ -35,14 +36,14 @@ export interface SerializedNode {
 }
 
 export interface SerializedStore {
-  version: 4;
+  version: 5;
   nodes: SerializedNode[];
   rootIds: string[];
   focusedId: string | null;
 }
 
 /**
- * Serialize a Store into a v4 snapshot. Destroyed nodes and
+ * Serialize a Store into a v5 snapshot. Destroyed nodes and
  * transit state are deliberately not included — see spec section 8.
  *
  * @group Snapshots
@@ -83,7 +84,7 @@ export function serialize(store: Store): SerializedStore {
     nodes.push(out);
   }
   return {
-    version: 4,
+    version: 5,
     nodes,
     rootIds: [...store.rootIdsTruth],
     focusedId: store.focusedIdTruth,
@@ -91,8 +92,9 @@ export function serialize(store: Store): SerializedStore {
 }
 
 /**
- * Hydrate a Store from a v4 snapshot. v2 and v3 snapshots are accepted and
- * migrated on read — see `normalizeLegacyMembership` and `migrateToV4`.
+ * Hydrate a Store from a v5 snapshot. v2, v3 and v4 snapshots are accepted
+ * and migrated on read — see `normalizeLegacyMembership`, `migrateToV4`, and
+ * `migrateToV5`.
  *
  * Two forms:
  * - `deserialize(snap)` builds and returns a fresh `Store`.
@@ -116,7 +118,12 @@ export function deserialize(a: unknown, b?: unknown): Store | void {
       'snapshot is missing a numeric version field',
     );
   }
-  if (versioned.version === 2 || versioned.version === 3 || versioned.version === 4) {
+  if (
+    versioned.version === 2 ||
+    versioned.version === 3 ||
+    versioned.version === 4 ||
+    versioned.version === 5
+  ) {
     const hydrated = hydrate(snap as SerializedStore, versioned.version, target);
     return target ? undefined : hydrated;
   }
@@ -209,6 +216,176 @@ function migrateToV4(nodes: SerializedNode[]): void {
   migratePinnedIndices(nodes);
 }
 
+/** Shape of the removed split layout strategy's `container.state`. Kept as a
+ *  local type rather than imported — that strategy's module is gone. */
+type LegacySplitTree =
+  | { kind: 'leaf'; id: string }
+  | {
+      kind: 'split';
+      direction: 'horizontal' | 'vertical';
+      ratio: number;
+      a: LegacySplitTree;
+      b: LegacySplitTree;
+    };
+
+const MAX_LEGACY_SPLIT_DEPTH = 500;
+
+/** `container.state` is consumer data of unknown provenance — a cyclic or
+ *  absurdly deep structure must fail the check rather than blow the stack,
+ *  so migration can fall back instead of crashing hydrate. */
+function isLegacySplitTree(
+  v: unknown,
+  seen: WeakSet<object> = new WeakSet(),
+  depth = 0,
+): v is LegacySplitTree {
+  if (!v || typeof v !== 'object') return false;
+  if (depth > MAX_LEGACY_SPLIT_DEPTH || seen.has(v)) return false;
+  seen.add(v);
+  const o = v as Record<string, unknown>;
+  if (o.kind === 'leaf') return typeof o.id === 'string';
+  if (o.kind === 'split') {
+    return (
+      (o.direction === 'horizontal' || o.direction === 'vertical') &&
+      isLegacySplitTree(o.a, seen, depth + 1) &&
+      isLegacySplitTree(o.b, seen, depth + 1)
+    );
+  }
+  return false;
+}
+
+/** The removed strategy laid `horizontal` children side by side along
+ *  `rect.w` (x) and `vertical` children stacked along `rect.h` (y). */
+function stripConfigFor(direction: 'horizontal' | 'vertical'): Record<string, unknown> {
+  return { axis: direction === 'horizontal' ? 'x' : 'y', fill: true };
+}
+
+/** Every leaf id reachable from `node`, or `null` if one repeats — a tree
+ *  that names the same node twice can't be reparented safely. */
+function collectLeafIds(node: LegacySplitTree): Set<string> | null {
+  const ids = new Set<string>();
+  const walk = (n: LegacySplitTree): boolean => {
+    if (n.kind === 'leaf') {
+      if (ids.has(n.id)) return false;
+      ids.add(n.id);
+      return true;
+    }
+    return walk(n.a) && walk(n.b);
+  };
+  return walk(node) ? ids : null;
+}
+
+/** A split tree only earns a rebuild if its leaves are exactly the
+ *  container's original children: no repeats, none naming a node absent
+ *  from the snapshot, and none of the container's children left uncovered. */
+function treeMatchesChildren(
+  state: LegacySplitTree,
+  childOrder: readonly string[],
+  byId: Map<string, SerializedNode>,
+): boolean {
+  const leafIds = collectLeafIds(state);
+  if (!leafIds) return false;
+  for (const id of leafIds) {
+    if (!byId.has(id)) return false;
+  }
+  const order = new Set(childOrder);
+  if (leafIds.size !== order.size) return false;
+  for (const id of order) {
+    if (!leafIds.has(id)) return false;
+  }
+  return true;
+}
+
+/**
+ * v4 → v5: the removed split strategy's containers carried a binary tree in
+ * `container.state`. Rebuild it as nested strip groups so the leaves survive
+ * the strategy's removal: the root split reuses its node, each nested split
+ * mints a new group node, and `ratio` is dropped (strip has no equivalent).
+ *
+ * `container.state` is consumer data of unknown provenance — a snapshot
+ * written by code we don't control, possibly hand-edited or drifted. Anything
+ * that doesn't validate as a coherent tree over the container's own children
+ * falls back to a flat strip with `childOrder` left untouched, rather than
+ * throwing and bricking the snapshot.
+ */
+function migrateToV5(nodes: SerializedNode[]): void {
+  const byId = new Map(nodes.map((sn) => [sn.id, sn] as const));
+  const usedIds = new Set(nodes.map((sn) => sn.id));
+
+  for (const sn of [...nodes]) {
+    const container = sn.container;
+    if (container?.strategyId !== 'split') continue;
+    const state = container.state;
+    const originalChildOrder = container.childOrder;
+    container.strategyId = 'strip';
+    delete container.state;
+
+    const flatten = (reason: string): void => {
+      container.config = stripConfigFor('horizontal');
+      trace('store', `snapshot: split container ${sn.id} kept flat — ${reason}`);
+    };
+
+    if (!isLegacySplitTree(state)) {
+      flatten('state is not a recognizable split tree');
+      continue;
+    }
+    // A degenerate single-item split serializes its state as a bare leaf —
+    // nothing to rebuild beyond the strategy swap already done above.
+    if (state.kind === 'leaf') {
+      flatten('single-leaf state, nothing to rebuild');
+      continue;
+    }
+    if (!treeMatchesChildren(state, originalChildOrder, byId)) {
+      flatten("tree's leaves don't match childOrder one-to-one");
+      continue;
+    }
+    container.config = stripConfigFor(state.direction);
+
+    const mintId = (path: number[]): string => {
+      let candidate = `${sn.id}:s${path.join('')}`;
+      let suffix = 2;
+      while (usedIds.has(candidate)) {
+        candidate = `${sn.id}:s${path.join('')}_${suffix}`;
+        suffix += 1;
+      }
+      usedIds.add(candidate);
+      return candidate;
+    };
+
+    // Returns the id to place in `parentId`'s childOrder for `node`: the
+    // node's own id (reparented) for a leaf, or a freshly minted group id
+    // for a nested split, whose own children are built recursively.
+    const convert = (node: LegacySplitTree, path: number[], parentId: string): string => {
+      if (node.kind === 'leaf') {
+        const leaf = byId.get(node.id);
+        if (leaf) leaf.membership = { parentId, placement: leaf.membership?.placement ?? {} };
+        return node.id;
+      }
+      const groupId = mintId(path);
+      const childOrder = [
+        convert(node.a, [...path, 0], groupId),
+        convert(node.b, [...path, 1], groupId),
+      ];
+      const group: SerializedNode = {
+        id: groupId,
+        kind: 'group',
+        lifecycle: 'visible',
+        membership: { parentId, placement: {} },
+        container: {
+          strategyId: 'strip',
+          config: stripConfigFor(node.direction),
+          childOrder,
+          allowsPinning: true,
+        },
+      };
+      byId.set(groupId, group);
+      nodes.push(group);
+      return groupId;
+    };
+
+    container.childOrder = [convert(state.a, [0], sn.id), convert(state.b, [1], sn.id)];
+  }
+}
+
 function hydrate(snap: SerializedStore, version: number, target?: Store): Store {
   // Clone before any migration touches node contents — the caller may reuse
   // the snapshot object they passed in.
@@ -216,6 +393,7 @@ function hydrate(snap: SerializedStore, version: number, target?: Store): Store 
   normalizeLegacyChildOrder(nodes);
   normalizeLegacyMembership(nodes);
   if (version < 4) migrateToV4(nodes);
+  if (version < 5) migrateToV5(nodes);
   // Build a lookup so we can validate links + multi-focus before mutating.
   const byId = new Map<string, SerializedNode>();
   for (const sn of nodes) byId.set(sn.id, sn);

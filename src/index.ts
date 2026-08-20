@@ -1,11 +1,19 @@
+export { type ChildSort, type ChildSortEntry, defaultChildSort } from './child-sort.js';
 export {
-  type CreateGroupInput,
   type CreatePanelInput,
   type CreateZoneInput,
-  createGroup,
   createPanel,
   createZone,
 } from './constructors.js';
+export { ContainerHost, type ContainerLayout } from './container-host.js';
+export {
+  type DragCancelReason,
+  DragController,
+  type DragState,
+  type DropTargetOptions,
+  type StrategyLookup,
+} from './dnd/DragController.js';
+export { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
 export {
   CapabilityMissingError,
   CycleError,
@@ -23,13 +31,6 @@ export { type EventMap, TypedEmitter } from './events.js';
 export { Machine, type MachineDef, type MachineSubscriber } from './fsm.js';
 export { HistoryController, type HistoryControllerOptions } from './history.js';
 export { gridStrategy } from './layout/grid.js';
-export {
-  type SplitMeta,
-  type SplitNode,
-  type SplitOptions,
-  splitStrategy,
-} from './layout/split.js';
-export { stackStrategy } from './layout/stack.js';
 export { stripStrategy } from './layout/strip.js';
 export {
   getLayoutNodes,
@@ -44,10 +45,12 @@ export type {
   LayoutEvent,
   LayoutItem,
   LayoutNode,
+  LayoutPreview,
   LayoutResult,
   LayoutStrategy,
   Rect,
   Size,
+  StrategyRegistry,
 } from './layout-types.js';
 export { type LockAxis, type LockSet, resolveLock, supportedAxes } from './lock.js';
 export {
@@ -80,11 +83,19 @@ export {
 } from './node.js';
 export { type PinnedIndexOf, placeRespectingPins } from './pinning.js';
 export {
+  type ObservedChild,
+  reconcileChildOrder,
+  reconcileContainerState,
+  reconcilePinned,
+  reconcilePlacement,
+} from './reconcile.js';
+export {
   deserialize,
   type SerializedNode,
   type SerializedStore,
   serialize,
 } from './snapshot.js';
+export type { SplitInput } from './split-types.js';
 export { type MutateOptions, Store, type StoreEvents } from './store.js';
 export {
   type Clock,
@@ -105,4 +116,4 @@ export {
   trace,
 } from './trace.js';
 
-export const VERSION = '0.9.0';
+export const VERSION = '1.0.0';

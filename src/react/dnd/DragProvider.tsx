@@ -1,8 +1,8 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { DragController, type DragState } from '../../dnd/DragController.js';
 import { useStore } from '../Provider.js';
 import { useOptionalStrategyRegistry } from '../strategies.js';
-import { DragController, type DragState } from './DragController.js';
 import { type DragOverlayRenderer, defaultDragOverlay } from './defaultDragOverlay.js';
 
 export const DragContext = createContext<DragController | null>(null);

@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  asNodeId,
-  createPanel,
-  createZone,
-  type LayoutStrategy,
-  Store,
-  splitStrategy,
-} from '../../index.js';
+import { asNodeId, createPanel, createZone, type LayoutStrategy, Store } from '../index.js';
 import { DragController } from './DragController.js';
+
+/** Refuses anything but exactly 2 items — enough to exercise
+ *  `DragController`'s strategy-level `canAccept` gate. */
+const exactlyTwoStrategy: LayoutStrategy<unknown, string, unknown> = {
+  name: 'exactly-two',
+  canAccept: (items) => items.length <= 2,
+  layout: () => ({ placements: new Map(), affordances: [] }),
+};
 
 function buildStore(): Store {
   const s = new Store();
@@ -85,18 +86,16 @@ describe('DragController', () => {
   });
 
   it("strategy canAccept rejects drops the strategy can't lay out", async () => {
-    // splitStrategy with recursive:false enforces exactly 2 items; z2 already
-    // has 2, drop of a third should be rejected.
+    // z2's strategy enforces exactly 2 items; it already has 2, so a drop of
+    // a third should be rejected.
     const s = new Store();
     s.registerNode(createZone({ id: asNodeId('z1'), strategyId: 'stack', config: {} }));
-    s.registerNode(
-      createZone({ id: asNodeId('z2'), strategyId: 'split', config: { recursive: false } }),
-    );
+    s.registerNode(createZone({ id: asNodeId('z2'), strategyId: 'exactly-two', config: {} }));
     s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z2') }));
     s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z2') }));
     s.registerNode(createPanel({ id: asNodeId('p'), parentId: asNodeId('z1') }));
     const getStrategy = (sid: string): LayoutStrategy<unknown, string, unknown> | undefined =>
-      sid === 'split' ? (splitStrategy as never) : undefined;
+      sid === 'exactly-two' ? exactlyTwoStrategy : undefined;
     const c = new DragController(s, getStrategy);
     c.tryBegin(asNodeId('p'));
     c.registerDropTarget(asNodeId('z2'), makeFakeElement(0, 0, 100, 100));

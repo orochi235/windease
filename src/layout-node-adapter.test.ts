@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createPanel, createZone } from './constructors.js';
-import { stackStrategy } from './layout/stack.js';
+import { stripStrategy } from './layout/strip.js';
 import {
   getLayoutNodes,
   nodeToLayoutItem,
@@ -140,25 +140,25 @@ describe('layout-node-adapter — activity passthrough', () => {
 });
 
 describe('runStrategyForContainer', () => {
-  it('runs stackStrategy on a container, returns NodeId-keyed placements', () => {
+  it('runs stripStrategy on a container, returns NodeId-keyed placements', () => {
     const s = new Store();
     s.registerNode(
       createZone({
         id: asNodeId('z'),
-        strategyId: 'stack',
-        config: { axis: 'vertical', defaultItemSize: 50 },
+        strategyId: 'strip',
+        config: { axis: 'y', fill: true, defaultItemSize: 50 },
       }),
     );
     s.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
     s.registerNode(createPanel({ id: asNodeId('b'), parentId: asNodeId('z') }));
-    const initial = stackStrategy.initialState
-      ? stackStrategy.initialState([{ id: 'a' }, { id: 'b' }])
+    const initial = stripStrategy.initialState
+      ? stripStrategy.initialState([{ id: 'a' }, { id: 'b' }])
       : undefined;
     const result = runStrategyForContainer(
       s,
       asNodeId('z'),
       { w: 200, h: 200 },
-      stackStrategy,
+      stripStrategy,
       initial as never,
     );
     expect(result.placements.size).toBeGreaterThan(0);

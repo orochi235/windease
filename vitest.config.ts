@@ -11,7 +11,7 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          exclude: [...defaultExclude, '**/dist/**', 'src/react/**'],
+          exclude: [...defaultExclude, '**/dist/**', 'src/react/**', 'e2e/**'],
         },
       },
       {

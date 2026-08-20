@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createGroup, createPanel, createZone, getLayoutNodes, Store } from './index.js';
+import { asNodeId, createPanel, createZone, getLayoutNodes, Store } from './index.js';
 
 describe('preset constructors — capability shape', () => {
   it('builds a 3-level tree of zone → recursive panel → leaf panel', () => {
@@ -18,7 +18,7 @@ describe('preset constructors — capability shape', () => {
   });
 
   it('builds a group inside a zone', () => {
-    const group = createGroup({
+    const group = createZone({
       id: asNodeId('g'),
       parentId: asNodeId('z'),
       strategyId: 'strip',

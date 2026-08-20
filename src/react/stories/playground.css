@@ -31,7 +31,10 @@ body {
 .pg-root {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  /* 100% of Ladle's already-padded story container, not 100vh — the viewport
+     unit ignores that padding and overflows by it. */
+  height: 100%;
+  min-height: 0;
   padding: 12px;
   box-sizing: border-box;
 }
