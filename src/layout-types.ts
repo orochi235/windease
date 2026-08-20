@@ -52,6 +52,10 @@ export interface LayoutNode {
   activity: Record<string, unknown>;
 }
 
+/** Strategies by `container.strategyId`. Lives here rather than in the React
+ *  layer because `ContainerHost` resolves strategies with no binding present. */
+export type StrategyRegistry = ReadonlyMap<string, LayoutStrategy<unknown, string, unknown>>;
+
 export type BuiltinAffordanceKind =
   | 'drag-x'
   | 'drag-y'

@@ -6,6 +6,7 @@ export {
   createPanel,
   createZone,
 } from './constructors.js';
+export { ContainerHost, type ContainerLayout } from './container-host.js';
 export {
   type DragCancelReason,
   DragController,
@@ -52,10 +53,12 @@ export type {
   LayoutEvent,
   LayoutItem,
   LayoutNode,
+  LayoutPreview,
   LayoutResult,
   LayoutStrategy,
   Rect,
   Size,
+  StrategyRegistry,
 } from './layout-types.js';
 export { type LockAxis, type LockSet, resolveLock, supportedAxes } from './lock.js';
 export {

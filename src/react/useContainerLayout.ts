@@ -1,26 +1,10 @@
-import { type RefObject, useCallback, useEffect, useMemo, useState } from 'react';
-import type { Affordance, LayoutEvent, LayoutResult, NodeId, Rect } from '../index.js';
-import { nodeToLayoutItem, runStrategyForContainer, trace } from '../index.js';
-import { useNode } from './hooks.js';
+import { type RefObject, useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
+import type { LayoutEvent, LayoutPreview, NodeId } from '../index.js';
+import { ContainerHost, type ContainerLayout as HostLayout } from '../index.js';
 import { useStore } from './Provider.js';
 import { useStrategyRegistry } from './strategies.js';
 
-/** `affects` carries only real child ids, so a miss resolves to false rather than throwing. */
-function affectsResizeLocked(
-  store: ReturnType<typeof useStore>,
-  affects: Affordance['affects'],
-): boolean {
-  return affects?.some((cid) => store.isLocked(cid as NodeId, 'resize')) === true;
-}
-
-export interface ContainerLayout {
-  placements: Map<NodeId, Rect>;
-  affordances: Affordance[];
-  unplaced: NodeId[];
-  viewport: { w: number; h: number } | null;
-  /** True when the current placements were produced from a `preview` input.
-   *  Container uses this to suppress the source's real chrome during preview. */
-  isPreview: boolean;
+export interface ContainerLayout extends HostLayout {
   /**
    * Feed a strategy event (e.g. drag delta on an affordance) into the
    * container's `reduce()` and persist the new state on the store. State
@@ -36,194 +20,53 @@ export interface ContainerLayout {
  * return a NodeId-keyed map of placements for the container's visible
  * children. Updates on resize, container config changes, and child changes.
  *
+ * A thin wrapper over `ContainerHost`, which owns all of the above and is
+ * usable with no React present.
+ *
  * @group Hooks
  */
 export function useContainerLayout(
   parentId: NodeId,
   viewportRef: RefObject<Element | null> | null,
   fixedViewport?: { w: number; h: number },
-  preview?: { insertId: NodeId; insertIndex?: number; cursor: { x: number; y: number } },
+  preview?: LayoutPreview,
 ): ContainerLayout {
   const store = useStore();
-  const node = useNode(parentId);
   const registry = useStrategyRegistry();
-  const [measured, setMeasured] = useState<{ w: number; h: number } | null>(fixedViewport ?? null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: depend on whether fixedViewport is provided, not its identity.
+  const host = useMemo(
+    () => new ContainerHost(store, parentId, registry),
+    [store, parentId, registry],
+  );
+  useEffect(() => () => host.destroy(), [host]);
+
+  const fixedW = fixedViewport?.w;
+  const fixedH = fixedViewport?.h;
   useEffect(() => {
-    if (fixedViewport) {
-      setMeasured(fixedViewport);
+    if (fixedW !== undefined && fixedH !== undefined) {
+      host.setViewport({ w: fixedW, h: fixedH });
       return;
     }
-    if (!viewportRef?.current) return;
-    const el = viewportRef.current;
-    const ro = new ResizeObserver((entries) => {
-      const r = entries[0]?.contentRect;
-      if (r) setMeasured({ w: r.width, h: r.height });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [fixedViewport === undefined, viewportRef]);
+    const el = viewportRef?.current;
+    if (!el) return;
+    return host.observe(el);
+  }, [host, viewportRef, fixedW, fixedH]);
 
-  const viewport = fixedViewport ?? measured;
-
-  // Subscribe to container.stateChanged so layout re-runs when the persisted
-  // strategy state (e.g. splitStrategy ratio) is updated via dispatchAffordance.
-  const [stateTick, setStateTick] = useState(0);
-  useEffect(() => {
-    return store.events.on('container.stateChanged', (e) => {
-      if (e.id === parentId) setStateTick((t) => t + 1);
-    });
-  }, [store, parentId]);
-
-  // Subscribe to node.lockChanged so affordance suppression (lock.arrange /
-  // lock.resize) re-evaluates. useNode(parentId) alone doesn't catch this: a
-  // resize lock lands on a child, not parentId, so the parent node reference
-  // never changes and the layout memo would otherwise stay stale.
-  const [lockTick, setLockTick] = useState(0);
-  useEffect(() => {
-    return store.events.on('node.lockChanged', (e) => {
-      if (e.id === parentId || store.getChildren(parentId).some((c) => c.id === e.id)) {
-        setLockTick((t) => t + 1);
-      }
-    });
-  }, [store, parentId]);
-
-  const dispatchAffordance = useCallback<ContainerLayout['dispatchAffordance']>(
-    (event) => {
-      const container = node?.container;
-      if (!container || !viewport) return;
-      const strategy = registry.get(container.strategyId);
-      if (!strategy) return;
-      if (store.isLocked(parentId, 'arrange')) {
-        trace('layout', `dispatchAffordance ${parentId}: REJECTED (lock.arrange)`);
-        return;
-      }
-      // Use the canonical adapter so strategies see the same shape they get in
-      // the layout path: hints (min/max), placement.size, and meta flags.
-      const visibleChildren = store
-        .getChildren(parentId)
-        .filter((c) => c.lifecycle.state === 'visible')
-        .map((c) => nodeToLayoutItem(c));
-      const lastLayout = strategy.layout({
-        items: visibleChildren,
-        container: viewport,
-        state: (store.getContainerState(parentId) ??
-          (strategy.initialState ? strategy.initialState(visibleChildren) : undefined)) as never,
-        options: (container.config ?? {}) as Record<string, unknown>,
-      });
-      const aff = lastLayout.affordances.find((a) => a.id === event.affordanceId);
-      if (affectsResizeLocked(store, aff?.affects)) {
-        trace('layout', `dispatchAffordance ${event.affordanceId}: REJECTED (pane lock.resize)`);
-        return;
-      }
-      // Route store-mutating affordances (e.g. resize edges) to the strategy's
-      // dispatchAffordance hook. This runs in addition to reduce — strategies
-      // may use both (split clears placement.size here, then updates ratio
-      // in reduce).
-      if (strategy.dispatchAffordance && aff) {
-        strategy.dispatchAffordance({
-          event,
-          affordance: aff,
-          store,
-          parentId,
-          container: viewport,
-          options: (container.config ?? {}) as Record<string, unknown>,
-          items: visibleChildren,
-        });
-      }
-      if (!strategy.reduce) return;
-      const current =
-        store.getContainerState(parentId) ??
-        (strategy.initialState ? strategy.initialState(visibleChildren) : undefined);
-      const next = strategy.reduce(current as never, event, {
-        container: viewport,
-        options: (container.config ?? {}) as Record<string, unknown>,
-        items: visibleChildren,
-      });
-      if (next === current) return;
-      store.setContainerState(parentId, next);
-    },
-    [store, parentId, node?.container, viewport, registry],
-  );
-
-  // Stabilize preview reference for the memo: identity changes only when its
-  // fields change.
+  // Identity of `preview` changes every pointermove; the host dedupes by value.
   const previewKey = preview
     ? `${preview.insertId}|${preview.insertIndex ?? '-'}|${preview.cursor.x}|${preview.cursor.y}`
     : '';
+  // biome-ignore lint/correctness/useExhaustiveDependencies: previewKey is a stable identity for `preview`.
+  useEffect(() => {
+    host.setPreview(preview ?? null);
+  }, [host, previewKey]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: stateTick is a re-run gate; previewKey is a stable identity for `preview`.
-  const layout = useMemo<Omit<ContainerLayout, 'dispatchAffordance'>>(() => {
-    if (!node?.container || !viewport) {
-      return { placements: new Map(), affordances: [], unplaced: [], viewport, isPreview: false };
-    }
-    const strategy = registry.get(node.container.strategyId);
-    if (!strategy) {
-      return { placements: new Map(), affordances: [], unplaced: [], viewport, isPreview: false };
-    }
+  const layout = useSyncExternalStore(host.subscribe, host.layout, host.layout);
 
-    // Fast path: when previewing and the strategy implements getDropPreview,
-    // ask it directly; fall back to runStrategyForContainer on null.
-    if (preview && strategy.getDropPreview) {
-      const items = store
-        .getChildren(parentId)
-        .filter((c) => c.lifecycle.state === 'visible')
-        .map((c) => ({ id: c.id }));
-      const config = (node.container.config ?? {}) as Record<string, unknown>;
-      const fast = strategy.getDropPreview({
-        items,
-        container: viewport,
-        options: config,
-        insertId: preview.insertId,
-        insertIndex: preview.insertIndex,
-        cursor: preview.cursor,
-      });
-      if (fast) {
-        return {
-          placements: fast.placements as Map<NodeId, Rect>,
-          affordances: [],
-          unplaced: [],
-          viewport,
-          isPreview: fast.accepted,
-        };
-      }
-    }
-
-    const persisted = store.getContainerState(parentId);
-    const state =
-      persisted ??
-      (strategy.initialState
-        ? strategy.initialState(
-            store
-              .getChildren(parentId)
-              .filter((c) => c.lifecycle.state === 'visible')
-              .map((c) => ({ id: c.id })),
-          )
-        : undefined);
-    const result: LayoutResult<NodeId, unknown> = runStrategyForContainer(
-      store,
-      parentId,
-      viewport,
-      strategy,
-      state as never,
-      preview,
-    );
-    // Suppress affordances the lock forbids so a gutter the user can see but
-    // not drag never renders. Complements (not replaces) the dispatch guard
-    // above, which also covers a custom affordance renderer that bypasses
-    // this default rendering path.
-    const visibleAffordances = store.isLocked(parentId, 'arrange')
-      ? []
-      : result.affordances.filter((a) => !affectsResizeLocked(store, a.affects));
-    return {
-      placements: result.placements,
-      affordances: visibleAffordances,
-      unplaced: result.unplaced ?? [],
-      viewport,
-      isPreview: result.isPreview ?? false,
-    };
-  }, [store, node?.container, viewport, registry, parentId, stateTick, lockTick, previewKey]);
+  const dispatchAffordance = useCallback(
+    (event: LayoutEvent) => host.dispatchAffordance(event),
+    [host],
+  );
 
   return { ...layout, dispatchAffordance };
 }
