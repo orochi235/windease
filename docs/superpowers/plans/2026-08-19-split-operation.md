@@ -1859,7 +1859,7 @@ export interface CreateZoneInput {
    * structurally what `createGroup` produces — the presets differ only in
    * `kind` and in whether this field is required.
    */
-  parentId?: NodeId;
+  parentId?: NodeId | undefined;
   placement?: Record<string, unknown>;
   allowsPinning?: boolean;
   lock?: boolean | LockSet;
@@ -1919,6 +1919,8 @@ export function createGroup(input: CreateGroupInput): Node {
 
 `resolveLock` must run after `membership` is attached, or `move` / `resize` are dropped as unsupported axes on a parented zone — that is why the lock block is last.
 
+The `| undefined` on `parentId` is load-bearing, not noise. `exactOptionalPropertyTypes` is on repo-wide, and `presets.tsx` passes `parentId ?? undefined` — a genuine `NodeId | undefined` value, which is not assignable to a bare `parentId?: NodeId` under that flag. This is the `TODO.md` item about constructor inputs being hostile to `exactOptionalPropertyTypes`, hitting one field.
+
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/constructors.test.ts`
@@ -1940,8 +1942,8 @@ describe('<Zone> inside <Zone>', () => {
 
     render(
       <Provider store={store}>
-        <Zone id="outer" strategyId="stack" config={{}}>
-          <Zone id="inner" strategyId="stack" config={{}} />
+        <Zone id={asNodeId('outer')} strategyId="stack" config={{}}>
+          <Zone id={asNodeId('inner')} strategyId="stack" config={{}} />
         </Zone>
       </Provider>,
     );
@@ -2004,8 +2006,8 @@ Append to `src/react/nested-zone.test.tsx`:
 
     const { container } = render(
       <Provider store={store}>
-        <Zone id="outer" strategyId="stack" config={{}}>
-          <Zone id="inner" strategyId="stack" config={{}} kind="group" />
+        <Zone id={asNodeId('outer')} strategyId="stack" config={{}}>
+          <Zone id={asNodeId('inner')} strategyId="stack" config={{}} kind="group" />
         </Zone>
       </Provider>,
     );
