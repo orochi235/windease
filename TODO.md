@@ -242,6 +242,53 @@ Two things the suite surfaced that are worth knowing:
   the ResizeObserver path at all. Reflow coverage has to use a ref-measured
   fixture.
 
+## Replace `splitStrategy` with a split *operation* [HIGH]
+
+**Decision (2026-08-19): split is not a strategy, it is a verb applied to
+zones.** `splitStrategy` keeps a `SplitNode` tree in `container.state` that
+describes the same structure the node tree already describes, and every known
+split bug is a synchronization failure between those two trees. The node tree
+should be the only tree.
+
+Shape: a store operation — roughly `split(zoneId, { direction, into = 2 })` —
+turns a node into a container of N children. Layout is then `strip` with a
+fixed direction; gutters are strip's existing resize affordances; geometry is
+per-child `placement.size`; undo works because it is ordinary store mutation.
+
+What that dissolves, from a consumer report against 0.8.0 (reproduced at
+0.9.0 — a sixteen-panel workbench in `blitsklieg`, `packages/core/dev/tube-lab`,
+blocked on the first two):
+
+- **A child registered after the tree exists is dropped silently**, with
+  `unplaced` empty so the consumer gets no signal. Becomes `registerNode`.
+- **A removed child's space is not reclaimed.** Becomes `unregisterNode`.
+- **Dragging a panel does not move it** — DnD rewrites `childOrder`, which
+  `splitStrategy` never reads. Becomes `reorderInParent`, which strip already
+  honors.
+- **`buildTree` cannot tile** (`src/layout/split.ts`): a right-leaning spine at
+  ratio 0.5, so panel *k* gets `W / 2^k` — 16 panels in 1200x800 leaves 9 with
+  zero or negative extent and 7 outside the container. `buildTree` disappears.
+- **`walk` never clamps a pane to zero**, so once a pane is narrower than the
+  gutter the recursion marches children past the container edge.
+
+Verified for contrast: `strip` handles add, remove and reorder correctly today,
+because it is a pure function of `items` and holds no second structure.
+
+Sequencing question still open: the consumer needs something before this lands,
+so either patch `splitStrategy`'s tiling as throwaway work, or give them the
+verb early. `direction` was already fixed (it was documented but inert).
+
+Migration to plan for: `splitStrategy` is public API at 0.9.0 and snapshot v4
+persists `SplitNode` in container state.
+
+## Type papercut: `initialState` optional, `layout`'s `state` required
+
+`initialState` is optional on `LayoutStrategy` but `layout`'s `state` is
+required (`src/layout-types.ts`), so `splitStrategy.initialState?.(items)` is
+`T | undefined` and `tsc` rejects passing it straight to `layout`. Every
+consumer testing a strategy without a store narrows it by hand. Typing a
+strategy so its own `initialState` stays required would remove it.
+
 ## Loose ends
 
 - Layout strategies cast `container.config as XConfig` unchecked. Typos at
