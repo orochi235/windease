@@ -111,6 +111,67 @@ function stripConfig(axis: 'x' | 'y', extra?: Record<string, unknown>): Record<s
   return { axis, ...extra };
 }
 
+/** Grid config with the caller's config merged over it; `cols` omitted when unset. */
+function gridConfig(
+  cols: number | undefined,
+  extra?: Record<string, unknown>,
+): Record<string, unknown> {
+  return cols === undefined ? { ...extra } : { cols, ...extra };
+}
+
+/** Give `id` a container with `strategyId`/`config`, whether it had one already.
+ *  Skips the redundant setStrategy/updateContainerConfig writes when
+ *  `ensureContainer` just created the container with this exact config. */
+function becomeContainer(
+  store: Store,
+  id: NodeId,
+  strategyId: string,
+  config: Record<string, unknown>,
+): void {
+  const hadContainer = store.getNodeTruth(id)?.container !== undefined;
+  store.ensureContainer(id, strategyId, config);
+  if (hadContainer) {
+    store.setStrategy(id, strategyId);
+    store.updateContainerConfig(id, config);
+  }
+}
+
+/** Build the nested column groups for `direction: 'both'` under `outerId`,
+ *  with `id` already sitting at column 0 row 0. */
+function buildColumns(
+  store: Store,
+  id: NodeId,
+  outerId: NodeId,
+  columnIds: readonly NodeId[],
+  newIds: readonly NodeId[],
+  rows: number,
+  extra: Record<string, unknown> | undefined,
+): void {
+  let cursor = 0;
+  columnIds.forEach((columnId, col) => {
+    store.registerNode(
+      createGroup({
+        id: columnId,
+        parentId: outerId,
+        strategyId: 'strip',
+        config: stripConfig('y', extra),
+      }),
+    );
+    for (let row = 0; row < rows; row += 1) {
+      if (col === 0 && row === 0) {
+        store.moveNode(id, columnId, 0);
+        store.patchPlacement(id, { size: undefined });
+        store.unpin(id);
+        continue;
+      }
+      const newId = newIds[cursor];
+      cursor += 1;
+      if (newId === undefined) return;
+      store.registerNode(createPanel({ id: newId, parentId: columnId }));
+    }
+  });
+}
+
 /** Lock axes `split` enforces itself. Internal calls then run suspended, so a
  *  guard on a public method cannot fire partway and leave a half-built tree. */
 function assertSplitUnlocked(store: Store, id: NodeId, mode: SplitMode, force: boolean): void {
@@ -156,7 +217,13 @@ export function splitNode(store: Store, id: NodeId, input: SplitInput): void {
 function applyFlatten(store: Store, id: NodeId, input: SplitInput): void {
   const node = store.getNodeTruth(id);
   const parentId = node?.membership?.parentId;
-  if (!parentId) return;
+  if (!parentId) {
+    throw new InvariantViolationError(
+      'split-invariant',
+      `flatten requires membership on ${id}; resolveMode should have chosen wrap or reconfigure`,
+      { id },
+    );
+  }
   const order = store.getContainerView(parentId)?.childOrder ?? [];
   let at = order.indexOf(id);
   for (const newId of input.newIds) {
@@ -166,18 +233,21 @@ function applyFlatten(store: Store, id: NodeId, input: SplitInput): void {
   }
   trace(
     'store',
-    `split: flatten ${id} → ${parentId}@${order.indexOf(id)} (+${input.newIds.length})`,
+    `split: flatten ${id} → ${parentId}@${order.indexOf(id)} (${input.direction}, +${input.newIds.length})`,
   );
 }
 
 function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
-  if (input.direction === 'both' || input.direction === 'grid') {
-    throw new InvariantViolationError('split-unimplemented', 'both/grid land in tasks 4-5', { id });
-  }
   const node = store.getNodeTruth(id);
   const parentId = node?.membership?.parentId;
-  const groupId = input.groupId;
-  if (!parentId || !groupId) return;
+  const groupId = input.direction === 'both' ? input.groupIds[0] : input.groupId;
+  if (!parentId || !groupId) {
+    throw new InvariantViolationError(
+      'split-invariant',
+      `wrap requires a parent and a groupId for ${id}; validateSplit should have caught this`,
+      { id },
+    );
+  }
 
   const order = store.getContainerView(parentId)?.childOrder ?? [];
   const at = order.indexOf(id);
@@ -185,43 +255,86 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
   const pinned = store.getPinnedIndex(id);
   delete placement.pinned;
 
+  const outerConfig =
+    input.direction === 'both'
+      ? stripConfig('x', input.config)
+      : input.direction === 'grid'
+        ? gridConfig(input.cols, input.config)
+        : stripConfig(input.direction, input.config);
+
   store.registerNode(
     createGroup({
       id: groupId,
       parentId,
-      strategyId: 'strip',
-      config: stripConfig(input.direction, input.config),
+      strategyId: input.direction === 'grid' ? 'grid' : 'strip',
+      config: outerConfig,
       placement,
     }),
   );
   store.reorderInParent(groupId, at);
-  store.moveNode(id, groupId, 0);
-  store.patchPlacement(id, { size: undefined });
-  store.unpin(id);
-  for (const newId of input.newIds) {
-    store.registerNode(createPanel({ id: newId, parentId: groupId }));
+
+  if (input.direction === 'both') {
+    buildColumns(
+      store,
+      id,
+      groupId,
+      input.groupIds.slice(1),
+      input.newIds,
+      input.into[1],
+      input.config,
+    );
+  } else {
+    store.moveNode(id, groupId, 0);
+    store.patchPlacement(id, { size: undefined });
+    store.unpin(id);
+    for (const newId of input.newIds) {
+      store.registerNode(createPanel({ id: newId, parentId: groupId }));
+    }
   }
   if (pinned !== null) store.setPinned(groupId, pinned);
 
   trace(
     'store',
-    `split: wrap ${id} → ${groupId}@${at} (strip ${input.direction}, ${input.newIds.length + 1} children)`,
+    `split: wrap ${id} → ${groupId}@${at} (${input.direction}, ${input.newIds.length + 1} children)`,
   );
 }
 
 function applyReconfigure(store: Store, id: NodeId, input: SplitInput): void {
-  if (input.direction === 'both' || input.direction === 'grid') {
-    throw new InvariantViolationError('split-unimplemented', 'both/grid land in task 5', { id });
+  if (input.direction === 'both') {
+    const config = stripConfig('x', input.config);
+    becomeContainer(store, id, 'strip', config);
+    let cursor = 0;
+    for (const columnId of input.groupIds.slice(1)) {
+      store.registerNode(
+        createGroup({
+          id: columnId,
+          parentId: id,
+          strategyId: 'strip',
+          config: stripConfig('y', input.config),
+        }),
+      );
+      for (let row = 0; row < input.into[1]; row += 1) {
+        const newId = input.newIds[cursor];
+        cursor += 1;
+        if (newId === undefined) break;
+        store.registerNode(createPanel({ id: newId, parentId: columnId }));
+      }
+    }
+    trace('store', `split: reconfigure ${id} (both ${input.into[0]}x${input.into[1]})`);
+    return;
   }
-  const hadContainer = store.getNodeTruth(id)?.container !== undefined;
-  const config = stripConfig(input.direction, input.config);
-  store.ensureContainer(id, 'strip', config);
-  if (hadContainer) {
-    store.setStrategy(id, 'strip');
-    store.updateContainerConfig(id, config);
-  }
+
+  const strategyId = input.direction === 'grid' ? 'grid' : 'strip';
+  const config =
+    input.direction === 'grid'
+      ? gridConfig(input.cols, input.config)
+      : stripConfig(input.direction, input.config);
+  becomeContainer(store, id, strategyId, config);
   for (const newId of input.newIds) {
     store.registerNode(createPanel({ id: newId, parentId: id }));
   }
-  trace('store', `split: reconfigure ${id} (strip ${input.direction}, +${input.newIds.length})`);
+  trace(
+    'store',
+    `split: reconfigure ${id} (${strategyId} ${input.direction}, +${input.newIds.length})`,
+  );
 }

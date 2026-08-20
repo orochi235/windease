@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { asNodeId, createGroup, createPanel, createZone, Store } from './index.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { asNodeId, configureTrace, createGroup, createPanel, createZone, Store } from './index.js';
 
 function seeded(): Store {
   const store = new Store();
@@ -399,6 +399,155 @@ describe('Store.split — reconfigure mode', () => {
     // `gap` survives because it is consumer intent, not strategy-specific.
     // `cols` survives too and is inert — strip never reads it.
     expect(store.getNode(asNodeId('z'))?.container?.config).toEqual({ cols: 3, gap: 8, axis: 'x' });
+  });
+});
+
+describe("Store.split — direction 'both'", () => {
+  it('builds an outer x strip of inner y strips, filling column-major', () => {
+    const store = seeded();
+
+    store.split(asNodeId('p1'), {
+      direction: 'both',
+      into: [2, 2],
+      groupIds: [asNodeId('g'), asNodeId('c0'), asNodeId('c1')],
+      newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4')],
+    });
+
+    expect(store.getNode(asNodeId('g'))?.container?.config).toMatchObject({ axis: 'x' });
+    expect(store.getContainerView(asNodeId('g'))?.childOrder).toEqual(['c0', 'c1']);
+    expect(store.getNode(asNodeId('c0'))?.container?.config).toMatchObject({ axis: 'y' });
+    expect(store.getContainerView(asNodeId('c0'))?.childOrder).toEqual(['p1', 'p2']);
+    expect(store.getContainerView(asNodeId('c1'))?.childOrder).toEqual(['p3', 'p4']);
+  });
+
+  it('handles a non-square grid', () => {
+    const store = seeded();
+
+    store.split(asNodeId('p1'), {
+      direction: 'both',
+      into: [3, 2],
+      groupIds: [asNodeId('g'), asNodeId('c0'), asNodeId('c1'), asNodeId('c2')],
+      newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4'), asNodeId('p5'), asNodeId('p6')],
+    });
+
+    expect(store.getContainerView(asNodeId('c0'))?.childOrder).toEqual(['p1', 'p2']);
+    expect(store.getContainerView(asNodeId('c1'))?.childOrder).toEqual(['p3', 'p4']);
+    expect(store.getContainerView(asNodeId('c2'))?.childOrder).toEqual(['p5', 'p6']);
+  });
+
+  it('throws when groupIds is not 1 + cols', () => {
+    const store = seeded();
+    expect(() =>
+      store.split(asNodeId('p1'), {
+        direction: 'both',
+        into: [2, 2],
+        groupIds: [asNodeId('g'), asNodeId('c0')],
+        newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4')],
+      }),
+    ).toThrow(/groupIds/);
+  });
+
+  it('replaces the target at its old index in the parent', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+    store.registerNode(createPanel({ id: asNodeId('a'), parentId: asNodeId('z') }));
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+
+    store.split(asNodeId('p1'), {
+      direction: 'both',
+      into: [2, 2],
+      groupIds: [asNodeId('g'), asNodeId('c0'), asNodeId('c1')],
+      newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4')],
+    });
+
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'g']);
+  });
+
+  it('makes the target itself the outer container at a root', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+
+    store.split(asNodeId('z'), {
+      direction: 'both',
+      into: [2, 2],
+      groupIds: [asNodeId('unused'), asNodeId('c0'), asNodeId('c1')],
+      newIds: [asNodeId('p1'), asNodeId('p2'), asNodeId('p3')],
+    });
+
+    expect(store.getNode(asNodeId('z'))?.container?.strategyId).toBe('strip');
+    expect(store.getNode(asNodeId('z'))?.container?.config).toMatchObject({ axis: 'x' });
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['c0', 'c1']);
+    expect(store.getContainerView(asNodeId('c0'))?.childOrder).toEqual(['p1', 'p2']);
+    expect(store.getContainerView(asNodeId('c1'))?.childOrder).toEqual(['p3']);
+    expect(store.getNode(asNodeId('unused'))).toBeUndefined();
+  });
+});
+
+describe("Store.split — direction 'grid'", () => {
+  it('builds one grid container with all children flat', () => {
+    const store = seeded();
+
+    store.split(asNodeId('p1'), {
+      direction: 'grid',
+      into: 4,
+      cols: 2,
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2'), asNodeId('p3'), asNodeId('p4')],
+    });
+
+    expect(store.getNode(asNodeId('g'))?.container?.strategyId).toBe('grid');
+    expect(store.getNode(asNodeId('g'))?.container?.config).toMatchObject({ cols: 2 });
+    expect(store.getContainerView(asNodeId('g'))?.childOrder).toEqual(['p1', 'p2', 'p3', 'p4']);
+  });
+
+  it('omits cols from the config when not given', () => {
+    const store = seeded();
+
+    store.split(asNodeId('p1'), {
+      direction: 'grid',
+      into: 2,
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getNode(asNodeId('g'))?.container?.config).not.toHaveProperty('cols');
+  });
+
+  it('reconfigures a root into a grid', () => {
+    const store = new Store();
+    store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'stack', config: {} }));
+
+    store.split(asNodeId('z'), {
+      direction: 'grid',
+      into: 3,
+      cols: 3,
+      newIds: [asNodeId('a'), asNodeId('b')],
+    });
+
+    expect(store.getNode(asNodeId('z'))?.container?.strategyId).toBe('grid');
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'b']);
+  });
+});
+
+describe('Store.split — Task 3 nits', () => {
+  afterEach(() => {
+    configureTrace(null);
+  });
+
+  it('reports flatten trace with the axis, like wrap', () => {
+    const store = new Store();
+    store.registerNode(
+      createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }),
+    );
+    store.registerNode(createPanel({ id: asNodeId('p1'), parentId: asNodeId('z') }));
+
+    configureTrace('store');
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    store.split(asNodeId('p1'), { direction: 'x', newIds: [asNodeId('p2')] });
+    const lines = spy.mock.calls.map((call) => call.join(' '));
+    spy.mockRestore();
+
+    expect(lines.some((line) => /flatten.*\bx\b/.test(line))).toBe(true);
   });
 });
 
