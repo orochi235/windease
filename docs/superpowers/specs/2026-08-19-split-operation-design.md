@@ -152,11 +152,17 @@ untouched:
 
 Lock axes, all bypassable with `force`:
 
-- **wrap** — `move` on the target, `arrange` on its parent
+- **wrap** — `move` on the target, `dragOut` and `arrange` on its parent
 - **flatten** — `arrange` on the parent
 - **reconfigure** — `arrange` on the target
-- **unsplit** — `destroy` on the group, `move` on each child, `arrange` on the
+- **unsplit** — `destroy` and `dragOut` on the group, `arrange` on the
   grandparent
+
+`split` checks these itself, up front, and then runs every mutation inside
+`store.withLocksSuspended`. Without that, the guards on the public methods it
+calls — `moveNode` alone asserts `move`, `accept`, and `dragOut` — could fire
+partway through and leave a half-built tree, since nothing rolls back. The
+up-front list is therefore the contract; the internal calls must not re-check.
 
 ## Atomicity, and `Store.transact`
 
@@ -272,7 +278,9 @@ and merely unconstructible. Nothing here needs it; note it in TODO.md.
   is wrapped; the group holds both and the target's placement is empty.
 - **Validation** — every row of the error table, each asserting the store is
   unchanged afterward.
-- **Locks** — each axis refuses, and `force` overrides.
+- **Locks** — each axis in the list refuses, and `force` overrides. Also: a lock
+  on an axis *not* in the list (`accept` on the new group's parent) does not
+  refuse, which is what proves the internal calls run suspended.
 - **Atomicity** — one `subscribe` notification per `split`; one
   `transaction.begin`/`transaction.end` pair however deeply `transact` nests; the
   pair still closes when `fn` throws, and a second `transact` afterward still

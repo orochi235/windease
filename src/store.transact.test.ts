@@ -119,11 +119,9 @@ describe('Store.transact', () => {
 
   it('N mutations inside transact produce one subscriber notification', async () => {
     const store = new Store();
-    const notified: number[] = [];
     let notificationCount = 0;
     store.subscribe(() => {
       notificationCount += 1;
-      notified.push(notificationCount);
     });
 
     store.transact(() => {
