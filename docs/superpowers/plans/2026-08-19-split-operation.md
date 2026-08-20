@@ -715,7 +715,8 @@ describe('Store.split — wrap mode', () => {
   it('wraps a group target the same way it wraps a panel', () => {
     const store = new Store();
     store.registerNode(createZone({ id: asNodeId('z'), strategyId: 'strip', config: { axis: 'x' } }));
-    store.registerNode(createZone({ id: asNodeId('inner'), parentId: asNodeId('z'), strategyId: 'stack', config: {} }));
+    // createGroup, not createZone({parentId}) — that arrives in Task 8.
+    store.registerNode(createGroup({ id: asNodeId('inner'), parentId: asNodeId('z'), strategyId: 'stack', config: {} }));
 
     store.split(asNodeId('inner'), {
       direction: 'y',
@@ -817,6 +818,18 @@ describe('Store.split — atomicity', () => {
     expect(notifications).toBe(1);
   });
 });
+```
+
+Also update the import at the top of the file to add `createGroup`, and flip the
+Task 2 test that asserted the placeholder — flatten works now:
+
+```ts
+  it('ignores a colliding groupId when flattening, since it is never registered', () => {
+    const store = seeded();
+    expect(() =>
+      store.split(asNodeId('p1'), { direction: 'x', groupId: asNodeId('z'), newIds: [asNodeId('p2')] }),
+    ).not.toThrow();
+  });
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
