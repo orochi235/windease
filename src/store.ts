@@ -74,7 +74,7 @@ export interface StoreEvents {
   /**
    * A composite operation started. Bracket history pushes on this pair to get
    * one undo step for the whole operation: the `node.*` events are synchronous
-   * and per-mutation, so an unbracketed listener sees one `split` as eleven
+   * and per-mutation, so an unbracketed listener sees one `split` as many separate
    * changes.
    */
   'transaction.begin': { label?: string };
@@ -993,16 +993,24 @@ export class Store {
    * propagates, but whatever was already mutated stays mutated.
    */
   transact(fn: () => void, label?: string): void {
-    const payload = label === undefined ? {} : { label };
-    if (this.txnDepth === 0) this.events.emit('transaction.begin', payload);
+    const outermost = this.txnDepth === 0;
     this.txnDepth += 1;
+    if (outermost) {
+      const beginPayload = label === undefined ? {} : { label };
+      this.events.emit('transaction.begin', beginPayload);
+    }
+    let threw = false;
     try {
       fn();
+    } catch (e) {
+      threw = true;
+      throw e;
     } finally {
       this.txnDepth -= 1;
-      if (this.txnDepth === 0) {
-        this.events.emit('transaction.end', payload);
-        trace('store', `transact: ${label ?? '(unlabeled)'}`);
+      if (outermost) {
+        const endPayload = label === undefined ? {} : { label };
+        this.events.emit('transaction.end', endPayload);
+        trace('store', `transact: ${label ?? '(unlabeled)'}${threw ? ' (threw)' : ''}`);
       }
     }
   }

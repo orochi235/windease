@@ -85,4 +85,55 @@ describe('Store.transact', () => {
 
     expect(store.getNode(asNodeId('a'))).toBeDefined();
   });
+
+  it('re-entrancy: nested throw still closes with one begin/end pair', () => {
+    const store = new Store();
+    const seen: string[] = [];
+    store.events.on('transaction.begin', () => seen.push('begin'));
+    store.events.on('transaction.end', () => seen.push('end'));
+
+    expect(() =>
+      store.transact(() => {
+        store.transact(() => {
+          throw new Error('inner');
+        });
+      }),
+    ).toThrow('inner');
+
+    expect(seen).toEqual(['begin', 'end']);
+  });
+
+  it('re-entrancy: calling transact from begin listener still emits one pair', () => {
+    const store = new Store();
+    const seen: string[] = [];
+    store.events.on('transaction.begin', () => {
+      seen.push('begin');
+      store.transact(() => {});
+    });
+    store.events.on('transaction.end', () => seen.push('end'));
+
+    store.transact(() => {});
+
+    expect(seen).toEqual(['begin', 'end']);
+  });
+
+  it('N mutations inside transact produce one subscriber notification', async () => {
+    const store = new Store();
+    const notified: number[] = [];
+    let notificationCount = 0;
+    store.subscribe(() => {
+      notificationCount += 1;
+      notified.push(notificationCount);
+    });
+
+    store.transact(() => {
+      store.registerNode(createZone({ id: asNodeId('z1'), strategyId: 'strip', config: {} }));
+      store.registerNode(createPanel({ id: asNodeId('a1'), parentId: asNodeId('z1') }));
+      store.registerNode(createPanel({ id: asNodeId('b1'), parentId: asNodeId('z1') }));
+    });
+
+    await Promise.resolve();
+
+    expect(notificationCount).toBe(1);
+  });
 });
