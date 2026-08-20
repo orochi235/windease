@@ -10,6 +10,9 @@
       "!**/docs-api",
       "!**/build",
       "!**/.ladle",
+      "!**/test-results",
+      "!**/playwright-report",
+      "!**/blob-report",
       "!**/.superpowers",
       "!**/.playwright-mcp"
     ]
