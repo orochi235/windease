@@ -140,6 +140,14 @@ one-child strip, which renders full-bleed and is harmless. Making removal
 silently destroy an unnamed group and reparent another node would put a hidden
 step in every undo entry.
 
+**A sole surviving child inherits the group's placement.** `split` moved the
+target's `size` and `pinned` onto the group, because the group took the slot the
+target held; dissolving a one-child group hands them back. With several children
+they are dropped — one slot's size cannot describe N new siblings, and choosing
+one of them would be arbitrary. That asymmetry is the difference between
+split→unsplit round-tripping and silently losing a pane's size, so it belongs in
+the JSDoc.
+
 ## Errors and locks
 
 All validation runs before any mutation, so a rejected `split` leaves the store
