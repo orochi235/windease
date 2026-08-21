@@ -9,7 +9,11 @@ import { Store } from './store.js';
 function buildTree(): Store {
   const s = new Store();
   s.registerNode(
-    createNode({ id: asNodeId('z'), kind: 'zone', container: { strategyId: 'strip', config: { axis: 'x' } } }),
+    createNode({
+      id: asNodeId('z'),
+      kind: 'zone',
+      container: { strategyId: 'strip', config: { axis: 'x' } },
+    }),
   );
   s.registerNode(
     createNode({
@@ -20,7 +24,14 @@ function buildTree(): Store {
       container: { strategyId: 'strip', config: { axis: 'y' } },
     }),
   );
-  s.registerNode(createNode({ id: asNodeId('a1'), kind: 'panel', parentId: asNodeId('a'), meta: { title: 'one' } }));
+  s.registerNode(
+    createNode({
+      id: asNodeId('a1'),
+      kind: 'panel',
+      parentId: asNodeId('a'),
+      meta: { title: 'one' },
+    }),
+  );
   s.registerNode(createNode({ id: asNodeId('a2'), kind: 'panel', parentId: asNodeId('a') }));
   s.registerNode(createNode({ id: asNodeId('b'), kind: 'panel', parentId: asNodeId('z') }));
   return s;
@@ -54,5 +65,30 @@ describe('serialize with { root }', () => {
     const s = buildTree();
     expect(serialize(s)).toEqual(serialize(s, {}));
     expect(serialize(s).nodes).toHaveLength(5);
+  });
+
+  it('carries focusedId when the focused node is inside the subtree', () => {
+    const s = buildTree();
+    s.registerNode(
+      createNode({ id: asNodeId('f'), kind: 'panel', parentId: asNodeId('a'), focus: true }),
+    );
+    s.focusNode(asNodeId('f'));
+    expect(serialize(s, { root: asNodeId('a') }).focusedId).toBe('f');
+  });
+
+  it('drops focusedId when the focused node is outside the subtree', () => {
+    const s = buildTree();
+    s.registerNode(
+      createNode({ id: asNodeId('g'), kind: 'panel', parentId: asNodeId('z'), focus: true }),
+    );
+    s.focusNode(asNodeId('g'));
+    expect(serialize(s, { root: asNodeId('a') }).focusedId).toBeNull();
+  });
+
+  it('opens as a standalone store via deserialize', () => {
+    const snap = serialize(buildTree(), { root: asNodeId('a') });
+    const standalone = deserialize(snap);
+    expect(standalone.getChildren(asNodeId('a')).map((n) => n.id)).toEqual(['a1', 'a2']);
+    expect(standalone.getParent(asNodeId('a'))).toBeUndefined();
   });
 });
