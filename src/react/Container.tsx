@@ -13,6 +13,7 @@ import {
 import { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
 import type { Affordance, NodeId } from '../index.js';
 import { DragContext } from './dnd/DragProvider.js';
+import { useGeometryRegistry } from './focus/useGeometrySource.js';
 import { useChildren, useNode } from './hooks.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
@@ -174,6 +175,25 @@ function StoreContainer({
       : undefined;
 
   const layout = useContainerLayout(parentId, ref, viewport, preview);
+
+  const geometryRegistry = useGeometryRegistry();
+  const selfRect = geometryRegistry?.get(String(parentId));
+  useEffect(() => {
+    if (!geometryRegistry) return;
+    const originX = selfRect?.x ?? 0;
+    const originY = selfRect?.y ?? 0;
+    for (const [cid, r] of layout.placements) {
+      geometryRegistry.set(String(cid), {
+        x: originX + r.x,
+        y: originY + r.y,
+        w: r.w,
+        h: r.h,
+      });
+    }
+    return () => {
+      for (const cid of layout.placements.keys()) geometryRegistry.delete(String(cid));
+    };
+  }, [geometryRegistry, layout.placements, selfRect?.x, selfRect?.y]);
 
   // Register a default getInsertionIndex on the container element so the
   // controller can resolve cursor → child slot without consumer wiring.
