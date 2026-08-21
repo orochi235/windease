@@ -1,65 +1,89 @@
-# Handoff — keyboard navigation, ready to implement
+# Handoff — keyboard navigation, implemented, awaiting release
 
 Pointer, not a copy. The design is
 `docs/superpowers/specs/2026-08-21-keyboard-navigation-design.md` and the
 thirteen tasks are `docs/superpowers/plans/2026-08-21-keyboard-navigation.md`.
-Read both; this file carries only what they can't.
+This file carries only what they can't.
 
 - **Worktree:** `/Users/mike/src/windease/.claude/worktrees/keyboard-nav`
-- **Branch:** `feat/keyboard-navigation`, rebased onto `main` at `3e82953`
-- **Green:** 737 tests / 60 files, typecheck, lint, build
-- **Written:** spec and plan only. **No implementation has started.**
-- **Method chosen:** subagent-driven, one fresh subagent per task, review between.
+- **Branch:** `feat/keyboard-navigation`, rebased onto `main` at `fa8c07e`
+- **Green:** 793 tests / 73 files, 20 e2e, typecheck, lint, build
+- **State:** all thirteen tasks implemented and committed, `a2be95b..8c6c610`.
 
-## Start here
+## What is left
 
-Task 1 of the plan. Tell the peer session before opening `store.ts` (see below).
+`npm version minor` only. Its `postversion` pushes the branch and tag, and the
+tag triggers the Release workflow, which publishes via OIDC — so it is
+deliberately not run. Not yet pushed either.
 
-## The other session
+## Three defects the browser found that jsdom could not
 
-`windease-05` works the docked-palettes wishlist in the **main checkout** on
-`main`. It is a different working tree now, so we no longer clobber each other
-mid-edit — the risk moved to merge time.
+All three are fixed in `0051b9f`; they are recorded because each is easy to
+reintroduce.
 
-- **Ours:** `src/focus/**`, `src/react/focus/**`, `ContainerCap.lastFocusedId`,
-  the focus block at `store.ts:954-1006`, `AffordanceHandle`.
-- **Theirs:** `strip.ts`, `resize.ts`, `patchPlacement` lock-gating,
-  `Affordance`'s new `orientation` / `valueNow` / `valueMin` / `valueMax` /
-  `atMin` / `atMax` / `label` fields.
-- **Shared, announce before editing:** `store.ts`, `layout-types.ts`.
+- **Zero tab stops when nothing is focused.** Roving tabindex gives `0` to the
+  focused wrapper — so before any click, every wrapper was `-1` and the layout
+  could not be entered by keyboard at all. `FocusProvider` now publishes an
+  `entryId`, which the focused node supersedes.
+- **Geometry changes without a store notification.** Placements arrive from a
+  ResizeObserver via `ContainerHost`, not from the store, so anything that
+  recomputes on `store.subscribe` alone samples an empty rect registry once
+  and never looks again. The registry publishes its own changes now
+  (`GeometryRegistry.commit` / `.subscribe`).
+- **The focus root broke height chains.** `FocusProvider` wraps children in a
+  div; as a plain block it collapsed any `height: 100%` beneath it. It carries
+  `display: contents` from `@windease/react/styles.css` — a consumer who does
+  not import that stylesheet gets the broken layout back.
 
-Rebase on `main` before merging; they commit there continuously.
+## Two places the plan was wrong, and what was done instead
 
-## Decisions made in conversation that the spec doesn't explain
+- **The plan's test helpers never `showNode` the zone.** Task 3's original
+  rule required every ancestor to be `visible`, which no real tree satisfies:
+  `<Container>` never checks its parent's lifecycle, so a root nobody showed
+  is on screen. `navigableLeaves` now excludes a subtree only for an
+  explicitly `hidden` (or destroyed) container.
+- **Task 1's "clears when the remembered child is removed" contradicts Task
+  2.** Once a successor is named, the container immediately remembers the
+  replacement rather than emptying. The assertion was rewritten and the
+  genuinely-empty case pinned separately.
 
-- **Collapse was withdrawn as a library feature** after the spec was written.
-  There is no `placement.collapsed` and there won't be; collapse is a userland
-  pattern documented in the README and pinned by `src/collapse-pattern.test.ts`.
-  Nothing in navigation or the successor policy may assume a collapsed state.
-- **Keyboard resize is a synthesized drag**, decided jointly with the peer so
-  that stepping inherits the strip clamp order rather than adding a second
-  clamp. Both dead hooks (`'keypress'`, `LayoutEvent.kind: 'key'`) are
-  deprecated, removed at 2.0.0.
-- **`main` was 12 commits unpushed** when this branch was cut, so the worktree
-  was based on local `HEAD`, not `origin/main`. Still unpushed as of writing.
+## Still open
+
+`announce()` ships on `FocusAdapter` with no call site — moving real DOM focus
+announces the pane name for free, so what is uncovered is a change with no
+focus movement (a successor after a destroy, a pane relocated). Needs a live
+region, which the design deliberately did not specify. Recorded in `TODO.md`
+under Shipped in 1.2.0.
+
+## Coordination
+
+`windease-05` works the consumer wishlists on `main`; its handoff is
+`docs/superpowers/plans/2026-08-21-consumer-wishlists-handoff.md`. Shared
+files this branch touched, all committed: `store.ts`, `node.ts`,
+`layout-types.ts` (added `navigate?` after `canAccept?`), `index.ts`,
+`react/index.ts`, `react/Container.tsx`, `react/styles.css`,
+`stories/Playground.stories.tsx`. Rebase on `main` before merging; that
+session commits there continuously.
+
+Two decisions from conversation that the spec does not explain:
+
+- **Collapse was withdrawn as a library feature.** There is no
+  `placement.collapsed`; collapse is a userland pattern in the README, pinned
+  by `src/collapse-pattern.test.ts`. Nothing in navigation may assume it.
+- **`graft` must not claim focus** (agreed with `windease-05`): an attachment
+  the user did not initiate stealing focus is a defect, and arrival is not the
+  inverse of departure.
 
 ## Traps
 
-- **A worktree under `.claude/worktrees/` is inside the repo root**, and neither
-  vitest nor biome reads `.gitignore`. Both now exclude it (`d7e1f96`,
-  `b9e67bd`), and `f2fca7b` on this branch re-anchors biome's pattern, which in
-  its `**/.claude` form excluded *every* file when run from inside the worktree.
-  If lint ever reports "Checked 0 files", that is this bug, not a clean tree.
-- **Never read tool output through `| tail -2`.** It hid the biome failure above
-  for several commits in the other session. Check exit codes.
+- **A worktree under `.claude/worktrees/` is inside the repo root**, and
+  neither vitest nor biome reads `.gitignore`. If lint reports "Checked 0
+  files", that is the unanchored `**/.claude` pattern, not a clean tree.
+- **Never read tool output through `| tail -2`.** Check exit codes.
 - **An `expect` inside a `store.events` handler cannot fail a test** —
-  `TypedEmitter.emit` swallows listener throws. Use `recordEvents` and assert
-  after the mutation returns.
-- **Two known gaps in the plan, recorded in its self-review, not oversights:**
-  `announce()` ships with no call site (no live region is designed), and
-  `accessibleName`'s kind-plus-index fallback changes when a sibling is added.
+  `TypedEmitter.emit` swallows listener throws. Use `recordEvents`.
 
-## Verify before claiming done
+## Verify
 
 ```
 npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e
