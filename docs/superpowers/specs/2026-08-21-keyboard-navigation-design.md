@@ -103,10 +103,11 @@ Visible leaves whose placement rect measures at least 1×1. **Zero-area nodes ar
 skipped, whatever produced them** — a focus target with no pixels means focus
 leaves the screen while a screen reader still announces a pane.
 
-The rule is general rather than a collapse special case, because strip produces
-zero-extent placements today with no collapse involved: `defaultItemSize ?? 0`
-(`strip.ts:95`) becomes `fallbackMain` at `:135` whenever `fill` is off and a
-child has no `preferredSize`. That is the documented fixed-size-toolbar path.
+The rule is general rather than tied to any one cause, because strip already
+produces zero-extent placements: `defaultItemSize ?? 0` (`strip.ts:95`) becomes
+`fallbackMain` at `:135` whenever `fill` is off and a child has no
+`preferredSize`. That is the documented fixed-size-toolbar path, and it exists
+today.
 
 No current story reaches it. `Strip.stories.tsx` omits `fill` but gives every
 child an explicit `preferredSize`; `Playground.stories.tsx:37` and
@@ -125,10 +126,12 @@ a zero-area box. Windease will not force `inert`, since a consumer may size a
 pane to zero deliberately; a consumer wanting that content unreachable applies
 `inert` itself.
 
-Collapsed panes need no special handling: collapse renders a header bar at
-`config.collapsedSize ?? hints.minSize[axis]`, so a collapsed node is a normal
-target at a smaller size. Only a degenerate config that resolves to zero falls
-to the rule above.
+**Nothing here assumes a collapsed state exists.** A pane shrunk to a header —
+however that is achieved — is a normal target at a smaller size, and only a
+degenerate one resolving under 1px falls to the rule above. If collapse ever
+ships, in the library or in userland, one requirement lands on it rather than
+on this design: the collapsed pane keeps its accessible name and its expand
+control must be keyboard-reachable inside the part that still renders.
 
 ### Geometry
 
