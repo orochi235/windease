@@ -92,6 +92,34 @@ export interface Affordance<TMeta = unknown> {
    * drag when any affected pane is resize-locked without branching on kind.
    */
   affects?: (NodeId | string)[];
+  /**
+   * The extent this affordance adjusts, and the range it can actually reach.
+   *
+   * Emitted by the strategy because only the strategy knows the *effective*
+   * bounds: a child's own `maxSize` is not the ceiling when siblings' minimums
+   * already claim the remaining extent. A host re-deriving this would be
+   * recomputing what the layout pass just computed, and would advertise a
+   * maximum the drag refuses to reach.
+   *
+   * Named for what it is rather than for the DOM: a DOM adapter maps these
+   * onto `aria-valuenow` / `aria-valuemin` / `aria-valuemax` /
+   * `aria-orientation`, and a non-DOM host reads them directly.
+   *
+   * `valueMin` is never above `valueNow`, so the range always contains the
+   * current value — a pane deliberately sized under its own `minSize` (a
+   * collapsed palette) reports its own extent as the floor rather than an
+   * unreachable one.
+   */
+  bounds?: {
+    orientation: 'horizontal' | 'vertical';
+    valueNow: number;
+    valueMin: number;
+    valueMax: number;
+    /** Set by the code that performed the clamp, not derived by comparing
+     *  `valueNow` to the bounds — float equality is not a reliable test. */
+    atMin: boolean;
+    atMax: boolean;
+  };
 }
 
 /**

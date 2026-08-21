@@ -57,6 +57,39 @@ function effectiveMaxAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined
   return typeof v === 'number' ? v : undefined;
 }
 
+/** Effective reach of a resize affordance on `item`, given what siblings'
+ *  minimums already claim. Mirrors `dispatchAffordance`'s clamp order. */
+function boundsFor(
+  item: LayoutItem,
+  valueNow: number,
+  placedItems: LayoutItem[],
+  axis: 'x' | 'y',
+  usableMain: number,
+): NonNullable<Affordance['bounds']> {
+  const own = effectiveMinAxis(item, axis);
+  const max = effectiveMaxAxis(item, axis);
+  const otherMinSum = placedItems
+    .filter((it) => it.id !== item.id)
+    .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
+
+  let valueMax = usableMain - otherMinSum;
+  if (max !== undefined && max < valueMax) valueMax = max;
+  if (valueMax < own) valueMax = own;
+  // A pane sized under its own min (a collapsed palette) would otherwise
+  // advertise a range that excludes where it currently sits.
+  const valueMin = Math.min(own, valueNow);
+  if (valueMax < valueMin) valueMax = valueMin;
+
+  return {
+    orientation: axis === 'x' ? 'horizontal' : 'vertical',
+    valueNow,
+    valueMin,
+    valueMax,
+    atMin: valueNow <= valueMin,
+    atMax: valueNow >= valueMax,
+  };
+}
+
 /** Capacity-selected subset both `layout` and `dispatchAffordance` must agree
  *  on — the two drifting apart is the whole class of bug this closes. */
 function placedOf(
@@ -152,6 +185,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
             cursor: 'ew-resize',
             childId: item.id,
             affects: [item.id],
+            bounds: boundsFor(item, w, placedItems, 'x', usableMain),
           });
         }
         x += w + gap;
@@ -172,6 +206,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
             cursor: 'ns-resize',
             childId: item.id,
             affects: [item.id],
+            bounds: boundsFor(item, h, placedItems, 'y', usableMain),
           });
         }
         y += h + gap;
