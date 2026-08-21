@@ -1,4 +1,5 @@
-import type { Rect } from '../layout-types.js';
+import { nodeToLayoutItem } from '../layout-node-adapter.js';
+import type { LayoutItem, LayoutStrategy, Rect } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import { navigableLeaves } from './navigable.js';
@@ -9,6 +10,7 @@ export interface ResolveInput {
   from: NodeId;
   intent: NavIntent;
   geometry: GeometrySource;
+  strategies?: ReadonlyMap<string, LayoutStrategy<unknown, string, unknown>>;
 }
 
 const center = (r: Rect) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
@@ -72,13 +74,33 @@ function siblingsOf(store: Store, from: NodeId, geometry: GeometrySource): NodeI
     .filter((cid) => navigable.has(cid));
 }
 
-export function resolveNavigation({ store, from, intent, geometry }: ResolveInput): NodeId | null {
+export function resolveNavigation({
+  store,
+  from,
+  intent,
+  geometry,
+  strategies,
+}: ResolveInput): NodeId | null {
   switch (intent) {
     case 'left':
     case 'right':
     case 'up':
-    case 'down':
+    case 'down': {
+      const parentId = store.getNode(from)?.membership?.parentId;
+      const parent = parentId ? store.getNode(parentId) : undefined;
+      const strategy = parent?.container ? strategies?.get(parent.container.strategyId) : undefined;
+      if (strategy?.navigate && parentId) {
+        const items: LayoutItem[] = store.getChildren(parentId).map((c) => nodeToLayoutItem(c));
+        const chosen = strategy.navigate({
+          items,
+          from,
+          direction: intent,
+          options: (parent?.container?.config ?? {}) as Record<string, unknown>,
+        });
+        if (chosen !== undefined) return chosen === null ? null : (chosen as NodeId);
+      }
       return directional(store, from, intent, geometry);
+    }
     case 'next':
     case 'prev': {
       const row = siblingsOf(store, from, geometry);
