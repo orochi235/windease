@@ -347,14 +347,28 @@ five are what a consumer would still have to build.
   before it runs the strategy, or measured natural sizes as a strategy input
   alongside `hints`.
 
-- **Collapse as a state, not a size.** `hide` drops a node out of layout
-  entirely (`src/layout-node-adapter.ts:61`, `src/container-host.ts:268`),
-  so collapse-to-a-header-bar is the consumer writing `placement.size` down
-  to the header height and stashing the old extent somewhere to restore
-  from. Wants a collapsed state that keeps the node placed at a
-  strategy-resolved minimum and retains its previous extent, so expand is
-  one call and survives a snapshot. This is the primitive the accordion
-  treatment under "Groups" needs.
+- **Collapse is userland; `minSize` no longer floors an explicit size.**
+  Was "collapse as a state." It isn't one. With an explicit or content-derived
+  size, collapse is a size: write `placement.size` down to the header extent,
+  write it back to expand. `transact` makes that one undo step and `meta`
+  round-trips a remembered extent through `serialize`, so nothing was missing
+  except one conflict — `clampExplicitSizes` floored explicit sizes at
+  `hints.minSize`, so a palette declaring a minimum for its *expanded* state
+  could not be shrunk below it, and the consumer had to stash and restore
+  `minSize` too.
+
+  Resolved by splitting the two jobs `minSize` was doing. It is still a hard
+  floor on the resize path — a gutter drag refuses to cross it — and no longer
+  a floor on the layout path for an item that stated a size. An item that
+  states nothing is still floored at its min. The freeze-and-leave-the-pool
+  scaling is unaffected: its floor is `Math.min(min, requested)`, so an
+  explicit 32 against a min of 120 freezes at 32 rather than collapsing toward
+  zero under pressure.
+
+  What the docs owe the pattern, from the keyboard-navigation review: a
+  collapsed pane keeps its accessible name, and its expand control must be
+  keyboard-reachable in whatever still renders. A pane that can be collapsed
+  and not reopened from the keyboard is worse than no collapse.
 
 - **Size-driven overflow.** `maxItems` + `unplaced` model *count* capacity;
   nothing models "the children's minimums no longer fit the extent."
@@ -444,3 +458,33 @@ a host with its own per-item undo stacks simply doesn't wire it.
   working CSS grid for a JS layout pass and absolute rects on the zones that
   are a plain tiling. Note the decline also rested on "a single-app project
   with no external consumers yet" — an adopting host is that consumer.
+
+## Canvas-host ergonomics
+
+Raised by klieg's tube lab (`packages/core/dev/tube-lab`), the WebGL consumer
+already described under "DOM-proxy focus adapter for canvas hosts". It draws
+sixteen panels as scissor rects on one `WebGLRenderer`, positioning them from
+placements, so the canvas is one element spanning the whole zone rather than
+one per window.
+
+- **Let a zone opt out of `overflow: hidden` without opting out of the
+  stylesheet.** `.windease-zone` sets `position: relative; overflow: hidden`,
+  which clips a host canvas that spans the zone. The lab's workaround is to
+  withhold the `windease-zone` class entirely — so it forfeits the positioning
+  and the container queries too, to escape one property. A modifier class, or
+  splitting clipping out of the base rule, would cost nothing.
+- **Deliver DPR changes alongside placements.** Placements give a host its
+  rects in CSS pixels, which is most of what a canvas needs; a
+  `devicePixelRatio` change still leaves every consumer wiring its own
+  `matchMedia` to know the backing store must be resized. Dragging a window
+  between displays is the common case.
+- **Verify the silent-drop bug is gone.** Under 0.8's `splitStrategy` a panel
+  the layout tree did not know about was dropped with no error — the lab
+  documents it as a trap. That looks like the two-trees-disagreeing class of
+  bug `splitStrategy`'s removal was meant to end, but nothing has confirmed it
+  against 1.x, and "silently" is the part worth a regression test either way.
+
+Note the consumer is pinned at `^0.8.0` and has not taken 1.0 yet, so it still
+carries a hand-rolled balanced-tree builder (`tree.ts`) working around
+`initialState`. Deleting that is klieg's migration to do, not a windease item —
+but it means feedback from that lab is 0.8-shaped until the upgrade lands.

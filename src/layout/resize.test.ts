@@ -100,15 +100,29 @@ describe('clampExplicitSizes', () => {
     expect(out.get('b')).toBeCloseTo(150);
   });
 
-  it('resolves a contradictory min > max on one item to max, matching dispatchAffordance', () => {
-    // explicit (50) is below min (300), so the min-floor raises it to 300 first;
-    // the max-ceiling (100) then overrides, exactly as in dispatchAffordance's
-    // sequential min-then-max clamp.
+  it("renders an explicit size below the item's own min", () => {
+    // The layout floor applies to items that did not ask for a size. 32 is a
+    // stated intent -- a palette collapsed to its header -- so it renders as
+    // written. The resize path still refuses to drag below 120.
+    const out = clampExplicitSizes({
+      available: 600,
+      items: [
+        { id: 'a', explicit: 32, min: 120 },
+        { id: 'b', explicit: undefined, min: 0 },
+      ],
+    });
+    expect(out.get('a')).toBe(32);
+    expect(out.get('b')).toBe(568);
+  });
+
+  it('caps an explicit size at max without consulting min', () => {
+    // min > max is contradictory; max wins and min does not raise the value
+    // first, because min no longer floors an explicitly-sized item.
     const out = clampExplicitSizes({
       available: 1000,
       items: [{ id: 'a', explicit: 50, min: 300, max: 100 }],
     });
-    expect(out.get('a')).toBe(100);
+    expect(out.get('a')).toBe(50);
   });
 
   it('leaves an item with no maxSize unaffected', () => {

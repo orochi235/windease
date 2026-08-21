@@ -183,6 +183,42 @@ Write your own `ChildSort` for anything in between: it receives the observed
 children with their `order` hints plus the current store order, and returns the
 final list.
 
+## Collapsing a pane
+
+There is no collapse state. A collapsed pane is a sized pane: write
+`placement.size` down to your header extent, and write it back to expand.
+
+```tsx
+const HEADER = 32;
+
+const collapse = (id: NodeId) =>
+  store.transact(() => {
+    const h = (store.getNode(id)?.membership?.placement?.size as { h?: number })?.h;
+    store.setMeta(id, { expandedH: h });
+    store.patchPlacement(id, { size: { h: HEADER } });
+  }, 'collapse');
+
+const expand = (id: NodeId) =>
+  store.transact(() => {
+    const h = store.getNode(id)?.meta?.expandedH as number | undefined;
+    store.patchPlacement(id, { size: { h } });
+    store.setMeta(id, { expandedH: undefined });
+  }, 'expand');
+```
+
+`transact` makes each one a single undo step, and `meta` round-trips through
+`serialize`, so a collapsed layout survives save and reload.
+
+`hints.minSize` does not block this. It floors a pane that states no size of
+its own, and it still stops a gutter drag from crossing it — but a size you
+write is taken as intent and rendered as written. So a palette can declare a
+120px minimum for its expanded state and still collapse to a 32px header.
+
+Two things the pattern owes its users: keep the collapsed pane's accessible
+name, and keep its expand control reachable from the keyboard in whatever
+still renders. A pane that can be collapsed and not reopened without a mouse
+is worse than one that never collapsed.
+
 ## Drag and drop
 
 DnD is opt-in. Wrap your panel chrome in `<DragHandle>`, register each

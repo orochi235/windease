@@ -20,13 +20,20 @@ export interface ClampInput {
  * Compute per-item main-axis extents given a mix of explicitly-sized and
  * unconstrained items.
  *
+ * `minSize` floors an item that did not ask for a size. An explicit size is
+ * the consumer's stated intent and is rendered as written, even below that
+ * item's own min — which is what makes a deliberately undersized pane (a
+ * collapsed palette shrunk to its header) expressible without a second piece
+ * of state. `min` remains a hard floor on the *resize* path, so a gutter drag
+ * still refuses to cross it; see `stripStrategy.dispatchAffordance`.
+ *
  * Rules:
  *  1. Unconstrained items collectively need at least sum(min).
- *  2. Explicit items are clamped to their own [min, max] first — a
- *     contradictory `min > max` resolves to `max`, matching
- *     `dispatchAffordance`'s clamp order — then scaled proportionally down
- *     until the leftover accommodates the unconstrained mins. Space a cap
- *     frees up flows into the leftover pool rather than being lost.
+ *  2. Explicit items are capped at their own `max`, then scaled proportionally
+ *     down until the leftover accommodates the unconstrained mins. An item
+ *     that would scale below its floor freezes there and leaves the pool, so
+ *     nothing collapses to zero under pressure. Space a cap frees up flows
+ *     into the leftover pool rather than being lost.
  *  3. Leftover after explicit items is distributed equally among
  *     unconstrained items (their min is honored as a floor).
  */
@@ -41,7 +48,6 @@ export function clampExplicitSizes(input: ClampInput): Map<string, number> {
   const requested = new Map<string, number>();
   for (const it of explicits) {
     let v = it.explicit ?? 0;
-    if (v < it.min) v = it.min;
     if (it.max !== undefined && v > it.max) v = it.max;
     requested.set(it.id, v);
   }
