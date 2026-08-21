@@ -29,6 +29,18 @@ interface StripConfig {
    */
   resizable?: boolean;
   /**
+   * How a resize affordance distributes its delta.
+   *
+   * `'redistribute'` (default) writes only the dragged child; the delta is
+   * absorbed by whichever siblings are unconstrained, spread across all of
+   * them. Right for a fill row.
+   *
+   * `'neighbor'` writes the dragged child and the one after it, leaving the
+   * rest alone — the seam moves and nothing beyond it does, which is how a
+   * splitter behaves. Total extent is conserved.
+   */
+  resizeMode?: 'redistribute' | 'neighbor';
+  /**
    * Absolute cap on the number of items the zone accepts. Items beyond this
    * count go to `unplaced` and the default `canAccept` rejects drops that
    * would overflow it.
@@ -88,6 +100,33 @@ function boundsFor(
     atMin: valueNow <= valueMin,
     atMax: valueNow >= valueMax,
   };
+}
+
+/** The extent an item currently occupies along the main axis: its explicit
+ *  size, or the share an unconstrained item receives. */
+function baseExtent(
+  item: LayoutItem,
+  placedItems: LayoutItem[],
+  axis: 'x' | 'y',
+  usableMain: number,
+): number {
+  const explicit = explicitAxis(item, axis);
+  if (explicit !== undefined) return explicit;
+  const explicits = placedItems.filter((it) => explicitAxis(it, axis) !== undefined);
+  const explicitSum = explicits.reduce((sum, it) => sum + (explicitAxis(it, axis) ?? 0), 0);
+  const unconstrainedCount = placedItems.length - explicits.length;
+  return unconstrainedCount > 0 ? Math.max(0, (usableMain - explicitSum) / unconstrainedCount) : 0;
+}
+
+function writeSize(store: unknown, id: string, axis: 'x' | 'y', value: number): void {
+  const s = store as {
+    getNode: (id: string) => { membership?: { placement?: Record<string, unknown> } } | undefined;
+    patchPlacement: (id: string, patch: Record<string, unknown>) => void;
+  };
+  const existing = (s.getNode(id)?.membership?.placement?.size ?? {}) as { w?: number; h?: number };
+  s.patchPlacement(id, {
+    size: axis === 'x' ? { ...existing, w: value } : { ...existing, h: value },
+  });
 }
 
 /** Capacity-selected subset both `layout` and `dispatchAffordance` must agree
@@ -189,7 +228,10 @@ export const stripStrategy: LayoutStrategy<void, string> = {
             rect: { x: x + w - 2, y, w: 4, h },
             cursor: 'ew-resize',
             childId: item.id,
-            affects: [item.id],
+            affects:
+              cfg.resizeMode === 'neighbor' && placedItems[i + 1]
+                ? [item.id, placedItems[i + 1]!.id]
+                : [item.id],
             bounds: boundsFor(item, w, placedItems, 'x', usableMain),
           });
         }
@@ -210,7 +252,10 @@ export const stripStrategy: LayoutStrategy<void, string> = {
             rect: { x, y: y + h - 2, w, h: 4 },
             cursor: 'ns-resize',
             childId: item.id,
-            affects: [item.id],
+            affects:
+              cfg.resizeMode === 'neighbor' && placedItems[i + 1]
+                ? [item.id, placedItems[i + 1]!.id]
+                : [item.id],
             bounds: boundsFor(item, h, placedItems, 'y', usableMain),
           });
         }
@@ -249,14 +294,32 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const main = axis === 'x' ? container.w : container.h;
     const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
 
-    let base = explicitAxis(item, axis);
-    if (base === undefined) {
-      const explicits = placedItems.filter((it) => explicitAxis(it, axis) !== undefined);
-      const explicitSum = explicits.reduce((s, it) => s + (explicitAxis(it, axis) ?? 0), 0);
-      const unconstrainedCount = placedItems.length - explicits.length;
-      base =
-        unconstrainedCount > 0 ? Math.max(0, (usableMain - explicitSum) / unconstrainedCount) : 0;
+    if (cfg.resizeMode === 'neighbor') {
+      const next = placedItems[placedItems.indexOf(item) + 1];
+      // Affordances are only emitted on non-last children, so a missing
+      // neighbor means a caller-built event; there is nothing to pair with.
+      if (!next) return;
+
+      const baseA = baseExtent(item, placedItems, axis, usableMain);
+      const baseB = baseExtent(next, placedItems, axis, usableMain);
+      const minA = effectiveMinAxis(item, axis);
+      const maxA = effectiveMaxAxis(item, axis);
+      const minB = effectiveMinAxis(next, axis);
+      const maxB = effectiveMaxAxis(next, axis);
+
+      let d = delta;
+      if (baseA + d < minA) d = minA - baseA;
+      if (maxA !== undefined && baseA + d > maxA) d = maxA - baseA;
+      if (baseB - d < minB) d = baseB - minB;
+      if (maxB !== undefined && baseB - d > maxB) d = baseB - maxB;
+      if (d === 0) return;
+
+      writeSize(store, childId as string, axis, baseA + d);
+      writeSize(store, next.id, axis, baseB - d);
+      return;
     }
+
+    const base = baseExtent(item, placedItems, axis, usableMain);
 
     let next = base + delta;
     const min = effectiveMinAxis(item, axis);
@@ -271,22 +334,6 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     if (next < min) next = min;
     if (max !== undefined && next > max) next = max;
 
-    const node = (
-      store as unknown as {
-        getNode: (
-          id: string,
-        ) => { membership?: { placement?: Record<string, unknown> } } | undefined;
-      }
-    ).getNode(childId as string);
-    const existingSize = (node?.membership?.placement?.size ?? {}) as {
-      w?: number;
-      h?: number;
-    };
-    const patch = axis === 'x' ? { ...existingSize, w: next } : { ...existingSize, h: next };
-    (
-      store as unknown as {
-        patchPlacement: (id: string, patch: Record<string, unknown>) => void;
-      }
-    ).patchPlacement(childId as string, { size: patch });
+    writeSize(store, childId as string, axis, next);
   },
 };

@@ -35,7 +35,7 @@ describe('a child the container state predates is still laid out', () => {
   };
 
   it('places a panel registered after store.split built the tree', () => {
-    const { s, root, p1 } = build();
+    const { s, p1 } = build();
     s.split(p1, { direction: 'x', into: 2, groupId: asNodeId('g'), newIds: [asNodeId('p2')] });
 
     const parent = s.getNode(p1)?.membership?.parentId as NodeId;
@@ -63,7 +63,7 @@ describe('a child the container state predates is still laid out', () => {
   });
 
   it('places a panel the grid strategy never saw seeded either', () => {
-    const { s, root, p1 } = build();
+    const { s, root } = build();
     s.setStrategy(root, 'grid');
     const late = asNodeId('late');
     s.registerNode(createNode({ kind: 'panel', focus: true, id: late, parentId: root }));

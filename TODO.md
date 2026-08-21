@@ -396,15 +396,22 @@ five are what a consumer would still have to build.
   `aria-valuenow` / an accessible name, arrow keys stepping through the
   existing `dispatchAffordance` path, and a labelled region per panel.
 
-- **Two-sided gutter drags.** Strip's `dispatchAffordance` writes
-  `placement.size` to the child before the gutter only
-  (`src/layout/strip.ts:225-241`); the delta is absorbed implicitly by
-  whichever siblings happen to be unconstrained, redistributed across all of
-  them rather than the immediate neighbor. That is the right default for a
-  fill row, but it is not how a splitter behaves — dragging one seam visibly
-  moves panes far down the stack. Wants a strip config for the pairing mode,
-  where a drag writes explicit sizes to both neighbors and leaves the rest
-  alone.
+- **Shipped: `resizeMode: 'neighbor'`.** Strip's default still writes only the
+  dragged child and lets the delta be absorbed by whichever siblings are
+  unconstrained — right for a fill row, wrong for a splitter, where dragging
+  one seam visibly moved panes far down the stack. Under `'neighbor'` the drag
+  writes explicit sizes to the dragged child and the one after it and leaves
+  the rest alone; total extent is conserved, and the delta stops at whichever
+  of the two neighbors binds first rather than spilling past it. The affordance
+  reports `affects: [child, next]` in this mode, so resize-lock suppression
+  covers both panes without the React layer branching on config.
+
+  Default unchanged, so this is additive.
+
+  Grid's equivalent — a gutter that writes `span` — is still open, and is the
+  same pairing semantics applied to cell counts. Build it against this rather
+  than reinventing the clamping. Fold in the `patchPlacement` span lock-gate
+  then.
 
 ## Wishlist: hosting an app that already has a workspace store [HIGH]
 
