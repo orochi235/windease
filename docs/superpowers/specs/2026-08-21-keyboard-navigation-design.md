@@ -215,11 +215,44 @@ concurrently. The split:
   pointer-only today — no `tabIndex`, no keydown, and it dispatches only
   `kind: 'drag'`.
 
-Two hooks for it already exist and are **dead**: `LayoutEvent.kind` admits
-`'key'` with `payload.key` (`layout-types.ts:127`), and `'keypress'` is a
-`BuiltinAffordanceKind` (`layout-types.ts:71`). Nothing constructs or handles
-either. They are the seam for keyboard-operable affordances; if that work does
-not use them, delete them rather than leaving a third dead declaration.
+**Keyboard resize is a synthesized drag, not a routed key.** The adapter
+translates an arrow press into `{ kind: 'drag', payload: { dx: step } }`.
+Strategies need no keyboard code at all.
+
+Four reasons, in order of weight:
+
+- **It inherits the clamping.** Stepping runs the same write path as a pointer
+  drag, including the ceiling → min → max order fixed in `f5406ac`. Routing
+  `kind: 'key'` would mean a second clamp inside the function that just had a
+  two-clamp disagreement bug.
+- **The affordance fields make strategy-private knowledge public.** Once a
+  strategy emits `valueNow` / `valueMin` / `valueMax`, the adapter can compute
+  proportional steps itself. Routing keys buys access to knowledge that the
+  field work is in the act of publishing.
+- **Coarse and fine are adapter concerns.** `Shift+Arrow` is a larger `dx`.
+- **Semantic snapping should be a command, not an arrow modifier.** "Equalize
+  panes" is more discoverable and more useful as a discrete keyboard command
+  than as an arrow key that jumps to a third. The capability routing would buy
+  is better served elsewhere, so little is given up.
+
+Avoiding a concurrent edit to `dispatchAffordance` is a real benefit but not a
+reason; the design reasons carry it.
+
+**Disposition of the two dead hooks**, which this decision leaves unused:
+
+- `'keypress'` in `BuiltinAffordanceKind` (`layout-types.ts:71`) — **delete.**
+  `Affordance.kind` is `BuiltinAffordanceKind | string` (`:75`), so the union
+  member is documentation, not enforcement, and removing it is invisible to
+  every use site.
+- `LayoutEvent.kind: 'key'` with `payload.key` (`:127`) — **mark
+  `@deprecated`, delete at 2.0.0.** That union is enforced, so narrowing it is
+  breaking, and a major bump to retire a dead type literal is not worth it.
+  Deprecating stops it reading as a live extension point without the break.
+
+**Hitting a limit must be perceivable.** Neither clamp path signals overflow
+yet, and that is a separate wishlist item. Until it exists, the adapter detects
+a floor by comparing `valueNow` before and after the synthesized drag and
+announces the boundary when it did not move.
 
 **Affordance handles must not become tab stops.** A sixteen-pane workbench has
 fifteen gutters, and putting each in the tab order recreates exactly the problem
