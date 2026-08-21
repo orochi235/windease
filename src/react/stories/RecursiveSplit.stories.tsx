@@ -29,7 +29,7 @@ function buildTree(): Store {
   s.registerNode(
     createNode({
       kind: 'zone',
-      container: { strategyId: 'strip', config: { axis: 'x', gap: 6 } },
+      container: { strategyId: 'strip', config: { axis: 'x', gap: 6, fill: true } },
       id: rs,
     }),
   );
