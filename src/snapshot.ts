@@ -1,9 +1,9 @@
-import { InvariantViolationError, WindeaseError } from './errors.js';
+import { InvariantViolationError, NodeNotFoundError, WindeaseError } from './errors.js';
 import { type LockSet, resolveLock } from './lock.js';
 import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
-import { asNodeId, type Node, type NodeKind } from './node.js';
+import { asNodeId, type Node, type NodeId, type NodeKind } from './node.js';
 import { Store } from './store.js';
 import { trace } from './trace.js';
 
@@ -40,6 +40,12 @@ export interface SerializedStore {
   nodes: SerializedNode[];
   rootIds: string[];
   focusedId: string | null;
+  /**
+   * Present only on a subtree snapshot: the placement the root held in the
+   * parent it was serialized out of. `graft` restores it; `deserialize`
+   * ignores it, since a store root has no parent to be placed in.
+   */
+  rootPlacement?: Record<string, unknown>;
 }
 
 function serializeNode(node: Node): SerializedNode {
@@ -75,13 +81,20 @@ function serializeNode(node: Node): SerializedNode {
   return out;
 }
 
+export interface SerializeOptions {
+  /** Serialize only this node and its descendants. */
+  root?: NodeId;
+}
+
 /**
  * Serialize a Store into a v5 snapshot. Destroyed nodes and
  * transit state are deliberately not included — see spec section 8.
+ * Pass `{ root }` to serialize only that node's subtree.
  *
  * @group Snapshots
  */
-export function serialize(store: Store): SerializedStore {
+export function serialize(store: Store, opts?: SerializeOptions): SerializedStore {
+  if (opts?.root !== undefined) return serializeSubtree(store, opts.root);
   const nodes: SerializedNode[] = [];
   for (const node of store.nodesTruth.values()) {
     if (node.lifecycle.state === 'destroyed') continue;
@@ -93,6 +106,39 @@ export function serialize(store: Store): SerializedStore {
     rootIds: [...store.rootIdsTruth],
     focusedId: store.focusedIdTruth,
   };
+}
+
+function serializeSubtree(store: Store, rootId: NodeId): SerializedStore {
+  const root = store.getNodeTruth(rootId);
+  if (!root) throw new NodeNotFoundError(rootId);
+
+  const nodes: SerializedNode[] = [];
+  const ids = new Set<string>();
+  const visit = (id: NodeId): void => {
+    const node = store.getNodeTruth(id);
+    if (!node || node.lifecycle.state === 'destroyed') return;
+    ids.add(node.id);
+    nodes.push(serializeNode(node));
+    if (node.container) {
+      for (const cid of node.container.childOrder) visit(cid);
+    }
+  };
+  visit(rootId);
+
+  // Within this snapshot the subtree root IS a root: its parent is not here.
+  const rootEntry = nodes[0] as SerializedNode;
+  const rootPlacement = rootEntry.membership?.placement;
+  delete rootEntry.membership;
+
+  const focusedId = store.focusedIdTruth;
+  const out: SerializedStore = {
+    version: 5,
+    nodes,
+    rootIds: [rootId],
+    focusedId: focusedId !== null && ids.has(focusedId) ? focusedId : null,
+  };
+  if (rootPlacement && Object.keys(rootPlacement).length > 0) out.rootPlacement = rootPlacement;
+  return out;
 }
 
 /**
