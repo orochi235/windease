@@ -1,4 +1,10 @@
-import { InvariantViolationError, NodeNotFoundError, WindeaseError } from './errors.js';
+import {
+  DuplicateNodeError,
+  InvariantViolationError,
+  LockedError,
+  NodeNotFoundError,
+  WindeaseError,
+} from './errors.js';
 import { type LockSet, resolveLock } from './lock.js';
 import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
@@ -139,6 +145,61 @@ function serializeSubtree(store: Store, rootId: NodeId): SerializedStore {
   };
   if (rootPlacement && Object.keys(rootPlacement).length > 0) out.rootPlacement = rootPlacement;
   return out;
+}
+
+export interface GraftOptions {
+  /** Index within the target parent's `childOrder`. Appends when omitted. */
+  at?: number;
+  /** Bypass the target parent's `accept` lock. */
+  force?: boolean;
+}
+
+/**
+ * Attach a subtree snapshot as a child of `parentId`, returning the attached
+ * root's id. Every id in the snapshot must be absent from the store — a
+ * collision throws rather than remapping, because a snapshot's ids are the
+ * host's own record keys.
+ *
+ * Deliberately does not move focus, even when the snapshot names a focused
+ * node.
+ *
+ * @group Snapshots
+ */
+export function graft(store: Store, snap: unknown, parentId: NodeId, opts?: GraftOptions): NodeId {
+  const parsed = parseSnapshot(snap);
+  if (parsed.rootIds.length !== 1) {
+    throw new InvariantViolationError(
+      'graft-multi-root',
+      `graft needs a snapshot with exactly one root, got ${parsed.rootIds.length}`,
+      { rootIds: parsed.rootIds },
+    );
+  }
+  const rootId = asNodeId(parsed.rootIds[0] as string);
+
+  const parent = store.getNodeTruth(parentId);
+  if (!parent) throw new NodeNotFoundError(parentId);
+  if (!parent.container) {
+    throw new InvariantViolationError(
+      'parent-not-container',
+      `graft target ${parentId} has no container capability`,
+      { parentId },
+    );
+  }
+  if (opts?.force !== true && store.isLocked(parentId, 'accept')) {
+    throw new LockedError(parentId, 'accept', 'graft');
+  }
+  for (const sn of parsed.nodes) {
+    if (store.getNodeTruth(asNodeId(sn.id))) {
+      throw new DuplicateNodeError(asNodeId(sn.id));
+    }
+  }
+  validateSnapshotLinks(parsed.nodes);
+
+  trace(
+    'store',
+    `graft: ${rootId} (${parsed.nodes.length} nodes) → ${parentId}@${opts?.at ?? 'end'}`,
+  );
+  return rootId;
 }
 
 /**

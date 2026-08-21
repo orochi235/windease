@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { createNode } from './constructors.js';
-import { NodeNotFoundError } from './errors.js';
+import {
+  DuplicateNodeError,
+  InvariantViolationError,
+  LockedError,
+  NodeNotFoundError,
+} from './errors.js';
 import { asNodeId } from './node.js';
-import { deserialize, serialize } from './snapshot.js';
+import { deserialize, graft, serialize } from './snapshot.js';
 import { Store } from './store.js';
+import { recordEvents } from './test-utils/record-events.js';
 
 /** root `z` → `a` (container, holds `a1`, `a2`) and `b`. */
 function buildTree(): Store {
@@ -97,5 +103,56 @@ describe('serialize with { root }', () => {
     const node = s.getNodeTruth(asNodeId('a'));
     node?.lifecycle.send('destroy');
     expect(() => serialize(s, { root: asNodeId('a') })).toThrow(NodeNotFoundError);
+  });
+});
+
+describe('graft validation', () => {
+  it('rejects a colliding id and leaves the store completely untouched', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    const rec = recordEvents(s, 'node.registered', 'node.unregistered', 'node.reordered');
+
+    expect(() => graft(s, snap, asNodeId('z'))).toThrow(DuplicateNodeError);
+
+    expect(rec.log).toHaveLength(0);
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['a', 'b']);
+    rec.stop();
+  });
+
+  it('throws when the target parent does not exist', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    expect(() => graft(s, snap, asNodeId('nope'))).toThrow(NodeNotFoundError);
+  });
+
+  it('throws when the target parent has no container', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    expect(() => graft(s, snap, asNodeId('b'))).toThrow(InvariantViolationError);
+  });
+
+  it('throws when the snapshot has more than one root', () => {
+    const s = buildTree();
+    const two = new Store();
+    two.registerNode(
+      createNode({ id: asNodeId('r1'), container: { strategyId: 'strip', config: {} } }),
+    );
+    two.registerNode(createNode({ id: asNodeId('r2') }));
+    const snap = serialize(two);
+    expect(snap.rootIds).toEqual(['r1', 'r2']);
+
+    expect(() => graft(s, snap, asNodeId('z'))).toThrow(InvariantViolationError);
+  });
+
+  it('refuses an accept-locked parent, and force overrides', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    s.setLock(asNodeId('z'), { accept: true });
+
+    expect(() => graft(s, snap, asNodeId('z'))).toThrow(LockedError);
+    expect(graft(s, snap, asNodeId('z'), { force: true })).toBe('a');
   });
 });
