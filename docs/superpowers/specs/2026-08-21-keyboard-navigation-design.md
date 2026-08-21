@@ -120,6 +120,13 @@ either story.
 Threshold is 1px, not "greater than zero": a sub-pixel pane is equally
 unreachable, and exact-zero comparisons on float geometry are unreliable.
 
+It stays 1px even though `3e82953` — which stopped `minSize` flooring an
+explicit size, so collapse works in userland — makes small-but-nonzero renders
+reachable that previously could not occur. The rule now has real cases rather
+than theoretical ones. A pane rendered at 2px is focusable and effectively
+invisible, and that is accepted: a consumer writing a size of 2 is choosing it,
+and any threshold above 1 is an arbitrary number defended by nothing.
+
 **A limit worth stating.** Excluding a node from the navigable set does not make
 content inside it untabbable — native Tab still reaches focusable descendants of
 a zero-area box. Windease will not force `inert`, since a consumer may size a
