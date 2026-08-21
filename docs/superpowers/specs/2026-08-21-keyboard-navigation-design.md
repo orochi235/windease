@@ -97,6 +97,39 @@ cross-axis penalty; take the minimum. Ties break toward lower `childOrder`. **No
 wrapping** — running out of candidates returns null, so the user is never
 teleported across the workspace.
 
+### The navigable set
+
+Visible leaves whose placement rect measures at least 1×1. **Zero-area nodes are
+skipped, whatever produced them** — a focus target with no pixels means focus
+leaves the screen while a screen reader still announces a pane.
+
+The rule is general rather than a collapse special case, because strip produces
+zero-extent placements today with no collapse involved: `defaultItemSize ?? 0`
+(`strip.ts:95`) becomes `fallbackMain` at `:135` whenever `fill` is off and a
+child has no `preferredSize`. That is the documented fixed-size-toolbar path.
+
+No current story reaches it. `Strip.stories.tsx` omits `fill` but gives every
+child an explicit `preferredSize`; `Playground.stories.tsx:37` and
+`RecursiveSplit.stories.tsx:32` both declare a `fill`-less root and are then
+rescued by `store.split`, which merge-patches `fill: true` into strip configs it
+touches (`split.ts:114`). Their configs therefore read as if `fill` were off
+when it is on by the time anything renders — worth knowing before "simplifying"
+either story.
+
+Threshold is 1px, not "greater than zero": a sub-pixel pane is equally
+unreachable, and exact-zero comparisons on float geometry are unreliable.
+
+**A limit worth stating.** Excluding a node from the navigable set does not make
+content inside it untabbable — native Tab still reaches focusable descendants of
+a zero-area box. Windease will not force `inert`, since a consumer may size a
+pane to zero deliberately; a consumer wanting that content unreachable applies
+`inert` itself.
+
+Collapsed panes need no special handling: collapse renders a header bar at
+`config.collapsedSize ?? hints.minSize[axis]`, so a collapsed node is a normal
+target at a smaller size. Only a degenerate config that resolves to zero falls
+to the rule above.
+
 ### Geometry
 
 ```ts
