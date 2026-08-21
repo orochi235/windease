@@ -185,17 +185,49 @@ zone. Keeping it narrow matters because a canvas host has no live region.
 
 ## Accessible name and roles
 
-`meta.title` becomes a **reserved key**, documented as the accessible name, with
-a fallback to `kind` plus index. `node.meta` is node-intrinsic and survives
-`moveNode`, which is the right lifetime for a window's name, and this adds no
-new surface to `Node`. It follows the existing precedent of reserved keys on
-`membership.placement` (`pinned`, `locked`, `size`).
+Split across the seam, per the DOM-independence tenet in CLAUDE.md: **core
+carries the name, the adapter maps it onto ARIA.**
 
-Containers and window wrappers get `role="group"` with `aria-label`.
+Core — `meta.title` becomes a **reserved key**, documented as the accessible
+name, with a fallback to `kind` plus index. `node.meta` is node-intrinsic and
+survives `moveNode`, which is the right lifetime for a window's name, and this
+adds no new surface to `Node`. It follows the existing precedent of reserved
+keys on `membership.placement` (`pinned`, `locked`, `size`).
+
+Adapter — containers and window wrappers get `role="group"` with `aria-label`
+drawn from that name.
 
 Explicitly rejected: `role="application"`, which suppresses screen-reader browse
 mode, and `role="region"` on every window, which floods landmark navigation. A
 consumer wanting a landmark can label a top-level zone itself.
+
+## Boundary with affordance work
+
+Keyboard-operable affordances are a second keyboard surface, developed
+concurrently. The split:
+
+- **Core fields are the strategy's** — `orientation`, `valueNow`, `valueMin`,
+  `valueMax`, `label` on `Affordance`. The strategy already computes those
+  numbers in `dispatchAffordance`, so it emits them rather than making React
+  re-derive them. No `aria`-prefixed names in core; the adapter does that
+  mapping.
+- **`AffordanceHandle` (`Container.tsx:334`) is this workstream's.** It is
+  pointer-only today — no `tabIndex`, no keydown, and it dispatches only
+  `kind: 'drag'`.
+
+Two hooks for it already exist and are **dead**: `LayoutEvent.kind` admits
+`'key'` with `payload.key` (`layout-types.ts:127`), and `'keypress'` is a
+`BuiltinAffordanceKind` (`layout-types.ts:71`). Nothing constructs or handles
+either. They are the seam for keyboard-operable affordances; if that work does
+not use them, delete them rather than leaving a third dead declaration.
+
+**Affordance handles must not become tab stops.** A sixteen-pane workbench has
+fifteen gutters, and putting each in the tab order recreates exactly the problem
+roving tabindex solves for windows. They get `tabIndex=-1` and are reached from
+the focused window, not by tabbing.
+
+No collision with window navigation: arrows are gated on the event target
+*being* a window wrapper, and a handle is not one.
 
 ## Reduced motion
 
