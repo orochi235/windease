@@ -42,6 +42,39 @@ export interface SerializedStore {
   focusedId: string | null;
 }
 
+function serializeNode(node: Node): SerializedNode {
+  const out: SerializedNode = {
+    id: node.id,
+    lifecycle: node.lifecycle.state as 'mounted' | 'visible' | 'hidden',
+  };
+  if (node.kind !== undefined) out.kind = node.kind;
+  if (node.meta && Object.keys(node.meta).length > 0) out.meta = { ...node.meta };
+  if (node.activity && Object.keys(node.activity).length > 0) out.activity = { ...node.activity };
+  if (node.hints && Object.keys(node.hints).length > 0) out.hints = { ...node.hints };
+  if (node.order !== undefined) out.order = node.order;
+  if (node.container) {
+    const c: SerializedNode['container'] = {
+      strategyId: node.container.strategyId,
+      config: node.container.config,
+      childOrder: [...node.container.childOrder],
+      allowsPinning: node.container.allowsPinning,
+    };
+    if (node.container.state !== undefined) c.state = node.container.state;
+    out.container = c;
+  }
+  if (node.membership) {
+    out.membership = {
+      parentId: node.membership.parentId,
+      placement: { ...node.membership.placement },
+    };
+  }
+  if (node.focus) {
+    out.focus = { state: node.focus.state };
+  }
+  if (node.lock && Object.keys(node.lock).length > 0) out.lock = { ...node.lock };
+  return out;
+}
+
 /**
  * Serialize a Store into a v5 snapshot. Destroyed nodes and
  * transit state are deliberately not included — see spec section 8.
@@ -52,36 +85,7 @@ export function serialize(store: Store): SerializedStore {
   const nodes: SerializedNode[] = [];
   for (const node of store.nodesTruth.values()) {
     if (node.lifecycle.state === 'destroyed') continue;
-    const out: SerializedNode = {
-      id: node.id,
-      lifecycle: node.lifecycle.state as 'mounted' | 'visible' | 'hidden',
-    };
-    if (node.kind !== undefined) out.kind = node.kind;
-    if (node.meta && Object.keys(node.meta).length > 0) out.meta = { ...node.meta };
-    if (node.activity && Object.keys(node.activity).length > 0) out.activity = { ...node.activity };
-    if (node.hints && Object.keys(node.hints).length > 0) out.hints = { ...node.hints };
-    if (node.order !== undefined) out.order = node.order;
-    if (node.container) {
-      const c: SerializedNode['container'] = {
-        strategyId: node.container.strategyId,
-        config: node.container.config,
-        childOrder: [...node.container.childOrder],
-        allowsPinning: node.container.allowsPinning,
-      };
-      if (node.container.state !== undefined) c.state = node.container.state;
-      out.container = c;
-    }
-    if (node.membership) {
-      out.membership = {
-        parentId: node.membership.parentId,
-        placement: { ...node.membership.placement },
-      };
-    }
-    if (node.focus) {
-      out.focus = { state: node.focus.state };
-    }
-    if (node.lock && Object.keys(node.lock).length > 0) out.lock = { ...node.lock };
-    nodes.push(out);
+    nodes.push(serializeNode(node));
   }
   return {
     version: 5,
