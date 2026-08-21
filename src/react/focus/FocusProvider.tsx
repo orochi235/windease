@@ -1,6 +1,8 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef } from 'react';
-import { asNodeId, type NodeId } from '../../index.js';
+import { asNodeId, type NavIntent, type NodeId, resolveNavigation } from '../../index.js';
 import { useStore } from '../Provider.js';
+import { useStrategyRegistry } from '../strategies.js';
+import { useGeometrySource } from './useGeometrySource.js';
 
 interface FocusBinding {
   /** True while the adapter is writing DOM focus from model focus; the
@@ -54,6 +56,40 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       }
     });
   }, [store]);
+
+  const geometry = useGeometrySource();
+  const strategies = useStrategyRegistry();
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const from = store.focusedId;
+      if (!from) return;
+      const target = e.target as Element | null;
+      const onWrapper = target instanceof HTMLElement && target.hasAttribute('data-node');
+
+      let intent: NavIntent | null = null;
+      if (e.key === 'F6') {
+        intent = e.shiftKey ? 'cyclePrev' : 'cycleNext';
+      } else if (onWrapper) {
+        if (e.key === 'ArrowLeft') intent = 'left';
+        else if (e.key === 'ArrowRight') intent = 'right';
+        else if (e.key === 'ArrowUp') intent = 'up';
+        else if (e.key === 'ArrowDown') intent = 'down';
+        else if (e.key === 'Home') intent = 'first';
+        else if (e.key === 'End') intent = 'last';
+      }
+      if (!intent) return;
+
+      const to = resolveNavigation({ store, from, intent, geometry, strategies });
+      if (!to) return;
+      e.preventDefault();
+      store.focusNode(to);
+    };
+    el.addEventListener('keydown', onKeyDown);
+    return () => el.removeEventListener('keydown', onKeyDown);
+  }, [store, geometry, strategies]);
 
   return (
     <FocusBindingContext.Provider value={binding}>
