@@ -263,7 +263,10 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   `<Zone parentId kind="group">`, which keeps `.windease-group` and
   `chrome['group']` working.
 
-## Shipped in 1.2.0
+## On main, unreleased — ships as 1.2.0
+
+Not on npm yet: `package.json` still says 1.1.0 and no tag exists. The subtree
+serialize/graft work goes out under the same 1.2.0.
 
 - **Keyboard navigation and focus.** The layout is now reachable by keyboard
   and legible to a screen reader, at a cost of exactly one Tab stop for the

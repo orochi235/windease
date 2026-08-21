@@ -1,4 +1,4 @@
-# Handoff — keyboard navigation, implemented, awaiting release
+# Handoff — keyboard navigation, implemented and merged to main
 
 Pointer, not a copy. The design is
 `docs/superpowers/specs/2026-08-21-keyboard-navigation-design.md` and the
@@ -6,15 +6,14 @@ thirteen tasks are `docs/superpowers/plans/2026-08-21-keyboard-navigation.md`.
 This file carries only what they can't.
 
 - **Worktree:** `/Users/mike/src/windease/.claude/worktrees/keyboard-nav`
-- **Branch:** `feat/keyboard-navigation`, rebased onto `main` at `fa8c07e`
-- **Green:** 793 tests / 73 files, 20 e2e, typecheck, lint, build
-- **State:** all thirteen tasks implemented and committed, `a2be95b..8c6c610`.
+- **Branch:** `feat/keyboard-navigation`, fast-forwarded into local `main`
+- **Green:** 798 tests / 74 files, 20 e2e, typecheck, lint, build
+- **State:** all thirteen tasks implemented; `main` is at the branch tip.
 
 ## What is left
 
-`npm version minor` only. Its `postversion` pushes the branch and tag, and the
-tag triggers the Release workflow, which publishes via OIDC — so it is
-deliberately not run. Not yet pushed either.
+Push and release, both held for the user. `main` is ahead of `origin/main`,
+and no version has been minted — see Version below.
 
 ## Three defects the browser found that jsdom could not
 
@@ -53,7 +52,15 @@ reintroduce.
 announces the pane name for free, so what is uncovered is a change with no
 focus movement (a successor after a destroy, a pane relocated). Needs a live
 region, which the design deliberately did not specify. Recorded in `TODO.md`
-under Shipped in 1.2.0.
+under "On main, unreleased".
+
+## Version
+
+1.2.0 when it is minted, shared with the subtree serialize/graft work. Not
+minted: `package.json` and `src/index.ts`'s `VERSION` both still read 1.1.0.
+Deliberate — `npm version minor`'s `postversion` pushes the tag, which
+triggers the Release workflow to publish via OIDC. That is the user's call and
+they have said not yet.
 
 ## Coordination
 
