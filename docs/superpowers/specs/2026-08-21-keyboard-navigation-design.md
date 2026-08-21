@@ -207,10 +207,10 @@ Keyboard-operable affordances are a second keyboard surface, developed
 concurrently. The split:
 
 - **Core fields are the strategy's** — `orientation`, `valueNow`, `valueMin`,
-  `valueMax`, `label` on `Affordance`. The strategy already computes those
-  numbers in `dispatchAffordance`, so it emits them rather than making React
-  re-derive them. No `aria`-prefixed names in core; the adapter does that
-  mapping.
+  `valueMax`, `atMin`, `atMax`, `label` on `Affordance`. The strategy already
+  computes those numbers in `dispatchAffordance`, so it emits them rather than
+  making React re-derive them. No `aria`-prefixed names in core; the adapter
+  does that mapping.
 - **`AffordanceHandle` (`Container.tsx:334`) is this workstream's.** It is
   pointer-only today — no `tabIndex`, no keydown, and it dispatches only
   `kind: 'drag'`.
@@ -238,21 +238,39 @@ Four reasons, in order of weight:
 Avoiding a concurrent edit to `dispatchAffordance` is a real benefit but not a
 reason; the design reasons carry it.
 
-**Disposition of the two dead hooks**, which this decision leaves unused:
+**Both dead hooks are deprecated, not deleted** — done in `f8ccf82`, removed at
+2.0.0. Deleting `'keypress'` looked safe because `Affordance.kind` is
+`BuiltinAffordanceKind | string`, but that `| string` only protects assignment
+*into* the field: `BuiltinAffordanceKind` is itself exported (`index.ts:43`), so
+a consumer annotating against it directly breaks exactly as narrowing
+`LayoutEvent.kind` would. Same break, rarer. Deprecation stops both reading as
+live extension points without either break.
 
-- `'keypress'` in `BuiltinAffordanceKind` (`layout-types.ts:71`) — **delete.**
-  `Affordance.kind` is `BuiltinAffordanceKind | string` (`:75`), so the union
-  member is documentation, not enforcement, and removing it is invisible to
-  every use site.
-- `LayoutEvent.kind: 'key'` with `payload.key` (`:127`) — **mark
-  `@deprecated`, delete at 2.0.0.** That union is enforced, so narrowing it is
-  breaking, and a major bump to retire a dead type literal is not worth it.
-  Deprecating stops it reading as a live extension point without the break.
+### Bounds are effective, not raw
 
-**Hitting a limit must be perceivable.** Neither clamp path signals overflow
-yet, and that is a separate wishlist item. Until it exists, the adapter detects
-a floor by comparing `valueNow` before and after the synthesized drag and
-announces the boundary when it did not move.
+`valueMin` / `valueMax` carry the **post-clamp effective** bounds — for a
+crowded row the ceiling is `usable - sum(other mins)`, tighter than the child's
+own `maxSize` — not the raw hints.
+
+Two reasons, and they agree. `aria-valuemin` / `aria-valuemax` must describe the
+range the user can actually reach; advertising a maximum the widget refuses to
+reach makes the screen reader lie. And computing the effective ceiling
+adapter-side would re-derive in React what the strategy already computed, which
+is the thing the DOM-independence tenet forbids.
+
+### Hitting a limit must be perceivable
+
+The strategy emits `atMin` / `atMax` on the affordance, and the adapter
+announces the boundary from those.
+
+Not by diffing `valueNow` across the synthesized drag: a sub-pixel step that
+rounds to no change would announce a boundary that isn't there. Not by
+comparing `valueNow` against `valueMin` either — that is float equality with an
+epsilon, where the strategy that performed the clamp simply knows.
+
+Distinct from the container-level overflow flag on `LayoutResult`
+(docked-palettes wishlist). A drag can hit a floor in a row that fits fine, so
+neither signal replaces the other.
 
 **Affordance handles must not become tab stops.** A sixteen-pane workbench has
 fifteen gutters, and putting each in the tab order recreates exactly the problem
