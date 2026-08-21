@@ -1,4 +1,9 @@
-export { type ChildSort, type ChildSortEntry, defaultChildSort } from './child-sort.js';
+export {
+  type ChildSort,
+  type ChildSortEntry,
+  defaultChildSort,
+  preserveStoreOrder,
+} from './child-sort.js';
 export { type CreateNodeInput, createNode } from './constructors.js';
 export { ContainerHost, type ContainerLayout } from './container-host.js';
 export {

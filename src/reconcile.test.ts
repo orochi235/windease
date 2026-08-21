@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { preserveStoreOrder } from './child-sort.js';
 import { createNode } from './constructors.js';
 import { asNodeId } from './node.js';
 import {
@@ -39,6 +40,31 @@ const seen = (ids: string[]) => ids.map((id) => ({ id: asNodeId(id), order: unde
 const order = (s: Store) => s.getContainerView(Z)?.childOrder;
 
 describe('reconcile decisions, with no binding present', () => {
+  describe('childOrder — preserveStoreOrder', () => {
+    it("keeps a user's reorder against a host re-rendering its original order", () => {
+      const s = build();
+      s.reorderInParent(asNodeId('c'), 0);
+      expect(order(s)).toEqual(['c', 'a', 'b']);
+      // The host still declares a, b, c -- it never learned about the drop.
+      reconcileChildOrder(s, Z, seen(['a', 'b', 'c']), { sort: preserveStoreOrder });
+      expect(order(s)).toEqual(['c', 'a', 'b']);
+    });
+
+    it('reverts that same reorder under defaultChildSort', () => {
+      const s = build();
+      s.reorderInParent(asNodeId('c'), 0);
+      reconcileChildOrder(s, Z, seen(['a', 'b', 'c']));
+      expect(order(s)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('still adopts a genuine change to the declared set', () => {
+      const s = build(['a', 'b']);
+      reconcileChildOrder(s, Z, seen(['a']), { sort: preserveStoreOrder });
+      // b went unobserved, so it keeps its store position rather than vanishing.
+      expect(order(s)).toEqual(['a', 'b']);
+    });
+  });
+
   describe('childOrder — skips under arrange', () => {
     it('writes the observed order', () => {
       const s = build();

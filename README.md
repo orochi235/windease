@@ -155,6 +155,34 @@ stateDiagram-v2
     focused --> blurred: blur
 ```
 
+## Who owns child order
+
+`<Zone>` reconciles its children's order from JSX child order on every render.
+That is what you want when the declared order *is* the truth, and wrong when
+the user rearranges things — a drop is reverted by the host's next render.
+
+Pass `preserveStoreOrder` to make declared order *initial* rather than
+authoritative:
+
+```tsx
+import { preserveStoreOrder } from 'windease/react';
+
+<Zone id={zoneId} sort={preserveStoreOrder}>
+  {workspaces.map((w) => (
+    <Panel key={w.id} id={w.id} />
+  ))}
+</Zone>
+```
+
+The host still decides which children exist; the store decides how they are
+arranged. Reconcile short-circuits, so no `setChildOrder` runs — you do not
+need an `arrange` lock, and you do not need to echo `node.reordered` back into
+your own state to keep the two in sync.
+
+Write your own `ChildSort` for anything in between: it receives the observed
+children with their `order` hints plus the current store order, and returns the
+final list.
+
 ## Drag and drop
 
 DnD is opt-in. Wrap your panel chrome in `<DragHandle>`, register each

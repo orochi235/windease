@@ -1,7 +1,12 @@
 // DnD. DragController and insertionIndex live in core; re-exported here so
 // `windease/react` consumers keep the import path they had before 0.10.
 
-export { type ChildSort, type ChildSortEntry, defaultChildSort } from '../child-sort.js';
+export {
+  type ChildSort,
+  type ChildSortEntry,
+  defaultChildSort,
+  preserveStoreOrder,
+} from '../child-sort.js';
 export type { DropTargetOptions } from '../dnd/DragController.js';
 export {
   type DragCancelReason,

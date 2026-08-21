@@ -403,6 +403,14 @@ a host with its own per-item undo stacks simply doesn't wire it.
   an `onChildOrderChange` intent the host commits, so "host declares, user
   rearranges" needs no round-trip.
 
+  **Mostly addressed.** `ChildSort` already receives the parent's current store
+  order as its second argument, and `<Zone>` already takes a `sort` prop, so the
+  uncontrolled half needed no new mechanism — only a name. `preserveStoreOrder`
+  ships it: reconcile short-circuits, no `setChildOrder` runs, no `arrange`
+  lock, no round-trip. Still open is the *controlled* half — an
+  `onChildOrderChange` intent for a host that wants to approve or transform a
+  reorder rather than just keep it.
+
 - **Subtree serialize / hydrate.** `serialize(store)` is whole-store
   (`src/snapshot.ts:51`). A host whose own saved states are per-item — one
   saved workspace, not the session — cannot round-trip a single node's
