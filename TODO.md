@@ -263,6 +263,29 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   `<Zone parentId kind="group">`, which keeps `.windease-group` and
   `chrome['group']` working.
 
+## Shipped in 1.2.0
+
+- **Keyboard navigation and focus.** The layout is now reachable by keyboard
+  and legible to a screen reader, at a cost of exactly one Tab stop for the
+  whole tree. Arrows and `Home`/`End` move between panes when the wrapper
+  itself has focus; `F6`/`Shift+F6` cycle from anywhere, including inside
+  content that eats the arrows. Tab is never intercepted.
+- **`focus.successor`.** Destroying or hiding the focused node names a
+  replacement — next sibling, previous sibling, the parent's remembered
+  child, the parent, then the first visible leaf — instead of dropping focus
+  to the document. `ContainerCap.lastFocusedId` backs the memory and is
+  deliberately session-only, not serialized.
+- **`LayoutStrategy.navigate?`.** A strategy can override directional
+  resolution for its own children: an id wins, `undefined` falls through to
+  the geometric search, `null` declares the direction dead there.
+- **`prefers-reduced-motion`** now suppresses the settle transition.
+
+Still missing: `announce()` ships on `FocusAdapter` with no call site. Moving
+real DOM focus announces the pane name for free, so what is left uncovered is
+the change with no accompanying focus movement — a successor chosen after a
+destroy, or a pane relocated to another zone. Needs a live region, which the
+keyboard-navigation design deliberately did not specify.
+
 ## Shipped in 1.1.0
 
 - **`container.added` event.** `ensureContainer` now emits

@@ -8,6 +8,7 @@ import {
   PinIndexError,
 } from './errors.js';
 import { TypedEmitter } from './events.js';
+import { chooseSuccessor } from './focus/successor.js';
 import { type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeId } from './node.js';
 import { placeRespectingPins } from './pinning.js';
@@ -77,6 +78,15 @@ export interface StoreEvents {
   /** A node that had no container gained one, via `ensureContainer`. Not
    *  emitted for a node registered with a container already on it. */
   'container.added': { id: NodeId; strategyId: string };
+  /**
+   * The store chose focus for you because the focused node went away. Never
+   * emitted for an explicit `focusNode`. `to` is null when nothing remained.
+   */
+  'focus.successor': {
+    from: NodeId;
+    to: NodeId | null;
+    reason: 'destroyed' | 'hidden' | 'moved';
+  };
   /**
    * A composite operation started. Bracket history pushes on this pair to get
    * one undo step for the whole operation: the `node.*` events are synchronous
@@ -293,7 +303,7 @@ export class Store {
       trace('store', `destroy cascade: ${id} → ${descendantIds.length} descendants`);
     }
 
-    if (this.focusedIdValue === id) this.focusedIdValue = null;
+    if (this.focusedIdValue === id) this.succeedFocus(id, 'destroyed');
     const parentId = node.membership?.parentId;
     this.detachAndRemove(id);
     if (parentId) this.clampPins(parentId);
@@ -330,6 +340,7 @@ export class Store {
       const idx = this.rootIdsArr.indexOf(id);
       if (idx >= 0) this.rootIdsArr.splice(idx, 1);
     }
+    this.forgetFocus(node.membership?.parentId, id);
     this.nodesMap.delete(id);
     this.publisher.markDirty(id, { bypass: true });
     this.publisher.markGlobalsDirty();
@@ -433,6 +444,13 @@ export class Store {
       from: 'claiming',
       to: transit.state,
     });
+
+    if (this.focusedIdValue) {
+      this.forgetFocus(fromParentId, this.focusedIdValue);
+      if (this.focusedIdValue === id || this.isDescendantOf(this.focusedIdValue, id)) {
+        this.rememberFocus(this.focusedIdValue);
+      }
+    }
 
     this.clampPins(fromParentId);
     this.clampPins(newParentId);
@@ -948,10 +966,51 @@ export class Store {
       from: prev,
       to: node.lifecycle.state,
     });
+    if (this.focusedIdValue === id) this.succeedFocus(id, 'hidden');
     this.scheduleNotify();
   }
 
   // ===== Focus =====
+
+  private succeedFocus(from: NodeId, reason: 'destroyed' | 'hidden' | 'moved'): void {
+    if (this.focusedIdValue !== from) return;
+    const to = chooseSuccessor(this, from);
+    this.focusedIdValue = null;
+    if (to) {
+      this.focusNode(to);
+    } else {
+      this.publisher.markGlobalsDirty();
+      this.scheduleNotify();
+    }
+    this.events.emit('focus.successor', { from, to, reason });
+    trace('store', `focus successor: ${from} → ${to ?? 'none'} (${reason})`);
+  }
+
+  private rememberFocus(id: NodeId): void {
+    let cursor = this.nodesMap.get(id)?.membership?.parentId;
+    while (cursor) {
+      const parent = this.nodesMap.get(cursor);
+      if (!parent?.container) break;
+      this.replaceContainer(cursor, (c) => ({ ...c, lastFocusedId: id }));
+      cursor = parent.membership?.parentId;
+    }
+  }
+
+  /** Drop `id` from every ancestor starting at `fromParentId` that remembers it. */
+  private forgetFocus(fromParentId: NodeId | undefined, id: NodeId): void {
+    let cursor = fromParentId;
+    while (cursor) {
+      const parent = this.nodesMap.get(cursor);
+      if (!parent?.container) break;
+      if (parent.container.lastFocusedId === id) {
+        this.replaceContainer(cursor, (c) => {
+          const { lastFocusedId: _dropped, ...rest } = c;
+          return rest;
+        });
+      }
+      cursor = parent.membership?.parentId;
+    }
+  }
 
   focusNode(id: NodeId): void {
     const target = this.requireNode(id);
@@ -983,6 +1042,7 @@ export class Store {
       to: 'focused',
     });
     this.focusedIdValue = id;
+    this.rememberFocus(id);
     this.publisher.markGlobalsDirty();
     this.scheduleNotify();
   }

@@ -9,6 +9,8 @@ import {
   DragHandle,
   DragProvider,
   defaultDragOverlay,
+  FocusProvider,
+  GeometryProvider,
   Provider,
   StrategyRegistryProvider,
 } from '../index.js';
@@ -128,6 +130,9 @@ function ZoneShell({ zoneId, chrome }: { zoneId: ReturnType<typeof asNodeId>; ch
 
 export const Playground: Story = () => {
   const store = useMemo(() => makeStore(), []);
+  useEffect(() => {
+    (window as unknown as { __store?: Store }).__store = store;
+  }, [store]);
   const [snapText, setSnapText] = useState('');
   const counter = useRef({ panel: 2, widget: 2, tool: 2 });
 
@@ -248,35 +253,44 @@ export const Playground: Story = () => {
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
-        <DragProvider dragOverlay={defaultDragOverlay}>
-          <div className="pg-root">
-            <div className="pg-toolbar">
-              <button type="button" onClick={() => addPanel(MAIN, 'panel')}>
-                + Panel → Main
-              </button>
-              <button type="button" onClick={() => addPanel(SIDEBAR, 'widget')}>
-                + Widget → Sidebar
-              </button>
-              <button type="button" onClick={() => addPanel(DOCK, 'tool')}>
-                + Tool → Dock
-              </button>
-              <button type="button" onClick={onSnap}>
-                Snapshot
-              </button>
-            </div>
-            <div className="pg-canvas">
-              <Container parentId={ROOT} chrome={chrome} className="windease-zone" affordances />
-            </div>
-            <p className="pg-hint">
-              Drag panels between Main / Sidebar / Dock. Resize the gutters between zones.{' '}
-              <code>Snapshot</code> dumps the store; copy and <code>deserialize</code> elsewhere to
-              rehydrate.
-            </p>
-            {snapText && (
-              <textarea className="pg-snap" readOnly value={snapText} spellCheck={false} />
-            )}
-          </div>
-        </DragProvider>
+        <GeometryProvider>
+          <FocusProvider>
+            <DragProvider dragOverlay={defaultDragOverlay}>
+              <div className="pg-root">
+                <div className="pg-toolbar">
+                  <button type="button" onClick={() => addPanel(MAIN, 'panel')}>
+                    + Panel → Main
+                  </button>
+                  <button type="button" onClick={() => addPanel(SIDEBAR, 'widget')}>
+                    + Widget → Sidebar
+                  </button>
+                  <button type="button" onClick={() => addPanel(DOCK, 'tool')}>
+                    + Tool → Dock
+                  </button>
+                  <button type="button" onClick={onSnap}>
+                    Snapshot
+                  </button>
+                </div>
+                <div className="pg-canvas">
+                  <Container
+                    parentId={ROOT}
+                    chrome={chrome}
+                    className="windease-zone"
+                    affordances
+                  />
+                </div>
+                <p className="pg-hint">
+                  Drag panels between Main / Sidebar / Dock. Resize the gutters between zones.{' '}
+                  <code>Snapshot</code> dumps the store; copy and <code>deserialize</code> elsewhere
+                  to rehydrate.
+                </p>
+                {snapText && (
+                  <textarea className="pg-snap" readOnly value={snapText} spellCheck={false} />
+                )}
+              </div>
+            </DragProvider>
+          </FocusProvider>
+        </GeometryProvider>
       </StrategyRegistryProvider>
     </Provider>
   );

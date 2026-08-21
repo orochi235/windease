@@ -48,6 +48,13 @@ export interface ContainerCap {
    */
   childOrder: NodeId[];
   allowsPinning: boolean;
+  /**
+   * The descendant of this container that most recently held focus. Maintained
+   * by the store, not by consumers: written on `focusNode`, cleared when that
+   * node is removed or reparented. Session-only — deliberately not serialized,
+   * see the keyboard-navigation design.
+   */
+  lastFocusedId?: NodeId;
   state?: unknown;
 }
 

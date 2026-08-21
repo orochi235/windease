@@ -238,6 +238,17 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
    */
   canAccept?(items: LayoutItem[], options: Record<string, unknown>): boolean;
   /**
+   * Optional override for directional keyboard navigation within this
+   * container. Return an item id to win, `undefined` to fall through to
+   * geometric resolution, or `null` to declare the direction dead here.
+   */
+  navigate?(input: {
+    items: LayoutItem[];
+    from: TId;
+    direction: 'left' | 'right' | 'up' | 'down';
+    options: Record<string, unknown>;
+  }): TId | null | undefined;
+  /**
    * Optional fast-path preview. When defined and returns non-null, the host
    * uses this instead of calling `.layout({ preview })`. Useful when preview
    * placements are cheap to compute directly (e.g. grid cells given an index).

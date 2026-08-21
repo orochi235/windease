@@ -32,6 +32,13 @@ export {
 export { type DragHandleHandlers, useDragHandle } from './dnd/useDragHandle.js';
 export { useDragState } from './dnd/useDragState.js';
 export { useDropTarget } from './dnd/useDropTarget.js';
+// Keyboard focus and navigation
+export { FocusProvider, useFocusBinding } from './focus/FocusProvider.js';
+export {
+  GeometryProvider,
+  useGeometryRegistry,
+  useGeometrySource,
+} from './focus/useGeometrySource.js';
 export {
   useActivity,
   useChildren,

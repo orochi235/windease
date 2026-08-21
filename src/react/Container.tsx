@@ -11,10 +11,13 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
-import type { Affordance, NodeId } from '../index.js';
+import { type Affordance, accessibleName, type NodeId } from '../index.js';
 import { DragContext } from './dnd/DragProvider.js';
-import { useChildren, useNode } from './hooks.js';
+import { useFocusBinding } from './focus/FocusProvider.js';
+import { useGeometryRegistry } from './focus/useGeometrySource.js';
+import { useChildren, useFocusedNode, useNode } from './hooks.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
+import { useStore } from './Provider.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
 
 /** Live layout snapshot passed to function-form `overlay` callbacks. */
@@ -148,8 +151,11 @@ function StoreContainer({
   affordanceHitPad = 4,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const store = useStore();
   const parent = useNode(parentId);
   const children = useChildren(parentId);
+  const focusBinding = useFocusBinding();
+  const rovingId = useFocusedNode()?.id ?? focusBinding?.entryId ?? null;
   const dragController = useContext(DragContext);
   const dragState = useSyncExternalStore(
     useCallback(
@@ -174,6 +180,27 @@ function StoreContainer({
       : undefined;
 
   const layout = useContainerLayout(parentId, ref, viewport, preview);
+
+  const geometryRegistry = useGeometryRegistry();
+  const selfRect = geometryRegistry?.rects.get(String(parentId));
+  useEffect(() => {
+    if (!geometryRegistry) return;
+    const originX = selfRect?.x ?? 0;
+    const originY = selfRect?.y ?? 0;
+    for (const [cid, r] of layout.placements) {
+      geometryRegistry.rects.set(String(cid), {
+        x: originX + r.x,
+        y: originY + r.y,
+        w: r.w,
+        h: r.h,
+      });
+    }
+    geometryRegistry.commit();
+    return () => {
+      for (const cid of layout.placements.keys()) geometryRegistry.rects.delete(String(cid));
+      geometryRegistry.commit();
+    };
+  }, [geometryRegistry, layout.placements, selfRect?.x, selfRect?.y]);
 
   // Register a default getInsertionIndex on the container element so the
   // controller can resolve cursor → child slot without consumer wiring.
@@ -208,7 +235,9 @@ function StoreContainer({
   // suppress the settle transition (cursor IS the motion) AND expose the id
   // to overlay/affordance render functions.
   const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
-  const effectiveSettleMs = draggingAffordanceId !== null ? 0 : settleMs;
+  const reducedMotion =
+    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const effectiveSettleMs = draggingAffordanceId !== null || reducedMotion ? 0 : settleMs;
 
   const containerStyle: CSSProperties = viewport
     ? { ...CONTAINER_BASE, width: viewport.w, height: viewport.h, ...style }
@@ -294,7 +323,15 @@ function StoreContainer({
         }
         if (!isReal) return null;
         return (
-          <div key={id} style={childStyle} data-node={id}>
+          // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
+          <div
+            key={id}
+            style={childStyle}
+            data-node={id}
+            tabIndex={rovingId === id ? 0 : -1}
+            role="group"
+            aria-label={accessibleName(store, id)}
+          >
             <NodeRenderer id={id} chrome={chrome} />
           </div>
         );

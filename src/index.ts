@@ -28,6 +28,12 @@ export {
   type WindeaseErrorCode,
 } from './errors.js';
 export { type EventMap, TypedEmitter } from './events.js';
+export { accessibleName } from './focus/name.js';
+export { navigableLeaves } from './focus/navigable.js';
+export { nullFocusAdapter } from './focus/nullAdapter.js';
+export { type ResolveInput, resolveNavigation } from './focus/resolve.js';
+export { chooseSuccessor } from './focus/successor.js';
+export type { FocusAdapter, GeometrySource, NavDirection, NavIntent } from './focus/types.js';
 export { Machine, type MachineDef, type MachineSubscriber } from './fsm.js';
 export { HistoryController, type HistoryControllerOptions } from './history.js';
 export { gridStrategy } from './layout/grid.js';

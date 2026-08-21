@@ -253,6 +253,57 @@ with `hints.maxSize` for an "auto up to a cap" pane. `store.split(id, input)`
 builds the nested `stripStrategy` groups a multi-pane layout needs; see
 `docs/concepts.md`.
 
+## Keyboard navigation
+
+Wrap the tree in two providers to make the layout reachable by keyboard.
+`<GeometryProvider>` collects each pane's absolute rect so navigation can be
+resolved by position; `<FocusProvider>` owns the tab stop, the keymap, and the
+round-trip between DOM focus and `store.focusedId`.
+
+```tsx
+<Provider store={store}>
+  <StrategyRegistryProvider strategies={STRATEGIES}>
+    <GeometryProvider>
+      <FocusProvider>
+        <Container parentId={ROOT} chrome={chrome} />
+      </FocusProvider>
+    </GeometryProvider>
+  </StrategyRegistryProvider>
+</Provider>
+```
+
+`FocusProvider` renders one wrapper element with `display: contents`, so it
+takes no layout box — but it needs `@windease/react/styles.css` imported for
+that rule.
+
+**The whole layout costs one Tab stop.** Exactly one pane wrapper carries
+`tabIndex 0` — the focused one, or the first navigable pane when nothing is
+focused yet — and the rest are `-1`. Tab moves *past* the layout, not through
+it. windease never intercepts Tab: panes hold forms, editors and third-party
+widgets that need it.
+
+| Key | Moves | Active when |
+| --- | --- | --- |
+| `ArrowLeft` / `Right` / `Up` / `Down` | to the nearest pane in that direction | the pane wrapper itself has focus |
+| `Home` / `End` | to the first / last sibling pane | the pane wrapper itself has focus |
+| `F6` / `Shift+F6` | to the next / previous pane in the whole tree, wrapping | anywhere, including inside pane content |
+
+Arrows only act when the wrapper itself is the event target, so pressing Left
+in a text input moves the caret rather than navigating away mid-word. F6 is
+the escape hatch out of content that swallows the arrows.
+
+Panes are named for screen readers by `meta.title`, falling back to kind plus
+sibling index. A layout with more than a couple of panes should set titles.
+
+Directional moves compare pane rectangles. A strategy that knows better can
+say so by implementing `navigate?` — return an id to win, `undefined` to fall
+through to the geometric search, `null` to declare that direction dead.
+
+When the focused pane is destroyed or hidden, the store picks a successor
+rather than dropping focus to the document, and reports the choice on
+`focus.successor` with a `reason` of `destroyed` or `hidden`. `to` is null
+only when nothing focusable is left.
+
 ## Optional transition throttling
 
 Consumers driving the store from a live event stream can rate-limit how

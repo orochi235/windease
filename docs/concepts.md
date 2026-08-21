@@ -107,6 +107,13 @@ Two paths for free-form data on a node; lifetimes differ:
   parent runs. A span wider than the grid's `cols` (or taller than a fixed
   `rows`/`maxRows`) clamps rather than overflowing the container.
 
+**Reserved key on `node.meta`:**
+
+- `title: string` — the node's **accessible name**. The React layer maps it
+  onto `aria-label`; without one, `accessibleName()` falls back to the node's
+  kind plus its one-based sibling index, which changes when a sibling is
+  added. Set a title on anything a keyboard user has to tell apart.
+
 `setAllowsPinning(id, false)` opts a container out of the pin invariant
 entirely (a tool strip, a tabbed group) — children can no longer hold an
 index in it.
@@ -367,6 +374,7 @@ node.cascadeDestroyed
 container.configChanged          | container.allowsPinningChanged
 container.stateChanged           | container.strategyChanged
 container.added
+focus.successor
 transaction.begin                | transaction.end
 throttle.pending                 | throttle.published
 ```
