@@ -160,27 +160,9 @@ export function deserialize(snap: unknown): Store;
 export function deserialize(store: Store, snap: unknown): void;
 export function deserialize(a: unknown, b?: unknown): Store | void {
   const target = a instanceof Store ? a : undefined;
-  const snap = target ? b : a;
-  const versioned = snap as { version?: number };
-  if (!versioned || typeof versioned !== 'object' || typeof versioned.version !== 'number') {
-    throw new WindeaseError(
-      'unsupported-snapshot-version',
-      'snapshot is missing a numeric version field',
-    );
-  }
-  if (
-    versioned.version === 2 ||
-    versioned.version === 3 ||
-    versioned.version === 4 ||
-    versioned.version === 5
-  ) {
-    const hydrated = hydrate(snap as SerializedStore, versioned.version, target);
-    return target ? undefined : hydrated;
-  }
-  throw new WindeaseError(
-    'unsupported-snapshot-version',
-    `unknown snapshot version: ${versioned.version}`,
-  );
+  const parsed = parseSnapshot(target ? b : a);
+  const hydrated = hydrate(parsed, target);
+  return target ? undefined : hydrated;
 }
 
 /**
@@ -436,19 +418,41 @@ function migrateToV5(nodes: SerializedNode[]): void {
   }
 }
 
-function hydrate(snap: SerializedStore, version: number, target?: Store): Store {
-  // Clone before any migration touches node contents — the caller may reuse
-  // the snapshot object they passed in.
-  const nodes = snap.nodes.map((sn) => structuredClone(sn));
+/** Version-check, clone, and migrate to v5. The clone matters: the caller
+ *  may reuse the snapshot object they passed in. */
+function parseSnapshot(snap: unknown): SerializedStore {
+  const versioned = snap as { version?: number };
+  if (!versioned || typeof versioned !== 'object' || typeof versioned.version !== 'number') {
+    throw new WindeaseError(
+      'unsupported-snapshot-version',
+      'snapshot is missing a numeric version field',
+    );
+  }
+  const version = versioned.version;
+  if (version !== 2 && version !== 3 && version !== 4 && version !== 5) {
+    throw new WindeaseError('unsupported-snapshot-version', `unknown snapshot version: ${version}`);
+  }
+  const src = snap as SerializedStore;
+  const nodes = src.nodes.map((sn) => structuredClone(sn));
   normalizeLegacyChildOrder(nodes);
   normalizeLegacyMembership(nodes);
   if (version < 4) migrateToV4(nodes);
   if (version < 5) migrateToV5(nodes);
-  // Build a lookup so we can validate links + multi-focus before mutating.
+  const out: SerializedStore = {
+    version: 5,
+    nodes,
+    rootIds: [...src.rootIds],
+    focusedId: src.focusedId ?? null,
+  };
+  if (src.rootPlacement !== undefined) out.rootPlacement = structuredClone(src.rootPlacement);
+  return out;
+}
+
+/** Bidirectional parent/child links, and at most one focused node. */
+function validateSnapshotLinks(nodes: SerializedNode[]): void {
   const byId = new Map<string, SerializedNode>();
   for (const sn of nodes) byId.set(sn.id, sn);
 
-  // Validate bidirectional link.
   for (const sn of nodes) {
     if (!sn.membership) continue;
     const parent = byId.get(sn.membership.parentId);
@@ -475,7 +479,6 @@ function hydrate(snap: SerializedStore, version: number, target?: Store): Store 
     }
   }
 
-  // Multi-focus check.
   let focusedSeen: string | null = null;
   for (const sn of nodes) {
     if (sn.focus?.state === 'focused') {
@@ -489,6 +492,13 @@ function hydrate(snap: SerializedStore, version: number, target?: Store): Store 
       focusedSeen = sn.id;
     }
   }
+}
+
+function hydrate(snap: SerializedStore, target?: Store): Store {
+  const nodes = snap.nodes;
+  validateSnapshotLinks(nodes);
+  const byId = new Map<string, SerializedNode>();
+  for (const sn of nodes) byId.set(sn.id, sn);
 
   const store = target ?? new Store();
 
