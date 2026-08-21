@@ -57,6 +57,19 @@ describe('navigableLeaves', () => {
     expect(navigableLeaves(s, g)).toEqual([id('a')]);
   });
 
+  it('descends into a container nobody showed', () => {
+    const s2 = new Store();
+    s2.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('z') }),
+    );
+    for (const c of ['a', 'b']) {
+      s2.registerNode(createNode({ kind: 'panel', focus: true, id: id(c), parentId: id('z') }));
+      s2.showNode(id(c));
+    }
+    const g = rects({ a: [0, 0, 10, 10], b: [20, 0, 10, 10] });
+    expect(navigableLeaves(s2, g)).toEqual([id('a'), id('b')]);
+  });
+
   it('skips the whole subtree of a hidden container', () => {
     const s = row(['a', 'b']);
     s.hideNode(id('z'));

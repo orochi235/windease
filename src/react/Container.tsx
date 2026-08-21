@@ -13,6 +13,7 @@ import {
 import { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
 import { type Affordance, accessibleName, type NodeId } from '../index.js';
 import { DragContext } from './dnd/DragProvider.js';
+import { useFocusBinding } from './focus/FocusProvider.js';
 import { useGeometryRegistry } from './focus/useGeometrySource.js';
 import { useChildren, useFocusedNode, useNode } from './hooks.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
@@ -153,7 +154,8 @@ function StoreContainer({
   const store = useStore();
   const parent = useNode(parentId);
   const children = useChildren(parentId);
-  const focusedId = useFocusedNode()?.id ?? null;
+  const focusBinding = useFocusBinding();
+  const rovingId = useFocusedNode()?.id ?? focusBinding?.entryId ?? null;
   const dragController = useContext(DragContext);
   const dragState = useSyncExternalStore(
     useCallback(
@@ -180,21 +182,23 @@ function StoreContainer({
   const layout = useContainerLayout(parentId, ref, viewport, preview);
 
   const geometryRegistry = useGeometryRegistry();
-  const selfRect = geometryRegistry?.get(String(parentId));
+  const selfRect = geometryRegistry?.rects.get(String(parentId));
   useEffect(() => {
     if (!geometryRegistry) return;
     const originX = selfRect?.x ?? 0;
     const originY = selfRect?.y ?? 0;
     for (const [cid, r] of layout.placements) {
-      geometryRegistry.set(String(cid), {
+      geometryRegistry.rects.set(String(cid), {
         x: originX + r.x,
         y: originY + r.y,
         w: r.w,
         h: r.h,
       });
     }
+    geometryRegistry.commit();
     return () => {
-      for (const cid of layout.placements.keys()) geometryRegistry.delete(String(cid));
+      for (const cid of layout.placements.keys()) geometryRegistry.rects.delete(String(cid));
+      geometryRegistry.commit();
     };
   }, [geometryRegistry, layout.placements, selfRect?.x, selfRect?.y]);
 
@@ -324,7 +328,7 @@ function StoreContainer({
             key={id}
             style={childStyle}
             data-node={id}
-            tabIndex={focusedId === id ? 0 : -1}
+            tabIndex={rovingId === id ? 0 : -1}
             role="group"
             aria-label={accessibleName(store, id)}
           >

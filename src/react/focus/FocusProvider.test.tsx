@@ -52,6 +52,17 @@ describe('FocusProvider', () => {
     });
   });
 
+  it('leaves one tab stop when nothing is focused yet', async () => {
+    const store = makeStore();
+    const { container } = render(tree(store));
+    await waitFor(() => {
+      const stops = container.querySelectorAll('[data-node][tabindex="0"]');
+      expect(stops.length).toBe(1);
+      expect(stops[0]?.getAttribute('data-node')).toBe('a');
+    });
+    expect(store.focusedId).toBeNull();
+  });
+
   it('raises model focus when a wrapper receives focusin', async () => {
     const store = makeStore();
     store.focusNode(asNodeId('a'));

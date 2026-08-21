@@ -1,13 +1,33 @@
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef } from 'react';
-import { asNodeId, type NavIntent, type NodeId, resolveNavigation } from '../../index.js';
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  asNodeId,
+  type NavIntent,
+  type NodeId,
+  navigableLeaves,
+  resolveNavigation,
+} from '../../index.js';
 import { useStore } from '../Provider.js';
 import { useStrategyRegistry } from '../strategies.js';
-import { useGeometrySource } from './useGeometrySource.js';
+import { useGeometryRegistry, useGeometrySource } from './useGeometrySource.js';
 
 interface FocusBinding {
   /** True while the adapter is writing DOM focus from model focus; the
    *  `focusin` this causes must be ignored or the two directions oscillate. */
   applying: { current: boolean };
+  /**
+   * Who carries `tabIndex 0` while nothing is model-focused. Without it every
+   * wrapper is -1 and the layout has no tab stop at all, so a keyboard user
+   * who has not clicked cannot enter it.
+   */
+  entryId: NodeId | null;
 }
 
 const FocusBindingContext = createContext<FocusBinding | null>(null);
@@ -20,7 +40,8 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   const store = useStore();
   const applying = useRef(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const binding = useMemo<FocusBinding>(() => ({ applying }), []);
+  const [entryId, setEntryId] = useState<NodeId | null>(null);
+  const binding = useMemo<FocusBinding>(() => ({ applying, entryId }), [entryId]);
 
   useEffect(() => {
     const el = rootRef.current;
@@ -58,7 +79,21 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   }, [store]);
 
   const geometry = useGeometrySource();
+  const registry = useGeometryRegistry();
   const strategies = useStrategyRegistry();
+
+  useEffect(() => {
+    const recompute = () => {
+      setEntryId(store.focusedId ? null : (navigableLeaves(store, geometry)[0] ?? null));
+    };
+    recompute();
+    const offStore = store.subscribe(recompute);
+    const offGeometry = registry?.subscribe(recompute);
+    return () => {
+      offStore();
+      offGeometry?.();
+    };
+  }, [store, geometry, registry]);
 
   useEffect(() => {
     const el = rootRef.current;

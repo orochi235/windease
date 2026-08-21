@@ -11,12 +11,17 @@ export function navigableLeaves(store: Store, geometry: GeometrySource): NodeId[
   const walk = (ids: readonly NodeId[]): void => {
     for (const nid of ids) {
       const node = store.getNode(nid);
-      if (node?.lifecycle.state !== 'visible') continue;
+      if (!node) continue;
+      // A container only takes its subtree out of the set by being hidden.
+      // `mounted` still renders — `<Container>` never checks its parent's
+      // lifecycle, so a root nobody called showNode on is on screen.
+      if (node.lifecycle.state === 'hidden' || node.lifecycle.state === 'destroyed') continue;
       const children = store.getChildren(nid).map((c) => c.id);
       if (children.length > 0) {
         walk(children);
         continue;
       }
+      if (node.lifecycle.state !== 'visible') continue;
       if (!node.focus) continue;
       const r = geometry.rectOf(nid);
       if (!r || r.w < MIN_NAVIGABLE_PX || r.h < MIN_NAVIGABLE_PX) continue;
