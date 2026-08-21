@@ -231,7 +231,9 @@ function StoreContainer({
   // suppress the settle transition (cursor IS the motion) AND expose the id
   // to overlay/affordance render functions.
   const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
-  const effectiveSettleMs = draggingAffordanceId !== null ? 0 : settleMs;
+  const reducedMotion =
+    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const effectiveSettleMs = draggingAffordanceId !== null || reducedMotion ? 0 : settleMs;
 
   const containerStyle: CSSProperties = viewport
     ? { ...CONTAINER_BASE, width: viewport.w, height: viewport.h, ...style }
