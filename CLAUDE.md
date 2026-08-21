@@ -99,6 +99,34 @@ Use `'*'` for everything, or a comma-separated list of categories.
 - **Actionable when read in isolation:** assume the reader sees one line at a
   time and may not have surrounding context. Include enough state.
 
+## Tenet: the core is DOM-independent
+
+The core — store, node model, snapshot, layout strategies, `ContainerHost` —
+runs with no `document`, no `window`, no `Element`. Layout is arithmetic over
+`{ items, container, state, options }`; anything that reads or writes the DOM
+is an adapter layered on top.
+
+Two places in the tree already have the shape to copy: `ContainerHost.setViewport()`
+is the real API and `observe(el)` is a ResizeObserver convenience over it;
+`insertionIndexByMidpoint()` takes plain bounds and `childRectsForContainer()`
+is the DOM harvester that feeds it. Pure function first, thin DOM wrapper
+beside it — never one function that does both.
+
+What this means when you design against it:
+
+- **Measurement is an input, never a call.** A strategy that needs a child's
+  natural size receives it on `LayoutItem`; it does not measure. The adapter
+  fills the field.
+- **Don't name core types after the DOM.** An affordance carries `orientation` /
+  `valueNow` / `label`, and the adapter maps those onto `aria-*`.
+  `role="separator"` means nothing to a non-DOM consumer.
+- **Core tests run headless.** If a new one needs jsdom, the boundary moved.
+
+`src/dnd/DragController.ts` does not honor this yet — it holds `window`
+listeners, `Element` refs, and `getBoundingClientRect` hit-testing. Its transit
+and ownership logic is core; the pointer plumbing belongs in an adapter. Listed
+under Loose ends in TODO.md.
+
 ## Other conventions
 
 - TDD where reasonable; new strategies/hooks ship with their tests.

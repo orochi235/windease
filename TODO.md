@@ -291,8 +291,70 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   existing `container` — so `setLock(panel, { arrange: true })` silently stores
   nothing and `ensureContainer` proceeds. The guard works only once a container
   is already present, which is the case it is least needed for.
+- **`DragController` is the outstanding DOM-independence violation.** It holds
+  `window` keydown/pointerup listeners, `Element` refs, `getBoundingClientRect`
+  hit-testing, and `parentElement` depth walking (`src/dnd/DragController.ts:157`,
+  `320-368`), and it ships from the core entry. The transit/ownership FSM is
+  core; the pointer plumbing wants to sit behind an adapter, the way
+  `ContainerHost.setViewport` / `observe` and `insertionIndexByMidpoint` /
+  `childRectsForContainer` already split. See the DOM-independence tenet in
+  CLAUDE.md.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like
   `gap` — and pinned by a test. Revisit only if a strategy ever rejects unknown
   keys.
+
+## Wishlist: docked tool palettes [HIGH]
+
+Gaps found evaluating windease as the layout engine for a sidebar of
+resizable tool palettes (the weasel case). Everything structural is already
+here — a `stripStrategy` zone on `{ axis: 'y' }`, gutters, per-child
+min/max, DnD between docks, sizes that round-trip through `serialize`. These
+five are what a consumer would still have to build.
+
+- **Content-driven sizing.** Strip derives extents from `placement.size`,
+  `hints.preferredSize`, or an equal share (`src/layout/strip.ts:114-131`).
+  There is no way to say "as tall as my contents," so a palette that wants
+  its natural height forces the consumer to measure the DOM and write
+  `preferredSize` back — a layout pass keyed on the output of a layout pass.
+  Wants either an `auto` sentinel that `<Container>` resolves by measuring
+  before it runs the strategy, or measured natural sizes as a strategy input
+  alongside `hints`.
+
+- **Collapse as a state, not a size.** `hide` drops a node out of layout
+  entirely (`src/layout-node-adapter.ts:61`, `src/container-host.ts:268`),
+  so collapse-to-a-header-bar is the consumer writing `placement.size` down
+  to the header height and stashing the old extent somewhere to restore
+  from. Wants a collapsed state that keeps the node placed at a
+  strategy-resolved minimum and retains its previous extent, so expand is
+  one call and survives a snapshot. This is the primitive the accordion
+  treatment under "Groups" needs.
+
+- **Size-driven overflow.** `maxItems` + `unplaced` model *count* capacity;
+  nothing models "the children's minimums no longer fit the extent."
+  `clampExplicitSizes` scales explicit sizes proportionally and does not
+  re-floor them at `min` (`src/layout/resize.ts:56-64`), so under pressure
+  explicit panes squeeze past their declared minimum while unconstrained
+  siblings hold theirs — and once `unconstrainedMinSum` exceeds `available`
+  the row overflows its container with no signal. Wants an overflow policy
+  on strip (squeeze / scroll / unplace) and a `LayoutResult` flag saying the
+  content exceeded the extent, so a consumer can scroll instead of crush.
+
+- **Keyboard resize and ARIA.** `keypress` is in `BuiltinAffordanceKind`
+  (`src/layout-types.ts:71`) and nothing emits, dispatches, or handles it;
+  there is no `role`, `aria-*`, or `tabIndex` anywhere in library code. A
+  gutter is pointer-only, which fails a keyboard user outright. Wants
+  gutters rendered as `role="separator"` with `aria-orientation` /
+  `aria-valuenow` / an accessible name, arrow keys stepping through the
+  existing `dispatchAffordance` path, and a labelled region per panel.
+
+- **Two-sided gutter drags.** Strip's `dispatchAffordance` writes
+  `placement.size` to the child before the gutter only
+  (`src/layout/strip.ts:225-241`); the delta is absorbed implicitly by
+  whichever siblings happen to be unconstrained, redistributed across all of
+  them rather than the immediate neighbor. That is the right default for a
+  fill row, but it is not how a splitter behaves — dragging one seam visibly
+  moves panes far down the stack. Wants a strip config for the pairing mode,
+  where a drag writes explicit sizes to both neighbors and leaves the rest
+  alone.
