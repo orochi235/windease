@@ -68,6 +68,9 @@ export type BuiltinAffordanceKind =
   | 'resize-y'
   | 'resize-xy'
   | 'click'
+  /** @deprecated Never emitted or dispatched. Keyboard resize is a synthesized
+   *  drag in the DOM adapter; see docs/specs/2026-08-21-keyboard-navigation-design.md.
+   *  Removed at 2.0.0. */
   | 'keypress';
 
 export interface Affordance<TMeta = unknown> {
@@ -124,6 +127,11 @@ export interface LayoutResult<TId extends string = string, TMeta = unknown> {
 
 export interface LayoutEvent {
   affordanceId: string;
+  /**
+   * `'key'` is never constructed or handled — an arrow key reaches a strategy
+   * as a synthesized `'drag'` so it inherits one clamp path. Deprecated rather
+   * than removed because this union has no `| string` escape; removed at 2.0.0.
+   */
   kind: 'drag' | 'click' | 'key';
   payload: { dx?: number; dy?: number; key?: string };
 }

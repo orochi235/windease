@@ -316,6 +316,14 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   `ContainerHost.setViewport` / `observe` and `insertionIndexByMidpoint` /
   `childRectsForContainer` already split. See the DOM-independence tenet in
   CLAUDE.md.
+- **Two dead affordance hooks are deprecated, not yet removed.**
+  `BuiltinAffordanceKind`'s `'keypress'` member and `LayoutEvent`'s `kind: 'key'`
+  are never emitted, dispatched, or handled; keyboard resize reaches a strategy
+  as a synthesized `'drag'` instead. Both are `@deprecated` and removed at 2.0.0.
+  Deprecated rather than deleted because both types are exported from the entry
+  point, so narrowing either breaks a consumer who annotated against it — the
+  `| string` on `Affordance.kind` protects assignment into that field, not a
+  direct use of the exported union.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like
