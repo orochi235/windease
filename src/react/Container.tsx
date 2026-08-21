@@ -11,11 +11,12 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
-import type { Affordance, NodeId } from '../index.js';
+import { type Affordance, accessibleName, type NodeId } from '../index.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { useGeometryRegistry } from './focus/useGeometrySource.js';
-import { useChildren, useNode } from './hooks.js';
+import { useChildren, useFocusedNode, useNode } from './hooks.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
+import { useStore } from './Provider.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
 
 /** Live layout snapshot passed to function-form `overlay` callbacks. */
@@ -149,8 +150,10 @@ function StoreContainer({
   affordanceHitPad = 4,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const store = useStore();
   const parent = useNode(parentId);
   const children = useChildren(parentId);
+  const focusedId = useFocusedNode()?.id ?? null;
   const dragController = useContext(DragContext);
   const dragState = useSyncExternalStore(
     useCallback(
@@ -314,7 +317,15 @@ function StoreContainer({
         }
         if (!isReal) return null;
         return (
-          <div key={id} style={childStyle} data-node={id}>
+          // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
+          <div
+            key={id}
+            style={childStyle}
+            data-node={id}
+            tabIndex={focusedId === id ? 0 : -1}
+            role="group"
+            aria-label={accessibleName(store, id)}
+          >
             <NodeRenderer id={id} chrome={chrome} />
           </div>
         );
