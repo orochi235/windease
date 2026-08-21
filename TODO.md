@@ -159,6 +159,23 @@ treatment (tabbed group vs. accordion vs. side-by-side strip) probably wants
 to be a strategy choice on the group itself. Persistence needs a stable group
 id and a way to express membership in snapshots.
 
+## DOM-proxy focus adapter for canvas hosts
+
+Medium priority. A canvas surface has no accessibility tree, so the standard
+technique is a parallel DOM tree of invisible focusable proxies positioned from
+`placements` — giving the surface real focus, real tab order and real
+screen-reader output. That logic is non-trivial and reusable, which is what
+would earn it a place in the library.
+
+Not built yet because there is no second consumer and no way to test it: there
+is no WebGL in windease's dev dependencies, and the one WebGL consumer
+(`blitsklieg`, `packages/core/dev/tube-lab`) is a React DOM app drawing into a
+canvas from `placements`, so it uses the DOM adapter unchanged. Ships as a
+documented recipe first; promote when a host actually needs it.
+
+Depends on the adapter seam in
+`docs/superpowers/specs/2026-08-21-keyboard-navigation-design.md`.
+
 ## Drag ghosts [HIGH]
 
 Today's v0.2 DnD ships no ghost — the source stays put while the cursor
@@ -358,3 +375,56 @@ five are what a consumer would still have to build.
   moves panes far down the stack. Wants a strip config for the pairing mode,
   where a drag writes explicit sizes to both neighbors and leaves the rest
   alone.
+
+## Wishlist: hosting an app that already has a workspace store [HIGH]
+
+Gaps found evaluating windease as the window manager for labkit's workspaces
+(`@weasel-js/labkit`), a host that already owns a workspace list, its order,
+and its persistence in zustand and wants windease for geometry and gestures
+only. The generic case is any app adopting windease into an existing store
+rather than starting from one.
+
+Two things this evaluation expected to need and found already shipped:
+`gridStrategy` auto-balances to `ceil(sqrt(n))` with an `orientation` bias
+when neither `cols` nor `rows` is set, which is the host's whole hand-rolled
+grid sizer; and `HistoryController<TSnapshot>` is generic and unattached, so
+a host with its own per-item undo stacks simply doesn't wire it.
+
+- **Controlled `childOrder`.** A host that renders its own records as JSX has
+  two writers for order — the binding (`reconcileChildOrder`) and the user's
+  drop — and no way to let the second win. Unlocked, the next host-driven
+  render reverts the drop, because `defaultChildSort` falls back to declared
+  JSX position. Arrange-locked, the drop never lands: `setChildOrder` asserts
+  on the same axis (`src/store.ts:482`) that `reconcileChildOrder` skips on
+  (`src/reconcile.ts:120`). The host's only route today is echoing
+  `node.reordered` / `node.moved` back into its own store and re-rendering,
+  which inverts who owns order and is the bulk of an integration. Wants the
+  React distinction: a declared order treated as *initial* (uncontrolled), or
+  an `onChildOrderChange` intent the host commits, so "host declares, user
+  rearranges" needs no round-trip.
+
+- **Subtree serialize / hydrate.** `serialize(store)` is whole-store
+  (`src/snapshot.ts:51`). A host whose own saved states are per-item — one
+  saved workspace, not the session — cannot round-trip a single node's
+  placement without carrying, and then reconciling, a snapshot of the entire
+  tree. Wants `serialize(store, { root: id })` and a hydrate that grafts a
+  subtree under a named parent.
+
+- **Grid resize gutters** (promoted from Loose ends). Auto-balance lives in
+  `gridStrategy`; draggable seams live in `stripStrategy`. A host that wants
+  both has to give one up — nesting strips via `store.split` discards the
+  `ceil(sqrt(n))` arrangement that made the grid worth adopting. This is the
+  same gutter-writes-`span` gap already recorded against the removed
+  `splitStrategy`; the workspace-tiling case is what makes it load-bearing
+  rather than a symmetry complaint. Fold in the `patchPlacement` span
+  lock-gate at the same time.
+
+- **In-flow render mode, per zone.** `docs/explorations/2026-06-04-flexbox-passive-zones.md`
+  declined replacing the passive strategies with CSS, and its "what's lost"
+  list holds up — item 3, auto-balance, is exactly what this host wants to
+  keep. But the choice was framed as all-or-nothing, and step 1 of its own
+  rollout (passive mode alongside strategy zones) is the useful half: a host
+  adopting windease for gestures on some zones shouldn't have to trade a
+  working CSS grid for a JS layout pass and absolute rects on the zones that
+  are a plain tiling. Note the decline also rested on "a single-app project
+  with no external consumers yet" — an adopting host is that consumer.
