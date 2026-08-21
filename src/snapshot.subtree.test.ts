@@ -91,4 +91,11 @@ describe('serialize with { root }', () => {
     expect(standalone.getChildren(asNodeId('a')).map((n) => n.id)).toEqual(['a1', 'a2']);
     expect(standalone.getParent(asNodeId('a'))).toBeUndefined();
   });
+
+  it('throws rather than crashing when the subtree root is destroyed', () => {
+    const s = buildTree();
+    const node = s.getNodeTruth(asNodeId('a'));
+    node?.lifecycle.send('destroy');
+    expect(() => serialize(s, { root: asNodeId('a') })).toThrow(NodeNotFoundError);
+  });
 });

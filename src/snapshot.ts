@@ -110,7 +110,7 @@ export function serialize(store: Store, opts?: SerializeOptions): SerializedStor
 
 function serializeSubtree(store: Store, rootId: NodeId): SerializedStore {
   const root = store.getNodeTruth(rootId);
-  if (!root) throw new NodeNotFoundError(rootId);
+  if (!root || root.lifecycle.state === 'destroyed') throw new NodeNotFoundError(rootId);
 
   const nodes: SerializedNode[] = [];
   const ids = new Set<string>();
