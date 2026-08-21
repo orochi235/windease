@@ -14,7 +14,8 @@
       "!**/playwright-report",
       "!**/blob-report",
       "!**/.superpowers",
-      "!**/.playwright-mcp"
+      "!**/.playwright-mcp",
+      "!**/.claude"
     ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
