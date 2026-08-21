@@ -330,6 +330,7 @@ export class Store {
       const idx = this.rootIdsArr.indexOf(id);
       if (idx >= 0) this.rootIdsArr.splice(idx, 1);
     }
+    this.forgetFocus(node.membership?.parentId, id);
     this.nodesMap.delete(id);
     this.publisher.markDirty(id, { bypass: true });
     this.publisher.markGlobalsDirty();
@@ -433,6 +434,13 @@ export class Store {
       from: 'claiming',
       to: transit.state,
     });
+
+    if (this.focusedIdValue) {
+      this.forgetFocus(fromParentId, this.focusedIdValue);
+      if (this.focusedIdValue === id || this.isDescendantOf(this.focusedIdValue, id)) {
+        this.rememberFocus(this.focusedIdValue);
+      }
+    }
 
     this.clampPins(fromParentId);
     this.clampPins(newParentId);
@@ -953,6 +961,32 @@ export class Store {
 
   // ===== Focus =====
 
+  private rememberFocus(id: NodeId): void {
+    let cursor = this.nodesMap.get(id)?.membership?.parentId;
+    while (cursor) {
+      const parent = this.nodesMap.get(cursor);
+      if (!parent?.container) break;
+      this.replaceContainer(cursor, (c) => ({ ...c, lastFocusedId: id }));
+      cursor = parent.membership?.parentId;
+    }
+  }
+
+  /** Drop `id` from every ancestor starting at `fromParentId` that remembers it. */
+  private forgetFocus(fromParentId: NodeId | undefined, id: NodeId): void {
+    let cursor = fromParentId;
+    while (cursor) {
+      const parent = this.nodesMap.get(cursor);
+      if (!parent?.container) break;
+      if (parent.container.lastFocusedId === id) {
+        this.replaceContainer(cursor, (c) => {
+          const { lastFocusedId: _dropped, ...rest } = c;
+          return rest;
+        });
+      }
+      cursor = parent.membership?.parentId;
+    }
+  }
+
   focusNode(id: NodeId): void {
     const target = this.requireNode(id);
     if (!target.focus) {
@@ -983,6 +1017,7 @@ export class Store {
       to: 'focused',
     });
     this.focusedIdValue = id;
+    this.rememberFocus(id);
     this.publisher.markGlobalsDirty();
     this.scheduleNotify();
   }
