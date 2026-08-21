@@ -3,7 +3,8 @@
  *
  * Ships the structural rules the library's React components depend on:
  *   - .windease-zone is positioned and fills its parent so absolute children
- *     render relative to it and clip on overflow.
+ *     render relative to it and clip on overflow. Add
+ *     .windease-zone--unclipped to keep the positioning and drop the clipping.
  *   - .windease-window reads the --w-x/y/w/h custom properties the library
  *     writes per-instance, and exposes itself as a named CSS size container
  *     so widgets can adapt with @container queries.
@@ -21,6 +22,17 @@
   width: 100%;
   height: 100%;
   box-sizing: border-box;
+}
+
+/*
+ * Opt out of clipping without opting out of the stylesheet. A host that draws
+ * its own surface across the zone — one canvas behind every panel — is clipped
+ * by the base rule, and dropping the class to escape it forfeits the
+ * positioning the absolute children depend on and the container queries too.
+ * Two classes rather than !important.
+ */
+.windease-zone.windease-zone--unclipped {
+  overflow: visible;
 }
 
 .windease-window {

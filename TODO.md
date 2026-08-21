@@ -467,22 +467,20 @@ sixteen panels as scissor rects on one `WebGLRenderer`, positioning them from
 placements, so the canvas is one element spanning the whole zone rather than
 one per window.
 
-- **Let a zone opt out of `overflow: hidden` without opting out of the
-  stylesheet.** `.windease-zone` sets `position: relative; overflow: hidden`,
-  which clips a host canvas that spans the zone. The lab's workaround is to
-  withhold the `windease-zone` class entirely — so it forfeits the positioning
-  and the container queries too, to escape one property. A modifier class, or
-  splitting clipping out of the base rule, would cost nothing.
+- **Shipped: `.windease-zone--unclipped`.** `.windease-zone` still clips by
+  default; adding the modifier keeps the positioning and the container queries
+  and drops `overflow: hidden`. Two classes rather than `!important`, so
+  consumer rules are unaffected.
 - **Deliver DPR changes alongside placements.** Placements give a host its
   rects in CSS pixels, which is most of what a canvas needs; a
   `devicePixelRatio` change still leaves every consumer wiring its own
   `matchMedia` to know the backing store must be resized. Dragging a window
   between displays is the common case.
-- **Verify the silent-drop bug is gone.** Under 0.8's `splitStrategy` a panel
-  the layout tree did not know about was dropped with no error — the lab
-  documents it as a trap. That looks like the two-trees-disagreeing class of
-  bug `splitStrategy`'s removal was meant to end, but nothing has confirmed it
-  against 1.x, and "silently" is the part worth a regression test either way.
+- **Verified gone, and pinned.** `src/split.no-silent-drop.test.ts` covers a
+  panel registered after `store.split` built the tree, one added after
+  container state was already seeded with a stale 0.8-shaped tree, and the
+  same under `grid`. All three are placed. With one tree there is nothing for
+  a second to disagree with, which is what `splitStrategy`'s removal bought.
 
 Note the consumer is pinned at `^0.8.0` and has not taken 1.0 yet, so it still
 carries a hand-rolled balanced-tree builder (`tree.ts`) working around
