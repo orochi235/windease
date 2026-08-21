@@ -26,10 +26,22 @@ describe('container focus memory', () => {
     expect(s.getNode(id('z'))?.container?.lastFocusedId).toBe(id('b'));
   });
 
-  it('clears when the remembered child is removed', () => {
+  it('stops naming a removed child (the successor takes its place)', () => {
     const s = treeStore();
     s.focusNode(id('b'));
     s.unregisterNode(id('b'));
+    expect(s.getNode(id('z'))?.container?.lastFocusedId).toBe(id('a'));
+  });
+
+  it('clears when the removed child leaves no successor', () => {
+    const s = new Store();
+    s.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('z') }),
+    );
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('a'), parentId: id('z') }));
+    s.showNode(id('a'));
+    s.focusNode(id('a'));
+    s.unregisterNode(id('a'));
     expect(s.getNode(id('z'))?.container?.lastFocusedId).toBeUndefined();
   });
 
