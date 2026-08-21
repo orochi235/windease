@@ -63,15 +63,27 @@ Check before assuming a change is wide.
 
 ## Two agents, one repo
 
-The keyboard session owns `src/focus/`, `src/node.ts`, `src/store.ts`, and
-`src/layout-types.ts`. This workstream owns `src/layout/`, `src/react/styles.css`,
-and `src/snapshot.ts`. File ownership is announced by message before opening a
-file, because separate worktrees prevent git conflicts but not two agents
-editing the same path.
+File ownership is announced by message before opening a file. Separate
+worktrees prevent git conflicts, not two agents editing the same path.
+
+This workstream owns `src/layout/`, `src/react/styles.css`, and
+`src/snapshot.ts`.
+
+The keyboard session (branch `feat/keyboard-navigation`, plan at
+`2026-08-21-keyboard-navigation.md`, 7 of 13 tasks done as of this writing)
+owns `src/focus/**` and `src/react/focus/**` outright. Its edits to shared
+files are small and already committed: `node.ts`, `store.ts`,
+`layout-types.ts`, `index.ts`. Still ahead of it, so expect to meet there:
+`src/react/Container.tsx`, `src/react/index.ts`,
+`src/react/stories/Playground.stories.tsx`, `README.md`, `TODO.md`.
+
+`container-host.ts` is unclaimed but its Task 8 reads `ContainerHost`
+placements through a `GeometrySource`. Flag before changing what `layout()`
+returns.
 
 Reachable via `SendMessage` to `windease-10`; `ListAgents` if the name has
-changed. They have been a reliable reviewer — two real bugs in this
-workstream's commits came from them.
+changed. Worth the round-trip — two real bugs in this workstream's commits came
+from them, including one in a fix for a bug they had just reported.
 
 ## Next
 
