@@ -215,13 +215,15 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     let next = base + delta;
     const min = effectiveMinAxis(item, axis);
     const max = effectiveMaxAxis(item, axis);
-    if (next < min) next = min;
-    if (max !== undefined && next > max) next = max;
     const otherMinSum = placedItems
       .filter((it) => it.id !== childId)
       .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
+    // A sibling ceiling tighter than this child's own min must not win: floor
+    // last, so the row overflows rather than writing a size the child forbids.
     const ceiling = usableMain - otherMinSum;
     if (next > ceiling) next = ceiling;
+    if (next < min) next = min;
+    if (max !== undefined && next > max) next = max;
 
     const node = (
       store as unknown as {

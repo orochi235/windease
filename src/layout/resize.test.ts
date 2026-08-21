@@ -122,4 +122,49 @@ describe('clampExplicitSizes', () => {
     expect(out.get('a')).toBe(200);
     expect(out.get('b')).toBe(300);
   });
+
+  it('never scales an explicit size below its own min', () => {
+    // available = 200, explicit 300 + 100. Naive proportional scaling gives
+    // a -> 150, under a's declared min of 180.
+    const out = clampExplicitSizes({
+      available: 200,
+      items: [
+        { id: 'a', explicit: 300, min: 180 },
+        { id: 'b', explicit: 100, min: 0 },
+      ],
+    });
+    expect(out.get('a')).toBeCloseTo(180);
+    expect(out.get('b')).toBeCloseTo(20);
+  });
+
+  it('keeps explicit items at their min rather than collapsing them to zero', () => {
+    // Unconstrained mins alone consume the whole extent, so the explicit
+    // budget is 0. The row cannot fit either way, but `a` must render at its
+    // min, not vanish.
+    const out = clampExplicitSizes({
+      available: 100,
+      items: [
+        { id: 'a', explicit: 80, min: 40 },
+        { id: 'b', explicit: undefined, min: 100 },
+      ],
+    });
+    expect(out.get('a')).toBe(40);
+    expect(out.get('b')).toBe(100);
+  });
+
+  it('freezes one item at min and keeps scaling the rest proportionally', () => {
+    // budget 300 across 200/200/200. Flat scaling is 0.5 -> 100 each, but a's
+    // min is 150. a freezes at 150; b and c split the remaining 150.
+    const out = clampExplicitSizes({
+      available: 300,
+      items: [
+        { id: 'a', explicit: 200, min: 150 },
+        { id: 'b', explicit: 200, min: 0 },
+        { id: 'c', explicit: 200, min: 0 },
+      ],
+    });
+    expect(out.get('a')).toBeCloseTo(150);
+    expect(out.get('b')).toBeCloseTo(75);
+    expect(out.get('c')).toBeCloseTo(75);
+  });
 });

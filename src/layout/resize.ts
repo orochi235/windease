@@ -45,23 +45,37 @@ export function clampExplicitSizes(input: ClampInput): Map<string, number> {
     if (it.max !== undefined && v > it.max) v = it.max;
     requested.set(it.id, v);
   }
-  const sumExplicit = explicits.reduce((s, it) => s + (requested.get(it.id) ?? 0), 0);
 
   // Budget available for explicit items: total minus what we MUST reserve
   // for unconstrained items' minimums.
   const explicitBudget = Math.max(0, input.available - unconstrainedMinSum);
 
-  let scale = 1;
-  if (sumExplicit > explicitBudget && sumExplicit > 0) {
-    scale = explicitBudget / sumExplicit;
+  // Proportional scaling alone drives items under their own min, so an item
+  // whose scaled value would fall below its floor freezes there and leaves the
+  // pool; the rest rescale against what's left. An item capped by a max below
+  // its min floors at that cap, preserving the min-then-max resolution above.
+  const floorOf = (it: ClampItem): number => Math.min(it.min, requested.get(it.id) ?? 0);
+
+  let pool = [...explicits];
+  let frozenSum = 0;
+  while (pool.length > 0) {
+    const freeBudget = Math.max(0, explicitBudget - frozenSum);
+    const poolSum = pool.reduce((s, it) => s + (requested.get(it.id) ?? 0), 0);
+    const scale = poolSum > freeBudget && poolSum > 0 ? freeBudget / poolSum : 1;
+
+    const violator = pool.find((it) => (requested.get(it.id) ?? 0) * scale < floorOf(it));
+    if (!violator) {
+      for (const it of pool) out.set(it.id, (requested.get(it.id) ?? 0) * scale);
+      break;
+    }
+    const floor = floorOf(violator);
+    out.set(violator.id, floor);
+    frozenSum += floor;
+    pool = pool.filter((it) => it.id !== violator.id);
   }
 
   let usedByExplicit = 0;
-  for (const it of explicits) {
-    const v = (requested.get(it.id) ?? 0) * scale;
-    out.set(it.id, v);
-    usedByExplicit += v;
-  }
+  for (const it of explicits) usedByExplicit += out.get(it.id) ?? 0;
 
   const leftover = Math.max(0, input.available - usedByExplicit);
   if (unconstrained.length > 0) {

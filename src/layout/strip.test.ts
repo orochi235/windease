@@ -169,6 +169,36 @@ describe('stripStrategy — placement.size', () => {
     });
     expect(fakeStore.patchPlacement).toHaveBeenCalledWith('a', { size: { w: 120 } });
   });
+
+  it("never writes a size below the dragged child's own min when siblings crowd it", () => {
+    // usableMain 200; b and c reserve 90 each, so the sibling ceiling is 20 --
+    // below a's own min of 60. The ceiling must not win: a floors at 60 and the
+    // row overflows instead of writing a size a itself forbids.
+    const fakeStore = {
+      patchPlacement: vi.fn(),
+      getNode: vi.fn(() => ({ membership: { placement: { size: { w: 100 } } } })),
+    };
+    stripStrategy.dispatchAffordance?.({
+      event: { affordanceId: 'resize-x-a', kind: 'drag', payload: { dx: 50, dy: 0 } },
+      affordance: {
+        id: 'resize-x-a',
+        kind: 'resize-x',
+        rect: { x: 0, y: 0, w: 4, h: 50 },
+        childId: 'a',
+      },
+      store: fakeStore as never,
+      parentId: 'root' as never,
+      container: { w: 200, h: 50 },
+      options: { axis: 'x' },
+      items: [
+        { id: 'a', placement: { size: { w: 100 } }, hints: { minSize: { w: 60, h: 0 } } } as never,
+        { id: 'b', hints: { minSize: { w: 90, h: 0 } } } as never,
+        { id: 'c', hints: { minSize: { w: 90, h: 0 } } } as never,
+      ],
+    });
+    const written = fakeStore.patchPlacement.mock.calls[0]?.[1] as { size: { w: number } };
+    expect(written.size.w).toBeGreaterThanOrEqual(60);
+  });
 });
 
 describe('stripStrategy — maxSize on explicit children', () => {
