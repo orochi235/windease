@@ -166,7 +166,12 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       const flexMain =
         fill && flexCount > 0 ? Math.max(0, (usableMain - totalPreferred) / flexCount) : 0;
       const fallbackMain = fill ? flexMain : defaultItemSize;
-      sizes = preferred.map((v) => (v > 0 ? v : fallbackMain));
+      // Floor at min here too: without it `minSize` is honored only when some
+      // sibling happens to carry an explicit size, and ignored otherwise.
+      sizes = placedItems.map((item, i) => {
+        const v = preferred[i] ?? 0;
+        return Math.max(v > 0 ? v : fallbackMain, effectiveMinAxis(item, axis));
+      });
     }
 
     if (axis === 'x') {
@@ -213,6 +218,12 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       }
     }
     const result: LayoutResult<string> = { placements, affordances };
+    // Children hold their constraints and the row grows past the container
+    // rather than crushing them; say so instead of leaving it to be noticed.
+    const consumed =
+      sizes.reduce((sum, v) => sum + v, 0) + gap * (placedItems.length - 1) + 2 * padding;
+    const excess = consumed - main;
+    if (excess > 0) result.overflow = axis === 'x' ? { w: excess, h: 0 } : { w: 0, h: excess };
     if (unplaced.length > 0) result.unplaced = unplaced;
     if (preview) result.isPreview = true;
     return result;

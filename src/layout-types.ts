@@ -146,6 +146,16 @@ export interface LayoutResult<TId extends string = string, TMeta = unknown> {
    */
   unplaced?: TId[];
   /**
+   * How far the placed content exceeds the container, per axis; absent when it
+   * fits. A strategy sets this instead of shrinking children past what their
+   * constraints allow, so a host can scroll, clip, or resize deliberately
+   * rather than discovering the crush visually.
+   *
+   * Distinct from `unplaced`, which is capacity by *count*. A row can overflow
+   * with everything placed.
+   */
+  overflow?: { w: number; h: number };
+  /**
    * True when this result was produced in response to a `preview` input and
    * the strategy honored it. `<Container>` uses this to know whether to
    * suppress the source's real chrome (it's rendered as the ghost instead).

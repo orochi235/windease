@@ -370,15 +370,23 @@ five are what a consumer would still have to build.
   keyboard-reachable in whatever still renders. A pane that can be collapsed
   and not reopened from the keyboard is worse than no collapse.
 
-- **Size-driven overflow.** `maxItems` + `unplaced` model *count* capacity;
-  nothing models "the children's minimums no longer fit the extent."
-  `clampExplicitSizes` scales explicit sizes proportionally and does not
-  re-floor them at `min` (`src/layout/resize.ts:56-64`), so under pressure
-  explicit panes squeeze past their declared minimum while unconstrained
-  siblings hold theirs — and once `unconstrainedMinSum` exceeds `available`
-  the row overflows its container with no signal. Wants an overflow policy
-  on strip (squeeze / scroll / unplace) and a `LayoutResult` flag saying the
-  content exceeded the extent, so a consumer can scroll instead of crush.
+- **Size-driven overflow: signal shipped, policy still open.**
+  `LayoutResult.overflow` reports how far the placed content exceeds the
+  container per axis, absent when it fits. Distinct from `unplaced`, which is
+  capacity by *count* — a row can overflow with everything placed. Strip sets
+  it once floors bind and the row cannot shrink further; a row whose panes
+  declare no floor is still squeezed, which is correct.
+
+  Fixed alongside it: the fill path ignored `hints.minSize` entirely, so a
+  minimum was honored only when some sibling happened to carry an explicit
+  size. Three panes each declaring 150 in a 300px column rendered at 100. Both
+  paths now floor at min. This is a behavior change for a consumer who set
+  `minSize` on a filled strip and relied on it being ignored.
+
+  Still open is the *policy* — `squeeze` / `scroll` / `unplace` as a strip
+  config. The signal is what a consumer needs to implement any of them
+  themselves; the policy is sugar over it, and worth waiting for a second
+  consumer to ask.
 
 - **Keyboard resize and ARIA.** `keypress` is in `BuiltinAffordanceKind`
   (`src/layout-types.ts:71`) and nothing emits, dispatches, or handles it;
