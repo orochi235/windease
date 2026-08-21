@@ -49,3 +49,35 @@ describe('resolveNavigation — directional', () => {
     expect(resolveNavigation({ store, from: id('c'), intent: 'up', geometry })).toBe(id('a'));
   });
 });
+
+describe('resolveNavigation — ordinal and cycle', () => {
+  it('next moves to the following sibling', () => {
+    const { store, geometry } = grid();
+    expect(resolveNavigation({ store, from: id('a'), intent: 'next', geometry })).toBe(id('b'));
+  });
+
+  it('next returns null at the end of the row', () => {
+    const { store, geometry } = grid();
+    expect(resolveNavigation({ store, from: id('c'), intent: 'next', geometry })).toBeNull();
+  });
+
+  it('first and last jump to the ends', () => {
+    const { store, geometry } = grid();
+    expect(resolveNavigation({ store, from: id('b'), intent: 'first', geometry })).toBe(id('a'));
+    expect(resolveNavigation({ store, from: id('a'), intent: 'last', geometry })).toBe(id('c'));
+  });
+
+  it('cycleNext wraps around the whole tree', () => {
+    const { store, geometry } = grid();
+    expect(resolveNavigation({ store, from: id('c'), intent: 'cycleNext', geometry })).toBe(
+      id('a'),
+    );
+  });
+
+  it('cyclePrev wraps backwards', () => {
+    const { store, geometry } = grid();
+    expect(resolveNavigation({ store, from: id('a'), intent: 'cyclePrev', geometry })).toBe(
+      id('c'),
+    );
+  });
+});

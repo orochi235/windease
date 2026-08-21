@@ -62,6 +62,16 @@ function directional(
   return best ? best.id : null;
 }
 
+function siblingsOf(store: Store, from: NodeId, geometry: GeometrySource): NodeId[] {
+  const parentId = store.getNode(from)?.membership?.parentId;
+  if (!parentId) return [];
+  const navigable = new Set(navigableLeaves(store, geometry));
+  return store
+    .getChildren(parentId)
+    .map((c) => c.id)
+    .filter((cid) => navigable.has(cid));
+}
+
 export function resolveNavigation({ store, from, intent, geometry }: ResolveInput): NodeId | null {
   switch (intent) {
     case 'left':
@@ -69,6 +79,29 @@ export function resolveNavigation({ store, from, intent, geometry }: ResolveInpu
     case 'up':
     case 'down':
       return directional(store, from, intent, geometry);
+    case 'next':
+    case 'prev': {
+      const row = siblingsOf(store, from, geometry);
+      const at = row.indexOf(from);
+      if (at < 0) return null;
+      const to = intent === 'next' ? row[at + 1] : row[at - 1];
+      return to ?? null;
+    }
+    case 'first':
+    case 'last': {
+      const row = siblingsOf(store, from, geometry);
+      const to = intent === 'first' ? row[0] : row[row.length - 1];
+      return to && to !== from ? to : null;
+    }
+    case 'cycleNext':
+    case 'cyclePrev': {
+      const all = navigableLeaves(store, geometry);
+      if (all.length === 0) return null;
+      const at = all.indexOf(from);
+      if (at < 0) return all[0] ?? null;
+      const step = intent === 'cycleNext' ? 1 : -1;
+      return all[(at + step + all.length) % all.length] ?? null;
+    }
     default:
       return null;
   }
