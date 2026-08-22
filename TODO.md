@@ -155,8 +155,6 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
 
 ## Loose ends
 
-- Layout strategies cast `container.config as XConfig` unchecked. Typos at
-  registration time become silent runtime quirks.
 - Strip strategy returns zero width/height when a panel has no
   `preferredSize` — intentional for fixed-size toolbars but worth a doc
   comment.

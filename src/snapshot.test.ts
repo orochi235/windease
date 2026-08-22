@@ -10,7 +10,7 @@ function buildSampleStore(): Store {
   s.registerNode(
     createNode({
       kind: 'zone',
-      container: { strategyId: 'stack', config: { axis: 'vertical' } },
+      container: { strategyId: 'stack', config: { axis: 'y' } },
       id: asNodeId('z'),
     }),
   );
@@ -307,7 +307,7 @@ describe('serialize — groups + recursion', () => {
     );
     const groupNode = createNode({
       kind: 'zone',
-      container: { strategyId: 'stack', config: { axis: 'horizontal' } },
+      container: { strategyId: 'stack', config: { axis: 'x' } },
       id: asNodeId('g'),
       parentId: asNodeId('z'),
     });

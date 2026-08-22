@@ -8,7 +8,7 @@ describe('preset constructors — capability shape', () => {
       focus: true,
       id: asNodeId('tray'),
       parentId: asNodeId('z'),
-      container: { strategyId: 'stack', config: { axis: 'vertical' } },
+      container: { strategyId: 'stack', config: { axis: 'y' } },
     });
     const leaf = createNode({
       kind: 'panel',
@@ -24,7 +24,7 @@ describe('preset constructors — capability shape', () => {
   it('builds a group inside a zone', () => {
     const group = createNode({
       kind: 'zone',
-      container: { strategyId: 'strip', config: { axis: 'horizontal' } },
+      container: { strategyId: 'strip', config: { axis: 'x' } },
       id: asNodeId('g'),
       parentId: asNodeId('z'),
     });

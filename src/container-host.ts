@@ -1,9 +1,11 @@
+import { checkStrategyConfig } from './layout/config-check.js';
 import { nodeToLayoutItem, runStrategyForContainer } from './layout-node-adapter.js';
 import type {
   Affordance,
   LayoutEvent,
   LayoutPreview,
   LayoutResult,
+  LayoutStrategy,
   Rect,
   StrategyRegistry,
 } from './layout-types.js';
@@ -113,6 +115,7 @@ export class ContainerHost {
   readonly #placementControls = new Map<NodeId, PlacementCommit>();
 
   #viewport: { w: number; h: number } | null = null;
+  #checkedConfig: unknown = Symbol('unchecked');
   #preview: LayoutPreview | null = null;
   #observer: ResizeObserver | null = null;
   readonly #natural = new Map<string, { w: number; h: number }>();
@@ -496,12 +499,23 @@ export class ContainerHost {
     for (const fn of this.#listeners) fn();
   }
 
+  /** Report config problems once per distinct config, not once per layout —
+   *  `#compute` runs on every viewport change and every store notification. */
+  #checkConfig(strategy: LayoutStrategy<unknown, string, unknown>, config: unknown): void {
+    if (!strategy.configSpec || config === this.#checkedConfig) return;
+    this.#checkedConfig = config;
+    for (const problem of checkStrategyConfig(strategy.name, config, strategy.configSpec)) {
+      trace('layout', problem);
+    }
+  }
+
   #compute(): ContainerLayout {
     const container = this.#store.getNode(this.#parentId)?.container;
     const viewport = this.#viewport;
     if (!container || !viewport) return viewport ? { ...EMPTY, viewport } : EMPTY;
     const strategy = this.#registry.get(container.strategyId);
     if (!strategy) return { ...EMPTY, viewport };
+    this.#checkConfig(strategy, container.config);
 
     const preview = this.#preview;
     if (preview && strategy.getDropPreview) {
