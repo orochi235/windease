@@ -1,92 +1,91 @@
-# Handoff: inter-zone tiling → seam-join → tab-stacking
+# Handoff: seam-join → tab-stacking
 
-For whoever picks up windease next. It says where the repo is, what the three
-queued features are, and the handful of things decided in conversation that
-the code does not record. Everything else lives in
-[`TODO.md`](../../TODO.md), [`CHANGELOG.md`](../../CHANGELOG.md) and the
-README — this points at them rather than repeating them.
+For whoever picks up windease next. It says where the repo is, what the two
+queued features are, and the decisions made in conversation that the code does
+not record. Everything else lives in [`TODO.md`](../../TODO.md),
+[`CHANGELOG.md`](../../CHANGELOG.md) and the README — this points at them rather
+than repeating them.
 
 ## Repo state
 
-`main`, clean, **unpushed** — and further behind than it looks: 30 commits
-ahead of `origin/main`, of which 9 are the run described here (`272c243`
-onward) and the rest predate it. Nothing is on a feature branch.
-
-This run added a changelog mechanism, keyboard move, in-flow render mode, an
-arrange-lock fix, the scroll seam, grid `overflowMode`, drag auto-scroll, and
-Ladle stories for all of it. 1112 unit tests, 48 e2e specs on three engines,
+`main`, clean, **unpushed** — 45 commits ahead of `origin/main`. Nothing is on a
+feature branch. 1134 unit tests, 165 e2e specs across three engines,
 lint/typecheck/build green.
 
 Not released. `## Unreleased` in the changelog is the next version's notes;
-`scripts/check-changelog.sh` fails the release until that heading is retitled
-and the README's `### Unreleased —` breaking-change headings are too. That
-guard failing on `main` is expected, not a problem.
+`scripts/check-changelog.sh` fails until that heading and the README's
+`### Unreleased —` breaking-change headings are retitled. That guard failing on
+`main` is expected, not a problem.
 
-## The three, in the order asked for
+## What the last run did
 
-**1. Inter-zone tiling / `<Workspace>`** — `TODO.md`, "Strategy for
-partitioning workspace". Zones are composed in consumer CSS today and the
-library has no opinion about how they relate. Inter-zone resize is blocked
-behind it.
+Inter-zone tiling, which used to head this list, turned out to be mostly a false
+premise. Zones nested under one root container already tile with draggable
+gutters — the Playground has built `main` / `sidebar` / `dock` that way through
+`store.split` for some time, and `TODO.md` claimed otherwise. What was genuinely
+broken was narrower: sibling *roots* shared origin `(0, 0)` because only a parent
+`<Container>` ever wrote a geometry entry, so two top-level zones overlapped and
+a directional key between them picked an arbitrary target.
 
-Read the note in that section about sibling roots sharing origin `(0,0)`
-before designing anything: it is the concrete reason directional navigation
-stops at a top-level zone boundary, and it means "who owns multi-zone layout"
-and "who reports zone origins into the geometry registry" are the same
-question. The `scrollRef` → `setScroll` pair is the shape to copy — a DOM
-value the consumer reports, arithmetic in the core.
+That is fixed. A root measures its own element into document coordinates and
+publishes it; `resolveNavigation` and `resolveMove` needed no change, since
+neither was ever root-scoped. Design in
+[`specs/2026-08-22-root-origin-geometry-design.md`](specs/2026-08-22-root-origin-geometry-design.md).
 
-**2. Seam-join** — `TODO.md`, "Merging adjacent nodes". Drag a seam past a
+Two follow-on changes shipped with it: the measure was hardened (sub-pixel
+epsilon, rAF-coalesced scroll, a per-instance guard so duplicate writers
+converge instead of hanging), and the publication was extracted to
+`usePublishGeometry` and wired into `<Zone>` / `<Panel>` — which had never
+reported geometry at all, so keyboard navigation in a declarative tree did
+nothing, silently.
+
+**A `<Workspace>` primitive is still an open question**, and still `[HIGH]`. What
+is left for it is owning the arrangement — collapsible sidebars, gutters
+*between* roots, full-screen takeover — not the geometry.
+
+## The two, in the order asked for
+
+**1. Seam-join** — `TODO.md`, "Merging adjacent nodes". Drag a seam past a
 neighbour's floor and the neighbour is destroyed. The gesture is small; the
 affordance is not. Two hard parts, both named there: it has to answer to
-`lock.destroy` on a pane the gesture never targeted, and the point of no
-return has to be visible *before* the pointer is released.
+`lock.destroy` on a pane the gesture never targeted, and the point of no return
+has to be visible *before* the pointer is released.
 
-**3. Tab-stacking** — same section, and the largest by a wide margin. Gated on
-drop *intent*: `insertionIndexByMidpoint` answers "which seam" and
-deliberately never "seam versus onto B itself". Needs a stack container preset
-and a tab strip on top of that. It is also the only entry left under "Still
-uncovered" in the e2e section — a library gap, not a test gap.
+**2. Tab-stacking** — same section, and the largest by a wide margin. Gated on
+drop *intent*: `insertionIndexByMidpoint` answers "which seam" and deliberately
+never "seam versus onto B itself". Needs a stack container preset and a tab strip
+on top of that. It is also the only entry left under "Still uncovered" in the
+e2e section — a library gap, not a test gap.
 
 ## Conventions to follow, not rediscover
 
-`CLAUDE.md` has them all. The two that were being broken in this run and are
-now written down:
+`CLAUDE.md` has them all. The one most often broken: **every feature ships with a
+Ladle story in the same change**, operable rather than illustrative, because the
+Playwright suite drives Ladle.
 
-- **Every feature ships with a Ladle story in the same change** — a new one or
-  real integration into an existing one, and operable rather than
-  illustrative. The Playwright suite drives Ladle, so a capability with no
-  story has no browser coverage.
-- **A DOM convenience is not automatically a layout input.** Added to the
-  DOM-independence tenet after `observePixelRatio` was nearly put on
-  `ContainerHost` for symmetry alone.
+Worth knowing about testing this area specifically: a geometry test that asserts
+an inequality (`toBeGreaterThanOrEqual`) passes for the wrong reason — composing
+y against the x origin survives it. Assert exact rects. Every test added in the
+last run was mutation-checked, and three of them were vacuous on the first
+attempt.
 
 ## Decided in conversation, not visible in the diff
 
-- **`Shift`+arrow is the move gesture** because it is the one modifier that
-  dodges browser history nav (Alt) and macOS space-switching (Ctrl/Cmd). The
-  cost, accepted knowingly: `Shift`+arrow is the universal extend-selection
-  idiom, so if windease ever grows multi-select — plausible alongside Groups —
-  that binding is already spent.
-- **Flow mode opts in through `hints.render` on the node**, not a React prop,
-  so it serializes and a headless consumer can see it.
-- **Grid got `overflowMode` over an argument that it should not** — the case
-  against was that a scrolling grid is a CSS grid, which is what flow mode is
-  for. Overruled deliberately; worth knowing the trade was considered.
-- **Grid `unplace` drops rows only.** A container too narrow for the floors
-  reports width `overflow` instead, because dropping rows cannot widen a cell.
-- **Auto-scroll's re-entrancy guard is unresolved design.** A cursor held at
-  the edge has to keep scrolling, so `DragEngine` re-requests a frame after
-  each step and a flag stops that recursing under the inline scheduler. It
-  works and is tested both ways, but it reads as clever; having the engine
-  expose the delta and letting `DragController` own the repeat is the cleaner
-  split if anyone wants it.
-
-## Loose threads
-
-- `~/src/swair` has two uncommitted edits from this run: a withdrawn specimen
-  pulled out of `corpus/specimens.jsonl`, and a parked "don't state the
-  obvious" rule in its `TODO.md`. Unrelated to windease.
-- `lock.arrange` now gates `reorderInParent`. If something downstream starts
-  throwing `LockedError` where it did not, that is the cause and
-  `{ force: true }` is the escape hatch — see the README's breaking changes.
+- **The measured origin is not held in React state**, though an earlier draft of
+  the spec said it would be. Review rejected it as a second source of truth: the
+  guard compared the registry while the consumer read the state copy, so a
+  divergence could strand children at `(0, 0)` with no recovery. The registry is
+  the only store; the state is a bare tick that schedules the render which reads
+  the fresh entry back.
+- **The epsilon is 0.5px** because that is the whole error bound for
+  round-to-nearest on one of the two terms, and half of `MIN_NAVIGABLE_PX`, which
+  is the smallest extent navigation already treats as real.
+- **A childless focusable root is navigable, deliberately.** It gained a rect and
+  so joined the candidate set; an empty dock you can arrow onto and drop into is
+  useful. Pinned by a test rather than left as an accident.
+- **Duplicate `<Container>`s for one id are still unsupported**, but now degrade
+  to wrong rects and a trace rather than to a hang.
+- **The preset tab stop reaches trees that did not ask for it.** A pane declaring
+  `focus` in a store with a `focusedId` becomes a stop with no `<FocusProvider>`
+  mounted. Judged acceptable — it is the same single stop `<Container>` has
+  always had — but it is the one part of that change with blast radius.
