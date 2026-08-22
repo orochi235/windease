@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 import type { ChildSort } from '../child-sort.js';
-import type { Node, NodeId, Store } from '../index.js';
+import type { Node, NodeId, PlacementCommit, Store } from '../index.js';
 import {
   createNode,
   reconcileChildOrder,
@@ -18,6 +18,7 @@ import {
   reconcilePlacement,
 } from '../index.js';
 import type { LockSet } from '../lock.js';
+import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragHandle } from './dnd/DragHandle.js';
 import { useDropTarget } from './dnd/useDropTarget.js';
 import { useChildren } from './hooks.js';
@@ -89,9 +90,25 @@ function useForceRerenderOnLockChange(store: Store, targetId: NodeId | undefined
   }, [store, targetId]);
 }
 
+/** Seam-rendering knobs shared by the presets that can host a layout. Mirrors
+ *  the same-named props on `<Container>`; see those for the full contract. */
+interface AffordanceHostProps {
+  /** Render the strategy's affordances (e.g. strip's resize gutter). Pass a
+   *  function to fully replace the built-in handle per affordance. */
+  affordances?: boolean | AffordanceRenderer;
+  /** Pad the hit area by this many pixels perpendicular to the gutter, so a
+   *  4px seam is easier to grab. Default 4. */
+  affordanceHitPad?: number;
+  /** Pixels an arrow key moves a focused seam. `Home` / `End` jump to its
+   *  reported minimum / maximum instead. Default 8. */
+  affordanceKeyStep?: number;
+  /** Whether seams are tab stops. Default true. */
+  affordanceTabStops?: boolean;
+}
+
 /* ---------- Panel ---------- */
 
-export interface PanelProps extends CommonBindingProps, PresentationalProps {
+export interface PanelProps extends CommonBindingProps, PresentationalProps, AffordanceHostProps {
   /** Promotes this panel to a container with the given strategy. Lets it host
    *  nested presets (`<Panel container={...}><Panel /></Panel>`). When absent,
    *  Panel is a leaf — nested presets will fail with "parent has no container". */
@@ -99,6 +116,29 @@ export interface PanelProps extends CommonBindingProps, PresentationalProps {
   /** When true, wraps the panel's rendered content in a DragHandle so the
    *  user can drag this panel to another acceptsDrops target. */
   draggable?: boolean;
+  /**
+   * Makes this panel's placement controlled: a seam drag hands the bag it
+   * would have written here instead of committing it, and the panel renders
+   * whatever `placement` the host feeds back. The controlled counterpart to
+   * declaring `placement` and letting the store own it.
+   *
+   * Without this, a declared `placement` is re-forced on every render and a
+   * drag is reverted on the next one — declare one or the other, not both.
+   */
+  onPlacementChange?: PlacementCommit;
+}
+
+/** Registers `commit` as `id`'s placement control on whichever container is
+ *  providing layout above. Absent context (a Panel outside a laid-out parent)
+ *  is a no-op rather than an error — the same component renders both ways. */
+function usePlacementControl(id: NodeId, commit: PlacementCommit | undefined): void {
+  const { registerPlacementControl } = useLayoutContext();
+  const latest = useRef(commit);
+  latest.current = commit;
+  useEffect(() => {
+    if (!commit || !registerPlacementControl) return;
+    return registerPlacementControl(id, (next, change) => latest.current?.(next, change));
+  }, [id, registerPlacementControl, commit]);
 }
 
 /** @group Components */
@@ -137,6 +177,7 @@ export function Panel(props: PanelProps) {
   // locked needs a re-render on unlock to re-run the reconcile above.
   const store = useStore();
   useForceRerenderOnLockChange(store, store.getNode(id)?.membership?.parentId);
+  usePlacementControl(id, props.onPlacementChange);
 
   // Mirror Zone's layout-providing path: if this Panel is a container AND a
   // matching strategy is registered, run the layout and provide placements
@@ -178,8 +219,15 @@ interface PanelWithLayoutProps extends PanelProps {
 function PanelWithLayout(props: PanelWithLayoutProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const layout = useContainerLayout(props.id, ref);
+  const store = useStore();
   const settleMs = DEFAULT_SETTLE_MS;
-  const layoutInfo: LayoutInfo = { placements: layout.placements, settleMs };
+  const [, setDraggingAffordanceId] = useState<string | null>(null);
+  const layoutInfo: LayoutInfo = {
+    placements: layout.placements,
+    settleMs,
+    registerPlacementControl: layout.registerPlacementControl,
+    observeNatural: layout.observeNatural,
+  };
 
   const panelStyle: CSSProperties = {
     position: 'relative',
@@ -203,6 +251,16 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         ) : (
           props.children
         )}
+        <AffordanceLayer
+          render={props.affordances ?? false}
+          affordances={layout.affordances}
+          dispatch={layout.dispatchAffordance}
+          store={store}
+          hitPad={props.affordanceHitPad ?? 4}
+          keyStep={props.affordanceKeyStep ?? 8}
+          tabStop={props.affordanceTabStops ?? true}
+          onActiveChange={setDraggingAffordanceId}
+        />
       </PresetShell>
     </LayoutScope>
   );
@@ -210,15 +268,12 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
 
 /* ---------- Zone ---------- */
 
-export interface ZoneProps extends CommonBindingProps, PresentationalProps {
+export interface ZoneProps extends CommonBindingProps, PresentationalProps, AffordanceHostProps {
   strategyId?: string;
   config?: unknown;
   viewport?: { w: number; h: number };
   state?: unknown;
   sort?: ChildSort;
-  /** Reserved for parity with the store-driven Container. Not yet wired
-   *  through to a renderer in the declarative path. */
-  affordances?: boolean;
   /**
    * Settle animation duration in ms for children moving between
    * strategy-computed placements. Default 150. Set to 0 to disable.
@@ -318,8 +373,15 @@ interface ZoneWithLayoutProps extends ZoneProps {
 function ZoneWithLayout(props: ZoneWithLayoutProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const layout = useContainerLayout(props.id, ref, props.viewport);
+  const store = useStore();
   const settleMs = props.settleMs ?? DEFAULT_SETTLE_MS;
-  const layoutInfo: LayoutInfo = { placements: layout.placements, settleMs };
+  const [, setDraggingAffordanceId] = useState<string | null>(null);
+  const layoutInfo: LayoutInfo = {
+    placements: layout.placements,
+    settleMs,
+    registerPlacementControl: layout.registerPlacementControl,
+    observeNatural: layout.observeNatural,
+  };
 
   // When this Zone is itself absolute-positioned by a parent strategy, our
   // wrapper div is the absolute box and PresetShell's div needs to fill it
@@ -368,6 +430,16 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
       >
         {props.children}
         {imperativeRenders}
+        <AffordanceLayer
+          render={props.affordances ?? false}
+          affordances={layout.affordances}
+          dispatch={layout.dispatchAffordance}
+          store={store}
+          hitPad={props.affordanceHitPad ?? 4}
+          keyStep={props.affordanceKeyStep ?? 8}
+          tabStop={props.affordanceTabStops ?? true}
+          onActiveChange={setDraggingAffordanceId}
+        />
       </PresetShell>
     </LayoutScope>
   );

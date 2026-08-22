@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext } from 'react';
-import type { NodeId } from '../index.js';
+import type { NodeId, PlacementCommit } from '../index.js';
 
 export interface Rect {
   x: number;
@@ -13,6 +13,12 @@ export interface LayoutInfo {
   /** Settle animation duration in ms — children should transition between
    *  placements over this duration. 0 = no transition. */
   settleMs: number;
+  /** Lets a child declare that its host owns its placement. Absent when no
+   *  container is providing layout, which is why a child must tolerate it. */
+  registerPlacementControl?: (id: NodeId, commit: PlacementCommit) => () => void;
+  /** Lets a child offer an element as its measured content extent, for
+   *  `hints.sizing`. Absent for the same reason. */
+  observeNatural?: (id: NodeId, el: Element) => () => void;
 }
 
 const EMPTY_LAYOUT: LayoutInfo = { placements: new Map(), settleMs: 0 };

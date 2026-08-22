@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
-import type { LayoutEvent, LayoutPreview, NodeId } from '../index.js';
+import type { LayoutEvent, LayoutPreview, NodeId, PlacementCommit } from '../index.js';
 import { ContainerHost, type ContainerLayout as HostLayout } from '../index.js';
 import { useStore } from './Provider.js';
 import { useStrategyRegistry } from './strategies.js';
@@ -18,6 +18,11 @@ export interface ContainerLayout extends HostLayout {
    * `ContainerHost.observeNatural`.
    */
   observeNatural: (id: NodeId, el: Element) => () => void;
+  /**
+   * Make `id`'s placement controlled: a gesture hands the bag to `commit`
+   * instead of writing the store. See `ContainerHost.registerPlacementControl`.
+   */
+  registerPlacementControl: (id: NodeId, commit: PlacementCommit) => () => void;
 }
 
 /**
@@ -84,5 +89,10 @@ export function useContainerLayout(
     [host],
   );
 
-  return { ...layout, dispatchAffordance, observeNatural };
+  const registerPlacementControl = useCallback(
+    (id: NodeId, commit: PlacementCommit) => host.registerPlacementControl(id, commit),
+    [host],
+  );
+
+  return { ...layout, dispatchAffordance, observeNatural, registerPlacementControl };
 }

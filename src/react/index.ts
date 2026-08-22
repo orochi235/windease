@@ -14,9 +14,11 @@ export {
   type DragState,
 } from '../dnd/DragController.js';
 export { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
+export type {
+  AffordanceRenderArgs,
+  AffordanceRenderer,
+} from './affordances.js';
 export {
-  type AffordanceRenderArgs,
-  type AffordanceRenderer,
   Container,
   type ContainerProps,
   type OverlayContext,

@@ -20,9 +20,65 @@ export interface ContainerLayout {
   isPreview: boolean;
 }
 
+/** What produced a controlled child's proposed placement. */
+export interface PlacementChange {
+  /** The affordance whose gesture produced it. */
+  affordanceId: string;
+  /** The container the gesture ran in. */
+  parentId: NodeId;
+}
+
+/**
+ * Receives the placement a gesture *would* have written, for a child whose
+ * placement the host owns. Registering one makes that child controlled: the
+ * gesture no longer writes to the store, and the host commits by re-rendering.
+ *
+ * The bag is the whole placement as it would have stood, not just the keys the
+ * gesture touched — a host that stored a patch would drift from the store's
+ * copy on the first key a later gesture removes.
+ */
+export type PlacementCommit = (
+  nextPlacement: Readonly<Record<string, unknown>>,
+  change: PlacementChange,
+) => void;
+
 /** `affects` carries only real child ids, so a miss resolves to false rather than throwing. */
 function affectsResizeLocked(store: Store, affects: Affordance['affects']): boolean {
   return affects?.some((cid) => store.isLocked(cid as NodeId, 'resize')) === true;
+}
+
+/** Placement bags are JSON-safe by contract and a few keys wide, so comparing
+ *  by value costs nothing measurable. Identity would report every gesture as a
+ *  change: a strategy rebuilds `size` as a fresh object on each write. */
+function placementEqual(
+  a: Readonly<Record<string, unknown>>,
+  b: Readonly<Record<string, unknown>>,
+): boolean {
+  const ka = Object.keys(a);
+  if (ka.length !== Object.keys(b).length) return false;
+  for (const k of ka) {
+    if (!(k in b)) return false;
+    const va = a[k];
+    const vb = b[k];
+    if (va === vb) continue;
+    if (typeof va !== 'object' || typeof vb !== 'object' || va === null || vb === null)
+      return false;
+    if (JSON.stringify(va) !== JSON.stringify(vb)) return false;
+  }
+  return true;
+}
+
+/** A patch that turns `next` back into `prev`: every key `prev` had restored to
+ *  its value, every key only `next` has deleted. `patchPlacement` reads
+ *  `undefined` as a delete, which is what makes the second half expressible. */
+function revertPatch(
+  prev: Readonly<Record<string, unknown>>,
+  next: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const k of Object.keys(next)) if (!(k in prev)) patch[k] = undefined;
+  for (const [k, v] of Object.entries(prev)) patch[k] = v;
+  return patch;
 }
 
 const EMPTY: ContainerLayout = {
@@ -48,6 +104,7 @@ export class ContainerHost {
   readonly #registry: StrategyRegistry;
   readonly #listeners = new Set<() => void>();
   readonly #unsubs: Array<() => void> = [];
+  readonly #placementControls = new Map<NodeId, PlacementCommit>();
 
   #viewport: { w: number; h: number } | null = null;
   #preview: LayoutPreview | null = null;
@@ -156,8 +213,13 @@ export class ContainerHost {
     );
   }
 
-  /** Measure `el` and keep measuring it. Returns a teardown. */
+  /** Measure `el` and keep measuring it. Returns a teardown.
+   *
+   *  A binding with no fixed viewport (`<Panel container>`) reaches this on
+   *  every mount, so an environment without ResizeObserver has to hold at the
+   *  last known viewport rather than throw — same contract as `observeNatural`. */
   observe(el: Element): () => void {
+    if (typeof ResizeObserver === 'undefined') return () => {};
     this.#observer?.disconnect();
     const ro = new ResizeObserver((entries) => {
       const r = entries[0]?.contentRect;
@@ -279,6 +341,49 @@ export class ContainerHost {
   };
 
   /**
+   * Make `id`'s placement controlled: a gesture that would have written it
+   * instead hands the bag to `commit` and the store is left untouched. Returns
+   * a teardown that restores uncontrolled commits.
+   *
+   * Scoped to `placement` only. A strategy that keeps its arrangement in
+   * container state (split's ratio) is unaffected — that state is not the
+   * child's to own.
+   */
+  registerPlacementControl(id: NodeId, commit: PlacementCommit): () => void {
+    this.#placementControls.set(id, commit);
+    trace('layout', `registerPlacementControl: ${id} (total: ${this.#placementControls.size})`);
+    return () => {
+      if (this.#placementControls.get(id) === commit) this.#placementControls.delete(id);
+    };
+  }
+
+  /** Snapshot of every controlled child's placement, taken before a dispatch so
+   *  the write it makes can be handed back and undone. */
+  #capturePlacements(): Map<NodeId, Record<string, unknown>> {
+    const out = new Map<NodeId, Record<string, unknown>>();
+    for (const id of this.#placementControls.keys()) {
+      const p = this.#store.getNode(id)?.membership?.placement;
+      out.set(id, p ? { ...p } : {});
+    }
+    return out;
+  }
+
+  /** Hand each controlled child what the dispatch just wrote for it, then put
+   *  the store back the way it was. Uncontrolled siblings keep their writes. */
+  #divertControlled(before: Map<NodeId, Record<string, unknown>>, affordanceId: string): void {
+    for (const [id, commit] of this.#placementControls) {
+      const now = this.#store.getNode(id)?.membership?.placement;
+      if (!now) continue;
+      const prev = before.get(id) ?? {};
+      if (placementEqual(prev, now)) continue;
+      const proposed = { ...now };
+      this.#store.patchPlacement(id, revertPatch(prev, proposed));
+      trace('layout', `placement diverted to host: ${id} (${affordanceId})`);
+      commit(proposed, { affordanceId, parentId: this.#parentId });
+    }
+  }
+
+  /**
    * Feed a strategy event (e.g. a gutter drag delta) into the container's
    * `reduce()` and persist the result. No-op when a lock forbids it.
    */
@@ -310,15 +415,28 @@ export class ContainerHost {
     // Runs in addition to reduce — split clears placement.size here, then
     // updates its ratio in reduce.
     if (strategy.dispatchAffordance && aff) {
-      strategy.dispatchAffordance({
-        event,
-        affordance: aff,
-        store: this.#store,
-        parentId: this.#parentId,
-        container: viewport,
-        options: (container.config ?? {}) as Record<string, unknown>,
-        items,
-      });
+      const run = () => {
+        strategy.dispatchAffordance?.({
+          event,
+          affordance: aff,
+          store: this.#store,
+          parentId: this.#parentId,
+          container: viewport,
+          options: (container.config ?? {}) as Record<string, unknown>,
+          items,
+        });
+      };
+      if (this.#placementControls.size === 0) {
+        run();
+      } else {
+        // The revert is bookkeeping, not a second edit — a subscriber that sees
+        // both halves separately would render the write it is meant never to see.
+        const before = this.#capturePlacements();
+        this.#store.transact(() => {
+          run();
+          this.#divertControlled(before, event.affordanceId);
+        }, 'placement-control');
+      }
     }
     if (!strategy.reduce) return;
     const current =

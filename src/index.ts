@@ -5,7 +5,12 @@ export {
   preserveStoreOrder,
 } from './child-sort.js';
 export { type CreateNodeInput, createNode } from './constructors.js';
-export { ContainerHost, type ContainerLayout } from './container-host.js';
+export {
+  ContainerHost,
+  type ContainerLayout,
+  type PlacementChange,
+  type PlacementCommit,
+} from './container-host.js';
 export {
   type ChildOrderChange,
   type ChildOrderCommit,
