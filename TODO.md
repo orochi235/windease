@@ -14,26 +14,6 @@ under Release history.
   mutation returns. The one live instance has been fixed; nothing
   prevents a new one, so this stays on the list as a review item.
 
-- **The caret is lost after a pointer drag.** The dropped pane takes model
-  focus and the roving tab stop, but `document.activeElement` falls to
-  `<body>`, so arrow keys do nothing until the user Tabs back into the layout.
-  A drag is the one gesture where the caret provably *was* inside the pane
-  beforehand — the pointerdown focuses the wrapper — so nothing here is a
-  question of whether focus should be stolen.
-
-  It is a race, not a behavior: `FocusProvider` calls `adapter.present()` from
-  a `store.subscribe` callback, which runs before React commits the remount,
-  so whether the wrapper exists to be focused depends on timing. It survives
-  roughly a third of runs on an idle machine and almost never under parallel
-  load, on all three engines. `e2e/focus-drag.spec.ts` carries the assertion
-  as `test.fixme`; unskip it with the fix.
-
-  The fix has a decision in it, which is why it was left: presenting again
-  after commit means presenting on store changes generally, and a bare retry
-  would pull the caret off `<body>` into the layout even when the user put it
-  there by clicking the page background. Restoring only when the caret was
-  inside the focus root before the change is the narrow version.
-
 - **A spec fails under parallel load about 1% of the time, on any engine.**
   Seen as `keyboard.spec.ts` "F6 cycles from inside a text input" on Firefox
   in a full three-engine run, green 48/48 in isolation. No diagnosis yet. This

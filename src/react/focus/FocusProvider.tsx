@@ -84,9 +84,74 @@ export function FocusProvider({ children, announce = true }: FocusProviderProps)
     return () => el.removeEventListener('focusin', onFocusIn);
   }, [store]);
 
+  const lastFocused = useRef<NodeId | null>(null);
+  const caretOurs = useRef(false);
+  const [presentSeq, setPresentSeq] = useState(0);
+
+  // Whether the caret belongs to this layout, tracked across the gesture
+  // rather than sampled when the store notifies. A drag tears the wrapper out
+  // to show it in the ghost, so by drop time the caret is already on `body`
+  // and a live check would say the layout never had it.
+  //
+  // What separates "the DOM changed under the caret" from "the user aimed
+  // somewhere else" is a pointerdown, not the focus event: Chromium and
+  // Firefox both report the torn-out element as still connected, and WebKit
+  // fires no focusout at all.
   useEffect(() => {
-    return store.subscribe(() => adapter.present(store.focusedId));
+    const el = rootRef.current;
+    if (!el) return;
+    const aimedOutside = { current: false };
+    const onPointerDown = (e: Event) => {
+      const t = e.target as Node | null;
+      aimedOutside.current = !t || !el.contains(t);
+    };
+    const onIn = () => {
+      caretOurs.current = true;
+      aimedOutside.current = false;
+    };
+    const onOut = (e: FocusEvent) => {
+      const next = e.relatedTarget as Node | null;
+      if (next) {
+        caretOurs.current = el.contains(next);
+        return;
+      }
+      if (aimedOutside.current) caretOurs.current = false;
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    el.addEventListener('focusin', onIn);
+    el.addEventListener('focusout', onOut);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      el.removeEventListener('focusin', onIn);
+      el.removeEventListener('focusout', onOut);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Seeded here, not at declaration, so swapping the store does not read as
+    // a focus change and pull the caret in.
+    lastFocused.current = store.focusedId;
+    return store.subscribe(() => {
+      const id = store.focusedId;
+      const changed = id !== lastFocused.current;
+      lastFocused.current = id;
+      // An explicit focus move commands the caret. Any other store change may
+      // only put back a caret the layout already had — a host that focused
+      // something of its own keeps it.
+      if (!changed && !caretOurs.current) return;
+      adapter.present(id);
+      if (caretOurs.current) setPresentSeq((n) => n + 1);
+    });
   }, [store, adapter]);
+
+  // A moved or replaced node remounts after React commits, not when the store
+  // notifies, so the present above can run against a wrapper that is not there
+  // yet. Presenting again post-commit is what restores the caret; `present`
+  // no-ops when it is already in the right place.
+  useEffect(() => {
+    if (presentSeq === 0) return;
+    adapter.present(store.focusedId);
+  }, [presentSeq, store, adapter]);
 
   useEffect(() => {
     if (!announce) return;
