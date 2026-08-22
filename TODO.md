@@ -44,10 +44,15 @@ Followups:
 
 ## Strategy for partitioning workspace [HIGH]
 
-Right now consumers compose zones by laying them out in plain CSS (see the
-Ladle Playground: a CSS grid with `main`, `sidebar`, `dock` slots). The
-library has no opinion about how zones relate to each other in the visible
-workspace.
+Zones nested under one root container already tile, with draggable gutters
+between them: the Ladle Playground builds a single root `strip` and derives
+`main`, `sidebar` and `dock` from it through `store.split`. Zones a consumer
+composes as *separate roots* in its own CSS share one coordinate space too —
+each root measures itself into the geometry registry
+([design](docs/superpowers/specs/2026-08-22-root-origin-geometry-design.md)) —
+so directional navigation and `Shift`-arrow moves cross between them. What the
+library has no opinion about is the arrangement itself: collapsible sidebars,
+gutters *between* roots, full-screen takeover.
 
 Open questions:
 
@@ -59,17 +64,6 @@ Open questions:
 - Dynamic zone creation/teardown: brainhouse's worktree grouping might want
   zones that appear and disappear as worktrees are added/removed. Today
   `registerNode`/`unregisterNode` work; what's missing is a UX for it.
-
-**One thing a `<Workspace>` has to solve, found building the keyboard-move
-story.** Sibling *root* containers share a coordinate space they cannot
-distinguish: `<Container>` composes each child rect against its own registry
-entry, and a root has none, so every root's children land at origin `(0,0)`
-and overlap. Directional navigation and `Shift`-arrow moves therefore work
-*within* a root and between containers nested under a common placed parent —
-which is why that story nests two groups under one root — but not between two
-top-level zones laid out by consumer CSS. Whatever owns multi-zone layout has
-to report each zone's origin into the geometry registry; a `scrollRef`-shaped
-input on the zone would do it without the core learning about the DOM.
 
 ## Drag and drop
 

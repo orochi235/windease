@@ -7,8 +7,8 @@ geometry registry (`src/react/Container.tsx:208-229`), and only a parent
 origin `(0, 0)`, and every root's children overlap.
 
 This spec is for whoever implements the fix. It says how a root learns its own
-position, why the value lives in React state rather than only in the registry,
-and what stays out of scope. Additive — no new public surface, no config.
+position, how the composition pass sees it, and what stays out of scope.
+Additive — no new public surface, no config.
 
 ## What actually breaks
 
@@ -39,21 +39,19 @@ A root measures its own element — `getBoundingClientRect()` plus
 that a page scroll between one root's re-measure and another's does not pull
 them apart.
 
-The measured origin goes into React state. A root that wrote only to the
-registry would compose its children against a stale value for one commit, since
-`selfRect` is read during render (`Container.tsx:208`) and the write happens in
-an effect. Composition then reads one value either way:
+The rect goes into the registry under the root's own node id and nowhere else,
+so `rectOf(rootId)` answers for a root the way it already does for a placed
+container, and composition keeps reading `selfRect` from the registry
+(`Container.tsx:208`) for roots and non-roots alike. The composition effect
+(`:209-229`) is unchanged.
 
-```ts
-const origin = isRoot ? measuredOrigin : selfRect;
-```
+`selfRect` is read during render and the measure runs in an effect, so a root
+would otherwise compose against a stale value for one commit. The measure
+therefore also bumps a counter in React state whose value nothing reads: its
+only job is to schedule the render on which the fresh entry is read back.
 
-The existing composition effect (`:209-229`) is otherwise unchanged. The root
-also writes its own rect into the registry under its node id, so `rectOf(rootId)`
-answers for a root the way it already does for a placed container.
-
-Re-measured on two triggers, guarded by an equality check against the last
-published rect so `setState` does not loop:
+Re-measured on two triggers, guarded by an equality check against the published
+rect so the re-render tick does not loop:
 
 - once per commit — the same unconditional re-measure the flow path already
   runs at `:284-286`, which is what catches a pane moved by a class toggle that
@@ -87,8 +85,7 @@ story has no browser coverage.
 - **No `<Workspace>` component, and no inter-zone gutters.** A root `strip` or
   `grid` container already tiles zones and emits resize affordances between
   them; `Playground.stories.tsx:33-60` builds main / sidebar / dock that way
-  through `store.split`. `TODO.md`'s claim that the Playground composes zones in
-  CSS is stale and is corrected in the same change.
+  through `store.split`.
 - **A `<Container>` rendered for a non-root node whose parent no `<Container>`
   renders keeps origin `(0, 0)`.** It has `membership`, so it does not measure,
   and nothing writes its entry. Unchanged from today.

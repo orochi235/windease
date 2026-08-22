@@ -10,6 +10,18 @@ section below.
 
 ### Added
 
+- **Root containers report their own origin.** A `<Container>` whose node has no
+  parent measures its own element into document coordinates, publishes that rect
+  into the geometry registry under its own node id, and composes its children
+  against it — re-measured every commit and on window `resize` / capture-phase
+  `scroll`. Only a parent `<Container>` used to write a geometry entry, so every
+  root's children landed at `(0, 0)` and two sibling roots overlapped. Arrow
+  navigation and `Shift`-arrow moves now cross between zones a consumer laid out
+  as separate roots in its own CSS, instead of picking an arbitrary target.
+  Registry rects are document coordinates now rather than root-relative, so a
+  consumer reading `useGeometrySource().rectOf(id)` directly sees different
+  numbers; nothing in the library reads an absolute value, so nothing else
+  changes.
 - **`store.setAutoUnsplit(id, true)`.** A container opted into this collapses when a
   removal leaves it holding one child, lifting the survivor into the grandparent with
   the group's placement and pinned index. Opt-in on the container, because the trigger
