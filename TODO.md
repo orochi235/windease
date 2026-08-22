@@ -288,6 +288,14 @@ serialize/graft work goes out under the same 1.2.0.
   a deprecated delegating alias, removed at 2.0.0, so nothing breaks in a
   minor.
 
+- **`DragEngine`, the DOM-free half of `DragController`.** Ownership,
+  acceptance and hit-testing over `bounds()` callbacks, with the frame
+  scheduler injected; `DragController` is unchanged for consumers and is now
+  the DOM host that measures elements, walks `parentElement` for depth, stamps
+  `data-drop-*` and binds the window listeners. Closes the tenet violation.
+  A synchronous scheduler used to wedge the pending-frame handle after the
+  first sample — found by the headless tests, which need no faked `Element`.
+
 - **Announcements for changes that move no focus.** `bindAnnouncer(store,
   adapter)` composes text from `focus.successor`, `node.moved` and
   `node.reordered` and hands it to `FocusAdapter.announce`; `<FocusProvider>`
@@ -342,14 +350,6 @@ serialize/graft work goes out under the same 1.2.0.
   existing `container` — so `setLock(panel, { arrange: true })` silently stores
   nothing and `ensureContainer` proceeds. The guard works only once a container
   is already present, which is the case it is least needed for.
-- **`DragController` is the outstanding DOM-independence violation.** It holds
-  `window` keydown/pointerup listeners, `Element` refs, `getBoundingClientRect`
-  hit-testing, and `parentElement` depth walking (`src/dnd/DragController.ts:157`,
-  `320-368`), and it ships from the core entry. The transit/ownership FSM is
-  core; the pointer plumbing wants to sit behind an adapter, the way
-  `ContainerHost.setViewport` / `observe` and `insertionIndexByMidpoint` /
-  `childRectsForContainer` already split. See the DOM-independence tenet in
-  CLAUDE.md.
 - **Two dead affordance hooks are deprecated, not yet removed.**
   `BuiltinAffordanceKind`'s `'keypress'` member and `LayoutEvent`'s `kind: 'key'`
   are never emitted, dispatched, or handled; keyboard resize reaches a strategy

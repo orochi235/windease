@@ -1,364 +1,40 @@
-import type { LayoutStrategy } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
+import {
+  type DragCancelReason,
+  DragEngine,
+  type DragState,
+  type FrameScheduler,
+  type Point,
+  type StrategyLookup,
+} from './DragEngine.js';
 
-/** Looks up a strategy by id. DragController uses it to consult
- *  `strategy.canAccept` on the prospective post-drop child list. */
-export type StrategyLookup = (id: string) => LayoutStrategy<unknown, string, unknown> | undefined;
-
-export type DragCancelReason = 'rejected' | 'outside' | 'escape' | 'unregistered';
-
-export interface DragState {
-  draggingId: NodeId;
-  /** Latest cursor position in viewport coords. Always present during a drag,
-   *  even when the cursor is outside every registered drop target. Used by
-   *  `<DragProvider>` to position the ghost overlay. */
-  cursor: { x: number; y: number };
-  hover: {
-    targetId: NodeId;
-    accepted: boolean;
-    /** 0-based prospective insertion index. Undefined when the strategy
-     *  gives no positional answer (e.g. splits) or when the target didn't
-     *  register a `getInsertionIndex`. */
-    insertIndex?: number;
-  } | null;
-}
+export type {
+  DragCancelReason,
+  DragState,
+  DropTarget,
+  FrameScheduler,
+  Point,
+  StrategyLookup,
+} from './DragEngine.js';
 
 export interface DropTargetOptions {
   /** Map cursor (viewport coords) → prospective insertion index (0-based).
    *  Return undefined to leave `insertIndex` unset. */
-  getInsertionIndex?: (point: { x: number; y: number }) => number | undefined;
+  getInsertionIndex?: (point: Point) => number | undefined;
 }
 
-type Listener = (state: DragState | null) => void;
-
-/**
- * Tracks the active drag and dispatches store.moveNode on drop.
- * One controller per <WindeaseDragProvider>; consumers subscribe via
- * useDragState. Hit-testing is consumer-driven: useDropTarget
- * registers element rects, and pointermove walks the registry to find the
- * deepest match. Innermost-wins is implemented by sorting registrations
- * by DOM depth at registration time.
- */
-export class DragController {
-  private active: DragState | null = null;
-  private readonly listeners = new Set<Listener>();
-  private readonly dropTargets = new Map<
-    NodeId,
-    {
-      el: Element;
-      canAccept?: (sourceId: NodeId) => boolean;
-      getInsertionIndex?: (point: { x: number; y: number }) => number | undefined;
-    }
-  >();
-  private escapeBound = false;
-  private windowUpBound = false;
-  private pendingPoint: { x: number; y: number } | null = null;
-  private rafId: number | null = null;
-
-  constructor(
-    private readonly store: Store,
-    private readonly getStrategy?: StrategyLookup,
-  ) {}
-
-  state(): DragState | null {
-    return this.active;
-  }
-
-  subscribe(fn: Listener): () => void {
-    this.listeners.add(fn);
-    return () => {
-      this.listeners.delete(fn);
-    };
-  }
-
-  registerDropTarget(
-    id: NodeId,
-    el: Element,
-    canAccept?: (sourceId: NodeId) => boolean,
-    options?: DropTargetOptions,
-  ): () => void {
-    const value: {
-      el: Element;
-      canAccept?: (sourceId: NodeId) => boolean;
-      getInsertionIndex?: (point: { x: number; y: number }) => number | undefined;
-    } = { el };
-    if (canAccept) value.canAccept = canAccept;
-    if (options?.getInsertionIndex) value.getInsertionIndex = options.getInsertionIndex;
-    const overwriting = this.dropTargets.has(id);
-    this.dropTargets.set(id, value);
-    trace(
-      'dnd',
-      `registerDropTarget: ${id}${overwriting ? ' (overwriting prior registration)' : ''} (total: ${this.dropTargets.size})`,
-    );
-    return () => {
-      this.dropTargets.delete(id);
-      trace('dnd', `unregisterDropTarget: ${id} (total: ${this.dropTargets.size})`);
-    };
-  }
-
-  tryBegin(sourceId: NodeId): boolean {
-    if (this.active) {
-      trace(
-        'dnd',
-        `tryBegin ${sourceId}: REJECTED (drag already active for ${this.active.draggingId})`,
-      );
-      return false;
-    }
-    const node = this.store.getNode(sourceId);
-    if (!node?.membership) {
-      trace('dnd', `tryBegin ${sourceId}: REJECTED (no membership)`);
-      return false;
-    }
-    if (this.store.isLocked(sourceId, 'move')) {
-      trace('dnd', `tryBegin ${sourceId}: REJECTED (lock.move)`);
-      return false;
-    }
-    if (this.store.isLocked(node.membership.parentId, 'dragOut')) {
-      trace('dnd', `tryBegin ${sourceId}: REJECTED (parent lock.dragOut)`);
-      return false;
-    }
-    this.active = { draggingId: sourceId, cursor: { x: 0, y: 0 }, hover: null };
-    trace(
-      'dnd',
-      `drag start: ${sourceId} (from parent ${node.membership.parentId}; ${this.dropTargets.size} drop targets registered)`,
-    );
-    this.bindEscape();
-    this.bindWindowUp();
-    this.emit();
-    return true;
-  }
-
-  updateHoverByPoint(x: number, y: number): void {
-    if (!this.active) return;
-    this.pendingPoint = { x, y };
-    if (this.rafId !== null) return;
-    const raf =
-      typeof requestAnimationFrame !== 'undefined'
-        ? requestAnimationFrame
-        : (cb: FrameRequestCallback) =>
-            setTimeout(() => cb(performance.now()), 16) as unknown as number;
-    this.rafId = raf(() => {
-      this.rafId = null;
-      if (!this.pendingPoint || !this.active) return;
-      const p = this.pendingPoint;
-      this.pendingPoint = null;
-      this.actuallyUpdateHover(p.x, p.y);
-    });
-  }
-
-  private actuallyUpdateHover(x: number, y: number): void {
-    if (!this.active) return;
-    // Cursor always updates, regardless of hover target. The ghost overlay
-    // follows the cursor even when over no drop target.
-    let best: { id: NodeId; depth: number } | null = null;
-    for (const [id, { el }] of this.dropTargets) {
-      const r = el.getBoundingClientRect();
-      if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
-      const depth = ancestorDepth(el);
-      if (!best || depth > best.depth) best = { id, depth };
-    }
-    if (!best) {
-      this.setHover(null, { x, y });
-      return;
-    }
-    const reg = this.dropTargets.get(best.id);
-    const insertIndex = reg?.getInsertionIndex?.({ x, y });
-    const accepted = this.checkAccept(best.id, insertIndex);
-    const hover: NonNullable<DragState['hover']> = { targetId: best.id, accepted };
-    if (insertIndex !== undefined) hover.insertIndex = insertIndex;
-    this.setHover(hover, { x, y });
-  }
-
-  private checkAccept(targetId: NodeId, _insertIndex: number | undefined): boolean {
-    if (!this.active) return false;
-    const draggingId = this.active.draggingId;
-    if (targetId === draggingId) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (target is the source)`);
-      return false;
-    }
-
-    const targetNode = this.store.getNode(targetId);
-    if (this.store.isLocked(targetId, 'accept')) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (lock.accept)`);
-      return false;
-    }
-
-    // Strategy-level constraint: e.g. a strategy refusing anything but 2 items.
-    if (targetNode?.container && this.getStrategy) {
-      const strategy = this.getStrategy(targetNode.container.strategyId);
-      if (strategy?.canAccept) {
-        const current = this.store
-          .getChildren(targetId)
-          .filter((c) => c.lifecycle.state !== 'destroyed');
-        const alreadyChild = current.some((c) => c.id === draggingId);
-        const items = alreadyChild
-          ? current.map((c) => ({ id: c.id }))
-          : [...current.map((c) => ({ id: c.id })), { id: draggingId }];
-        const options = (targetNode.container.config ?? {}) as Record<string, unknown>;
-        if (!strategy.canAccept(items, options)) {
-          trace(
-            'dnd',
-            `checkAccept ${targetId}: REJECT (strategy ${strategy.name}.canAccept said no for ${items.length} items)`,
-          );
-          return false;
-        }
-      }
-    }
-
-    const reg = this.dropTargets.get(targetId);
-    if (reg?.canAccept && !reg.canAccept(draggingId)) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (consumer canAccept said no)`);
-      return false;
-    }
-    return true;
-  }
-
-  private setHover(
-    hover: NonNullable<DragState['hover']> | null,
-    cursor: { x: number; y: number },
-  ): void {
-    if (!this.active) return;
-    const next: DragState['hover'] = hover
-      ? {
-          targetId: hover.targetId,
-          accepted: hover.accepted,
-          ...(hover.insertIndex !== undefined ? { insertIndex: hover.insertIndex } : {}),
-        }
-      : null;
-    const cursorChanged = this.active.cursor.x !== cursor.x || this.active.cursor.y !== cursor.y;
-    if (sameHover(this.active.hover, next) && !cursorChanged) return;
-    const previous = this.active.hover;
-    this.active = { ...this.active, cursor, hover: next };
-    this.reflectHoverToDom(previous, next);
-    if (next) {
-      const prevDesc = previous ? `${previous.targetId}` : 'none';
-      trace(
-        'dnd',
-        `hover: ${prevDesc} → target=${next.targetId} accepted=${next.accepted} insertIndex=${next.insertIndex ?? '-'} cursor=(${cursor.x},${cursor.y})`,
-      );
-    } else if (previous) {
-      trace(
-        'dnd',
-        `hover: ${previous.targetId} → none (cursor outside all targets, now (${cursor.x},${cursor.y}))`,
-      );
-    }
-    this.emit();
-  }
-
-  /** Stamp `data-drop-target` / `data-drop-rejected` onto the hovered element
-   *  so CSS can paint affordances. Clears them on hover-leave / drop / cancel. */
-  private reflectHoverToDom(
-    previous: NonNullable<DragState['hover']> | null,
-    next: NonNullable<DragState['hover']> | null,
-  ): void {
-    if (previous) {
-      const el = this.dropTargets.get(previous.targetId)?.el;
-      if (el && typeof el.removeAttribute === 'function') {
-        el.removeAttribute('data-drop-target');
-        el.removeAttribute('data-drop-rejected');
-      }
-    }
-    if (next) {
-      const el = this.dropTargets.get(next.targetId)?.el;
-      if (el && typeof el.setAttribute === 'function') {
-        if (next.accepted) el.setAttribute('data-drop-target', 'true');
-        else el.setAttribute('data-drop-rejected', 'true');
-      }
-    }
-  }
-
-  drop(): void {
-    if (!this.active) return;
-    this.cancelPendingRaf();
-    const { draggingId, hover } = this.active;
-    if (!hover?.accepted) {
-      this.cancel(hover ? 'rejected' : 'outside');
-      return;
-    }
-    try {
-      this.store.moveNode(draggingId, hover.targetId, hover.insertIndex);
-      trace('dnd', `drop: ${draggingId} → ${hover.targetId}@${hover.insertIndex ?? 'append'}`);
-    } catch (err) {
-      trace('dnd', `drop failed: ${(err as Error).message}`);
-    }
-    this.clear();
-  }
-
-  cancel(reason: DragCancelReason = 'outside'): void {
-    if (!this.active) return;
-    this.cancelPendingRaf();
-    trace('dnd', `cancel: ${this.active.draggingId} reason=${reason}`);
-    this.clear();
-  }
-
-  private cancelPendingRaf(): void {
-    if (this.rafId !== null) {
-      if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(this.rafId);
-      this.rafId = null;
-    }
-    this.pendingPoint = null;
-  }
-
-  private clear(): void {
-    const previousHover = this.active?.hover ?? null;
-    this.active = null;
-    this.reflectHoverToDom(previousHover, null);
-    this.unbindEscape();
-    this.unbindWindowUp();
-    this.emit();
-  }
-
-  private emit(): void {
-    for (const fn of this.listeners) fn(this.active);
-  }
-
-  private bindEscape(): void {
-    if (this.escapeBound) return;
-    if (typeof window === 'undefined') return;
-    window.addEventListener('keydown', this.onKey);
-    this.escapeBound = true;
-  }
-
-  private unbindEscape(): void {
-    if (!this.escapeBound) return;
-    if (typeof window === 'undefined') return;
-    window.removeEventListener('keydown', this.onKey);
-    this.escapeBound = false;
-  }
-
-  /** Window-level pointerup safety net. The DragHandle's onPointerUp is the
-   *  primary drop trigger, but setPointerCapture can be silently lost (cursor
-   *  leaves the window, the captured element gets unmounted by a re-render,
-   *  browser edge cases). Without this fallback, a missed pointerup leaves
-   *  the controller permanently active — ghost stuck, future drags rejected. */
-  private bindWindowUp(): void {
-    if (this.windowUpBound) return;
-    if (typeof window === 'undefined') return;
-    window.addEventListener('pointerup', this.onWindowPointerUp);
-    window.addEventListener('pointercancel', this.onWindowPointerUp);
-    this.windowUpBound = true;
-  }
-
-  private unbindWindowUp(): void {
-    if (!this.windowUpBound) return;
-    if (typeof window === 'undefined') return;
-    window.removeEventListener('pointerup', this.onWindowPointerUp);
-    window.removeEventListener('pointercancel', this.onWindowPointerUp);
-    this.windowUpBound = false;
-  }
-
-  private onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') this.cancel('escape');
-  };
-
-  private onWindowPointerUp = (): void => {
-    if (!this.active) return;
-    trace('dnd', 'window pointerup safety net fired — dispatching drop');
-    this.drop();
-  };
-}
+const rafScheduler: FrameScheduler = {
+  request(cb) {
+    if (typeof requestAnimationFrame !== 'undefined') return requestAnimationFrame(() => cb());
+    return setTimeout(cb, 16) as unknown as number;
+  },
+  cancel(handle) {
+    if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(handle);
+    else clearTimeout(handle as unknown as ReturnType<typeof setTimeout>);
+  },
+};
 
 function ancestorDepth(el: Element): number {
   let n = 0;
@@ -370,8 +46,144 @@ function ancestorDepth(el: Element): number {
   return n;
 }
 
-function sameHover(a: DragState['hover'], b: DragState['hover']): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return a.targetId === b.targetId && a.accepted === b.accepted && a.insertIndex === b.insertIndex;
+/**
+ * The DOM host for `DragEngine`: element rects instead of `bounds()`, window
+ * listeners for the gestures the handle can miss, `data-drop-*` attributes for
+ * CSS, and per-frame coalescing of pointer samples. The engine underneath owns
+ * ownership and acceptance and never touches any of this.
+ *
+ * One controller per `<DragProvider>`; consumers subscribe via `useDragState`.
+ * Hit-testing is consumer-driven — `useDropTarget` registers element rects,
+ * and pointermove walks the registry to find the deepest match.
+ */
+export class DragController {
+  private readonly engine: DragEngine;
+  private readonly elements = new Map<NodeId, Element>();
+  private stamped: NodeId | null = null;
+  private escapeBound = false;
+  private windowUpBound = false;
+
+  constructor(store: Store, getStrategy?: StrategyLookup) {
+    const options: { getStrategy?: StrategyLookup; schedule: FrameScheduler } = {
+      schedule: rafScheduler,
+    };
+    if (getStrategy) options.getStrategy = getStrategy;
+    this.engine = new DragEngine(store, options);
+    // First subscriber, so attributes and window listeners are settled before
+    // any consumer listener sees the new state.
+    this.engine.subscribe((state) => {
+      this.reflectHover(state);
+      if (state) {
+        this.bindEscape();
+        this.bindWindowUp();
+      } else {
+        this.unbindEscape();
+        this.unbindWindowUp();
+      }
+    });
+  }
+
+  state(): DragState | null {
+    return this.engine.state();
+  }
+
+  subscribe(fn: (state: DragState | null) => void): () => void {
+    return this.engine.subscribe(fn);
+  }
+
+  registerDropTarget(
+    id: NodeId,
+    el: Element,
+    canAccept?: (sourceId: NodeId) => boolean,
+    options?: DropTargetOptions,
+  ): () => void {
+    this.elements.set(id, el);
+    const off = this.engine.addDropTarget(id, {
+      bounds: () => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left, y: r.top, w: r.right - r.left, h: r.bottom - r.top };
+      },
+      depth: () => ancestorDepth(el),
+      ...(canAccept ? { canAccept } : {}),
+      ...(options?.getInsertionIndex ? { getInsertionIndex: options.getInsertionIndex } : {}),
+    });
+    return () => {
+      this.elements.delete(id);
+      off();
+    };
+  }
+
+  tryBegin(sourceId: NodeId): boolean {
+    return this.engine.tryBegin(sourceId);
+  }
+
+  updateHoverByPoint(x: number, y: number): void {
+    this.engine.updateHoverByPoint(x, y);
+  }
+
+  drop(): void {
+    this.engine.drop();
+  }
+
+  cancel(reason: DragCancelReason = 'outside'): void {
+    this.engine.cancel(reason);
+  }
+
+  /** Stamp `data-drop-target` / `data-drop-rejected` onto the hovered element
+   *  so CSS can paint affordances. Clears them on hover-leave / drop / cancel. */
+  private reflectHover(state: DragState | null): void {
+    const next = state?.hover ?? null;
+    if (this.stamped !== null && this.stamped !== next?.targetId) {
+      const prev = this.elements.get(this.stamped);
+      prev?.removeAttribute('data-drop-target');
+      prev?.removeAttribute('data-drop-rejected');
+    }
+    this.stamped = next?.targetId ?? null;
+    if (!next) return;
+    const el = this.elements.get(next.targetId);
+    if (!el) return;
+    el.setAttribute(next.accepted ? 'data-drop-target' : 'data-drop-rejected', 'true');
+    el.removeAttribute(next.accepted ? 'data-drop-rejected' : 'data-drop-target');
+  }
+
+  private bindEscape(): void {
+    if (this.escapeBound || typeof window === 'undefined') return;
+    window.addEventListener('keydown', this.onKey);
+    this.escapeBound = true;
+  }
+
+  private unbindEscape(): void {
+    if (!this.escapeBound || typeof window === 'undefined') return;
+    window.removeEventListener('keydown', this.onKey);
+    this.escapeBound = false;
+  }
+
+  /** Window-level pointerup safety net. The DragHandle's onPointerUp is the
+   *  primary drop trigger, but setPointerCapture can be silently lost (cursor
+   *  leaves the window, the captured element gets unmounted by a re-render,
+   *  browser edge cases). Without this fallback, a missed pointerup leaves
+   *  the controller permanently active — ghost stuck, future drags rejected. */
+  private bindWindowUp(): void {
+    if (this.windowUpBound || typeof window === 'undefined') return;
+    window.addEventListener('pointerup', this.onWindowPointerUp);
+    window.addEventListener('pointercancel', this.onWindowPointerUp);
+    this.windowUpBound = true;
+  }
+
+  private unbindWindowUp(): void {
+    if (!this.windowUpBound || typeof window === 'undefined') return;
+    window.removeEventListener('pointerup', this.onWindowPointerUp);
+    window.removeEventListener('pointercancel', this.onWindowPointerUp);
+    this.windowUpBound = false;
+  }
+
+  private onKey = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') this.cancel('escape');
+  };
+
+  private onWindowPointerUp = (): void => {
+    if (!this.state()) return;
+    trace('dnd', 'window pointerup safety net fired — dispatching drop');
+    this.drop();
+  };
 }

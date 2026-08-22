@@ -13,6 +13,13 @@ export {
   type DropTargetOptions,
   type StrategyLookup,
 } from './dnd/DragController.js';
+export {
+  DragEngine,
+  type DragEngineOptions,
+  type DropTarget,
+  type FrameScheduler,
+  type Point,
+} from './dnd/DragEngine.js';
 export { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
 export {
   CapabilityMissingError,

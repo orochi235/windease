@@ -234,6 +234,24 @@ the tree under `<DragProvider>`. The drag controller honors:
 
 See the **Parallel zones / Drag between** story for the canonical setup.
 
+A host that isn't driving DOM elements — a canvas surface, a test — drives
+`DragEngine` instead. It owns the same ownership, acceptance and hit-test
+logic, but takes geometry as data and never binds a listener:
+
+```ts
+const engine = new DragEngine(store);
+engine.addDropTarget(zoneId, { bounds: () => ({ x: 0, y: 0, w: 400, h: 300 }) });
+engine.tryBegin(panelId);
+engine.updateHoverByPoint(x, y);
+engine.drop();
+```
+
+`DragController` is that engine plus the DOM: element rects, `parentElement`
+depth for innermost-wins, the `data-drop-target` / `data-drop-rejected`
+attributes, the window-level Escape and pointerup safety nets, and per-frame
+coalescing of pointer samples. Samples run where they are made unless you pass
+a `schedule`.
+
 ## Resize
 
 Pass `affordances` to `<Container>` to render `stripStrategy`'s interactive
