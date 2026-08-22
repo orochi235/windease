@@ -28,6 +28,7 @@ export {
   type WindeaseErrorCode,
 } from './errors.js';
 export { type EventMap, TypedEmitter } from './events.js';
+export { bindAnnouncer } from './focus/announcer.js';
 export { accessibleName } from './focus/name.js';
 export { navigableLeaves } from './focus/navigable.js';
 export { nullFocusAdapter } from './focus/nullAdapter.js';

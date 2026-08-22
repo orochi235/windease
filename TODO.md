@@ -288,11 +288,14 @@ serialize/graft work goes out under the same 1.2.0.
   a deprecated delegating alias, removed at 2.0.0, so nothing breaks in a
   minor.
 
-Still missing: `announce()` ships on `FocusAdapter` with no call site. Moving
-real DOM focus announces the pane name for free, so what is left uncovered is
-the change with no accompanying focus movement — a successor chosen after a
-destroy, or a pane relocated to another zone. Needs a live region, which the
-keyboard-navigation design deliberately did not specify.
+- **Announcements for changes that move no focus.** `bindAnnouncer(store,
+  adapter)` composes text from `focus.successor`, `node.moved` and
+  `node.reordered` and hands it to `FocusAdapter.announce`; `<FocusProvider>`
+  renders a polite live region and wires it, opt out with `announce={false}`.
+  Scoped to the focused node and subtrees focus sits inside, so a host moving
+  panes the user is not in stays silent. `FocusAdapter` now has a real DOM
+  implementation behind the seam rather than an interface with no callers —
+  `present` moves the caret, and a canvas host swaps both methods.
 
 ## Shipped in 1.1.0
 

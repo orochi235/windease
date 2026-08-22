@@ -304,6 +304,28 @@ rather than dropping focus to the document, and reports the choice on
 `focus.successor` with a `reason` of `destroyed` or `hidden`. `to` is null
 only when nothing focusable is left.
 
+### Announcements
+
+Moving focus announces the new pane's name for free. What needs saying out
+loud is a change that moves *no* focus: the focused pane closing, or being
+relocated under a different parent. `FocusProvider` renders a polite live
+region for those and speaks them — "Editor closed", "Editor moved to Sidebar,
+position 2 of 3". Pass `announce={false}` for a host that owns its own live
+region.
+
+Only changes to the focused pane, or to a subtree focus sits inside, are
+spoken; a host relocating thirty panes the user is not in narrates nothing.
+
+A non-DOM host wires the same policy to its own output with `bindAnnouncer`,
+which composes the text from the store and hands it to a `FocusAdapter`:
+
+```ts
+const off = bindAnnouncer(store, {
+  present: (id) => surface.drawFocusRing(id),
+  announce: (text) => surface.liveRegion.say(text),
+});
+```
+
 ## Optional transition throttling
 
 Consumers driving the store from a live event stream can rate-limit how
