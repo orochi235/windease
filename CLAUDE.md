@@ -124,6 +124,12 @@ What this means when you design against it:
   `role="separator"` means nothing to a non-DOM consumer.
 - **Core tests run headless.** If a new one needs jsdom — or a hand-faked
   `Element` — the boundary moved.
+- **A DOM convenience is not automatically a layout input.** `observe` /
+  `observeNatural` belong on `ContainerHost` because a strategy reads what they
+  report; `observePixelRatio` is standalone because nothing in `layout()` reads
+  the ratio and no placement moves with it. Routing it through the host would
+  make it a bus for a value it never consumes, and would notify a canvas host
+  on every ordinary resize.
 
 ## Other conventions
 
