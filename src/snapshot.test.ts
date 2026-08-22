@@ -421,7 +421,12 @@ describe('snapshot v4 — lock round-trip', () => {
     store.setLock(asNodeId('p'), true);
     const snap = serialize(store);
     const restored = deserialize(snap);
-    expect(restored.getLock(asNodeId('p'))).toEqual({ move: true, resize: true, destroy: true });
+    expect(restored.getLock(asNodeId('p'))).toEqual({
+      move: true,
+      resize: true,
+      destroy: true,
+      arrange: true,
+    });
   });
 
   it('omits lock and pinned from a node that has neither', () => {

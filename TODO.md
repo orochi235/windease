@@ -161,11 +161,6 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   comment.
 - TypeScript is held at 6.x because typedoc 0.28's peer range stops at
   `6.0.x`. Revisit TS 7 (the Go port) once typedoc ships support.
-- **A node cannot be locked against gaining a container.** `resolveLock` drops
-  axes the node's current capabilities don't support, and `arrange` requires an
-  existing `container` — so `setLock(panel, { arrange: true })` silently stores
-  nothing and `ensureContainer` proceeds. The guard works only once a container
-  is already present, which is the case it is least needed for.
 - **Two dead affordance hooks are deprecated, not yet removed.**
   `BuiltinAffordanceKind`'s `'keypress'` member and `LayoutEvent`'s `kind: 'key'`
   are never emitted, dispatched, or handled; keyboard resize reaches a strategy
