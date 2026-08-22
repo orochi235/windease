@@ -363,6 +363,7 @@ function AffordanceHandle({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: role is separator whenever the key handler is attached; the rule cannot see through the conditional. */}
       {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: same conditional — aria-orientation is set only alongside role="separator", which supports it. */}
       <div
+        className="windease-affordance-hit"
         style={outerStyle}
         data-affordance-hit={affordance.id}
         data-join-armed={armedId !== null ? 'true' : undefined}

@@ -9,6 +9,9 @@
  *     writes per-instance, and exposes itself as a named CSS size container
  *     so widgets can adapt with @container queries.
  *   - .windease-insertion-line gets a subtle default appearance.
+ *   - [data-join-armed] gets a visible default: releasing an armed seam-join
+ *     destroys a pane with no confirmation step, so the point of no return
+ *     cannot wait on consumer CSS.
  *   - .windease-measure wraps a content-sized pane's children so `hints.sizing`
  *     measures the content rather than the extent the layout just wrote.
  *   - .windease-focus-root exists only to catch bubbled focusin/keydown, so
@@ -96,6 +99,30 @@
 
 .windease-focus-root {
   display: contents;
+}
+
+/* Two signals, not one: an armed victim sits at its floor and may be a sliver,
+ * so the thickened seam is what stays visible and the hatch names the pane. */
+
+.windease-affordance-hit[data-join-armed] > [data-affordance]::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  background: currentColor;
+  pointer-events: none;
+}
+
+[data-node][data-join-armed] {
+  position: relative;
+}
+
+[data-node][data-join-armed]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.3;
+  background: repeating-linear-gradient(45deg, currentColor 0 6px, transparent 6px 14px);
 }
 
 /*

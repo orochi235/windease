@@ -1,7 +1,9 @@
 import {
   type CSSProperties,
+  createContext,
   type ReactNode,
   type RefObject,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -69,6 +71,11 @@ interface PresentationalProps {
 }
 
 const DEFAULT_SETTLE_MS = 150;
+
+/** The pane an armed seam-join would destroy, published by the preset that owns
+ *  the affordance layer and read by that pane's own shell. Internal — a preset's
+ *  children render their own wrappers, so a prop cannot reach them. */
+const JoinArmContext = createContext<NodeId | null>(null);
 
 function compose(...parts: Array<string | undefined>): string {
   return parts.filter(Boolean).join(' ');
@@ -250,6 +257,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   const store = useStore();
   const settleMs = DEFAULT_SETTLE_MS;
   const [, setDraggingAffordanceId] = useState<string | null>(null);
+  const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
   const layoutInfo: LayoutInfo = {
     placements: layout.placements,
     settleMs,
@@ -275,6 +283,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         innerRef={ref}
         acceptsDrops={props.acceptsDrops}
         measure={props.measure}
+        joinArmedId={joinArmedId}
       >
         {props.draggable ? (
           <DragHandle nodeId={props.id}>{props.children}</DragHandle>
@@ -290,6 +299,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
           keyStep={props.affordanceKeyStep ?? 8}
           tabStop={props.affordanceTabStops ?? true}
           onActiveChange={setDraggingAffordanceId}
+          onJoinArmChange={setJoinArmedId}
         />
       </PresetShell>
     </LayoutScope>
@@ -422,6 +432,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   const store = useStore();
   const settleMs = props.settleMs ?? DEFAULT_SETTLE_MS;
   const [, setDraggingAffordanceId] = useState<string | null>(null);
+  const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
   const layoutInfo: LayoutInfo = {
     placements: layout.placements,
     settleMs,
@@ -476,6 +487,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         innerRef={ref}
         acceptsDrops={props.acceptsDrops}
         measure={props.measure}
+        joinArmedId={joinArmedId}
       >
         {props.children}
         {imperativeRenders}
@@ -488,6 +500,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
           keyStep={props.affordanceKeyStep ?? 8}
           tabStop={props.affordanceTabStops ?? true}
           onActiveChange={setDraggingAffordanceId}
+          onJoinArmChange={setJoinArmedId}
         />
       </PresetShell>
     </LayoutScope>
@@ -538,6 +551,10 @@ interface PresetShellProps {
   measure?:
     | { observe: (id: NodeId, el: Element) => () => void; widthByContent: boolean }
     | undefined;
+  /** The pane an armed seam-join would destroy, for a shell that owns an
+   *  affordance layer. Published to descendants, never read for this shell —
+   *  a seam names one of its own container's children. */
+  joinArmedId?: NodeId | null | undefined;
 }
 
 /** Wrapper div + ChildRegistry host + ParentContext + sibling-order reconciliation. */
@@ -553,6 +570,7 @@ function PresetShell({
   innerRef,
   acceptsDrops,
   measure,
+  joinArmedId,
 }: PresetShellProps) {
   // We need a single ref on the wrapper div that serves both layout
   // measurement (innerRef, when provided) and drop-target registration.
@@ -585,6 +603,7 @@ function PresetShell({
   // If a parent container's strategy assigned this node a rect, wrap our
   // DOM in an absolute-positioned box so we render at the right place.
   const selfRect = useLayoutForSelf(id);
+  const armedByParent = useContext(JoinArmContext);
 
   // After children render and self-report, reconcile sibling order.
   useLayoutEffect(() => {
@@ -611,6 +630,19 @@ function PresetShell({
         ? 'windease-panel__title'
         : undefined;
 
+  const body = (
+    <>
+      {title !== undefined && headerClass && <header className={headerClass}>{title}</header>}
+      {children}
+    </>
+  );
+  const content =
+    joinArmedId === undefined ? (
+      body
+    ) : (
+      <JoinArmContext.Provider value={joinArmedId}>{body}</JoinArmContext.Provider>
+    );
+
   const shell = (
     <ChildRegistryContext.Provider value={registry}>
       <ParentScope parentId={id}>
@@ -620,6 +652,7 @@ function PresetShell({
           style={style}
           data-testid={testId}
           data-node={id}
+          data-join-armed={armedByParent === id ? 'true' : undefined}
           tabIndex={focusable ? (rovingId === id ? 0 : -1) : undefined}
         >
           {measure ? (
@@ -628,18 +661,10 @@ function PresetShell({
               widthByContent={measure.widthByContent}
               observe={measure.observe}
             >
-              {title !== undefined && headerClass && (
-                <header className={headerClass}>{title}</header>
-              )}
-              {children}
+              {content}
             </MeasuredContent>
           ) : (
-            <>
-              {title !== undefined && headerClass && (
-                <header className={headerClass}>{title}</header>
-              )}
-              {children}
-            </>
+            content
           )}
         </div>
       </ParentScope>

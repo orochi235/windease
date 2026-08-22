@@ -6,7 +6,7 @@ import { stripStrategy } from '../index.js';
 import { asNodeId } from '../node.js';
 import { Store } from '../store.js';
 import { recordEvents } from '../test-utils/record-events.js';
-import { type ChromeMap, Container } from './index.js';
+import { type ChromeMap, Container, Panel, Zone } from './index.js';
 import { Provider } from './Provider.js';
 import { StrategyRegistryProvider } from './strategies.js';
 
@@ -400,5 +400,67 @@ describe('seam join — from the keyboard', () => {
     press(seam, 'Enter');
     expect(locked.getNode(asNodeId('b'))).toBeDefined();
     expect(widthOf(locked, 'a')).toBe(320);
+  });
+});
+
+/** The same strip, built from the presets. The 200px start is a `preferredSize`
+ *  rather than a declared `placement`, which would be re-forced on every render
+ *  and revert the drag; strip writes the size the resize commits over it. */
+const PANE_HINTS = { minSize: { w: 80, h: 0 }, preferredSize: { w: 200, h: 200 } };
+const STRIP_CONFIG = {
+  axis: 'x',
+  gap: 0,
+  padding: 0,
+  resizeMode: 'neighbor',
+  joinOnOvershoot: true,
+  joinThreshold: 24,
+};
+
+function mountPresets() {
+  const store = new Store();
+  const { container } = render(
+    withProviders(
+      store,
+      <Zone
+        id={asNodeId('root')}
+        strategyId="strip"
+        config={STRIP_CONFIG}
+        viewport={{ w: 600, h: 200 }}
+        affordances
+      >
+        <Panel id={asNodeId('a')} hints={PANE_HINTS} />
+        <Panel id={asNodeId('b')} hints={PANE_HINTS} />
+        <Panel id={asNodeId('c')} hints={PANE_HINTS} />
+      </Zone>,
+    ),
+  );
+  const seam = container.querySelector('[data-affordance-hit="resize-x-a"]');
+  if (!seam) throw new Error('seam resize-x-a not rendered');
+  return { store, container, seam: seam as HTMLElement };
+}
+
+function paneArmed(container: HTMLElement, id: string): boolean {
+  return container.querySelector(`[data-node="${id}"]`)?.hasAttribute('data-join-armed') ?? false;
+}
+
+describe('seam join — through the presets', () => {
+  it('marks the pane whose floor broke, and no sibling', () => {
+    const { store, container, seam } = mountPresets();
+    down(seam);
+    move(seam, 30, move(seam, TO_CLAMP));
+    expect(widthOf(store, 'a')).toBe(320);
+    expect(armedPane(container)).toBe('b');
+    expect(paneArmed(container, 'a')).toBe(false);
+    expect(paneArmed(container, 'c')).toBe(false);
+  });
+
+  it('clears the marking on disarm', () => {
+    const { container, seam } = mountPresets();
+    down(seam);
+    const x = move(seam, 30, move(seam, TO_CLAMP));
+    expect(armedPane(container)).toBe('b');
+    move(seam, -10, x);
+    expect(armedPane(container)).toBeNull();
+    expect(paneArmed(container, 'b')).toBe(false);
   });
 });
