@@ -30,6 +30,14 @@ export interface NodeHints {
    * horizontal strip.
    */
   sizing?: { w?: 'content'; h?: 'content' };
+  /**
+   * How this container arranges its children. `'placed'` (the default) runs the
+   * registered strategy and produces a rect per child. `'flow'` runs no
+   * strategy: children render as ordinary in-flow elements and the consumer's
+   * own CSS arranges them, so there are no placements, no affordances, no
+   * `unplaced`, and no `sizing` measurement. Meaningless on a childless node.
+   */
+  render?: 'placed' | 'flow';
   order?: number;
 }
 

@@ -212,6 +212,50 @@ function StoreContainer({
     };
   }, [geometryRegistry, layout.placements, selfRect?.x, selfRect?.y]);
 
+  const isFlow = layout.mode === 'flow';
+  const childKey = children.map((c) => String(c.id)).join('|');
+  // In flow the browser owns the arrangement, so the rects the focus resolver
+  // needs come from measurement rather than from placements. Composed against
+  // this container's own origin so both modes report into one space.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: childKey re-runs the measure when the child set changes; it is never read.
+  useEffect(() => {
+    if (!isFlow || !geometryRegistry) return;
+    const el = ref.current;
+    if (!el) return;
+    const written: string[] = [];
+    const measure = () => {
+      const self = el.getBoundingClientRect();
+      const originX = (selfRect?.x ?? 0) - self.x;
+      const originY = (selfRect?.y ?? 0) - self.y;
+      written.length = 0;
+      for (const child of childRectsForContainer(el)) {
+        written.push(child.id);
+        geometryRegistry.rects.set(child.id, {
+          x: originX + child.rect.x,
+          y: originY + child.rect.y,
+          w: child.rect.width,
+          h: child.rect.height,
+        });
+      }
+      geometryRegistry.commit();
+    };
+    measure();
+    const forget = () => {
+      for (const cid of written) geometryRegistry.rects.delete(cid);
+      geometryRegistry.commit();
+    };
+    // Same degradation as the viewport observer: measure once and hold there
+    // rather than fail. Re-measures still arrive on every child-set change.
+    if (typeof ResizeObserver === 'undefined') return forget;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    for (const k of Array.from(el.querySelectorAll('[data-node]'))) ro.observe(k);
+    return () => {
+      ro.disconnect();
+      forget();
+    };
+  }, [isFlow, geometryRegistry, childKey, selfRect?.x, selfRect?.y]);
+
   useEffect(() => {
     if (!dragController || !onChildOrderChange) return;
     return dragController.registerOrderControl(parentId, onChildOrderChange);
@@ -274,6 +318,31 @@ function StoreContainer({
     typeof overlay === 'function'
       ? (overlay as OverlayRenderer)({ ...layout, draggingAffordanceId })
       : overlay;
+
+  // Flow: no placements to read, so every visible child renders in order and
+  // the consumer's CSS arranges them. No affordances, no settle transition,
+  // and no `sizing` measurement — all three need the strategy pass.
+  if (isFlow) {
+    return (
+      <div ref={ref} className={className} style={containerStyle} data-node-container={parentId}>
+        {children
+          .filter((c) => c.lifecycle.state === 'visible')
+          .map((c) => (
+            // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
+            <div
+              key={c.id}
+              data-node={c.id}
+              tabIndex={rovingId === c.id ? 0 : -1}
+              role="group"
+              aria-label={accessibleName(store, c.id)}
+            >
+              <NodeRenderer id={c.id} chrome={chrome} />
+            </div>
+          ))}
+        {renderedOverlay}
+      </div>
+    );
+  }
 
   // During preview, the source's real chrome is suppressed (it appears as the
   // ghost). For same-parent previews, the source is in `children`; for

@@ -1,6 +1,11 @@
 # Exploration: outsourcing zone layout to CSS
 
-**Status:** considered, declined for now. Captured here so we don't redo the thinking from scratch.
+**Status:** step 1 shipped as `hints.render: 'flow'`; steps 3–5 still declined.
+The passive mode below now exists alongside the strategy zones, so a container
+opts in per node. What stays rejected is the *replacement* this doc argued
+against — `grid.ts` and `strip.ts` are not going anywhere, and `canAccept`
+stays a strategy method. Read "What's lost" as the list of what a flow
+container gives up, not as a cost the whole library would pay.
 **Date:** 2026-06-04
 
 ## The idea

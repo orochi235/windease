@@ -328,13 +328,16 @@ export function Zone(props: ZoneProps) {
     ...defined({ id: props.id, parentId: props.parentId, order: props.order }),
     kindHintForAutoId: 'zone',
     factory: (id, parentId) => {
-      if (!props.strategyId) {
+      // A flow zone never runs a strategy, so demanding an id for one would be
+      // asking the consumer to name something that is then ignored.
+      const flow = props.hints?.render === 'flow';
+      if (!props.strategyId && !flow) {
         throw new Error(`windease: <Zone id="${id}"> requires a strategyId prop.`);
       }
       return createNode({
         id,
         kind: props.kind ?? 'zone',
-        container: { strategyId: props.strategyId, config: props.config },
+        container: { strategyId: props.strategyId ?? 'flow', config: props.config },
         parentId: parentId ?? undefined,
         meta: props.meta,
         hints: props.hints,
@@ -356,7 +359,13 @@ export function Zone(props: ZoneProps) {
   // stable for a given mount, so a downstream conditional render of
   // <ZoneWithLayout> vs <ZonePlain> is safe.
   const registry = useOptionalStrategyRegistry();
-  const canProvideLayout = !!props.strategyId && !!registry && registry.has(props.strategyId);
+  // A flow zone takes the plain path even with its strategy registered: the
+  // hint is the declaration, not the absence of a registry entry.
+  const canProvideLayout =
+    props.hints?.render !== 'flow' &&
+    !!props.strategyId &&
+    !!registry &&
+    registry.has(props.strategyId);
   const store = useStore();
   // Read the parent's scope here, before ZoneWithLayout provides its own.
   const measure = useMeasure(store, id, useLayoutContext());

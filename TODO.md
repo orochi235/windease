@@ -457,15 +457,17 @@ a host with its own per-item undo stacks simply doesn't wire it.
   cell follows it — keying on the latter drops the handle from an item spanning
   to the edge and leaves it grown with no way back.
 
-- **In-flow render mode, per zone.** `docs/explorations/2026-06-04-flexbox-passive-zones.md`
-  declined replacing the passive strategies with CSS, and its "what's lost"
-  list holds up — item 3, auto-balance, is exactly what this host wants to
-  keep. But the choice was framed as all-or-nothing, and step 1 of its own
-  rollout (passive mode alongside strategy zones) is the useful half: a host
-  adopting windease for gestures on some zones shouldn't have to trade a
-  working CSS grid for a JS layout pass and absolute rects on the zones that
-  are a plain tiling. Note the decline also rested on "a single-app project
-  with no external consumers yet" — an adopting host is that consumer.
+- **Shipped: in-flow render mode, per container.** `hints.render: 'flow'` skips
+  the strategy pass and lets CSS arrange the children. Only step 1 of the
+  exploration's rollout — the strategies stay, and a mixed tree is the expected
+  shape, since auto-balance is one of the things this host wants to keep.
+
+  What the exploration did not know. DnD needed no work at all: the hit-test
+  reads the DOM already. Focus did, but only an adapter — the resolver takes
+  rects from a `GeometrySource`, so flow fills the same registry by measurement,
+  and its "would bifurcate the data path" objection is contained to that one
+  swap. The remaining gap is a pane that reflows without resizing: nothing fires,
+  and navigation reads a stale rect until the child set changes.
 
 ## Canvas-host ergonomics
 

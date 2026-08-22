@@ -352,6 +352,59 @@ anyway, clamped to the container, so an overflowing dock never renders empty.
 `overflow` is reported per axis and absent when the content fits, so a consumer
 that wants to drive its own policy can read it and ignore all three.
 
+## Letting CSS do the layout
+
+A container that declares `hints.render: 'flow'` runs no strategy. Its children
+render as ordinary in-flow elements and the consumer's own CSS arranges them —
+for a host adopting windease into a layout that is already a working CSS grid
+and wants the gestures, not the geometry.
+
+```tsx
+<Zone id={DOCK} hints={{ render: 'flow' }} className="dock-grid">
+  <Panel id="a" />
+  <Panel id="b" />
+</Zone>
+```
+
+```css
+.dock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+```
+
+`strategyId` is optional on a flow `<Zone>`, since nothing would run it. The
+hint outranks a registered strategy: declaring flow on a zone whose `strategyId`
+is registered still takes the flow path.
+
+**What still works.** Drag and drop, including the insertion index — the
+hit-test measures the DOM and never read placements. Directional keyboard
+navigation and `Shift`-arrow moves, because the rects reach the resolver by
+measurement instead of from placements, composed into the same coordinate
+space as every placed container. Focus, announcements, snapshot and undo are
+untouched.
+
+**What a flow container gives up**, all of it downstream of the strategy pass:
+
+| Gone | Because |
+| --- | --- |
+| `layout.placements` | nothing computes a rect; the map is empty |
+| Resize gutters and every other affordance | a strategy emits them |
+| `unplaced` overflow and `overflowMode` | capacity is a strategy decision |
+| Auto-balance, `cols`/`rows`, `axis`, `gap` | these are CSS now |
+| `hints.sizing` content measurement | the measurement feeds a strategy |
+| The settle animation | it transitions `left`/`top`, which in-flow panes lack |
+| The drag preview's reflow | siblings do not part to show the drop slot |
+
+Mixing modes is the point: keep strategy zones where you want auto-balance or
+gutters, and mark the plain tilings flow. Two caveats worth knowing. Geometry
+is re-measured when the child set changes and whenever a `ResizeObserver` fires
+on the container or a pane, so a reflow that moves a pane without resizing
+anything can leave keyboard navigation a frame stale. And the default insertion
+axis is inferred from `container.config.axis`, which a flow zone has no reason
+to set — pass `config={{ axis: 'x' }}` for a row, or drops resolve vertically.
+
 ## Canvas hosts
 
 A host that draws every pane into one canvas — scissor rects on a single WebGL

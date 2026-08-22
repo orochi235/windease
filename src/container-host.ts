@@ -26,6 +26,13 @@ export interface ContainerLayout {
    * scrolling wrapper has something to scroll.
    */
   overflow?: { w: number; h: number };
+  /**
+   * `'placed'` when these came from a strategy run, `'flow'` when the container
+   * declared `hints.render: 'flow'` and the browser arranges its children. A
+   * flow layout carries no placements, affordances or overflow — a binding
+   * renders the children in order and lets CSS position them.
+   */
+  mode: 'placed' | 'flow';
 }
 
 /** What produced a controlled child's proposed placement. */
@@ -95,6 +102,7 @@ const EMPTY: ContainerLayout = {
   unplaced: [],
   viewport: null,
   isPreview: false,
+  mode: 'placed',
 };
 
 /**
@@ -510,9 +518,14 @@ export class ContainerHost {
   }
 
   #compute(): ContainerLayout {
-    const container = this.#store.getNode(this.#parentId)?.container;
+    const node = this.#store.getNode(this.#parentId);
+    const container = node?.container;
     const viewport = this.#viewport;
-    if (!container || !viewport) return viewport ? { ...EMPTY, viewport } : EMPTY;
+    if (!container) return viewport ? { ...EMPTY, viewport } : EMPTY;
+    // Checked before the viewport guard: a flow container needs no measurement,
+    // so waiting for one would leave its children unrendered forever.
+    if (node?.hints?.render === 'flow') return { ...EMPTY, viewport, mode: 'flow' };
+    if (!viewport) return EMPTY;
     const strategy = this.#registry.get(container.strategyId);
     if (!strategy) return { ...EMPTY, viewport };
     this.#checkConfig(strategy, container.config);
@@ -537,6 +550,7 @@ export class ContainerHost {
           unplaced: [],
           viewport,
           isPreview: fast.accepted,
+          mode: 'placed',
         };
       }
     }
@@ -574,6 +588,7 @@ export class ContainerHost {
       unplaced: result.unplaced ?? [],
       viewport,
       isPreview: result.isPreview ?? false,
+      mode: 'placed',
     };
     if (result.overflow) out.overflow = result.overflow;
     return out;

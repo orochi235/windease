@@ -22,6 +22,16 @@ section below.
   default. `strip` and `grid` declare one; a strategy without one is not checked.
   `checkStrategyConfig(name, config, spec)` is exported for hosts that would rather
   assert on config than read traces. See [Breaking changes](README.md#breaking-changes).
+- **In-flow render mode.** A container declaring `hints.render: 'flow'` runs no
+  strategy: its children render as ordinary in-flow elements and the consumer's CSS
+  arranges them, for a host adopting windease into a layout that is already a working
+  CSS grid. Drag and drop is unaffected — the hit-test always measured the DOM — and
+  directional navigation still works because the rects reach the resolver by
+  measurement, composed into the same space as every placed container. What a flow
+  container gives up is everything downstream of the strategy pass: placements,
+  affordances, `unplaced`, `overflowMode`, `hints.sizing`, and the settle animation.
+  `ContainerLayout` gains `mode`, and `strategyId` becomes optional on a flow
+  `<Zone>`. Additive: a container that declares nothing behaves exactly as before.
 - **Keyboard move.** `Shift` plus an arrow moves the focused pane into the slot that
   arrow would have navigated to — a reorder among siblings, a reparent when the target
   lives in another container — so one resolution backs both gestures and a strategy's
