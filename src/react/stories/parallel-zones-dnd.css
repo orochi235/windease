@@ -75,3 +75,10 @@
     sans-serif;
   color: #64748b;
 }
+
+/* The focused panel has to be obvious, or the keyboard gestures don't read.
+   Plain `:focus` — a mouse click on the wrapper div never matches :focus-visible. */
+[data-node]:focus > .pz-panel {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}

@@ -8,6 +8,8 @@ import {
   Container,
   DragHandle,
   DragProvider,
+  FocusProvider,
+  GeometryProvider,
   Provider,
   StrategyRegistryProvider,
   useDragState,
@@ -113,11 +115,20 @@ export const DragBetween: Story = () => {
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <DragProvider>
-          <div className="pz-row">
-            <ZoneShell zoneId={LEFT} label="Left zone" chrome={chrome} />
-            <ZoneShell zoneId={RIGHT} label="Right zone" chrome={chrome} />
-          </div>
-          <p className="pz-hint">Drag any panel by its grip into the other zone. Escape cancels.</p>
+          <GeometryProvider>
+            <FocusProvider>
+              <div className="pz-row">
+                <ZoneShell zoneId={LEFT} label="Left zone" chrome={chrome} />
+                <ZoneShell zoneId={RIGHT} label="Right zone" chrome={chrome} />
+              </div>
+              <p className="pz-hint">
+                Drag any panel by its grip into the other zone. Escape cancels. Or click a panel and
+                use <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> to move the caret — the
+                sideways ones cross between the zones — and <kbd>Shift</kbd> plus an arrow to send
+                the panel itself across.
+              </p>
+            </FocusProvider>
+          </GeometryProvider>
         </DragProvider>
       </StrategyRegistryProvider>
     </Provider>
