@@ -77,6 +77,23 @@ describe('navigableLeaves', () => {
     expect(navigableLeaves(s, g)).toEqual([]);
   });
 
+  it('includes a childless focusable container', () => {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        focus: true,
+        container: { strategyId: 'strip', config: {} },
+        id: id('dock'),
+      }),
+    );
+    s.showNode(id('dock'));
+    const g = rects({ dock: [0, 0, 100, 40] });
+    // An empty dock is a legitimate arrow target — somewhere to land before
+    // dropping into it.
+    expect(navigableLeaves(s, g)).toEqual([id('dock')]);
+  });
+
   it('skips a node with no geometry', () => {
     const s = row(['a', 'b']);
     const g = rects({ a: [0, 0, 10, 10] });

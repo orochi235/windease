@@ -14,7 +14,7 @@ import {
   childRectsForContainer,
   insertionIndexByMidpoint,
 } from '../dnd/insertionIndex.js';
-import { accessibleName, type ChildOrderCommit, type NodeId, trace } from '../index.js';
+import { accessibleName, type ChildOrderCommit, type NodeId, type Rect, trace } from '../index.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
@@ -121,6 +121,20 @@ const CHILD_BASE: CSSProperties = { position: 'absolute' };
 
 const DEFAULT_SETTLE_MS = 150;
 
+/** Rounding one of `rect` / `scroll` and not the other — zoom, fractional DPR —
+ *  moves a document coordinate by up to half a pixel, which is half of
+ *  `MIN_NAVIGABLE_PX` and so cannot change what navigation picks. */
+const ORIGIN_EPSILON_PX = 0.5;
+
+function sameOrigin(a: Rect, b: Rect): boolean {
+  return (
+    Math.abs(a.x - b.x) <= ORIGIN_EPSILON_PX &&
+    Math.abs(a.y - b.y) <= ORIGIN_EPSILON_PX &&
+    Math.abs(a.w - b.w) <= ORIGIN_EPSILON_PX &&
+    Math.abs(a.h - b.h) <= ORIGIN_EPSILON_PX
+  );
+}
+
 /**
  * Renders a container node's visible children at the placements produced by
  * its registered strategy. Each child is absolute-positioned inside the
@@ -210,6 +224,9 @@ function StoreContainer({
   // Document coordinates, so a page scroll cannot pull two roots apart.
   const isRoot = parent !== undefined && parent.membership === undefined;
   const [, bumpOrigin] = useState(0);
+  // Guarding against the registry instead would let two containers sharing one
+  // id answer each other's writes forever.
+  const written = useRef<Rect | null>(null);
 
   const measureRoot = useCallback(() => {
     if (!isRoot || !geometryRegistry) return;
@@ -223,10 +240,13 @@ function StoreContainer({
       h: r.height,
     };
     const key = String(parentId);
-    const prev = geometryRegistry.rects.get(key);
-    if (prev && prev.x === next.x && prev.y === next.y && prev.w === next.w && prev.h === next.h) {
-      return;
+    const prev = written.current;
+    if (prev && sameOrigin(prev, next)) return;
+    const live = geometryRegistry.rects.get(key);
+    if (live !== undefined && live !== prev) {
+      trace('zone', `root origin: ${key} (overwriting another container's rect)`);
     }
+    written.current = next;
     geometryRegistry.rects.set(key, next);
     trace('zone', `root origin: ${key} at ${next.x},${next.y} ${next.w}x${next.h}`);
     geometryRegistry.commit();
@@ -239,15 +259,33 @@ function StoreContainer({
   });
 
   // Capture phase so a scroll in any ancestor scroller re-measures, not just
-  // the page.
+  // the page. Coalesced to one measurement per frame: a scroll burst would
+  // otherwise pay a full-registry commit per event.
+  const pendingFrame = useRef<number | null>(null);
   useEffect(() => {
     if (!isRoot) return;
-    const onViewportChange = () => measureRoot();
+    const onViewportChange = () => {
+      // Same degradation as the viewport observer: measure straight through
+      // rather than fail.
+      if (typeof requestAnimationFrame === 'undefined') {
+        measureRoot();
+        return;
+      }
+      if (pendingFrame.current !== null) return;
+      pendingFrame.current = requestAnimationFrame(() => {
+        pendingFrame.current = null;
+        measureRoot();
+      });
+    };
     window.addEventListener('resize', onViewportChange, { passive: true });
     window.addEventListener('scroll', onViewportChange, { passive: true, capture: true });
     return () => {
       window.removeEventListener('resize', onViewportChange);
       window.removeEventListener('scroll', onViewportChange, { capture: true });
+      if (pendingFrame.current !== null) {
+        cancelAnimationFrame(pendingFrame.current);
+        pendingFrame.current = null;
+      }
     };
   }, [isRoot, measureRoot]);
 
@@ -255,6 +293,7 @@ function StoreContainer({
     if (!isRoot || !geometryRegistry) return;
     const key = String(parentId);
     return () => {
+      written.current = null;
       geometryRegistry.rects.delete(key);
       geometryRegistry.commit();
     };

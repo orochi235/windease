@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GeometrySource } from '../index.js';
 import { asNodeId, createNode, Store, stripStrategy } from '../index.js';
+import { captureTrace } from '../test-utils/capture-trace.js';
 import { Container } from './Container.js';
 import { GeometryProvider, useGeometrySource } from './focus/useGeometrySource.js';
 import { Provider } from './Provider.js';
@@ -15,18 +16,42 @@ interface Box {
   h: number;
 }
 
-let boxes: Record<string, Box> = {};
+let boxes: Record<string, Box | Box[]> = {};
+let measures: Record<string, number> = {};
+/** Which box of a list a given element answers with — assigned in mount
+ *  order, so two containers sharing one id can sit in different places. */
+let slots = new WeakMap<HTMLElement, number>();
+let nextSlot: Record<string, number> = {};
+
+/** A measure loop would otherwise hang the run instead of failing it. */
+const RUNAWAY_MEASURES = 200;
 
 /** jsdom reports every element at the page origin, so each root's box is
  *  stubbed by the `data-node-container` id its own div carries. Call again to
  *  move an element after mount. */
-function stubRects(next: Record<string, Box>) {
+function stubRects(next: Record<string, Box | Box[]>) {
   boxes = next;
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
     this: HTMLElement,
   ) {
     const id = this.getAttribute('data-node-container') ?? '';
-    const b = boxes[id] ?? { x: 0, y: 0, w: 0, h: 0 };
+    if (id) {
+      measures[id] = (measures[id] ?? 0) + 1;
+      if (measures[id] > RUNAWAY_MEASURES) throw new Error(`runaway measurement of ${id}`);
+    }
+    const spec = boxes[id];
+    let b: Box = { x: 0, y: 0, w: 0, h: 0 };
+    if (Array.isArray(spec)) {
+      let slot = slots.get(this);
+      if (slot === undefined) {
+        slot = nextSlot[id] ?? 0;
+        nextSlot[id] = slot + 1;
+        slots.set(this, slot);
+      }
+      b = spec[Math.min(slot, spec.length - 1)] ?? b;
+    } else if (spec) {
+      b = spec;
+    }
     return {
       x: b.x,
       y: b.y,
@@ -85,15 +110,18 @@ function mountStore(
   opts: { strict?: boolean } = {},
 ): Mounted {
   let geometry: GeometrySource | null = null;
+  // Ids can repeat — one root rendered twice is a case under test — so a key
+  // needs the occurrence too.
+  const entries = containerIds.map((cid, i) => ({ key: `${cid}#${i}`, id: cid }));
   const tree = () => {
     const inner = (
       <Provider store={store}>
         <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
           <GeometryProvider>
-            {containerIds.map((cid) => (
+            {entries.map((entry) => (
               <Container
-                key={cid}
-                parentId={asNodeId(cid)}
+                key={entry.key}
+                parentId={asNodeId(entry.id)}
                 chrome={{}}
                 viewport={{ w: 100, h: 200 }}
               />
@@ -123,8 +151,28 @@ function mount(rootIds: string[], opts: { strict?: boolean } = {}): Mounted {
 }
 
 beforeEach(() => {
+  measures = {};
+  slots = new WeakMap();
+  nextSlot = {};
   stubScroll(0, 0);
 });
+
+/** The viewport re-measure is coalesced into a frame, which jsdom runs on a
+ *  timer. Fake them only around the dispatch so nothing else in the file
+ *  has to reason about a faked clock. */
+async function inFrame(fire: () => void) {
+  vi.useFakeTimers();
+  try {
+    act(() => {
+      fire();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(32);
+    });
+  } finally {
+    vi.useRealTimers();
+  }
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -213,7 +261,7 @@ describe('root container origins', () => {
     expect(geometry.rectOf(asNodeId('left'))).toBeNull();
   });
 
-  it('re-measures a root on a page scroll', () => {
+  it('re-measures a root on a page scroll', async () => {
     stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
     const { geometry } = mount(['left']);
     expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 200 });
@@ -222,19 +270,19 @@ describe('root container origins', () => {
     // position holds; the height changes too so a stale entry cannot coincide.
     stubRects({ left: { x: 40, y: -20, w: 100, h: 150 } });
     stubScroll(0, 30);
-    act(() => {
+    await inFrame(() => {
       window.dispatchEvent(new Event('scroll'));
     });
 
     expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 150 });
   });
 
-  it('re-measures a root on a window resize', () => {
+  it('re-measures a root on a window resize', async () => {
     stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
     const { geometry } = mount(['left']);
 
     stubRects({ left: { x: 20, y: 5, w: 60, h: 150 } });
-    act(() => {
+    await inFrame(() => {
       window.dispatchEvent(new Event('resize'));
     });
 
@@ -258,7 +306,7 @@ describe('root container origins', () => {
     expect(listening(removed)).toBe(2);
   });
 
-  it('re-measures a root on a scroll in an inner scroller', () => {
+  it('re-measures a root on a scroll in an inner scroller', async () => {
     stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
     const { geometry } = mount(['left']);
     // An element's scroll event does not bubble, so only the capture-phase
@@ -268,10 +316,101 @@ describe('root container origins', () => {
 
     stubRects({ left: { x: 40, y: -20, w: 100, h: 150 } });
     stubScroll(0, 30);
-    act(() => {
+    await inFrame(() => {
       inner.dispatchEvent(new Event('scroll'));
     });
 
     expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 150 });
+  });
+
+  it('measures once for a burst of scroll events', async () => {
+    stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
+    const { geometry } = mount(['left']);
+    const before = measures.left ?? 0;
+
+    vi.useFakeTimers();
+    try {
+      act(() => {
+        for (let i = 1; i <= 5; i++) {
+          stubScroll(0, i);
+          window.dispatchEvent(new Event('scroll'));
+        }
+      });
+      // Nothing measured yet: the burst is holding one frame, not five.
+      expect(measures.left).toBe(before);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(32);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // One coalesced measure, plus the re-measure the resulting commit runs.
+    expect((measures.left ?? 0) - before).toBeLessThanOrEqual(2);
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 15, w: 100, h: 200 });
+  });
+
+  it('drops a pending frame when the root unmounts', async () => {
+    stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
+    const { geometry, unmount } = mount(['left']);
+
+    vi.useFakeTimers();
+    let unmounted = false;
+    let ranAfterUnmount = false;
+    try {
+      const schedule = window.requestAnimationFrame.bind(window);
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) =>
+        schedule((t) => {
+          if (unmounted) ranAfterUnmount = true;
+          cb(t);
+        }),
+      );
+      act(() => {
+        stubScroll(0, 30);
+        window.dispatchEvent(new Event('scroll'));
+      });
+      unmount();
+      unmounted = true;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(32);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(ranAfterUnmount).toBe(false);
+    expect(geometry.rectOf(asNodeId('left'))).toBeNull();
+  });
+
+  it('holds the published rect through a sub-pixel change', async () => {
+    stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
+    const { geometry } = mount(['left']);
+
+    // What a rect rounded one way and a scroll offset rounded the other
+    // produce — a move no reader can act on.
+    stubRects({ left: { x: 40.4, y: 9.7, w: 100.3, h: 199.6 } });
+    await inFrame(() => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 200 });
+  });
+
+  it('settles when two containers render the same root id', () => {
+    const traces = captureTrace('zone');
+    // Two elements, two positions, one id: each guards against its own last
+    // write, so neither answers the other's. A runaway measure throws out of
+    // the render rather than spinning — see RUNAWAY_MEASURES.
+    stubRects({
+      left: [
+        { x: 40, y: 10, w: 100, h: 200 },
+        { x: 400, y: 10, w: 100, h: 200 },
+      ],
+    });
+    const { geometry } = mountStore(makeStore(['left']), ['left', 'left']);
+
+    expect(measures.left ?? 0).toBeLessThan(20);
+    expect(geometry.rectOf(asNodeId('left'))).not.toBeNull();
+    expect(traces.matching(/overwriting another container's rect/).length).toBeGreaterThan(0);
   });
 });

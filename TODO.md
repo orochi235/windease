@@ -79,22 +79,6 @@ the presets as the mainline API, so this is the more visible half of keyboard
 support. Fixing it means deciding what reports geometry for a preset — most
 likely the same self-measure a root `<Container>` does, hoisted to `PresetShell`.
 
-Three smaller things found reviewing the root-origin branch, none urgent:
-
-- **A childless root container with `focus: true` is now navigable.** It has a
-  rect where it had none, so it joins the candidate set. Arguably an
-  improvement; nobody decided it.
-- **Two `<Container>`s rendered for the same root id would re-render forever.**
-  Each per-commit measure sees the other's rect, fails the equality guard,
-  writes and bumps. Duplicate containers for one id already clobber each other's
-  drop-target registration, so this is likely outside the supported envelope —
-  but it used to degrade to wrong rects and now degrades to a hang. Unverified.
-- **The scroll listener is not coalesced.** If `getBoundingClientRect().x` and
-  `window.scrollX` ever round differently — browser zoom, fractional device
-  pixel ratio — the exact-equality guard fails on every scroll event and each one
-  pays a full-registry `JSON.stringify` in `commit()` plus a subtree re-render.
-  An rAF coalesce or a sub-pixel epsilon closes it. Unverified.
-
 ## Drag and drop
 
 Shipped, and documented in the README's Drag and drop and Resize sections:

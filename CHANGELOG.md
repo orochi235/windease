@@ -105,6 +105,16 @@ section below.
   moves cross correctly between zones composed as separate roots in consumer CSS.
   This is the `<Container>` path; the `<Zone>` / `<Panel>` presets do not report
   geometry at all, so keyboard navigation there is unaffected.
+- **A scrolling page no longer re-measures every root on every scroll event.** The
+  root self-measure compared document coordinates exactly, and `getBoundingClientRect`
+  and `window.scrollX` do not round alike under browser zoom or a fractional device
+  pixel ratio — so the guard failed on each event and each failure paid a full-registry
+  publish plus a subtree re-render. Sub-pixel differences now read as no move, and a
+  scroll burst measures once per frame with any pending frame cancelled on unmount.
+  A container also guards against the rect it last wrote rather than against whatever
+  is in the registry: two `<Container>`s rendered for one root id used to answer each
+  other's writes without ever settling, and now each converges and the collision is
+  reported as a `zone` trace.
 - A strip pane resizes from the extent it renders at.
 - A drop resolves against the release point rather than the last sampled frame.
 - The caret stays in the layout across a drag.
