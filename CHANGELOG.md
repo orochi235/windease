@@ -43,6 +43,15 @@ section below.
   container, an `arrange`-locked parent, or a move that would nest a node in itself.
   `resolveMove` returns the plan and `applyMove` performs it, both exported for a host
   binding its own keys.
+- **Scroll offset as an input.** `ContainerHost.setScroll({ x, y })` with
+  `observeScroll(el)` beside it, mirroring `setViewport` / `observe`, and
+  `scrollRef` on `<Container>` to wire it. Placements stay unscrolled; what moves is
+  the position a pane is *reported* at, which is what directional keyboard navigation
+  compares — so a scrolled container is no longer navigated against positions its
+  panes have left, and a scrolled container beside an unscrolled one now agree about
+  where they are. Each container answers for its own offset, so nesting composes, and
+  a flow container needs none because it is measured from the DOM. `ContainerLayout`
+  gains `scroll`. Scrolling does not re-run the strategy.
 - **`overflowMode` on strip**, with the host box sized to it.
 - **Affordances and content sizing in the declarative path.** `hints` is a prop on
   `<Zone>` / `<Panel>`, and affordances reach the presets, so the declarative and

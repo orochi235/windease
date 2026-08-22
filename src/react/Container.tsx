@@ -1,6 +1,7 @@
 import {
   type CSSProperties,
   type ReactNode,
+  type RefObject,
   useCallback,
   useContext,
   useEffect,
@@ -48,6 +49,13 @@ export interface ContainerProps {
   children?: ReactNode;
   /** Fixed viewport; omit to auto-measure via ResizeObserver. */
   viewport?: { w: number; h: number };
+  /**
+   * The element that scrolls this container's content — the wrapper carrying
+   * `overflow: auto`, not the box itself. Reports its offset so a pane's
+   * visible position is what keyboard navigation compares. Without it a
+   * scrolled container navigates against unscrolled positions.
+   */
+  scrollRef?: RefObject<Element | null>;
   className?: string;
   style?: CSSProperties;
   /**
@@ -154,6 +162,7 @@ function StoreContainer({
   parentId,
   chrome,
   viewport,
+  scrollRef,
   className,
   style,
   overlay,
@@ -199,8 +208,11 @@ function StoreContainer({
   const selfRect = geometryRegistry?.rects.get(String(parentId));
   useEffect(() => {
     if (!geometryRegistry) return;
-    const originX = selfRect?.x ?? 0;
-    const originY = selfRect?.y ?? 0;
+    // Placements are unscrolled; the visible position is what the resolver
+    // compares. Each container answers for its own offset, so the composed
+    // chain lands placed and flow children in the same space.
+    const originX = (selfRect?.x ?? 0) - layout.scroll.x;
+    const originY = (selfRect?.y ?? 0) - layout.scroll.y;
     for (const [cid, r] of layout.placements) {
       geometryRegistry.rects.set(String(cid), {
         x: originX + r.x,
@@ -214,7 +226,7 @@ function StoreContainer({
       for (const cid of layout.placements.keys()) geometryRegistry.rects.delete(String(cid));
       geometryRegistry.commit();
     };
-  }, [geometryRegistry, layout.placements, selfRect?.x, selfRect?.y]);
+  }, [geometryRegistry, layout.placements, layout.scroll, selfRect?.x, selfRect?.y]);
 
   const isFlow = layout.mode === 'flow';
   const childKey = children.map((c) => String(c.id)).join('|');
@@ -272,6 +284,13 @@ function StoreContainer({
   useEffect(() => {
     if (isFlow) measureFlow();
   });
+
+  const observeScroll = layout.observeScroll;
+  useEffect(() => {
+    const el = scrollRef?.current;
+    if (!el) return;
+    return observeScroll(el);
+  }, [scrollRef, observeScroll]);
 
   useEffect(() => {
     if (!dragController || !onChildOrderChange) return;

@@ -33,6 +33,16 @@ export interface ContainerLayout {
    * renders the children in order and lets CSS position them.
    */
   mode: 'placed' | 'flow';
+  /**
+   * How far this container's content is scrolled away from its origin. Zero
+   * unless a host reports otherwise through `setScroll`.
+   *
+   * Placements are unscrolled — the strategy lays out the whole extent and
+   * knows nothing about what is on screen. A binding that needs a pane's
+   * *visible* position subtracts this: each container answers for its own
+   * scroll and the composition of the chain gives one space for the tree.
+   */
+  scroll: { x: number; y: number };
 }
 
 /** What produced a controlled child's proposed placement. */
@@ -96,6 +106,8 @@ function revertPatch(
   return patch;
 }
 
+const NO_SCROLL = { x: 0, y: 0 } as const;
+
 const EMPTY: ContainerLayout = {
   placements: new Map(),
   affordances: [],
@@ -103,6 +115,7 @@ const EMPTY: ContainerLayout = {
   viewport: null,
   isPreview: false,
   mode: 'placed',
+  scroll: NO_SCROLL,
 };
 
 /**
@@ -123,6 +136,8 @@ export class ContainerHost {
   readonly #placementControls = new Map<NodeId, PlacementCommit>();
 
   #viewport: { w: number; h: number } | null = null;
+  #scroll: { x: number; y: number } = NO_SCROLL;
+  #scrollTeardown: (() => void) | null = null;
   #checkedConfig: unknown = Symbol('unchecked');
   #preview: LayoutPreview | null = null;
   #observer: ResizeObserver | null = null;
@@ -318,6 +333,47 @@ export class ContainerHost {
     this.#invalidate();
   }
 
+  /**
+   * Report how far this container's content is scrolled. The headless path —
+   * a canvas host panning its own surface has no DOM scroll box to read, and
+   * says so here. `observeScroll` is the DOM convenience over it.
+   *
+   * Does not re-run the strategy. Scroll moves where placements are shown, not
+   * what they are, and a scroll event arrives per frame; the cached result is
+   * republished with the new offset instead.
+   */
+  setScroll(s: { x: number; y: number }): void {
+    if (this.#scroll.x === s.x && this.#scroll.y === s.y) return;
+    this.#scroll = s;
+    trace('layout', `scroll: ${this.#parentId} → ${Math.round(s.x)},${Math.round(s.y)}`);
+    if (this.#cache && !this.#dirty) {
+      this.#cache = { ...this.#cache, scroll: s };
+      for (const fn of this.#listeners) fn();
+      return;
+    }
+    this.#invalidate();
+  }
+
+  /**
+   * Track `el`'s scroll offset and keep tracking it. Returns a teardown.
+   *
+   * `el` is whichever element actually scrolls for this container — usually
+   * the wrapper the consumer put `overflow: auto` on, not the container box
+   * itself, which is sized to `viewport + overflow` precisely so it does not.
+   */
+  observeScroll(el: Element): () => void {
+    this.#scrollTeardown?.();
+    const read = () => this.setScroll({ x: el.scrollLeft, y: el.scrollTop });
+    read();
+    el.addEventListener('scroll', read, { passive: true });
+    const off = () => {
+      el.removeEventListener('scroll', read);
+      if (this.#scrollTeardown === off) this.#scrollTeardown = null;
+    };
+    this.#scrollTeardown = off;
+    return off;
+  }
+
   setPreview(p: LayoutPreview | null): void {
     const a = this.#preview;
     const same =
@@ -478,6 +534,8 @@ export class ContainerHost {
     this.#observer = null;
     this.#naturalObserver?.disconnect();
     this.#naturalObserver = null;
+    this.#scrollTeardown?.();
+    this.#scrollTeardown = null;
     this.#naturalIds.clear();
     this.#natural.clear();
     for (const un of this.#unsubs) un();
@@ -524,7 +582,8 @@ export class ContainerHost {
     if (!container) return viewport ? { ...EMPTY, viewport } : EMPTY;
     // Checked before the viewport guard: a flow container needs no measurement,
     // so waiting for one would leave its children unrendered forever.
-    if (node?.hints?.render === 'flow') return { ...EMPTY, viewport, mode: 'flow' };
+    if (node?.hints?.render === 'flow')
+      return { ...EMPTY, viewport, mode: 'flow', scroll: this.#scroll };
     if (!viewport) return EMPTY;
     const strategy = this.#registry.get(container.strategyId);
     if (!strategy) return { ...EMPTY, viewport };
@@ -551,6 +610,7 @@ export class ContainerHost {
           viewport,
           isPreview: fast.accepted,
           mode: 'placed',
+          scroll: this.#scroll,
         };
       }
     }
@@ -589,6 +649,7 @@ export class ContainerHost {
       viewport,
       isPreview: result.isPreview ?? false,
       mode: 'placed',
+      scroll: this.#scroll,
     };
     if (result.overflow) out.overflow = result.overflow;
     return out;

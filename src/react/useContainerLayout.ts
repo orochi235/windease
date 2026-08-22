@@ -24,6 +24,12 @@ export interface ContainerLayout extends HostLayout {
    * instead of writing the store. See `ContainerHost.registerPlacementControl`.
    */
   registerPlacementControl: (id: NodeId, commit: PlacementCommit) => () => void;
+  /**
+   * Track `el`'s scroll offset for this container. Returns a teardown. See
+   * `ContainerHost.observeScroll` — `el` is the element that actually scrolls,
+   * usually a wrapper around the container box rather than the box itself.
+   */
+  observeScroll: (el: Element) => () => void;
 }
 
 /**
@@ -95,7 +101,15 @@ export function useContainerLayout(
     [host],
   );
 
-  return { ...layout, dispatchAffordance, observeNatural, registerPlacementControl };
+  const observeScroll = useCallback((el: Element) => host.observeScroll(el), [host]);
+
+  return {
+    ...layout,
+    dispatchAffordance,
+    observeNatural,
+    registerPlacementControl,
+    observeScroll,
+  };
 }
 
 /**

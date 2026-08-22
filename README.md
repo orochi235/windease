@@ -352,6 +352,36 @@ anyway, clamped to the container, so an overflowing dock never renders empty.
 `overflow` is reported per axis and absent when the content fits, so a consumer
 that wants to drive its own policy can read it and ignore all three.
 
+### Telling windease where the scroll got to
+
+The wrapper is yours, so the scroll offset is something windease has to be
+told. Point `scrollRef` at the element that scrolls:
+
+```tsx
+const scrollRef = useRef<HTMLDivElement>(null);
+
+<div ref={scrollRef} className="dock-scroll">
+  <Container parentId={dockId} chrome={chrome} scrollRef={scrollRef} />
+</div>
+```
+
+Placements stay unscrolled — the strategy lays out the whole extent and knows
+nothing about what is on screen. What the offset changes is the *reported*
+position of a pane, which is what directional keyboard navigation compares.
+Without it a scrolled container is navigated against positions its panes no
+longer occupy, and a scrolled container sitting beside an unscrolled one
+disagree about where they both are.
+
+Each container answers for its own offset, so nesting composes: a scrolling
+dock inside a scrolling workspace needs a `scrollRef` on each, and the chain
+resolves to one space. A flow container needs none — it is measured from the
+DOM, which counts scroll already.
+
+`ContainerHost.setScroll({ x, y })` is the headless API underneath, for a
+canvas host panning its own surface with no DOM scroll box to read;
+`observeScroll(el)` is the DOM convenience over it, mirroring
+`setViewport` / `observe`. Scrolling never re-runs the strategy.
+
 ## Letting CSS do the layout
 
 A container that declares `hints.render: 'flow'` runs no strategy. Its children
