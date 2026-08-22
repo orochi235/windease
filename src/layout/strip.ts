@@ -92,21 +92,40 @@ function effectiveMaxAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined
 }
 
 /** Effective reach of a resize affordance on `item`, given what siblings'
- *  minimums already claim. Mirrors `dispatchAffordance`'s clamp order. */
+ *  minimums already claim. Mirrors `dispatchAffordance`'s clamp order.
+ *
+ *  `pair` is the neighbor under `resizeMode: 'neighbor'`, where the two panes
+ *  conserve their total and the reach is bounded by the neighbor's limits
+ *  rather than by every sibling's. Without it the affordance advertises a
+ *  maximum the drag refuses to reach — which a DOM adapter publishes as
+ *  `aria-valuemax`, promising a screen-reader user an extent that does not
+ *  exist. */
 function boundsFor(
   item: LayoutItem,
   valueNow: number,
   placedItems: LayoutItem[],
   axis: 'x' | 'y',
   usableMain: number,
+  pair?: { item: LayoutItem; extent: number },
 ): NonNullable<Affordance['bounds']> {
   const own = effectiveMinAxis(item, axis);
   const max = effectiveMaxAxis(item, axis);
-  const otherMinSum = placedItems
-    .filter((it) => it.id !== item.id)
-    .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
 
-  let valueMax = usableMain - otherMinSum;
+  let valueMax: number;
+  if (pair) {
+    const total = valueNow + pair.extent;
+    valueMax = total - effectiveMinAxis(pair.item, axis);
+    const pairMax = effectiveMaxAxis(pair.item, axis);
+    if (pairMax !== undefined && total - pairMax > own) {
+      // The neighbor's own ceiling stops this pane shrinking any further.
+      return finishBounds(axis, valueNow, Math.max(own, total - pairMax), valueMax, max);
+    }
+  } else {
+    const otherMinSum = placedItems
+      .filter((it) => it.id !== item.id)
+      .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
+    valueMax = usableMain - otherMinSum;
+  }
   if (max !== undefined && max < valueMax) valueMax = max;
   if (valueMax < own) valueMax = own;
   // A pane sized under its own min (a collapsed palette) would otherwise
@@ -114,13 +133,25 @@ function boundsFor(
   const valueMin = Math.min(own, valueNow);
   if (valueMax < valueMin) valueMax = valueMin;
 
+  return finishBounds(axis, valueNow, valueMin, valueMax, max);
+}
+
+function finishBounds(
+  axis: 'x' | 'y',
+  valueNow: number,
+  valueMin: number,
+  valueMax: number,
+  ownMax?: number,
+): NonNullable<Affordance['bounds']> {
+  let hi = ownMax !== undefined && ownMax < valueMax ? ownMax : valueMax;
+  if (hi < valueMin) hi = valueMin;
   return {
     orientation: axis === 'x' ? 'horizontal' : 'vertical',
     valueNow,
     valueMin,
-    valueMax,
+    valueMax: hi,
     atMin: valueNow <= valueMin,
-    atMax: valueNow >= valueMax,
+    atMax: valueNow >= hi,
   };
 }
 
@@ -254,7 +285,16 @@ export const stripStrategy: LayoutStrategy<void, string> = {
               cfg.resizeMode === 'neighbor' && placedItems[i + 1]
                 ? [item.id, placedItems[i + 1]!.id]
                 : [item.id],
-            bounds: boundsFor(item, w, placedItems, 'x', usableMain),
+            bounds: boundsFor(
+              item,
+              w,
+              placedItems,
+              'x',
+              usableMain,
+              cfg.resizeMode === 'neighbor' && placedItems[i + 1]
+                ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
+                : undefined,
+            ),
           });
         }
         x += w + gap;
@@ -278,7 +318,16 @@ export const stripStrategy: LayoutStrategy<void, string> = {
               cfg.resizeMode === 'neighbor' && placedItems[i + 1]
                 ? [item.id, placedItems[i + 1]!.id]
                 : [item.id],
-            bounds: boundsFor(item, h, placedItems, 'y', usableMain),
+            bounds: boundsFor(
+              item,
+              h,
+              placedItems,
+              'y',
+              usableMain,
+              cfg.resizeMode === 'neighbor' && placedItems[i + 1]
+                ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
+                : undefined,
+            ),
           });
         }
         y += h + gap;

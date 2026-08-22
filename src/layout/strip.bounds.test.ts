@@ -82,4 +82,42 @@ describe('stripStrategy resize affordance bounds', () => {
       'horizontal',
     );
   });
+
+  describe('under resizeMode: neighbor', () => {
+    const paired = (items: unknown[], id: string) =>
+      stripStrategy
+        .layout({
+          items: items as LayoutItem[],
+          container: { w: 200, h: 400 },
+          state: undefined as void,
+          options: { axis: 'y', resizeMode: 'neighbor' },
+        })
+        .affordances.find((a) => a.childId === id)?.bounds;
+
+    it("stops at the neighbor's minimum, not at every sibling's", () => {
+      // The pair conserves its total, so `a` can only take what `b` can give.
+      // Reporting the whole row's slack here would publish an
+      // `aria-valuemax` the drag refuses to reach.
+      const b = paired(
+        [
+          { id: 'a', placement: { size: { h: 100 } }, hints: { minSize: { w: 0, h: 20 } } },
+          { id: 'b', placement: { size: { h: 100 } }, hints: { minSize: { w: 0, h: 20 } } },
+          { id: 'c', placement: { size: { h: 100 } }, hints: { minSize: { w: 0, h: 20 } } },
+        ],
+        'a',
+      );
+      expect(b?.valueMax).toBe(180);
+    });
+
+    it("floors at what the neighbor's maximum will absorb", () => {
+      const b = paired(
+        [
+          { id: 'a', placement: { size: { h: 100 } } },
+          { id: 'b', placement: { size: { h: 100 } }, hints: { maxSize: { w: 0, h: 150 } } },
+        ],
+        'a',
+      );
+      expect(b?.valueMin).toBe(50);
+    });
+  });
 });
