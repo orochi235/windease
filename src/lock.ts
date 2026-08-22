@@ -1,4 +1,5 @@
-import type { Node } from './node.js';
+import type { Node, NodeId } from './node.js';
+import type { Store } from './store.js';
 
 export type LockAxis = 'move' | 'resize' | 'destroy' | 'accept' | 'dragOut' | 'arrange';
 
@@ -36,4 +37,25 @@ export function resolveLock(node: Node, input: boolean | LockSet): LockSet {
     if (value === true && supported.has(axis)) out[axis] = true;
   }
   return out;
+}
+
+/**
+ * The first node in `id`'s subtree — `id` itself included — carrying
+ * `lock.destroy`, or null when nothing does.
+ *
+ * Deliberately stricter than the store it guards: `unregisterNode` asserts the
+ * lock on the id it is handed and then cascades with no further checks, so a
+ * locked descendant dies silently. A gesture that offers to destroy a subtree
+ * asks this first, and returns the blocker rather than a boolean so the
+ * refusal can name which descendant refused.
+ */
+export function destroyBlockedBy(store: Store, id: NodeId): NodeId | null {
+  const node = store.getNode(id);
+  if (!node) return null;
+  if (node.lock?.destroy === true) return id;
+  for (const childId of node.container?.childOrder ?? []) {
+    const blocker = destroyBlockedBy(store, childId);
+    if (blocker !== null) return blocker;
+  }
+  return null;
 }
