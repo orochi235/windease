@@ -204,18 +204,16 @@ happens to a single-member group when its last sibling leaves.
 
 ## Playwright e2e suite
 
-Shipped. `npm run test:e2e` drives the Ladle stories in real Chromium; the
-config starts Ladle itself, so there is nothing to run first. 11 specs across
-four files cover the gestures jsdom cannot: gutter resize including
-pointer-capture tracking after the cursor leaves the handle, cross-zone drag
-with escape-cancel and drop-outside, ResizeObserver relayout on viewport
-change, and insertion index against a pinned head.
+Shipped. `npm run test:e2e` drives the Ladle stories in Chromium, Firefox and
+WebKit; the config starts Ladle itself, so there is nothing to run first. 20
+specs across six files cover the gestures jsdom cannot: gutter resize
+including pointer-capture tracking after the cursor leaves the handle,
+cross-zone drag with escape-cancel and drop-outside, ResizeObserver relayout on
+viewport change, and insertion index against a pinned head. All three engines
+pass the pointer-capture cases unmodified.
 
 Still uncovered:
 
-- **Only Chromium runs.** The stated cross-browser value was pointer capture;
-  adding webkit/firefox is a line in `playwright.config.ts` projects plus
-  install time on every CI run.
 - Focus management across drag-induced re-renders.
 - Snapshot/hydrate with persisted container state (resize ratios).
 - CSS stacking between affordance hit areas and consumer chrome.
@@ -310,11 +308,22 @@ serialize/graft work goes out under the same 1.2.0.
   a deprecated delegating alias, removed at 2.0.0, so nothing breaks in a
   minor.
 
-Still missing: `announce()` ships on `FocusAdapter` with no call site. Moving
-real DOM focus announces the pane name for free, so what is left uncovered is
-the change with no accompanying focus movement — a successor chosen after a
-destroy, or a pane relocated to another zone. Needs a live region, which the
-keyboard-navigation design deliberately did not specify.
+- **`DragEngine`, the DOM-free half of `DragController`.** Ownership,
+  acceptance and hit-testing over `bounds()` callbacks, with the frame
+  scheduler injected; `DragController` is unchanged for consumers and is now
+  the DOM host that measures elements, walks `parentElement` for depth, stamps
+  `data-drop-*` and binds the window listeners. Closes the tenet violation.
+  A synchronous scheduler used to wedge the pending-frame handle after the
+  first sample — found by the headless tests, which need no faked `Element`.
+
+- **Announcements for changes that move no focus.** `bindAnnouncer(store,
+  adapter)` composes text from `focus.successor`, `node.moved` and
+  `node.reordered` and hands it to `FocusAdapter.announce`; `<FocusProvider>`
+  renders a polite live region and wires it, opt out with `announce={false}`.
+  Scoped to the focused node and subtrees focus sits inside, so a host moving
+  panes the user is not in stays silent. `FocusAdapter` now has a real DOM
+  implementation behind the seam rather than an interface with no callers —
+  `present` moves the caret, and a canvas host swaps both methods.
 
 ## Shipped in 1.1.0
 
@@ -352,14 +361,6 @@ keyboard-navigation design deliberately did not specify.
   existing `container` — so `setLock(panel, { arrange: true })` silently stores
   nothing and `ensureContainer` proceeds. The guard works only once a container
   is already present, which is the case it is least needed for.
-- **`DragController` is the outstanding DOM-independence violation.** It holds
-  `window` keydown/pointerup listeners, `Element` refs, `getBoundingClientRect`
-  hit-testing, and `parentElement` depth walking (`src/dnd/DragController.ts:157`,
-  `320-368`), and it ships from the core entry. The transit/ownership FSM is
-  core; the pointer plumbing wants to sit behind an adapter, the way
-  `ContainerHost.setViewport` / `observe` and `insertionIndexByMidpoint` /
-  `childRectsForContainer` already split. See the DOM-independence tenet in
-  CLAUDE.md.
 - **Two dead affordance hooks are deprecated, not yet removed.**
   `BuiltinAffordanceKind`'s `'keypress'` member and `LayoutEvent`'s `kind: 'key'`
   are never emitted, dispatched, or handled; keyboard resize reaches a strategy
@@ -460,10 +461,13 @@ parked.
   stopped at the neighbor's minimum. Advisory numbers could absorb that; an
   `aria-valuemax` promising an extent that does not exist could not.
 
-  Still not announced: nothing writes a live region, so a step that is
-  truncated by the neighbor rather than by the focused pane is visible in
-  `aria-valuenow` and not narrated. `atMin` / `atMax` describe the dragged
-  child, so narrating from them would state something false.
+  Still not announced, and now by choice rather than for want of a mechanism:
+  the live region `bindAnnouncer` added is for structural change, and resize
+  does not use it. Under `resizeMode: 'neighbor'` a step can be truncated by the
+  neighbor's limit while the focused pane is nowhere near its own, and
+  `atMin` / `atMax` describe the dragged child — so narrating from them would
+  state something false. `aria-valuenow` carries the truth. Anyone wiring
+  resize into the announcer has to solve that first.
 
 - **Shipped: `resizeMode: 'neighbor'`.** Strip's default still writes only the
   dragged child and lets the delta be absorbed by whichever siblings are

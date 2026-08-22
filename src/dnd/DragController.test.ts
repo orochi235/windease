@@ -344,6 +344,8 @@ function makeFakeElement(x: number, y: number, w: number, h: number): Element {
       y,
       toJSON: () => ({}),
     }),
+    setAttribute() {},
+    removeAttribute() {},
     parentElement: null,
   } as unknown as Element;
 }

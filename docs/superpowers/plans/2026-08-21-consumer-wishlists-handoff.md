@@ -149,8 +149,9 @@ What remains on the labkit list:
 - **Overflow policy** (`squeeze` / `scroll` / `unplace` as a strip config).
   Deliberately parked: `LayoutResult.overflow` already lets a consumer build any
   of them, and the policy is sugar worth waiting for a second asker.
-- **A live region.** `announce()` still ships on `FocusAdapter` with no call
-  site, and gutter resize deliberately narrates nothing — see the trap below.
+- **Wiring resize into the live region.** `bindAnnouncer` shipped separately and
+  covers structural change; gutter resize deliberately narrates nothing — see
+  the trap below for why that is not a simple hook-up.
 
 Still deliberately unanswered, unchanged: **how a canvas host learns about
 `devicePixelRatio`** (klieg wishlist). It would be a second exception to the
@@ -186,11 +187,12 @@ reported the whole row's slack while the drag stopped at the neighbor's minimum.
 Published as `aria-valuemax` that is a defect, and it is fixed. Any strategy
 emitting `bounds` now owes the same accuracy.
 
-**Nothing narrates a resize.** Under `resizeMode: 'neighbor'` a step can be
-truncated by the *neighbor's* limit while the focused pane is nowhere near its
-own, and `atMin` / `atMax` describe the dragged child — so narrating from them
-would state something false. `aria-valuenow` carries the truth. Anyone adding a
-live region has to solve that first.
+**Nothing narrates a resize**, and the live region `bindAnnouncer` added does
+not change that. Under `resizeMode: 'neighbor'` a step can be truncated by the
+*neighbor's* limit while the focused pane is nowhere near its own, and
+`atMin` / `atMax` describe the dragged child — so narrating from them would
+state something false. `aria-valuenow` carries the truth. Anyone wiring resize
+into the announcer has to fix the numbers first.
 
 **Controlled order means the store is not written at all.** If either side of a
 cross-parent drop is controlled, `moveNode` does not run and each controlled

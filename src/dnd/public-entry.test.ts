@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { asNodeId, createNode, DragController, insertionIndexByMidpoint, Store } from '../index.js';
+import {
+  asNodeId,
+  createNode,
+  DragController,
+  DragEngine,
+  insertionIndexByMidpoint,
+  Store,
+} from '../index.js';
 
 /**
  * Guards the promise of the core relocation: a consumer using no framework
@@ -10,6 +17,8 @@ import { asNodeId, createNode, DragController, insertionIndexByMidpoint, Store }
 function fakeElement(x: number, y: number, w: number, h: number): Element {
   return {
     getBoundingClientRect: () => ({ left: x, top: y, right: x + w, bottom: y + h }),
+    setAttribute() {},
+    removeAttribute() {},
     parentElement: null,
   } as unknown as Element;
 }
@@ -51,6 +60,40 @@ describe('drag from the core entry point, with no binding', () => {
     controller.drop();
     expect(store.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['p']);
     expect(store.getContainerView(asNodeId('z1'))?.childOrder).toEqual([]);
+  });
+
+  it('drives the same drag with no element at all', () => {
+    const store = new Store();
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z1'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z2'),
+      }),
+    );
+    store.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id: asNodeId('p'),
+        parentId: asNodeId('z1'),
+      }),
+    );
+
+    const engine = new DragEngine(store);
+    engine.addDropTarget(asNodeId('z2'), { bounds: () => ({ x: 0, y: 0, w: 100, h: 100 }) });
+    expect(engine.tryBegin(asNodeId('p'))).toBe(true);
+    engine.updateHoverByPoint(50, 50);
+    expect(engine.state()?.hover).toMatchObject({ targetId: 'z2', accepted: true });
+    engine.drop();
+    expect(store.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['p']);
   });
 
   it('honors lock.move without any binding in the loop', () => {

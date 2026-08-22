@@ -4,9 +4,19 @@ import { DragController } from './DragController.js';
 
 function makeFakeElement(x: number, y: number, w: number, h: number): Element {
   return {
-    getBoundingClientRect: () => ({ x, y, width: w, height: h, left: x, top: y }),
-    setAttribute: () => {},
-    removeAttribute: () => {},
+    getBoundingClientRect: () => ({
+      left: x,
+      top: y,
+      right: x + w,
+      bottom: y + h,
+      width: w,
+      height: h,
+      x,
+      y,
+      toJSON: () => ({}),
+    }),
+    setAttribute() {},
+    removeAttribute() {},
     parentElement: null,
   } as unknown as Element;
 }

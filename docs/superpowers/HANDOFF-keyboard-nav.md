@@ -17,6 +17,26 @@ This file carries only what they can't.
 Push and release, both held for the user — see Version below. Nothing else on
 this workstream.
 
+## Branch `feat/focus-announcements`, cut from `main`, unmerged
+
+Three items taken off `TODO.md` while another session works the three `[HIGH]`
+wishlists — picked to avoid its files (strip/grid layout, placement sizing,
+reconcile). Green: 855 unit tests / 78 files, 60 e2e across three browsers,
+typecheck, lint, build.
+
+- **`bindAnnouncer` + a live region** closes the `announce()`-with-no-call-site
+  gap this handoff records under Still open. Below is now the only open a11y
+  item there.
+- **`DragEngine`** is the DOM-free half of `DragController`, closing the
+  DOM-independence violation that was in Loose ends. `DragController` keeps its
+  exact public API and delegates.
+- **Firefox and WebKit** now run the e2e suite alongside Chromium. All 20 specs
+  passed in all three unmodified.
+
+`TODO.md` is edited on this branch (three sections), so it is the likely
+conflict with the other session's branch. Everything else is new files or
+files that workstream does not touch.
+
 ## Next work, agreed but not started
 
 The user asked to take the three `[HIGH]` wishlists in `TODO.md` next, all
@@ -68,11 +88,9 @@ reintroduce.
 
 ## Still open
 
-`announce()` ships on `FocusAdapter` with no call site — moving real DOM focus
-announces the pane name for free, so what is uncovered is a change with no
-focus movement (a successor after a destroy, a pane relocated). Needs a live
-region, which the design deliberately did not specify. Recorded in `TODO.md`
-under "On main, unreleased".
+A collapsed pane must keep its accessible name and a keyboard-reachable expand
+control — recorded against the collapse pattern in `TODO.md`, not pinned by a
+test.
 
 ## Version
 

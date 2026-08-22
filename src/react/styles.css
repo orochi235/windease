@@ -113,3 +113,20 @@
 .windease-measure.windease-measure--w {
   inline-size: max-content;
 }
+
+/*
+ * Announcements for changes that move no focus. Visually hidden rather than
+ * display:none or visibility:hidden, both of which take the region out of the
+ * accessibility tree and silence it.
+ */
+.windease-live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

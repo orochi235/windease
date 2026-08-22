@@ -15,6 +15,13 @@ export {
   type DropTargetOptions,
   type StrategyLookup,
 } from './dnd/DragController.js';
+export {
+  DragEngine,
+  type DragEngineOptions,
+  type DropTarget,
+  type FrameScheduler,
+  type Point,
+} from './dnd/DragEngine.js';
 export { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
 export {
   CapabilityMissingError,
@@ -30,6 +37,7 @@ export {
   type WindeaseErrorCode,
 } from './errors.js';
 export { type EventMap, TypedEmitter } from './events.js';
+export { bindAnnouncer } from './focus/announcer.js';
 export { accessibleName } from './focus/name.js';
 export { navigableLeaves } from './focus/navigable.js';
 export { nullFocusAdapter } from './focus/nullAdapter.js';

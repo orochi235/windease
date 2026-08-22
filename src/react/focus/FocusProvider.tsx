@@ -9,6 +9,7 @@ import {
 } from 'react';
 import {
   asNodeId,
+  bindAnnouncer,
   type NavIntent,
   type NodeId,
   navigableLeaves,
@@ -16,6 +17,7 @@ import {
 } from '../../index.js';
 import { useStore } from '../Provider.js';
 import { useStrategyRegistry } from '../strategies.js';
+import { createDomFocusAdapter } from './domFocusAdapter.js';
 import { useGeometryRegistry, useGeometrySource } from './useGeometrySource.js';
 
 interface FocusBinding {
@@ -36,12 +38,33 @@ export function useFocusBinding(): FocusBinding | null {
   return useContext(FocusBindingContext);
 }
 
-export function FocusProvider({ children }: { children: ReactNode }) {
+export interface FocusProviderProps {
+  children: ReactNode;
+  /**
+   * Speak structural changes that move no focus — the focused pane closing,
+   * or being relocated — through a polite live region. On by default; turn it
+   * off for a host that owns its own live region.
+   */
+  announce?: boolean;
+}
+
+export function FocusProvider({ children, announce = true }: FocusProviderProps) {
   const store = useStore();
   const applying = useRef(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [entryId, setEntryId] = useState<NodeId | null>(null);
+  const [spoken, setSpoken] = useState<{ text: string; seq: number } | null>(null);
   const binding = useMemo<FocusBinding>(() => ({ applying, entryId }), [entryId]);
+
+  const adapter = useMemo(
+    () =>
+      createDomFocusAdapter({
+        root: rootRef,
+        applying,
+        speak: (text) => setSpoken((prev) => ({ text, seq: (prev?.seq ?? 0) + 1 })),
+      }),
+    [],
+  );
 
   useEffect(() => {
     const el = rootRef.current;
@@ -62,21 +85,13 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   }, [store]);
 
   useEffect(() => {
-    return store.subscribe(() => {
-      const el = rootRef.current;
-      const id = store.focusedId;
-      if (!el || !id) return;
-      const wrapper = el.querySelector(`[data-node="${CSS.escape(String(id))}"]`);
-      if (!(wrapper instanceof HTMLElement)) return;
-      if (document.activeElement === wrapper || wrapper.contains(document.activeElement)) return;
-      applying.current = true;
-      try {
-        wrapper.focus();
-      } finally {
-        applying.current = false;
-      }
-    });
-  }, [store]);
+    return store.subscribe(() => adapter.present(store.focusedId));
+  }, [store, adapter]);
+
+  useEffect(() => {
+    if (!announce) return;
+    return bindAnnouncer(store, adapter);
+  }, [store, adapter, announce]);
 
   const geometry = useGeometrySource();
   const registry = useGeometryRegistry();
@@ -130,6 +145,13 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     <FocusBindingContext.Provider value={binding}>
       <div ref={rootRef} className="windease-focus-root">
         {children}
+        {announce ? (
+          <div className="windease-live-region" aria-live="polite" aria-atomic="true">
+            {/* Keyed so an identical message replaces the node rather than
+                re-rendering it — a screen reader ignores an unchanged region. */}
+            {spoken ? <span key={spoken.seq}>{spoken.text}</span> : null}
+          </div>
+        ) : null}
       </div>
     </FocusBindingContext.Provider>
   );
