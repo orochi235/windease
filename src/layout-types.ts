@@ -1,3 +1,4 @@
+import type { ConfigSpec } from './layout/config-check.js';
 import type { NodeId } from './node.js';
 import type { Store } from './store.js';
 
@@ -220,6 +221,13 @@ export type StatefulLayoutStrategy<
 
 export interface LayoutStrategy<TState = void, TId extends string = string, TMeta = unknown> {
   name: string;
+  /**
+   * The config keys this strategy understands. Declaring it turns a typo in
+   * `container.config` — an unknown key, a misspelled enum value, a string
+   * where a number belongs — into a `layout` trace instead of a silent
+   * fallback to the default. Optional; a strategy without one is not checked.
+   */
+  configSpec?: ConfigSpec;
   /** Seed state for a container that has none persisted yet. `options` is the
    *  container's strategy config, so the seed can honor it. */
   initialState?(items: LayoutItem[], options?: Record<string, unknown>): TState;

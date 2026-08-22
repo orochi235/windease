@@ -643,6 +643,18 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
+### Unreleased — strategies may declare their config keys
+
+`LayoutStrategy.configSpec` is new and optional. A strategy that declares the
+keys it understands gets typos in `container.config` reported as `layout`
+traces — an unknown key (with the nearest real one named), a value outside an
+enum, a string where a number belongs — instead of silently taking the
+default. `strip` and `grid` declare one; a strategy without one is not
+checked, so nothing changes for third-party strategies until they opt in.
+
+`checkStrategyConfig(name, config, spec)` is exported for hosts that would
+rather assert on config in their own tests than read traces.
+
 ### Unreleased — `lock.arrange` applies to any node
 
 `arrange` used to be dropped from the lock set of a node with no container,

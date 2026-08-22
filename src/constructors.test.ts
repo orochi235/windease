@@ -66,7 +66,7 @@ describe('createNode', () => {
     const node = createNode({
       id: asNodeId('group'),
       parentId: asNodeId('outer'),
-      container: { strategyId: 'stack', config: { axis: 'vertical' } },
+      container: { strategyId: 'stack', config: { axis: 'y' } },
     });
     expect(node.container).toBeDefined();
     expect(node.membership).toBeDefined();

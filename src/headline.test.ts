@@ -32,7 +32,7 @@ describe('headline end-to-end', () => {
         focus: true,
         id: asNodeId('tray'),
         parentId: asNodeId('z'),
-        container: { strategyId: 'stack', config: { axis: 'vertical' } },
+        container: { strategyId: 'stack', config: { axis: 'y' } },
       }),
     );
     store.registerNode(
@@ -62,7 +62,7 @@ describe('headline end-to-end', () => {
     store.registerNode(
       createNode({
         kind: 'zone',
-        container: { strategyId: 'strip', config: { axis: 'horizontal' } },
+        container: { strategyId: 'strip', config: { axis: 'x' } },
         id: asNodeId('tabs'),
         parentId: asNodeId('z'),
       }),

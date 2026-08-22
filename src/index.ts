@@ -51,6 +51,11 @@ export { chooseSuccessor } from './focus/successor.js';
 export type { FocusAdapter, GeometrySource, NavDirection, NavIntent } from './focus/types.js';
 export { Machine, type MachineDef, type MachineSubscriber } from './fsm.js';
 export { HistoryController, type HistoryControllerOptions } from './history.js';
+export {
+  type ConfigFieldSpec,
+  type ConfigSpec,
+  checkStrategyConfig,
+} from './layout/config-check.js';
 export { gridStrategy } from './layout/grid.js';
 export { stripStrategy } from './layout/strip.js';
 export {

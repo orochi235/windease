@@ -305,6 +305,18 @@ function spanReach(
 /** @group Strategies */
 export const gridStrategy: LayoutStrategy<void, string> = {
   name: 'grid',
+  configSpec: {
+    cols: 'number',
+    rows: 'number',
+    maxCols: 'number',
+    maxRows: 'number',
+    maxItems: 'number',
+    fill: 'boolean',
+    orientation: ['wide', 'tall'],
+    gap: 'number',
+    padding: 'number',
+    resizable: 'boolean',
+  },
   canAccept(items, options): boolean {
     return fitsCapacity(options as GridConfig, items);
   },

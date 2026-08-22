@@ -270,6 +270,17 @@ function placedOf(
 /** @group Strategies */
 export const stripStrategy: LayoutStrategy<void, string> = {
   name: 'strip',
+  configSpec: {
+    axis: ['x', 'y'],
+    gap: 'number',
+    padding: 'number',
+    fill: 'boolean',
+    defaultItemSize: 'number',
+    resizable: 'boolean',
+    resizeMode: ['redistribute', 'neighbor'],
+    maxItems: 'number',
+    overflowMode: ['squeeze', 'scroll', 'unplace'],
+  },
   canAccept(items, options): boolean {
     const cap = (options as StripConfig).maxItems;
     if (cap === undefined) return true;
