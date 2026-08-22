@@ -109,6 +109,7 @@ export {
   type ObservedChild,
   reconcileChildOrder,
   reconcileContainerState,
+  reconcileHints,
   reconcilePinned,
   reconcilePlacement,
 } from './reconcile.js';

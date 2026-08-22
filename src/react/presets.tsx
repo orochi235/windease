@@ -9,11 +9,12 @@ import {
   useState,
 } from 'react';
 import type { ChildSort } from '../child-sort.js';
-import type { Node, NodeId, PlacementCommit, Store } from '../index.js';
+import type { Node, NodeHints, NodeId, PlacementCommit, Store } from '../index.js';
 import {
   createNode,
   reconcileChildOrder,
   reconcileContainerState,
+  reconcileHints,
   reconcilePinned,
   reconcilePlacement,
 } from '../index.js';
@@ -29,6 +30,7 @@ import {
   useLayoutContext,
   useLayoutForSelf,
 } from './LayoutContext.js';
+import { MeasuredContent } from './measure.js';
 import { ChildRegistryContext, ParentScope, useChildRegistry } from './ParentContext.js';
 import { useStore } from './Provider.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
@@ -41,6 +43,9 @@ interface CommonBindingProps {
   order?: number;
   meta?: Record<string, unknown>;
   placement?: Record<string, unknown>;
+  /** Layout hints a strategy reads: `minSize`, `maxSize`, `preferredSize`, and
+   *  `sizing` for content-measured axes. Reconciled on change. */
+  hints?: NodeHints;
   hidden?: boolean;
   /** When true, registers this preset's wrapper element as a drop target so
    *  consumers can drag items into it. The element must have a container
@@ -141,6 +146,16 @@ function usePlacementControl(id: NodeId, commit: PlacementCommit | undefined): v
   }, [id, registerPlacementControl, commit]);
 }
 
+/** The measurement box a node's `hints.sizing` asks for, bound to whichever
+ *  container is providing layout above. Read before this preset provides a
+ *  scope of its own, so a nested container measures against its parent. */
+function useMeasure(store: Store, id: NodeId, parent: LayoutInfo): PresetShellProps['measure'] {
+  const sizing = store.getNode(id)?.hints?.sizing;
+  const observe = parent.observeNatural;
+  if (!sizing || !observe) return undefined;
+  return { observe, widthByContent: sizing.w === 'content' };
+}
+
 /** @group Components */
 export function Panel(props: PanelProps) {
   const { id } = useNodeBinding({
@@ -159,6 +174,7 @@ export function Panel(props: PanelProps) {
         kind: 'panel',
         meta: props.meta,
         placement: props.placement,
+        hints: props.hints,
         order: props.order,
         ...(props.container
           ? {
@@ -178,6 +194,8 @@ export function Panel(props: PanelProps) {
   const store = useStore();
   useForceRerenderOnLockChange(store, store.getNode(id)?.membership?.parentId);
   usePlacementControl(id, props.onPlacementChange);
+  // Read the parent's scope here, before PanelWithLayout provides its own.
+  const measure = useMeasure(store, id, useLayoutContext());
 
   // Mirror Zone's layout-providing path: if this Panel is a container AND a
   // matching strategy is registered, run the layout and provide placements
@@ -187,7 +205,7 @@ export function Panel(props: PanelProps) {
     !!props.container && !!registry && registry.has(props.container.strategyId);
 
   if (canProvideLayout) {
-    return <PanelWithLayout {...props} id={id} />;
+    return <PanelWithLayout {...props} id={id} measure={measure} />;
   }
 
   return (
@@ -199,6 +217,7 @@ export function Panel(props: PanelProps) {
       title={props.title}
       testId={props['data-testid']}
       acceptsDrops={props.acceptsDrops}
+      measure={measure}
     >
       {props.draggable ? <DragHandle nodeId={id}>{props.children}</DragHandle> : props.children}
     </PresetShell>
@@ -207,6 +226,7 @@ export function Panel(props: PanelProps) {
 
 interface PanelWithLayoutProps extends PanelProps {
   id: NodeId;
+  measure: PresetShellProps['measure'];
 }
 
 /**
@@ -245,6 +265,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         testId={props['data-testid']}
         innerRef={ref}
         acceptsDrops={props.acceptsDrops}
+        measure={props.measure}
       >
         {props.draggable ? (
           <DragHandle nodeId={props.id}>{props.children}</DragHandle>
@@ -310,6 +331,7 @@ export function Zone(props: ZoneProps) {
         container: { strategyId: props.strategyId, config: props.config },
         parentId: parentId ?? undefined,
         meta: props.meta,
+        hints: props.hints,
         order: props.order,
       });
     },
@@ -329,9 +351,12 @@ export function Zone(props: ZoneProps) {
   // <ZoneWithLayout> vs <ZonePlain> is safe.
   const registry = useOptionalStrategyRegistry();
   const canProvideLayout = !!props.strategyId && !!registry && registry.has(props.strategyId);
+  const store = useStore();
+  // Read the parent's scope here, before ZoneWithLayout provides its own.
+  const measure = useMeasure(store, id, useLayoutContext());
 
   if (canProvideLayout) {
-    return <ZoneWithLayout {...props} id={id} />;
+    return <ZoneWithLayout {...props} id={id} measure={measure} />;
   }
 
   const zoneStyle = composeZoneStyle(props);
@@ -345,6 +370,7 @@ export function Zone(props: ZoneProps) {
       testId={props['data-testid']}
       sort={props.sort}
       acceptsDrops={props.acceptsDrops}
+      measure={measure}
     >
       {props.children}
     </PresetShell>
@@ -360,6 +386,7 @@ function composeZoneStyle(props: ZoneProps): CSSProperties {
 
 interface ZoneWithLayoutProps extends ZoneProps {
   id: NodeId;
+  measure: PresetShellProps['measure'];
 }
 
 /**
@@ -427,6 +454,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         sort={props.sort}
         innerRef={ref}
         acceptsDrops={props.acceptsDrops}
+        measure={props.measure}
       >
         {props.children}
         {imperativeRenders}
@@ -454,6 +482,7 @@ function makeReconciler(props: CommonBindingProps) {
       // stamped by useNodeBinding survives untouched.
       store.setMeta(id, props.meta);
     }
+    if (props.hints !== undefined) reconcileHints(store, id, props.hints);
     if (props.placement !== undefined) reconcilePlacement(store, id, props.placement);
     if (props.lock !== undefined) store.setLock(id, props.lock);
     if (props.pinned !== undefined) reconcilePinned(store, id, props.pinned);
@@ -483,6 +512,11 @@ interface PresetShellProps {
    *  `useDropTarget`. The hook is always called (to preserve hook order);
    *  registration is conditional on this flag. */
   acceptsDrops?: boolean | undefined;
+  /** Wraps this preset's content in a measurement box reporting its natural
+   *  extent, for a node whose `hints.sizing` asked to be measured. */
+  measure?:
+    | { observe: (id: NodeId, el: Element) => () => void; widthByContent: boolean }
+    | undefined;
 }
 
 /** Wrapper div + ChildRegistry host + ParentContext + sibling-order reconciliation. */
@@ -497,6 +531,7 @@ function PresetShell({
   sort,
   innerRef,
   acceptsDrops,
+  measure,
 }: PresetShellProps) {
   // We need a single ref on the wrapper div that serves both layout
   // measurement (innerRef, when provided) and drop-target registration.
@@ -558,8 +593,25 @@ function PresetShell({
           data-testid={testId}
           data-node={id}
         >
-          {title !== undefined && headerClass && <header className={headerClass}>{title}</header>}
-          {children}
+          {measure ? (
+            <MeasuredContent
+              id={id}
+              widthByContent={measure.widthByContent}
+              observe={measure.observe}
+            >
+              {title !== undefined && headerClass && (
+                <header className={headerClass}>{title}</header>
+              )}
+              {children}
+            </MeasuredContent>
+          ) : (
+            <>
+              {title !== undefined && headerClass && (
+                <header className={headerClass}>{title}</header>
+              )}
+              {children}
+            </>
+          )}
         </div>
       </ParentScope>
     </ChildRegistryContext.Provider>

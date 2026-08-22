@@ -172,6 +172,7 @@ export class ContainerHost {
       'node.placementChanged',
       'node.pinnedChanged',
       'node.metaChanged',
+      'node.hintsChanged',
     ] as const) {
       this.#unsubs.push(store.events.on(name, (e) => (self(e) || child(e)) && this.#invalidate()));
     }

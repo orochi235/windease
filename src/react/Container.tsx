@@ -15,6 +15,7 @@ import { DragContext } from './dnd/DragProvider.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useGeometryRegistry } from './focus/useGeometrySource.js';
 import { useChildren, useFocusedNode, useNode } from './hooks.js';
+import { MeasuredContent } from './measure.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
 import { useStore } from './Provider.js';
 import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
@@ -367,43 +368,6 @@ function StoreContainer({
         onActiveChange={setDraggingAffordanceId}
       />
       {renderedOverlay}
-    </div>
-  );
-}
-
-/**
- * Measurement box for `hints.sizing`. The pane wrapper carries the extent the
- * layout just wrote, so measuring it would measure our own output; this div is
- * auto-sized on the axis that asked, and reports what the content needs.
- *
- * The observer is attached in an effect rather than from a callback ref: a
- * ref whose identity changes each render is torn down each render, and the
- * teardown drops the measurement — so the size never sticks and the pane sits
- * at its fallback forever.
- */
-function MeasuredContent({
-  id,
-  widthByContent,
-  observe,
-  children,
-}: {
-  id: NodeId;
-  widthByContent: boolean;
-  observe: ContainerLayout['observeNatural'];
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    return observe(id, el);
-  }, [observe, id]);
-  return (
-    <div
-      ref={ref}
-      className={widthByContent ? 'windease-measure windease-measure--w' : 'windease-measure'}
-    >
-      {children}
     </div>
   );
 }

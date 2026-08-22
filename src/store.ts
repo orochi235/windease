@@ -10,7 +10,7 @@ import {
 import { TypedEmitter } from './events.js';
 import { chooseSuccessor } from './focus/successor.js';
 import { type LockAxis, type LockSet, resolveLock } from './lock.js';
-import type { ContainerCap, FocusCap, MembershipCap, Node, NodeId } from './node.js';
+import type { ContainerCap, FocusCap, MembershipCap, Node, NodeHints, NodeId } from './node.js';
 import { placeRespectingPins } from './pinning.js';
 import { splitNode, unsplitNode } from './split.js';
 import type { SplitInput } from './split-types.js';
@@ -52,6 +52,10 @@ export interface StoreEvents {
     changes: Record<string, { from: unknown; to: unknown }>;
   };
   'node.metaChanged': {
+    id: NodeId;
+    changes: Record<string, { from: unknown; to: unknown }>;
+  };
+  'node.hintsChanged': {
     id: NodeId;
     changes: Record<string, { from: unknown; to: unknown }>;
   };
@@ -630,6 +634,37 @@ export class Store {
 
   getPlacement(id: NodeId): Record<string, unknown> {
     return this.nodesMap.get(id)?.membership?.placement ?? {};
+  }
+
+  /**
+   * Patch the layout hints a strategy reads (`minSize`, `sizing`, …). A patch
+   * like `setMeta`, not a replace, so a binding can state one key without
+   * knowing the rest.
+   *
+   * Values compare by value: a binding rebuilds `hints` from props on every
+   * render, and identity would report a change on each one.
+   */
+  setHints(id: NodeId, patch: Record<string, unknown>): void {
+    const node = this.requireNode(id);
+    const prev = (node.hints ?? {}) as Record<string, unknown>;
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    const next: Record<string, unknown> = { ...prev };
+    for (const [k, v] of Object.entries(patch)) {
+      const from = prev[k];
+      if (v === undefined) {
+        if (k in next) {
+          delete next[k];
+          changes[k] = { from, to: undefined };
+        }
+      } else if (JSON.stringify(from) !== JSON.stringify(v)) {
+        next[k] = v;
+        changes[k] = { from, to: v };
+      }
+    }
+    if (Object.keys(changes).length === 0) return;
+    this.replaceNode(id, (n) => ({ ...n, hints: next as NodeHints }));
+    this.events.emit('node.hintsChanged', { id, changes });
+    this.scheduleNotify();
   }
 
   setMeta(id: NodeId, patch: Record<string, unknown>): void {

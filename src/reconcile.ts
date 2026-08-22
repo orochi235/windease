@@ -1,5 +1,5 @@
 import { type ChildSort, defaultChildSort } from './child-sort.js';
-import type { NodeId } from './node.js';
+import type { NodeHints, NodeId } from './node.js';
 import type { Store } from './store.js';
 import { trace } from './trace.js';
 
@@ -58,6 +58,12 @@ export function reconcilePinned(store: Store, id: NodeId, pinned: number | boole
   }
   if (pinned === false) store.unpin(id);
   else store.setPinned(id, pinned === true ? undefined : pinned);
+}
+
+/** Reconcile declared layout hints. Forces: nothing but the binding writes
+ *  hints, so there is no gesture to clobber. */
+export function reconcileHints(store: Store, id: NodeId, hints: NodeHints): void {
+  store.setHints(id, hints as Record<string, unknown>);
 }
 
 /** Reconcile persisted strategy state. Skips under the container's arrange lock. */
