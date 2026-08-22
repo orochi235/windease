@@ -174,6 +174,16 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   point, so narrowing either breaks a consumer who annotated against it — the
   `| string` on `Affordance.kind` protects assignment into that field, not a
   direct use of the exported union.
+- **Strip's `baseExtent` and `layout` disagree when `fill` is off.** With
+  `fill: false` (the default) `layout` sizes a hintless pane at
+  `defaultItemSize`, which itself defaults to 0 — but `baseExtent`, which
+  feeds both `dispatchAffordance` and the `aria-valuenow` a gutter publishes,
+  divides the usable extent among the unconstrained panes instead. So a
+  hintless strip renders every pane at 0 while its seam advertises and moves
+  from a base of `usable / n`. Pre-existing and untouched here; the
+  configuration is degenerate enough (a strip that renders nothing visible)
+  that no consumer has hit it, but the two are exactly the pair `placedOf`
+  exists to keep in agreement.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like
@@ -185,10 +195,9 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
 Gaps found evaluating windease as the layout engine for a sidebar of
 resizable tool palettes (the weasel case). Everything structural is already
 here — a `stripStrategy` zone on `{ axis: 'y' }`, gutters, per-child
-min/max, DnD between docks, sizes that round-trip through `serialize`. Of
-the five, four shipped in 1.2.0. What is left is the overflow *policy* —
-no longer parked, since a second consumer asked — plus one gap the labkit
-integration turned up afterwards: the declarative path cannot render a seam.
+min/max, DnD between docks, sizes that round-trip through `serialize`. All
+of it has now shipped: four items in 1.2.0, and the overflow policy plus the
+declarative-path gaps after it.
 
 - **Shipped: content-driven sizing.** `hints.sizing: { w?: 'content'; h?:
   'content' }` declares the request per axis; the measurement arrives as
@@ -232,57 +241,69 @@ integration turned up afterwards: the declarative path cannot render a seam.
   keyboard-reachable in whatever still renders. A pane that can be collapsed
   and not reopened from the keyboard is worse than no collapse.
 
-- **Size-driven overflow: signal shipped, policy still open.**
+- **Shipped: size-driven overflow, signal and policy.**
   `LayoutResult.overflow` reports how far the placed content exceeds the
   container per axis, absent when it fits. Distinct from `unplaced`, which is
-  capacity by *count* — a row can overflow with everything placed. Strip sets
-  it once floors bind and the row cannot shrink further; a row whose panes
-  declare no floor is still squeezed, which is correct.
+  capacity by *count* — a row can overflow with everything placed.
 
-  Fixed alongside it: the fill path ignored `hints.minSize` entirely, so a
-  minimum was honored only when some sibling happened to carry an explicit
-  size. Three panes each declaring 150 in a 300px column rendered at 100. Both
-  paths now floor at min. This is a behavior change for a consumer who set
-  `minSize` on a filled strip and relied on it being ignored.
+  `overflowMode` on strip config turns that signal into a policy.
+  `'squeeze'` (default) is the original behavior: scale until floors bind,
+  then report the remainder. `'scroll'` lays out at the extent the panes
+  asked for and reports the whole excess; `<Container>`, `<Zone>` and
+  `<Panel>` size their box to `viewport + overflow`, so the consumer only
+  has to put `overflow: auto` on a wrapper. `'unplace'` places what fits at
+  full extent and sends the rest to `unplaced`, composing with `maxItems`
+  rather than replacing it.
 
-  Still open is the *policy* — `squeeze` / `scroll` / `unplace` as a strip
-  config. The signal is what a consumer needs to implement any of them
-  themselves; the policy is sugar over it.
+  The interaction with content sizing was the sharp edge, and it was silent.
+  A measured size is a *stated* size: it scales under pressure. A dock of
+  `hints.sizing: { h: 'content' }` palettes declaring no `minSize` therefore
+  had a clamp floor of zero — every palette quietly shrank below the height
+  it asked for, and `overflow` stayed absent because nothing was floored.
+  Laying out against the intrinsic extent under `scroll` holds each pane at
+  its measurement and reports the difference. Under `squeeze` the shrink is
+  still what happens, which is what `squeeze` means.
 
-  **Two consumers have now asked** — a labkit palette dock and WeaselDraw's
-  right sidebar, which is a scrolling flex column of collapsible panels
-  today and would lose the scrolling by adopting a strip. What they want is
-  `overflowMode: 'scroll'`: strip lays out at the intrinsic extent instead of
-  compressing, `<Container>` sizes its inner box to that, and the consumer
-  puts `overflow: auto` on a wrapper. Doing it on the signal alone is a
-  two-pass dance — read `overflow.h`, feed back a taller `viewport`,
-  re-render — with the feedback loop's own settling to get right, which is
-  exactly the sort of thing that belongs in the strategy rather than in
-  every consumer.
+  Size-driven unplacing resolves inside `placedOf`, beside the count cap, so
+  `layout` and `dispatchAffordance` cannot disagree about which panes are
+  placed. `canAccept` still gates on `maxItems` only: it has no container
+  size to test against and runs on every pointermove.
 
-  The sharp edge is the interaction with content sizing, and it is a silent
-  one. A measured size is a *stated* size: it scales under pressure. So a
-  dock of `hints.sizing: { h: 'content' }` palettes does not overflow when it
-  runs out of room — every palette quietly shrinks below the height it asked
-  for, and `overflow` stays absent because nothing is floored. Content-sized
-  panes need a floor at their measurement under a scroll policy, or the
-  policy does nothing for the case that most wants it.
+  Left undone: the one pane that must be placed when nothing fits is clamped
+  to the container rather than overflowed, so `unplace` never reports
+  overflow. That is a choice, not a law — a consumer who would rather see
+  the overflow has no way to ask.
 
-- **Affordances in the declarative path.** `ZoneProps.affordances` is
-  declared and documented as "reserved for parity with the store-driven
-  Container. Not yet wired through to a renderer in the declarative path," so
-  a `<Zone>` tree cannot render a seam. Anyone who wants resizable panes has
-  to drop to `<Container parentId chrome={...}>` and hand-roll the store: mint
-  a node per child, sync registration and `childOrder` against their own list
-  on every change, and re-implement what the presets already do — which is
-  what labkit's `WorkspaceGrid` ended up doing, and is most of that file.
+- **Shipped: affordances in the declarative path.** `<Zone>` and `<Panel>`
+  render the strategy's affordances through the same `AffordanceLayer` that
+  `<Container>` uses, so a seam is the same element with the same keyboard
+  contract whichever path built the tree. `ZoneProps.affordances` had been
+  declared and documented as reserved, which meant a consumer could pass it
+  and watch nothing happen. Wiring it removed the reason labkit's
+  `WorkspaceGrid` hand-rolled a store — mint a node per child, sync
+  registration and `childOrder` on every change — to get resizable panes.
 
-  A palette dock is the case that wants both halves at once: the panel list is
-  static JSX, which is exactly what `<Zone>`/`<Panel>` are for, and the seams
-  between panels are the whole point of using windease instead of flexbox.
-  Wiring `affordances` through the presets — the same renderer `<Container>`
-  already has, given the layout the `<Zone>` already computes — would let that
-  consumer stay declarative.
+  Declaring `placement` and dragging a seam were a live fight: reconcile runs
+  every render and forces the declared bag back, so the drag was reverted on
+  the next one. Resolved the way controlled child order already resolves it.
+  `ContainerHost.registerPlacementControl` diverts the write to the host and
+  leaves the store untouched, surfaced as `<Panel onPlacementChange>`; an
+  uncontrolled sibling in the same row still commits normally. Declaring
+  `placement` *without* a handler still stomps the drag, which is now the
+  documented meaning of declaring it.
+
+- **Shipped: content sizing in the declarative path.** `hints` is a prop on
+  the presets, so `sizing: { h: 'content' }` is reachable without building
+  the tree store-first, and the presets wrap a measured pane in the same
+  measurement box `<Container>` uses. They read the *parent's* layout scope
+  for it, so a nested container measures against whatever sizes it rather
+  than against itself.
+
+  Hints had no store setter at all — they were fixed at `registerNode` — so
+  a prop that changed after mount would have been a silent no-op. `setHints`
+  patches like `setMeta` and compares by value, because a binding rebuilds
+  `hints` from props on every render and identity would invalidate the
+  layout forever.
 
 - **Shipped: keyboard resize.** A gutter renders as `role="separator"` with
   `aria-orientation` and `aria-valuenow` / `aria-valuemin` / `aria-valuemax`,
@@ -325,6 +346,40 @@ integration turned up afterwards: the declarative path cannot render a seam.
   same pairing semantics applied to cell counts. Build it against this rather
   than reinventing the clamping. Fold in the `patchPlacement` span lock-gate
   then.
+
+## Merging adjacent nodes
+
+Filed as one question — "should adjacent nodes be able to merge?" — but it is
+three unrelated features sharing a verb. They want separating before any of
+them is scoped, because only one is cheap and none is on the path to a
+palette dock.
+
+- **Tab-stacking two panes into one.** Drop A onto B's body and the two
+  become a tabbed stack. The real work is not the merge, it is drop *intent*:
+  the hit-test has to separate "into the seam between B and C" from "onto B
+  itself", which `insertionIndexByMidpoint` deliberately does not do — it
+  answers only the first question. Needs a stack container preset and a tab
+  strip on top of that. The largest of the three by a wide margin.
+
+- **Coalescing a container that drops to one child.** The mechanism already
+  exists and is already careful: `store.unsplit` lifts the children into the
+  grandparent, and for a lone survivor it transfers the group's `placement`
+  (minus `pinned`) and its pinned index onto that child. Nothing calls it
+  automatically — every call site is a consumer asking. So the open question
+  is a *policy* one, and it is where the traps are: a zone the consumer
+  created on purpose and expects to persist while empty must not evaporate,
+  which means the trigger belongs on the container (an opt-in config flag),
+  not in `removeNode`. Undo granularity needs deciding too — the coalesce
+  should join the removal's transaction rather than land as a second step.
+
+- **Joining panes by dragging a seam past a neighbor's floor.** A resize
+  gesture that ends in a destroy. It has to answer to `lock.destroy` on a
+  pane the gesture never targeted, and the point of no return has to be
+  visible before the pointer is released, or the user destroys a pane by
+  overshooting. The gesture is small; the affordance design is not.
+
+None of the three is blocked on anything. The order to do them in, if asked,
+is coalescing, then seam-join, then tab-stacking.
 
 ## Wishlist: hosting an app that already has a workspace store [HIGH]
 

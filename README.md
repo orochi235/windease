@@ -222,8 +222,11 @@ store.registerNode(
 );
 ```
 
-`<Container>` wraps a content-sized pane's children in an auto-height div and
-observes it, so the measurement is of the content rather than of the extent the
+The presets take the same thing as a prop — `<Panel hints={{ sizing: { h: 'content' } }} />`
+— reconciled on change like `meta`.
+
+`<Container>` and the presets wrap a content-sized pane's children in an
+auto-height div and observe it, so the measurement is of the content rather than of the extent the
 layout just wrote — measuring the positioned wrapper would measure the library's
 own output and never settle. Give that div's contents a real intrinsic height:
 a child stretched with `height: 100%` reports the pane, not the content.
@@ -283,6 +286,42 @@ Two things the pattern owes its users: keep the collapsed pane's accessible
 name, and keep its expand control reachable from the keyboard in whatever
 still renders. A pane that can be collapsed and not reopened without a mouse
 is worse than one that never collapsed.
+
+## When panes don't fit
+
+A strip whose panes ask for more than the container has resolves it three ways,
+set by `overflowMode` on the zone's config.
+
+`'squeeze'` (default) scales the panes down until their floors bind, then
+reports whatever is left over as `LayoutResult.overflow`. This is what the
+strategy has always done.
+
+`'scroll'` lays out at the extent the panes asked for and reports the whole
+excess. `<Container>` / `<Zone>` / `<Panel>` size their box to
+`viewport + overflow`, so all you supply is a wrapper that scrolls:
+
+```tsx
+<div className="dock-scroll">           {/* overflow-y: auto */}
+  <Zone id={dockId} strategyId="strip" config={{ axis: 'y', overflowMode: 'scroll' }}>
+    <Panel id={a} hints={{ sizing: { h: 'content' } }} />
+    <Panel id={b} hints={{ sizing: { h: 'content' } }} />
+  </Zone>
+</div>
+```
+
+Content-sized panes are the reason this mode is worth having, and the reason to
+be careful with the other one. A measurement is a stated size, so under
+`squeeze` a pane with no `hints.minSize` has nothing to floor it: it shrinks
+below what it measured and `overflow` stays absent, because nothing bound.
+Under `scroll` each pane holds at its measurement.
+
+`'unplace'` places what fits at full extent and routes the rest to
+`LayoutResult.unplaced`, which is also where `maxItems` sends items over its
+count cap — the two compose. When even the first pane doesn't fit it is placed
+anyway, clamped to the container, so an overflowing dock never renders empty.
+
+`overflow` is reported per axis and absent when the content fits, so a consumer
+that wants to drive its own policy can read it and ignore all three.
 
 ## Canvas hosts
 
@@ -346,8 +385,8 @@ a `schedule`.
 
 ## Resize
 
-Pass `affordances` to `<Container>` to render `stripStrategy`'s interactive
-gutters — `resize-x-<childId>` / `resize-y-<childId>`, one after every
+Pass `affordances` to `<Container>`, `<Zone>` or `<Panel container={...}>` to
+render `stripStrategy`'s interactive gutters — `resize-x-<childId>` / `resize-y-<childId>`, one after every
 non-last child. Dragging one writes an explicit pixel size straight to
 `membership.placement.size`, which round-trips through snapshot/hydrate as an
 ordinary node field — no separate strategy state. Per-child `hints.minSize`
@@ -362,6 +401,21 @@ siblings without an explicit size of their own share the remainder. Combine
 with `hints.maxSize` for an "auto up to a cap" pane. `store.split(id, input)`
 builds the nested `stripStrategy` groups a multi-pane layout needs; see
 `docs/concepts.md`.
+
+A seam drag writes `placement.size` to the store. If you declare `placement`
+on a preset instead, **you** own it: the prop is reconciled on every render, so
+a drag would be reverted on the next one. Say so with `onPlacementChange` and
+the gesture hands you the bag it would have written, leaving the store alone:
+
+```tsx
+const [h, setH] = useState(200);
+
+<Panel id={a} placement={{ size: { h } }} onPlacementChange={(next) => setH(next.size.h)} />
+<Panel id={b} />  {/* uncontrolled — its own drags commit as usual */}
+```
+
+Controlled and uncontrolled panes mix freely in one row. Without React, the
+same thing is `host.registerPlacementControl(id, commit)`.
 
 Gutters are operable from the keyboard. Each renders as `role="separator"`
 carrying `aria-orientation` and `aria-valuenow` / `aria-valuemin` /
