@@ -55,7 +55,7 @@ The seam stops moving but the pointer does not, and nothing in the system
 records how far past the stop the user has pushed. `trackJoin` derives it:
 
 ```ts
-trackJoin({ join, requested, consumed, canDestroy }) -> { armed, victimId, overshoot }
+trackJoin({ join, requested, consumed, canDestroy }) -> { armed, candidateId, overshoot }
 ```
 
 `requested` is cumulative pointer travel since the gesture began; `consumed` is
@@ -63,7 +63,9 @@ the extent the layout actually absorbed (`bounds.valueNow` now, less its value
 at gesture start). They track each other while the seam moves; once it clamps,
 only `requested` grows, and the gap is the overshoot. Its sign selects `atMax`
 or `atMin`. Arming requires both `|overshoot| > threshold` and
-`canDestroy(victimId)`.
+`canDestroy(candidateId)`. `candidateId` names who is being pushed against, not
+who dies — it is populated while `armed` is still false, so the two are read
+together.
 
 Pure, like `insertionIndexByMidpoint`: no store, no pointer, no retained state.
 The accumulation of `requested` lives in a ref in the React handle.
