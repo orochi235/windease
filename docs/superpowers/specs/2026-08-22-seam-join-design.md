@@ -41,11 +41,13 @@ its delta across every sibling and so has no single pane to name as the victim.
 `Affordance` gains one optional field:
 
 ```ts
-join?: { atMin?: NodeId; atMax?: NodeId; threshold: number }
+join?: { atMin?: NodeId | string; atMax?: NodeId | string; threshold: number }
 ```
 
 The strategy names who dies at each end of the affordance's range: strip fills
-`atMax` with the following pane and `atMin` with its own. Absent means the seam
+`atMax` with the following pane and `atMin` with its own. The ids are as loose
+as `childId` and `affects` beside them, so a strategy working in `ItemId` needs
+no cast; the host casts once where it reaches the store. Absent means the seam
 clamps as it does today, so every other strategy is unchanged and can opt in
 later without a second mechanism.
 
