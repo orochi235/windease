@@ -730,7 +730,7 @@ describe('Store — selectors', () => {
     expect(s.getAncestors(id('leaf')).map((n) => n.id)).toEqual(['z', 'tray', 'leaf']);
   });
 
-  it('isContainer / isMember / hasFocus', () => {
+  it('isContainer / isMember / canFocus', () => {
     const s = fresh();
     s.registerNode(
       createNode({
@@ -761,9 +761,34 @@ describe('Store — selectors', () => {
     expect(s.isMember(id('z'))).toBe(false);
     expect(s.isMember(id('g'))).toBe(true);
     expect(s.isMember(id('p'))).toBe(true);
-    expect(s.hasFocus(id('p'))).toBe(true);
-    expect(s.hasFocus(id('g'))).toBe(false);
-    expect(s.hasFocus(id('z'))).toBe(false);
+    expect(s.canFocus(id('p'))).toBe(true);
+    expect(s.canFocus(id('g'))).toBe(false);
+    expect(s.canFocus(id('z'))).toBe(false);
+  });
+
+  it('canFocus answers capability, not whether the node is focused', () => {
+    const s = fresh();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: id('z'),
+      }),
+    );
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('p'), parentId: id('z') }));
+    s.showNode(id('p'));
+    expect(s.focusedId).toBeNull();
+    expect(s.canFocus(id('p'))).toBe(true);
+    s.focusNode(id('p'));
+    expect(s.canFocus(id('p'))).toBe(true);
+  });
+
+  it('hasFocus still delegates to canFocus while deprecated', () => {
+    const s = fresh();
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('p') }));
+    s.registerNode(createNode({ kind: 'panel', id: id('q') }));
+    expect(s.hasFocus(id('p'))).toBe(s.canFocus(id('p')));
+    expect(s.hasFocus(id('q'))).toBe(s.canFocus(id('q')));
   });
 });
 

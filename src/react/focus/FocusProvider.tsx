@@ -54,7 +54,7 @@ export function FocusProvider({ children }: { children: ReactNode }) {
       if (!raw) return;
       const id = asNodeId(raw) as NodeId;
       if (store.focusedId === id) return;
-      if (!store.hasFocus(id)) return;
+      if (!store.canFocus(id)) return;
       store.focusNode(id);
     };
     el.addEventListener('focusin', onFocusIn);

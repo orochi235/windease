@@ -222,7 +222,10 @@ methods:
 - `focusNode` / `blurAll` — single-focus invariant enforced.
 
 Selectors: `getNode`, `getChildren`, `getParent`, `getAncestors`,
-`isContainer`, `isMember`, `hasFocus`, `getContainerView`.
+`isContainer`, `isMember`, `canFocus`, `getContainerView`. All three
+predicates answer *capability* — `canFocus(id)` is "does this node have a
+focus machine", not "is it focused". For that, compare `store.focusedId`.
+(`hasFocus` is the old name for `canFocus`, deprecated, removed at 2.0.0.)
 
 ## Truth vs. published
 

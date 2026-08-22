@@ -420,6 +420,17 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
+### 1.2.0 — `hasFocus` deprecated in favor of `canFocus`
+
+Not breaking yet: `store.hasFocus(id)` still works and delegates. It is
+removed at 2.0.0, so rename your call sites.
+
+The method answers "does this node have a focus machine", the same shape as
+`isContainer` / `isMember`. But it sat one method away from `focusedId`, and
+`hasFocus(x) === false` reads as "x is not focused" — which it does not mean.
+Two separate workstreams building on focus misread it. For the state, compare
+`store.focusedId`.
+
 ### 1.0.1
 
 `createZone` and `createPanel` are collapsed into one constructor,

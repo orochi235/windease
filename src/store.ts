@@ -240,8 +240,19 @@ export class Store {
     return !!this.nodesMap.get(id)?.membership;
   }
 
-  hasFocus(id: NodeId): boolean {
+  /** Whether the node has the focus capability — *not* whether it is focused.
+   *  For that, compare `store.focusedId`. */
+  canFocus(id: NodeId): boolean {
     return !!this.nodesMap.get(id)?.focus;
+  }
+
+  /**
+   * @deprecated Renamed to {@link Store.canFocus}; removed at 2.0.0. The name
+   * read as a state check one method away from `focusedId`, and was misread
+   * that way in practice.
+   */
+  hasFocus(id: NodeId): boolean {
+    return this.canFocus(id);
   }
 
   getContainerView(

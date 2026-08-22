@@ -282,6 +282,11 @@ serialize/graft work goes out under the same 1.2.0.
   resolution for its own children: an id wins, `undefined` falls through to
   the geometric search, `null` declares the direction dead there.
 - **`prefers-reduced-motion`** now suppresses the settle transition.
+- **`store.hasFocus` renamed to `canFocus`.** It answers "does this node have
+  a focus machine", but sat one method from `focusedId` and read as a state
+  check — both workstreams building on focus misread it. `hasFocus` remains as
+  a deprecated delegating alias, removed at 2.0.0, so nothing breaks in a
+  minor.
 
 Still missing: `announce()` ships on `FocusAdapter` with no call site. Moving
 real DOM focus announces the pane name for free, so what is left uncovered is
@@ -342,14 +347,6 @@ keyboard-navigation design deliberately did not specify.
   `ContainerHost.setViewport` / `observe` and `insertionIndexByMidpoint` /
   `childRectsForContainer` already split. See the DOM-independence tenet in
   CLAUDE.md.
-- **`hasFocus(id)` reads as a state check but is a capability check.** It returns
-  `!!node.focus` — "does this node have a focus machine" — and sits correctly
-  beside `isContainer` / `isMember`, which are the same shape. But it lives one
-  method away from `focusedId`, and `hasFocus(x) === false` is a natural way to
-  write "x is not focused", which it does not mean. Both workstreams building on
-  focus read it the wrong way. Rename to `canFocus` at 2.0.0; it is exported, so
-  not before. Use `getNode(id)?.focus?.state` or `store.focusedId` for the state.
-
 - **Two dead affordance hooks are deprecated, not yet removed.**
   `BuiltinAffordanceKind`'s `'keypress'` member and `LayoutEvent`'s `kind: 'key'`
   are never emitted, dispatched, or handled; keyboard resize reaches a strategy
