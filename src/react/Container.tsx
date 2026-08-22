@@ -12,7 +12,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
-import { type Affordance, accessibleName, type NodeId } from '../index.js';
+import { type Affordance, accessibleName, type ChildOrderCommit, type NodeId } from '../index.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useGeometryRegistry } from './focus/useGeometrySource.js';
@@ -99,6 +99,17 @@ export interface ContainerProps {
    * drop the stops. Default true.
    */
   affordanceTabStops?: boolean;
+  /**
+   * Take ownership of this container's child order. When set, a drop that
+   * would change the order calls this with the order it *would* have produced
+   * instead of writing it — commit it to your own store and re-render.
+   *
+   * The controlled counterpart to `preserveStoreOrder`, which keeps a drop
+   * without telling the host about it. Only library-mediated gestures are
+   * intercepted: `store.reorderInParent` called directly still commits, since
+   * that is the host acting on itself.
+   */
+  onChildOrderChange?: ChildOrderCommit;
 }
 
 const AFFORDANCE_BASE: CSSProperties = {
@@ -164,6 +175,7 @@ function StoreContainer({
   affordanceHitPad = 4,
   affordanceKeyStep = 8,
   affordanceTabStops = true,
+  onChildOrderChange,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const store = useStore();
@@ -216,6 +228,11 @@ function StoreContainer({
       geometryRegistry.commit();
     };
   }, [geometryRegistry, layout.placements, selfRect?.x, selfRect?.y]);
+
+  useEffect(() => {
+    if (!dragController || !onChildOrderChange) return;
+    return dragController.registerOrderControl(parentId, onChildOrderChange);
+  }, [dragController, parentId, onChildOrderChange]);
 
   // Register a default getInsertionIndex on the container element so the
   // controller can resolve cursor → child slot without consumer wiring.

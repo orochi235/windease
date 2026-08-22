@@ -183,6 +183,35 @@ Write your own `ChildSort` for anything in between: it receives the observed
 children with their `order` hints plus the current store order, and returns the
 final list.
 
+### When the host owns order outright
+
+`preserveStoreOrder` keeps a drop without telling you about it. If your own
+store is the authority — an app that already persists a workspace list and its
+order — pass `onChildOrderChange` instead. A drop then calls you with the order
+it *would* have produced and writes nothing:
+
+```tsx
+<Container
+  parentId={zoneId}
+  chrome={chrome}
+  onChildOrderChange={(next, { movedId, fromParentId, toParentId }) => {
+    myStore.setWorkspaceOrder(next); // your state, your persistence
+  }}
+/>
+```
+
+Commit it and re-render; the binding reconciles to whatever you declare next.
+Two things to know:
+
+- **Controlled means the store is not written at all.** If either side of a
+  cross-parent drop is controlled, `moveNode` does not run and each controlled
+  parent gets its own call. Moving the record — including into an uncontrolled
+  zone — is yours, because committing here *and* asking you to commit would
+  apply one gesture twice.
+- **Only library-mediated gestures are intercepted.** `store.reorderInParent`
+  and `store.moveNode` called directly still commit; that is you acting on your
+  own store, not a user gesture to approve.
+
 ## Sizing a pane to its contents
 
 Declare it per axis and the library measures for you:

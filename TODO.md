@@ -282,6 +282,10 @@ serialize/graft work goes out under the same 1.2.0.
   resolution for its own children: an id wins, `undefined` falls through to
   the geometric search, `null` declares the direction dead there.
 - **`prefers-reduced-motion`** now suppresses the settle transition.
+- **Controlled child order.** `<Container onChildOrderChange>` hands the host
+  the order a drop would have produced and writes nothing, for a host whose own
+  store is the authority. `DragController.registerOrderControl` is the
+  binding-free equivalent.
 - **Content-driven sizing.** `hints.sizing: { h: 'content' }` asks to be sized
   by measured content. The measurement reaches strategies as
   `LayoutItem.natural`, supplied by an adapter — `ContainerHost.setNaturalSize`
@@ -510,13 +514,25 @@ a host with its own per-item undo stacks simply doesn't wire it.
   an `onChildOrderChange` intent the host commits, so "host declares, user
   rearranges" needs no round-trip.
 
-  **Mostly addressed.** `ChildSort` already receives the parent's current store
-  order as its second argument, and `<Zone>` already takes a `sort` prop, so the
-  uncontrolled half needed no new mechanism — only a name. `preserveStoreOrder`
-  ships it: reconcile short-circuits, no `setChildOrder` runs, no `arrange`
-  lock, no round-trip. Still open is the *controlled* half — an
-  `onChildOrderChange` intent for a host that wants to approve or transform a
-  reorder rather than just keep it.
+  **Shipped, both halves.** The uncontrolled one needed no new mechanism, only
+  a name: `ChildSort` already received the parent's current store order and
+  `<Zone>` already took a `sort` prop, so `preserveStoreOrder` short-circuits
+  reconcile with no `setChildOrder`, no `arrange` lock and no round-trip.
+
+  The controlled half is `<Container onChildOrderChange>`, registered on the
+  `DragController` through its own `registerOrderControl` registry rather than
+  on `registerDropTarget` — a second registration for the same id silently
+  replaces the first there, which is the trap already recorded against the
+  Playwright suite.
+
+  Two rules worth not re-litigating. A drop involving a controlled parent
+  writes nothing to the store, even when the *other* side is uncontrolled:
+  committing the move and also asking the host to commit it applies one gesture
+  twice, so the uncontrolled counterpart is the host's to update. And only
+  library-mediated gestures are intercepted — `store.reorderInParent` called
+  directly is the host acting on itself. The prospective order is computed with
+  `placeRespectingPins`, the same helper the store uses, so a pinned prefix
+  cannot depend on who owns order.
 
 - **Shipped: subtree serialize / graft.** `serialize(store, { root })` emits a
   v5 snapshot of one node and its descendants, with the root's own placement in
