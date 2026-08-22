@@ -2,8 +2,7 @@
 
 Future work, sectioned by item. Append new ideas here rather than scattering
 them. Tag major items with `[HIGH]`. What has already shipped is at the bottom
-under Release history; what is on `main` but not yet published has its own
-section above it.
+under Release history.
 
 ## Test-harness gaps
 
@@ -14,6 +13,21 @@ section above it.
   `recordEvents` (`src/test-utils/record-events.ts`) and assert after the
   mutation returns. The one live instance has been fixed; nothing
   prevents a new one, so this stays on the list as a review item.
+
+- **The WebKit e2e specs are flaky under CI load.** Roughly 5% per test, only
+  on WebKit, only on the GitHub runner — `insertion`, `drag` and
+  `content-sizing` have each failed or flaked, and a *different* set fails each
+  run. Chromium and Firefox are clean. That nondeterminism across unrelated
+  specs is the evidence it is timing rather than a drag defect: a real
+  regression fails the same test every time. WebKit is the slowest engine on a
+  Linux runner and every one of these is a 5s `expect.poll`.
+
+  Shipped 1.2.0 with this red, deliberately — the Release workflow does not run
+  e2e. Two things to try: raise the poll timeouts for the WebKit project, and
+  make the pointer sequence cross the drag threshold with a small move before
+  the long one, rather than going from `mouse.down` straight into a 15-step
+  sweep. Local repro on a fast machine is about 1 in 16, so measure with
+  `--repeat-each`.
 
 ## Pinning items within a zone
 
@@ -137,74 +151,6 @@ before parent effects, so the consumer's registration wins and every drop
 appends. `DragController` traces the overwrite but nothing surfaces it to a
 consumer. Both `Playground` and `ParallelZonesDnd` document the trap and avoid
 it; `e2e/drag.spec.ts` pins the parallel-zones case.
-
-## On main, unreleased — ships as 1.2.0
-
-Not on npm yet: `package.json` still says 1.1.0 and no tag exists. The subtree
-serialize/graft work goes out under the same 1.2.0.
-
-- **Keyboard navigation and focus.** The layout is now reachable by keyboard
-  and legible to a screen reader, at a cost of exactly one Tab stop for the
-  whole tree. Arrows and `Home`/`End` move between panes when the wrapper
-  itself has focus; `F6`/`Shift+F6` cycle from anywhere, including inside
-  content that eats the arrows. Tab is never intercepted.
-- **`focus.successor`.** Destroying or hiding the focused node names a
-  replacement — next sibling, previous sibling, the parent's remembered
-  child, the parent, then the first visible leaf — instead of dropping focus
-  to the document. `ContainerCap.lastFocusedId` backs the memory and is
-  deliberately session-only, not serialized.
-- **`LayoutStrategy.navigate?`.** A strategy can override directional
-  resolution for its own children: an id wins, `undefined` falls through to
-  the geometric search, `null` declares the direction dead there.
-- **`prefers-reduced-motion`** now suppresses the settle transition.
-- **Grid resize gutters.** `gridStrategy` with `resizable: true` emits seams
-  that write `placement.span`, so auto-balance and draggable seams compose.
-  `patchPlacement` lock-gates `span` behind `resize`. Adds
-  `LayoutEvent.payload.point` and `Affordance.bounds.step`, both additive.
-- **Controlled child order.** `<Container onChildOrderChange>` hands the host
-  the order a drop would have produced and writes nothing, for a host whose own
-  store is the authority. `DragController.registerOrderControl` is the
-  binding-free equivalent.
-- **Content-driven sizing.** `hints.sizing: { h: 'content' }` asks to be sized
-  by measured content. The measurement reaches strategies as
-  `LayoutItem.natural`, supplied by an adapter — `ContainerHost.setNaturalSize`
-  is the headless API and `observeNatural` the DOM convenience over it,
-  mirroring `setViewport` / `observe`. A `layout()` call with no measurement
-  behaves exactly as before.
-- **Keyboard resize gutters.** `role="separator"` with `aria-orientation` and
-  the value triple, arrow keys plus `Home`/`End`, and an accessible name
-  composed from the panes the gutter moves. `<Container>` takes
-  `affordanceKeyStep` and `affordanceTabStops`.
-- **`Affordance.bounds` honors `resizeMode: 'neighbor'`.** It reported the
-  whole row's slack while the drag stopped at the neighbor's minimum. Behavior
-  change for anyone reading `valueMax` off a paired affordance — the number is
-  now the one the drag will actually reach.
-- **`store.hasFocus` renamed to `canFocus`.** It answers "does this node have
-  a focus machine", but sat one method from `focusedId` and read as a state
-  check — both workstreams building on focus misread it. `hasFocus` remains as
-  a deprecated delegating alias, removed at 2.0.0, so nothing breaks in a
-  minor.
-
-- **`DragEngine`, the DOM-free half of `DragController`.** Ownership,
-  acceptance and hit-testing over `bounds()` callbacks, with the frame
-  scheduler injected; `DragController` is unchanged for consumers and is now
-  the DOM host that measures elements, walks `parentElement` for depth, stamps
-  `data-drop-*` and binds the window listeners. Closes the tenet violation.
-  A synchronous scheduler used to wedge the pending-frame handle after the
-  first sample — found by the headless tests, which need no faked `Element`.
-
-- **Announcements for changes that move no focus.** `bindAnnouncer(store,
-  adapter)` composes text from `focus.successor`, `node.moved` and
-  `node.reordered` and hands it to `FocusAdapter.announce`; `<FocusProvider>`
-  renders a polite live region and wires it, opt out with `announce={false}`.
-  Scoped to the focused node and subtrees focus sits inside, so a host moving
-  panes the user is not in stays silent. `FocusAdapter` now has a real DOM
-  implementation behind the seam rather than an interface with no callers —
-  `present` moves the caret, and a canvas host swaps both methods.
-
-- **`observePixelRatio`.** A canvas host learns about `devicePixelRatio`
-  changes without hand-rolling the `matchMedia` re-subscription. Standalone and
-  additive; see "Canvas-host ergonomics" for why it is not on `ContainerHost`.
 
 ## Loose ends
 
@@ -483,6 +429,71 @@ carries a hand-rolled balanced-tree builder (`tree.ts`) working around
 but it means feedback from that lab is 0.8-shaped until the upgrade lands.
 
 ## Release history
+
+### 1.2.0
+
+- **Keyboard navigation and focus.** The layout is now reachable by keyboard
+  and legible to a screen reader, at a cost of exactly one Tab stop for the
+  whole tree. Arrows and `Home`/`End` move between panes when the wrapper
+  itself has focus; `F6`/`Shift+F6` cycle from anywhere, including inside
+  content that eats the arrows. Tab is never intercepted.
+- **`focus.successor`.** Destroying or hiding the focused node names a
+  replacement — next sibling, previous sibling, the parent's remembered
+  child, the parent, then the first visible leaf — instead of dropping focus
+  to the document. `ContainerCap.lastFocusedId` backs the memory and is
+  deliberately session-only, not serialized.
+- **`LayoutStrategy.navigate?`.** A strategy can override directional
+  resolution for its own children: an id wins, `undefined` falls through to
+  the geometric search, `null` declares the direction dead there.
+- **`prefers-reduced-motion`** now suppresses the settle transition.
+- **Grid resize gutters.** `gridStrategy` with `resizable: true` emits seams
+  that write `placement.span`, so auto-balance and draggable seams compose.
+  `patchPlacement` lock-gates `span` behind `resize`. Adds
+  `LayoutEvent.payload.point` and `Affordance.bounds.step`, both additive.
+- **Controlled child order.** `<Container onChildOrderChange>` hands the host
+  the order a drop would have produced and writes nothing, for a host whose own
+  store is the authority. `DragController.registerOrderControl` is the
+  binding-free equivalent.
+- **Content-driven sizing.** `hints.sizing: { h: 'content' }` asks to be sized
+  by measured content. The measurement reaches strategies as
+  `LayoutItem.natural`, supplied by an adapter — `ContainerHost.setNaturalSize`
+  is the headless API and `observeNatural` the DOM convenience over it,
+  mirroring `setViewport` / `observe`. A `layout()` call with no measurement
+  behaves exactly as before.
+- **Keyboard resize gutters.** `role="separator"` with `aria-orientation` and
+  the value triple, arrow keys plus `Home`/`End`, and an accessible name
+  composed from the panes the gutter moves. `<Container>` takes
+  `affordanceKeyStep` and `affordanceTabStops`.
+- **`Affordance.bounds` honors `resizeMode: 'neighbor'`.** It reported the
+  whole row's slack while the drag stopped at the neighbor's minimum. Behavior
+  change for anyone reading `valueMax` off a paired affordance — the number is
+  now the one the drag will actually reach.
+- **`store.hasFocus` renamed to `canFocus`.** It answers "does this node have
+  a focus machine", but sat one method from `focusedId` and read as a state
+  check — both workstreams building on focus misread it. `hasFocus` remains as
+  a deprecated delegating alias, removed at 2.0.0, so nothing breaks in a
+  minor.
+
+- **`DragEngine`, the DOM-free half of `DragController`.** Ownership,
+  acceptance and hit-testing over `bounds()` callbacks, with the frame
+  scheduler injected; `DragController` is unchanged for consumers and is now
+  the DOM host that measures elements, walks `parentElement` for depth, stamps
+  `data-drop-*` and binds the window listeners. Closes the tenet violation.
+  A synchronous scheduler used to wedge the pending-frame handle after the
+  first sample — found by the headless tests, which need no faked `Element`.
+
+- **Announcements for changes that move no focus.** `bindAnnouncer(store,
+  adapter)` composes text from `focus.successor`, `node.moved` and
+  `node.reordered` and hands it to `FocusAdapter.announce`; `<FocusProvider>`
+  renders a polite live region and wires it, opt out with `announce={false}`.
+  Scoped to the focused node and subtrees focus sits inside, so a host moving
+  panes the user is not in stays silent. `FocusAdapter` now has a real DOM
+  implementation behind the seam rather than an interface with no callers —
+  `present` moves the caret, and a canvas host swaps both methods.
+
+- **`observePixelRatio`.** A canvas host learns about `devicePixelRatio`
+  changes without hand-rolling the `matchMedia` re-subscription. Standalone and
+  additive; see "Canvas-host ergonomics" for why it is not on `ContainerHost`.
 
 ### 1.1.0
 
