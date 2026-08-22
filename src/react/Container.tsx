@@ -18,7 +18,11 @@ import { useChildren, useFocusedNode, useNode } from './hooks.js';
 import { MeasuredContent } from './measure.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
 import { useStore } from './Provider.js';
-import { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
+import {
+  type ContainerLayout,
+  scrollExtentStyle,
+  useContainerLayout,
+} from './useContainerLayout.js';
 
 /** Live layout snapshot passed to function-form `overlay` callbacks. */
 export interface OverlayContext extends ContainerLayout {
@@ -251,8 +255,14 @@ function StoreContainer({
   const effectiveSettleMs = draggingAffordanceId !== null || reducedMotion ? 0 : settleMs;
 
   const containerStyle: CSSProperties = viewport
-    ? { ...CONTAINER_BASE, width: viewport.w, height: viewport.h, ...style }
-    : { ...CONTAINER_BASE, width: '100%', height: '100%', ...style };
+    ? {
+        ...CONTAINER_BASE,
+        width: viewport.w,
+        height: viewport.h,
+        ...scrollExtentStyle(layout),
+        ...style,
+      }
+    : { ...CONTAINER_BASE, width: '100%', height: '100%', ...scrollExtentStyle(layout), ...style };
 
   if (!parent?.container || !chrome) {
     return (

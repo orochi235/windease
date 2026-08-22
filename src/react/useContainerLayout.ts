@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { type RefObject, useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { LayoutEvent, LayoutPreview, NodeId, PlacementCommit } from '../index.js';
 import { ContainerHost, type ContainerLayout as HostLayout } from '../index.js';
@@ -95,4 +96,21 @@ export function useContainerLayout(
   );
 
   return { ...layout, dispatchAffordance, observeNatural, registerPlacementControl };
+}
+
+/**
+ * The box size a layout needs to hold content that exceeds its viewport, for
+ * `overflowMode: 'scroll'`. Undefined when nothing overflows, so the common
+ * case adds no style at all.
+ *
+ * The consumer puts `overflow: auto` on a wrapper around this box; without the
+ * grown extent there is nothing for that wrapper to scroll.
+ */
+export function scrollExtentStyle(layout: ContainerLayout): CSSProperties | undefined {
+  const { overflow, viewport } = layout;
+  if (!overflow || !viewport) return undefined;
+  const out: CSSProperties = {};
+  if (overflow.w > 0) out.width = viewport.w + overflow.w;
+  if (overflow.h > 0) out.height = viewport.h + overflow.h;
+  return out;
 }

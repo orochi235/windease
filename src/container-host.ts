@@ -18,6 +18,12 @@ export interface ContainerLayout {
   viewport: { w: number; h: number } | null;
   /** True when these placements came from a `preview` input. */
   isPreview: boolean;
+  /**
+   * How far the placed content exceeds the viewport per axis, absent when it
+   * fits. A binding sizes its inner box to `viewport + overflow` so a
+   * scrolling wrapper has something to scroll.
+   */
+  overflow?: { w: number; h: number };
 }
 
 /** What produced a controlled child's proposed placement. */
@@ -548,12 +554,14 @@ export class ContainerHost {
     const affordances = this.#store.isLocked(this.#parentId, 'arrange')
       ? []
       : result.affordances.filter((a) => !affectsResizeLocked(this.#store, a.affects));
-    return {
+    const out: ContainerLayout = {
       placements: result.placements,
       affordances,
       unplaced: result.unplaced ?? [],
       viewport,
       isPreview: result.isPreview ?? false,
     };
+    if (result.overflow) out.overflow = result.overflow;
+    return out;
   }
 }

@@ -46,6 +46,21 @@ interface StripConfig {
    * would overflow it.
    */
   maxItems?: number;
+  /**
+   * What to do when the panes ask for more main-axis extent than the container
+   * has.
+   *
+   * `'squeeze'` (default) scales them down until floors bind, then reports the
+   * remainder as `overflow`.
+   *
+   * `'scroll'` lays out at the extent the panes asked for and reports the
+   * whole excess as `overflow`, for a host that sizes a scrolling box to it.
+   * A measured pane holds at its measurement rather than shrinking below it.
+   *
+   * `'unplace'` places what fits at full extent and sends the rest to
+   * `unplaced`. Composes with `maxItems`, which caps by count instead.
+   */
+  overflowMode?: 'squeeze' | 'scroll' | 'unplace';
 }
 
 function explicitAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
@@ -182,14 +197,42 @@ function writeSize(store: unknown, id: string, axis: 'x' | 'y', value: number): 
   });
 }
 
+/** What this item asks to occupy on the main axis when nothing compresses it. */
+function intrinsicAxis(item: LayoutItem, axis: 'x' | 'y'): number {
+  return requestedAxis(item, axis) ?? effectiveMinAxis(item, axis);
+}
+
 /** Capacity-selected subset both `layout` and `dispatchAffordance` must agree
- *  on — the two drifting apart is the whole class of bug this closes. */
+ *  on — the two drifting apart is the whole class of bug this closes. So the
+ *  size budget under `overflowMode: 'unplace'` is resolved here too, not at
+ *  the one call site that happens to need it. */
 function placedOf(
   items: LayoutItem[],
   cfg: StripConfig,
+  axis: 'x' | 'y',
+  main: number,
 ): { placed: LayoutItem[]; unplaced: string[] } {
   const cap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
-  return selectByCapacity(items, Math.min(items.length, cap));
+  const byCount = selectByCapacity(items, Math.min(items.length, cap));
+  if (cfg.overflowMode !== 'unplace') return byCount;
+
+  const gap = cfg.gap ?? 0;
+  const padding = cfg.padding ?? 0;
+  const placed: LayoutItem[] = [];
+  const unplaced = [...byCount.unplaced];
+  let used = 2 * padding;
+  for (const item of byCount.placed) {
+    const need = intrinsicAxis(item, axis) + (placed.length > 0 ? gap : 0);
+    // The first pane is placed whatever its extent: an empty container hides
+    // the overflow instead of showing it.
+    if (placed.length > 0 && used + need > main) {
+      unplaced.push(item.id);
+      continue;
+    }
+    used += need;
+    placed.push(item);
+  }
+  return { placed, unplaced };
 }
 
 /** @group Strategies */
@@ -228,10 +271,16 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       return empty;
     }
 
-    const { placed: placedItems, unplaced } = placedOf(items, cfg);
-
     const main = axis === 'x' ? container.w : container.h;
+    const { placed: placedItems, unplaced } = placedOf(items, cfg, axis, main);
+
     const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
+    // Under `scroll` the row is laid out against what it asked for rather than
+    // what it has, so nothing scales and the excess is reported instead. A
+    // measured pane holds at its measurement for the same reason an explicit
+    // one does: it is what the pane asked for.
+    const intrinsicMain = placedItems.reduce((sum, it) => sum + intrinsicAxis(it, axis), 0);
+    const budget = cfg.overflowMode === 'scroll' ? Math.max(usableMain, intrinsicMain) : usableMain;
 
     // If any child has explicit placement.size on the main axis, use the
     // clamp helper for the whole row. Otherwise fall back to the existing
@@ -240,7 +289,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     let sizes: number[];
     if (hasExplicit) {
       const clamp = clampExplicitSizes({
-        available: usableMain,
+        available: budget,
         items: placedItems.map((it) => ({
           id: it.id,
           explicit: requestedAxis(it, axis),
@@ -354,15 +403,15 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     if (delta === 0) return;
 
     const cfg = options as StripConfig;
-    // A resize affordance is only ever emitted for a placed item (see `layout`),
-    // but `items` is caller-supplied — guard rather than assume.
-    const { placed: placedItems } = placedOf(items, cfg);
-    const item = placedItems.find((it) => it.id === childId);
-    if (!item) return;
-
     const gap = cfg.gap ?? 0;
     const padding = cfg.padding ?? 0;
     const main = axis === 'x' ? container.w : container.h;
+    // A resize affordance is only ever emitted for a placed item (see `layout`),
+    // but `items` is caller-supplied — guard rather than assume.
+    const { placed: placedItems } = placedOf(items, cfg, axis, main);
+    const item = placedItems.find((it) => it.id === childId);
+    if (!item) return;
+
     const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
 
     if (cfg.resizeMode === 'neighbor') {

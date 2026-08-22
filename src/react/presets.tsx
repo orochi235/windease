@@ -34,7 +34,7 @@ import { MeasuredContent } from './measure.js';
 import { ChildRegistryContext, ParentScope, useChildRegistry } from './ParentContext.js';
 import { useStore } from './Provider.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
-import { useContainerLayout } from './useContainerLayout.js';
+import { scrollExtentStyle, useContainerLayout } from './useContainerLayout.js';
 import { JSX_OWNER_META_KEY, useNodeBinding } from './useNodeBinding.js';
 
 interface CommonBindingProps {
@@ -251,6 +251,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
 
   const panelStyle: CSSProperties = {
     position: 'relative',
+    ...scrollExtentStyle(layout),
     ...props.style,
   };
 
@@ -416,7 +417,9 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   // a root, the viewport prop (or style) sets its size.
   const zoneStyle: CSSProperties = {
     position: 'relative',
-    ...composeZoneStyle(props),
+    ...(props.viewport ? { width: props.viewport.w, height: props.viewport.h } : null),
+    ...scrollExtentStyle(layout),
+    ...props.style,
   };
 
   // Render store-only (imperative) children if the consumer provided a
