@@ -59,9 +59,8 @@ export function resolveMove({
   if (at < 0) return null;
 
   if (parentId === fromParentId) {
-    // The store gates `setChildOrder` on `arrange` but not `reorderInParent`,
-    // so a drop into an arrange-locked parent is refused and a keyboard move
-    // would not be. Checked here to keep the two gestures answering alike.
+    // `reorderInParent` would throw on this; resolved here so the key is inert
+    // rather than noisy, like every other refusal above.
     if (store.getLock(parentId).arrange) return null;
     trace('workspace', `move ${direction}: ${from} → ${at} in ${parentId}`);
     return { kind: 'reorder', id: from, parentId, at };

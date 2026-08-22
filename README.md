@@ -398,12 +398,17 @@ untouched.
 | The drag preview's reflow | siblings do not part to show the drop slot |
 
 Mixing modes is the point: keep strategy zones where you want auto-balance or
-gutters, and mark the plain tilings flow. Two caveats worth knowing. Geometry
-is re-measured when the child set changes and whenever a `ResizeObserver` fires
-on the container or a pane, so a reflow that moves a pane without resizing
-anything can leave keyboard navigation a frame stale. And the default insertion
-axis is inferred from `container.config.axis`, which a flow zone has no reason
-to set — pass `config={{ axis: 'x' }}` for a row, or drops resolve vertically.
+gutters, and mark the plain tilings flow.
+
+Geometry is re-measured after every render, and between renders whenever a
+`ResizeObserver` fires on the container or a pane. A layout shift driven by
+neither — CSS alone moving a pane without resizing anything or re-rendering —
+is the one case that can leave keyboard navigation reading a stale rect.
+
+The drop axis needs no configuration: a flow container has no strategy to
+infer one from, so it reads the axis off the arrangement CSS actually
+produced. `config={{ axis: 'x' | 'y' }}` still overrides. `axisFromRects` is
+exported for a host doing its own hit-testing.
 
 ## Canvas hosts
 
@@ -761,6 +766,26 @@ checked, so nothing changes for third-party strategies until they opt in.
 
 `checkStrategyConfig(name, config, spec)` is exported for hosts that would
 rather assert on config in their own tests than read traces.
+
+### Unreleased — `lock.arrange` gates `reorderInParent`
+
+`arrange` governs whether a container's children may be rearranged, and it
+already refused `setChildOrder`. `reorderInParent` asserted only `move` on the
+node being moved, so the same rearrangement landed or was refused depending on
+which method you called: a drop into an arrange-locked container was blocked
+and `store.reorderInParent(child, 2)` on that container was not.
+
+`reorderInParent` now asserts `arrange` on the parent as well. If you lock a
+container against rearrangement and then reorder its children directly, that
+call now throws `LockedError` — pass `{ force: true }` where the reorder is the
+lock owner's own doing, which is what `setPinned` does internally.
+
+`graft(store, snap, parentId, { at })` refuses an arrange-locked parent up
+front for the same reason, keeping its guarantee that a rejected graft mutates
+nothing. Grafting without `at` appends rather than reorders and is governed by
+`accept`, as before. `splitNode` and `unsplit` are unaffected: both validate
+`arrange` before opening their transaction and run their internals with locks
+suspended.
 
 ### Unreleased — `lock.arrange` applies to any node
 

@@ -52,3 +52,16 @@ export function childRectsForContainer(container: Element): { id: string; rect: 
   }
   return out;
 }
+
+/**
+ * Which axis a row of measured children runs along, for a container whose
+ * arrangement is CSS's rather than a strategy's and so declares no `axis`.
+ * Compares the first two children: a wrapping grid reads as `'x'`, which is
+ * what its first row does.
+ */
+export function axisFromRects(rects: readonly { rect: DOMRect }[]): 'x' | 'y' {
+  const a = rects[0]?.rect;
+  const b = rects[1]?.rect;
+  if (!a || !b) return 'y';
+  return Math.abs(b.x - a.x) > Math.abs(b.y - a.y) ? 'x' : 'y';
+}

@@ -8,7 +8,11 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
+import {
+  axisFromRects,
+  childRectsForContainer,
+  insertionIndexByMidpoint,
+} from '../dnd/insertionIndex.js';
 import { accessibleName, type ChildOrderCommit, type NodeId } from '../index.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragContext } from './dnd/DragProvider.js';
@@ -214,47 +218,60 @@ function StoreContainer({
 
   const isFlow = layout.mode === 'flow';
   const childKey = children.map((c) => String(c.id)).join('|');
+  const flowRects = useRef<string[]>([]);
+
   // In flow the browser owns the arrangement, so the rects the focus resolver
   // needs come from measurement rather than from placements. Composed against
   // this container's own origin so both modes report into one space.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: childKey re-runs the measure when the child set changes; it is never read.
+  const measureFlow = useCallback(() => {
+    const el = ref.current;
+    if (!el || !geometryRegistry) return;
+    const self = el.getBoundingClientRect();
+    const origin = geometryRegistry.rects.get(String(parentId));
+    const originX = (origin?.x ?? 0) - self.x;
+    const originY = (origin?.y ?? 0) - self.y;
+    flowRects.current = [];
+    for (const child of childRectsForContainer(el)) {
+      flowRects.current.push(child.id);
+      geometryRegistry.rects.set(child.id, {
+        x: originX + child.rect.x,
+        y: originY + child.rect.y,
+        w: child.rect.width,
+        h: child.rect.height,
+      });
+    }
+    geometryRegistry.commit();
+  }, [geometryRegistry, parentId]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: childKey re-observes when the child set changes; it is never read.
   useEffect(() => {
     if (!isFlow || !geometryRegistry) return;
     const el = ref.current;
     if (!el) return;
-    const written: string[] = [];
-    const measure = () => {
-      const self = el.getBoundingClientRect();
-      const originX = (selfRect?.x ?? 0) - self.x;
-      const originY = (selfRect?.y ?? 0) - self.y;
-      written.length = 0;
-      for (const child of childRectsForContainer(el)) {
-        written.push(child.id);
-        geometryRegistry.rects.set(child.id, {
-          x: originX + child.rect.x,
-          y: originY + child.rect.y,
-          w: child.rect.width,
-          h: child.rect.height,
-        });
-      }
-      geometryRegistry.commit();
-    };
-    measure();
+    measureFlow();
     const forget = () => {
-      for (const cid of written) geometryRegistry.rects.delete(cid);
+      for (const cid of flowRects.current) geometryRegistry.rects.delete(cid);
+      flowRects.current = [];
       geometryRegistry.commit();
     };
     // Same degradation as the viewport observer: measure once and hold there
-    // rather than fail. Re-measures still arrive on every child-set change.
+    // rather than fail.
     if (typeof ResizeObserver === 'undefined') return forget;
-    const ro = new ResizeObserver(measure);
+    const ro = new ResizeObserver(measureFlow);
     ro.observe(el);
     for (const k of Array.from(el.querySelectorAll('[data-node]'))) ro.observe(k);
     return () => {
       ro.disconnect();
       forget();
     };
-  }, [isFlow, geometryRegistry, childKey, selfRect?.x, selfRect?.y]);
+  }, [isFlow, geometryRegistry, childKey, measureFlow]);
+
+  // A class toggle can move a pane without resizing anything, which no
+  // observer reports. Re-measuring per commit covers every such change that
+  // React drove; the observers cover the ones it did not.
+  useEffect(() => {
+    if (isFlow) measureFlow();
+  });
 
   useEffect(() => {
     if (!dragController || !onChildOrderChange) return;
@@ -272,7 +289,6 @@ function StoreContainer({
     if (!el) return;
     const cfg = (parent?.container?.config ?? {}) as { axis?: 'x' | 'y' };
     const strategyId = parent?.container?.strategyId;
-    const axis: 'x' | 'y' = cfg.axis ?? (strategyId === 'strip' ? 'x' : 'y');
     return dragController.registerDropTarget(parentId, el, undefined, {
       getInsertionIndex: (point) => {
         const rects = childRectsForContainer(el);
@@ -280,6 +296,10 @@ function StoreContainer({
         // Skip the source itself for same-parent previews.
         const sourceId = dragController.state()?.draggingId;
         const filtered = sourceId ? rects.filter((r) => r.id !== sourceId) : rects;
+        // A flow container has no strategy to infer an axis from and no reason
+        // to have set one, so read it off the arrangement CSS produced.
+        const axis: 'x' | 'y' =
+          cfg.axis ?? (isFlow ? axisFromRects(filtered) : strategyId === 'strip' ? 'x' : 'y');
         const main = axis === 'y' ? point.y : point.x;
         return insertionIndexByMidpoint(
           filtered.map((r) => r.rect),
@@ -288,7 +308,7 @@ function StoreContainer({
         );
       },
     });
-  }, [dragController, parentId, parent?.container?.strategyId, parent?.container?.config]);
+  }, [dragController, parentId, parent?.container?.strategyId, parent?.container?.config, isFlow]);
 
   // Track which affordance is currently being dragged (if any) so we can
   // suppress the settle transition (cursor IS the motion) AND expose the id

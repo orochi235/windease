@@ -27,7 +27,11 @@ export {
   type FrameScheduler,
   type Point,
 } from './dnd/DragEngine.js';
-export { childRectsForContainer, insertionIndexByMidpoint } from './dnd/insertionIndex.js';
+export {
+  axisFromRects,
+  childRectsForContainer,
+  insertionIndexByMidpoint,
+} from './dnd/insertionIndex.js';
 export {
   CapabilityMissingError,
   CycleError,

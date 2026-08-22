@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { insertionIndexByMidpoint } from './insertionIndex.js';
+import { axisFromRects, insertionIndexByMidpoint } from './insertionIndex.js';
 
 describe('insertionIndexByMidpoint', () => {
   it('returns 0 when cursor is before the first child', () => {
@@ -37,5 +37,22 @@ describe('insertionIndexByMidpoint', () => {
 
   it('returns 0 for an empty list', () => {
     expect(insertionIndexByMidpoint([], 100, 'y')).toBe(0);
+  });
+});
+
+describe('axisFromRects', () => {
+  const at = (x: number, y: number) => ({ rect: { x, y } as DOMRect });
+
+  it('reads side-by-side children as a row', () => {
+    expect(axisFromRects([at(0, 0), at(100, 0)])).toBe('x');
+  });
+
+  it('reads stacked children as a column', () => {
+    expect(axisFromRects([at(0, 0), at(0, 100)])).toBe('y');
+  });
+
+  it('falls back to a column with nothing to compare', () => {
+    expect(axisFromRects([])).toBe('y');
+    expect(axisFromRects([at(0, 0)])).toBe('y');
   });
 });

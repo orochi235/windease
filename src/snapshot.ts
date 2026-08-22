@@ -190,6 +190,11 @@ export function graft(store: Store, snap: unknown, parentId: NodeId, opts?: Graf
   if (opts?.force !== true && store.isLocked(parentId, 'accept')) {
     throw new LockedError(parentId, 'accept', 'graft');
   }
+  // `at` is the only path that reorders, and the inner call sits inside the
+  // transaction — which does not roll back, so the axis has to be refused here.
+  if (opts?.force !== true && opts?.at !== undefined && store.isLocked(parentId, 'arrange')) {
+    throw new LockedError(parentId, 'arrange', 'graft');
+  }
   for (const sn of parsed.nodes) {
     if (store.getNodeTruth(asNodeId(sn.id))) {
       throw new DuplicateNodeError(asNodeId(sn.id));

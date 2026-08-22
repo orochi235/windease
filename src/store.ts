@@ -537,6 +537,7 @@ export class Store {
         { parentId },
       );
     }
+    this.assertUnlocked(parentId, 'arrange', 'reorderInParent', opts);
     const fromIndex = parent.container.childOrder.indexOf(id);
     if (fromIndex < 0) {
       throw new InvariantViolationError(

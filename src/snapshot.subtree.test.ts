@@ -156,6 +156,30 @@ describe('graft validation', () => {
     expect(graft(s, snap, asNodeId('z'), { force: true })).toBe('a');
   });
 
+  it('refuses an indexed graft into an arrange-locked parent, mutating nothing', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    const before = s.getNode(asNodeId('z'))?.container?.childOrder.map(String);
+    s.setLock(asNodeId('z'), { arrange: true });
+
+    // `at` is the only graft path that reorders, so it is the only one the
+    // axis governs — and the rejection has to be a pre-pass, since `transact`
+    // does not roll the registrations back.
+    expect(() => graft(s, snap, asNodeId('z'), { at: 0 })).toThrow(LockedError);
+    expect(s.getNodeTruth(asNodeId('a'))).toBeUndefined();
+    expect(s.getNode(asNodeId('z'))?.container?.childOrder.map(String)).toEqual(before);
+    expect(graft(s, snap, asNodeId('z'), { at: 0, force: true })).toBe('a');
+  });
+
+  it('appends into an arrange-locked parent, which only accept governs', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    s.setLock(asNodeId('z'), { arrange: true });
+    expect(graft(s, snap, asNodeId('z'))).toBe('a');
+  });
+
   it('rejects a deep colliding id without partially grafting', () => {
     const s = buildTree();
     const snap = serialize(s, { root: asNodeId('a') });

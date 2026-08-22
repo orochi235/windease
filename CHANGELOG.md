@@ -30,8 +30,10 @@ section below.
   measurement, composed into the same space as every placed container. What a flow
   container gives up is everything downstream of the strategy pass: placements,
   affordances, `unplaced`, `overflowMode`, `hints.sizing`, and the settle animation.
-  `ContainerLayout` gains `mode`, and `strategyId` becomes optional on a flow
-  `<Zone>`. Additive: a container that declares nothing behaves exactly as before.
+  `ContainerLayout` gains `mode`, `strategyId` becomes optional on a flow `<Zone>`,
+  and the drop axis is read off the arrangement CSS produced rather than off a
+  config a flow container has no reason to set (`axisFromRects`, exported).
+  Additive: a container that declares nothing behaves exactly as before.
 - **Keyboard move.** `Shift` plus an arrow moves the focused pane into the slot that
   arrow would have navigated to — a reorder among siblings, a reparent when the target
   lives in another container — so one resolution backs both gestures and a strategy's
@@ -48,6 +50,15 @@ section below.
 
 ### Changed
 
+- **`lock.arrange` gates `reorderInParent`.** The axis already refused
+  `setChildOrder`, so the same rearrangement landed or was refused depending on which
+  method made it — a drop into an arrange-locked container was blocked and a direct
+  `reorderInParent` was not. It now asserts `arrange` on the parent alongside `move`
+  on the node; pass `{ force: true }` where the reorder is the lock owner's own doing.
+  `graft` with `at` refuses an arrange-locked parent in its pre-pass, so a rejected
+  graft still mutates nothing. `splitNode` and `unsplit` are unaffected — both
+  validate the axis before opening their transaction.
+  See [Breaking changes](README.md#breaking-changes).
 - **`lock.arrange` applies to any node.** It used to be dropped from the lock set of a
   node with no container, so `setLock(panel, { arrange: true })` stored nothing and the
   panel could still gain one. `setLock(id, true)` and `createNode({ lock: true })` now

@@ -281,6 +281,34 @@ describe('Store — arrange and resize locks', () => {
     expect(() => s.setChildOrder(z, [id('q'), p])).toThrow(LockedError);
   });
 
+  it('blocks reorderInParent on an arrange-locked container', () => {
+    const { s, z, p } = seeded();
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('q'), parentId: z }));
+    s.setLock(z, { arrange: true });
+    expect(() => s.reorderInParent(p, 1)).toThrow(LockedError);
+  });
+
+  it('lets a forced reorderInParent through, as setPinned relies on', () => {
+    const { s, z, p } = seeded();
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('q'), parentId: z }));
+    s.setLock(z, { arrange: true });
+    expect(() => s.reorderInParent(p, 1, { force: true })).not.toThrow();
+    expect(s.getNode(z)?.container?.childOrder.map(String)).toEqual(['q', 'p']);
+  });
+
+  it('still reports the node move lock ahead of the parent arrange lock', () => {
+    const { s, z, p } = seeded();
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('q'), parentId: z }));
+    s.setLock(p, { move: true });
+    try {
+      s.reorderInParent(p, 1);
+      expect.unreachable();
+    } catch (e) {
+      expect((e as LockedError).axis).toBe('move');
+    }
+    expect(z).toBeDefined();
+  });
+
   it('blocks updateContainerConfig on an arrange-locked container', () => {
     const { s, z } = seeded();
     s.setLock(z, { arrange: true });
