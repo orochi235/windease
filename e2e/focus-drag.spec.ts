@@ -84,15 +84,11 @@ test.describe('focus across a drag', () => {
     expect(await rovingNode(page)).toBe('panel-1');
   });
 
-  // Known defect, recorded in TODO.md under "The caret is lost after a drag".
-  // Skipped rather than asserted either way: it is a race, not a behavior —
-  // it survives about a third of the time on an idle machine and almost
-  // never under parallel load, on every engine. Unskip with the fix.
-  test.fixme('DOM focus survives the remount, not just the model', async ({ page }) => {
+  test('DOM focus survives the remount, not just the model', async ({ page }) => {
     await openStory(page, STORY);
     await dragTo(page, 'panel-1', 'sidebar');
 
     await expect.poll(() => zoneOf(page, 'panel-1')).toBe('sidebar');
-    expect(await activeNode(page)).toBe('panel-1');
+    await expect.poll(() => activeNode(page)).toBe('panel-1');
   });
 });
