@@ -74,8 +74,6 @@ Still open:
 
 - **Inter-zone resize** — dragging the gutter *between* zones is a
   workspace-level concern; see "Strategy for partitioning workspace".
-- **Grid resize gutters** are tracked under the hosting wishlist below, with
-  the `patchPlacement` span lock-gate that lands with them.
 
 ## Groups
 
@@ -115,12 +113,14 @@ sibling leaves.
 ## Playwright e2e suite
 
 Shipped. `npm run test:e2e` drives the Ladle stories in Chromium, Firefox and
-WebKit; the config starts Ladle itself, so there is nothing to run first. 39
-specs across nine files cover the gestures jsdom cannot: gutter resize
+WebKit; the config starts Ladle itself, so there is nothing to run first. 48
+specs across eleven files cover the gestures jsdom cannot: gutter resize
 including pointer-capture tracking after the cursor leaves the handle,
 cross-zone drag with escape-cancel and drop-outside, ResizeObserver relayout on
-viewport change, and insertion index against a pinned head. All three engines
-pass the pointer-capture cases unmodified.
+viewport change, insertion index against a pinned head, and — in
+`capabilities.spec.ts` — keyboard move, flow mode, grid `overflowMode` and a
+drag held at a scrolling container's edge. All three engines pass the
+pointer-capture cases unmodified.
 
 Still uncovered:
 
