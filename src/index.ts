@@ -99,6 +99,7 @@ export {
   type TransitCap,
 } from './node.js';
 export { type PinnedIndexOf, placeRespectingPins } from './pinning.js';
+export { observePixelRatio } from './pixel-ratio.js';
 export {
   type ObservedChild,
   reconcileChildOrder,

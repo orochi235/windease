@@ -202,6 +202,10 @@ serialize/graft work goes out under the same 1.2.0.
   implementation behind the seam rather than an interface with no callers —
   `present` moves the caret, and a canvas host swaps both methods.
 
+- **`observePixelRatio`.** A canvas host learns about `devicePixelRatio`
+  changes without hand-rolling the `matchMedia` re-subscription. Standalone and
+  additive; see "Canvas-host ergonomics" for why it is not on `ContainerHost`.
+
 ## Loose ends
 
 - Layout strategies cast `container.config as XConfig` unchecked. Typos at
@@ -446,11 +450,27 @@ one per window.
   default; adding the modifier keeps the positioning and the container queries
   and drops `overflow: hidden`. Two classes rather than `!important`, so
   consumer rules are unaffected.
-- **Deliver DPR changes alongside placements.** Placements give a host its
-  rects in CSS pixels, which is most of what a canvas needs; a
-  `devicePixelRatio` change still leaves every consumer wiring its own
-  `matchMedia` to know the backing store must be resized. Dragging a window
-  between displays is the common case.
+- **Shipped: `observePixelRatio(cb)`.** Reports `devicePixelRatio` now and on
+  every change, returning a teardown, so a canvas host has one handler for
+  mount and update instead of hand-rolling `matchMedia`.
+
+  Deliberately **not** on `ContainerHost`, which is where the ask ("alongside
+  placements") pointed. Viewport and natural size are layout inputs — strategies
+  read them and placements change. Nothing in `layout()` reads the ratio and no
+  placement moves with it, so routing it through the layout host would make the
+  host a bus for a value it never consumes. A ratio change and a placement
+  change are independent triggers for the same host-side resize; coupling them
+  would notify a canvas host on every ordinary resize.
+
+  This is not the tenet exception it was recorded as being. `observe` and
+  `observeNatural` are the sanctioned "thin DOM wrapper beside the pure
+  function," and `setPixelRatio(2)` would touch no DOM at all — the reason to
+  keep it off the host is that DPR is not layout state, not the tenet.
+
+  The trap it exists to solve: a resolution media query embeds the ratio it was
+  built with, so its listener fires once and is then permanently false. Every
+  change has to re-arm at the new ratio. `src/pixel-ratio.test.ts` pins that by
+  asserting the query sequence, and goes red when the re-arm is removed.
 - **Verified gone, and pinned.** `src/split.no-silent-drop.test.ts` covers a
   panel registered after `store.split` built the tree, one added after
   container state was already seeded with a stale 0.8-shaped tree, and the

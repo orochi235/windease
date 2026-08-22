@@ -284,6 +284,33 @@ name, and keep its expand control reachable from the keyboard in whatever
 still renders. A pane that can be collapsed and not reopened without a mouse
 is worse than one that never collapsed.
 
+## Canvas hosts
+
+A host that draws every pane into one canvas — scissor rects on a single WebGL
+context, say — positions from placements instead of mounting an element per
+node. Two things it needs that a DOM host does not.
+
+`.windease-zone` clips its children. Add `.windease-zone--unclipped` to keep the
+positioning and the container queries and drop the `overflow: hidden`, so one
+canvas can span the whole zone.
+
+Placements are in CSS pixels, which is most of what a backing store needs — but
+a `devicePixelRatio` change means every canvas has to be resized, and dragging a
+window between displays is the common case:
+
+```ts
+const stop = observePixelRatio((dpr) => resizeBackingStores(dpr));
+```
+
+It reports the current ratio immediately and again on every change, so one
+handler covers mount and update. A resolution media query embeds the ratio it
+was built with, so a listener left on it fires once and is then permanently
+false; this re-arms at the new ratio each time.
+
+It is not on `ContainerHost` on purpose: nothing in `layout()` reads the ratio,
+and a ratio change and a placement change are independent triggers for the same
+resize.
+
 ## Drag and drop
 
 DnD is opt-in. Wrap your panel chrome in `<DragHandle>`, register each
