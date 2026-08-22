@@ -309,6 +309,7 @@ function StoreContainer({
     const cfg = (parent?.container?.config ?? {}) as { axis?: 'x' | 'y' };
     const strategyId = parent?.container?.strategyId;
     return dragController.registerDropTarget(parentId, el, undefined, {
+      scrollEl: scrollRef?.current ?? null,
       getInsertionIndex: (point) => {
         const rects = childRectsForContainer(el);
         if (rects.length === 0) return 0;
@@ -327,7 +328,14 @@ function StoreContainer({
         );
       },
     });
-  }, [dragController, parentId, parent?.container?.strategyId, parent?.container?.config, isFlow]);
+  }, [
+    dragController,
+    parentId,
+    parent?.container?.strategyId,
+    parent?.container?.config,
+    isFlow,
+    scrollRef,
+  ]);
 
   // Track which affordance is currently being dragged (if any) so we can
   // suppress the settle transition (cursor IS the motion) AND expose the id

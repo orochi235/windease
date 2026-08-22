@@ -52,6 +52,13 @@ section below.
   where they are. Each container answers for its own offset, so nesting composes, and
   a flow container needs none because it is measured from the DOM. `ContainerLayout`
   gains `scroll`. Scrolling does not re-run the strategy.
+- **Auto-scroll during a drag.** Dragging a pane toward the edge of a scrolling
+  container scrolls it, and keeps scrolling while the cursor is held there rather
+  than moving one step per pointer event. Driven by the same `scrollRef`, so a
+  container without one never auto-scrolls. `edgeScrollDelta(bounds, point, options)`
+  is the arithmetic alone — pure, exported, and the whole of what the engine does;
+  `DropTarget.scroll` is the seam the DOM host fills, keeping the scrolling itself
+  out of `DragEngine`. `DropTargetOptions` takes `scrollEl` and `edgeScroll`.
 - **`overflowMode` on grid**, the same `squeeze` / `scroll` / `unplace` vocabulary
   strip uses. A grid derives its cells from the container, so it only overflows once
   an item states a `hints.minSize` floor: `scroll` holds the cells at their floor and

@@ -284,3 +284,77 @@ describe('DragEngine', () => {
     expect(e.state()?.hover).toBeNull();
   });
 });
+
+describe('DragEngine — auto-scroll', () => {
+  function scrolling(box: Rect, extra?: Partial<DropTarget>) {
+    const by = vi.fn();
+    const target = at(SQUARE, {
+      scroll: { bounds: () => box, by, options: { margin: 20, maxRate: 8 } },
+      ...extra,
+    });
+    return { target, by };
+  }
+
+  it('scrolls the box when the cursor nears its edge', () => {
+    const s = buildStore();
+    const e = new DragEngine(s);
+    const { target, by } = scrolling(SQUARE);
+    e.addDropTarget(asNodeId('z1'), target);
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(2, 50);
+    expect(by).toHaveBeenCalled();
+    expect(by.mock.calls[0]?.[0]).toBeLessThan(0);
+  });
+
+  it('leaves the box alone in the middle', () => {
+    const s = buildStore();
+    const e = new DragEngine(s);
+    const { target, by } = scrolling(SQUARE);
+    e.addDropTarget(asNodeId('z1'), target);
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(by).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for a target with no scrolling box', () => {
+    const s = buildStore();
+    const e = new DragEngine(s);
+    e.addDropTarget(asNodeId('z1'), at(SQUARE));
+    e.tryBegin(asNodeId('p'));
+    expect(() => e.updateHoverByPoint(2, 50)).not.toThrow();
+  });
+
+  it('keeps going while the cursor is held still at the edge', () => {
+    const s = buildStore();
+    const frames: (() => void)[] = [];
+    const deferred: FrameScheduler = {
+      request(cb) {
+        frames.push(cb);
+        return frames.length;
+      },
+      cancel() {
+        frames.length = 0;
+      },
+    };
+    const e = new DragEngine(s, { schedule: deferred });
+    const { target, by } = scrolling(SQUARE);
+    e.addDropTarget(asNodeId('z1'), target);
+    e.tryBegin(asNodeId('p'));
+
+    e.updateHoverByPoint(2, 50);
+    for (let i = 0; i < 3; i++) frames.shift()?.();
+    // One per frame, with no further pointer input.
+    expect(by.mock.calls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('does not recurse under an inline scheduler', () => {
+    const s = buildStore();
+    const e = new DragEngine(s);
+    const { target, by } = scrolling(SQUARE);
+    e.addDropTarget(asNodeId('z1'), target);
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(2, 50);
+    // One real sample plus the single re-entrant step the guard allows.
+    expect(by.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+});

@@ -10,6 +10,7 @@ import {
   type Point,
   type StrategyLookup,
 } from './DragEngine.js';
+import type { EdgeScrollOptions } from './edgeScroll.js';
 
 export type {
   ChildOrderChange,
@@ -26,6 +27,19 @@ export interface DropTargetOptions {
   /** Map cursor (viewport coords) → prospective insertion index (0-based).
    *  Return undefined to leave `insertIndex` unset. */
   getInsertionIndex?: (point: Point) => number | undefined;
+  /**
+   * The element that scrolls this target's content — the wrapper carrying
+   * `overflow: auto`. Dragging toward its edge scrolls it. Omit and the
+   * target never auto-scrolls.
+   */
+  scrollEl?: Element | null;
+  /** Ramp shape for that scrolling. See `edgeScrollDelta`. */
+  edgeScroll?: EdgeScrollOptions;
+}
+
+function rectOf(el: Element): { x: number; y: number; w: number; h: number } {
+  const r = el.getBoundingClientRect();
+  return { x: r.left, y: r.top, w: r.right - r.left, h: r.bottom - r.top };
 }
 
 const rafScheduler: FrameScheduler = {
@@ -102,13 +116,23 @@ export class DragController {
   ): () => void {
     this.elements.set(id, el);
     const off = this.engine.addDropTarget(id, {
-      bounds: () => {
-        const r = el.getBoundingClientRect();
-        return { x: r.left, y: r.top, w: r.right - r.left, h: r.bottom - r.top };
-      },
+      bounds: () => rectOf(el),
       depth: () => ancestorDepth(el),
       ...(canAccept ? { canAccept } : {}),
       ...(options?.getInsertionIndex ? { getInsertionIndex: options.getInsertionIndex } : {}),
+      ...(options?.scrollEl
+        ? {
+            scroll: {
+              bounds: () => rectOf(options.scrollEl as Element),
+              by: (dx: number, dy: number) => {
+                const box = options.scrollEl as Element;
+                box.scrollLeft += dx;
+                box.scrollTop += dy;
+              },
+              ...(options.edgeScroll ? { options: options.edgeScroll } : {}),
+            },
+          }
+        : {}),
     });
     return () => {
       this.elements.delete(id);

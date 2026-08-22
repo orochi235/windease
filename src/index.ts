@@ -27,6 +27,7 @@ export {
   type FrameScheduler,
   type Point,
 } from './dnd/DragEngine.js';
+export { type EdgeScrollOptions, edgeScrollDelta } from './dnd/edgeScroll.js';
 export {
   axisFromRects,
   childRectsForContainer,

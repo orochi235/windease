@@ -3,6 +3,7 @@ import type { NodeId } from '../node.js';
 import { placeRespectingPins } from '../pinning.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
+import { type EdgeScrollOptions, edgeScrollDelta } from './edgeScroll.js';
 
 /** Looks up a strategy by id. The engine uses it to consult
  *  `strategy.canAccept` on the prospective post-drop child list. */
@@ -45,6 +46,16 @@ export interface DropTarget {
   depth?(): number;
   canAccept?(sourceId: NodeId): boolean;
   getInsertionIndex?(point: Point): number | undefined;
+  /**
+   * The scrolling box this target lives in, if it has one. The engine works
+   * out the rate and calls `by`; the host does the scrolling, since what
+   * scrolls is a DOM concern. Absent means the target never auto-scrolls.
+   */
+  scroll?: {
+    bounds(): Rect | null;
+    by(dx: number, dy: number): void;
+    options?: EdgeScrollOptions;
+  };
 }
 
 /** Defers a hover sample. The DOM host coalesces per animation frame; the
@@ -112,6 +123,7 @@ export class DragEngine {
   private pendingPoint: Point | null = null;
   private frame: number | null = null;
   private scheduled = false;
+  private autoScrolling = false;
 
   constructor(
     private readonly store: Store,
@@ -225,11 +237,38 @@ export class DragEngine {
       this.setHover(null, { x, y });
       return;
     }
+    this.autoScroll(this.dropTargets.get(best.id), x, y);
     const insertIndex = this.dropTargets.get(best.id)?.getInsertionIndex?.({ x, y });
     const accepted = this.checkAccept(best.id);
     const hover: NonNullable<DragState['hover']> = { targetId: best.id, accepted };
     if (insertIndex !== undefined) hover.insertIndex = insertIndex;
     this.setHover(hover, { x, y });
+  }
+
+  /**
+   * Scroll the hovered target's box toward a cursor held near its edge, and
+   * ask for another frame so it keeps going while the cursor stays there —
+   * a pointermove alone would scroll one step and stop.
+   *
+   * The re-entrancy guard is what keeps an inline scheduler (the default, and
+   * what the headless tests use) from recursing: it takes one step per real
+   * sample instead of looping.
+   */
+  private autoScroll(target: DropTarget | undefined, x: number, y: number): void {
+    const scroll = target?.scroll;
+    if (!scroll) return;
+    const box = scroll.bounds();
+    if (!box) return;
+    const d = edgeScrollDelta(box, { x, y }, scroll.options);
+    if (d.x === 0 && d.y === 0) return;
+    scroll.by(d.x, d.y);
+    if (this.autoScrolling) return;
+    this.autoScrolling = true;
+    try {
+      this.updateHoverByPoint(x, y);
+    } finally {
+      this.autoScrolling = false;
+    }
   }
 
   private checkAccept(targetId: NodeId): boolean {

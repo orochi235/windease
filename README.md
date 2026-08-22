@@ -391,6 +391,16 @@ canvas host panning its own surface with no DOM scroll box to read;
 `observeScroll(el)` is the DOM convenience over it, mirroring
 `setViewport` / `observe`. Scrolling never re-runs the strategy.
 
+The same `scrollRef` gives you auto-scroll: dragging a pane toward the edge of
+a scrolling container scrolls it, and keeps scrolling while the cursor is held
+there. The rate ramps from zero at 48px out to 16px per frame at the edge, and
+holds there past it so overshooting a target does not fight you. Nothing to
+turn on — a container with no `scrollRef` never auto-scrolls.
+
+`edgeScrollDelta(bounds, point, options)` is the arithmetic on its own, pure
+and exported, for a host driving its own drag loop. `DropTargetOptions` takes
+`edgeScroll: { margin, maxRate }` to reshape the ramp.
+
 ## Letting CSS do the layout
 
 A container that declares `hints.render: 'flow'` runs no strategy. Its children
