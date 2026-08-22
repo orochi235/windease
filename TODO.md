@@ -185,9 +185,10 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
 Gaps found evaluating windease as the layout engine for a sidebar of
 resizable tool palettes (the weasel case). Everything structural is already
 here — a `stripStrategy` zone on `{ axis: 'y' }`, gutters, per-child
-min/max, DnD between docks, sizes that round-trip through `serialize`. All
-five are now closed except the overflow *policy*, which is deliberately
-parked.
+min/max, DnD between docks, sizes that round-trip through `serialize`. Of
+the five, four shipped in 1.2.0. What is left is the overflow *policy* —
+no longer parked, since a second consumer asked — plus one gap the labkit
+integration turned up afterwards: the declarative path cannot render a seam.
 
 - **Shipped: content-driven sizing.** `hints.sizing: { w?: 'content'; h?:
   'content' }` declares the request per axis; the measurement arrives as
@@ -246,8 +247,42 @@ parked.
 
   Still open is the *policy* — `squeeze` / `scroll` / `unplace` as a strip
   config. The signal is what a consumer needs to implement any of them
-  themselves; the policy is sugar over it, and worth waiting for a second
-  consumer to ask.
+  themselves; the policy is sugar over it.
+
+  **Two consumers have now asked** — a labkit palette dock and WeaselDraw's
+  right sidebar, which is a scrolling flex column of collapsible panels
+  today and would lose the scrolling by adopting a strip. What they want is
+  `overflowMode: 'scroll'`: strip lays out at the intrinsic extent instead of
+  compressing, `<Container>` sizes its inner box to that, and the consumer
+  puts `overflow: auto` on a wrapper. Doing it on the signal alone is a
+  two-pass dance — read `overflow.h`, feed back a taller `viewport`,
+  re-render — with the feedback loop's own settling to get right, which is
+  exactly the sort of thing that belongs in the strategy rather than in
+  every consumer.
+
+  The sharp edge is the interaction with content sizing, and it is a silent
+  one. A measured size is a *stated* size: it scales under pressure. So a
+  dock of `hints.sizing: { h: 'content' }` palettes does not overflow when it
+  runs out of room — every palette quietly shrinks below the height it asked
+  for, and `overflow` stays absent because nothing is floored. Content-sized
+  panes need a floor at their measurement under a scroll policy, or the
+  policy does nothing for the case that most wants it.
+
+- **Affordances in the declarative path.** `ZoneProps.affordances` is
+  declared and documented as "reserved for parity with the store-driven
+  Container. Not yet wired through to a renderer in the declarative path," so
+  a `<Zone>` tree cannot render a seam. Anyone who wants resizable panes has
+  to drop to `<Container parentId chrome={...}>` and hand-roll the store: mint
+  a node per child, sync registration and `childOrder` against their own list
+  on every change, and re-implement what the presets already do — which is
+  what labkit's `WorkspaceGrid` ended up doing, and is most of that file.
+
+  A palette dock is the case that wants both halves at once: the panel list is
+  static JSX, which is exactly what `<Zone>`/`<Panel>` are for, and the seams
+  between panels are the whole point of using windease instead of flexbox.
+  Wiring `affordances` through the presets — the same renderer `<Container>`
+  already has, given the layout the `<Zone>` already computes — would let that
+  consumer stay declarative.
 
 - **Shipped: keyboard resize.** A gutter renders as `role="separator"` with
   `aria-orientation` and `aria-valuenow` / `aria-valuemin` / `aria-valuemax`,
