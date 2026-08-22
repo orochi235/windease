@@ -287,6 +287,35 @@ name, and keep its expand control reachable from the keyboard in whatever
 still renders. A pane that can be collapsed and not reopened without a mouse
 is worse than one that never collapsed.
 
+## Collapsing a group that empties out
+
+A group that started with two panes and lost one is a wrapper around nothing:
+one child, one extra layout level, one extra level of nesting in every
+snapshot. `store.setAutoUnsplit(groupId, true)` collapses it when that
+happens — the survivor is lifted into the grandparent at the group's index,
+inheriting the group's placement and pinned position, and the group is
+destroyed.
+
+```ts
+store.setAutoUnsplit(groupId, true);
+store.unregisterNode(paneA); // paneB takes the group's place; the group is gone
+```
+
+Opt-in per container, because a zone you created on purpose has to survive
+being emptied — the trigger cannot live in `unregisterNode` itself. It fires
+only on the transition, not on any container that happens to hold one child,
+so you can still build a group up a pane at a time. A root never collapses:
+there is no grandparent to lift into. And a `destroy` or `dragOut` lock on the
+group, or `arrange` on its parent, quietly leaves the tree alone rather than
+failing the removal that triggered it.
+
+It does not cascade, and does not need to: lifting the survivor swaps it for
+the group in the grandparent, so the grandparent's child count is unchanged.
+
+Removals are now bracketed in a transaction so the collapse is one undo step
+with the removal that caused it. If you bracket history on `transaction.begin`
+/ `transaction.end`, every `unregisterNode` emits that pair, collapse or not.
+
 ## When panes don't fit
 
 A strip whose panes ask for more than the container has resolves it three ways,

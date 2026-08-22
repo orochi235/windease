@@ -127,6 +127,7 @@ export class Store {
   private readonly nodesMap = new Map<NodeId, Node>();
   private readonly rootIdsArr: NodeId[] = [];
   private focusedIdValue: NodeId | null = null;
+  private coalescing = false;
   private readonly subscribers = new Set<() => void>();
   private readonly publisher: Publisher;
   private locksSuspended = 0;
@@ -259,12 +260,20 @@ export class Store {
     return this.canFocus(id);
   }
 
-  getContainerView(
-    id: NodeId,
-  ): { childOrder: readonly NodeId[]; config: unknown; allowsPinning: boolean } | null {
+  getContainerView(id: NodeId): {
+    childOrder: readonly NodeId[];
+    config: unknown;
+    allowsPinning: boolean;
+    autoUnsplit: boolean;
+  } | null {
     const c = this.nodesMap.get(id)?.container;
     if (!c) return null;
-    return { childOrder: c.childOrder, config: c.config, allowsPinning: c.allowsPinning };
+    return {
+      childOrder: c.childOrder,
+      config: c.config,
+      allowsPinning: c.allowsPinning,
+      autoUnsplit: c.autoUnsplit ?? false,
+    };
   }
 
   // ===== Register / unregister =====
@@ -304,7 +313,14 @@ export class Store {
   unregisterNode(id: NodeId, opts?: MutateOptions): void {
     this.assertUnlocked(id, 'destroy', 'unregisterNode', opts);
     const node = this.requireNode(id);
+    const wasIn = node.membership?.parentId;
+    this.transact(() => {
+      this.#unregisterNodeInner(id, node);
+      if (wasIn) this.coalesceParent(wasIn);
+    }, 'unregisterNode');
+  }
 
+  #unregisterNodeInner(id: NodeId, node: Node): void {
     const descendantIds: NodeId[] = [];
     if (node.container) {
       this.collectDescendants(id, descendantIds);
@@ -470,6 +486,40 @@ export class Store {
     this.clampPins(fromParentId);
     this.clampPins(newParentId);
     this.scheduleNotify();
+    this.coalesceParent(fromParentId);
+  }
+
+  /**
+   * Collapse `parentId` if it is an `autoUnsplit` container a removal has just
+   * left holding exactly one child: the survivor is lifted into the
+   * grandparent and this node destroyed.
+   *
+   * Fires only on that transition, not on any container that happens to hold
+   * one child — otherwise a group could never be built up a child at a time.
+   * It cannot cascade: `unsplit` replaces the group with its survivor, so the
+   * grandparent's child count is unchanged.
+   *
+   * Silent when a lock forbids it. The caller removed a node; a lock on the
+   * group must not turn that into a failed removal.
+   */
+  private coalesceParent(parentId: NodeId): void {
+    // `unsplit` unregisters the group, which re-enters here for its parent.
+    if (this.coalescing) return;
+    const node = this.nodesMap.get(parentId);
+    const container = node?.container;
+    if (!node || !container?.autoUnsplit) return;
+    // A root has no grandparent to lift into.
+    if (!node.membership) return;
+    if (container.childOrder.length !== 1) return;
+    this.coalescing = true;
+    try {
+      this.unsplit(parentId);
+    } catch (e) {
+      if (!(e instanceof LockedError)) throw e;
+      trace('store', `autoUnsplit: ${parentId} refused (${e.axis})`);
+    } finally {
+      this.coalescing = false;
+    }
   }
 
   reorderInParent(id: NodeId, at: number, opts?: MutateOptions): void {
@@ -888,6 +938,22 @@ export class Store {
     if (opts?.force === true) return;
     if (!this.isLocked(id, axis)) return;
     throw new LockedError(id, axis, operation);
+  }
+
+  /**
+   * Turn on collapse-when-one-child for this container. See
+   * `ContainerCap.autoUnsplit`. Gated by `arrange`: it changes what happens to
+   * this container's children.
+   */
+  setAutoUnsplit(id: NodeId, enabled: boolean, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'arrange', 'setAutoUnsplit', opts);
+    const node = this.requireNode(id);
+    if (!node.container) {
+      throw new CapabilityMissingError(id, 'container', 'setAutoUnsplit');
+    }
+    if ((node.container.autoUnsplit ?? false) === enabled) return;
+    this.replaceContainer(id, (c) => ({ ...c, autoUnsplit: enabled }));
+    this.scheduleNotify();
   }
 
   setAllowsPinning(id: NodeId, allows: boolean): void {

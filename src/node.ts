@@ -57,6 +57,16 @@ export interface ContainerCap {
   childOrder: NodeId[];
   allowsPinning: boolean;
   /**
+   * Collapse this container into its parent when a removal leaves it holding
+   * exactly one child: the survivor is lifted into the grandparent at this
+   * container's index, inheriting its placement, and this node is destroyed.
+   *
+   * Opt-in, because a zone a consumer created on purpose has to survive being
+   * emptied. Off by default and never applied to a root, which has no
+   * grandparent to lift into.
+   */
+  autoUnsplit?: boolean;
+  /**
    * The descendant of this container that most recently held focus. Maintained
    * by the store, not by consumers: written on `focusNode`, cleared when that
    * node is removed or reparented. Session-only — deliberately not serialized,
