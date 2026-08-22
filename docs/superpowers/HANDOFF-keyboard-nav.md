@@ -5,19 +5,20 @@ Pointer, not a copy. The design is
 thirteen tasks are `docs/superpowers/plans/2026-08-21-keyboard-navigation.md`.
 This file carries only what they can't.
 
-- **Worktree:** `/Users/mike/src/windease/.claude/worktrees/keyboard-nav`
-- **Branch:** `feat/keyboard-navigation`, fast-forwarded into local `main`
-- **Green:** 798 tests / 74 files, 20 e2e, typecheck, lint, build
-- **State:** all thirteen tasks implemented; `main` is at the branch tip.
+- **State:** merged. All thirteen tasks are on `main`, along with the subtree
+  serialize/graft workstream. `feat/keyboard-navigation` is disposable; the
+  worktree at `.claude/worktrees/keyboard-nav` is still on disk.
+- **Green at `0a1334b`:** 828 tests / 75 files, 20 e2e, typecheck, lint, build.
+- **Unreleased:** 41 commits ahead of `origin/main`, `package.json` at 1.1.0,
+  no tag.
 
 ## What is left
 
-Push and release, both held for the user. `main` is ahead of `origin/main`,
-and no version has been minted — see Version below.
+Push and release, both held for the user — see Version below. Nothing else.
 
 ## Three defects the browser found that jsdom could not
 
-All three are fixed in `0051b9f`; they are recorded because each is easy to
+All three are fixed in `d4aca66`; they are recorded because each is easy to
 reintroduce.
 
 - **Zero tab stops when nothing is focused.** Roving tabindex gives `0` to the
@@ -62,17 +63,7 @@ Deliberate — `npm version minor`'s `postversion` pushes the tag, which
 triggers the Release workflow to publish via OIDC. That is the user's call and
 they have said not yet.
 
-## Coordination
-
-`windease-05` works the consumer wishlists on `main`; its handoff is
-`docs/superpowers/plans/2026-08-21-consumer-wishlists-handoff.md`. Shared
-files this branch touched, all committed: `store.ts`, `node.ts`,
-`layout-types.ts` (added `navigate?` after `canAccept?`), `index.ts`,
-`react/index.ts`, `react/Container.tsx`, `react/styles.css`,
-`stories/Playground.stories.tsx`. Rebase on `main` before merging; that
-session commits there continuously.
-
-Two decisions from conversation that the spec does not explain:
+## Decisions from conversation the spec does not explain
 
 - **Collapse was withdrawn as a library feature.** There is no
   `placement.collapsed`; collapse is a userland pattern in the README, pinned
@@ -80,6 +71,11 @@ Two decisions from conversation that the spec does not explain:
 - **`graft` must not claim focus** (agreed with `windease-05`): an attachment
   the user did not initiate stealing focus is a defect, and arrival is not the
   inverse of departure.
+- **`store.hasFocus` became `canFocus` in 1.2.0**, sooner than the 2.0.0 the
+  TODO entry proposed, because two workstreams misread it as a state check in
+  one evening. `hasFocus` survives as a deprecated alias to 2.0.0, pinned by a
+  test so the delegation can't rot. The other session's handoff is
+  `docs/superpowers/plans/2026-08-21-consumer-wishlists-handoff.md`.
 
 ## Traps
 
