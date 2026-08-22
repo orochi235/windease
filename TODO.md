@@ -474,12 +474,14 @@ a host with its own per-item undo stacks simply doesn't wire it.
   `onChildOrderChange` intent for a host that wants to approve or transform a
   reorder rather than just keep it.
 
-- **Subtree serialize / hydrate.** `serialize(store)` is whole-store
-  (`src/snapshot.ts:51`). A host whose own saved states are per-item — one
-  saved workspace, not the session — cannot round-trip a single node's
-  placement without carrying, and then reconciling, a snapshot of the entire
-  tree. Wants `serialize(store, { root: id })` and a hydrate that grafts a
-  subtree under a named parent.
+- **Shipped: subtree serialize / graft.** `serialize(store, { root })` emits a
+  v5 snapshot of one node and its descendants, with the root's own placement in
+  a top-level `rootPlacement`; `graft(store, snap, parentId, { at, force })`
+  attaches one under a named parent and returns its id. Colliding ids reject
+  rather than remap — the snapshot's ids are the host's record keys — and the
+  check is a pre-pass, so a rejected graft mutates nothing. One transaction, so
+  one undo step. Graft never moves focus. A subtree snapshot is an ordinary v5
+  snapshot, so `deserialize` still opens one as a standalone store.
 
 - **Grid resize gutters** (promoted from Loose ends). Auto-balance lives in
   `gridStrategy`; draggable seams live in `stripStrategy`. A host that wants

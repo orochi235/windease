@@ -399,6 +399,25 @@ This clears the target in place before repopulating it, emitting
 `node.unregistered` / `node.cascadeDestroyed` for whatever was there
 before the snapshot lands.
 
+### Saving one subtree
+
+`serialize(store, { root })` captures a node and its descendants; `graft`
+attaches that snapshot under a parent. Useful when your app's saved unit is
+one workspace rather than the whole session.
+
+```ts
+const saved = serialize(store, { root: workspaceId });
+store.unregisterNode(workspaceId);
+
+// …later, possibly in a different store
+graft(store, saved, dockId, { at: 0 });
+```
+
+Every id in the snapshot must be absent from the target store; a collision
+throws `DuplicateNodeError` before anything is mutated. The subtree root's
+placement travels with it. Focus does not move — call `focusNode` yourself if
+the arriving subtree should take it.
+
 ## Breaking changes
 
 ### 1.0.1

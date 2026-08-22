@@ -333,3 +333,17 @@ describe('graft migrates legacy snapshots', () => {
     expect(s.getPlacement(asNodeId('old1')).locked).toBeUndefined();
   });
 });
+
+describe('README subtree example', () => {
+  it('runs as documented', () => {
+    const store = buildTree();
+    const workspaceId = asNodeId('a');
+    const dockId = asNodeId('z');
+
+    const saved = serialize(store, { root: workspaceId });
+    store.unregisterNode(workspaceId);
+    graft(store, saved, dockId, { at: 0 });
+
+    expect(store.getChildren(dockId).map((n) => n.id)).toContain('a');
+  });
+});

@@ -98,8 +98,11 @@ export {
 } from './reconcile.js';
 export {
   deserialize,
+  type GraftOptions,
+  graft,
   type SerializedNode,
   type SerializedStore,
+  type SerializeOptions,
   serialize,
 } from './snapshot.js';
 export type { SplitInput } from './split-types.js';
