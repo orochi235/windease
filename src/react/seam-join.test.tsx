@@ -174,6 +174,28 @@ describe('seam join — arming', () => {
     expect(widthOf(locked, 'a')).toBe(320);
   });
 
+  // Backing off returns the pane above its floor; pushing again must re-earn
+  // the overshoot against the clamp, not resume where the first push stopped.
+  it('does not re-arm on a pane the seam has let back off its floor', () => {
+    const { container, seam } = mount(store);
+    down(seam);
+    let x = move(seam, 30, move(seam, TO_CLAMP));
+    expect(armedPane(container)).toBe('b');
+
+    x = move(seam, -25, x);
+    expect(armedPane(container)).toBeNull();
+    expect(widthOf(store, 'a')).toBe(295);
+    expect(widthOf(store, 'b')).toBe(105);
+
+    x = move(seam, 20, x);
+    expect(armedPane(container)).toBeNull();
+    expect(widthOf(store, 'a')).toBe(315);
+    expect(widthOf(store, 'b')).toBe(85);
+
+    up(seam, x);
+    expect(store.getNode(asNodeId('b'))).toBeDefined();
+  });
+
   // The first gesture ends 20px past the floor — under the 24px threshold, but
   // enough that carrying it into the next gesture would arm on the first move.
   it('overshoot resets per gesture', () => {

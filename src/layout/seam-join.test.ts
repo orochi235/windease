@@ -82,6 +82,32 @@ describe('trackJoin — accumulation', () => {
   });
 });
 
+describe('trackJoin — unpinned travel never adds to the push', () => {
+  it('does not grow overshoot when the seam is free again', () => {
+    expect(track({ overshoot: 5, delta: 20 })).toEqual({
+      armed: false,
+      candidateId: 'b',
+      overshoot: 5,
+    });
+  });
+
+  it('does not grow overshoot however fast the free seam is moving', () => {
+    expect(track({ overshoot: 1, delta: 200 })).toEqual({
+      armed: false,
+      candidateId: 'b',
+      overshoot: 1,
+    });
+  });
+
+  it('still unwinds on reverse travel while free', () => {
+    expect(track({ overshoot: 30, delta: -10 })).toEqual({
+      armed: false,
+      candidateId: 'b',
+      overshoot: 20,
+    });
+  });
+});
+
 describe('trackJoin — unwinding', () => {
   it('gives back overshoot once the seam moves again, and disarms', () => {
     expect(track({ overshoot: 30, delta: -10, atMax: true })).toEqual({

@@ -184,6 +184,7 @@ function AffordanceHandle({
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       last.current = { x: e.clientX, y: e.clientY };
+      overshoot.current = null;
       setDragging(true);
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -238,6 +239,19 @@ function AffordanceHandle({
   const onPointerCancel = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => finish(e, false),
     [finish],
+  );
+
+  const notifyArm = useRef(onJoinArmChange);
+  useEffect(() => {
+    notifyArm.current = onJoinArmChange;
+  });
+  // A commit clears the marking before it destroys, so this only fires when the
+  // handle goes away with a gesture still armed.
+  useEffect(
+    () => () => {
+      if (armedRef.current !== null) notifyArm.current(null);
+    },
+    [],
   );
 
   useEffect(() => {

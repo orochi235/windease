@@ -54,10 +54,11 @@ export function trackJoin(input: TrackJoinInput): JoinState {
   } else if (overshoot === 0) {
     next = 0;
   } else {
-    // The seam is moving again, so the push is being given back. Unwind
-    // toward zero without crossing it into the opposite direction.
+    // Unpinned travel can give the push back but never add to it.
     const unwound = overshoot + delta;
-    next = Math.sign(unwound) === Math.sign(overshoot) ? unwound : 0;
+    if (Math.sign(unwound) !== Math.sign(overshoot)) next = 0;
+    else if (Math.abs(unwound) < Math.abs(overshoot)) next = unwound;
+    else next = overshoot;
   }
   const candidateId = next > 0 ? input.join.atMax : next < 0 ? input.join.atMin : undefined;
   if (candidateId === undefined) return { armed: false, overshoot: next };

@@ -321,7 +321,6 @@ function StoreContainer({
   // suppress the settle transition (cursor IS the motion) AND expose the id
   // to overlay/affordance render functions.
   const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
-  // The pane a seam release would destroy right now.
   const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
   const reducedMotion =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
