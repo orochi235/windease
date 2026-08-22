@@ -229,3 +229,30 @@ describe('graft attaches', () => {
     rec.stop();
   });
 });
+
+describe('graft at an index', () => {
+  it('inserts at the requested index', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    s.registerNode(createNode({ id: asNodeId('c'), kind: 'panel', parentId: asNodeId('z') }));
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['b', 'c']);
+
+    graft(s, snap, asNodeId('z'), { at: 1 });
+
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('lands after a pinned head when asked for index 0', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    s.setPinned(asNodeId('b'), 0);
+
+    graft(s, snap, asNodeId('z'), { at: 0 });
+
+    const order = s.getChildren(asNodeId('z')).map((n) => n.id);
+    expect(order[0]).toBe('b');
+    expect(order).toContain('a');
+  });
+});
