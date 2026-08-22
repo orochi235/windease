@@ -156,7 +156,7 @@ describe('Container — affordances callback', () => {
     store.registerNode(
       createNode({
         kind: 'zone',
-        container: { strategyId: 'strip', config: { axis: 'x' } },
+        container: { strategyId: 'strip', config: { axis: 'x', fill: true } },
         id: asNodeId('s'),
       }),
     );

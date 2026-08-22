@@ -31,7 +31,7 @@ function makeStripStore(): {
   store.registerNode(
     createNode({
       kind: 'zone',
-      container: { strategyId: 'strip', config: { axis: 'x' } },
+      container: { strategyId: 'strip', config: { axis: 'x', fill: true } },
       id: z,
     }),
   );
