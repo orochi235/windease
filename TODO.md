@@ -419,13 +419,23 @@ five are what a consumer would still have to build.
   themselves; the policy is sugar over it, and worth waiting for a second
   consumer to ask.
 
-- **Keyboard resize and ARIA.** `keypress` is in `BuiltinAffordanceKind`
-  (`src/layout-types.ts:71`) and nothing emits, dispatches, or handles it;
-  there is no `role`, `aria-*`, or `tabIndex` anywhere in library code. A
-  gutter is pointer-only, which fails a keyboard user outright. Wants
-  gutters rendered as `role="separator"` with `aria-orientation` /
-  `aria-valuenow` / an accessible name, arrow keys stepping through the
-  existing `dispatchAffordance` path, and a labelled region per panel.
+- **Keyboard resize.** Half-closed. Panels are now reachable and labelled —
+  the child wrapper carries `tabIndex` / `role="group"` / `aria-label`, and
+  1.2.0's keyboard navigation moves between them. **Gutters are still
+  pointer-only**, which fails a keyboard user outright: nothing renders
+  `role="separator"`, and no key steps a gutter. The strategy side is ready —
+  affordances carry `orientation` / `valueNow` / `valueMin` / `valueMax` /
+  `atMin` / `atMax` / `label`, so the adapter has everything ARIA needs
+  without measuring. Wants arrow keys on a focused gutter synthesizing a
+  `'drag'` through the existing `dispatchAffordance` path, deliberately not a
+  second clamp. (`keypress` on `BuiltinAffordanceKind` and `LayoutEvent`'s
+  `kind: 'key'` stay dead and `@deprecated`; see Loose ends.)
+
+  One trap for whoever builds it: under `resizeMode: 'neighbor'` a step is
+  clamped by whichever of the two panes binds first, so it can be truncated
+  by the *neighbor's* minimum while the focused pane is nowhere near its own.
+  Announcing "at minimum" there would be a lie. `bounds` describes the
+  dragged child only.
 
 - **Shipped: `resizeMode: 'neighbor'`.** Strip's default still writes only the
   dragged child and lets the delta be absorbed by whichever siblings are
