@@ -37,8 +37,7 @@ briefly mistake itself for a root.
 A root measures its own element — `getBoundingClientRect()` plus
 `window.scrollX` / `window.scrollY`. Document coordinates, not viewport ones, so
 that a page scroll between one root's re-measure and another's does not pull
-them apart. Two roots inside a *different* shared scroller still drift; see
-Limits.
+them apart.
 
 The measured origin goes into React state. A root that wrote only to the
 registry would compose its children against a stale value for one commit, since
@@ -53,14 +52,16 @@ The existing composition effect (`:209-229`) is otherwise unchanged. The root
 also writes its own rect into the registry under its node id, so `rectOf(rootId)`
 answers for a root the way it already does for a placed container.
 
-Re-measured on three triggers, each guarded by an equality check so `setState`
-does not loop:
+Re-measured on two triggers, guarded by an equality check against the last
+published rect so `setState` does not loop:
 
-- the ResizeObserver already watching the element for viewport,
-- passive `resize` and `scroll` listeners on `window`,
 - once per commit — the same unconditional re-measure the flow path already
   runs at `:284-286`, which is what catches a pane moved by a class toggle that
-  no observer reports.
+  no observer reports. This covers resize too: the viewport ResizeObserver
+  inside `ContainerHost.observe` already re-renders the container when its own
+  size changes, so a second observer for the origin would only duplicate it.
+- passive `resize` on `window`, and `scroll` in the capture phase, so a scroll
+  anywhere in the page — including an ancestor scroller — re-measures.
 
 With no `GeometryProvider` above it the registry is null and the whole path is
 skipped, as it is today.
@@ -91,8 +92,9 @@ story has no browser coverage.
 - **A `<Container>` rendered for a non-root node whose parent no `<Container>`
   renders keeps origin `(0, 0)`.** It has `membership`, so it does not measure,
   and nothing writes its entry. Unchanged from today.
-- **An ancestor scroller other than the page still drifts two roots apart.**
-  `scrollRef` reports scrolling *inside* a container, not above one.
+- **A root moved without a scroll, a resize, or a React commit stays where it
+  was last measured** — a CSS animation or transition sliding one root past
+  another is the case. Same residual gap the flow path has.
 
 ## Consequence to note
 
