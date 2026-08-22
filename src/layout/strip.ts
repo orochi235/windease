@@ -7,7 +7,6 @@ import type {
   Rect,
   Size,
 } from '../layout-types.js';
-import type { NodeId } from '../node.js';
 import { selectByCapacity } from './capacity.js';
 import { clampExplicitSizes } from './resize.js';
 import { DEFAULT_JOIN_THRESHOLD } from './seam-join.js';
@@ -243,8 +242,8 @@ function joinFor(
   if (cfg.resizeMode !== 'neighbor') return undefined;
   if (!(cfg.joinOnOvershoot ?? false)) return undefined;
   return {
-    atMin: item.id as NodeId,
-    atMax: next.id as NodeId,
+    atMin: item.id,
+    atMax: next.id,
     threshold: cfg.joinThreshold ?? DEFAULT_JOIN_THRESHOLD,
   };
 }

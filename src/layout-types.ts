@@ -95,8 +95,8 @@ export type BuiltinAffordanceKind =
  * (the dragged pane's own floor breaks). Either may be absent.
  */
 export interface AffordanceJoin {
-  atMin?: NodeId;
-  atMax?: NodeId;
+  atMin?: NodeId | string;
+  atMax?: NodeId | string;
   /** Main-axis pixels past the clamp before the gesture arms. */
   threshold: number;
 }

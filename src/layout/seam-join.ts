@@ -14,7 +14,7 @@ export interface TrackJoinInput {
   consumed: number;
   /** Whether this node may be destroyed. Injected rather than read from a
    *  store so the arithmetic stays pure and testable with plain numbers. */
-  canDestroy: (id: NodeId) => boolean;
+  canDestroy: (id: NodeId | string) => boolean;
 }
 
 export interface JoinState {
@@ -24,7 +24,7 @@ export interface JoinState {
    * verdict: it is populated whenever the gesture has a direction, so read it
    * only together with `armed`.
    */
-  candidateId?: NodeId;
+  candidateId?: NodeId | string;
   /** Signed distance past the clamp; zero while the seam is still moving. */
   overshoot: number;
 }
