@@ -238,6 +238,19 @@ function StoreContainer({
     measureRoot();
   });
 
+  // Capture phase so a scroll in any ancestor scroller re-measures, not just
+  // the page.
+  useEffect(() => {
+    if (!isRoot) return;
+    const onViewportChange = () => measureRoot();
+    window.addEventListener('resize', onViewportChange, { passive: true });
+    window.addEventListener('scroll', onViewportChange, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('scroll', onViewportChange, { capture: true });
+    };
+  }, [isRoot, measureRoot]);
+
   useEffect(() => {
     if (!isRoot || !geometryRegistry) return;
     const key = String(parentId);

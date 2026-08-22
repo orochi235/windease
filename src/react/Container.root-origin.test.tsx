@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GeometrySource } from '../index.js';
@@ -211,5 +211,67 @@ describe('root container origins', () => {
     expect(geometry.rectOf(asNodeId('left'))).not.toBeNull();
     unmount();
     expect(geometry.rectOf(asNodeId('left'))).toBeNull();
+  });
+
+  it('re-measures a root on a page scroll', () => {
+    stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
+    const { geometry } = mount(['left']);
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 200 });
+
+    // A scroll moves the element up in viewport coordinates while its document
+    // position holds; the height changes too so a stale entry cannot coincide.
+    stubRects({ left: { x: 40, y: -20, w: 100, h: 150 } });
+    stubScroll(0, 30);
+    act(() => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 150 });
+  });
+
+  it('re-measures a root on a window resize', () => {
+    stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
+    const { geometry } = mount(['left']);
+
+    stubRects({ left: { x: 20, y: 5, w: 60, h: 150 } });
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 20, y: 5, w: 60, h: 150 });
+  });
+
+  it('stops listening once the root unmounts', () => {
+    stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
+    const { geometry, unmount } = mount(['left']);
+    unmount();
+
+    stubRects({ left: { x: 40, y: -20, w: 100, h: 150 } });
+    stubScroll(0, 30);
+    expect(() => {
+      act(() => {
+        window.dispatchEvent(new Event('scroll'));
+        window.dispatchEvent(new Event('resize'));
+      });
+    }).not.toThrow();
+
+    expect(geometry.rectOf(asNodeId('left'))).toBeNull();
+  });
+
+  it('re-measures a root on a scroll in an inner scroller', () => {
+    stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
+    const { geometry } = mount(['left']);
+    // An element's scroll event does not bubble, so only the capture-phase
+    // listener sees it.
+    const inner = document.createElement('div');
+    document.body.appendChild(inner);
+
+    stubRects({ left: { x: 40, y: -20, w: 100, h: 150 } });
+    stubScroll(0, 30);
+    act(() => {
+      inner.dispatchEvent(new Event('scroll'));
+    });
+
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 150 });
   });
 });
