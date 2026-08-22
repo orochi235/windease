@@ -1,0 +1,24 @@
+/* Rows are the measured content: each has a real intrinsic height, and
+   nothing stretches to the pane, so the measurement box reports the content. */
+.cs-row {
+  padding: 4px 8px;
+  font:
+    12px / 1.4 system-ui,
+    sans-serif;
+  border-top: 1px solid rgb(0 0 0 / 0.08);
+}
+
+.cs-palette {
+  background: #fff;
+  border: 1px solid rgb(0 0 0 / 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cs-palette__title {
+  padding: 4px 8px;
+  font:
+    600 12px / 1.4 system-ui,
+    sans-serif;
+  background: rgb(0 0 0 / 0.04);
+}

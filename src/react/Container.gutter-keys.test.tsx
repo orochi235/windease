@@ -7,7 +7,7 @@ import { StrategyRegistryProvider } from './strategies.js';
 
 const Z = asNodeId('z');
 
-function makeStore(titles = true): Store {
+function makeStore(titles = true, contentSized = false): Store {
   const s = new Store();
   s.registerNode(
     createNode({
@@ -25,7 +25,10 @@ function makeStore(titles = true): Store {
         id: nid,
         parentId: Z,
         ...(titles ? { meta: { title: `Palette ${i + 1}` } } : {}),
-        hints: { minSize: { w: 0, h: 20 } },
+        hints: {
+          minSize: { w: 0, h: 20 },
+          ...(contentSized ? { sizing: { h: 'content' as const } } : {}),
+        },
       }),
     );
     s.showNode(nid);
@@ -117,5 +120,14 @@ describe('gutter keyboard resize', () => {
     store.setLock(asNodeId('a'), { resize: true });
     const { container } = render(tree(store));
     expect(container.querySelector('[role="separator"]')).toBeNull();
+  });
+});
+
+describe('content-sized panes without a ResizeObserver', () => {
+  it('renders the fallback instead of throwing', () => {
+    // jsdom has no ResizeObserver, and unlike the viewport observer this path
+    // is reached on every mount of a content-sized pane.
+    expect(globalThis.ResizeObserver).toBeUndefined();
+    expect(() => render(tree(makeStore(true, true)))).not.toThrow();
   });
 });

@@ -183,6 +183,42 @@ Write your own `ChildSort` for anything in between: it receives the observed
 children with their `order` hints plus the current store order, and returns the
 final list.
 
+## Sizing a pane to its contents
+
+Declare it per axis and the library measures for you:
+
+```tsx
+store.registerNode(
+  createNode({ kind: 'palette', id, parentId: dockId, hints: { sizing: { h: 'content' } } }),
+);
+```
+
+`<Container>` wraps a content-sized pane's children in an auto-height div and
+observes it, so the measurement is of the content rather than of the extent the
+layout just wrote — measuring the positioned wrapper would measure the library's
+own output and never settle. Give that div's contents a real intrinsic height:
+a child stretched with `height: 100%` reports the pane, not the content.
+
+A measurement is a stated size like any other. It scales under pressure, it is
+capped by `hints.maxSize`, and it loses to `placement.size` — so **dragging a
+gutter pins the pane** and it stops tracking its contents. Clear the size to
+resume:
+
+```tsx
+store.patchPlacement(id, { size: { h: undefined } });
+```
+
+Unlike a size you write, a measurement *is* floored at `hints.minSize`: the
+exemption that makes the collapse pattern below work exists for deliberate
+intent, and a measurement states none.
+
+Without React, report measurements yourself — `hints.sizing` is honored by the
+strategy either way:
+
+```ts
+host.setNaturalSize(id, { w, h }); // or host.observeNatural(id, el)
+```
+
 ## Collapsing a pane
 
 There is no collapse state. A collapsed pane is a sized pane: write
@@ -252,6 +288,22 @@ siblings without an explicit size of their own share the remainder. Combine
 with `hints.maxSize` for an "auto up to a cap" pane. `store.split(id, input)`
 builds the nested `stripStrategy` groups a multi-pane layout needs; see
 `docs/concepts.md`.
+
+Gutters are operable from the keyboard. Each renders as `role="separator"`
+carrying `aria-orientation` and `aria-valuenow` / `aria-valuemin` /
+`aria-valuemax`, named after the panes it moves. Arrow keys along its
+orientation step by `affordanceKeyStep` (8px by default) and `Home` / `End`
+jump to the reported bounds; the perpendicular arrows are left alone so pane
+navigation still works while a gutter holds focus.
+
+Every gutter is a tab stop, which is the WAI-ARIA window-splitter pattern and
+gets tiring in a dock of many panes — `affordanceTabStops={false}` keeps the
+ARIA and drops the stops.
+
+Under `resizeMode: 'neighbor'` a step is bounded by the pair, so a pane can
+stop moving because its *neighbor* hit a limit while it is nowhere near its
+own. `aria-valuenow` reflects where it actually landed; nothing is narrated to
+a live region.
 
 ## Keyboard navigation
 

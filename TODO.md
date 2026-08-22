@@ -282,6 +282,20 @@ serialize/graft work goes out under the same 1.2.0.
   resolution for its own children: an id wins, `undefined` falls through to
   the geometric search, `null` declares the direction dead there.
 - **`prefers-reduced-motion`** now suppresses the settle transition.
+- **Content-driven sizing.** `hints.sizing: { h: 'content' }` asks to be sized
+  by measured content. The measurement reaches strategies as
+  `LayoutItem.natural`, supplied by an adapter — `ContainerHost.setNaturalSize`
+  is the headless API and `observeNatural` the DOM convenience over it,
+  mirroring `setViewport` / `observe`. A `layout()` call with no measurement
+  behaves exactly as before.
+- **Keyboard resize gutters.** `role="separator"` with `aria-orientation` and
+  the value triple, arrow keys plus `Home`/`End`, and an accessible name
+  composed from the panes the gutter moves. `<Container>` takes
+  `affordanceKeyStep` and `affordanceTabStops`.
+- **`Affordance.bounds` honors `resizeMode: 'neighbor'`.** It reported the
+  whole row's slack while the drag stopped at the neighbor's minimum. Behavior
+  change for anyone reading `valueMax` off a paired affordance — the number is
+  now the one the drag will actually reach.
 - **`store.hasFocus` renamed to `canFocus`.** It answers "does this node have
   a focus machine", but sat one method from `focusedId` and read as a state
   check — both workstreams building on focus misread it. `hasFocus` remains as
@@ -366,17 +380,28 @@ keyboard-navigation design deliberately did not specify.
 Gaps found evaluating windease as the layout engine for a sidebar of
 resizable tool palettes (the weasel case). Everything structural is already
 here — a `stripStrategy` zone on `{ axis: 'y' }`, gutters, per-child
-min/max, DnD between docks, sizes that round-trip through `serialize`. These
-five are what a consumer would still have to build.
+min/max, DnD between docks, sizes that round-trip through `serialize`. All
+five are now closed except the overflow *policy*, which is deliberately
+parked.
 
-- **Content-driven sizing.** Strip derives extents from `placement.size`,
-  `hints.preferredSize`, or an equal share (`src/layout/strip.ts:114-131`).
-  There is no way to say "as tall as my contents," so a palette that wants
-  its natural height forces the consumer to measure the DOM and write
-  `preferredSize` back — a layout pass keyed on the output of a layout pass.
-  Wants either an `auto` sentinel that `<Container>` resolves by measuring
-  before it runs the strategy, or measured natural sizes as a strategy input
-  alongside `hints`.
+- **Shipped: content-driven sizing.** `hints.sizing: { w?: 'content'; h?:
+  'content' }` declares the request per axis; the measurement arrives as
+  `LayoutItem.natural`. Measurement is an input, never a call, so the core
+  stays arithmetic and a headless `layout()` behaves as it always did.
+
+  In strip a measurement is a stated size: it scales under pressure and loses
+  to `placement.size`. **A gutter drag therefore pins the pane** — the write to
+  `placement.size` outranks the measurement and the pane stops tracking its
+  content. Clearing the size resumes tracking. Unlike an explicit size it is
+  floored at `minSize`; that exemption exists so a consumer can deliberately
+  collapse a pane, and a measurement states no such intent.
+
+  Two passes, not one: a pane's natural height depends on the width the layout
+  just assigned it. It converges because the measured element is never the one
+  the extent was written to (`<Container>` measures an inner auto-height div),
+  and because `setNaturalSize` drops sub-pixel changes. The convergence test
+  asserts a pass count — a test on the final rect passes just as happily
+  against a loop that never stops.
 
 - **Collapse is userland; `minSize` no longer floors an explicit size.**
   Was "collapse as a state." It isn't one. With an explicit or content-derived
@@ -419,23 +444,27 @@ five are what a consumer would still have to build.
   themselves; the policy is sugar over it, and worth waiting for a second
   consumer to ask.
 
-- **Keyboard resize.** Half-closed. Panels are now reachable and labelled —
-  the child wrapper carries `tabIndex` / `role="group"` / `aria-label`, and
-  1.2.0's keyboard navigation moves between them. **Gutters are still
-  pointer-only**, which fails a keyboard user outright: nothing renders
-  `role="separator"`, and no key steps a gutter. The strategy side is ready —
-  affordances carry `orientation` / `valueNow` / `valueMin` / `valueMax` /
-  `atMin` / `atMax` / `label`, so the adapter has everything ARIA needs
-  without measuring. Wants arrow keys on a focused gutter synthesizing a
-  `'drag'` through the existing `dispatchAffordance` path, deliberately not a
-  second clamp. (`keypress` on `BuiltinAffordanceKind` and `LayoutEvent`'s
-  `kind: 'key'` stay dead and `@deprecated`; see Loose ends.)
+- **Shipped: keyboard resize.** A gutter renders as `role="separator"` with
+  `aria-orientation` and `aria-valuenow` / `aria-valuemin` / `aria-valuemax`,
+  and takes arrow keys along its orientation plus `Home` / `End`. A key
+  synthesizes the same `'drag'` the pointer sends through `dispatchAffordance`,
+  so the strategy clamps once rather than twice. (`keypress` on
+  `BuiltinAffordanceKind` and `LayoutEvent`'s `kind: 'key'` stay dead and
+  `@deprecated`; see Loose ends.)
 
-  One trap for whoever builds it: under `resizeMode: 'neighbor'` a step is
-  clamped by whichever of the two panes binds first, so it can be truncated
-  by the *neighbor's* minimum while the focused pane is nowhere near its own.
-  Announcing "at minimum" there would be a lie. `bounds` describes the
-  dragged child only.
+  The accessible name is composed by the adapter from `affordance.affects`
+  using `accessibleName` — affordances never carried a `label`, contrary to
+  what this entry claimed before.
+
+  The `resizeMode: 'neighbor'` trap this entry recorded was real and is now
+  fixed at the source: `bounds` reported the whole row's slack while the drag
+  stopped at the neighbor's minimum. Advisory numbers could absorb that; an
+  `aria-valuemax` promising an extent that does not exist could not.
+
+  Still not announced: nothing writes a live region, so a step that is
+  truncated by the neighbor rather than by the focused pane is visible in
+  `aria-valuenow` and not narrated. `atMin` / `atMax` describe the dragged
+  child, so narrating from them would state something false.
 
 - **Shipped: `resizeMode: 'neighbor'`.** Strip's default still writes only the
   dragged child and lets the delta be absorbed by whichever siblings are

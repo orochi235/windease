@@ -85,7 +85,7 @@ Two paths for free-form data on a node; lifetimes differ:
 | `node.meta`            | Intrinsic; survives `moveNode`                 | Window-intrinsic consumer data (title, URL, etc.)       |
 | `node.membership.placement`  | Per-membership; cleared on detach              | State that exists *because of this placement* — the held pin index, placement-specific UI state |
 | `node.container.config` | Container-strategy options                    | Strategy options (`cols`, `gap`, etc.)                  |
-| `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `order`          |
+| `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `sizing`, `order` |
 
 **Reserved keys on `membership.placement`:**
 
@@ -101,6 +101,13 @@ Two paths for free-form data on a node; lifetimes differ:
   `store.patchPlacement`). On `split`, a gutter drag **clears** this key on
   the two affected panes, reverting them to ratio control. Pair with
   `hints.maxSize` for an "auto up to a cap" pane.
+- `size` above is what a *consumer* wrote. `hints.sizing: { w?, h? }` is the
+  other way to state an extent: `'content'` on an axis asks to be sized by
+  measurement instead. It lives in `hints` because it is node-intrinsic advice
+  like `minSize`, and it survives `moveNode`; the measurement itself is neither
+  — it reaches a strategy as `LayoutItem.natural`, is never stored on the node,
+  and never enters a snapshot. `size` outranks it, so a gutter drag pins the
+  pane.
 - `span: { cols?, rows? }` — fixed **cell-count** extent honored by `grid`
   only. Kept separate from `size` (pixels) rather than reusing it, so the
   same key doesn't mean two different units depending on which strategy the

@@ -190,6 +190,10 @@ export class ContainerHost {
    */
   observeNatural(id: NodeId, el: Element): () => void {
     const key = String(id);
+    // A content-sized pane reaches this on every mount, unlike `observe`,
+    // which a fixed viewport skips. Environments without ResizeObserver (jsdom)
+    // must render the fallback size rather than throw.
+    if (typeof ResizeObserver === 'undefined') return () => {};
     this.#naturalObserver ??= new ResizeObserver((entries) => {
       for (const entry of entries) {
         const owner = this.#naturalIds.get(entry.target);

@@ -348,19 +348,13 @@ function StoreContainer({
             aria-label={accessibleName(store, id)}
           >
             {store.getNode(id)?.hints?.sizing ? (
-              // The wrapper above carries the extent the layout just wrote, so
-              // measuring it would measure our own output. This inner div is
-              // auto-height, so it reports what the content actually needs.
-              <div
-                className={
-                  store.getNode(id)?.hints?.sizing?.w === 'content'
-                    ? 'windease-measure windease-measure--w'
-                    : 'windease-measure'
-                }
-                ref={(el) => (el ? layout.observeNatural(id, el) : undefined)}
+              <MeasuredContent
+                id={id}
+                widthByContent={store.getNode(id)?.hints?.sizing?.w === 'content'}
+                observe={layout.observeNatural}
               >
                 <NodeRenderer id={id} chrome={chrome} />
-              </div>
+              </MeasuredContent>
             ) : (
               <NodeRenderer id={id} chrome={chrome} />
             )}
@@ -405,6 +399,43 @@ function affordanceLabel(store: ReturnType<typeof useStore>, aff: Affordance): s
   if (ids.length === 0) return undefined;
   const names = ids.map((id) => accessibleName(store, id as NodeId));
   return `resize ${names.join(' and ')}`;
+}
+
+/**
+ * Measurement box for `hints.sizing`. The pane wrapper carries the extent the
+ * layout just wrote, so measuring it would measure our own output; this div is
+ * auto-sized on the axis that asked, and reports what the content needs.
+ *
+ * The observer is attached in an effect rather than from a callback ref: a
+ * ref whose identity changes each render is torn down each render, and the
+ * teardown drops the measurement — so the size never sticks and the pane sits
+ * at its fallback forever.
+ */
+function MeasuredContent({
+  id,
+  widthByContent,
+  observe,
+  children,
+}: {
+  id: NodeId;
+  widthByContent: boolean;
+  observe: ContainerLayout['observeNatural'];
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    return observe(id, el);
+  }, [observe, id]);
+  return (
+    <div
+      ref={ref}
+      className={widthByContent ? 'windease-measure windease-measure--w' : 'windease-measure'}
+    >
+      {children}
+    </div>
+  );
 }
 
 interface AffordanceHandleProps {
