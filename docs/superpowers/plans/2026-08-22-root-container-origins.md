@@ -766,7 +766,7 @@ Expected: clean. The `useEffect` with no dependency array added in Task 1 needs 
 
 Run: `npm test`
 
-Expected: PASS, 1112 tests plus the 8 added here.
+Expected: PASS. The baseline before this branch was 1120; each task states what it adds. Do not treat a specific total as the check — treat "no failures, and the count went up by what this branch added" as the check.
 
 - [ ] **Step 3: Full e2e suite on three engines**
 
