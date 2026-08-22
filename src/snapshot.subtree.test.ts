@@ -155,6 +155,24 @@ describe('graft validation', () => {
     expect(() => graft(s, snap, asNodeId('z'))).toThrow(LockedError);
     expect(graft(s, snap, asNodeId('z'), { force: true })).toBe('a');
   });
+
+  it('rejects a deep colliding id without partially grafting', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    // Re-take 'a2' only, so the collision is on a non-root node the walk
+    // would reach after 'a' and 'a1' had already registered.
+    s.registerNode(createNode({ id: asNodeId('a2'), kind: 'panel', parentId: asNodeId('z') }));
+
+    const rec = recordEvents(s, 'node.registered', 'node.reordered');
+    expect(() => graft(s, snap, asNodeId('z'))).toThrow(DuplicateNodeError);
+
+    expect(rec.log).toHaveLength(0);
+    expect(s.getNode(asNodeId('a'))).toBeUndefined();
+    expect(s.getNode(asNodeId('a1'))).toBeUndefined();
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['b', 'a2']);
+    rec.stop();
+  });
 });
 
 describe('graft attaches', () => {
