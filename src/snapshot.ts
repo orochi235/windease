@@ -199,7 +199,7 @@ export function graft(store: Store, snap: unknown, parentId: NodeId, opts?: Graf
   // the graft target, so the same walk hydrate uses works unchanged.
   const rootEntry = byId.get(rootId) as SerializedNode;
   rootEntry.membership = {
-    parentId: parentId as string,
+    parentId,
     placement: parsed.rootPlacement ?? {},
   };
 
