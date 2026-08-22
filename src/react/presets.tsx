@@ -22,7 +22,9 @@ import type { LockSet } from '../lock.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragHandle } from './dnd/DragHandle.js';
 import { useDropTarget } from './dnd/useDropTarget.js';
-import { useChildren } from './hooks.js';
+import { useFocusBinding } from './focus/FocusProvider.js';
+import { usePublishGeometry } from './focus/usePublishGeometry.js';
+import { useChildren, useFocusedNode } from './hooks.js';
 import {
   type LayoutInfo,
   LayoutScope,
@@ -244,6 +246,7 @@ interface PanelWithLayoutProps extends PanelProps {
 function PanelWithLayout(props: PanelWithLayoutProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const layout = useContainerLayout(props.id, ref);
+  usePublishGeometry(props.id, ref, layout);
   const store = useStore();
   const settleMs = DEFAULT_SETTLE_MS;
   const [, setDraggingAffordanceId] = useState<string | null>(null);
@@ -415,6 +418,7 @@ interface ZoneWithLayoutProps extends ZoneProps {
 function ZoneWithLayout(props: ZoneWithLayoutProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const layout = useContainerLayout(props.id, ref, props.viewport);
+  usePublishGeometry(props.id, ref, layout);
   const store = useStore();
   const settleMs = props.settleMs ?? DEFAULT_SETTLE_MS;
   const [, setDraggingAffordanceId] = useState<string | null>(null);
@@ -567,6 +571,13 @@ function PresetShell({
   // effect re-fires) when imperative siblings appear or disappear.
   useChildren(id);
 
+  // Same roving tab stop `<Container>` gives the children it renders: without
+  // it a preset pane cannot take the caret, so nothing can navigate away from
+  // one either. Only a node declaring `focus` is a candidate.
+  const focusBinding = useFocusBinding();
+  const rovingId = useFocusedNode()?.id ?? focusBinding?.entryId ?? null;
+  const focusable = store.getNode(id)?.focus !== undefined;
+
   // A pending sibling-order reconciliation that skipped for lock.arrange
   // needs a re-render on unlock to re-run the effect below.
   useForceRerenderOnLockChange(store, id);
@@ -609,6 +620,7 @@ function PresetShell({
           style={style}
           data-testid={testId}
           data-node={id}
+          tabIndex={focusable ? (rovingId === id ? 0 : -1) : undefined}
         >
           {measure ? (
             <MeasuredContent

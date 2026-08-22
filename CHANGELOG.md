@@ -103,8 +103,14 @@ section below.
   that direction. A root now measures itself, re-measuring every commit and on
   window `resize` / capture-phase `scroll`. Arrow navigation and `Shift`-arrow
   moves cross correctly between zones composed as separate roots in consumer CSS.
-  This is the `<Container>` path; the `<Zone>` / `<Panel>` presets do not report
-  geometry at all, so keyboard navigation there is unaffected.
+- **Keyboard navigation works in a tree built from `<Zone>` / `<Panel>`.** Only
+  `<Container>` wrote the rect registry that directional navigation scores, so a
+  preset-built tree had no navigable panes at all: no pane carried a tab stop and
+  every arrow key did nothing, silently and with no error. Both presets now publish
+  their children's rects — and their own origin when they are a root — through the
+  same path `<Container>` uses, and a preset pane declaring `focus` carries the
+  roving tab stop. Arrow keys move the caret across nested presets and
+  `Shift`-arrow moves the pane, as they already did under `<Container>`.
 - **A scrolling page no longer re-measures every root on every scroll event.** The
   root self-measure compared document coordinates exactly, and `getBoundingClientRect`
   and `window.scrollX` do not round alike under browser zoom or a fractional device

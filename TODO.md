@@ -65,19 +65,21 @@ Open questions:
   zones that appear and disappear as worktrees are added/removed. Today
   `registerNode`/`unregisterNode` work; what's missing is a UX for it.
 
-## The presets report no geometry, so keyboard navigation is inert under them
+## Preset panes carry no ARIA role or name
 
-`<Zone>` / `<Panel>` render through `ZoneWithLayout` (`src/react/presets.tsx`),
-which provides a `LayoutScope` and never writes the geometry registry — only
-`<Container>` does. `navigableLeaves` drops any node without a rect, and no
-shipped strategy implements `navigate`, so `resolveNavigation` always falls
-through to the directional scorer and finds no candidates. In a preset-built
-tree arrow keys therefore do nothing.
+`PresetShell` (`src/react/presets.tsx`) gives a pane that declares `focus` the
+same roving tab stop `<Container>` gives the children it renders, but not the
+`role="group"` and `aria-label` that go with it there — writing both literally
+needs a biome suppression, and writing them conditionally trips
+`useValidAriaProps`. A screen reader still hears the move through
+`bindAnnouncer`; what is missing is the name on arrival.
 
-Predates the root-origin work and is unrelated to it, but the README presents
-the presets as the mainline API, so this is the more visible half of keyboard
-support. Fixing it means deciding what reports geometry for a preset — most
-likely the same self-measure a root `<Container>` does, hoisted to `PresetShell`.
+Also still open: a `<Panel>` that is both a container and declares
+`hints.render: 'flow'` reports no child geometry. `usePublishGeometry` reads
+placements, and a flow container has none; the DOM measurement that covers this
+for `<Container>` (`measureFlow`) stays there because it harvests the children
+`<Container>` itself rendered. `<Zone>` is unaffected — a flow zone never takes
+the layout-hosting path.
 
 ## Drag and drop
 

@@ -1,16 +1,20 @@
 import type { Story } from '@ladle/react';
 import { useEffect, useMemo, useState } from 'react';
-import { asNodeId, createNode, gridStrategy, Store } from '../../index.js';
+import { asNodeId, createNode, gridStrategy, Store, stripStrategy } from '../../index.js';
 import {
   DragProvider,
   defaultDragOverlay,
+  FocusProvider,
+  GeometryProvider,
   Panel,
   Provider,
+  preserveStoreOrder,
   StrategyRegistryProvider,
   Zone,
 } from '../index.js';
 import './windease.css';
 import './playground.css';
+import './declarative-keyboard.css';
 
 export default { title: 'Declarative' };
 
@@ -159,3 +163,60 @@ function ImperativeControls(props: {
     </div>
   );
 }
+
+/**
+ * A tree built only from presets — no `<Container>` anywhere. The panes are
+ * reachable by keyboard because `Zone` and `Panel` report their children's
+ * rects to the `GeometryProvider`, which is what directional navigation
+ * scores. The left column is a nested `<Zone>`, the right a `<Panel>`
+ * promoted to a container, so both layout-hosting presets are exercised.
+ */
+export const KeyboardNav: Story = () => {
+  const store = useMemo(() => new Store(), []);
+
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={{ stack: stripStrategy as never }}>
+        <GeometryProvider>
+          <FocusProvider>
+            <Zone
+              id={asNodeId('kb-root')}
+              strategyId="stack"
+              config={{ axis: 'x', fill: true, gap: 16, padding: 16 }}
+              viewport={{ w: 720, h: 400 }}
+              className="kb-frame"
+            >
+              <Zone
+                id={asNodeId('kb-left')}
+                strategyId="stack"
+                config={{ axis: 'y', fill: true, gap: 8, padding: 8 }}
+                sort={preserveStoreOrder}
+                className="kb-col"
+              >
+                <Panel id={asNodeId('kb-a')} className="kb-pane" title="Alpha" />
+                <Panel id={asNodeId('kb-b')} className="kb-pane" title="Bravo" />
+                <Panel id={asNodeId('kb-c')} className="kb-pane" title="Charlie" />
+              </Zone>
+              <Panel
+                id={asNodeId('kb-right')}
+                className="kb-col"
+                container={{
+                  strategyId: 'stack',
+                  config: { axis: 'y', fill: true, gap: 8, padding: 8 },
+                }}
+              >
+                <Panel id={asNodeId('kb-d')} className="kb-pane" title="Delta" />
+                <Panel id={asNodeId('kb-e')} className="kb-pane" title="Echo" />
+              </Panel>
+            </Zone>
+            <p className="kb-hint">
+              Click a pane, then use <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> to move the
+              caret — the sideways ones cross between the two columns. <kbd>Shift</kbd> plus an
+              arrow moves the pane itself; the left column keeps whatever order you leave it in.
+            </p>
+          </FocusProvider>
+        </GeometryProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};

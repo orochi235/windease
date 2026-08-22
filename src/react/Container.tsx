@@ -14,11 +14,12 @@ import {
   childRectsForContainer,
   insertionIndexByMidpoint,
 } from '../dnd/insertionIndex.js';
-import { accessibleName, type ChildOrderCommit, type NodeId, type Rect, trace } from '../index.js';
+import { accessibleName, type ChildOrderCommit, type NodeId } from '../index.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useGeometryRegistry } from './focus/useGeometrySource.js';
+import { usePublishGeometry } from './focus/usePublishGeometry.js';
 import { useChildren, useFocusedNode, useNode } from './hooks.js';
 import { MeasuredContent } from './measure.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
@@ -121,20 +122,6 @@ const CHILD_BASE: CSSProperties = { position: 'absolute' };
 
 const DEFAULT_SETTLE_MS = 150;
 
-/** Rounding one of `rect` / `scroll` and not the other — zoom, fractional DPR —
- *  moves a document coordinate by up to half a pixel, which is half of
- *  `MIN_NAVIGABLE_PX` and so cannot change what navigation picks. */
-const ORIGIN_EPSILON_PX = 0.5;
-
-function sameOrigin(a: Rect, b: Rect): boolean {
-  return (
-    Math.abs(a.x - b.x) <= ORIGIN_EPSILON_PX &&
-    Math.abs(a.y - b.y) <= ORIGIN_EPSILON_PX &&
-    Math.abs(a.w - b.w) <= ORIGIN_EPSILON_PX &&
-    Math.abs(a.h - b.h) <= ORIGIN_EPSILON_PX
-  );
-}
-
 /**
  * Renders a container node's visible children at the placements produced by
  * its registered strategy. Each child is absolute-positioned inside the
@@ -219,107 +206,7 @@ function StoreContainer({
   const layout = useContainerLayout(parentId, ref, viewport, preview);
 
   const geometryRegistry = useGeometryRegistry();
-  const selfRect = geometryRegistry?.rects.get(String(parentId));
-  // A root has no parent to place it, so it answers for its own position.
-  // Document coordinates, so a page scroll cannot pull two roots apart.
-  const isRoot = parent !== undefined && parent.membership === undefined;
-  const [, bumpOrigin] = useState(0);
-  // Guarding against the registry instead would let two containers sharing one
-  // id answer each other's writes forever.
-  const written = useRef<Rect | null>(null);
-
-  const measureRoot = useCallback(() => {
-    if (!isRoot || !geometryRegistry) return;
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const next = {
-      x: r.x + window.scrollX,
-      y: r.y + window.scrollY,
-      w: r.width,
-      h: r.height,
-    };
-    const key = String(parentId);
-    const prev = written.current;
-    if (prev && sameOrigin(prev, next)) return;
-    const live = geometryRegistry.rects.get(key);
-    if (live !== undefined && live !== prev) {
-      trace('zone', `root origin: ${key} (overwriting another container's rect)`);
-    }
-    written.current = next;
-    geometryRegistry.rects.set(key, next);
-    trace('zone', `root origin: ${key} at ${next.x},${next.y} ${next.w}x${next.h}`);
-    geometryRegistry.commit();
-    bumpOrigin((n) => n + 1);
-  }, [isRoot, geometryRegistry, parentId]);
-
-  // Every commit, for the reason the flow effect below spells out.
-  useEffect(() => {
-    measureRoot();
-  });
-
-  // Capture phase so a scroll in any ancestor scroller re-measures, not just
-  // the page. Coalesced to one measurement per frame: a scroll burst would
-  // otherwise pay a full-registry commit per event.
-  const pendingFrame = useRef<number | null>(null);
-  useEffect(() => {
-    if (!isRoot) return;
-    const onViewportChange = () => {
-      // Same degradation as the viewport observer: measure straight through
-      // rather than fail.
-      if (typeof requestAnimationFrame === 'undefined') {
-        measureRoot();
-        return;
-      }
-      if (pendingFrame.current !== null) return;
-      pendingFrame.current = requestAnimationFrame(() => {
-        pendingFrame.current = null;
-        measureRoot();
-      });
-    };
-    window.addEventListener('resize', onViewportChange, { passive: true });
-    window.addEventListener('scroll', onViewportChange, { passive: true, capture: true });
-    return () => {
-      window.removeEventListener('resize', onViewportChange);
-      window.removeEventListener('scroll', onViewportChange, { capture: true });
-      if (pendingFrame.current !== null) {
-        cancelAnimationFrame(pendingFrame.current);
-        pendingFrame.current = null;
-      }
-    };
-  }, [isRoot, measureRoot]);
-
-  useEffect(() => {
-    if (!isRoot || !geometryRegistry) return;
-    const key = String(parentId);
-    return () => {
-      written.current = null;
-      geometryRegistry.rects.delete(key);
-      geometryRegistry.commit();
-    };
-  }, [isRoot, geometryRegistry, parentId]);
-
-  useEffect(() => {
-    if (!geometryRegistry) return;
-    // Placements are unscrolled; the visible position is what the resolver
-    // compares. Each container answers for its own offset, so the composed
-    // chain lands placed and flow children in the same space.
-    const originX = (selfRect?.x ?? 0) - layout.scroll.x;
-    const originY = (selfRect?.y ?? 0) - layout.scroll.y;
-    for (const [cid, r] of layout.placements) {
-      geometryRegistry.rects.set(String(cid), {
-        x: originX + r.x,
-        y: originY + r.y,
-        w: r.w,
-        h: r.h,
-      });
-    }
-    geometryRegistry.commit();
-    return () => {
-      for (const cid of layout.placements.keys()) geometryRegistry.rects.delete(String(cid));
-      geometryRegistry.commit();
-    };
-  }, [geometryRegistry, layout.placements, layout.scroll, selfRect?.x, selfRect?.y]);
+  usePublishGeometry(parentId, ref, layout);
 
   const isFlow = layout.mode === 'flow';
   const childKey = children.map((c) => String(c.id)).join('|');

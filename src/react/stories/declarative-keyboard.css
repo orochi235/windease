@@ -1,0 +1,25 @@
+.kb-frame {
+  width: 720px;
+  height: 400px;
+}
+
+.kb-col {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+
+.kb-hint {
+  margin: 12px 0 0;
+  font:
+    12px / 1.4 system-ui,
+    sans-serif;
+  color: #64748b;
+}
+
+/* The focused pane has to be obvious, or the keyboard gestures don't read.
+   Plain `:focus` — a mouse click on the wrapper div never matches :focus-visible. */
+.kb-pane:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
