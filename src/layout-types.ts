@@ -13,7 +13,19 @@ export interface LayoutItem {
      *  main axis (and by split's ratio/explicit clamping). */
     maxSize?: Size;
     preferredSize?: Size;
+    /** Per-axis request to be sized by measured content. See `NodeHints`. */
+    sizing?: { w?: 'content'; h?: 'content' };
   };
+  /**
+   * Measured content extent, supplied by whatever adapter can measure. Present
+   * only for items whose `hints.sizing` asked for it and only once a
+   * measurement exists, so a strategy must still fall back when it is absent —
+   * the first layout pass always runs without it.
+   *
+   * An input, never a call: the core does not measure, and a headless caller
+   * that supplies nothing gets the pre-existing behavior.
+   */
+  natural?: Size;
   /**
    * Per-membership placement intent projected from `node.membership.placement`.
    * `size` is the public "fixed-px pane" API: set it via `store.patchPlacement`

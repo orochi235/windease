@@ -9,6 +9,8 @@
  *     writes per-instance, and exposes itself as a named CSS size container
  *     so widgets can adapt with @container queries.
  *   - .windease-insertion-line gets a subtle default appearance.
+ *   - .windease-measure wraps a content-sized pane's children so `hints.sizing`
+ *     measures the content rather than the extent the layout just wrote.
  *   - .windease-focus-root exists only to catch bubbled focusin/keydown, so
  *     it must not take a layout box — a plain block div here breaks any
  *     height: 100% chain the consumer's own layout depends on.
@@ -94,4 +96,20 @@
 
 .windease-focus-root {
   display: contents;
+}
+
+/*
+ * Measurement box for `hints.sizing`. The pane wrapper carries the extent the
+ * layout just wrote, so it cannot be what we measure; this inner div sizes to
+ * its content on whichever axis asked to be measured. Width stays 100% by
+ * default so text wraps at the real pane width — a `max-content` width there
+ * would report the unwrapped line length.
+ */
+.windease-measure {
+  inline-size: 100%;
+  block-size: auto;
+}
+
+.windease-measure.windease-measure--w {
+  inline-size: max-content;
 }

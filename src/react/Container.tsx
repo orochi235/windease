@@ -332,7 +332,23 @@ function StoreContainer({
             role="group"
             aria-label={accessibleName(store, id)}
           >
-            <NodeRenderer id={id} chrome={chrome} />
+            {store.getNode(id)?.hints?.sizing ? (
+              // The wrapper above carries the extent the layout just wrote, so
+              // measuring it would measure our own output. This inner div is
+              // auto-height, so it reports what the content actually needs.
+              <div
+                className={
+                  store.getNode(id)?.hints?.sizing?.w === 'content'
+                    ? 'windease-measure windease-measure--w'
+                    : 'windease-measure'
+                }
+                ref={(el) => (el ? layout.observeNatural(id, el) : undefined)}
+              >
+                <NodeRenderer id={id} chrome={chrome} />
+              </div>
+            ) : (
+              <NodeRenderer id={id} chrome={chrome} />
+            )}
           </div>
         );
       })}

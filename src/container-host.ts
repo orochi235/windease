@@ -52,6 +52,9 @@ export class ContainerHost {
   #viewport: { w: number; h: number } | null = null;
   #preview: LayoutPreview | null = null;
   #observer: ResizeObserver | null = null;
+  readonly #natural = new Map<string, { w: number; h: number }>();
+  #naturalObserver: ResizeObserver | null = null;
+  readonly #naturalIds = new Map<Element, string>();
   #cache: ContainerLayout | null = null;
   #dirty = false;
   #containerRef: ContainerCap | undefined;
@@ -145,6 +148,62 @@ export class ContainerHost {
     return () => {
       ro.disconnect();
       if (this.#observer === ro) this.#observer = null;
+    };
+  }
+
+  /**
+   * Report a child's measured content extent, or drop it with `null`. The
+   * headless path for content sizing — no DOM required, and the counterpart to
+   * `observeNatural`.
+   *
+   * Reaches only children whose `hints.sizing` asked to be measured; anything
+   * else is stored and ignored. Sub-pixel changes are dropped: a measurement
+   * feeds a layout that resizes the measured element, and float churn across
+   * that cycle would never settle.
+   */
+  setNaturalSize(id: NodeId, size: { w: number; h: number } | null): void {
+    this.#writeNatural(String(id), size);
+  }
+
+  #writeNatural(key: string, size: { w: number; h: number } | null): void {
+    const prev = this.#natural.get(key);
+    if (size === null) {
+      if (!prev) return;
+      this.#natural.delete(key);
+      this.#invalidate();
+      return;
+    }
+    if (prev && Math.abs(prev.w - size.w) < 0.5 && Math.abs(prev.h - size.h) < 0.5) return;
+    this.#natural.set(key, size);
+    trace('layout', `natural: ${key} → ${Math.round(size.w)}×${Math.round(size.h)}`);
+    this.#invalidate();
+  }
+
+  /**
+   * Measure `el` as `id`'s content extent and keep measuring it. Returns a
+   * teardown. The DOM convenience over `setNaturalSize`, mirroring
+   * `observe` / `setViewport`.
+   *
+   * `el` must not be the element the layout sizes, or the measurement is of
+   * the extent just written and the two never converge — pass an inner element
+   * whose height is its content's.
+   */
+  observeNatural(id: NodeId, el: Element): () => void {
+    const key = String(id);
+    this.#naturalObserver ??= new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const owner = this.#naturalIds.get(entry.target);
+        if (!owner) continue;
+        const r = entry.contentRect;
+        this.#writeNatural(owner, { w: r.width, h: r.height });
+      }
+    });
+    this.#naturalIds.set(el, key);
+    this.#naturalObserver.observe(el);
+    return () => {
+      this.#naturalObserver?.unobserve(el);
+      this.#naturalIds.delete(el);
+      this.#writeNatural(key, null);
     };
   }
 
@@ -257,6 +316,10 @@ export class ContainerHost {
     this.#destroyed = true;
     this.#observer?.disconnect();
     this.#observer = null;
+    this.#naturalObserver?.disconnect();
+    this.#naturalObserver = null;
+    this.#naturalIds.clear();
+    this.#natural.clear();
     for (const un of this.#unsubs) un();
     this.#unsubs.length = 0;
     this.#listeners.clear();
@@ -266,7 +329,12 @@ export class ContainerHost {
     return this.#store
       .getChildren(this.#parentId)
       .filter((c) => c.lifecycle.state === 'visible')
-      .map((c) => nodeToLayoutItem(c));
+      .map((c) => {
+        const item = nodeToLayoutItem(c);
+        const measured = this.#natural.get(String(c.id));
+        if (measured && item.hints?.sizing) item.natural = measured;
+        return item;
+      });
   }
 
   // Coalesces: a mutation fires a synchronous `node.*` event and then, later,
@@ -329,6 +397,7 @@ export class ContainerHost {
       strategy,
       state as never,
       preview ?? undefined,
+      this.#natural,
     );
     // Suppress affordances the lock forbids so a gutter the user can see but
     // not drag never renders. Complements the dispatch guard, which also

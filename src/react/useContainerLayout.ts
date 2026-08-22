@@ -12,6 +12,12 @@ export interface ContainerLayout extends HostLayout {
    * No-op when the strategy has no `reduce`.
    */
   dispatchAffordance: (event: LayoutEvent) => void;
+  /**
+   * Measure `el` as `id`'s content extent for `hints.sizing`. Returns a
+   * teardown. Pass an element the layout does not size — see
+   * `ContainerHost.observeNatural`.
+   */
+  observeNatural: (id: NodeId, el: Element) => () => void;
 }
 
 /**
@@ -68,5 +74,10 @@ export function useContainerLayout(
     [host],
   );
 
-  return { ...layout, dispatchAffordance };
+  const observeNatural = useCallback(
+    (id: NodeId, el: Element) => host.observeNatural(id, el),
+    [host],
+  );
+
+  return { ...layout, dispatchAffordance, observeNatural };
 }

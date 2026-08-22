@@ -12,11 +12,17 @@ import type { Store } from './store.js';
  */
 export function nodeToLayoutItem(node: Node): LayoutItem {
   const item: LayoutItem = { id: node.id };
-  if (node.hints?.minSize || node.hints?.maxSize || node.hints?.preferredSize) {
+  if (
+    node.hints?.minSize ||
+    node.hints?.maxSize ||
+    node.hints?.preferredSize ||
+    node.hints?.sizing
+  ) {
     item.hints = {};
     if (node.hints.minSize) item.hints.minSize = node.hints.minSize;
     if (node.hints.maxSize) item.hints.maxSize = node.hints.maxSize;
     if (node.hints.preferredSize) item.hints.preferredSize = node.hints.preferredSize;
+    if (node.hints.sizing) item.hints.sizing = node.hints.sizing;
   }
   const placement = node.membership?.placement;
   if (placement && Object.keys(placement).length > 0) {
@@ -68,6 +74,10 @@ export function getLayoutNodes(store: Store, parentId: NodeId): LayoutNode[] {
  * Run a LayoutStrategy against the visible children of `parentId`.
  * Returns a LayoutResult keyed by NodeId. State is opaque to this helper;
  * callers manage it (typically via a per-container state slot).
+ *
+ * `natural` carries measured content extents keyed by child id, and reaches
+ * only children that asked for them via `hints.sizing`. Supplying nothing is
+ * the headless path and behaves as it did before content sizing existed.
  */
 export function runStrategyForContainer<TState>(
   store: Store,
@@ -76,6 +86,7 @@ export function runStrategyForContainer<TState>(
   strategy: LayoutStrategy<TState, string, unknown>,
   state: TState,
   preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } },
+  natural?: ReadonlyMap<string, Size>,
 ): LayoutResult<NodeId, unknown> {
   const parent = store.getNode(parentId);
   const config = (parent?.container?.config ?? {}) as Record<string, unknown>;
@@ -83,7 +94,10 @@ export function runStrategyForContainer<TState>(
   const items: LayoutItem[] = [];
   for (const child of children) {
     if (child.lifecycle.state === 'hidden' || child.lifecycle.state === 'destroyed') continue;
-    items.push(nodeToLayoutItem(child));
+    const item = nodeToLayoutItem(child);
+    const measured = natural?.get(String(child.id));
+    if (measured && item.hints?.sizing) item.natural = measured;
+    items.push(item);
   }
   // When previewing an insert, splice the source in at the requested index
   // (or append) so strategies that don't read `preview` still get the right

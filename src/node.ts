@@ -22,6 +22,14 @@ export interface NodeHints {
   /** Ceiling for strategy clamping and resize-drag. */
   maxSize?: { w: number; h: number };
   preferredSize?: { w: number; h: number };
+  /**
+   * Per-axis request to be sized by measured content rather than by a hint or
+   * a share. The core never measures: an adapter reports the measurement as
+   * `LayoutItem.natural` and a strategy that understands it obliges. An axis
+   * the strategy does not size is ignored, so `{ h: 'content' }` is inert in a
+   * horizontal strip.
+   */
+  sizing?: { w?: 'content'; h?: 'content' };
   order?: number;
 }
 
