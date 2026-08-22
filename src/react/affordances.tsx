@@ -134,7 +134,7 @@ function AffordanceHandle({
   onJoinArmChange,
 }: AffordanceHandleProps) {
   const last = useRef<{ x: number; y: number } | null>(null);
-  const accum = useRef<{ requested: number; start: number } | null>(null);
+  const overshoot = useRef<number | null>(null);
   const [armedId, setArmedId] = useState<NodeId | null>(null);
   const armedRef = useRef<NodeId | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -153,7 +153,7 @@ function AffordanceHandle({
     (commit: boolean) => {
       const victim = armedRef.current;
       setArmed(null);
-      accum.current = null;
+      overshoot.current = null;
       if (commit && victim) {
         trace('store', `join: ${affordance.id} destroys ${victim}`);
         store.unregisterNode(victim);
@@ -167,16 +167,15 @@ function AffordanceHandle({
       const join = affordance.join;
       const b = affordance.bounds;
       if (!join || !b) return;
-      if (!accum.current) accum.current = { requested: 0, start: b.valueNow };
-      accum.current.requested += delta;
       const state = trackJoin({
         join,
-        requested: accum.current.requested,
-        // Read back rather than predicted: the strategy clamped where it
-        // clamps, and re-deriving that here drifts from what it wrote.
-        consumed: b.valueNow - accum.current.start,
+        overshoot: overshoot.current ?? 0,
+        delta,
+        atMin: b.atMin,
+        atMax: b.atMax,
         canDestroy: (id) => destroyBlockedBy(store, id as NodeId) === null,
       });
+      overshoot.current = state.overshoot;
       setArmed(state.armed ? ((state.candidateId as NodeId | undefined) ?? null) : null);
     },
     [affordance.join, affordance.bounds, store, setArmed],
@@ -185,8 +184,6 @@ function AffordanceHandle({
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       last.current = { x: e.clientX, y: e.clientY };
-      const b = affordance.bounds;
-      if (!accum.current && b) accum.current = { requested: 0, start: b.valueNow };
       setDragging(true);
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -195,7 +192,7 @@ function AffordanceHandle({
       }
       onActiveChange(true);
     },
-    [onActiveChange, affordance.bounds],
+    [onActiveChange],
   );
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {

@@ -78,20 +78,16 @@ function mount(store: Store) {
   return { container, seam: seam as HTMLElement };
 }
 
-/** Pointer travel in <threshold steps, so the one-frame prop lag never looks
- *  like overshoot on its own. Returns the clientX it left the pointer at. */
-function drag(seam: HTMLElement, total: number, from = 0, step = 10): number {
-  const dir = Math.sign(total);
-  let moved = 0;
-  let x = from;
-  while (moved !== total) {
-    const d = dir * Math.min(step, Math.abs(total - moved));
-    moved += d;
-    x += d;
-    fireEvent.pointerMove(seam, { pointerId: 1, clientX: x, clientY: 0 });
-  }
+/** One pointermove of `delta`, the way a fast drag actually arrives. Returns
+ *  the clientX it left the pointer at. */
+function move(seam: HTMLElement, delta: number, from = 0): number {
+  const x = from + delta;
+  fireEvent.pointerMove(seam, { pointerId: 1, clientX: x, clientY: 0 });
   return x;
 }
+
+/** Travel that takes `a` to its 320px ceiling, leaving the seam pinned. */
+const TO_CLAMP = 145;
 
 function down(seam: HTMLElement, at = 0) {
   fireEvent.pointerDown(seam, { pointerId: 1, clientX: at, clientY: 0 });
@@ -119,8 +115,20 @@ describe('seam join — arming', () => {
   it('a resize inside the neighbor floor does not arm', () => {
     const { container, seam } = mount(store);
     down(seam);
-    const x = drag(seam, 60);
+    const x = move(seam, 60);
     expect(armedPane(container)).toBeNull();
+    up(seam, x);
+    expect(store.getNode(asNodeId('b'))).toBeDefined();
+  });
+
+  // A fast drag asks for far more than the seam can absorb in one move. The
+  // seam was not pinned when the move arrived, so none of it is overshoot.
+  it('a single large move from rest does not arm, however far it travels', () => {
+    const { container, seam } = mount(store);
+    down(seam);
+    const x = move(seam, TO_CLAMP);
+    expect(armedPane(container)).toBeNull();
+    expect(widthOf(store, 'a')).toBe(320);
     up(seam, x);
     expect(store.getNode(asNodeId('b'))).toBeDefined();
   });
@@ -128,7 +136,8 @@ describe('seam join — arming', () => {
   it('pushing past the floor by more than the threshold arms the victim', () => {
     const { container, seam } = mount(store);
     down(seam);
-    drag(seam, 145);
+    const x = move(seam, TO_CLAMP);
+    move(seam, 30, x);
     expect(armedPane(container)).toBe('b');
     expect(container.querySelector('[data-affordance-hit][data-join-armed]')).not.toBeNull();
   });
@@ -136,7 +145,7 @@ describe('seam join — arming', () => {
   it('releasing while armed destroys the victim and leaves its siblings', () => {
     const { seam } = mount(store);
     down(seam);
-    const x = drag(seam, 145);
+    const x = move(seam, 30, move(seam, TO_CLAMP));
     up(seam, x);
     expect(store.getNode(asNodeId('b'))).toBeUndefined();
     expect(store.getNode(asNodeId('a'))).toBeDefined();
@@ -146,9 +155,9 @@ describe('seam join — arming', () => {
   it('backing off under the threshold disarms, and release keeps the pane', () => {
     const { container, seam } = mount(store);
     down(seam);
-    let x = drag(seam, 145);
+    let x = move(seam, 30, move(seam, TO_CLAMP));
     expect(armedPane(container)).toBe('b');
-    x = drag(seam, -10, x);
+    x = move(seam, -10, x);
     expect(armedPane(container)).toBeNull();
     up(seam, x);
     expect(store.getNode(asNodeId('b'))).toBeDefined();
@@ -158,7 +167,7 @@ describe('seam join — arming', () => {
     const locked = seed(true);
     const { container, seam } = mount(locked);
     down(seam);
-    const x = drag(seam, 300);
+    const x = move(seam, 300, move(seam, TO_CLAMP));
     expect(armedPane(container)).toBeNull();
     up(seam, x);
     expect(locked.getNode(asNodeId('b'))).toBeDefined();
@@ -170,11 +179,11 @@ describe('seam join — arming', () => {
   it('overshoot resets per gesture', () => {
     const { container, seam } = mount(store);
     down(seam);
-    let x = drag(seam, 140);
+    let x = move(seam, 20, move(seam, TO_CLAMP));
     expect(armedPane(container)).toBeNull();
     up(seam, x);
     down(seam, x);
-    x = drag(seam, 10, x);
+    x = move(seam, 10, x);
     expect(armedPane(container)).toBeNull();
     up(seam, x);
     expect(store.getNode(asNodeId('b'))).toBeDefined();
@@ -186,7 +195,7 @@ describe('seam join — abandoning the gesture', () => {
     const store = seed();
     const { container, seam } = mount(store);
     down(seam);
-    const x = drag(seam, 145);
+    const x = move(seam, 30, move(seam, TO_CLAMP));
     expect(armedPane(container)).toBe('b');
     fireEvent.pointerCancel(seam, { pointerId: 1, clientX: x, clientY: 0 });
     expect(store.getNode(asNodeId('b'))).toBeDefined();
@@ -197,7 +206,7 @@ describe('seam join — abandoning the gesture', () => {
     const store = seed();
     const { container, seam } = mount(store);
     down(seam);
-    const x = drag(seam, 145);
+    const x = move(seam, 30, move(seam, TO_CLAMP));
     expect(armedPane(container)).toBe('b');
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(store.getNode(asNodeId('b'))).toBeDefined();
@@ -212,7 +221,7 @@ describe('seam join — store consequences', () => {
     const store = seed();
     const { seam } = mount(store);
     down(seam);
-    const x = drag(seam, 145);
+    const x = move(seam, 30, move(seam, TO_CLAMP));
     const rec = recordEvents(store, 'transaction.begin', 'transaction.end');
     up(seam, x);
     rec.stop();
@@ -227,7 +236,7 @@ describe('seam join — store consequences', () => {
     store.unregisterNode(asNodeId('c'));
     const { seam } = mount(store);
     down(seam);
-    const x = drag(seam, 145);
+    const x = move(seam, 30, move(seam, TO_CLAMP));
     up(seam, x);
     expect(store.getNode(asNodeId('b'))).toBeUndefined();
     expect(store.getNode(asNodeId('root'))).toBeDefined();
@@ -240,7 +249,7 @@ describe('seam join — store consequences', () => {
     expect(store.focusedId).toBe('b');
     const { seam } = mount(store);
     down(seam);
-    const x = drag(seam, 145);
+    const x = move(seam, 30, move(seam, TO_CLAMP));
     up(seam, x);
     expect(store.getNode(asNodeId('b'))).toBeUndefined();
     expect(store.focusedId).not.toBe('b');

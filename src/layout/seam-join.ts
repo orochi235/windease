@@ -7,11 +7,15 @@ export const DEFAULT_JOIN_THRESHOLD = 24;
 
 export interface TrackJoinInput {
   join: AffordanceJoin;
-  /** Cumulative main-axis pointer travel since the gesture began. */
-  requested: number;
-  /** Main-axis extent the layout absorbed: `bounds.valueNow` now, less its
-   *  value when the gesture began. */
-  consumed: number;
+  /** Overshoot accumulated so far this gesture; 0 when it began. */
+  overshoot: number;
+  /** Main-axis travel this move asked for. */
+  delta: number;
+  /** Whether the affordance is pinned at each end, from `bounds`. Only a
+   *  pinned seam accumulates: an unpinned one is still resizing, however fast
+   *  the pointer is moving. */
+  atMin: boolean;
+  atMax: boolean;
   /** Whether this node may be destroyed. Injected rather than read from a
    *  store so the arithmetic stays pure and testable with plain numbers. */
   canDestroy: (id: NodeId | string) => boolean;
@@ -25,7 +29,7 @@ export interface JoinState {
    * only together with `armed`.
    */
   candidateId?: NodeId | string;
-  /** Signed distance past the clamp; zero while the seam is still moving. */
+  /** Signed distance past the clamp. Feed it back as `overshoot` next move. */
   overshoot: number;
 }
 
@@ -33,18 +37,30 @@ export interface JoinState {
  * Whether a seam gesture has been pushed far enough past its clamp to destroy
  * something on release, and what.
  *
- * The seam stops moving but the pointer does not, and nothing else in the
- * system records the difference: `requested` keeps growing while `consumed`
- * freezes at the floor. The gap is the overshoot, and its sign picks which end
- * of the affordance's range the user is pressing against.
+ * A reducer over one move at a time: the caller keeps the returned `overshoot`
+ * and hands it back with the next delta. Travel counts only while the
+ * affordance reports itself pinned at the end being pushed toward, which is
+ * the one signal that distinguishes pushing against a floor from resizing
+ * quickly.
  *
  * @group Layout
  */
 export function trackJoin(input: TrackJoinInput): JoinState {
-  const overshoot = input.requested - input.consumed;
-  const candidateId =
-    overshoot > 0 ? input.join.atMax : overshoot < 0 ? input.join.atMin : undefined;
-  if (candidateId === undefined) return { armed: false, overshoot };
-  const armed = Math.abs(overshoot) > input.join.threshold && input.canDestroy(candidateId);
-  return { armed, candidateId, overshoot };
+  const { overshoot, delta } = input;
+  const pinned = delta > 0 ? input.atMax : delta < 0 ? input.atMin : false;
+  let next: number;
+  if (pinned) {
+    next = overshoot + delta;
+  } else if (overshoot === 0) {
+    next = 0;
+  } else {
+    // The seam is moving again, so the push is being given back. Unwind
+    // toward zero without crossing it into the opposite direction.
+    const unwound = overshoot + delta;
+    next = Math.sign(unwound) === Math.sign(overshoot) ? unwound : 0;
+  }
+  const candidateId = next > 0 ? input.join.atMax : next < 0 ? input.join.atMin : undefined;
+  if (candidateId === undefined) return { armed: false, overshoot: next };
+  const armed = Math.abs(next) > input.join.threshold && input.canDestroy(candidateId);
+  return { armed, candidateId, overshoot: next };
 }
