@@ -242,20 +242,20 @@ describe('root container origins', () => {
   });
 
   it('stops listening once the root unmounts', () => {
+    // React nulls the ref on unmount, so a leaked listener would still measure
+    // nothing — the removal itself is what has to be asserted.
+    const added = vi.spyOn(window, 'addEventListener');
+    const removed = vi.spyOn(window, 'removeEventListener');
     stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
-    const { geometry, unmount } = mount(['left']);
+    const { unmount } = mount(['left']);
+
+    const listening = (spy: typeof added) =>
+      spy.mock.calls.filter(([type]) => type === 'scroll' || type === 'resize').length;
+    expect(listening(added)).toBe(2);
+    expect(listening(removed)).toBe(0);
+
     unmount();
-
-    stubRects({ left: { x: 40, y: -20, w: 100, h: 150 } });
-    stubScroll(0, 30);
-    expect(() => {
-      act(() => {
-        window.dispatchEvent(new Event('scroll'));
-        window.dispatchEvent(new Event('resize'));
-      });
-    }).not.toThrow();
-
-    expect(geometry.rectOf(asNodeId('left'))).toBeNull();
+    expect(listening(removed)).toBe(2);
   });
 
   it('re-measures a root on a scroll in an inner scroller', () => {

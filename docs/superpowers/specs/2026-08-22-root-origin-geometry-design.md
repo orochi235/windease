@@ -2,7 +2,7 @@
 
 Two sibling root containers occupy the same coordinate space and cannot be told
 apart. `<Container>` composes each child's rect against its own entry in the
-geometry registry (`src/react/Container.tsx:208-229`), and only a parent
+geometry registry (`StoreContainer` in `src/react/Container.tsx`), and only a parent
 `<Container>` ever writes that entry — so a root has none, its children land at
 origin `(0, 0)`, and every root's children overlap.
 
@@ -41,9 +41,8 @@ them apart.
 
 The rect goes into the registry under the root's own node id and nowhere else,
 so `rectOf(rootId)` answers for a root the way it already does for a placed
-container, and composition keeps reading `selfRect` from the registry
-(`Container.tsx:208`) for roots and non-roots alike. The composition effect
-(`:209-229`) is unchanged.
+container, and composition keeps reading `selfRect` from the registry for roots
+and non-roots alike. The effect that publishes child rects is unchanged.
 
 `selfRect` is read during render and the measure runs in an effect, so a root
 would otherwise compose against a stale value for one commit. The measure
@@ -53,8 +52,8 @@ only job is to schedule the render on which the fresh entry is read back.
 Re-measured on two triggers, guarded by an equality check against the published
 rect so the re-render tick does not loop:
 
-- once per commit — the same unconditional re-measure the flow path already
-  runs at `:284-286`, which is what catches a pane moved by a class toggle that
+- once per commit — the same unconditional re-measure `measureFlow` already
+  runs, which is what catches a pane moved by a class toggle that
   no observer reports. This covers resize too: the viewport ResizeObserver
   inside `ContainerHost.observe` already re-renders the container when its own
   size changes, so a second observer for the origin would only duplicate it.

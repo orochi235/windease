@@ -10,18 +10,6 @@ section below.
 
 ### Added
 
-- **Root containers report their own origin.** A `<Container>` whose node has no
-  parent measures its own element into document coordinates, publishes that rect
-  into the geometry registry under its own node id, and composes its children
-  against it — re-measured every commit and on window `resize` / capture-phase
-  `scroll`. Only a parent `<Container>` used to write a geometry entry, so every
-  root's children landed at `(0, 0)` and two sibling roots overlapped. Arrow
-  navigation and `Shift`-arrow moves now cross between zones a consumer laid out
-  as separate roots in its own CSS, instead of picking an arbitrary target.
-  Registry rects are document coordinates now rather than root-relative, so a
-  consumer reading `useGeometrySource().rectOf(id)` directly sees different
-  numbers; nothing in the library reads an absolute value, so nothing else
-  changes.
 - **`store.setAutoUnsplit(id, true)`.** A container opted into this collapses when a
   removal leaves it holding one child, lifting the survivor into the grandparent with
   the group's placement and pinned index. Opt-in on the container, because the trigger
@@ -99,9 +87,24 @@ section below.
   resolve to a set including `arrange: true` on a leaf, and that axis is in the snapshot
   — update any test asserting on an exact `LockSet`.
   See [Breaking changes](README.md#breaking-changes).
+- **Geometry rects are document coordinates, not root-relative.** A root
+  `<Container>` now measures its own element and publishes that rect, so every
+  rect in the registry is offset by where its root sits on the page. Nothing in
+  the library reads an absolute value — navigation and moves compare rects to
+  each other — but a consumer reading `useGeometrySource().rectOf(id)` directly
+  sees different numbers than before.
 
 ### Fixed
 
+- **Two sibling root `<Container>`s no longer share one coordinate space.** Only
+  a parent `<Container>` used to write a geometry entry, so a root had none and
+  its children landed at `(0, 0)` — two top-level zones overlapped exactly, and a
+  directional key between them picked an arbitrary target rather than the pane in
+  that direction. A root now measures itself, re-measuring every commit and on
+  window `resize` / capture-phase `scroll`. Arrow navigation and `Shift`-arrow
+  moves cross correctly between zones composed as separate roots in consumer CSS.
+  This is the `<Container>` path; the `<Zone>` / `<Panel>` presets do not report
+  geometry at all, so keyboard navigation there is unaffected.
 - A strip pane resizes from the extent it renders at.
 - A drop resolves against the release point rather than the last sampled frame.
 - The caret stays in the layout across a drag.

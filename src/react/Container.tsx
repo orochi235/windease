@@ -293,9 +293,9 @@ function StoreContainer({
     const el = ref.current;
     if (!el || !geometryRegistry) return;
     const self = el.getBoundingClientRect();
-    const parentOrigin = geometryRegistry.rects.get(String(parentId));
-    const originX = (parentOrigin?.x ?? 0) - self.x;
-    const originY = (parentOrigin?.y ?? 0) - self.y;
+    const selfOrigin = geometryRegistry.rects.get(String(parentId));
+    const originX = (selfOrigin?.x ?? 0) - self.x;
+    const originY = (selfOrigin?.y ?? 0) - self.y;
     flowRects.current = [];
     for (const child of childRectsForContainer(el)) {
       flowRects.current.push(child.id);
