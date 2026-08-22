@@ -91,6 +91,12 @@ both workstreams misread it, which is why it was renamed in 1.2.0. `hasFocus`
 survives as a `@deprecated` alias until 2.0.0. For actual focus state read
 `getNode(id)?.focus?.state` or compare `store.focusedId`.
 
+**Only cite a commit hash once it is on the trunk.** A hash naming a commit on
+an unmerged branch expires when a rebase renumbers it, and `git show` then
+returns nothing — a reader cannot tell whether the commit was dropped, squashed
+or renumbered. `scripts/check-doc-hashes.sh` verifies every citation in every
+tracked `.md`; run it after any rebase that touched documented commits.
+
 **A regression test written alongside its fix may be vacuous.** The original
 graft collision test passed for free because nothing mutated yet, and it could
 not have failed regardless of where the check sat. The only reliable check is to
