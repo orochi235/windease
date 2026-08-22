@@ -156,3 +156,58 @@ describe('graft validation', () => {
     expect(graft(s, snap, asNodeId('z'), { force: true })).toBe('a');
   });
 });
+
+describe('graft attaches', () => {
+  it('round-trips a subtree back under the same parent', () => {
+    const s = buildTree();
+    const before = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['b']);
+
+    const id = graft(s, before, asNodeId('z'));
+
+    expect(id).toBe('a');
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['b', 'a']);
+    expect(s.getChildren(asNodeId('a')).map((n) => n.id)).toEqual(['a1', 'a2']);
+    expect(s.getMeta(asNodeId('a1'))).toEqual({ title: 'one' });
+    expect(serialize(s, { root: asNodeId('a') })).toEqual(before);
+  });
+
+  it('restores the root placement it was serialized with', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    graft(s, snap, asNodeId('z'));
+    expect(s.getPlacement(asNodeId('a'))).toEqual({ size: { w: 300 } });
+  });
+
+  it('grafts into a different parent, and into a second store', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+
+    const fresh = new Store();
+    fresh.registerNode(
+      createNode({ id: asNodeId('host'), container: { strategyId: 'grid', config: {} } }),
+    );
+    expect(graft(fresh, snap, asNodeId('host'))).toBe('a');
+    expect(fresh.getChildren(asNodeId('host')).map((n) => n.id)).toEqual(['a']);
+    expect(fresh.getChildren(asNodeId('a')).map((n) => n.id)).toEqual(['a1', 'a2']);
+  });
+
+  it('is a single transaction', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    const rec = recordEvents(s, 'transaction.begin', 'transaction.end', 'node.registered');
+
+    graft(s, snap, asNodeId('z'));
+
+    expect(rec.of('transaction.begin')).toHaveLength(1);
+    expect(rec.of('transaction.end')).toHaveLength(1);
+    expect(rec.of('node.registered')).toHaveLength(3);
+    expect(rec.log[0]?.name).toBe('transaction.begin');
+    expect(rec.log.at(-1)?.name).toBe('transaction.end');
+    rec.stop();
+  });
+});

@@ -193,10 +193,36 @@ export function graft(store: Store, snap: unknown, parentId: NodeId, opts?: Graf
   }
   validateSnapshotLinks(parsed.nodes);
 
+  const byId = new Map(parsed.nodes.map((sn) => [sn.id, sn] as const));
+
+  // Within the snapshot the root has no membership. Give it one pointing at
+  // the graft target, so the same walk hydrate uses works unchanged.
+  const rootEntry = byId.get(rootId) as SerializedNode;
+  rootEntry.membership = {
+    parentId: parentId as string,
+    placement: parsed.rootPlacement ?? {},
+  };
+
   trace(
     'store',
     `graft: ${rootId} (${parsed.nodes.length} nodes) → ${parentId}@${opts?.at ?? 'end'}`,
   );
+
+  store.transact(() => {
+    const visit = (id: string): void => {
+      const sn = byId.get(id);
+      if (!sn) return;
+      store.registerNode(buildNodeFromSerialized(sn, { emptyChildOrder: true }));
+      if (sn.container) {
+        for (const cid of sn.container.childOrder) visit(cid);
+      }
+    };
+    visit(rootId);
+    if (opts?.at !== undefined) {
+      store.reorderInParent(rootId, opts.at, { force: opts.force ?? false });
+    }
+  }, 'graft');
+
   return rootId;
 }
 
