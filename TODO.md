@@ -188,6 +188,14 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   nothing fits is clamped to the container rather than overflowed, so a
   consumer who would rather see the excess than a clamped pane has no way to
   ask for it. A choice, not a law — revisit if anyone wants the other one.
+- **`unregisterNode`'s cascade does not check descendant locks.** It asserts
+  `lock.destroy` on the id it is handed, then clears the subtree through
+  `detachAndRemove`, which asserts nothing — so a destroy-locked node nested
+  inside a destroyed subtree dies silently. Nothing reaches this today by
+  gesture; seam-join is the first thing that would, and it declines to, by
+  refusing to arm when any descendant is locked (`destroyBlockedBy`). Fixing it
+  in the store is the real repair, and it is a behavior change: hosts that
+  destroy a subtree today would start throwing.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like
