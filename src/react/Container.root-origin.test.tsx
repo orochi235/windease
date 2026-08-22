@@ -79,18 +79,21 @@ interface Mounted {
   unmount: () => void;
 }
 
-function mount(rootIds: string[], opts: { strict?: boolean } = {}): Mounted {
-  const store = makeStore(rootIds);
+function mountStore(
+  store: Store,
+  containerIds: string[],
+  opts: { strict?: boolean } = {},
+): Mounted {
   let geometry: GeometrySource | null = null;
   const tree = () => {
     const inner = (
       <Provider store={store}>
         <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
           <GeometryProvider>
-            {rootIds.map((rid) => (
+            {containerIds.map((cid) => (
               <Container
-                key={rid}
-                parentId={asNodeId(rid)}
+                key={cid}
+                parentId={asNodeId(cid)}
                 chrome={{}}
                 viewport={{ w: 100, h: 200 }}
               />
@@ -113,6 +116,10 @@ function mount(rootIds: string[], opts: { strict?: boolean } = {}): Mounted {
     rerender: () => view.rerender(tree()),
     unmount: view.unmount,
   };
+}
+
+function mount(rootIds: string[], opts: { strict?: boolean } = {}): Mounted {
+  return mountStore(makeStore(rootIds), rootIds, opts);
 }
 
 beforeEach(() => {
@@ -155,6 +162,47 @@ describe('root container origins', () => {
     const { geometry } = mount(['left'], { strict: true });
     expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 200 });
     expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 40, y: 10, w: 100, h: 100 });
+  });
+
+  it('keeps two sibling roots in disjoint coordinate ranges', () => {
+    stubRects({
+      left: { x: 0, y: 0, w: 100, h: 200 },
+      right: { x: 300, y: 0, w: 100, h: 200 },
+    });
+    const { geometry } = mount(['left', 'right']);
+
+    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 0, y: 0, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('left-b'))).toEqual({ x: 0, y: 100, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('right-a'))).toEqual({ x: 300, y: 0, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('right-b'))).toEqual({ x: 300, y: 100, w: 100, h: 100 });
+  });
+
+  it('leaves a parented container unplaced when no one renders its parent', () => {
+    const store = new Store();
+    const root = asNodeId('root');
+    const nested = asNodeId('nested');
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'y', fill: true } },
+        id: root,
+      }),
+    );
+    store.showNode(root);
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'y', fill: true } },
+        id: nested,
+        parentId: root,
+      }),
+    );
+    store.showNode(nested);
+
+    stubRects({ nested: { x: 40, y: 10, w: 100, h: 200 } });
+    const { geometry } = mountStore(store, ['nested']);
+
+    expect(geometry.rectOf(nested)).toBeNull();
   });
 
   it('forgets the root rect on unmount', () => {
