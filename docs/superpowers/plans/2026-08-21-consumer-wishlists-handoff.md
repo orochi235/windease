@@ -2,25 +2,40 @@
 
 For whoever picks up the three consumer wishlists in `TODO.md`. It assumes you
 have read those sections; this covers only what they can't carry — tree state,
-the one decision still open, and the traps that cost time.
+the decisions still open, and the traps that cost time.
 
-The keyboard-navigation work is a **separate session** with its own spec, plan,
-and worktree. Nothing here overlaps it; see "Two agents" below.
+The keyboard-navigation work was a separate session; it has landed on local
+`main`. See "Two agents" below for what it owns.
 
 ## Tree state
 
-On `main`, clean. `origin/main` is behind local — the keyboard session pushed
-through `5705f44`; everything after is local only. Nothing here has been
-pushed, and pushing is gated on the user asking.
+On `feat/subtree-graft`, clean, **not pushed and not merged to `main`**. 16 commits
+ahead of `main`, which is itself local-only at `3ee4303` — nothing in this repo
+has reached `origin` since `b5d5647`. 826 tests / 75 files green, plus
+typecheck, lint and build.
 
-`.claude/worktrees/keyboard-nav/` is the other session's worktree, on branch
-`feat/keyboard-navigation`. Leave it alone.
+The branch already has `main` merged into it twice, so it is current with the
+keyboard-navigation work. `.claude/worktrees/keyboard-nav/` is finished and its
+branch is merged to local `main`.
+
+**Nothing is released.** `package.json` and `src/index.ts`'s `VERSION` are both
+still `1.1.0`. Both workstreams ship as 1.2.0 by the user's decision, and
+`TODO.md`'s heading says `## On main, unreleased — ships as 1.2.0` precisely
+because the claim runs ahead of the mint. `npm version minor` has deliberately
+not been run by either session: its `postversion` pushes the tag, which triggers
+the Release workflow to publish over OIDC. That is the user's call.
 
 ## What shipped
 
-`git log debb4e0..HEAD`. Each commit body carries its own reasoning; don't
-re-derive it from the diff. The wishlist entries in `TODO.md` were rewritten in
-place as items landed, so that file is current, not aspirational.
+**Subtree serialize / graft**, this session. `serialize(store, { root })` emits a
+v5 snapshot of one node and its descendants; `graft(store, snap, parentId, opts)`
+attaches one under a named parent. Design and rationale:
+[`specs/2026-08-21-subtree-serialize-graft-design.md`](../specs/2026-08-21-subtree-serialize-graft-design.md).
+Task breakdown: [`plans/2026-08-21-subtree-serialize-graft.md`](2026-08-21-subtree-serialize-graft.md).
+Don't re-derive either from the diff.
+
+Earlier wishlist items: `git log debb4e0..HEAD`. The wishlist entries in
+`TODO.md` are rewritten in place as items land, so that file is current.
 
 ## The one open decision
 
@@ -61,6 +76,25 @@ and caught it. Any doc example calling library APIs wants the same treatment.
 plans have been scoped against a `splitStrategy` that was deleted in 1.0.0.
 Check before assuming a change is wide.
 
+**`store.transact` does not roll back on exception.** A composite operation that
+throws partway leaves every mutation it already made. This is why `graft`
+validates everything — ids, parent, locks, links — before opening the
+transaction, rather than leaning on `registerNode`'s own duplicate check, which
+throws mid-walk and would strand a half-grafted tree. Pinned by
+`src/snapshot.subtree.test.ts` ("rejects a deep colliding id"). Any future
+multi-step store operation inherits this trap.
+
+**`store.hasFocus(id)` is a capability check, not a focus check.** It answers
+"does this node have a focus machine," sibling to `isContainer` / `isMember` —
+not "is this node focused now." For the latter read `getNode(id)?.focus?.state`
+or compare `store.focusedId`. A test asserting `hasFocus(x) === false` on a
+focus-capable node will fail confusingly.
+
+**A regression test written alongside its fix may be vacuous.** The original
+graft collision test passed for free because nothing mutated yet, and it could
+not have failed regardless of where the check sat. The only reliable check is to
+break the thing deliberately and watch the test go red before committing it.
+
 ## Two agents, one repo
 
 File ownership is announced by message before opening a file. Separate
@@ -69,13 +103,12 @@ worktrees prevent git conflicts, not two agents editing the same path.
 This workstream owns `src/layout/`, `src/react/styles.css`, and
 `src/snapshot.ts`.
 
-The keyboard session (branch `feat/keyboard-navigation`, plan at
-`2026-08-21-keyboard-navigation.md`, 7 of 13 tasks done as of this writing)
-owns `src/focus/**` and `src/react/focus/**` outright. Its edits to shared
-files are small and already committed: `node.ts`, `store.ts`,
-`layout-types.ts`, `index.ts`. Still ahead of it, so expect to meet there:
-`src/react/Container.tsx`, `src/react/index.ts`,
-`src/react/stories/Playground.stories.tsx`, `README.md`, `TODO.md`.
+The keyboard session is **finished and merged to local `main`** — focus model,
+roving tabindex, arrow/Home/End/F6 navigation, a `GeometrySource`, and
+reduced-motion. Spec at `2026-08-21-keyboard-navigation-design.md`. It owns
+`src/focus/**` and `src/react/focus/**`; its edits to `node.ts`, `store.ts`,
+`layout-types.ts`, `index.ts`, `Container.tsx`, `README.md` and `TODO.md` are
+all in. Take `main` before touching any of those.
 
 `container-host.ts` is unclaimed but its Task 8 reads `ContainerHost`
 placements through a `GeometrySource`. Flag before changing what `layout()`
@@ -87,10 +120,19 @@ from them, including one in a fix for a bug they had just reported.
 
 ## Next
 
-`TODO.md` is the work list. Unblocked and self-contained: **subtree
-serialize/hydrate** (labkit list — `serialize` is whole-store at
-`src/snapshot.ts:51`; needs an id-collision policy on graft) and **grid resize
-gutters** (build on `resizeMode: 'neighbor'` rather than reinventing the
-clamping, and fold in the `patchPlacement` span lock-gate). **In-flow render
-mode** needs hard scoping before anyone starts — a second rendering path means
-every future feature works in both or explicitly doesn't.
+`TODO.md` is the work list. The two subtree wishlist items are done; what's left
+from the labkit list:
+
+- **Grid resize gutters** — unblocked and self-contained. Build on
+  `resizeMode: 'neighbor'` rather than reinventing the clamping, and fold in the
+  `patchPlacement` span lock-gate at the same time.
+- **Controlled `childOrder`, the second half.** `preserveStoreOrder` shipped the
+  uncontrolled half; an `onChildOrderChange` intent for a host that wants to
+  approve or transform a reorder is still open.
+- **In-flow render mode** needs hard scoping before anyone starts — a second
+  rendering path means every future feature works in both or explicitly doesn't.
+
+Still deliberately unanswered, unchanged from the last handoff: **how a canvas
+host learns about `devicePixelRatio`** (klieg wishlist). It would be the second
+exception to the DOM-independence tenet, and was left for the user rather than
+established quietly. Do not implement it without asking.
