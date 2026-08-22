@@ -334,6 +334,27 @@ stop moving because its *neighbor* hit a limit while it is nowhere near its
 own. `aria-valuenow` reflects where it actually landed; nothing is narrated to
 a live region.
 
+### Grid seams
+
+`gridStrategy` takes `resizable: true` and emits the same affordances, except
+they write `placement.span` — **cell counts, not pixels**, so an extent moves a
+whole cell at a time and `aria-valuenow` reads as a column or row count. A
+keyboard press moves exactly one cell, because the affordance reports its own
+`bounds.step` rather than taking the container's pixel default.
+
+```tsx
+<Zone id={zoneId} strategy="grid" config={{ resizable: true }} />
+```
+
+A grid packs rather than pairing, so there is no one neighbor a seam trades
+with: growing an item costs whoever no longer fits. The reported maximum is
+therefore the largest span at which every sibling is still placed — in a grid
+with no `maxRows`, that means it grows a row rather than dropping anyone.
+
+A seam appears wherever a span can move in either direction, including on an
+item already spanning to the edge, so a grown item can always be brought back.
+`span` is gated by `lock.resize` exactly as `size` is.
+
 ## Keyboard navigation
 
 Wrap the tree in two providers to make the layout reachable by keyboard.

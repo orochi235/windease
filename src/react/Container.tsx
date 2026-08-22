@@ -494,9 +494,18 @@ function AffordanceHandle({
       const dy = e.clientY - last.current.y;
       if (dx === 0 && dy === 0) return;
       last.current = { x: e.clientX, y: e.clientY };
-      dispatch({ affordanceId: affordance.id, kind: 'drag', payload: { dx, dy } });
+      // Container-relative pointer, for strategies whose extents are quantized
+      // and cannot accumulate a few pixels at a time. Derived from this
+      // handle's own box against the rect the strategy gave it, so no ancestor
+      // needs measuring.
+      const box = e.currentTarget.getBoundingClientRect();
+      const point = {
+        x: affordance.rect.x - padXRef.current + (e.clientX - box.left),
+        y: affordance.rect.y - padYRef.current + (e.clientY - box.top),
+      };
+      dispatch({ affordanceId: affordance.id, kind: 'drag', payload: { dx, dy, point } });
     },
-    [dispatch, affordance.id],
+    [dispatch, affordance.id, affordance.rect.x, affordance.rect.y],
   );
   const onPointerUp = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -513,15 +522,20 @@ function AffordanceHandle({
   );
 
   const bounds = affordance.bounds;
+  const padXRef = useRef(0);
+  const padYRef = useRef(0);
   const onKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
       if (!bounds) return;
       const horizontal = bounds.orientation === 'horizontal';
       const back = horizontal ? 'ArrowLeft' : 'ArrowUp';
       const fwd = horizontal ? 'ArrowRight' : 'ArrowDown';
+      // A strategy whose units are not pixels says how far one press goes;
+      // 8 of something is meaningless in cell counts.
+      const step = bounds.step ?? keyStep;
       let delta: number;
-      if (e.key === back) delta = -keyStep;
-      else if (e.key === fwd) delta = keyStep;
+      if (e.key === back) delta = -step;
+      else if (e.key === fwd) delta = step;
       else if (e.key === 'Home') delta = bounds.valueMin - bounds.valueNow;
       else if (e.key === 'End') delta = bounds.valueMax - bounds.valueNow;
       // Anything else — including the perpendicular arrows — bubbles, so pane
@@ -556,6 +570,8 @@ function AffordanceHandle({
     affordance.kind === 'resize-xy';
   const padX = isXish ? hitPad : 0;
   const padY = isYish ? hitPad : 0;
+  padXRef.current = padX;
+  padYRef.current = padY;
   const outerStyle: CSSProperties = {
     ...AFFORDANCE_BASE,
     left: affordance.rect.x - padX,

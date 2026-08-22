@@ -594,7 +594,10 @@ export class Store {
     if (!node.membership) {
       throw new CapabilityMissingError(id, 'membership', 'patchPlacement');
     }
-    if ('size' in patch) this.assertUnlocked(id, 'resize', 'patchPlacement', opts);
+    // `span` is grid's cell-count analog of `size`; both are the resize axis.
+    if ('size' in patch || 'span' in patch) {
+      this.assertUnlocked(id, 'resize', 'patchPlacement', opts);
+    }
     // Unlike `size`, a direct `pinned` write can't be lock-gated and allowed through:
     // it skips the bounds check and displacement routing, desyncing it from childOrder.
     if ('pinned' in patch) {

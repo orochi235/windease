@@ -282,6 +282,10 @@ serialize/graft work goes out under the same 1.2.0.
   resolution for its own children: an id wins, `undefined` falls through to
   the geometric search, `null` declares the direction dead there.
 - **`prefers-reduced-motion`** now suppresses the settle transition.
+- **Grid resize gutters.** `gridStrategy` with `resizable: true` emits seams
+  that write `placement.span`, so auto-balance and draggable seams compose.
+  `patchPlacement` lock-gates `span` behind `resize`. Adds
+  `LayoutEvent.payload.point` and `Affordance.bounds.step`, both additive.
 - **Controlled child order.** `<Container onChildOrderChange>` hands the host
   the order a drop would have produced and writes nothing, for a host whose own
   store is the authority. `DragController.registerOrderControl` is the
@@ -343,15 +347,6 @@ keyboard-navigation design deliberately did not specify.
   comment.
 - TypeScript is held at 6.x because typedoc 0.28's peer range stops at
   `6.0.x`. Revisit TS 7 (the Go port) once typedoc ships support.
-- `gridStrategy` honors `placement.span` (cell-count spans, reserved and
-  clamped) but has no resize affordances that write it, so
-  `split(id, { direction: 'grid' })` still produces a tiling with no
-  draggable gutters. Wiring a gutter that mutates `span` on drag is the
-  remaining capability gap against the `splitStrategy` this release removed.
-- `patchPlacement` lock-gates `size` writes behind the `resize` axis but not
-  `span` — a resize-locked node's grid span can still be changed directly.
-  Unguarded because nothing writes `span` yet (see the gutter gap above); fold
-  the gate in when a gutter lands.
 - **A node cannot be locked against gaining a container.** `resolveLock` drops
   axes the node's current capabilities don't support, and `arrange` requires an
   existing `container` — so `setLock(panel, { arrange: true })` silently stores
@@ -543,14 +538,32 @@ a host with its own per-item undo stacks simply doesn't wire it.
   one undo step. Graft never moves focus. A subtree snapshot is an ordinary v5
   snapshot, so `deserialize` still opens one as a standalone store.
 
-- **Grid resize gutters** (promoted from Loose ends). Auto-balance lives in
-  `gridStrategy`; draggable seams live in `stripStrategy`. A host that wants
-  both has to give one up — nesting strips via `store.split` discards the
-  `ceil(sqrt(n))` arrangement that made the grid worth adopting. This is the
-  same gutter-writes-`span` gap already recorded against the removed
-  `splitStrategy`; the workspace-tiling case is what makes it load-bearing
-  rather than a symmetry complaint. Fold in the `patchPlacement` span
-  lock-gate at the same time.
+- **Shipped: grid resize gutters.** `gridStrategy` takes `resizable: true` and
+  emits `resize-x-<id>` / `resize-y-<id>` on each item whose span can move,
+  writing `placement.span`. Auto-balance and draggable seams are no longer an
+  either/or. `patchPlacement` now lock-gates `span` behind the `resize` axis
+  alongside `size`, closing the Loose-ends gap.
+
+  It is **not** strip's pairing semantics, and trying to copy them was the
+  wrong instinct: a grid packs rather than pairs, so growing an item costs
+  whoever no longer fits rather than one named neighbor. `valueMax` is the
+  largest span at which every sibling is still placed — which in an unbounded
+  grid means the grid grows a row rather than dropping anyone.
+
+  Two contract additions this needed, both additive:
+
+  - **`LayoutEvent.payload.point`**, the pointer in container-relative
+    coordinates. A quantized extent cannot accumulate incremental `dx`: a few
+    pixels round to the span it already has, every time, so the drag never
+    moves. Grid resolves against the pointer instead, which is also
+    self-correcting rather than drift-prone. Strip ignores it.
+  - **`Affordance.bounds.step`**, how far one keyboard press should move this
+    affordance in its own units. `<Container>`'s `affordanceKeyStep` is 8
+    pixels, which is meaningless against a value counted in cells.
+
+  A seam is emitted when the span *can* move in either direction, not when a
+  cell follows it — keying on the latter drops the handle from an item spanning
+  to the edge and leaves it grown with no way back.
 
 - **In-flow render mode, per zone.** `docs/explorations/2026-06-04-flexbox-passive-zones.md`
   declined replacing the passive strategies with CSS, and its "what's lost"

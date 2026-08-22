@@ -131,6 +131,13 @@ export interface Affordance<TMeta = unknown> {
      *  `valueNow` to the bounds — float equality is not a reliable test. */
     atMin: boolean;
     atMax: boolean;
+    /**
+     * How far one keyboard press should move this affordance, in the same
+     * units as `valueNow`. Absent means the host picks (`<Container>` uses
+     * `affordanceKeyStep`). A strategy whose units are not pixels sets it, so
+     * one press is one meaningful increment rather than 8 of something.
+     */
+    step?: number;
   };
 }
 
@@ -184,7 +191,15 @@ export interface LayoutEvent {
    * `| string` escape; removed at 2.0.0.
    */
   kind: 'drag' | 'click' | 'key';
-  payload: { dx?: number; dy?: number; key?: string };
+  /**
+   * `point` is the pointer in container-relative coordinates, present only on
+   * a pointer drag. A strategy whose extents are continuous can work from
+   * `dx`/`dy` alone; one whose extents are quantized cannot — a few pixels
+   * rounds to no change every time, so the drag never accumulates. Those read
+   * `point` and resolve against it, which is also self-correcting rather than
+   * drift-prone.
+   */
+  payload: { dx?: number; dy?: number; key?: string; point?: { x: number; y: number } };
 }
 
 /**
