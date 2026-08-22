@@ -14,7 +14,26 @@ This file carries only what they can't.
 
 ## What is left
 
-Push and release, both held for the user — see Version below. Nothing else.
+Push and release, both held for the user — see Version below. Nothing else on
+this workstream.
+
+## Next work, agreed but not started
+
+The user asked to take the three `[HIGH]` wishlists in `TODO.md` next, all
+three, starting with docked tool palettes. Nothing is designed or planned
+yet — those sections are consumer evaluations, not commitments, and each
+needs its own brainstorm before a spec.
+
+- **Wishlist: docked tool palettes** — content-driven sizing is the load
+  bearing gap ("as tall as my contents" currently forces the consumer into a
+  layout pass keyed on the output of a layout pass).
+- **Wishlist: hosting an app that already has a workspace store** — controlled
+  `childOrder`, where the binding and the host are two writers for order.
+- **Grid resize gutters** — auto-balance lives in `gridStrategy`, draggable
+  seams in `stripStrategy`, and a host wanting both must give one up.
+
+Read those three sections before proposing anything; they already record what
+a consumer hit and what is genuinely missing versus already shipped.
 
 ## Three defects the browser found that jsdom could not
 
