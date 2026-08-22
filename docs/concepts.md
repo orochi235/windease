@@ -198,6 +198,9 @@ methods:
 - `setPlacement` / `patchPlacement` — membership.placement merge-patches;
   throw if the patch contains `pinned`.
 - `setMeta` — node.meta merge-patch.
+- `setHints` — node.hints merge-patch. Compares by value, not identity, so a
+  binding that rebuilds `hints` from props each render does not report a
+  change every time.
 - `updateContainerConfig` — strategy config merge-patch.
 - `setAllowsPinning` — container policy flag; opts out of the pin invariant.
 - `setLock(id, input)` / `getLock(id)` / `isLocked(id, axis)` —
@@ -287,7 +290,11 @@ this section is the vocabulary, not the design.
 ## Layout strategies
 
 Strategies are pure functions of `{ items, container, state, options }`
-returning `LayoutResult { placements, affordances, unplaced? }`. They also
+returning `LayoutResult { placements, affordances, unplaced?, overflow? }`.
+`unplaced` is capacity by *count* — items the strategy declined to place at
+all. `overflow` is capacity by *extent* — how far the content it did place
+exceeds the container per axis, absent when it fits. A row can report one
+without the other. They also
 expose an optional `reduce(state, event, context)` that turns affordance
 drag events into new state, and an optional `canAccept(items, options)`
 that the drag controller consults before accepting a drop.
@@ -358,14 +365,28 @@ and calls `store.moveNode` on drop. The controller honors `lock.accept`
 (target), `lock.dragOut` (source's parent), `lock.move` (source), and the
 destination strategy's `canAccept`.
 
-Pass `affordances` to `<Container>` to render the strategy's interactive
-gutters; `affordanceHitPad` (default 4) widens the pointer-hit area beyond
-the visual rect. Affordances are suppressed — not rendered, dispatch
-refused — when the container has `lock.arrange`, or when any pane the
-affordance would resize has `lock.resize`.
+Pass `affordances` to `<Container>`, `<Zone>` or a `<Panel>` promoted to a
+container to render the strategy's interactive gutters; all three share one
+renderer, so a seam is the same element with the same keyboard contract
+whichever path built the tree. `affordanceHitPad` (default 4) widens the
+pointer-hit area beyond the visual rect. Affordances are suppressed — not
+rendered, dispatch refused — when the container has `lock.arrange`, or when
+any pane the affordance would resize has `lock.resize`.
 
-`<Panel>` accepts `lock` and `pinned` props, reconciled like `meta` /
-`placement`. `<Zone>` accepts `lock` but not `pinned` at all — even with a
+A gesture that moves a seam writes `placement.size` to the store. Registering
+a *placement control* for a child makes that child controlled instead: the
+gesture hands the bag it would have written to the host and the store is left
+untouched, the same shape as controlled `childOrder`. `<Panel onPlacementChange>`
+is the React surface; `ContainerHost.registerPlacementControl(id, commit)` is
+the one underneath. Controlled and uncontrolled children mix in one container.
+This matters because a declared `placement` prop is re-forced on every render:
+without a control, a drag is reverted on the next one.
+
+`<Panel>` accepts `lock`, `pinned` and `hints` props, reconciled like `meta` /
+`placement`. A pane whose `hints.sizing` asks to be measured is wrapped in a
+measurement box by whichever of `<Container>` / `<Zone>` / `<Panel>` renders
+it, against the *parent's* layout scope — a nested container measures against
+what sizes it, not against itself. `<Zone>` accepts `lock` but not `pinned` at all — even with a
 `parentId`, where `store.setPinned` would work fine — a leftover from when a
 zone could never have a parent; see `TODO.md`. The generic `placement` prop
 throws if given a `pinned` key on either preset; use the dedicated prop, or
