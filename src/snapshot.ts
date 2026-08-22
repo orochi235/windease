@@ -10,7 +10,7 @@ import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
 import { asNodeId, type Node, type NodeId, type NodeKind } from './node.js';
-import { Store } from './store.js';
+import { type MutateOptions, Store } from './store.js';
 import { trace } from './trace.js';
 
 export interface SerializedNode {
@@ -147,11 +147,9 @@ function serializeSubtree(store: Store, rootId: NodeId): SerializedStore {
   return out;
 }
 
-export interface GraftOptions {
+export interface GraftOptions extends MutateOptions {
   /** Index within the target parent's `childOrder`. Appends when omitted. */
   at?: number;
-  /** Bypass the target parent's `accept` lock. */
-  force?: boolean;
 }
 
 /**
