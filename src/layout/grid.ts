@@ -1,4 +1,11 @@
-import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
+import type {
+  Affordance,
+  LayoutItem,
+  LayoutResult,
+  LayoutStrategy,
+  Rect,
+  Size,
+} from '../layout-types.js';
 
 interface GridConfig {
   cols?: number;
@@ -34,6 +41,13 @@ interface GridConfig {
   orientation?: 'wide' | 'tall';
   gap?: number;
   padding?: number;
+  /**
+   * When true, emit resize affordances on each placed item's trailing edges.
+   * Dragging one writes `placement.span` — cell counts, not pixels, so the
+   * extent moves a whole cell at a time. Default false: a grid is a tiling,
+   * and a seam that only ever snaps is worth opting into.
+   */
+  resizable?: boolean;
 }
 
 /** cols/rowCap resolution shared by `canAccept`/`getDropPreview`. Unlike
@@ -166,6 +180,128 @@ function reserveCells(
   return placed;
 }
 
+/**
+ * Resolve the same dimensions, cell sizes and reservations `layout` does.
+ * `dispatchAffordance` must agree with the pass that drew the affordance — the
+ * two computing cells differently is the whole class of bug `placedOf` closes
+ * for strip.
+ */
+function gridGeometry(
+  items: LayoutItem[],
+  container: Size,
+  cfg: GridConfig,
+): {
+  cols: number;
+  rows: number;
+  rowCap: number | undefined;
+  itemCap: number;
+  cellW: number;
+  cellH: number;
+  cells: Map<string, ReservedCell>;
+} | null {
+  if (items.length === 0) return null;
+  const gap = cfg.gap ?? 0;
+  const padding = cfg.padding ?? 0;
+  const maxCols = cfg.maxCols !== undefined ? Math.max(1, cfg.maxCols) : undefined;
+  const maxRows = cfg.maxRows !== undefined ? Math.max(1, cfg.maxRows) : undefined;
+  const fill = cfg.fill ?? true;
+
+  let cols: number;
+  let rowCap: number | undefined;
+  if (cfg.cols !== undefined) {
+    cols = Math.max(1, cfg.cols);
+    rowCap = maxRows;
+  } else if (cfg.rows !== undefined) {
+    const fixedRows = Math.max(1, cfg.rows);
+    if (fill) {
+      const needed = Math.ceil(items.length / fixedRows);
+      cols = maxCols !== undefined ? Math.min(maxCols, needed) : needed;
+    } else {
+      cols = maxCols ?? Math.max(1, Math.ceil(items.length / fixedRows));
+    }
+    cols = Math.max(1, cols);
+    rowCap = fixedRows;
+  } else if (!fill && maxCols !== undefined) {
+    cols = maxCols;
+    rowCap = maxRows;
+  } else {
+    const root = Math.sqrt(items.length);
+    const ideal = (cfg.orientation ?? 'wide') === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
+    cols = maxCols !== undefined ? Math.min(maxCols, ideal) : ideal;
+    cols = Math.max(1, cols);
+    rowCap = maxRows;
+  }
+
+  const itemCap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
+  const priorityPlaced = reserveCells(byCapacityPriority(items), cols, rowCap, itemCap);
+  const survivors = items.filter((it) => priorityPlaced.has(it.id));
+  const cells = reserveCells(survivors, cols, rowCap, survivors.length);
+
+  let usedRows = 1;
+  for (const cell of cells.values()) usedRows = Math.max(usedRows, cell.row + cell.rows);
+  const rows = !fill && rowCap !== undefined ? rowCap : usedRows;
+
+  const usableW = container.w - 2 * padding;
+  const usableH = container.h - 2 * padding;
+  return {
+    cols,
+    rows,
+    rowCap,
+    itemCap,
+    cellW: (usableW - gap * (cols - 1)) / cols,
+    cellH: (usableH - gap * (rows - 1)) / rows,
+    cells,
+  };
+}
+
+/**
+ * The largest span `id` can take on each axis without pushing any sibling out
+ * of the grid. A grid packs rather than pairing, so growing an item costs
+ * whoever no longer fits — the honest ceiling is the last span at which
+ * everyone is still placed.
+ */
+function spanReach(
+  items: LayoutItem[],
+  id: string,
+  cols: number,
+  rowCap: number | undefined,
+  itemCap: number,
+): { cols: number; rows: number } {
+  // An unbounded grid grows a row rather than dropping anyone, so fitting is
+  // tested against the *cap*, not against however many rows happen to be in
+  // use. Capping at the current count would report a ceiling of 1 for every
+  // item in a full auto-balanced grid, which can always grow.
+  const fitRows = rowCap ?? Number.POSITIVE_INFINITY;
+  const fits = (axis: 'cols' | 'rows', value: number): boolean => {
+    const probe = items.map((it) =>
+      it.id === id
+        ? {
+            ...it,
+            placement: {
+              ...it.placement,
+              span: { ...it.placement?.span, [axis]: value },
+            },
+          }
+        : it,
+    );
+    return (
+      reserveCells(probe, cols, fitRows, itemCap).size ===
+      reserveCells(items, cols, fitRows, itemCap).size
+    );
+  };
+  const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
+    let best = 1;
+    for (let v = 1; v <= cap; v++) if (fits(axis, v)) best = v;
+    return best;
+  };
+  return {
+    cols: reachOn('cols', cols),
+    // Unbounded rows still need a finite probe: nothing can usefully span more
+    // rows than there are items.
+    rows: reachOn('rows', rowCap ?? items.length),
+  };
+}
+
 /** @group Strategies */
 export const gridStrategy: LayoutStrategy<void, string> = {
   name: 'grid',
@@ -291,9 +427,107 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       });
     }
 
-    const result: LayoutResult<string> = { placements, affordances: [] };
+    const affordances: Affordance[] = [];
+    if (cfg.resizable && !preview) {
+      for (const item of items) {
+        const cell = cells.get(item.id);
+        const rect = placements.get(item.id);
+        if (!cell || !rect) continue;
+        const reach = spanReach(items, item.id, cols, rowCap, itemCap);
+        // Emit when the span can move at all, in either direction. Keying on
+        // "a cell follows this one" instead would drop the handle from an item
+        // spanning to the edge, leaving it grown with no way back.
+        if (reach.cols > 1 || cell.cols > 1) {
+          affordances.push({
+            id: `resize-x-${item.id}`,
+            kind: 'resize-x',
+            rect: { x: rect.x + rect.w - 2, y: rect.y, w: 4, h: rect.h },
+            cursor: 'ew-resize',
+            childId: item.id,
+            affects: [item.id],
+            bounds: {
+              orientation: 'horizontal',
+              valueNow: cell.cols,
+              valueMin: 1,
+              valueMax: reach.cols,
+              atMin: cell.cols <= 1,
+              atMax: cell.cols >= reach.cols,
+              step: 1,
+            },
+          });
+        }
+        if (reach.rows > 1 || cell.rows > 1) {
+          affordances.push({
+            id: `resize-y-${item.id}`,
+            kind: 'resize-y',
+            rect: { x: rect.x, y: rect.y + rect.h - 2, w: rect.w, h: 4 },
+            cursor: 'ns-resize',
+            childId: item.id,
+            affects: [item.id],
+            bounds: {
+              orientation: 'vertical',
+              valueNow: cell.rows,
+              valueMin: 1,
+              valueMax: reach.rows,
+              atMin: cell.rows <= 1,
+              atMax: cell.rows >= reach.rows,
+              step: 1,
+            },
+          });
+        }
+      }
+    }
+
+    const result: LayoutResult<string> = { placements, affordances };
     if (unplaced.length > 0) result.unplaced = unplaced;
     if (preview) result.isPreview = true;
     return result;
+  },
+
+  dispatchAffordance({ event, affordance, store, items, container, options }) {
+    if (event.kind !== 'drag') return;
+    if (affordance.kind !== 'resize-x' && affordance.kind !== 'resize-y') return;
+    const childId = affordance.childId;
+    if (!childId) return;
+    const axis: 'cols' | 'rows' = affordance.kind === 'resize-x' ? 'cols' : 'rows';
+
+    const cfg = options as GridConfig;
+    const gap = cfg.gap ?? 0;
+    const padding = cfg.padding ?? 0;
+    const geom = gridGeometry(items, container, cfg);
+    if (!geom) return;
+    const cell = geom.cells.get(String(childId));
+    if (!cell) return;
+
+    const stride = axis === 'cols' ? geom.cellW + gap : geom.cellH + gap;
+    if (stride <= 0) return;
+    const current = axis === 'cols' ? cell.cols : cell.rows;
+
+    let want: number;
+    const point = event.payload.point;
+    if (point) {
+      // Resolve against the pointer rather than accumulating deltas. A span is
+      // quantized, so a few pixels rounds to the span it already has and the
+      // drag would never move at all.
+      const origin = axis === 'cols' ? padding + cell.col * stride : padding + cell.row * stride;
+      const extent = (axis === 'cols' ? point.x : point.y) - origin;
+      want = Math.round((extent + gap) / stride);
+    } else {
+      // No pointer: a synthesized step. `bounds.step` is 1, so the host sends
+      // one cell's worth and this reads as ±1.
+      const delta = axis === 'cols' ? (event.payload.dx ?? 0) : (event.payload.dy ?? 0);
+      want = current + Math.sign(delta) * Math.max(1, Math.round(Math.abs(delta) / stride));
+    }
+
+    const reach = spanReach(items, String(childId), geom.cols, geom.rowCap, geom.itemCap);
+    const ceiling = axis === 'cols' ? reach.cols : reach.rows;
+    const next = Math.max(1, Math.min(want, ceiling));
+    if (next === current) return;
+
+    const existing = (store.getNode(childId as never)?.membership?.placement?.span ?? {}) as {
+      cols?: number;
+      rows?: number;
+    };
+    store.patchPlacement(childId as never, { span: { ...existing, [axis]: next } });
   },
 };

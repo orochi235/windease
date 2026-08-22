@@ -2,6 +2,7 @@ import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
 import {
+  type ChildOrderCommit,
   type DragCancelReason,
   DragEngine,
   type DragState,
@@ -11,6 +12,8 @@ import {
 } from './DragEngine.js';
 
 export type {
+  ChildOrderChange,
+  ChildOrderCommit,
   DragCancelReason,
   DragState,
   DropTarget,
@@ -115,6 +118,12 @@ export class DragController {
 
   tryBegin(sourceId: NodeId): boolean {
     return this.engine.tryBegin(sourceId);
+  }
+
+  /** Hand this container's child order to the host. See
+   *  `DragEngine.registerOrderControl`. */
+  registerOrderControl(id: NodeId, commit: ChildOrderCommit): () => void {
+    return this.engine.registerOrderControl(id, commit);
   }
 
   updateHoverByPoint(x: number, y: number): void {

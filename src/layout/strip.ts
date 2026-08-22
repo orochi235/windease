@@ -55,6 +55,28 @@ function explicitAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
   return typeof v === 'number' ? v : undefined;
 }
 
+/** A measured content extent, honored only on an axis the item asked to be
+ *  sized by content. Absent until an adapter has measured — the first layout
+ *  pass always runs without it.
+ *
+ *  Floored at `minSize` here, unlike an explicit `placement.size`, which
+ *  `clampExplicitSizes` renders as written even below the item's own minimum.
+ *  That exemption exists so a consumer can deliberately collapse a pane; a
+ *  measurement states no such intent. */
+function naturalAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
+  const asked = axis === 'x' ? item.hints?.sizing?.w : item.hints?.sizing?.h;
+  if (asked !== 'content') return undefined;
+  const v = axis === 'x' ? item.natural?.w : item.natural?.h;
+  return typeof v === 'number' ? Math.max(v, effectiveMinAxis(item, axis)) : undefined;
+}
+
+/** The extent this item is asking for, whatever it asked with. A measurement
+ *  is a stated size like any other: it scales under pressure and it loses to
+ *  an explicit `placement.size`, which is how a gutter drag pins a pane. */
+function requestedAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
+  return explicitAxis(item, axis) ?? naturalAxis(item, axis);
+}
+
 function effectiveMinAxis(item: LayoutItem, axis: 'x' | 'y'): number {
   const m = item.hints?.minSize;
   if (!m) return 0;
@@ -70,21 +92,40 @@ function effectiveMaxAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined
 }
 
 /** Effective reach of a resize affordance on `item`, given what siblings'
- *  minimums already claim. Mirrors `dispatchAffordance`'s clamp order. */
+ *  minimums already claim. Mirrors `dispatchAffordance`'s clamp order.
+ *
+ *  `pair` is the neighbor under `resizeMode: 'neighbor'`, where the two panes
+ *  conserve their total and the reach is bounded by the neighbor's limits
+ *  rather than by every sibling's. Without it the affordance advertises a
+ *  maximum the drag refuses to reach — which a DOM adapter publishes as
+ *  `aria-valuemax`, promising a screen-reader user an extent that does not
+ *  exist. */
 function boundsFor(
   item: LayoutItem,
   valueNow: number,
   placedItems: LayoutItem[],
   axis: 'x' | 'y',
   usableMain: number,
+  pair?: { item: LayoutItem; extent: number },
 ): NonNullable<Affordance['bounds']> {
   const own = effectiveMinAxis(item, axis);
   const max = effectiveMaxAxis(item, axis);
-  const otherMinSum = placedItems
-    .filter((it) => it.id !== item.id)
-    .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
 
-  let valueMax = usableMain - otherMinSum;
+  let valueMax: number;
+  if (pair) {
+    const total = valueNow + pair.extent;
+    valueMax = total - effectiveMinAxis(pair.item, axis);
+    const pairMax = effectiveMaxAxis(pair.item, axis);
+    if (pairMax !== undefined && total - pairMax > own) {
+      // The neighbor's own ceiling stops this pane shrinking any further.
+      return finishBounds(axis, valueNow, Math.max(own, total - pairMax), valueMax, max);
+    }
+  } else {
+    const otherMinSum = placedItems
+      .filter((it) => it.id !== item.id)
+      .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
+    valueMax = usableMain - otherMinSum;
+  }
   if (max !== undefined && max < valueMax) valueMax = max;
   if (valueMax < own) valueMax = own;
   // A pane sized under its own min (a collapsed palette) would otherwise
@@ -92,13 +133,25 @@ function boundsFor(
   const valueMin = Math.min(own, valueNow);
   if (valueMax < valueMin) valueMax = valueMin;
 
+  return finishBounds(axis, valueNow, valueMin, valueMax, max);
+}
+
+function finishBounds(
+  axis: 'x' | 'y',
+  valueNow: number,
+  valueMin: number,
+  valueMax: number,
+  ownMax?: number,
+): NonNullable<Affordance['bounds']> {
+  let hi = ownMax !== undefined && ownMax < valueMax ? ownMax : valueMax;
+  if (hi < valueMin) hi = valueMin;
   return {
     orientation: axis === 'x' ? 'horizontal' : 'vertical',
     valueNow,
     valueMin,
-    valueMax,
+    valueMax: hi,
     atMin: valueNow <= valueMin,
-    atMax: valueNow >= valueMax,
+    atMax: valueNow >= hi,
   };
 }
 
@@ -110,10 +163,10 @@ function baseExtent(
   axis: 'x' | 'y',
   usableMain: number,
 ): number {
-  const explicit = explicitAxis(item, axis);
+  const explicit = requestedAxis(item, axis);
   if (explicit !== undefined) return explicit;
-  const explicits = placedItems.filter((it) => explicitAxis(it, axis) !== undefined);
-  const explicitSum = explicits.reduce((sum, it) => sum + (explicitAxis(it, axis) ?? 0), 0);
+  const explicits = placedItems.filter((it) => requestedAxis(it, axis) !== undefined);
+  const explicitSum = explicits.reduce((sum, it) => sum + (requestedAxis(it, axis) ?? 0), 0);
   const unconstrainedCount = placedItems.length - explicits.length;
   return unconstrainedCount > 0 ? Math.max(0, (usableMain - explicitSum) / unconstrainedCount) : 0;
 }
@@ -183,14 +236,14 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     // If any child has explicit placement.size on the main axis, use the
     // clamp helper for the whole row. Otherwise fall back to the existing
     // preferredSize/fill path.
-    const hasExplicit = placedItems.some((it) => explicitAxis(it, axis) !== undefined);
+    const hasExplicit = placedItems.some((it) => requestedAxis(it, axis) !== undefined);
     let sizes: number[];
     if (hasExplicit) {
       const clamp = clampExplicitSizes({
         available: usableMain,
         items: placedItems.map((it) => ({
           id: it.id,
-          explicit: explicitAxis(it, axis),
+          explicit: requestedAxis(it, axis),
           min: effectiveMinAxis(it, axis),
           max: effectiveMaxAxis(it, axis),
         })),
@@ -232,7 +285,16 @@ export const stripStrategy: LayoutStrategy<void, string> = {
               cfg.resizeMode === 'neighbor' && placedItems[i + 1]
                 ? [item.id, placedItems[i + 1]!.id]
                 : [item.id],
-            bounds: boundsFor(item, w, placedItems, 'x', usableMain),
+            bounds: boundsFor(
+              item,
+              w,
+              placedItems,
+              'x',
+              usableMain,
+              cfg.resizeMode === 'neighbor' && placedItems[i + 1]
+                ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
+                : undefined,
+            ),
           });
         }
         x += w + gap;
@@ -256,7 +318,16 @@ export const stripStrategy: LayoutStrategy<void, string> = {
               cfg.resizeMode === 'neighbor' && placedItems[i + 1]
                 ? [item.id, placedItems[i + 1]!.id]
                 : [item.id],
-            bounds: boundsFor(item, h, placedItems, 'y', usableMain),
+            bounds: boundsFor(
+              item,
+              h,
+              placedItems,
+              'y',
+              usableMain,
+              cfg.resizeMode === 'neighbor' && placedItems[i + 1]
+                ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
+                : undefined,
+            ),
           });
         }
         y += h + gap;

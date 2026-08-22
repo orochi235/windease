@@ -1,6 +1,7 @@
 import {
   type CSSProperties,
   Fragment,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -11,7 +12,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
-import { type Affordance, accessibleName, type NodeId } from '../index.js';
+import { type Affordance, accessibleName, type ChildOrderCommit, type NodeId } from '../index.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useGeometryRegistry } from './focus/useGeometrySource.js';
@@ -86,6 +87,29 @@ export interface ContainerProps {
    * Default 4.
    */
   affordanceHitPad?: number;
+  /**
+   * Pixels an arrow key moves a focused resize affordance. `Home` / `End` jump
+   * to the affordance's reported minimum / maximum instead. Default 8.
+   */
+  affordanceKeyStep?: number;
+  /**
+   * Whether resize affordances are tab stops. Correct per the WAI-ARIA window
+   * splitter pattern and tiring in a dock of many panes, where every seam
+   * lands between two panels in the tab order. Set false to keep the ARIA and
+   * drop the stops. Default true.
+   */
+  affordanceTabStops?: boolean;
+  /**
+   * Take ownership of this container's child order. When set, a drop that
+   * would change the order calls this with the order it *would* have produced
+   * instead of writing it — commit it to your own store and re-render.
+   *
+   * The controlled counterpart to `preserveStoreOrder`, which keeps a drop
+   * without telling the host about it. Only library-mediated gestures are
+   * intercepted: `store.reorderInParent` called directly still commits, since
+   * that is the host acting on itself.
+   */
+  onChildOrderChange?: ChildOrderCommit;
 }
 
 const AFFORDANCE_BASE: CSSProperties = {
@@ -149,6 +173,9 @@ function StoreContainer({
   settleMs = DEFAULT_SETTLE_MS,
   affordances = false,
   affordanceHitPad = 4,
+  affordanceKeyStep = 8,
+  affordanceTabStops = true,
+  onChildOrderChange,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const store = useStore();
@@ -201,6 +228,11 @@ function StoreContainer({
       geometryRegistry.commit();
     };
   }, [geometryRegistry, layout.placements, selfRect?.x, selfRect?.y]);
+
+  useEffect(() => {
+    if (!dragController || !onChildOrderChange) return;
+    return dragController.registerOrderControl(parentId, onChildOrderChange);
+  }, [dragController, parentId, onChildOrderChange]);
 
   // Register a default getInsertionIndex on the container element so the
   // controller can resolve cursor → child slot without consumer wiring.
@@ -332,7 +364,17 @@ function StoreContainer({
             role="group"
             aria-label={accessibleName(store, id)}
           >
-            <NodeRenderer id={id} chrome={chrome} />
+            {store.getNode(id)?.hints?.sizing ? (
+              <MeasuredContent
+                id={id}
+                widthByContent={store.getNode(id)?.hints?.sizing?.w === 'content'}
+                observe={layout.observeNatural}
+              >
+                <NodeRenderer id={id} chrome={chrome} />
+              </MeasuredContent>
+            ) : (
+              <NodeRenderer id={id} chrome={chrome} />
+            )}
           </div>
         );
       })}
@@ -352,6 +394,9 @@ function StoreContainer({
               affordance={aff}
               dispatch={layout.dispatchAffordance}
               hitPad={affordanceHitPad}
+              keyStep={affordanceKeyStep}
+              tabStop={affordanceTabStops}
+              label={affordanceLabel(store, aff)}
               onActiveChange={(active) => setDraggingAffordanceId(active ? aff.id : null)}
             />
           ),
@@ -361,14 +406,74 @@ function StoreContainer({
   );
 }
 
+/**
+ * What a screen reader announces for a gutter. Composed from the panes the
+ * affordance moves, using the same naming the focus system uses, so a consumer
+ * who set `meta.title` gets a usable name without a second API.
+ */
+function affordanceLabel(store: ReturnType<typeof useStore>, aff: Affordance): string | undefined {
+  const ids = aff.affects ?? (aff.childId ? [aff.childId] : []);
+  if (ids.length === 0) return undefined;
+  const names = ids.map((id) => accessibleName(store, id as NodeId));
+  return `resize ${names.join(' and ')}`;
+}
+
+/**
+ * Measurement box for `hints.sizing`. The pane wrapper carries the extent the
+ * layout just wrote, so measuring it would measure our own output; this div is
+ * auto-sized on the axis that asked, and reports what the content needs.
+ *
+ * The observer is attached in an effect rather than from a callback ref: a
+ * ref whose identity changes each render is torn down each render, and the
+ * teardown drops the measurement — so the size never sticks and the pane sits
+ * at its fallback forever.
+ */
+function MeasuredContent({
+  id,
+  widthByContent,
+  observe,
+  children,
+}: {
+  id: NodeId;
+  widthByContent: boolean;
+  observe: ContainerLayout['observeNatural'];
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    return observe(id, el);
+  }, [observe, id]);
+  return (
+    <div
+      ref={ref}
+      className={widthByContent ? 'windease-measure windease-measure--w' : 'windease-measure'}
+    >
+      {children}
+    </div>
+  );
+}
+
 interface AffordanceHandleProps {
   affordance: Affordance;
   dispatch: ContainerLayout['dispatchAffordance'];
   hitPad: number;
+  keyStep: number;
+  tabStop: boolean;
+  label: string | undefined;
   onActiveChange: (active: boolean) => void;
 }
 
-function AffordanceHandle({ affordance, dispatch, hitPad, onActiveChange }: AffordanceHandleProps) {
+function AffordanceHandle({
+  affordance,
+  dispatch,
+  hitPad,
+  keyStep,
+  tabStop,
+  label,
+  onActiveChange,
+}: AffordanceHandleProps) {
   const last = useRef<{ x: number; y: number } | null>(null);
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -389,9 +494,18 @@ function AffordanceHandle({ affordance, dispatch, hitPad, onActiveChange }: Affo
       const dy = e.clientY - last.current.y;
       if (dx === 0 && dy === 0) return;
       last.current = { x: e.clientX, y: e.clientY };
-      dispatch({ affordanceId: affordance.id, kind: 'drag', payload: { dx, dy } });
+      // Container-relative pointer, for strategies whose extents are quantized
+      // and cannot accumulate a few pixels at a time. Derived from this
+      // handle's own box against the rect the strategy gave it, so no ancestor
+      // needs measuring.
+      const box = e.currentTarget.getBoundingClientRect();
+      const point = {
+        x: affordance.rect.x - padXRef.current + (e.clientX - box.left),
+        y: affordance.rect.y - padYRef.current + (e.clientY - box.top),
+      };
+      dispatch({ affordanceId: affordance.id, kind: 'drag', payload: { dx, dy, point } });
     },
-    [dispatch, affordance.id],
+    [dispatch, affordance.id, affordance.rect.x, affordance.rect.y],
   );
   const onPointerUp = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -405,6 +519,39 @@ function AffordanceHandle({ affordance, dispatch, hitPad, onActiveChange }: Affo
       if (wasDragging) onActiveChange(false);
     },
     [onActiveChange],
+  );
+
+  const bounds = affordance.bounds;
+  const padXRef = useRef(0);
+  const padYRef = useRef(0);
+  const onKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (!bounds) return;
+      const horizontal = bounds.orientation === 'horizontal';
+      const back = horizontal ? 'ArrowLeft' : 'ArrowUp';
+      const fwd = horizontal ? 'ArrowRight' : 'ArrowDown';
+      // A strategy whose units are not pixels says how far one press goes;
+      // 8 of something is meaningless in cell counts.
+      const step = bounds.step ?? keyStep;
+      let delta: number;
+      if (e.key === back) delta = -step;
+      else if (e.key === fwd) delta = step;
+      else if (e.key === 'Home') delta = bounds.valueMin - bounds.valueNow;
+      else if (e.key === 'End') delta = bounds.valueMax - bounds.valueNow;
+      // Anything else — including the perpendicular arrows — bubbles, so pane
+      // navigation still works while a gutter holds focus.
+      else return;
+      e.preventDefault();
+      if (delta === 0) return;
+      // The same event the pointer sends: the strategy clamps once, where it
+      // already clamps.
+      dispatch({
+        affordanceId: affordance.id,
+        kind: 'drag',
+        payload: horizontal ? { dx: delta, dy: 0 } : { dx: 0, dy: delta },
+      });
+    },
+    [bounds, dispatch, affordance.id, keyStep],
   );
 
   // Expand the hit area perpendicular to the gutter so a 4px line is easier
@@ -423,6 +570,8 @@ function AffordanceHandle({ affordance, dispatch, hitPad, onActiveChange }: Affo
     affordance.kind === 'resize-xy';
   const padX = isXish ? hitPad : 0;
   const padY = isYish ? hitPad : 0;
+  padXRef.current = padX;
+  padYRef.current = padY;
   const outerStyle: CSSProperties = {
     ...AFFORDANCE_BASE,
     left: affordance.rect.x - padX,
@@ -441,6 +590,8 @@ function AffordanceHandle({ affordance, dispatch, hitPad, onActiveChange }: Affo
   };
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: role is separator whenever the key handler is attached; the rule cannot see through the conditional.
+    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: same conditional — aria-orientation is set only alongside role="separator", which supports it.
     <div
       style={outerStyle}
       data-affordance-hit={affordance.id}
@@ -448,6 +599,14 @@ function AffordanceHandle({ affordance, dispatch, hitPad, onActiveChange }: Affo
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onKeyDown={bounds ? onKeyDown : undefined}
+      role={bounds ? 'separator' : undefined}
+      tabIndex={bounds && tabStop ? 0 : undefined}
+      aria-orientation={bounds?.orientation}
+      aria-valuenow={bounds ? Math.round(bounds.valueNow) : undefined}
+      aria-valuemin={bounds ? Math.round(bounds.valueMin) : undefined}
+      aria-valuemax={bounds ? Math.round(bounds.valueMax) : undefined}
+      aria-label={bounds ? label : undefined}
     >
       <div
         style={innerStyle}

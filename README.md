@@ -183,6 +183,71 @@ Write your own `ChildSort` for anything in between: it receives the observed
 children with their `order` hints plus the current store order, and returns the
 final list.
 
+### When the host owns order outright
+
+`preserveStoreOrder` keeps a drop without telling you about it. If your own
+store is the authority — an app that already persists a workspace list and its
+order — pass `onChildOrderChange` instead. A drop then calls you with the order
+it *would* have produced and writes nothing:
+
+```tsx
+<Container
+  parentId={zoneId}
+  chrome={chrome}
+  onChildOrderChange={(next, { movedId, fromParentId, toParentId }) => {
+    myStore.setWorkspaceOrder(next); // your state, your persistence
+  }}
+/>
+```
+
+Commit it and re-render; the binding reconciles to whatever you declare next.
+Two things to know:
+
+- **Controlled means the store is not written at all.** If either side of a
+  cross-parent drop is controlled, `moveNode` does not run and each controlled
+  parent gets its own call. Moving the record — including into an uncontrolled
+  zone — is yours, because committing here *and* asking you to commit would
+  apply one gesture twice.
+- **Only library-mediated gestures are intercepted.** `store.reorderInParent`
+  and `store.moveNode` called directly still commit; that is you acting on your
+  own store, not a user gesture to approve.
+
+## Sizing a pane to its contents
+
+Declare it per axis and the library measures for you:
+
+```tsx
+store.registerNode(
+  createNode({ kind: 'palette', id, parentId: dockId, hints: { sizing: { h: 'content' } } }),
+);
+```
+
+`<Container>` wraps a content-sized pane's children in an auto-height div and
+observes it, so the measurement is of the content rather than of the extent the
+layout just wrote — measuring the positioned wrapper would measure the library's
+own output and never settle. Give that div's contents a real intrinsic height:
+a child stretched with `height: 100%` reports the pane, not the content.
+
+A measurement is a stated size like any other. It scales under pressure, it is
+capped by `hints.maxSize`, and it loses to `placement.size` — so **dragging a
+gutter pins the pane** and it stops tracking its contents. Clear the size to
+resume:
+
+```tsx
+store.patchPlacement(id, { size: { h: undefined } });
+```
+
+Unlike a size you write, a measurement *is* floored at `hints.minSize`: the
+exemption that makes the collapse pattern below work exists for deliberate
+intent, and a measurement states none.
+
+Without React, report measurements yourself — `hints.sizing` is honored by the
+strategy either way:
+
+```ts
+host.setNaturalSize(id, { w, h }); // or host.observeNatural(id, el)
+```
+
 ## Collapsing a pane
 
 There is no collapse state. A collapsed pane is a sized pane: write
@@ -270,6 +335,43 @@ siblings without an explicit size of their own share the remainder. Combine
 with `hints.maxSize` for an "auto up to a cap" pane. `store.split(id, input)`
 builds the nested `stripStrategy` groups a multi-pane layout needs; see
 `docs/concepts.md`.
+
+Gutters are operable from the keyboard. Each renders as `role="separator"`
+carrying `aria-orientation` and `aria-valuenow` / `aria-valuemin` /
+`aria-valuemax`, named after the panes it moves. Arrow keys along its
+orientation step by `affordanceKeyStep` (8px by default) and `Home` / `End`
+jump to the reported bounds; the perpendicular arrows are left alone so pane
+navigation still works while a gutter holds focus.
+
+Every gutter is a tab stop, which is the WAI-ARIA window-splitter pattern and
+gets tiring in a dock of many panes — `affordanceTabStops={false}` keeps the
+ARIA and drops the stops.
+
+Under `resizeMode: 'neighbor'` a step is bounded by the pair, so a pane can
+stop moving because its *neighbor* hit a limit while it is nowhere near its
+own. `aria-valuenow` reflects where it actually landed; nothing is narrated to
+a live region.
+
+### Grid seams
+
+`gridStrategy` takes `resizable: true` and emits the same affordances, except
+they write `placement.span` — **cell counts, not pixels**, so an extent moves a
+whole cell at a time and `aria-valuenow` reads as a column or row count. A
+keyboard press moves exactly one cell, because the affordance reports its own
+`bounds.step` rather than taking the container's pixel default.
+
+```tsx
+<Zone id={zoneId} strategy="grid" config={{ resizable: true }} />
+```
+
+A grid packs rather than pairing, so there is no one neighbor a seam trades
+with: growing an item costs whoever no longer fits. The reported maximum is
+therefore the largest span at which every sibling is still placed — in a grid
+with no `maxRows`, that means it grows a row rather than dropping anyone.
+
+A seam appears wherever a span can move in either direction, including on an
+item already spanning to the edge, so a grown item can always be brought back.
+`span` is gated by `lock.resize` exactly as `size` is.
 
 ## Keyboard navigation
 

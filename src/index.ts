@@ -7,6 +7,8 @@ export {
 export { type CreateNodeInput, createNode } from './constructors.js';
 export { ContainerHost, type ContainerLayout } from './container-host.js';
 export {
+  type ChildOrderChange,
+  type ChildOrderCommit,
   type DragCancelReason,
   DragController,
   type DragState,

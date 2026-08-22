@@ -87,3 +87,60 @@ Grid.argTypes = {
   padding: { control: { type: 'range', min: 0, max: 32, step: 1 } },
   panelCount: { control: { type: 'range', min: 1, max: 12, step: 1 } },
 };
+
+/** Auto-balanced tiling with draggable seams: drag a cell edge, or Tab to a
+ *  seam and press an arrow. Extents move a whole cell at a time. */
+export const ResizableGrid: Story = () => {
+  const store = useMemo(() => {
+    const s = new Store();
+    const zone = asNodeId('grid-resizable');
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: {
+          strategyId: 'grid',
+          config: { resizable: true, gap: 8, padding: 8 },
+        },
+        id: zone,
+      }),
+    );
+    for (let i = 0; i < 6; i++) {
+      const id = asNodeId(`tile-${i + 1}`);
+      s.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id,
+          parentId: zone,
+          meta: { title: `Tile ${i + 1}` },
+        }),
+      );
+      s.showNode(id);
+    }
+    return s;
+  }, []);
+
+  const chrome: ChromeMap = {
+    panel: ({ node }) => (
+      <div className="windease-panel">
+        <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
+      </div>
+    ),
+  };
+
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <div style={{ width: 560, height: 400 }}>
+          <Container
+            parentId={asNodeId('grid-resizable')}
+            chrome={chrome}
+            viewport={{ w: 560, h: 400 }}
+            className="windease-zone"
+            affordances
+          />
+        </div>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};

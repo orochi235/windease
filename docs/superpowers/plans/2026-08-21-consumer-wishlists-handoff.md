@@ -1,33 +1,40 @@
 # Handoff — consumer wishlists (2026-08-21)
 
-For whoever picks up the three consumer wishlists in `TODO.md`. It assumes you
-have read those sections; this covers only what they can't carry — tree state,
-the decisions still open, and the traps that cost time.
+**All three `[HIGH]` wishlists are done.** For whoever picks up what is left in
+`TODO.md`. Assumes you have read those sections; this covers only what they
+can't carry — tree state, the decisions still open, and the traps that cost
+time.
 
 The keyboard-navigation work was a separate session; it has landed on local
 `main`. See "Two agents" below for what it owns.
 
 ## Tree state
 
-On `main`, clean, **local-only — 40 commits ahead of `origin/main`, which is
-still at `b5d5647`.** Nothing in this repo has been pushed since. 828 tests / 75
-files green, plus typecheck, lint, build, and 20 e2e specs.
+The wishlist work is on **`feat/palette-sizing-keys`**, five commits, not yet
+merged to `main`. 887 tests / 83 files green, plus typecheck, lint, build, 26
+e2e specs, and `scripts/check-doc-hashes.sh`.
 
-Both workstreams are merged: subtree serialize/graft and keyboard navigation.
-`feat/subtree-graft` and `feat/keyboard-navigation` are merged and disposable.
-`.claude/worktrees/keyboard-nav/` is still on disk.
+`main` itself is clean and **local-only — nothing in this repo has been pushed
+to `origin/main` since `b5d5647`.** Subtree serialize/graft and keyboard
+navigation are both merged into it; `feat/subtree-graft` and
+`feat/keyboard-navigation` are disposable, and `.claude/worktrees/keyboard-nav/`
+is still on disk.
 
-**Nothing is released.** `package.json` and `src/index.ts`'s `VERSION` are both
-still `1.1.0`. Both workstreams ship as 1.2.0 by the user's decision, and
-`TODO.md`'s heading reads `## On main, unreleased — ships as 1.2.0` precisely
-because the claim runs ahead of the mint. `npm version minor` has deliberately
-not been run: its `postversion` pushes the tag, which triggers the Release
-workflow to publish over OIDC. That is the user's call, and it is the single
-biggest outstanding decision in this repo.
+**Nothing is released**, including the three wishlists. `package.json` and
+`src/index.ts`'s `VERSION` both still read `1.1.0`, and `TODO.md`'s heading
+reads `## On main, unreleased — ships as 1.2.0` precisely because the claim runs
+ahead of the mint. `npm version minor` has deliberately not been run: its
+`postversion` pushes the tag, which triggers the Release workflow to publish over
+OIDC. That is the user's call, and it is the single biggest outstanding decision
+in this repo — now covering three more wishlists than when it was first
+deferred.
 
 ## What shipped
 
-**Subtree serialize / graft**, this session. `serialize(store, { root })` emits a
+**The three `[HIGH]` wishlists**, on `feat/palette-sizing-keys` — see Next below
+for what each closed and the design doc for the first.
+
+**Subtree serialize / graft**, an earlier session. `serialize(store, { root })` emits a
 v5 snapshot of one node and its descendants; `graft(store, snap, parentId, opts)`
 attaches one under a named parent. Design and rationale:
 [`specs/2026-08-21-subtree-serialize-graft-design.md`](../specs/2026-08-21-subtree-serialize-graft-design.md).
@@ -127,19 +134,69 @@ from them, including one in a fix for a bug they had just reported.
 
 ## Next
 
-`TODO.md` is the work list. The two subtree wishlist items are done; what's left
-from the labkit list:
+The three `[HIGH]` wishlists are closed: content-driven sizing and keyboard
+gutters (docked tool palettes), controlled `childOrder`, and grid resize
+gutters. `TODO.md` is rewritten in place; the design doc for the first is
+[`specs/2026-08-21-docked-tool-palettes-design.md`](../specs/2026-08-21-docked-tool-palettes-design.md).
+The other two are recorded in `TODO.md` and their commit messages — no separate
+spec, because neither turned out to have a decision worth a document.
 
-- **Grid resize gutters** — unblocked and self-contained. Build on
-  `resizeMode: 'neighbor'` rather than reinventing the clamping, and fold in the
-  `patchPlacement` span lock-gate at the same time.
-- **Controlled `childOrder`, the second half.** `preserveStoreOrder` shipped the
-  uncontrolled half; an `onChildOrderChange` intent for a host that wants to
-  approve or transform a reorder is still open.
-- **In-flow render mode** needs hard scoping before anyone starts — a second
-  rendering path means every future feature works in both or explicitly doesn't.
+What remains on the labkit list:
 
-Still deliberately unanswered, unchanged from the last handoff: **how a canvas
-host learns about `devicePixelRatio`** (klieg wishlist). It would be the second
-exception to the DOM-independence tenet, and was left for the user rather than
-established quietly. Do not implement it without asking.
+- **In-flow render mode** still needs hard scoping before anyone starts — a
+  second rendering path means every future feature works in both or explicitly
+  doesn't.
+- **Overflow policy** (`squeeze` / `scroll` / `unplace` as a strip config).
+  Deliberately parked: `LayoutResult.overflow` already lets a consumer build any
+  of them, and the policy is sugar worth waiting for a second asker.
+- **Wiring resize into the live region.** `bindAnnouncer` shipped separately and
+  covers structural change; gutter resize deliberately narrates nothing — see
+  the trap below for why that is not a simple hook-up.
+
+Still deliberately unanswered, unchanged: **how a canvas host learns about
+`devicePixelRatio`** (klieg wishlist). It would be a second exception to the
+DOM-independence tenet. Do not implement it without asking.
+
+Note the tenet came through this work intact: content sizing delivers
+measurement as a `LayoutItem` input rather than letting the core measure, so
+`ContainerHost.setNaturalSize` is the real API and `observeNatural` the DOM
+convenience beside it — the `setViewport` / `observe` split, reused.
+
+## Traps this work added
+
+**A callback ref that changes identity is torn down every render.** Content
+sizing attached its ResizeObserver from an inline `ref={(el) => observe(el)}`;
+React 19 treats the returned teardown as a cleanup and ran it on every pass, and
+the teardown drops the measurement. Every unit test passed while the feature did
+nothing on screen — the Playwright spec is what caught it. Attach in an effect.
+
+**jsdom has no ResizeObserver, and content sizing reaches that path on every
+mount** — unlike the viewport observer, which a fixed `viewport` prop skips.
+`observeNatural` no-ops without one. A new observer in library code needs the
+same guard.
+
+**A quantized extent cannot accumulate incremental `dx`.** Grid spans are cell
+counts, so a few pixels round to the span it already has, every time, and the
+drag never moves. That is why `LayoutEvent.payload.point` exists. Any future
+strategy with discrete extents wants the same treatment, and wants
+`Affordance.bounds.step` so a keyboard press means one unit rather than 8px.
+
+**`Affordance.bounds` is now read by a screen reader.** It was advisory when
+only a drag consumed it, and inaccuracy was tolerable — `resizeMode: 'neighbor'`
+reported the whole row's slack while the drag stopped at the neighbor's minimum.
+Published as `aria-valuemax` that is a defect, and it is fixed. Any strategy
+emitting `bounds` now owes the same accuracy.
+
+**Nothing narrates a resize**, and the live region `bindAnnouncer` added does
+not change that. Under `resizeMode: 'neighbor'` a step can be truncated by the
+*neighbor's* limit while the focused pane is nowhere near its own, and
+`atMin` / `atMax` describe the dragged child — so narrating from them would
+state something false. `aria-valuenow` carries the truth. Anyone wiring resize
+into the announcer has to fix the numbers first.
+
+**Controlled order means the store is not written at all.** If either side of a
+cross-parent drop is controlled, `moveNode` does not run and each controlled
+parent gets its own callback; the uncontrolled counterpart is the host's to
+update. Committing here *and* asking the host to commit applies one gesture
+twice. Only library-mediated gestures are intercepted — a direct
+`store.reorderInParent` is the host acting on itself.

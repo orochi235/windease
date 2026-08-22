@@ -157,6 +157,28 @@ serialize/graft work goes out under the same 1.2.0.
   resolution for its own children: an id wins, `undefined` falls through to
   the geometric search, `null` declares the direction dead there.
 - **`prefers-reduced-motion`** now suppresses the settle transition.
+- **Grid resize gutters.** `gridStrategy` with `resizable: true` emits seams
+  that write `placement.span`, so auto-balance and draggable seams compose.
+  `patchPlacement` lock-gates `span` behind `resize`. Adds
+  `LayoutEvent.payload.point` and `Affordance.bounds.step`, both additive.
+- **Controlled child order.** `<Container onChildOrderChange>` hands the host
+  the order a drop would have produced and writes nothing, for a host whose own
+  store is the authority. `DragController.registerOrderControl` is the
+  binding-free equivalent.
+- **Content-driven sizing.** `hints.sizing: { h: 'content' }` asks to be sized
+  by measured content. The measurement reaches strategies as
+  `LayoutItem.natural`, supplied by an adapter — `ContainerHost.setNaturalSize`
+  is the headless API and `observeNatural` the DOM convenience over it,
+  mirroring `setViewport` / `observe`. A `layout()` call with no measurement
+  behaves exactly as before.
+- **Keyboard resize gutters.** `role="separator"` with `aria-orientation` and
+  the value triple, arrow keys plus `Home`/`End`, and an accessible name
+  composed from the panes the gutter moves. `<Container>` takes
+  `affordanceKeyStep` and `affordanceTabStops`.
+- **`Affordance.bounds` honors `resizeMode: 'neighbor'`.** It reported the
+  whole row's slack while the drag stopped at the neighbor's minimum. Behavior
+  change for anyone reading `valueMax` off a paired affordance — the number is
+  now the one the drag will actually reach.
 - **`store.hasFocus` renamed to `canFocus`.** It answers "does this node have
   a focus machine", but sat one method from `focusedId` and read as a state
   check — both workstreams building on focus misread it. `hasFocus` remains as
@@ -189,15 +211,6 @@ serialize/graft work goes out under the same 1.2.0.
   comment.
 - TypeScript is held at 6.x because typedoc 0.28's peer range stops at
   `6.0.x`. Revisit TS 7 (the Go port) once typedoc ships support.
-- `gridStrategy` honors `placement.span` (cell-count spans, reserved and
-  clamped) but has no resize affordances that write it, so
-  `split(id, { direction: 'grid' })` still produces a tiling with no
-  draggable gutters. Wiring a gutter that mutates `span` on drag is the
-  remaining capability gap against the `splitStrategy` this release removed.
-- `patchPlacement` lock-gates `size` writes behind the `resize` axis but not
-  `span` — a resize-locked node's grid span can still be changed directly.
-  Unguarded because nothing writes `span` yet (see the gutter gap above); fold
-  the gate in when a gutter lands.
 - **A node cannot be locked against gaining a container.** `resolveLock` drops
   axes the node's current capabilities don't support, and `arrange` requires an
   existing `container` — so `setLock(panel, { arrange: true })` silently stores
@@ -222,17 +235,28 @@ serialize/graft work goes out under the same 1.2.0.
 Gaps found evaluating windease as the layout engine for a sidebar of
 resizable tool palettes (the weasel case). Everything structural is already
 here — a `stripStrategy` zone on `{ axis: 'y' }`, gutters, per-child
-min/max, DnD between docks, sizes that round-trip through `serialize`. These
-five are what a consumer would still have to build.
+min/max, DnD between docks, sizes that round-trip through `serialize`. All
+five are now closed except the overflow *policy*, which is deliberately
+parked.
 
-- **Content-driven sizing.** Strip derives extents from `placement.size`,
-  `hints.preferredSize`, or an equal share (`src/layout/strip.ts:114-131`).
-  There is no way to say "as tall as my contents," so a palette that wants
-  its natural height forces the consumer to measure the DOM and write
-  `preferredSize` back — a layout pass keyed on the output of a layout pass.
-  Wants either an `auto` sentinel that `<Container>` resolves by measuring
-  before it runs the strategy, or measured natural sizes as a strategy input
-  alongside `hints`.
+- **Shipped: content-driven sizing.** `hints.sizing: { w?: 'content'; h?:
+  'content' }` declares the request per axis; the measurement arrives as
+  `LayoutItem.natural`. Measurement is an input, never a call, so the core
+  stays arithmetic and a headless `layout()` behaves as it always did.
+
+  In strip a measurement is a stated size: it scales under pressure and loses
+  to `placement.size`. **A gutter drag therefore pins the pane** — the write to
+  `placement.size` outranks the measurement and the pane stops tracking its
+  content. Clearing the size resumes tracking. Unlike an explicit size it is
+  floored at `minSize`; that exemption exists so a consumer can deliberately
+  collapse a pane, and a measurement states no such intent.
+
+  Two passes, not one: a pane's natural height depends on the width the layout
+  just assigned it. It converges because the measured element is never the one
+  the extent was written to (`<Container>` measures an inner auto-height div),
+  and because `setNaturalSize` drops sub-pixel changes. The convergence test
+  asserts a pass count — a test on the final rect passes just as happily
+  against a loop that never stops.
 
 - **Collapse is userland; `minSize` no longer floors an explicit size.**
   Was "collapse as a state." It isn't one. With an explicit or content-derived
@@ -275,23 +299,30 @@ five are what a consumer would still have to build.
   themselves; the policy is sugar over it, and worth waiting for a second
   consumer to ask.
 
-- **Keyboard resize.** Half-closed. Panels are now reachable and labelled —
-  the child wrapper carries `tabIndex` / `role="group"` / `aria-label`, and
-  1.2.0's keyboard navigation moves between them. **Gutters are still
-  pointer-only**, which fails a keyboard user outright: nothing renders
-  `role="separator"`, and no key steps a gutter. The strategy side is ready —
-  affordances carry `orientation` / `valueNow` / `valueMin` / `valueMax` /
-  `atMin` / `atMax` / `label`, so the adapter has everything ARIA needs
-  without measuring. Wants arrow keys on a focused gutter synthesizing a
-  `'drag'` through the existing `dispatchAffordance` path, deliberately not a
-  second clamp. (`keypress` on `BuiltinAffordanceKind` and `LayoutEvent`'s
-  `kind: 'key'` stay dead and `@deprecated`; see Loose ends.)
+- **Shipped: keyboard resize.** A gutter renders as `role="separator"` with
+  `aria-orientation` and `aria-valuenow` / `aria-valuemin` / `aria-valuemax`,
+  and takes arrow keys along its orientation plus `Home` / `End`. A key
+  synthesizes the same `'drag'` the pointer sends through `dispatchAffordance`,
+  so the strategy clamps once rather than twice. (`keypress` on
+  `BuiltinAffordanceKind` and `LayoutEvent`'s `kind: 'key'` stay dead and
+  `@deprecated`; see Loose ends.)
 
-  One trap for whoever builds it: under `resizeMode: 'neighbor'` a step is
-  clamped by whichever of the two panes binds first, so it can be truncated
-  by the *neighbor's* minimum while the focused pane is nowhere near its own.
-  Announcing "at minimum" there would be a lie. `bounds` describes the
-  dragged child only.
+  The accessible name is composed by the adapter from `affordance.affects`
+  using `accessibleName` — affordances never carried a `label`, contrary to
+  what this entry claimed before.
+
+  The `resizeMode: 'neighbor'` trap this entry recorded was real and is now
+  fixed at the source: `bounds` reported the whole row's slack while the drag
+  stopped at the neighbor's minimum. Advisory numbers could absorb that; an
+  `aria-valuemax` promising an extent that does not exist could not.
+
+  Still not announced, and now by choice rather than for want of a mechanism:
+  the live region `bindAnnouncer` added is for structural change, and resize
+  does not use it. Under `resizeMode: 'neighbor'` a step can be truncated by the
+  neighbor's limit while the focused pane is nowhere near its own, and
+  `atMin` / `atMax` describe the dragged child — so narrating from them would
+  state something false. `aria-valuenow` carries the truth. Anyone wiring
+  resize into the announcer has to solve that first.
 
 - **Shipped: `resizeMode: 'neighbor'`.** Strip's default still writes only the
   dragged child and lets the delta be absorbed by whichever siblings are
@@ -337,13 +368,25 @@ a host with its own per-item undo stacks simply doesn't wire it.
   an `onChildOrderChange` intent the host commits, so "host declares, user
   rearranges" needs no round-trip.
 
-  **Mostly addressed.** `ChildSort` already receives the parent's current store
-  order as its second argument, and `<Zone>` already takes a `sort` prop, so the
-  uncontrolled half needed no new mechanism — only a name. `preserveStoreOrder`
-  ships it: reconcile short-circuits, no `setChildOrder` runs, no `arrange`
-  lock, no round-trip. Still open is the *controlled* half — an
-  `onChildOrderChange` intent for a host that wants to approve or transform a
-  reorder rather than just keep it.
+  **Shipped, both halves.** The uncontrolled one needed no new mechanism, only
+  a name: `ChildSort` already received the parent's current store order and
+  `<Zone>` already took a `sort` prop, so `preserveStoreOrder` short-circuits
+  reconcile with no `setChildOrder`, no `arrange` lock and no round-trip.
+
+  The controlled half is `<Container onChildOrderChange>`, registered on the
+  `DragController` through its own `registerOrderControl` registry rather than
+  on `registerDropTarget` — a second registration for the same id silently
+  replaces the first there, which is the trap already recorded against the
+  Playwright suite.
+
+  Two rules worth not re-litigating. A drop involving a controlled parent
+  writes nothing to the store, even when the *other* side is uncontrolled:
+  committing the move and also asking the host to commit it applies one gesture
+  twice, so the uncontrolled counterpart is the host's to update. And only
+  library-mediated gestures are intercepted — `store.reorderInParent` called
+  directly is the host acting on itself. The prospective order is computed with
+  `placeRespectingPins`, the same helper the store uses, so a pinned prefix
+  cannot depend on who owns order.
 
 - **Shipped: subtree serialize / graft.** `serialize(store, { root })` emits a
   v5 snapshot of one node and its descendants, with the root's own placement in
@@ -354,14 +397,32 @@ a host with its own per-item undo stacks simply doesn't wire it.
   one undo step. Graft never moves focus. A subtree snapshot is an ordinary v5
   snapshot, so `deserialize` still opens one as a standalone store.
 
-- **Grid resize gutters** (promoted from Loose ends). Auto-balance lives in
-  `gridStrategy`; draggable seams live in `stripStrategy`. A host that wants
-  both has to give one up — nesting strips via `store.split` discards the
-  `ceil(sqrt(n))` arrangement that made the grid worth adopting. This is the
-  same gutter-writes-`span` gap already recorded against the removed
-  `splitStrategy`; the workspace-tiling case is what makes it load-bearing
-  rather than a symmetry complaint. Fold in the `patchPlacement` span
-  lock-gate at the same time.
+- **Shipped: grid resize gutters.** `gridStrategy` takes `resizable: true` and
+  emits `resize-x-<id>` / `resize-y-<id>` on each item whose span can move,
+  writing `placement.span`. Auto-balance and draggable seams are no longer an
+  either/or. `patchPlacement` now lock-gates `span` behind the `resize` axis
+  alongside `size`, closing the Loose-ends gap.
+
+  It is **not** strip's pairing semantics, and trying to copy them was the
+  wrong instinct: a grid packs rather than pairs, so growing an item costs
+  whoever no longer fits rather than one named neighbor. `valueMax` is the
+  largest span at which every sibling is still placed — which in an unbounded
+  grid means the grid grows a row rather than dropping anyone.
+
+  Two contract additions this needed, both additive:
+
+  - **`LayoutEvent.payload.point`**, the pointer in container-relative
+    coordinates. A quantized extent cannot accumulate incremental `dx`: a few
+    pixels round to the span it already has, every time, so the drag never
+    moves. Grid resolves against the pointer instead, which is also
+    self-correcting rather than drift-prone. Strip ignores it.
+  - **`Affordance.bounds.step`**, how far one keyboard press should move this
+    affordance in its own units. `<Container>`'s `affordanceKeyStep` is 8
+    pixels, which is meaningless against a value counted in cells.
+
+  A seam is emitted when the span *can* move in either direction, not when a
+  cell follows it — keying on the latter drops the handle from an item spanning
+  to the edge and leaves it grown with no way back.
 
 - **In-flow render mode, per zone.** `docs/explorations/2026-06-04-flexbox-passive-zones.md`
   declined replacing the passive strategies with CSS, and its "what's lost"
