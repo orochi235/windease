@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { asNodeId, type NodeId, Store, stripStrategy } from '../index.js';
+import { asNodeId, ContainerHost, type NodeId, Store, stripStrategy } from '../index.js';
 import { Provider } from './Provider.js';
 import { Panel, Zone } from './presets.js';
 import { StrategyRegistryProvider } from './strategies.js';
@@ -230,5 +230,47 @@ describe('controlled placement in the declarative path', () => {
     const { container } = render(<Host />);
     fireEvent.keyDown(gutter(container), { key: 'ArrowDown' });
     expect(gutter(container).getAttribute('aria-valuenow')).toBe('108');
+  });
+});
+
+describe('placement control registration', () => {
+  it('does not re-register on every render for an inline handler', () => {
+    // An inline arrow is a new function each render; depending on its identity
+    // would tear the control down and rebuild it on every one.
+    const store = new Store();
+    const spy = vi.fn(() => {});
+    const register = vi.spyOn(ContainerHost.prototype, 'registerPlacementControl');
+    // Hoisted: an inline object rebuilds the registry, and with it every
+    // ContainerHost in the tree, which would re-register for its own reasons.
+    const strategies = { strip: stripStrategy as never };
+    function Tree({ tick }: { tick: number }) {
+      return (
+        <Provider store={store}>
+          <StrategyRegistryProvider strategies={strategies}>
+            <Zone
+              id={Z}
+              strategyId="strip"
+              config={CONFIG}
+              viewport={{ w: 200, h: 400 }}
+              affordances
+            >
+              <Panel id={A} meta={{ tick }} onPlacementChange={() => spy()} />
+              <Panel id={B} />
+            </Zone>
+          </StrategyRegistryProvider>
+        </Provider>
+      );
+    }
+    const { rerender } = render(<Tree tick={0} />);
+    const afterMount = register.mock.calls.length;
+    rerender(<Tree tick={1} />);
+    rerender(<Tree tick={2} />);
+    expect(register.mock.calls.length).toBe(afterMount);
+
+    // Still live, and still calling the newest closure.
+    fireEvent.keyDown(gutter(document.body), { key: 'ArrowDown' });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(sizeH(store, A)).toBeUndefined();
+    register.mockRestore();
   });
 });

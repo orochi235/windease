@@ -140,10 +140,15 @@ function usePlacementControl(id: NodeId, commit: PlacementCommit | undefined): v
   const { registerPlacementControl } = useLayoutContext();
   const latest = useRef(commit);
   latest.current = commit;
+  // Registration turns on the presence of a handler, not its identity: an
+  // inline arrow is a new function every render, and depending on it would
+  // unregister and re-register the control on each one. The ref keeps the
+  // call current without that churn.
+  const enabled = commit !== undefined;
   useEffect(() => {
-    if (!commit || !registerPlacementControl) return;
+    if (!enabled || !registerPlacementControl) return;
     return registerPlacementControl(id, (next, change) => latest.current?.(next, change));
-  }, [id, registerPlacementControl, commit]);
+  }, [id, registerPlacementControl, enabled]);
 }
 
 /** The measurement box a node's `hints.sizing` asks for, bound to whichever

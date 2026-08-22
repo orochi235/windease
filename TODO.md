@@ -174,6 +174,16 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   point, so narrowing either breaks a consumer who annotated against it — the
   `| string` on `Affordance.kind` protects assignment into that field, not a
   direct use of the exported union.
+- **An inline `strategies` prop rebuilds every container host on each render.**
+  `StrategyRegistryProvider` memoizes on the object identity
+  (`useMemo(..., [strategies])`), so the idiomatic
+  `<StrategyRegistryProvider strategies={{ strip: stripStrategy }}>` mints a
+  new `Map` every render — which changes `useContainerLayout`'s `host` memo,
+  destroying and rebuilding the `ContainerHost`, dropping its layout cache and
+  re-running every subscription. Silent: everything still renders correctly,
+  just never from cache. Every example in the README does it. Either memoize
+  on the entries rather than the object, or say plainly in the docs that the
+  prop must be hoisted.
 - **Strip's `baseExtent` and `layout` disagree when `fill` is off.** With
   `fill: false` (the default) `layout` sizes a hintless pane at
   `defaultItemSize`, which itself defaults to 0 — but `baseExtent`, which
