@@ -256,3 +256,82 @@ describe('graft at an index', () => {
     expect(order).toContain('a');
   });
 });
+
+describe('graft and focus', () => {
+  it('does not steal focus from the node that has it', () => {
+    const s = buildTree();
+    s.registerNode(
+      createNode({ id: asNodeId('f'), kind: 'panel', parentId: asNodeId('a'), focus: true }),
+    );
+    s.focusNode(asNodeId('f'));
+    const snap = serialize(s, { root: asNodeId('a') });
+    expect(snap.focusedId).toBe('f');
+
+    s.unregisterNode(asNodeId('a'));
+    s.registerNode(
+      createNode({ id: asNodeId('keeper'), kind: 'panel', parentId: asNodeId('z'), focus: true }),
+    );
+    s.focusNode(asNodeId('keeper'));
+
+    graft(s, snap, asNodeId('z'));
+
+    expect(s.focusedId).toBe('keeper');
+    expect(s.getNode(asNodeId('f'))?.focus?.state).toBe('blurred');
+  });
+
+  it('does not claim focus even when the store has none', () => {
+    const s = buildTree();
+    s.registerNode(
+      createNode({ id: asNodeId('f'), kind: 'panel', parentId: asNodeId('a'), focus: true }),
+    );
+    s.focusNode(asNodeId('f'));
+    const snap = serialize(s, { root: asNodeId('a') });
+
+    s.unregisterNode(asNodeId('a'));
+    s.blurAll();
+    expect(s.focusedId).toBeNull();
+
+    graft(s, snap, asNodeId('z'));
+
+    expect(s.focusedId).toBeNull();
+  });
+});
+
+describe('graft migrates legacy snapshots', () => {
+  it('accepts a v3 subtree snapshot and folds its lock fields', () => {
+    const legacy = {
+      version: 3,
+      rootIds: ['old'],
+      focusedId: null,
+      nodes: [
+        {
+          id: 'old',
+          kind: 'group',
+          lifecycle: 'visible',
+          container: {
+            strategyId: 'strip',
+            config: { axis: 'y' },
+            childOrder: ['old1'],
+            allowsPinning: true,
+            allowsDrop: false,
+          },
+        },
+        {
+          id: 'old1',
+          kind: 'panel',
+          lifecycle: 'visible',
+          membership: { parentId: 'old', placement: { locked: true } },
+        },
+      ],
+    };
+
+    const s = buildTree();
+    const id = graft(s, legacy, asNodeId('z'));
+
+    expect(id).toBe('old');
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['a', 'b', 'old']);
+    expect(s.isLocked(asNodeId('old'), 'accept')).toBe(true);
+    expect(s.isLocked(asNodeId('old1'), 'move')).toBe(true);
+    expect(s.getPlacement(asNodeId('old1')).locked).toBeUndefined();
+  });
+});
