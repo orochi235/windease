@@ -228,6 +228,16 @@ describe('graft attaches', () => {
     expect(rec.log.at(-1)?.name).toBe('transaction.end');
     rec.stop();
   });
+
+  it('grafts a leaf root that has no container', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('b') });
+    expect(snap.nodes).toHaveLength(1);
+    s.unregisterNode(asNodeId('b'));
+
+    expect(graft(s, snap, asNodeId('a'))).toBe('b');
+    expect(s.getChildren(asNodeId('a')).map((n) => n.id)).toEqual(['a1', 'a2', 'b']);
+  });
 });
 
 describe('graft at an index', () => {
@@ -250,6 +260,16 @@ describe('graft at an index', () => {
     s.setPinned(asNodeId('b'), 0);
 
     graft(s, snap, asNodeId('z'), { at: 0 });
+
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['b', 'a']);
+  });
+
+  it('clamps an index past the end to an append', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+
+    graft(s, snap, asNodeId('z'), { at: 99 });
 
     expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['b', 'a']);
   });
