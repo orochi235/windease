@@ -332,6 +332,23 @@ describe('graft migrates legacy snapshots', () => {
     expect(s.isLocked(asNodeId('old1'), 'move')).toBe(true);
     expect(s.getPlacement(asNodeId('old1')).locked).toBeUndefined();
   });
+
+  it('folds a legacy lock out of rootPlacement', () => {
+    const legacy = {
+      version: 3,
+      rootIds: ['old'],
+      focusedId: null,
+      rootPlacement: { locked: true, size: { w: 120 } },
+      nodes: [{ id: 'old', kind: 'panel', lifecycle: 'visible' }],
+    };
+
+    const s = buildTree();
+    graft(s, legacy, asNodeId('z'));
+
+    expect(s.isLocked(asNodeId('old'), 'move')).toBe(true);
+    expect(s.getPlacement(asNodeId('old')).locked).toBeUndefined();
+    expect(s.getPlacement(asNodeId('old')).size).toEqual({ w: 120 });
+  });
 });
 
 describe('README subtree example', () => {

@@ -280,14 +280,23 @@ function normalizeLegacyMembership(nodes: SerializedNode[]): void {
   }
 }
 
+/** Back-compat: fold a v3 `placement.locked: true` into the three lock axes
+ *  it implied, deleting the raw key. Mutates `placement` — caller must clone
+ *  first. Returns the axes to fold in, or `undefined` if `placement` wasn't
+ *  legacy-locked. */
+function foldLegacyPlacementLock(
+  placement: (Record<string, unknown> & { locked?: boolean }) | undefined,
+): Pick<LockSet, 'move' | 'resize' | 'destroy'> | undefined {
+  if (placement?.locked !== true) return undefined;
+  delete placement.locked;
+  return { move: true, resize: true, destroy: true };
+}
+
 /** Back-compat: fold v3's `allowsDrop`/`allowsDragOut`/`placement.locked`
  *  into `lock` and drop the old keys. Mutates `sn` — caller must clone first. */
 function migrateLockFields(sn: SerializedNode): void {
   const container = sn.container as
     | (NonNullable<SerializedNode['container']> & { allowsDrop?: boolean; allowsDragOut?: boolean })
-    | undefined;
-  const placement = sn.membership?.placement as
-    | (Record<string, unknown> & { locked?: boolean })
     | undefined;
   const lock: LockSet = { ...(sn.lock ?? {}) };
   let changed = false;
@@ -303,12 +312,10 @@ function migrateLockFields(sn: SerializedNode): void {
     delete container.allowsDrop;
     delete container.allowsDragOut;
   }
-  if (placement?.locked === true) {
-    lock.move = true;
-    lock.resize = true;
-    lock.destroy = true;
+  const placementLock = foldLegacyPlacementLock(sn.membership?.placement);
+  if (placementLock) {
+    Object.assign(lock, placementLock);
     changed = true;
-    delete placement.locked;
   }
   if (changed) sn.lock = lock;
 }
@@ -523,13 +530,28 @@ function parseSnapshot(snap: unknown): SerializedStore {
   normalizeLegacyMembership(nodes);
   if (version < 4) migrateToV4(nodes);
   if (version < 5) migrateToV5(nodes);
+
+  let rootPlacement: Record<string, unknown> | undefined;
+  if (src.rootPlacement !== undefined) {
+    rootPlacement = structuredClone(src.rootPlacement) as Record<string, unknown> & {
+      locked?: boolean;
+    };
+    if (version < 4) {
+      const placementLock = foldLegacyPlacementLock(rootPlacement);
+      if (placementLock) {
+        const rootNode = nodes.find((n) => n.id === src.rootIds[0]);
+        if (rootNode) rootNode.lock = { ...rootNode.lock, ...placementLock };
+      }
+    }
+  }
+
   const out: SerializedStore = {
     version: 5,
     nodes,
     rootIds: [...src.rootIds],
     focusedId: src.focusedId ?? null,
   };
-  if (src.rootPlacement !== undefined) out.rootPlacement = structuredClone(src.rootPlacement);
+  if (rootPlacement !== undefined) out.rootPlacement = rootPlacement;
   return out;
 }
 
