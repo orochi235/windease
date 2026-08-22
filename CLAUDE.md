@@ -128,6 +128,12 @@ What this means when you design against it:
 ## Other conventions
 
 - TDD where reasonable; new strategies/hooks ship with their tests.
+- **Every feature ships with a Ladle story** — a new one, or real integration into
+  an existing one, in the same change that adds the feature. Not a demo afterthought:
+  the Playwright suite drives Ladle (`playwright.config.ts` starts it), so a
+  capability with no story has no browser coverage, and the gestures this library
+  exists for are the ones unit tests are worst at. A story that only renders the
+  feature is not integration — it has to be operable.
 - Strategies are pure functions of `{ items, container, state, options }` and
   return `LayoutResult`. Side effects belong in React glue (Zone, Workspace).
 - **`store.transact` does not roll back.** A callback that throws partway leaves
