@@ -105,11 +105,16 @@ is one undo step and history restores the pane with its size.
 
 ## React
 
-`AffordanceHandle` gains two refs, both reset on pointerdown: cumulative travel,
-and `bounds.valueNow` at gesture start. Each pointermove dispatches the drag as
-before, then calls `trackJoin`. `consumed` is re-read from the affordance prop
-rather than predicted, so it reflects what the strategy actually wrote — the
-same self-correcting read the `point` payload already relies on.
+`AffordanceHandle` holds one ref per gesture — the running overshoot, cleared at
+both ends of the gesture — and each pointermove dispatches the drag as before,
+then feeds `trackJoin` that ref, the move's delta, and the affordance's current
+`atMin`/`atMax`, storing the result back.
+
+The armed victim is held in a ref *and* a state. The ref is the authority: it is
+what the change guard and the commit path read, and it is the only cell either
+writes. The state exists solely to schedule the render that paints the marking,
+so the handle does not depend on a parent re-rendering for its own attribute to
+appear.
 
 The victim pane is rendered by `<Container>`, not by the handle, so arming
 travels up the way active state already does: `AffordanceLayer` gains
@@ -117,6 +122,14 @@ travels up the way active state already does: `AffordanceLayer` gains
 marks that child. Both the victim and the handle carry `data-join-armed`;
 `styles.css` hatches the one and thickens the other. The attribute is the
 contract a consumer restyles against, not the gradient.
+
+`<Zone>` / `<Panel>` mount the same layer, so the seam marks itself there too,
+but naming the victim needs a context the preset shell reads — its children
+render their own `data-node` wrappers, so a prop cannot reach them. Until that is
+wired the presets show the point of no return without saying which pane goes.
+The join is not suppressed there: one config key meaning different things
+depending on which entry point mounted the tree is a worse contract than a
+weaker affordance.
 
 **Escape cancels**, matching drag-and-drop. `pointercancel` must take that same
 cancel path rather than the commit path — today both land in one handler, which
