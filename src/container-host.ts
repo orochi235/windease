@@ -64,7 +64,27 @@ export class ContainerHost {
     this.#store = store;
     this.#parentId = parentId;
     this.#registry = registry;
-    this.#containerRef = store.getNode(parentId)?.container;
+    this.#wire();
+  }
+
+  /**
+   * Re-wire a host a previous `destroy()` tore down. A no-op while attached.
+   *
+   * React's StrictMode mounts effects, tears them down and mounts them again
+   * against the same host, so without this the second mount runs on a host
+   * with no subscriptions left — it renders once and then never hears about
+   * another change.
+   */
+  attach(): void {
+    if (!this.#destroyed) return;
+    this.#destroyed = false;
+    this.#wire();
+    this.#invalidate();
+  }
+
+  #wire(): void {
+    const store = this.#store;
+    this.#containerRef = store.getNode(this.#parentId)?.container;
 
     // Mirrors what the React hook watched: the parent node's container
     // reference, plus two events whose effects that reference cannot show.

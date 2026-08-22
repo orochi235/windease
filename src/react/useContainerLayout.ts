@@ -44,7 +44,12 @@ export function useContainerLayout(
     () => new ContainerHost(store, parentId, registry),
     [store, parentId, registry],
   );
-  useEffect(() => () => host.destroy(), [host]);
+  useEffect(() => {
+    // `host` comes from useMemo, so a StrictMode remount hands back the same
+    // instance this cleanup destroyed. Re-attach rather than assume a fresh one.
+    host.attach();
+    return () => host.destroy();
+  }, [host]);
 
   const fixedW = fixedViewport?.w;
   const fixedH = fixedViewport?.h;

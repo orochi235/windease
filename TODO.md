@@ -613,3 +613,35 @@ cannot recur.
   surface: `ParentContext` / `ParentScope` / `useParentId`,
   `LayoutContext` family, `defaultChildSort`, and the three preset prop
   types.
+
+## `<Container>` renders nothing under React StrictMode [HIGH]
+
+Found consuming 1.2.0 from `@weasel-js/labkit`, whose Vite examples use
+`<StrictMode>` like every React template does.
+
+`useContainerLayout` builds the host with `useMemo` and destroys it in an
+effect cleanup:
+
+```js
+const host = useMemo(() => new ContainerHost(store, parentId, registry), [store, parentId, registry]);
+useEffect(() => () => host.destroy(), [host]);
+```
+
+StrictMode mounts effects, tears them down, and remounts. The teardown
+destroys the host; the remount re-runs the effect against the *same* memo
+value, because its deps did not change. Every subscription is gone and the
+container renders no children at all — no error, no warning, an empty box.
+Same shape as any dispose-a-memo-in-a-cleanup bug; it just happens to sit
+under the one hook every consumer's layout goes through.
+
+**Fixed.** `destroy()` is no longer one-way: the constructor's subscription
+wiring is extracted to `#wire()`, and a new public `ContainerHost.attach()`
+re-runs it on a destroyed host (a no-op otherwise). `useContainerLayout`
+calls it at the top of the effect that owns the teardown, so mount and
+remount are symmetric. Headless construction is unchanged — the constructor
+still wires itself.
+
+Verified end to end against labkit with `<StrictMode>` left in: 0 tiles
+became 4 tiles and 8 seams. Note the Vite dep cache serves a stale
+pre-bundle across a `dist` swap — clear `node_modules/.vite` before trusting
+a before/after in the browser.
