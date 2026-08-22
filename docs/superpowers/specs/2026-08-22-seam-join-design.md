@@ -53,24 +53,36 @@ later without a second mechanism.
 
 ### `trackJoin` — `src/layout/seam-join.ts`
 
-The seam stops moving but the pointer does not, and nothing in the system
-records how far past the stop the user has pushed. `trackJoin` derives it:
+The seam stops moving but the pointer does not, and nothing in the system records
+how far past the stop the user has pushed. `trackJoin` accumulates it, one move
+at a time:
 
 ```ts
-trackJoin({ join, requested, consumed, canDestroy }) -> { armed, candidateId, overshoot }
+trackJoin({ join, overshoot, delta, atMin, atMax, canDestroy })
+  -> { armed, candidateId, overshoot }
 ```
 
-`requested` is cumulative pointer travel since the gesture began; `consumed` is
-the extent the layout actually absorbed (`bounds.valueNow` now, less its value
-at gesture start). They track each other while the seam moves; once it clamps,
-only `requested` grows, and the gap is the overshoot. Its sign selects `atMax`
-or `atMin`. Arming requires both `|overshoot| > threshold` and
-`canDestroy(candidateId)`. `candidateId` names who is being pushed against, not
-who dies — it is populated while `armed` is still false, so the two are read
+It is a reducer: the host stores the returned `overshoot` and passes it back on
+the next move. Travel counts only while `bounds.atMin` / `atMax` says the seam is
+pinned — an unpinned seam is still resizing, however fast the pointer is moving.
+Motion away unwinds the accumulation toward zero and stops there rather than
+arming the opposite direction. `candidateId` names who is being pushed against,
+not who dies; it is populated while `armed` is still false, so the two are read
 together.
 
+**Do not derive overshoot as "travel asked for, minus extent absorbed."** The
+absorbed extent is only observable a frame later, so the difference sits at one
+frame's delta permanently: a steady 60px-per-move drag reads as a 60px overshoot
+with the seam mid-range, and releasing destroys a pane that never reached its
+floor. The clamp flags exist precisely so this is not derived by comparison —
+their own docstring says they are set by the code that performed the clamp.
+
+One consequence worth knowing: the move that *reaches* the clamp still reads as
+unpinned, so accumulation starts on the move after. That errs toward not
+destroying. A seam already pinned when the gesture starts accumulates from its
+first move, which is correct — it has nowhere to go, so all travel is overshoot.
+
 Pure, like `insertionIndexByMidpoint`: no store, no pointer, no retained state.
-The accumulation of `requested` lives in a ref in the React handle.
 
 ### `destroyBlockedBy` — `src/lock.ts`
 
