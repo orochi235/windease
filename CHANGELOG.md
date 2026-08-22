@@ -111,6 +111,11 @@ section below.
   same path `<Container>` uses, and a preset pane declaring `focus` carries the
   roving tab stop. Arrow keys move the caret across nested presets and
   `Shift`-arrow moves the pane, as they already did under `<Container>`.
+  The tab stop is the one thing here that reaches a tree not asking for it: a
+  preset pane declaring `focus` in a store with a `focusedId` set becomes a
+  `tabIndex 0` stop even with no `<FocusProvider>` mounted, where the presets
+  previously rendered no `tabIndex` at all. Tab lands in the layout once —
+  the same single stop `<Container>` has always had.
 - **A scrolling page no longer re-measures every root on every scroll event.** The
   root self-measure compared document coordinates exactly, and `getBoundingClientRect`
   and `window.scrollX` do not round alike under browser zoom or a fractional device
