@@ -10,15 +10,21 @@ The keyboard-navigation work was a separate session; it has landed on local
 
 ## Tree state
 
-The wishlist work is on **`feat/palette-sizing-keys`**, five commits, not yet
-merged to `main`. 887 tests / 83 files green, plus typecheck, lint, build, 26
-e2e specs, and `scripts/check-doc-hashes.sh`.
+All of it is merged to `main`, which is clean and **local-only — nothing in this
+repo has been pushed to `origin/main` since `b5d5647`, now 58 commits back.**
+914 tests / 86 files green, plus typecheck, lint, build, 78 e2e specs across
+Chromium/Firefox/WebKit, and `scripts/check-doc-hashes.sh`.
 
-`main` itself is clean and **local-only — nothing in this repo has been pushed
-to `origin/main` since `b5d5647`.** Subtree serialize/graft and keyboard
-navigation are both merged into it; `feat/subtree-graft` and
-`feat/keyboard-navigation` are disposable, and `.claude/worktrees/keyboard-nav/`
-is still on disk.
+`feat/palette-sizing-keys` is merged and disposable, as are `feat/subtree-graft`
+and `feat/keyboard-navigation`. `.claude/worktrees/keyboard-nav/` is still on
+disk.
+
+**Two sessions were landing work in parallel here.** The focus-announcements
+session split `DragEngine` out of `DragController` and added `bindAnnouncer`
+while the wishlist branch was open. That merge is done — order control moved
+into the engine, where it belongs — but the lesson stands: check whether `main`
+moved before merging, and re-read any claim your branch wrote about a gap the
+other session may have since closed.
 
 **Nothing is released**, including the three wishlists. `package.json` and
 `src/index.ts`'s `VERSION` both still read `1.1.0`, and `TODO.md`'s heading
