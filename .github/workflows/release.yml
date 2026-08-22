@@ -9,7 +9,7 @@ on:
 # makes that possible — without it npm falls back to looking for a token
 # and fails. The npmjs.com side must name this exact filename.
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -40,9 +40,21 @@ jobs:
             exit 1
           fi
 
+      # The tarball carries README.md and CHANGELOG.md, so a heading still
+      # saying "Unreleased" ships to consumers who already have the code.
+      - name: Changelog must name this version
+        run: scripts/check-changelog.sh "${GITHUB_REF_NAME}"
+
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
 
       - name: Publish
         run: npm publish --provenance --access public
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          scripts/check-changelog.sh --extract "${GITHUB_REF_NAME}" > /tmp/notes.md
+          gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file /tmp/notes.md

@@ -135,3 +135,6 @@ What this means when you design against it:
   before opening the transaction rather than relying on an inner call to throw.
 - Snapshot/hydrate keeps everything JSON-safe.
 - No breaking changes between minor versions without a README note.
+- Every user-visible change gets a `CHANGELOG.md` entry under `## Unreleased`, which
+  is retitled to the version at release. `scripts/check-changelog.sh` fails a release
+  whose version has no section, or where an `Unreleased` heading survived the bump.
