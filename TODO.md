@@ -345,16 +345,23 @@ palette dock.
   answers only the first question. Needs a stack container preset and a tab
   strip on top of that. The largest of the three by a wide margin.
 
-- **Coalescing a container that drops to one child.** The mechanism already
-  exists and is already careful: `store.unsplit` lifts the children into the
-  grandparent, and for a lone survivor it transfers the group's `placement`
-  (minus `pinned`) and its pinned index onto that child. Nothing calls it
-  automatically — every call site is a consumer asking. So the open question
-  is a *policy* one, and it is where the traps are: a zone the consumer
-  created on purpose and expects to persist while empty must not evaporate,
-  which means the trigger belongs on the container (an opt-in config flag),
-  not in `removeNode`. Undo granularity needs deciding too — the coalesce
-  should join the removal's transaction rather than land as a second step.
+- **Shipped: coalescing a container that drops to one child.**
+  `store.setAutoUnsplit(id, true)` collapses a container when a removal leaves
+  it holding one child, lifting the survivor into the grandparent with the
+  group's placement and pinned index. Opt-in on the container, as this entry
+  argued: the trigger cannot live in `removeNode`, or a zone the consumer
+  created on purpose would evaporate the moment it emptied.
+
+  Two things this entry did not know. It fires on the *transition* only, not
+  on any container holding one child — otherwise a group could never be built
+  up a pane at a time. And it cannot cascade: `unsplit` swaps the group for
+  its survivor, so the grandparent's count is unchanged, which is why the
+  upward walk that looked necessary is not.
+
+  Undo granularity resolved as this entry wanted: `unregisterNode` now opens a
+  transaction, so the collapse joins the removal rather than landing as a
+  second step. Every removal emits `transaction.begin` / `transaction.end`
+  now, which a consumer bracketing history on that pair will see.
 
 - **Joining panes by dragging a seam past a neighbor's floor.** A resize
   gesture that ends in a destroy. It has to answer to `lock.destroy` on a
