@@ -9,21 +9,21 @@ The keyboard-navigation work was a separate session; it has landed on local
 
 ## Tree state
 
-On `feat/subtree-graft`, clean, **not pushed and not merged to `main`**. 16 commits
-ahead of `main`, which is itself local-only at `3ee4303` — nothing in this repo
-has reached `origin` since `b5d5647`. 826 tests / 75 files green, plus
-typecheck, lint and build.
+On `main`, clean, **local-only — 40 commits ahead of `origin/main`, which is
+still at `b5d5647`.** Nothing in this repo has been pushed since. 828 tests / 75
+files green, plus typecheck, lint, build, and 20 e2e specs.
 
-The branch already has `main` merged into it twice, so it is current with the
-keyboard-navigation work. `.claude/worktrees/keyboard-nav/` is finished and its
-branch is merged to local `main`.
+Both workstreams are merged: subtree serialize/graft and keyboard navigation.
+`feat/subtree-graft` and `feat/keyboard-navigation` are merged and disposable.
+`.claude/worktrees/keyboard-nav/` is still on disk.
 
 **Nothing is released.** `package.json` and `src/index.ts`'s `VERSION` are both
 still `1.1.0`. Both workstreams ship as 1.2.0 by the user's decision, and
-`TODO.md`'s heading says `## On main, unreleased — ships as 1.2.0` precisely
+`TODO.md`'s heading reads `## On main, unreleased — ships as 1.2.0` precisely
 because the claim runs ahead of the mint. `npm version minor` has deliberately
-not been run by either session: its `postversion` pushes the tag, which triggers
-the Release workflow to publish over OIDC. That is the user's call.
+not been run: its `postversion` pushes the tag, which triggers the Release
+workflow to publish over OIDC. That is the user's call, and it is the single
+biggest outstanding decision in this repo.
 
 ## What shipped
 
@@ -84,11 +84,12 @@ throws mid-walk and would strand a half-grafted tree. Pinned by
 `src/snapshot.subtree.test.ts` ("rejects a deep colliding id"). Any future
 multi-step store operation inherits this trap.
 
-**`store.hasFocus(id)` is a capability check, not a focus check.** It answers
-"does this node have a focus machine," sibling to `isContainer` / `isMember` —
-not "is this node focused now." For the latter read `getNode(id)?.focus?.state`
-or compare `store.focusedId`. A test asserting `hasFocus(x) === false` on a
-focus-capable node will fail confusingly.
+**`canFocus(id)` is a capability check, not a focus check.** It answers "does
+this node have a focus machine," sibling to `isContainer` / `isMember`. It was
+called `hasFocus`, which sat one method from `focusedId` and read as state —
+both workstreams misread it, which is why it was renamed in 1.2.0. `hasFocus`
+survives as a `@deprecated` alias until 2.0.0. For actual focus state read
+`getNode(id)?.focus?.state` or compare `store.focusedId`.
 
 **A regression test written alongside its fix may be vacuous.** The original
 graft collision test passed for free because nothing mutated yet, and it could
