@@ -115,6 +115,27 @@ Still open:
   `docs/superpowers/specs/2026-08-22-seam-join-design.md`'s `trackJoin`, which
   is already shaped for it.
 
+- **Open question, nothing decided: should input binding come from
+  `@weasel-js/gestures`?** That package (1.0.4, zero dependencies, no React or
+  DOM) is a route grammar — `drag.handle`, `alt+drag.seam` — parsed and matched
+  against a normalized input event, plus a `describeRoute` that renders a
+  binding in plain English. It answers "which input happened and what is bound
+  to it," which windease has no vocabulary for at all: today a seam drag starts
+  because `pointerdown` is wired to a handle, and a consumer cannot rebind it.
+
+  It does *not* answer the harder half — an in-flight gesture accumulating
+  toward a commit, its intent resolved from geometry (overshoot past a clamp,
+  edge band, midpoint) and gated by locks. Every drag semantic this library has
+  or wants is one `drag` atom to that grammar.
+
+  So the trigger that would justify the dependency is a consumer asking to
+  *rebind* a gesture, not the semantics catalog growing. Nobody has asked.
+  Weigh against it: `@weasel-js/labkit` already depends on `windease ^1.2.1`,
+  so taking the dependency puts both directions across one repo boundary and
+  makes a coordinated change a two-release sequence. Worth stealing regardless
+  of the outcome: the `GESTURE_DESCRIPTORS` shape, one table every consumer
+  reflects off, so adding an entry updates the matcher and the UI together.
+
 ## Groups
 
 A "group" wraps multiple windows so they move, drag, and (potentially) resize
