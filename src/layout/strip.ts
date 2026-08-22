@@ -170,20 +170,52 @@ function finishBounds(
   };
 }
 
-/** The extent an item currently occupies along the main axis: its explicit
- *  size, or the share an unconstrained item receives. */
-function baseExtent(
-  item: LayoutItem,
+/** The main-axis extent every placed item receives. `layout` writes these into
+ *  the rects and `dispatchAffordance` resizes from them; computing the row
+ *  twice is how a seam came to advertise a base its pane never rendered at. */
+function mainSizes(
   placedItems: LayoutItem[],
+  cfg: StripConfig,
   axis: 'x' | 'y',
   usableMain: number,
-): number {
-  const explicit = requestedAxis(item, axis);
-  if (explicit !== undefined) return explicit;
-  const explicits = placedItems.filter((it) => requestedAxis(it, axis) !== undefined);
-  const explicitSum = explicits.reduce((sum, it) => sum + (requestedAxis(it, axis) ?? 0), 0);
-  const unconstrainedCount = placedItems.length - explicits.length;
-  return unconstrainedCount > 0 ? Math.max(0, (usableMain - explicitSum) / unconstrainedCount) : 0;
+): number[] {
+  // Under `scroll` the row is laid out against what it asked for rather than
+  // what it has, so nothing scales and the excess is reported instead. A
+  // measured pane holds at its measurement for the same reason an explicit
+  // one does: it is what the pane asked for.
+  const intrinsicMain = placedItems.reduce((sum, it) => sum + intrinsicAxis(it, axis), 0);
+  const budget = cfg.overflowMode === 'scroll' ? Math.max(usableMain, intrinsicMain) : usableMain;
+
+  // If any child has explicit placement.size on the main axis, use the clamp
+  // helper for the whole row. Otherwise take the preferredSize/fill path.
+  if (placedItems.some((it) => requestedAxis(it, axis) !== undefined)) {
+    const clamp = clampExplicitSizes({
+      available: budget,
+      items: placedItems.map((it) => ({
+        id: it.id,
+        explicit: requestedAxis(it, axis),
+        min: effectiveMinAxis(it, axis),
+        max: effectiveMaxAxis(it, axis),
+      })),
+    });
+    return placedItems.map((it) => clamp.get(it.id) ?? 0);
+  }
+
+  const fill = cfg.fill ?? false;
+  const preferred = placedItems.map((item) =>
+    axis === 'x' ? (item.hints?.preferredSize?.w ?? 0) : (item.hints?.preferredSize?.h ?? 0),
+  );
+  const totalPreferred = preferred.reduce((sum, v) => sum + v, 0);
+  const flexCount = preferred.filter((v) => v === 0).length;
+  const flexMain =
+    fill && flexCount > 0 ? Math.max(0, (usableMain - totalPreferred) / flexCount) : 0;
+  const fallbackMain = fill ? flexMain : (cfg.defaultItemSize ?? 0);
+  // Floor at min here too: without it `minSize` is honored only when some
+  // sibling happens to carry an explicit size, and ignored otherwise.
+  return placedItems.map((item, i) => {
+    const v = preferred[i] ?? 0;
+    return Math.max(v > 0 ? v : fallbackMain, effectiveMinAxis(item, axis));
+  });
 }
 
 function writeSize(store: unknown, id: string, axis: 'x' | 'y', value: number): void {
@@ -259,8 +291,6 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const axis = cfg.axis ?? 'x';
     const gap = cfg.gap ?? 0;
     const padding = cfg.padding ?? 0;
-    const fill = cfg.fill ?? false;
-    const defaultItemSize = cfg.defaultItemSize ?? 0;
     const resizable = cfg.resizable ?? true;
 
     const placements = new Map<string, Rect>();
@@ -275,45 +305,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const { placed: placedItems, unplaced } = placedOf(items, cfg, axis, main);
 
     const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
-    // Under `scroll` the row is laid out against what it asked for rather than
-    // what it has, so nothing scales and the excess is reported instead. A
-    // measured pane holds at its measurement for the same reason an explicit
-    // one does: it is what the pane asked for.
-    const intrinsicMain = placedItems.reduce((sum, it) => sum + intrinsicAxis(it, axis), 0);
-    const budget = cfg.overflowMode === 'scroll' ? Math.max(usableMain, intrinsicMain) : usableMain;
-
-    // If any child has explicit placement.size on the main axis, use the
-    // clamp helper for the whole row. Otherwise fall back to the existing
-    // preferredSize/fill path.
-    const hasExplicit = placedItems.some((it) => requestedAxis(it, axis) !== undefined);
-    let sizes: number[];
-    if (hasExplicit) {
-      const clamp = clampExplicitSizes({
-        available: budget,
-        items: placedItems.map((it) => ({
-          id: it.id,
-          explicit: requestedAxis(it, axis),
-          min: effectiveMinAxis(it, axis),
-          max: effectiveMaxAxis(it, axis),
-        })),
-      });
-      sizes = placedItems.map((it) => clamp.get(it.id) ?? 0);
-    } else {
-      const preferred = placedItems.map((item) =>
-        axis === 'x' ? (item.hints?.preferredSize?.w ?? 0) : (item.hints?.preferredSize?.h ?? 0),
-      );
-      const totalPreferred = preferred.reduce((sum, v) => sum + v, 0);
-      const flexCount = preferred.filter((v) => v === 0).length;
-      const flexMain =
-        fill && flexCount > 0 ? Math.max(0, (usableMain - totalPreferred) / flexCount) : 0;
-      const fallbackMain = fill ? flexMain : defaultItemSize;
-      // Floor at min here too: without it `minSize` is honored only when some
-      // sibling happens to carry an explicit size, and ignored otherwise.
-      sizes = placedItems.map((item, i) => {
-        const v = preferred[i] ?? 0;
-        return Math.max(v > 0 ? v : fallbackMain, effectiveMinAxis(item, axis));
-      });
-    }
+    const sizes = mainSizes(placedItems, cfg, axis, usableMain);
 
     if (axis === 'x') {
       const y = padding;
@@ -413,15 +405,17 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     if (!item) return;
 
     const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
+    const sizes = mainSizes(placedItems, cfg, axis, usableMain);
+    const index = placedItems.indexOf(item);
 
     if (cfg.resizeMode === 'neighbor') {
-      const next = placedItems[placedItems.indexOf(item) + 1];
+      const next = placedItems[index + 1];
       // Affordances are only emitted on non-last children, so a missing
       // neighbor means a caller-built event; there is nothing to pair with.
       if (!next) return;
 
-      const baseA = baseExtent(item, placedItems, axis, usableMain);
-      const baseB = baseExtent(next, placedItems, axis, usableMain);
+      const baseA = sizes[index] ?? 0;
+      const baseB = sizes[index + 1] ?? 0;
       const minA = effectiveMinAxis(item, axis);
       const maxA = effectiveMaxAxis(item, axis);
       const minB = effectiveMinAxis(next, axis);
@@ -439,7 +433,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       return;
     }
 
-    const base = baseExtent(item, placedItems, axis, usableMain);
+    const base = sizes[index] ?? 0;
 
     let next = base + delta;
     const min = effectiveMinAxis(item, axis);

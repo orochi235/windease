@@ -184,16 +184,6 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   just never from cache. Every example in the README does it. Either memoize
   on the entries rather than the object, or say plainly in the docs that the
   prop must be hoisted.
-- **Strip's `baseExtent` and `layout` disagree when `fill` is off.** With
-  `fill: false` (the default) `layout` sizes a hintless pane at
-  `defaultItemSize`, which itself defaults to 0 — but `baseExtent`, which
-  feeds both `dispatchAffordance` and the `aria-valuenow` a gutter publishes,
-  divides the usable extent among the unconstrained panes instead. So a
-  hintless strip renders every pane at 0 while its seam advertises and moves
-  from a base of `usable / n`. Pre-existing and untouched here; the
-  configuration is degenerate enough (a strip that renders nothing visible)
-  that no consumer has hit it, but the two are exactly the pair `placedOf`
-  exists to keep in agreement.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like

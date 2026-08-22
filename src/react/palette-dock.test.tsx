@@ -149,6 +149,7 @@ describe('a palette dock, end to end', () => {
                 <Panel
                   key={id}
                   id={id}
+                  hints={{ sizing: { h: 'content' }, minSize: { w: 0, h: 40 } }}
                   {...(sizes[id] !== undefined ? { placement: { size: { h: sizes[id] } } } : {})}
                   onPlacementChange={(next) =>
                     setSizes((s) => ({ ...s, [id]: (next.size as { h: number }).h }))
