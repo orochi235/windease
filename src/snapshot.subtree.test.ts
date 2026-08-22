@@ -251,9 +251,7 @@ describe('graft at an index', () => {
 
     graft(s, snap, asNodeId('z'), { at: 0 });
 
-    const order = s.getChildren(asNodeId('z')).map((n) => n.id);
-    expect(order[0]).toBe('b');
-    expect(order).toContain('a');
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['b', 'a']);
   });
 });
 
