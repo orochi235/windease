@@ -349,6 +349,15 @@ Under `scroll` each pane holds at its measurement.
 count cap — the two compose. When even the first pane doesn't fit it is placed
 anyway, clamped to the container, so an overflowing dock never renders empty.
 
+`gridStrategy` takes the same three, with one difference in what triggers
+them. A grid derives its cells from the container, so it can always divide the
+space and only overflows once an item states a `hints.minSize` floor. Under
+`'squeeze'` the floors are ignored, as they always were; under `'scroll'` the
+cells hold at their floor and the excess is reported; under `'unplace'` the
+rows that fit are kept and the rest go to `unplaced`. A container too narrow
+for the floors reports width `overflow` under `'unplace'` too, since dropping
+rows cannot widen a cell.
+
 `overflow` is reported per axis and absent when the content fits, so a consumer
 that wants to drive its own policy can read it and ignore all three.
 

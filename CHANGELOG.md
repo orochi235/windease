@@ -52,6 +52,12 @@ section below.
   where they are. Each container answers for its own offset, so nesting composes, and
   a flow container needs none because it is measured from the DOM. `ContainerLayout`
   gains `scroll`. Scrolling does not re-run the strategy.
+- **`overflowMode` on grid**, the same `squeeze` / `scroll` / `unplace` vocabulary
+  strip uses. A grid derives its cells from the container, so it only overflows once
+  an item states a `hints.minSize` floor: `scroll` holds the cells at their floor and
+  reports the excess, `unplace` keeps the rows that fit and sends the rest to
+  `unplaced`, composing with the existing count caps. `squeeze` is the default and is
+  what grid has always done, so nothing changes for a container that declares nothing.
 - **`overflowMode` on strip**, with the host box sized to it.
 - **Affordances and content sizing in the declarative path.** `hints` is a prop on
   `<Zone>` / `<Panel>`, and affordances reach the presets, so the declarative and

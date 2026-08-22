@@ -48,6 +48,24 @@ interface GridConfig {
    * and a seam that only ever snaps is worth opting into.
    */
   resizable?: boolean;
+  /**
+   * What to do when the cells the container gives are smaller than the items'
+   * `hints.minSize` floors. A grid derives its cells from the container, so
+   * unlike a strip it only overflows once something states a floor.
+   *
+   * `'squeeze'` (default) ignores the floors and divides the container up
+   * however small that makes the cells. This is what the strategy has always
+   * done.
+   *
+   * `'scroll'` lays the cells out at their floors and reports the excess as
+   * `overflow`, for a host that sizes a scrolling box to it.
+   *
+   * `'unplace'` keeps the rows that fit at the floors and sends the rest to
+   * `unplaced`, composing with the count caps above. A container too narrow
+   * for the floors still reports width `overflow`, since dropping rows cannot
+   * widen a cell.
+   */
+  overflowMode?: 'squeeze' | 'scroll' | 'unplace';
 }
 
 /** cols/rowCap resolution shared by `canAccept`/`getDropPreview`. Unlike
@@ -316,6 +334,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     gap: 'number',
     padding: 'number',
     resizable: 'boolean',
+    overflowMode: ['squeeze', 'scroll', 'unplace'],
   },
   canAccept(items, options): boolean {
     return fitsCapacity(options as GridConfig, items);
@@ -425,8 +444,31 @@ export const gridStrategy: LayoutStrategy<void, string> = {
 
     const usableW = container.w - 2 * padding;
     const usableH = container.h - 2 * padding;
-    const cellW = (usableW - gap * (cols - 1)) / cols;
-    const cellH = (usableH - gap * (rows - 1)) / rows;
+    const mode = cfg.overflowMode ?? 'squeeze';
+    const floor = (axis: 'w' | 'h') =>
+      mode === 'squeeze' ? 0 : Math.max(0, ...items.map((it) => it.hints?.minSize?.[axis] ?? 0));
+    const floorW = floor('w');
+    const floorH = floor('h');
+
+    const heightFor = (r: number) => Math.max((usableH - gap * (r - 1)) / r, floorH);
+    let rowsUsed = rows;
+    let cellH = heightFor(rowsUsed);
+
+    if (mode === 'unplace' && cellH * rowsUsed + gap * (rowsUsed - 1) > usableH) {
+      // The first row is placed even when it does not fit, so an overflowing
+      // grid never renders empty — same rule strip follows.
+      rowsUsed = Math.max(1, Math.floor((usableH + gap) / (heightFor(1) + gap)));
+      for (const [id, cell] of [...cells]) {
+        if (cell.row < rowsUsed) continue;
+        cells.delete(id);
+        unplaced.push(id);
+      }
+      cellH = heightFor(rowsUsed);
+    }
+
+    const cellW = Math.max((usableW - gap * (cols - 1)) / cols, floorW);
+    const excessW = Math.max(0, cellW * cols + gap * (cols - 1) - usableW);
+    const excessH = Math.max(0, cellH * rowsUsed + gap * (rowsUsed - 1) - usableH);
 
     for (const item of items) {
       const cell = cells.get(item.id);
@@ -491,6 +533,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     }
 
     const result: LayoutResult<string> = { placements, affordances };
+    if (excessW > 0 || excessH > 0) result.overflow = { w: excessW, h: excessH };
     if (unplaced.length > 0) result.unplaced = unplaced;
     if (preview) result.isPreview = true;
     return result;
