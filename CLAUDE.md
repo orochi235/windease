@@ -132,5 +132,8 @@ under Loose ends in TODO.md.
 - TDD where reasonable; new strategies/hooks ship with their tests.
 - Strategies are pure functions of `{ items, container, state, options }` and
   return `LayoutResult`. Side effects belong in React glue (Zone, Workspace).
+- **`store.transact` does not roll back.** A callback that throws partway leaves
+  every mutation it already made, so a multi-step operation validates fully
+  before opening the transaction rather than relying on an inner call to throw.
 - Snapshot/hydrate keeps everything JSON-safe.
 - No breaking changes between minor versions without a README note.
