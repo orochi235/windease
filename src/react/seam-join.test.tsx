@@ -277,3 +277,128 @@ describe('seam join — store consequences', () => {
     expect(store.focusedId).not.toBe('b');
   });
 });
+
+/** ArrowRight presses at the default 8px `affordanceKeyStep`. Fifteen take `a`
+ *  from 200 to its 320 ceiling — the last of them still reads the seam as
+ *  unpinned, so the first press that counts as overshoot is the sixteenth, and
+ *  four of those (32px) clear the 24px threshold. */
+const KEYS_TO_CLAMP = 15;
+const KEYS_TO_ARM = KEYS_TO_CLAMP + 4;
+
+function press(seam: HTMLElement, key: string, times = 1): boolean {
+  let notCanceled = true;
+  for (let i = 0; i < times; i++) notCanceled = fireEvent.keyDown(seam, { key });
+  return notCanceled;
+}
+
+function liveText(container: HTMLElement): string {
+  return Array.from(container.querySelectorAll('[data-join-live]'))
+    .map((el) => el.textContent ?? '')
+    .join('');
+}
+
+describe('seam join — from the keyboard', () => {
+  let store: Store;
+  beforeEach(() => {
+    store = seed();
+  });
+
+  it('arrowing past the floor arms the victim', () => {
+    const { container, seam } = mount(store);
+    press(seam, 'ArrowRight', KEYS_TO_ARM - 1);
+    expect(widthOf(store, 'a')).toBe(320);
+    expect(armedPane(container)).toBeNull();
+    press(seam, 'ArrowRight');
+    expect(armedPane(container)).toBe('b');
+  });
+
+  it('Enter while armed destroys the victim and leaves its siblings', () => {
+    const { container, seam } = mount(store);
+    press(seam, 'ArrowRight', KEYS_TO_ARM);
+    expect(armedPane(container)).toBe('b');
+    expect(press(seam, 'Enter')).toBe(false);
+    expect(store.getNode(asNodeId('b'))).toBeUndefined();
+    expect(store.getNode(asNodeId('a'))).toBeDefined();
+    expect(store.getNode(asNodeId('c'))).toBeDefined();
+  });
+
+  it('Enter while not armed does nothing and leaves the key to the host', () => {
+    const { container, seam } = mount(store);
+    press(seam, 'ArrowRight', 3);
+    expect(armedPane(container)).toBeNull();
+    expect(press(seam, 'Enter')).toBe(true);
+    expect(store.getNode(asNodeId('b'))).toBeDefined();
+    expect(widthOf(store, 'a')).toBe(224);
+  });
+
+  it('Escape disarms without destroying, and a later Enter does not either', () => {
+    const { container, seam } = mount(store);
+    press(seam, 'ArrowRight', KEYS_TO_ARM);
+    expect(armedPane(container)).toBe('b');
+    press(seam, 'Escape');
+    expect(armedPane(container)).toBeNull();
+    expect(store.getNode(asNodeId('b'))).toBeDefined();
+    press(seam, 'Enter');
+    expect(store.getNode(asNodeId('b'))).toBeDefined();
+  });
+
+  it('arrowing back disarms', () => {
+    const { container, seam } = mount(store);
+    press(seam, 'ArrowRight', KEYS_TO_ARM);
+    expect(armedPane(container)).toBe('b');
+    press(seam, 'ArrowLeft');
+    expect(armedPane(container)).toBeNull();
+    expect(widthOf(store, 'a')).toBe(312);
+  });
+
+  // End means "go to valueMax": the travel that gets there is unpinned and
+  // cannot accumulate, and once there the delta is zero.
+  it('End never arms however often it is pressed', () => {
+    const { container, seam } = mount(store);
+    press(seam, 'End', 5);
+    expect(widthOf(store, 'a')).toBe(320);
+    expect(armedPane(container)).toBeNull();
+    expect(liveText(container)).toBe('');
+    press(seam, 'Enter');
+    expect(store.getNode(asNodeId('b'))).toBeDefined();
+  });
+
+  it('losing focus drops the accumulation', () => {
+    const { container, seam } = mount(store);
+    press(seam, 'ArrowRight', KEYS_TO_ARM);
+    expect(armedPane(container)).toBe('b');
+    fireEvent.blur(seam);
+    expect(armedPane(container)).toBeNull();
+    press(seam, 'ArrowRight', 2);
+    expect(armedPane(container)).toBeNull();
+    expect(store.getNode(asNodeId('b'))).toBeDefined();
+  });
+
+  it('announces the armed pane in a live region, and nothing when disarmed', () => {
+    store.setMeta(asNodeId('b'), { title: 'Preview' });
+    const { container, seam } = mount(store);
+    const region = container.querySelector('[data-join-live]');
+    expect(region).not.toBeNull();
+    expect(region?.getAttribute('aria-live')).toBe('polite');
+    expect(liveText(container)).toBe('');
+
+    press(seam, 'ArrowRight', KEYS_TO_ARM);
+    expect(liveText(container)).toBe(
+      'Preview will close. Press Enter to confirm, Escape to cancel.',
+    );
+
+    press(seam, 'Escape');
+    expect(liveText(container)).toBe('');
+  });
+
+  it('a destroy-locked pane never arms from the keyboard either', () => {
+    const locked = seed(true);
+    const { container, seam } = mount(locked);
+    press(seam, 'ArrowRight', KEYS_TO_ARM + 6);
+    expect(armedPane(container)).toBeNull();
+    expect(liveText(container)).toBe('');
+    press(seam, 'Enter');
+    expect(locked.getNode(asNodeId('b'))).toBeDefined();
+    expect(widthOf(locked, 'a')).toBe(320);
+  });
+});

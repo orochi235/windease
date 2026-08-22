@@ -273,6 +273,19 @@ function AffordanceHandle({
   const onKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
       if (!bounds) return;
+      if (e.key === 'Enter') {
+        // Unarmed, Enter is not ours: leave it to whatever the host binds.
+        if (armedRef.current === null) return;
+        e.preventDefault();
+        endGesture(true);
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (armedRef.current === null && (overshoot.current ?? 0) === 0) return;
+        e.preventDefault();
+        endGesture(false);
+        return;
+      }
       const horizontal = bounds.orientation === 'horizontal';
       const back = horizontal ? 'ArrowLeft' : 'ArrowUp';
       const fwd = horizontal ? 'ArrowRight' : 'ArrowDown';
@@ -296,9 +309,17 @@ function AffordanceHandle({
         kind: 'drag',
         payload: horizontal ? { dx: delta, dy: 0 } : { dx: 0, dy: delta },
       });
+      advanceJoin(delta);
     },
-    [bounds, dispatch, affordance.id, keyStep],
+    [bounds, dispatch, affordance.id, keyStep, advanceJoin, endGesture],
   );
+
+  const onBlur = useCallback(() => {
+    // A pointer gesture owns its accumulation; focus leaving mid-drag is not
+    // the user abandoning it.
+    if (last.current) return;
+    endGesture(false);
+  }, [endGesture]);
 
   // Expand the hit area perpendicular to the gutter so a 4px line is easier
   // to grab. The outer div catches pointer events; the inner div is the
@@ -335,31 +356,46 @@ function AffordanceHandle({
     pointerEvents: 'none',
   };
 
+  const armedName = armedId !== null ? accessibleName(store, armedId) : null;
+
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: role is separator whenever the key handler is attached; the rule cannot see through the conditional.
-    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: same conditional — aria-orientation is set only alongside role="separator", which supports it.
-    <div
-      style={outerStyle}
-      data-affordance-hit={affordance.id}
-      data-join-armed={armedId !== null ? 'true' : undefined}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
-      onKeyDown={bounds ? onKeyDown : undefined}
-      role={bounds ? 'separator' : undefined}
-      tabIndex={bounds && tabStop ? 0 : undefined}
-      aria-orientation={bounds?.orientation}
-      aria-valuenow={bounds ? Math.round(bounds.valueNow) : undefined}
-      aria-valuemin={bounds ? Math.round(bounds.valueMin) : undefined}
-      aria-valuemax={bounds ? Math.round(bounds.valueMax) : undefined}
-      aria-label={bounds ? label : undefined}
-    >
+    <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: role is separator whenever the key handler is attached; the rule cannot see through the conditional. */}
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: same conditional — aria-orientation is set only alongside role="separator", which supports it. */}
       <div
-        style={innerStyle}
-        data-affordance={affordance.id}
-        data-affordance-kind={affordance.kind}
-      />
-    </div>
+        style={outerStyle}
+        data-affordance-hit={affordance.id}
+        data-join-armed={armedId !== null ? 'true' : undefined}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onKeyDown={bounds ? onKeyDown : undefined}
+        onBlur={onBlur}
+        role={bounds ? 'separator' : undefined}
+        tabIndex={bounds && tabStop ? 0 : undefined}
+        aria-orientation={bounds?.orientation}
+        aria-valuenow={bounds ? Math.round(bounds.valueNow) : undefined}
+        aria-valuemin={bounds ? Math.round(bounds.valueMin) : undefined}
+        aria-valuemax={bounds ? Math.round(bounds.valueMax) : undefined}
+        aria-label={bounds ? label : undefined}
+      >
+        <div
+          style={innerStyle}
+          data-affordance={affordance.id}
+          data-affordance-kind={affordance.kind}
+        />
+      </div>
+      {affordance.join ? (
+        <div
+          className="windease-live-region"
+          aria-live="polite"
+          aria-atomic="true"
+          data-join-live=""
+        >
+          {armedName ? `${armedName} will close. Press Enter to confirm, Escape to cancel.` : ''}
+        </div>
+      ) : null}
+    </>
   );
 }
