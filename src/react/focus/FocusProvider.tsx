@@ -8,11 +8,14 @@ import {
   useState,
 } from 'react';
 import {
+  applyMove,
   asNodeId,
   bindAnnouncer,
+  type NavDirection,
   type NavIntent,
   type NodeId,
   navigableLeaves,
+  resolveMove,
   resolveNavigation,
 } from '../../index.js';
 import { useStore } from '../Provider.js';
@@ -184,14 +187,33 @@ export function FocusProvider({ children, announce = true }: FocusProviderProps)
       const target = e.target as Element | null;
       const onWrapper = target instanceof HTMLElement && target.hasAttribute('data-node');
 
+      const arrow: NavDirection | null =
+        e.key === 'ArrowLeft'
+          ? 'left'
+          : e.key === 'ArrowRight'
+            ? 'right'
+            : e.key === 'ArrowUp'
+              ? 'up'
+              : e.key === 'ArrowDown'
+                ? 'down'
+                : null;
+
+      // Shift+arrow rearranges instead of navigating: the pane takes the slot
+      // the same arrow would have moved the caret to, in its own parent or in
+      // whichever container that node lives in.
+      if (onWrapper && arrow && e.shiftKey) {
+        const plan = resolveMove({ store, from, direction: arrow, geometry, strategies });
+        if (!plan) return;
+        e.preventDefault();
+        applyMove(store, plan);
+        return;
+      }
+
       let intent: NavIntent | null = null;
       if (e.key === 'F6') {
         intent = e.shiftKey ? 'cyclePrev' : 'cycleNext';
       } else if (onWrapper) {
-        if (e.key === 'ArrowLeft') intent = 'left';
-        else if (e.key === 'ArrowRight') intent = 'right';
-        else if (e.key === 'ArrowUp') intent = 'up';
-        else if (e.key === 'ArrowDown') intent = 'down';
+        if (arrow) intent = arrow;
         else if (e.key === 'Home') intent = 'first';
         else if (e.key === 'End') intent = 'last';
       }

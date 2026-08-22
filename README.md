@@ -517,10 +517,35 @@ widgets that need it.
 | `ArrowLeft` / `Right` / `Up` / `Down` | to the nearest pane in that direction | the pane wrapper itself has focus |
 | `Home` / `End` | to the first / last sibling pane | the pane wrapper itself has focus |
 | `F6` / `Shift+F6` | to the next / previous pane in the whole tree, wrapping | anywhere, including inside pane content |
+| `Shift` + an arrow | the pane itself, into the slot that arrow points at | the pane wrapper itself has focus |
 
 Arrows only act when the wrapper itself is the event target, so pressing Left
 in a text input moves the caret rather than navigating away mid-word. F6 is
 the escape hatch out of content that swallows the arrows.
+
+### Moving a pane without a pointer
+
+`Shift` plus an arrow rearranges rather than navigates. The pane takes the
+slot of whatever that arrow would have moved the caret to — a reorder when
+that node is a sibling, a reparent when it lives in another container — so
+the same resolution backs both gestures, `navigate?` overrides included.
+
+Focus rides along with the pane, and the move announces itself through the
+live region below. A move that cannot happen does nothing at all: the key is
+inert at the edge of the tree, on a `move`-locked pane, into an
+`accept`-locked container, out of a `dragOut`-locked one, inside an
+`arrange`-locked parent, or anywhere that would put a node inside itself.
+
+`resolveMove` and `applyMove` are exported for a host that would rather bind
+its own keys or offer a menu command:
+
+```ts
+const plan = resolveMove({ store, from: store.focusedId, direction: 'right', geometry });
+if (plan) applyMove(store, plan);
+```
+
+`resolveMove` returns `null` for every refusal above rather than throwing, so
+a caller can gray out a command by asking for its plan first.
 
 Panes are named for screen readers by `meta.title`, falling back to kind plus
 sibling index. A layout with more than a couple of panes should set titles.

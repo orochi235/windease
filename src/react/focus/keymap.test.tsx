@@ -62,6 +62,32 @@ describe('keymap', () => {
     expect(store.focusedId).toBe(asNodeId('a'));
   });
 
+  it('Shift+ArrowRight rearranges instead of navigating', async () => {
+    const store = makeStore();
+    store.focusNode(asNodeId('a'));
+    const { container } = render(tree(store));
+    const wrapper = container.querySelector('[data-node="a"]') as HTMLElement;
+    wrapper.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }),
+    );
+    await waitFor(() =>
+      expect(store.getNode(asNodeId('z'))?.container?.childOrder.map(String)).toEqual(['b', 'a']),
+    );
+    expect(store.focusedId).toBe(asNodeId('a'));
+  });
+
+  it('Shift+ArrowRight at the edge leaves the order alone', async () => {
+    const store = makeStore();
+    store.focusNode(asNodeId('b'));
+    const { container } = render(tree(store));
+    const wrapper = container.querySelector('[data-node="b"]') as HTMLElement;
+    wrapper.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    expect(store.getNode(asNodeId('z'))?.container?.childOrder.map(String)).toEqual(['a', 'b']);
+  });
+
   it('F6 cycles from inside content', async () => {
     const store = makeStore();
     store.focusNode(asNodeId('a'));

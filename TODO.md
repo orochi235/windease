@@ -72,11 +72,6 @@ splitter rather than pushing panes down the stack.
 
 Still open:
 
-- **Keyboard-driven equivalents.** No key moves a node — the focused pane
-  cannot be sent to another zone, or to an index in its own parent, without a
-  pointer. Focus navigation and `bindAnnouncer` are both in place, and the
-  announcer already speaks `node.moved` / `node.reordered`, so what is missing
-  is the gesture and its keymap.
 - **Inter-zone resize** — dragging the gutter *between* zones is a
   workspace-level concern; see "Strategy for partitioning workspace".
 - **Grid resize gutters** are tracked under the hosting wishlist below, with
@@ -168,6 +163,13 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   point, so narrowing either breaks a consumer who annotated against it — the
   `| string` on `Affordance.kind` protects assignment into that field, not a
   direct use of the exported union.
+- **`arrange` gates `setChildOrder` but not `reorderInParent`.** A drop into an
+  arrange-locked parent is refused (`src/store.ts:565`); the same rearrangement
+  through `reorderInParent` is not, because that call asserts only `move` on the
+  node. `resolveMove` checks the axis itself so the keyboard gesture answers like
+  the drop does, which leaves the store's two paths still disagreeing for anyone
+  calling them directly. Closing it means gating `reorderInParent` on `arrange`,
+  which is a breaking change for a host relying on today's behavior.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like

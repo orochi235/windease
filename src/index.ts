@@ -95,6 +95,7 @@ export {
   type TransitEvent,
   type TransitState,
 } from './machines/transit.js';
+export { applyMove, type MovePlan, type ResolveMoveInput, resolveMove } from './move.js';
 // Node model
 export {
   asNodeId,

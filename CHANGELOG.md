@@ -22,6 +22,15 @@ section below.
   default. `strip` and `grid` declare one; a strategy without one is not checked.
   `checkStrategyConfig(name, config, spec)` is exported for hosts that would rather
   assert on config than read traces. See [Breaking changes](README.md#breaking-changes).
+- **Keyboard move.** `Shift` plus an arrow moves the focused pane into the slot that
+  arrow would have navigated to — a reorder among siblings, a reparent when the target
+  lives in another container — so one resolution backs both gestures and a strategy's
+  `navigate?` override applies to moving as well as to navigating. Focus rides along
+  and `bindAnnouncer` speaks the result. Every refusal is silent rather than thrown:
+  the edge of the tree, a `move`-locked pane, an `accept`- or `dragOut`-locked
+  container, an `arrange`-locked parent, or a move that would nest a node in itself.
+  `resolveMove` returns the plan and `applyMove` performs it, both exported for a host
+  binding its own keys.
 - **`overflowMode` on strip**, with the host box sized to it.
 - **Affordances and content sizing in the declarative path.** `hints` is a prop on
   `<Zone>` / `<Panel>`, and affordances reach the presets, so the declarative and
