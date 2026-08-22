@@ -86,6 +86,21 @@ export type BuiltinAffordanceKind =
    *  Removed at 2.0.0. */
   | 'keypress';
 
+/**
+ * Who a seam destroys when the gesture is pushed past each end of its range.
+ * A strategy that omits this emits a seam that clamps and nothing more.
+ *
+ * `atMax` is the node destroyed by pushing toward `bounds.valueMax` (the
+ * neighbor's floor breaks); `atMin` the one destroyed pushing the other way
+ * (the dragged pane's own floor breaks). Either may be absent.
+ */
+export interface AffordanceJoin {
+  atMin?: NodeId;
+  atMax?: NodeId;
+  /** Main-axis pixels past the clamp before the gesture arms. */
+  threshold: number;
+}
+
 export interface Affordance<TMeta = unknown> {
   id: string;
   kind: BuiltinAffordanceKind | string;
@@ -140,6 +155,11 @@ export interface Affordance<TMeta = unknown> {
      */
     step?: number;
   };
+  /**
+   * Present when overshooting this affordance destroys a node. The host reads
+   * it through `trackJoin`; absent means the seam only ever resizes.
+   */
+  join?: AffordanceJoin;
 }
 
 /**
