@@ -96,6 +96,25 @@ Still open:
 - **Inter-zone resize** — dragging the gutter *between* zones is a
   workspace-level concern; see "Strategy for partitioning workspace".
 
+- **Drop on a pane's edge to split it [HIGH].** Drag A over the left third of
+  B and drop: B splits, A takes the new half. The gesture every tiling manager
+  and VS Code has, and the one standard drop semantic this library does not.
+  `store.split` already does the mutation, so what is missing is the hit-test —
+  which edge band the cursor is in — and the preview that shows which half A
+  will land in. Shares its hard part with tab-stacking: both need drop *intent*
+  from a hit-test, where `insertionIndexByMidpoint` answers only "which seam".
+  Doing them together is probably cheaper than either alone.
+
+- **Two gesture pipelines are converging.** `DragController` drags panes and
+  owns arm/cancel/commit/lock/undo/announce; `AffordanceHandle` drags seams and
+  owns none of it, because until now a seam drag only wrote `placement.size`.
+  Seam-join is the first seam gesture that mutates the tree, so it reimplements
+  all six in the React layer. One duplicate is not yet an abstraction — the
+  point to extract a shared gesture lifecycle is when tab-stacking or
+  drop-on-edge needs a third copy, and the seam to watch is
+  `docs/superpowers/specs/2026-08-22-seam-join-design.md`'s `trackJoin`, which
+  is already shaped for it.
+
 ## Groups
 
 A "group" wraps multiple windows so they move, drag, and (potentially) resize
