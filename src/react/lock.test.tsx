@@ -297,7 +297,12 @@ describe('lock — declarative `lock` and `pinned` props', () => {
         </Zone>
       </Provider>,
     );
-    expect(store.getLock(asNodeId('p'))).toEqual({ move: true, resize: true, destroy: true });
+    expect(store.getLock(asNodeId('p'))).toEqual({
+      move: true,
+      resize: true,
+      destroy: true,
+      arrange: true,
+    });
   });
 
   it('<Panel lock={{ destroy: true }} /> locks exactly the given axes', () => {

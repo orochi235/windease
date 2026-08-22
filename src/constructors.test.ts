@@ -15,7 +15,7 @@ describe('createNode', () => {
 
   it('resolves lock: true on a leaf to only the axes a leaf supports', () => {
     const node = createNode({ id: asNodeId('leaf-lock'), lock: true });
-    expect(node.lock).toEqual({ destroy: true });
+    expect(node.lock).toEqual({ destroy: true, arrange: true });
   });
 
   it('produces a leaf + focus', () => {
@@ -28,7 +28,7 @@ describe('createNode', () => {
 
   it('resolves lock: true on a leaf + focus the same as a bare leaf — focus adds no axes', () => {
     const node = createNode({ id: asNodeId('lf-lock'), focus: true, lock: true });
-    expect(node.lock).toEqual({ destroy: true });
+    expect(node.lock).toEqual({ destroy: true, arrange: true });
   });
 
   it('produces a container root: container only, no membership', () => {
@@ -139,7 +139,7 @@ describe('createNode', () => {
     const node = createNode({
       id: asNodeId('panel-lock'),
       parentId: asNodeId('outer'),
-      lock: { move: true, arrange: true },
+      lock: { move: true, accept: true },
     });
     expect(node.container).toBeUndefined();
     expect(node.lock).toEqual({ move: true });

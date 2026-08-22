@@ -6,14 +6,14 @@ import { asNodeId } from './node.js';
 const id = (s: string) => asNodeId(s);
 
 describe('supportedAxes', () => {
-  it('gives a panel the membership axes plus destroy', () => {
+  it('gives a panel the membership axes plus the ungated ones', () => {
     const panel = createNode({
       kind: 'panel',
       focus: true,
       id: id('p'),
       parentId: id('z'),
     });
-    expect([...supportedAxes(panel)].sort()).toEqual(['destroy', 'move', 'resize']);
+    expect([...supportedAxes(panel)].sort()).toEqual(['arrange', 'destroy', 'move', 'resize']);
   });
 
   it('gives a zone the container axes plus destroy, and no membership axes', () => {

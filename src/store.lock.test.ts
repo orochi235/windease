@@ -30,7 +30,7 @@ describe('Store — setLock / getLock', () => {
   it('expands true to the supported axes', () => {
     const { s, p } = seeded();
     s.setLock(p, true);
-    expect(s.getLock(p)).toEqual({ move: true, resize: true, destroy: true });
+    expect(s.getLock(p)).toEqual({ move: true, resize: true, destroy: true, arrange: true });
   });
 
   it('returns an empty set for an unlocked node', () => {
@@ -351,5 +351,28 @@ describe('Store — allows* flags are gone', () => {
     const { s, z } = seeded();
     s.setAllowsPinning(z, false);
     expect(s.getContainerView(z)?.allowsPinning).toBe(false);
+  });
+});
+
+/** `arrange` is the only container axis that has to bind before the container
+ *  exists: it is what says a node may not gain children in the first place. */
+describe('Store — arrange lock on a childless node', () => {
+  it('refuses ensureContainer on an arrange-locked panel', () => {
+    const { s, p } = seeded();
+    s.setLock(p, { arrange: true });
+    expect(() => s.ensureContainer(p, 'strip', { axis: 'x' })).toThrow(LockedError);
+    expect(s.getNode(p)?.container).toBeUndefined();
+  });
+
+  it('stores the axis rather than dropping it as unsupported', () => {
+    const { s, p } = seeded();
+    s.setLock(p, { arrange: true });
+    expect(s.getLock(p)).toEqual({ arrange: true });
+  });
+
+  it('lets an unlocked panel gain one (control)', () => {
+    const { s, p } = seeded();
+    s.ensureContainer(p, 'strip', { axis: 'x' });
+    expect(s.getNode(p)?.container?.strategyId).toBe('strip');
   });
 });

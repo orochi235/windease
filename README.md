@@ -643,6 +643,19 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
+### Unreleased — `lock.arrange` applies to any node
+
+`arrange` used to be dropped from the lock set of a node with no container,
+which made it bind on every call that rearranges children *except*
+`ensureContainer` — the one that decides whether a node gets children at all.
+`setLock(panel, { arrange: true })` stored nothing and the panel could still
+gain a container.
+
+It is now supported on every node, alongside `destroy`. Two consequences:
+`setLock(id, true)` and `createNode({ lock: true })` resolve to a set
+including `arrange: true` on a leaf, and that axis is in the snapshot. If you
+assert on an exact `LockSet`, update the expectation.
+
 ### 1.2.0 — `hasFocus` deprecated in favor of `canFocus`
 
 Not breaking yet: `store.hasFocus(id)` still works and delegates. It is
