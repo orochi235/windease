@@ -14,7 +14,7 @@ import {
   childRectsForContainer,
   insertionIndexByMidpoint,
 } from '../dnd/insertionIndex.js';
-import { accessibleName, type ChildOrderCommit, type NodeId } from '../index.js';
+import { accessibleName, type ChildOrderCommit, type NodeId, trace } from '../index.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
@@ -206,6 +206,47 @@ function StoreContainer({
 
   const geometryRegistry = useGeometryRegistry();
   const selfRect = geometryRegistry?.rects.get(String(parentId));
+  // A root has no parent to place it, so it answers for its own position.
+  // Document coordinates, so a page scroll cannot pull two roots apart.
+  const isRoot = parent !== undefined && parent.membership === undefined;
+  const [, bumpOrigin] = useState(0);
+
+  const measureRoot = useCallback(() => {
+    if (!isRoot || !geometryRegistry) return;
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const next = {
+      x: r.x + window.scrollX,
+      y: r.y + window.scrollY,
+      w: r.width,
+      h: r.height,
+    };
+    const key = String(parentId);
+    const prev = geometryRegistry.rects.get(key);
+    if (prev && prev.x === next.x && prev.y === next.y && prev.w === next.w && prev.h === next.h) {
+      return;
+    }
+    geometryRegistry.rects.set(key, next);
+    trace('zone', `root origin: ${key} at ${next.x},${next.y} ${next.w}x${next.h}`);
+    geometryRegistry.commit();
+    bumpOrigin((n) => n + 1);
+  }, [isRoot, geometryRegistry, parentId]);
+
+  // Every commit, for the reason the flow effect below spells out.
+  useEffect(() => {
+    measureRoot();
+  });
+
+  useEffect(() => {
+    if (!isRoot || !geometryRegistry) return;
+    const key = String(parentId);
+    return () => {
+      geometryRegistry.rects.delete(key);
+      geometryRegistry.commit();
+    };
+  }, [isRoot, geometryRegistry, parentId]);
+
   useEffect(() => {
     if (!geometryRegistry) return;
     // Placements are unscrolled; the visible position is what the resolver
@@ -239,9 +280,9 @@ function StoreContainer({
     const el = ref.current;
     if (!el || !geometryRegistry) return;
     const self = el.getBoundingClientRect();
-    const origin = geometryRegistry.rects.get(String(parentId));
-    const originX = (origin?.x ?? 0) - self.x;
-    const originY = (origin?.y ?? 0) - self.y;
+    const parentOrigin = geometryRegistry.rects.get(String(parentId));
+    const originX = (parentOrigin?.x ?? 0) - self.x;
+    const originY = (parentOrigin?.y ?? 0) - self.y;
     flowRects.current = [];
     for (const child of childRectsForContainer(el)) {
       flowRects.current.push(child.id);
