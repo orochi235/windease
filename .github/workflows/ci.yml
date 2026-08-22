@@ -51,11 +51,10 @@ jobs:
 
       - run: npm ci
 
-      # Only chromium: the suite's cross-browser value is pointer capture,
-      # and adding engines here costs install time on every run. Add
-      # webkit/firefox to playwright.config.ts projects when that trade flips.
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      # All three engines: the suite exists for pointer capture, which is where
+      # they disagree. Keep this list in step with playwright.config.ts projects.
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium firefox webkit
 
       # Starts Ladle itself via playwright.config.ts webServer.
       - name: E2E

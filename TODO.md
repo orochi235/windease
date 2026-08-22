@@ -204,18 +204,16 @@ happens to a single-member group when its last sibling leaves.
 
 ## Playwright e2e suite
 
-Shipped. `npm run test:e2e` drives the Ladle stories in real Chromium; the
-config starts Ladle itself, so there is nothing to run first. 11 specs across
-four files cover the gestures jsdom cannot: gutter resize including
-pointer-capture tracking after the cursor leaves the handle, cross-zone drag
-with escape-cancel and drop-outside, ResizeObserver relayout on viewport
-change, and insertion index against a pinned head.
+Shipped. `npm run test:e2e` drives the Ladle stories in Chromium, Firefox and
+WebKit; the config starts Ladle itself, so there is nothing to run first. 20
+specs across six files cover the gestures jsdom cannot: gutter resize
+including pointer-capture tracking after the cursor leaves the handle,
+cross-zone drag with escape-cancel and drop-outside, ResizeObserver relayout on
+viewport change, and insertion index against a pinned head. All three engines
+pass the pointer-capture cases unmodified.
 
 Still uncovered:
 
-- **Only Chromium runs.** The stated cross-browser value was pointer capture;
-  adding webkit/firefox is a line in `playwright.config.ts` projects plus
-  install time on every CI run.
 - Focus management across drag-induced re-renders.
 - Snapshot/hydrate with persisted container state (resize ratios).
 - CSS stacking between affordance hit areas and consumer chrome.

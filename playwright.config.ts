@@ -21,6 +21,14 @@ export default defineConfig({
       // so a viewport set above is silently discarded.
       use: { ...devices['Desktop Chrome'], viewport: { width: 1200, height: 800 } },
     },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'], viewport: { width: 1200, height: 800 } },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'], viewport: { width: 1200, height: 800 } },
+    },
   ],
   webServer: {
     command: 'npm run ladle',
