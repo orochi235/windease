@@ -14,20 +14,32 @@ under Release history.
   mutation returns. The one live instance has been fixed; nothing
   prevents a new one, so this stays on the list as a review item.
 
-- **The WebKit e2e specs are flaky under CI load.** Roughly 5% per test, only
-  on WebKit, only on the GitHub runner — `insertion`, `drag` and
-  `content-sizing` have each failed or flaked, and a *different* set fails each
-  run. Chromium and Firefox are clean. That nondeterminism across unrelated
-  specs is the evidence it is timing rather than a drag defect: a real
-  regression fails the same test every time. WebKit is the slowest engine on a
-  Linux runner and every one of these is a 5s `expect.poll`.
+- **The caret is lost after a pointer drag.** The dropped pane takes model
+  focus and the roving tab stop, but `document.activeElement` falls to
+  `<body>`, so arrow keys do nothing until the user Tabs back into the layout.
+  A drag is the one gesture where the caret provably *was* inside the pane
+  beforehand — the pointerdown focuses the wrapper — so nothing here is a
+  question of whether focus should be stolen.
 
-  Shipped 1.2.0 with this red, deliberately — the Release workflow does not run
-  e2e. Two things to try: raise the poll timeouts for the WebKit project, and
-  make the pointer sequence cross the drag threshold with a small move before
-  the long one, rather than going from `mouse.down` straight into a 15-step
-  sweep. Local repro on a fast machine is about 1 in 16, so measure with
-  `--repeat-each`.
+  It is a race, not a behavior: `FocusProvider` calls `adapter.present()` from
+  a `store.subscribe` callback, which runs before React commits the remount,
+  so whether the wrapper exists to be focused depends on timing. It survives
+  roughly a third of runs on an idle machine and almost never under parallel
+  load, on all three engines. `e2e/focus-drag.spec.ts` carries the assertion
+  as `test.fixme`; unskip it with the fix.
+
+  The fix has a decision in it, which is why it was left: presenting again
+  after commit means presenting on store changes generally, and a bare retry
+  would pull the caret off `<body>` into the layout even when the user put it
+  there by clicking the page background. Restoring only when the caret was
+  inside the focus root before the change is the narrow version.
+
+- **A spec fails under parallel load about 1% of the time, on any engine.**
+  Seen as `keyboard.spec.ts` "F6 cycles from inside a text input" on Firefox
+  in a full three-engine run, green 48/48 in isolation. No diagnosis yet. This
+  is what the old "WebKit is flaky" entry described — a different spec each
+  time, only under contention — but that entry's headline case turned out to
+  be the stale-hover drop defect, which is fixed and was never timing.
 
 ## Pinning items within a zone
 
@@ -128,8 +140,8 @@ sibling leaves.
 ## Playwright e2e suite
 
 Shipped. `npm run test:e2e` drives the Ladle stories in Chromium, Firefox and
-WebKit; the config starts Ladle itself, so there is nothing to run first. 20
-specs across six files cover the gestures jsdom cannot: gutter resize
+WebKit; the config starts Ladle itself, so there is nothing to run first. 39
+specs across nine files cover the gestures jsdom cannot: gutter resize
 including pointer-capture tracking after the cursor leaves the handle,
 cross-zone drag with escape-cancel and drop-outside, ResizeObserver relayout on
 viewport change, and insertion index against a pinned head. All three engines
@@ -137,9 +149,18 @@ pass the pointer-capture cases unmodified.
 
 Still uncovered:
 
-- Focus management across drag-induced re-renders.
-- Snapshot/hydrate with persisted container state (resize ratios).
-- CSS stacking between affordance hit areas and consumer chrome.
+- Drop *intent* — "into the seam between B and C" versus "onto B itself". Not
+  a gap in the suite so much as in the library; see Merging adjacent nodes.
+
+`e2e/focus-drag.spec.ts`, `e2e/snapshot-roundtrip.spec.ts` and
+`e2e/stacking.spec.ts` close the three that were listed here. The stacking
+specs hit-test with `elementFromPoint` rather than asserting z-index, because
+what matters is what a pointer lands on: a nested container's affordance layer
+must beat its parent's, and neither may swallow the pane content or a drag
+handle beside it. The round-trip drives `serialize` / `deserialize` from the
+page — `RecursiveSplit.stories.tsx` exposes them for it — since hydrating in
+place makes the React layer rebuild against a store emptied underneath it,
+which no headless test exercises.
 
 One thing the suite surfaced that is worth knowing: the split story passes an
 explicit `viewport` prop, so it never exercises the ResizeObserver path at

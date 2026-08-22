@@ -306,7 +306,11 @@ export class DragEngine {
 
   drop(): void {
     if (!this.active) return;
-    this.dropPending();
+    // Flush, not discard. The last pointermove before the release usually
+    // arrives in the same frame as the pointerup, so its sample is still
+    // queued here; dropping it resolves the drop against the frame before,
+    // which on a fast drag is a different zone.
+    this.flushPending();
     const { draggingId, hover } = this.active;
     if (!hover?.accepted) {
       this.cancel(hover ? 'rejected' : 'outside');
@@ -379,6 +383,15 @@ export class DragEngine {
     this.dropPending();
     trace('dnd', `cancel: ${this.active.draggingId} reason=${reason}`);
     this.clear();
+  }
+
+  /** Apply the queued sample now and cancel its frame. Only for `drop`:
+   *  `cancel` commits nothing, so the pending point cannot change what
+   *  happens and sampling it would emit a pointless hover. */
+  private flushPending(): void {
+    const p = this.pendingPoint;
+    this.dropPending();
+    if (p) this.sample(p.x, p.y);
   }
 
   private dropPending(): void {

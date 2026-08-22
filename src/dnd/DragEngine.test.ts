@@ -199,6 +199,79 @@ describe('DragEngine', () => {
     expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p']);
   });
 
+  /** The last pointermove before the release usually lands in the same frame
+   *  as the pointerup, so its sample is still pending when `drop` runs.
+   *  Discarding it resolves the drop against wherever the cursor was one
+   *  frame earlier — a different zone entirely on a fast drag. */
+  describe('a pending sample at release', () => {
+    function deferred() {
+      const queue: Array<() => void> = [];
+      const schedule: FrameScheduler = {
+        request(cb) {
+          queue.push(cb);
+          return queue.length;
+        },
+        cancel(handle) {
+          queue[handle - 1] = () => {};
+        },
+      };
+      return { queue, schedule };
+    }
+
+    it('drops where the cursor was released, not where the last frame sampled', () => {
+      const s = buildStore();
+      const { queue, schedule } = deferred();
+      const e = new DragEngine(s, { schedule });
+      e.addDropTarget(asNodeId('z1'), at({ x: 0, y: 0, w: 100, h: 100 }));
+      e.addDropTarget(asNodeId('z2'), at({ x: 200, y: 0, w: 100, h: 100 }));
+      e.tryBegin(asNodeId('p'));
+
+      e.updateHoverByPoint(50, 50);
+      for (const cb of queue.splice(0)) cb();
+      expect(e.state()?.hover?.targetId).toBe('z1');
+
+      // Released over z2, with the sample for it still queued.
+      e.updateHoverByPoint(250, 50);
+      e.drop();
+
+      expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['p']);
+      expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual([]);
+    });
+
+    it('refuses a release outside every target even though hover was over one', () => {
+      const s = buildStore();
+      const { queue, schedule } = deferred();
+      const e = new DragEngine(s, { schedule });
+      e.addDropTarget(asNodeId('z2'), at({ x: 200, y: 0, w: 100, h: 100 }));
+      e.tryBegin(asNodeId('p'));
+
+      e.updateHoverByPoint(250, 50);
+      for (const cb of queue.splice(0)) cb();
+      expect(e.state()?.hover?.targetId).toBe('z2');
+
+      e.updateHoverByPoint(900, 900);
+      e.drop();
+
+      expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p']);
+      expect(e.state()).toBeNull();
+    });
+
+    it('runs the flushed sample once, not again on the next frame', () => {
+      const s = buildStore();
+      const { queue, schedule } = deferred();
+      const e = new DragEngine(s, { schedule });
+      e.addDropTarget(asNodeId('z2'), at({ x: 200, y: 0, w: 100, h: 100 }));
+      e.tryBegin(asNodeId('p'));
+
+      e.updateHoverByPoint(250, 50);
+      e.drop();
+      for (const cb of queue.splice(0)) cb();
+
+      expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['p']);
+      expect(e.state()).toBeNull();
+    });
+  });
+
   it('unregistering a target takes it out of the hit test', () => {
     const s = buildStore();
     const e = new DragEngine(s);
