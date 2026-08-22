@@ -1,8 +1,8 @@
 export default { title: 'Recursive zones' };
 
 import type { Story } from '@ladle/react';
-import { useMemo } from 'react';
-import { asNodeId, createNode, Store, stripStrategy } from '../../index.js';
+import { useEffect, useMemo } from 'react';
+import { asNodeId, createNode, deserialize, Store, serialize, stripStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 
@@ -58,6 +58,12 @@ function buildTree(): Store {
 
 export const SplitResize: Story = () => {
   const store = useMemo(buildTree, []);
+
+  // Dev scaffolding for the e2e suite: the snapshot round-trip has to be
+  // driven from the page to observe what the DOM does with it.
+  useEffect(() => {
+    Object.assign(window, { __store: store, __windease: { serialize, deserialize } });
+  }, [store]);
 
   const chrome: ChromeMap = useMemo(
     () => ({
