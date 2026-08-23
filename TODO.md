@@ -96,6 +96,16 @@ Still open:
 - **Inter-zone resize** — dragging the gutter *between* zones is a
   workspace-level concern; see "Strategy for partitioning workspace".
 
+- **A seam in an over-squeezed strip reports a slider with no range.**
+  `finishBounds` (`src/layout/strip.ts`) sets `atMin` and `atMax` from
+  `valueNow` against the bounds, so a container narrower than the sum of its
+  panes' `minSize` floors leaves every pane at its floor with
+  `valueNow === valueMin === valueMax` — both flags true, and a screen reader
+  hears `aria-valuemin === aria-valuemax`. Pre-existing and unrelated to any one
+  gesture; found because seam-join read those flags and armed on the first move
+  in either direction, which is fixed. What a seam with no room should report
+  instead is the open question.
+
 - **Drop on a pane's edge to split it [HIGH].** Drag A over the left third of
   B and drop: B splits, A takes the new half. The gesture every tiling manager
   and VS Code has, and the one standard drop semantic this library does not.
@@ -111,9 +121,8 @@ Still open:
   Seam-join is the first seam gesture that mutates the tree, so it reimplements
   all six in the React layer. One duplicate is not yet an abstraction — the
   point to extract a shared gesture lifecycle is when tab-stacking or
-  drop-on-edge needs a third copy, and the seam to watch is
-  `docs/superpowers/specs/2026-08-22-seam-join-design.md`'s `trackJoin`, which
-  is already shaped for it.
+  drop-on-edge needs a third copy, and the seam to watch is `trackJoin`
+  (`src/layout/seam-join.ts`), which is already shaped for it.
 
 - **Open question, nothing decided: should input binding come from
   `@weasel-js/gestures`?** That package (1.0.4, zero dependencies, no React or
@@ -174,14 +183,14 @@ sibling leaves.
 ## Playwright e2e suite
 
 Shipped. `npm run test:e2e` drives the Ladle stories in Chromium, Firefox and
-WebKit; the config starts Ladle itself, so there is nothing to run first. 48
-specs across eleven files cover the gestures jsdom cannot: gutter resize
+WebKit; the config starts Ladle itself, so there is nothing to run first. 62
+specs across fourteen files cover the gestures jsdom cannot: gutter resize
 including pointer-capture tracking after the cursor leaves the handle,
 cross-zone drag with escape-cancel and drop-outside, ResizeObserver relayout on
-viewport change, insertion index against a pinned head, and — in
-`capabilities.spec.ts` — keyboard move, flow mode, grid `overflowMode` and a
-drag held at a scrolling container's edge. All three engines pass the
-pointer-capture cases unmodified.
+viewport change, insertion index against a pinned head, a seam pushed past its
+clamp until the join arms, and — in `capabilities.spec.ts` — keyboard move, flow
+mode, grid `overflowMode` and a drag held at a scrolling container's edge. All
+three engines pass the pointer-capture cases unmodified.
 
 Still uncovered:
 
@@ -259,8 +268,8 @@ A third consumer is the thing that would earn a new one.
 
 Filed as one question — "should adjacent nodes be able to merge?" — but it was
 three unrelated features sharing a verb, and separating them was the point.
-Coalescing shipped as `setAutoUnsplit`; these two are what is left, in the
-order they should be done.
+Coalescing shipped as `setAutoUnsplit` and seam-join as `joinOnOvershoot`;
+tab-stacking is what is left.
 
 - **Tab-stacking two panes into one.** Drop A onto B's body and the two
   become a tabbed stack. The real work is not the merge, it is drop *intent*:
@@ -269,13 +278,13 @@ order they should be done.
   answers only the first question. Needs a stack container preset and a tab
   strip on top of that. The largest of the three by a wide margin.
 
-- **Joining panes by dragging a seam past a neighbor's floor.** A resize
-  gesture that ends in a destroy. It has to answer to `lock.destroy` on a
-  pane the gesture never targeted, and the point of no return has to be
-  visible before the pointer is released, or the user destroys a pane by
-  overshooting. The gesture is small; the affordance design is not.
+- **Joining panes by dragging a seam past a neighbor's floor — shipped.** A
+  strip opts in with `joinOnOvershoot`; overshooting a floor by `joinThreshold`
+  arms the gesture and releasing there closes the pane, with `lock.destroy` on
+  the pane or any descendant refusing to arm. Documented in the README's Resize
+  section; `src/layout/seam-join.ts` and `e2e/seam-join.spec.ts`.
 
-Neither is blocked on anything.
+Tab-stacking is not blocked on anything.
 
 
 ## Canvas-host ergonomics

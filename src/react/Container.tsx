@@ -321,6 +321,7 @@ function StoreContainer({
   // suppress the settle transition (cursor IS the motion) AND expose the id
   // to overlay/affordance render functions.
   const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
+  const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
   const reducedMotion =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const effectiveSettleMs = draggingAffordanceId !== null || reducedMotion ? 0 : settleMs;
@@ -445,6 +446,7 @@ function StoreContainer({
             key={id}
             style={childStyle}
             data-node={id}
+            data-join-armed={joinArmedId === id ? 'true' : undefined}
             tabIndex={rovingId === id ? 0 : -1}
             role="group"
             aria-label={accessibleName(store, id)}
@@ -472,6 +474,7 @@ function StoreContainer({
         keyStep={affordanceKeyStep}
         tabStop={affordanceTabStops}
         onActiveChange={setDraggingAffordanceId}
+        onJoinArmChange={setJoinArmedId}
       />
       {renderedOverlay}
     </div>

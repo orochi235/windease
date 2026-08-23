@@ -10,14 +10,18 @@ piece of it live.
 
 Dragging the A|B seam shrinks B until B hits its `minSize`, and then the seam
 stops. Seam-join says: keep pushing past that floor and you are asking to be rid
-of B. Release, and B is destroyed; A takes the space.
+of B. Release, and B is destroyed.
 
 ```
-┌────────┬──────┬────────┐          ┌────────────────┬────────┐
-│   A    │  B   │   C    │   ──►    │       A        │   C    │
-└────────┴──────┴────────┘          └────────────────┴────────┘
+┌────────┬──────┬────────┐          ┌────────┬────────┐
+│   A    │  B   │   C    │   ──►    │   A    │   C    │
+└────────┴──────┴────────┘          └────────┴────────┘
          drag right, past B's floor
 ```
+
+The gesture destroys; it does not redistribute. Where B's extent goes afterwards
+is ordinary strip layout — panes holding an explicit `placement.size` under
+`fill: false` leave it empty rather than growing into it.
 
 Both directions work: pushing the seam left breaks A's own floor and destroys A.
 
@@ -41,32 +45,48 @@ its delta across every sibling and so has no single pane to name as the victim.
 `Affordance` gains one optional field:
 
 ```ts
-join?: { atMin?: NodeId; atMax?: NodeId; threshold: number }
+join?: { atMin?: NodeId | string; atMax?: NodeId | string; threshold: number }
 ```
 
 The strategy names who dies at each end of the affordance's range: strip fills
-`atMax` with the following pane and `atMin` with its own. Absent means the seam
+`atMax` with the following pane and `atMin` with its own. The ids are as loose
+as `childId` and `affects` beside them, so a strategy working in `ItemId` needs
+no cast; the host casts once where it reaches the store. Absent means the seam
 clamps as it does today, so every other strategy is unchanged and can opt in
 later without a second mechanism.
 
 ### `trackJoin` — `src/layout/seam-join.ts`
 
-The seam stops moving but the pointer does not, and nothing in the system
-records how far past the stop the user has pushed. `trackJoin` derives it:
+The seam stops moving but the pointer does not, and nothing in the system records
+how far past the stop the user has pushed. `trackJoin` accumulates it, one move
+at a time:
 
 ```ts
-trackJoin({ join, requested, consumed, canDestroy }) -> { armed, victimId, overshoot }
+trackJoin({ join, overshoot, delta, atMin, atMax, canDestroy })
+  -> { armed, candidateId, overshoot }
 ```
 
-`requested` is cumulative pointer travel since the gesture began; `consumed` is
-the extent the layout actually absorbed (`bounds.valueNow` now, less its value
-at gesture start). They track each other while the seam moves; once it clamps,
-only `requested` grows, and the gap is the overshoot. Its sign selects `atMax`
-or `atMin`. Arming requires both `|overshoot| > threshold` and
-`canDestroy(victimId)`.
+It is a reducer: the host stores the returned `overshoot` and passes it back on
+the next move. Travel counts only while `bounds.atMin` / `atMax` says the seam is
+pinned — an unpinned seam is still resizing, however fast the pointer is moving.
+Motion away unwinds the accumulation toward zero and stops there rather than
+arming the opposite direction. `candidateId` names who is being pushed against,
+not who dies; it is populated while `armed` is still false, so the two are read
+together.
+
+**Do not derive overshoot as "travel asked for, minus extent absorbed."** The
+absorbed extent is only observable a frame later, so the difference sits at one
+frame's delta permanently: a steady 60px-per-move drag reads as a 60px overshoot
+with the seam mid-range, and releasing destroys a pane that never reached its
+floor. The clamp flags exist precisely so this is not derived by comparison —
+their own docstring says they are set by the code that performed the clamp.
+
+One consequence worth knowing: the move that *reaches* the clamp still reads as
+unpinned, so accumulation starts on the move after. That errs toward not
+destroying. A seam already pinned when the gesture starts accumulates from its
+first move, which is correct — it has nowhere to go, so all travel is overshoot.
 
 Pure, like `insertionIndexByMidpoint`: no store, no pointer, no retained state.
-The accumulation of `requested` lives in a ref in the React handle.
 
 ### `destroyBlockedBy` — `src/lock.ts`
 
@@ -89,11 +109,16 @@ is one undo step and history restores the pane with its size.
 
 ## React
 
-`AffordanceHandle` gains two refs, both reset on pointerdown: cumulative travel,
-and `bounds.valueNow` at gesture start. Each pointermove dispatches the drag as
-before, then calls `trackJoin`. `consumed` is re-read from the affordance prop
-rather than predicted, so it reflects what the strategy actually wrote — the
-same self-correcting read the `point` payload already relies on.
+`AffordanceHandle` holds one ref per gesture — the running overshoot, cleared at
+both ends of the gesture — and each pointermove dispatches the drag as before,
+then feeds `trackJoin` that ref, the move's delta, and the affordance's current
+`atMin`/`atMax`, storing the result back.
+
+The armed victim is held in a ref *and* a state. The ref is the authority: it is
+what the change guard and the commit path read, and it is the only cell either
+writes. The state exists solely to schedule the render that paints the marking,
+so the handle does not depend on a parent re-rendering for its own attribute to
+appear.
 
 The victim pane is rendered by `<Container>`, not by the handle, so arming
 travels up the way active state already does: `AffordanceLayer` gains
@@ -101,6 +126,12 @@ travels up the way active state already does: `AffordanceLayer` gains
 marks that child. Both the victim and the handle carry `data-join-armed`;
 `styles.css` hatches the one and thickens the other. The attribute is the
 contract a consumer restyles against, not the gradient.
+
+`<Zone>` / `<Panel>` mount the same layer and mark the victim too, through a
+context rather than a prop: their children render their own `data-node` wrappers,
+so nothing can be passed down to them. The provider sits inside the shell and the
+shell reads the *outer* value, so a nested container-panel that is its parent's
+victim is marked rather than reading its own empty one.
 
 **Escape cancels**, matching drag-and-drop. `pointercancel` must take that same
 cancel path rather than the commit path — today both land in one handler, which

@@ -5,9 +5,18 @@ import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useCallback,
+  useEffect,
   useRef,
+  useState,
 } from 'react';
-import { type Affordance, accessibleName, type NodeId } from '../index.js';
+import {
+  type Affordance,
+  accessibleName,
+  destroyBlockedBy,
+  type NodeId,
+  trace,
+  trackJoin,
+} from '../index.js';
 import type { Store } from '../store.js';
 import type { ContainerLayout } from './useContainerLayout.js';
 
@@ -43,6 +52,8 @@ function affordanceLabel(store: Store, aff: Affordance): string | undefined {
   return `resize ${names.join(' and ')}`;
 }
 
+const noJoinArmChange = () => {};
+
 export interface AffordanceLayerProps {
   /** `true` for the built-in handle, or a renderer that fully replaces it. */
   render: boolean | AffordanceRenderer;
@@ -53,6 +64,9 @@ export interface AffordanceLayerProps {
   keyStep: number;
   tabStop: boolean;
   onActiveChange: (id: string | null) => void;
+  /** The node a release would destroy right now, or null. Optional: a host
+   *  with no per-pane element to mark still gets the destroy. */
+  onJoinArmChange?: (victimId: NodeId | null) => void;
 }
 
 /**
@@ -69,6 +83,7 @@ export function AffordanceLayer({
   keyStep,
   tabStop,
   onActiveChange,
+  onJoinArmChange = noJoinArmChange,
 }: AffordanceLayerProps) {
   if (!render) return null;
   return (
@@ -81,11 +96,13 @@ export function AffordanceLayer({
             key={aff.id}
             affordance={aff}
             dispatch={dispatch}
+            store={store}
             hitPad={hitPad}
             keyStep={keyStep}
             tabStop={tabStop}
             label={affordanceLabel(store, aff)}
             onActiveChange={(active) => onActiveChange(active ? aff.id : null)}
+            onJoinArmChange={onJoinArmChange}
           />
         ),
       )}
@@ -96,26 +113,83 @@ export function AffordanceLayer({
 interface AffordanceHandleProps {
   affordance: Affordance;
   dispatch: ContainerLayout['dispatchAffordance'];
+  store: Store;
   hitPad: number;
   keyStep: number;
   tabStop: boolean;
   label: string | undefined;
   onActiveChange: (active: boolean) => void;
+  onJoinArmChange: (victimId: NodeId | null) => void;
 }
 
 function AffordanceHandle({
   affordance,
   dispatch,
+  store,
   hitPad,
   keyStep,
   tabStop,
   label,
   onActiveChange,
+  onJoinArmChange,
 }: AffordanceHandleProps) {
   const last = useRef<{ x: number; y: number } | null>(null);
+  const overshoot = useRef<number | null>(null);
+  const [armedId, setArmedId] = useState<NodeId | null>(null);
+  const armedRef = useRef<NodeId | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const setArmed = useCallback(
+    (victimId: NodeId | null) => {
+      if (armedRef.current === victimId) return;
+      trace(
+        'dnd',
+        `join ${victimId ? 'armed' : 'disarmed'}: ${affordance.id} → ${victimId ?? armedRef.current}`,
+      );
+      armedRef.current = victimId;
+      setArmedId(victimId);
+      onJoinArmChange(victimId);
+    },
+    [onJoinArmChange, affordance.id],
+  );
+
+  const endGesture = useCallback(
+    (commit: boolean) => {
+      const victim = armedRef.current;
+      setArmed(null);
+      overshoot.current = null;
+      if (commit && victim) {
+        trace('store', `join: ${affordance.id} destroys ${victim}`);
+        store.unregisterNode(victim);
+      }
+    },
+    [setArmed, store, affordance.id],
+  );
+
+  const advanceJoin = useCallback(
+    (delta: number) => {
+      const join = affordance.join;
+      const b = affordance.bounds;
+      if (!join || !b) return;
+      const state = trackJoin({
+        join,
+        overshoot: overshoot.current ?? 0,
+        delta,
+        atMin: b.atMin,
+        atMax: b.atMax,
+        canDestroy: (id) => destroyBlockedBy(store, id as NodeId) === null,
+      });
+      overshoot.current = state.overshoot;
+      setArmed(state.armed ? ((state.candidateId as NodeId | undefined) ?? null) : null);
+    },
+    [affordance.join, affordance.bounds, store, setArmed],
+  );
+
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       last.current = { x: e.clientX, y: e.clientY };
+      overshoot.current = null;
+      setDragging(true);
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
@@ -142,22 +216,60 @@ function AffordanceHandle({
         y: affordance.rect.y - padYRef.current + (e.clientY - box.top),
       };
       dispatch({ affordanceId: affordance.id, kind: 'drag', payload: { dx, dy, point } });
+      advanceJoin(affordance.bounds?.orientation === 'vertical' ? dy : dx);
     },
-    [dispatch, affordance.id, affordance.rect.x, affordance.rect.y],
+    [dispatch, affordance.id, affordance.rect.x, affordance.rect.y, affordance.bounds, advanceJoin],
   );
-  const onPointerUp = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
+  const finish = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>, commit: boolean) => {
       const wasDragging = last.current !== null;
       last.current = null;
+      setDragging(false);
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
         // ignore
       }
+      endGesture(commit);
       if (wasDragging) onActiveChange(false);
     },
-    [onActiveChange],
+    [onActiveChange, endGesture],
   );
+  const onPointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => finish(e, true),
+    [finish],
+  );
+  // A cancelled gesture must not commit the join: same shape, opposite verdict.
+  const onPointerCancel = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => finish(e, false),
+    [finish],
+  );
+
+  const notifyArm = useRef(onJoinArmChange);
+  useEffect(() => {
+    notifyArm.current = onJoinArmChange;
+  });
+  // A commit clears the marking before it destroys, so this only fires when the
+  // handle goes away with a gesture still armed.
+  useEffect(
+    () => () => {
+      if (armedRef.current !== null) notifyArm.current(null);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      last.current = null;
+      setDragging(false);
+      endGesture(false);
+      onActiveChange(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dragging, endGesture, onActiveChange]);
 
   const bounds = affordance.bounds;
   const padXRef = useRef(0);
@@ -165,6 +277,19 @@ function AffordanceHandle({
   const onKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
       if (!bounds) return;
+      if (e.key === 'Enter') {
+        // Unarmed, Enter is not ours: leave it to whatever the host binds.
+        if (armedRef.current === null) return;
+        e.preventDefault();
+        endGesture(true);
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (armedRef.current === null && (overshoot.current ?? 0) === 0) return;
+        e.preventDefault();
+        endGesture(false);
+        return;
+      }
       const horizontal = bounds.orientation === 'horizontal';
       const back = horizontal ? 'ArrowLeft' : 'ArrowUp';
       const fwd = horizontal ? 'ArrowRight' : 'ArrowDown';
@@ -188,9 +313,17 @@ function AffordanceHandle({
         kind: 'drag',
         payload: horizontal ? { dx: delta, dy: 0 } : { dx: 0, dy: delta },
       });
+      advanceJoin(delta);
     },
-    [bounds, dispatch, affordance.id, keyStep],
+    [bounds, dispatch, affordance.id, keyStep, advanceJoin, endGesture],
   );
+
+  const onBlur = useCallback(() => {
+    // A pointer gesture owns its accumulation; focus leaving mid-drag is not
+    // the user abandoning it.
+    if (last.current) return;
+    endGesture(false);
+  }, [endGesture]);
 
   // Expand the hit area perpendicular to the gutter so a 4px line is easier
   // to grab. The outer div catches pointer events; the inner div is the
@@ -227,30 +360,47 @@ function AffordanceHandle({
     pointerEvents: 'none',
   };
 
+  const armedName = armedId !== null ? accessibleName(store, armedId) : null;
+
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: role is separator whenever the key handler is attached; the rule cannot see through the conditional.
-    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: same conditional — aria-orientation is set only alongside role="separator", which supports it.
-    <div
-      style={outerStyle}
-      data-affordance-hit={affordance.id}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onKeyDown={bounds ? onKeyDown : undefined}
-      role={bounds ? 'separator' : undefined}
-      tabIndex={bounds && tabStop ? 0 : undefined}
-      aria-orientation={bounds?.orientation}
-      aria-valuenow={bounds ? Math.round(bounds.valueNow) : undefined}
-      aria-valuemin={bounds ? Math.round(bounds.valueMin) : undefined}
-      aria-valuemax={bounds ? Math.round(bounds.valueMax) : undefined}
-      aria-label={bounds ? label : undefined}
-    >
+    <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: role is separator whenever the key handler is attached; the rule cannot see through the conditional. */}
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: same conditional — aria-orientation is set only alongside role="separator", which supports it. */}
       <div
-        style={innerStyle}
-        data-affordance={affordance.id}
-        data-affordance-kind={affordance.kind}
-      />
-    </div>
+        className="windease-affordance-hit"
+        style={outerStyle}
+        data-affordance-hit={affordance.id}
+        data-join-armed={armedId !== null ? 'true' : undefined}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        onKeyDown={bounds ? onKeyDown : undefined}
+        onBlur={onBlur}
+        role={bounds ? 'separator' : undefined}
+        tabIndex={bounds && tabStop ? 0 : undefined}
+        aria-orientation={bounds?.orientation}
+        aria-valuenow={bounds ? Math.round(bounds.valueNow) : undefined}
+        aria-valuemin={bounds ? Math.round(bounds.valueMin) : undefined}
+        aria-valuemax={bounds ? Math.round(bounds.valueMax) : undefined}
+        aria-label={bounds ? label : undefined}
+      >
+        <div
+          style={innerStyle}
+          data-affordance={affordance.id}
+          data-affordance-kind={affordance.kind}
+        />
+      </div>
+      {affordance.join ? (
+        <div
+          className="windease-live-region"
+          aria-live="polite"
+          aria-atomic="true"
+          data-join-live=""
+        >
+          {armedName ? `${armedName} will close. Press Enter to confirm, Escape to cancel.` : ''}
+        </div>
+      ) : null}
+    </>
   );
 }

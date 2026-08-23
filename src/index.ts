@@ -62,6 +62,12 @@ export {
   checkStrategyConfig,
 } from './layout/config-check.js';
 export { gridStrategy } from './layout/grid.js';
+export {
+  DEFAULT_JOIN_THRESHOLD,
+  type JoinState,
+  type TrackJoinInput,
+  trackJoin,
+} from './layout/seam-join.js';
 export { stripStrategy } from './layout/strip.js';
 export {
   getLayoutNodes,
@@ -71,6 +77,7 @@ export {
 } from './layout-node-adapter.js';
 export type {
   Affordance,
+  AffordanceJoin,
   BuiltinAffordanceKind,
   ItemId,
   LayoutEvent,
@@ -84,7 +91,13 @@ export type {
   StatefulLayoutStrategy,
   StrategyRegistry,
 } from './layout-types.js';
-export { type LockAxis, type LockSet, resolveLock, supportedAxes } from './lock.js';
+export {
+  destroyBlockedBy,
+  type LockAxis,
+  type LockSet,
+  resolveLock,
+  supportedAxes,
+} from './lock.js';
 export {
   createFocusMachine,
   type FocusEvent,

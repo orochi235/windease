@@ -1,5 +1,6 @@
 import type {
   Affordance,
+  AffordanceJoin,
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
@@ -8,6 +9,7 @@ import type {
 } from '../layout-types.js';
 import { selectByCapacity } from './capacity.js';
 import { clampExplicitSizes } from './resize.js';
+import { DEFAULT_JOIN_THRESHOLD } from './seam-join.js';
 
 interface StripConfig {
   axis?: 'x' | 'y';
@@ -40,6 +42,19 @@ interface StripConfig {
    * splitter behaves. Total extent is conserved.
    */
   resizeMode?: 'redistribute' | 'neighbor';
+  /**
+   * When true, pushing a seam past a pane's floor arms a join: releasing there
+   * destroys that pane. What becomes of the freed extent is ordinary re-layout,
+   * so panes carrying an explicit `placement.size` under `fill: false` leave it
+   * empty rather than absorbing it. Off by default — the gesture deletes a pane
+   * with no confirmation step.
+   *
+   * Ignored unless `resizeMode: 'neighbor'`; a redistribute seam spreads its
+   * delta across every sibling and so has no single pane to name as the victim.
+   */
+  joinOnOvershoot?: boolean;
+  /** Main-axis pixels past the floor before the join arms. Defaults to 24. */
+  joinThreshold?: number;
   /**
    * Absolute cap on the number of items the zone accepts. Items beyond this
    * count go to `unplaced` and the default `canAccept` rejects drops that
@@ -218,6 +233,23 @@ function mainSizes(
   });
 }
 
+/** The join a seam between `item` and `next` declares, or undefined when this
+ *  container has not opted in. */
+function joinFor(
+  cfg: StripConfig,
+  item: LayoutItem,
+  next: LayoutItem | undefined,
+): AffordanceJoin | undefined {
+  if (!next) return undefined;
+  if (cfg.resizeMode !== 'neighbor') return undefined;
+  if (!(cfg.joinOnOvershoot ?? false)) return undefined;
+  return {
+    atMin: item.id,
+    atMax: next.id,
+    threshold: cfg.joinThreshold ?? DEFAULT_JOIN_THRESHOLD,
+  };
+}
+
 function writeSize(store: unknown, id: string, axis: 'x' | 'y', value: number): void {
   const s = store as {
     getNode: (id: string) => { membership?: { placement?: Record<string, unknown> } } | undefined;
@@ -278,6 +310,8 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     defaultItemSize: 'number',
     resizable: 'boolean',
     resizeMode: ['redistribute', 'neighbor'],
+    joinOnOvershoot: 'boolean',
+    joinThreshold: 'number',
     maxItems: 'number',
     overflowMode: ['squeeze', 'scroll', 'unplace'],
   },
@@ -327,6 +361,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
         const w = sizes[i]!;
         placements.set(item.id, { x, y, w, h });
         if (resizable && i < placedItems.length - 1) {
+          const join = joinFor(cfg, item, placedItems[i + 1]);
           affordances.push({
             id: `resize-x-${item.id}`,
             kind: 'resize-x',
@@ -347,6 +382,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
                 ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
                 : undefined,
             ),
+            ...(join ? { join } : {}),
           });
         }
         x += w + gap;
@@ -360,6 +396,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
         const h = sizes[i]!;
         placements.set(item.id, { x, y, w, h });
         if (resizable && i < placedItems.length - 1) {
+          const join = joinFor(cfg, item, placedItems[i + 1]);
           affordances.push({
             id: `resize-y-${item.id}`,
             kind: 'resize-y',
@@ -380,6 +417,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
                 ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
                 : undefined,
             ),
+            ...(join ? { join } : {}),
           });
         }
         y += h + gap;
