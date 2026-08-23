@@ -89,22 +89,36 @@ Dragging the last tab out therefore dissolves the stack with no new code.
 
 `stackStrategy`, config `{ activeId?, headerSize, padding }`. The active child
 gets the container rect less `headerSize` off the top and `padding`; every other
-child comes back in `hidden`. An `activeId` naming a child that has left falls
+child comes back in `unplaced`. An `activeId` naming a child that has left falls
 back to the first in `childOrder`.
 
 `headerSize` is what reserves room for the consumer's tab strip. The core does
 not measure the strip — measurement is an input, and the config is the input.
 
-`LayoutResult` gains `hidden?: TId[]`, distinct from `unplaced`: *placed
-nowhere and must not render*, versus *not placed, and the host may render it in
-an overflow tray*. `PresetShell` renders `null` for a hidden id.
+An inactive tab renders no element, so it also leaves focus traversal and
+drop-target registration alone without either needing to know about stacks.
 
-The distinction is load-bearing, not fussiness. `PresetShell` ends with
-`if (!selfRect) return shell` — a child with no rect renders in normal flow,
-unpositioned. Grid overflow depends on that. Reusing `unplaced` to mean "do not
-render" would silently change what a capped grid does with its overflow. A
-hidden child renders no element, so it also leaves focus traversal and drop-
-target registration without either needing to know about stacks.
+### Making `unplaced` reach the declarative presets
+
+`<Container>` already gates on the rect — `if (!rect) return null` — so an
+unplaced child renders nothing there. The presets path does not: `PresetShell`
+ends with `if (!selfRect) return shell`, because a child renders from the
+consumer's JSX and the rect only positions it. A missing rect legitimately means
+*nobody is placing me* — flow mode produces no placements at all, and a `<Panel>`
+outside any container has no `LayoutContext` — so it cannot be repurposed to
+mean hidden.
+
+`unplaced` can be, and needs no new strategy surface. `ContainerHost` already
+surfaces it, and it is empty in exactly the cases that must keep rendering: flow
+mode and no container both run no strategy. An id appearing in it can only mean
+a strategy ran and withheld the child. So `LayoutInfo` carries `unplaced`
+alongside `placements`, and `PresetShell` returns `null` for an id in it.
+
+This changes behaviour for grid `unplace` mode under `<Zone>` / `<Panel>`, where
+overflow cells render in flow today and will stop. It is the divergence being
+closed — the same tree already hides them under `<Container>`, which is what the
+`unplace` documentation describes — but it is a visible change and gets a
+`CHANGELOG.md` note saying so.
 
 ## Activation
 
@@ -135,7 +149,10 @@ Headless, except where the gesture is the point.
 - `resolveDropIntent`: the compatibility sweep (stack and split off, agreeing
   with `insertionIndexByMidpoint` at every cursor position across the row), band
   clamping on a pane narrower than two bands, corner resolution, empty list.
-- `stackStrategy`: active child's rect, the rest `hidden`, departed `activeId`.
+- `stackStrategy`: active child's rect, the rest `unplaced`, departed `activeId`.
+- `PresetShell`: an id in `unplaced` renders nothing, and — the case that makes
+  the reuse safe rather than clever — a child under flow mode, and one under no
+  container at all, both still render.
 - `stackNodes`: wrap, already-a-stack, placement and index inheritance, and a
   rejected call leaving the tree byte-identical — the pre-transaction validation
   asserted as a fact rather than assumed. One undo step is one `transaction.begin`
