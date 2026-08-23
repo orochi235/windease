@@ -10,14 +10,18 @@ piece of it live.
 
 Dragging the A|B seam shrinks B until B hits its `minSize`, and then the seam
 stops. Seam-join says: keep pushing past that floor and you are asking to be rid
-of B. Release, and B is destroyed; A takes the space.
+of B. Release, and B is destroyed.
 
 ```
-┌────────┬──────┬────────┐          ┌────────────────┬────────┐
-│   A    │  B   │   C    │   ──►    │       A        │   C    │
-└────────┴──────┴────────┘          └────────────────┴────────┘
+┌────────┬──────┬────────┐          ┌────────┬────────┐
+│   A    │  B   │   C    │   ──►    │   A    │   C    │
+└────────┴──────┴────────┘          └────────┴────────┘
          drag right, past B's floor
 ```
+
+The gesture destroys; it does not redistribute. Where B's extent goes afterwards
+is ordinary strip layout — panes holding an explicit `placement.size` under
+`fill: false` leave it empty rather than growing into it.
 
 Both directions work: pushing the seam left breaks A's own floor and destroys A.
 

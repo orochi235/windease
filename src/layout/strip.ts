@@ -44,8 +44,10 @@ interface StripConfig {
   resizeMode?: 'redistribute' | 'neighbor';
   /**
    * When true, pushing a seam past a pane's floor arms a join: releasing there
-   * destroys that pane and its neighbor takes the space. Off by default — the
-   * gesture deletes a pane with no confirmation step.
+   * destroys that pane. What becomes of the freed extent is ordinary re-layout,
+   * so panes carrying an explicit `placement.size` under `fill: false` leave it
+   * empty rather than absorbing it. Off by default — the gesture deletes a pane
+   * with no confirmation step.
    *
    * Ignored unless `resizeMode: 'neighbor'`; a redistribute seam spreads its
    * delta across every sibling and so has no single pane to name as the victim.

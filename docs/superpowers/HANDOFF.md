@@ -11,7 +11,7 @@ them rather than repeating them.
 On branch **`seam-join`**, cut from `main`. `main` itself is still unpushed, now
 ~50 commits ahead of `origin/main`. Nothing is merged.
 
-Seam-join is being built from the plan, task by task, by subagents with a spec
+Seam-join is built. It was built from the plan, task by task, by subagents with a spec
 review and a code-quality review after each. Tasks 1–6 are committed and green;
 7–11 are not started. The plan's checkboxes are NOT ticked as work lands — read
 the git log on this branch for what is actually done.
