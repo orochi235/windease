@@ -96,6 +96,16 @@ Still open:
 - **Inter-zone resize** — dragging the gutter *between* zones is a
   workspace-level concern; see "Strategy for partitioning workspace".
 
+- **A seam in an over-squeezed strip reports a slider with no range.**
+  `finishBounds` (`src/layout/strip.ts`) sets `atMin` and `atMax` from
+  `valueNow` against the bounds, so a container narrower than the sum of its
+  panes' `minSize` floors leaves every pane at its floor with
+  `valueNow === valueMin === valueMax` — both flags true, and a screen reader
+  hears `aria-valuemin === aria-valuemax`. Pre-existing and unrelated to any one
+  gesture; found because seam-join read those flags and armed on the first move
+  in either direction, which is fixed. What a seam with no room should report
+  instead is the open question.
+
 - **Drop on a pane's edge to split it [HIGH].** Drag A over the left third of
   B and drop: B splits, A takes the new half. The gesture every tiling manager
   and VS Code has, and the one standard drop semantic this library does not.
