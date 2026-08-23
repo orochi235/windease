@@ -73,6 +73,7 @@ export {
   type TrackJoinInput,
   trackJoin,
 } from './layout/seam-join.js';
+export { stackStrategy } from './layout/stack.js';
 export { stripStrategy } from './layout/strip.js';
 export {
   getLayoutNodes,
