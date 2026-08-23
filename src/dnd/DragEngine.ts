@@ -3,6 +3,7 @@ import type { NodeId } from '../node.js';
 import { placeRespectingPins } from '../pinning.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
+import type { DropIntent } from './dropIntent.js';
 import { type EdgeScrollOptions, edgeScrollDelta } from './edgeScroll.js';
 
 /** Looks up a strategy by id. The engine uses it to consult
@@ -29,6 +30,9 @@ export interface DragState {
      *  gives no positional answer (e.g. splits) or when the target didn't
      *  register a `getInsertionIndex`. */
     insertIndex?: number;
+    /** What kind of drop this is, for a target that resolves one. Absent for a
+     *  target registering only `getInsertionIndex`. */
+    intent?: DropIntent;
   } | null;
 }
 
@@ -46,6 +50,10 @@ export interface DropTarget {
   depth?(): number;
   canAccept?(sourceId: NodeId): boolean;
   getInsertionIndex?(point: Point): number | undefined;
+  /** What kind of drop the cursor is asking for. Takes precedence over
+   *  `getInsertionIndex`, which stays for targets that answer only "which
+   *  seam". */
+  getDropIntent?(point: Point): DropIntent | undefined;
   /**
    * The scrolling box this target lives in, if it has one. The engine works
    * out the rate and calls `by`; the host does the scrolling, since what
@@ -85,6 +93,9 @@ export interface FrameScheduler {
 export interface DragEngineOptions {
   getStrategy?: StrategyLookup;
   schedule?: FrameScheduler;
+  /** Id for a container a stack drop creates. Defaults to `stack-N`, skipping
+   *  any id the store already holds. */
+  makeStackId?: () => NodeId;
 }
 
 const immediate: FrameScheduler = {
@@ -101,10 +112,25 @@ function contains(r: Rect, x: number, y: number): boolean {
   return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
 }
 
+function sameIntent(a: DropIntent | undefined, b: DropIntent | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.kind !== b.kind) return false;
+  if (a.kind === 'insert' && b.kind === 'insert') return a.index === b.index;
+  if (a.kind === 'stack' && b.kind === 'stack') return a.ontoId === b.ontoId;
+  if (a.kind === 'split' && b.kind === 'split') return a.ontoId === b.ontoId && a.edge === b.edge;
+  return false;
+}
+
 function sameHover(a: DragState['hover'], b: DragState['hover']): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  return a.targetId === b.targetId && a.accepted === b.accepted && a.insertIndex === b.insertIndex;
+  return (
+    a.targetId === b.targetId &&
+    a.accepted === b.accepted &&
+    a.insertIndex === b.insertIndex &&
+    sameIntent(a.intent, b.intent)
+  );
 }
 
 /**
@@ -120,6 +146,8 @@ export class DragEngine {
   private readonly orderControls = new Map<NodeId, ChildOrderCommit>();
   private readonly schedule: FrameScheduler;
   private readonly getStrategy: StrategyLookup | undefined;
+  private readonly makeStackId: () => NodeId;
+  private stackSeq = 0;
   private pendingPoint: Point | null = null;
   private frame: number | null = null;
   private scheduled = false;
@@ -131,6 +159,7 @@ export class DragEngine {
   ) {
     this.getStrategy = options.getStrategy;
     this.schedule = options.schedule ?? immediate;
+    this.makeStackId = options.makeStackId ?? (() => this.nextStackId());
   }
 
   state(): DragState | null {
@@ -237,11 +266,21 @@ export class DragEngine {
       this.setHover(null, { x, y });
       return;
     }
-    this.autoScroll(this.dropTargets.get(best.id), x, y);
-    const insertIndex = this.dropTargets.get(best.id)?.getInsertionIndex?.({ x, y });
-    const accepted = this.checkAccept(best.id);
+    const target = this.dropTargets.get(best.id);
+    this.autoScroll(target, x, y);
+    const intent = target?.getDropIntent?.({ x, y });
+    // An intent that names a seam is the authority on the index too, so the
+    // two answers cannot disagree about where the drop lands.
+    const insertIndex =
+      intent === undefined
+        ? target?.getInsertionIndex?.({ x, y })
+        : intent.kind === 'insert'
+          ? intent.index
+          : undefined;
+    const accepted = this.checkAccept(best.id, intent);
     const hover: NonNullable<DragState['hover']> = { targetId: best.id, accepted };
     if (insertIndex !== undefined) hover.insertIndex = insertIndex;
+    if (intent !== undefined) hover.intent = intent;
     this.setHover(hover, { x, y });
   }
 
@@ -271,9 +310,10 @@ export class DragEngine {
     }
   }
 
-  private checkAccept(targetId: NodeId): boolean {
+  private checkAccept(targetId: NodeId, intent?: DropIntent): boolean {
     if (!this.active) return false;
     const draggingId = this.active.draggingId;
+    if (intent && !this.checkIntent(targetId, draggingId, intent)) return false;
     if (targetId === draggingId) {
       trace('dnd', `checkAccept ${targetId}: REJECT (target is the source)`);
       return false;
@@ -315,6 +355,58 @@ export class DragEngine {
     return true;
   }
 
+  /**
+   * Whether a non-`insert` intent can commit. The ordinary target checks can't
+   * answer these: until now the hovered target *was* the destination, and a
+   * stack reparents the onto-child instead.
+   */
+  private checkIntent(targetId: NodeId, draggingId: NodeId, intent: DropIntent): boolean {
+    if (intent.kind === 'insert') return true;
+    if (intent.kind === 'split') {
+      trace('dnd', `checkAccept ${targetId}: REJECT (split has no commit path)`);
+      return false;
+    }
+    const ontoId = intent.ontoId as NodeId;
+    if (ontoId === draggingId) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (stack onto the dragged node)`);
+      return false;
+    }
+    if (this.store.isLocked(ontoId, 'move')) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (stack onto ${ontoId} with lock.move)`);
+      return false;
+    }
+    if (this.isWithin(ontoId, draggingId)) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (stack onto own descendant ${ontoId})`);
+      return false;
+    }
+    // A wrap creates a node the host never asked for, so it cannot be handed to
+    // a parent that owns its own child order.
+    if (this.orderControls.has(targetId)) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (stack into a controlled parent)`);
+      return false;
+    }
+    return true;
+  }
+
+  /** Whether `id` sits anywhere under `ancestor`. */
+  private isWithin(id: NodeId, ancestor: NodeId): boolean {
+    let cursor = this.store.getNode(id)?.membership?.parentId;
+    while (cursor !== undefined) {
+      if (cursor === ancestor) return true;
+      cursor = this.store.getNode(cursor)?.membership?.parentId;
+    }
+    return false;
+  }
+
+  private nextStackId(): NodeId {
+    let candidate: NodeId;
+    do {
+      this.stackSeq += 1;
+      candidate = `stack-${this.stackSeq}` as NodeId;
+    } while (this.store.getNode(candidate) !== undefined);
+    return candidate;
+  }
+
   private setHover(hover: NonNullable<DragState['hover']> | null, cursor: Point): void {
     if (!this.active) return;
     const next: DragState['hover'] = hover
@@ -322,6 +414,7 @@ export class DragEngine {
           targetId: hover.targetId,
           accepted: hover.accepted,
           ...(hover.insertIndex !== undefined ? { insertIndex: hover.insertIndex } : {}),
+          ...(hover.intent !== undefined ? { intent: hover.intent } : {}),
         }
       : null;
     const cursorChanged = this.active.cursor.x !== cursor.x || this.active.cursor.y !== cursor.y;
@@ -353,6 +446,18 @@ export class DragEngine {
     const { draggingId, hover } = this.active;
     if (!hover?.accepted) {
       this.cancel(hover ? 'rejected' : 'outside');
+      return;
+    }
+    if (hover.intent?.kind === 'stack') {
+      const ontoId = hover.intent.ontoId as NodeId;
+      const id = this.makeStackId();
+      try {
+        this.store.stackNodes(draggingId, ontoId, { id });
+        trace('dnd', `drop: stack ${draggingId} onto ${ontoId} as ${id}`);
+      } catch (err) {
+        trace('dnd', `drop failed: ${(err as Error).message}`);
+      }
+      this.clear();
       return;
     }
     if (this.commitControlled(draggingId, hover.targetId, hover.insertIndex)) {
