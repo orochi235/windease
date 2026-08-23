@@ -11,7 +11,7 @@ than repeating them.
 On branch **`seam-join`**, cut from `main`, **not merged**. `main` is still
 unpushed, ~50 commits ahead of `origin/main`.
 
-Seam-join is complete: 1187 unit tests, 186 e2e specs across three engines,
+Seam-join is complete: 1190 unit tests, 186 e2e specs across three engines,
 lint/typecheck/build green. It shipped with a Ladle story
 (`seam-join--join-on-overshoot`), browser specs, README and `CHANGELOG.md`.
 
@@ -41,6 +41,11 @@ all three were the same shape — **a test that passed for the wrong reason**:
   two behaviours until one was written.
 - Two "asserts something does not happen" tests passed vacuously, one of them
   written by hand into the plan.
+- The whole-branch review then found what none of the per-task ones could: in a
+  container narrower than its panes' floors — the default `overflowMode` after
+  nothing worse than shrinking a window — every pane sits at its floor, so both
+  clamp flags read true and the first 25px of drag in *either* direction armed
+  and destroyed. Every task had passed two reviews. The bug lived between them.
 
 **So: mutation-check every negative assertion.** Break the thing on purpose and
 watch the test fail. Three defects here survived ordinary review and died to that.
