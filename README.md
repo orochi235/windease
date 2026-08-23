@@ -579,7 +579,7 @@ many main-axis pixels past the floor that takes — 24 by default.
 ```tsx
 <Zone
   id={zoneId}
-  strategy="strip"
+  strategyId="strip"
   config={{ axis: 'x', resizeMode: 'neighbor', joinOnOvershoot: true }}
 />
 ```
@@ -623,7 +623,7 @@ keyboard press moves exactly one cell, because the affordance reports its own
 `bounds.step` rather than taking the container's pixel default.
 
 ```tsx
-<Zone id={zoneId} strategy="grid" config={{ resizable: true }} />
+<Zone id={zoneId} strategyId="grid" config={{ resizable: true }} />
 ```
 
 A grid packs rather than pairing, so there is no one neighbor a seam trades

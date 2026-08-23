@@ -64,11 +64,11 @@ watch the test fail. Three defects here survived ordinary review and died to tha
   *reaches* a clamp still reads unpinned, so accumulation normally starts one
   move later — but a pane already on its floor has nowhere to go, so all travel
   really is overshoot. Requiring a wiggle first would be worse.
-- **The presets show the point of no return but name no victim**, until the
-  context added in `presets.tsx` is exercised more widely. The join is *not*
-  suppressed there: one config key meaning different things depending on which
-  React entry point mounted the tree is a worse contract than a weaker
-  affordance.
+- **The join is not suppressed in the presets.** One config key meaning different
+  things depending on which React entry point mounted the tree would be a worse
+  contract than a weaker affordance. `<Zone>` / `<Panel>` name the victim through
+  a module-private context, since their children render their own wrappers and a
+  prop cannot reach them.
 - **The armed state ships a default appearance**, which is a deliberate exception
   to `styles.css`'s "cosmetics are the consumer's" rule. A destroy with no
   confirmation step cannot wait on consumer CSS. It is `currentColor`-only, so a

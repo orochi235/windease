@@ -127,13 +127,11 @@ marks that child. Both the victim and the handle carry `data-join-armed`;
 `styles.css` hatches the one and thickens the other. The attribute is the
 contract a consumer restyles against, not the gradient.
 
-`<Zone>` / `<Panel>` mount the same layer, so the seam marks itself there too,
-but naming the victim needs a context the preset shell reads — its children
-render their own `data-node` wrappers, so a prop cannot reach them. Until that is
-wired the presets show the point of no return without saying which pane goes.
-The join is not suppressed there: one config key meaning different things
-depending on which entry point mounted the tree is a worse contract than a
-weaker affordance.
+`<Zone>` / `<Panel>` mount the same layer and mark the victim too, through a
+context rather than a prop: their children render their own `data-node` wrappers,
+so nothing can be passed down to them. The provider sits inside the shell and the
+shell reads the *outer* value, so a nested container-panel that is its parent's
+victim is marked rather than reading its own empty one.
 
 **Escape cancels**, matching drag-and-drop. `pointercancel` must take that same
 cancel path rather than the commit path — today both land in one handler, which
