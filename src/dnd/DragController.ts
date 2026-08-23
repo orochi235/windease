@@ -84,11 +84,16 @@ export class DragController {
   private escapeBound = false;
   private windowUpBound = false;
 
-  constructor(store: Store, getStrategy?: StrategyLookup) {
-    const options: { getStrategy?: StrategyLookup; schedule: FrameScheduler } = {
+  constructor(store: Store, getStrategy?: StrategyLookup, stackConfig?: Record<string, unknown>) {
+    const options: {
+      getStrategy?: StrategyLookup;
+      schedule: FrameScheduler;
+      stackConfig?: Record<string, unknown>;
+    } = {
       schedule: rafScheduler,
     };
     if (getStrategy) options.getStrategy = getStrategy;
+    if (stackConfig) options.stackConfig = stackConfig;
     this.engine = new DragEngine(store, options);
     // First subscriber, so attributes and window listeners are settled before
     // any consumer listener sees the new state.

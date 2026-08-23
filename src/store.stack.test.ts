@@ -114,6 +114,25 @@ describe('Store.stackNodes', () => {
     expect(order(s, z)).toEqual([b, c, a]);
   });
 
+  it('shows the node that was stacked, not the one stacked onto', () => {
+    const { s, a, b } = seeded();
+    s.stackNodes(a, b, { id: id('s1') });
+    expect(s.getNode(id('s1'))?.container?.config).toMatchObject({ activeId: a });
+  });
+
+  it('shows the node appended to an existing stack', () => {
+    const { s, a, b, c } = seeded();
+    s.stackNodes(a, b, { id: id('s1') });
+    s.stackNodes(c, b, { id: id('s2') });
+    expect(s.getNode(id('s1'))?.container?.config).toMatchObject({ activeId: c });
+  });
+
+  it('makes the new stack visible, so it renders', () => {
+    const { s, a, b } = seeded();
+    s.stackNodes(a, b, { id: id('s1') });
+    expect(s.getNode(id('s1'))?.lifecycle.state).toBe('visible');
+  });
+
   it('passes its config through to the new container', () => {
     const { s, a, b } = seeded();
     s.stackNodes(a, b, { id: id('s1'), config: { headerSize: 28 } });

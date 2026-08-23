@@ -96,6 +96,10 @@ export interface DragEngineOptions {
   /** Id for a container a stack drop creates. Defaults to `stack-N`, skipping
    *  any id the store already holds. */
   makeStackId?: () => NodeId;
+  /** Container config for a stack a drop creates — `headerSize` above all,
+   *  since the strip it reserves room for is the host's to draw and its height
+   *  is the host's to know. */
+  stackConfig?: Record<string, unknown>;
 }
 
 const immediate: FrameScheduler = {
@@ -147,6 +151,7 @@ export class DragEngine {
   private readonly schedule: FrameScheduler;
   private readonly getStrategy: StrategyLookup | undefined;
   private readonly makeStackId: () => NodeId;
+  private readonly stackConfig: Record<string, unknown> | undefined;
   private stackSeq = 0;
   private pendingPoint: Point | null = null;
   private frame: number | null = null;
@@ -160,6 +165,7 @@ export class DragEngine {
     this.getStrategy = options.getStrategy;
     this.schedule = options.schedule ?? immediate;
     this.makeStackId = options.makeStackId ?? (() => this.nextStackId());
+    this.stackConfig = options.stackConfig;
   }
 
   state(): DragState | null {
@@ -452,7 +458,10 @@ export class DragEngine {
       const ontoId = hover.intent.ontoId as NodeId;
       const id = this.makeStackId();
       try {
-        this.store.stackNodes(draggingId, ontoId, { id });
+        this.store.stackNodes(draggingId, ontoId, {
+          id,
+          ...(this.stackConfig ? { config: this.stackConfig } : {}),
+        });
         trace('dnd', `drop: stack ${draggingId} onto ${ontoId} as ${id}`);
       } catch (err) {
         trace('dnd', `drop failed: ${(err as Error).message}`);

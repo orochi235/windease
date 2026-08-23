@@ -15,15 +15,23 @@ export interface DragProviderProps {
    * the overlay entirely (e.g. if you render your own).
    */
   dragOverlay?: DragOverlayRenderer | null;
+  /** Container config given to a stack a drop creates. `headerSize` is the one
+   *  that matters: the tab strip is yours to draw, so its height is yours to
+   *  declare. */
+  stackConfig?: Record<string, unknown>;
 }
 
 /** @group Components */
-export function DragProvider({ children, dragOverlay = defaultDragOverlay }: DragProviderProps) {
+export function DragProvider({
+  children,
+  dragOverlay = defaultDragOverlay,
+  stackConfig,
+}: DragProviderProps) {
   const store = useStore();
   const registry = useOptionalStrategyRegistry();
   const controller = useMemo(
-    () => new DragController(store, registry ? (sid) => registry.get(sid) : undefined),
-    [store, registry],
+    () => new DragController(store, registry ? (sid) => registry.get(sid) : undefined, stackConfig),
+    [store, registry, stackConfig],
   );
 
   const [state, setState] = useState<DragState | null>(null);

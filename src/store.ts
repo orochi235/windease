@@ -1310,7 +1310,10 @@ export class Store {
     const parent = this.requireNode(parentId);
 
     if (parent.container?.strategyId === STACK_STRATEGY_ID) {
-      this.moveNode(sourceId, parentId, undefined, opts);
+      this.transact(() => {
+        this.moveNode(sourceId, parentId, undefined, opts);
+        this.updateContainerConfig(parentId, { activeId: sourceId }, opts);
+      }, 'stackNodes');
       return;
     }
 
@@ -1341,9 +1344,14 @@ export class Store {
           kind: 'group',
           parentId,
           placement,
-          container: { strategyId: STACK_STRATEGY_ID, config: opts.config ?? {} },
+          container: {
+            strategyId: STACK_STRATEGY_ID,
+            // The pane you just moved is the one you expect to be looking at.
+            config: { ...opts.config, activeId: sourceId },
+          },
         }),
       );
+      this.showNode(opts.id);
       this.setAutoUnsplit(opts.id, true);
       this.reorderInParent(opts.id, at);
       this.moveNode(ontoId, opts.id);
