@@ -566,8 +566,53 @@ ARIA and drops the stops.
 
 Under `resizeMode: 'neighbor'` a step is bounded by the pair, so a pane can
 stop moving because its *neighbor* hit a limit while it is nowhere near its
-own. `aria-valuenow` reflects where it actually landed; nothing is narrated to
-a live region.
+own. `aria-valuenow` reflects where it actually landed; the value itself is
+never narrated to a live region.
+
+### Seam join
+
+A neighbor seam can end in a destroy rather than a clamp. With
+`joinOnOvershoot: true`, pushing the seam past a pane's floor and continuing to
+push arms the gesture; releasing there closes that pane. `joinThreshold` is how
+many main-axis pixels past the floor that takes — 24 by default.
+
+```tsx
+<Zone
+  id={zoneId}
+  strategy="strip"
+  config={{ axis: 'x', resizeMode: 'neighbor', joinOnOvershoot: true }}
+/>
+```
+
+Off by default, because the gesture deletes a pane with no confirmation step.
+It is ignored under `resizeMode: 'redistribute'`, which has no single pane to
+name. Whichever pane's floor breaks is the one closed: the neighbor when the
+seam is pushed toward it, the dragged pane when it is pushed the other way.
+
+While the gesture is armed, both that pane and the seam carry
+`data-join-armed`. `styles.css` gives them a visible default — a hatch on the
+pane and a thickened seam, both from `currentColor` — because the point of no
+return cannot wait on consumer CSS. Override the two selectors to restyle:
+
+```css
+[data-node][data-join-armed]::after { /* the pane about to close */ }
+.windease-affordance-hit[data-join-armed] > [data-affordance]::after { /* the seam */ }
+```
+
+`Escape` cancels mid-drag, and a cancelled pointer never commits. From the
+keyboard, arrow the seam past the floor to arm it and `Enter` to commit;
+`Escape` or arrowing back cancels, and `End` still jumps to `aria-valuemax`
+without ever destroying. Arming is announced in a polite live region.
+
+A pane locked with `lock: { destroy: true }` — or holding any descendant that
+is — never arms; its seam still resizes down to the floor. The destroy runs in
+one transaction, so a host recording history per transaction gets a single undo
+step.
+
+Without React, `trackJoin` is the whole decision: give it the affordance's
+`join` and `bounds`, this move's main-axis delta, and the overshoot it returned
+last time, and it answers whether the gesture is armed and on which node.
+`destroyBlockedBy(store, id)` is the lock check to pass it.
 
 ### Grid seams
 

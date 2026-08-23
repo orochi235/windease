@@ -10,6 +10,19 @@ section below.
 
 ### Added
 
+- **Seam join.** On a strip with `resizeMode: 'neighbor'`, `joinOnOvershoot: true` lets a
+  seam drag end in a destroy: push the seam past a pane's floor, keep pushing, and
+  releasing there closes that pane. Off by default, because the gesture deletes a pane
+  with no confirmation step; `joinThreshold` is how many main-axis pixels past the floor
+  it arms at, 24 by default. The pane about to close and its seam both carry
+  `data-join-armed`, which `styles.css` gives a visible default — override those two
+  selectors to restyle. `Escape` cancels, a cancelled pointer never commits, and from
+  the keyboard `Enter` commits an armed seam while `End` still only resizes. A pane
+  under `lock: { destroy: true }`, or holding a descendant that is, never arms, and its
+  seam still resizes down to the floor. The destroy runs in one transaction, so a host
+  recording history per transaction gets a single undo step. `trackJoin`,
+  `DEFAULT_JOIN_THRESHOLD`, `TrackJoinInput`, `JoinState`, `destroyBlockedBy` and
+  `Affordance.join` / `AffordanceJoin` are exported for a host driving its own seams.
 - **`store.setAutoUnsplit(id, true)`.** A container opted into this collapses when a
   removal leaves it holding one child, lifting the survivor into the grandparent with
   the group's placement and pinned index. Opt-in on the container, because the trigger
