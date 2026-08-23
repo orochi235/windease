@@ -31,6 +31,7 @@ import {
   type LayoutInfo,
   LayoutScope,
   type Rect,
+  useIsUnplaced,
   useLayoutContext,
   useLayoutForSelf,
 } from './LayoutContext.js';
@@ -260,6 +261,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
   const layoutInfo: LayoutInfo = {
     placements: layout.placements,
+    unplaced: layout.unplaced,
     settleMs,
     registerPlacementControl: layout.registerPlacementControl,
     observeNatural: layout.observeNatural,
@@ -435,6 +437,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
   const layoutInfo: LayoutInfo = {
     placements: layout.placements,
+    unplaced: layout.unplaced,
     settleMs,
     registerPlacementControl: layout.registerPlacementControl,
     observeNatural: layout.observeNatural,
@@ -603,6 +606,7 @@ function PresetShell({
   // If a parent container's strategy assigned this node a rect, wrap our
   // DOM in an absolute-positioned box so we render at the right place.
   const selfRect = useLayoutForSelf(id);
+  const withheld = useIsUnplaced(id);
   const armedByParent = useContext(JoinArmContext);
 
   // After children render and self-report, reconcile sibling order.
@@ -671,6 +675,10 @@ function PresetShell({
     </ChildRegistryContext.Provider>
   );
 
+  // A missing rect means nobody is placing us — flow mode, or a zone whose
+  // strategy isn't registered — and we render where the consumer's JSX put us.
+  // Being in `unplaced` is the opposite: a strategy ran and withheld us.
+  if (withheld) return null;
   if (!selfRect) return shell;
 
   return <AbsoluteWrapper rect={selfRect}>{shell}</AbsoluteWrapper>;

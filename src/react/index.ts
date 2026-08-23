@@ -55,6 +55,7 @@ export {
   LayoutScope,
   type Rect,
   useLayoutContext,
+  useIsUnplaced,
   useLayoutForSelf,
 } from './LayoutContext.js';
 export {
