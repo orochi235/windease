@@ -1,103 +1,111 @@
-# Handoff: seam-join in flight, tab-stacking next
+# Handoff: seam-join done, tab-stacking next
 
-For whoever picks up windease next. Branch state, what is left, and the decisions
-made in conversation that the code does not record. The durable documents are
-[the design](specs/2026-08-22-seam-join-design.md), [the plan](plans/2026-08-22-seam-join.md),
-[`TODO.md`](../../TODO.md) and [`CHANGELOG.md`](../../CHANGELOG.md) — this points at
-them rather than repeating them.
+For whoever picks up windease next. Branch state, and the decisions made in
+conversation that the code does not record. The durable documents are
+[the design](specs/2026-08-22-seam-join-design.md), [`TODO.md`](../../TODO.md),
+[`CHANGELOG.md`](../../CHANGELOG.md) and the README — this points at them rather
+than repeating them.
 
 ## Repo state
 
-On branch **`seam-join`**, cut from `main`. `main` itself is still unpushed, now
-~50 commits ahead of `origin/main`. Nothing is merged.
+On branch **`seam-join`**, cut from `main`, **not merged**. `main` is still
+unpushed, ~50 commits ahead of `origin/main`.
 
-Seam-join is built. It was built from the plan, task by task, by subagents with a spec
-review and a code-quality review after each. Tasks 1–6 are committed and green;
-7–11 are not started. The plan's checkboxes are NOT ticked as work lands — read
-the git log on this branch for what is actually done.
+Seam-join is complete: 1187 unit tests, 186 e2e specs across three engines,
+lint/typecheck/build green. It shipped with a Ladle story
+(`seam-join--join-on-overshoot`), browser specs, README and `CHANGELOG.md`.
 
-Done: `trackJoin` and its tests, `destroyBlockedBy`, the strip strategy declaring
-`Affordance.join`, the public exports, the React gesture, and `<Container>`
-marking the armed pane.
+It was built from [the plan](plans/2026-08-22-seam-join.md), one task per
+subagent, with spec-compliance and code-quality review after each. **The plan's
+checkboxes were never ticked** — read the git log on this branch for what landed.
 
-Left: keyboard arming (task 7), the default armed CSS (8), an operable Ladle
-story (9), the Playwright specs (10), and README/CHANGELOG (11). **There is no
-`CHANGELOG.md` entry yet** — task 11 owns it, and `CLAUDE.md` requires one.
+Nothing is left of it. The next feature is **tab-stacking**, and unlike seam-join
+it has a concrete gap behind it: it is the only entry left under "Still
+uncovered" in `TODO.md`'s Playwright section, and a library gap rather than a
+test gap.
 
-## Three plan defects already found and fixed in the plan
+## What the reviews caught, and why it matters to the next run
 
-The plan was written before any of it ran, and three of its assumptions were
-wrong. All three are corrected in the plan file itself, but if you write new
-tasks against this codebase, know them:
+Every task got two review passes. They earned their cost three times over, and
+all three were the same shape — **a test that passed for the wrong reason**:
 
-- `createNode` takes `parentId` and `placement` as top-level fields — there is no
-  `membership:` input — and `container` needs `{ strategyId, config }`.
-- `exactOptionalPropertyTypes` is on, so `{ join: maybeUndefined }` does not
-  compile against `join?: T`. Spread conditionally instead.
-- There is no `store.undo()`. `HistoryController` is generic over a snapshot type
-  and wired by the consumer, so "one undo step" is asserted as one
-  `transaction.begin`/`end` pair.
+- The reducer armed on any fast drag. Overshoot was specified as "travel asked
+  for, minus extent absorbed", but the absorbed value lags a frame
+  *permanently*, so a steady 60px-per-move drag showed a 60px overshoot with the
+  seam mid-range. It only looked correct because the first tests drove 10px
+  steps. It now accumulates only while `bounds.atMin`/`atMax` says the seam is
+  pinned.
+- After that fix, the unwind branch still *grew* overshoot on unpinned travel —
+  it guarded against crossing zero, not against growing. Back off, push again,
+  and it armed on a pane five pixels above its floor. No test distinguished the
+  two behaviours until one was written.
+- Two "asserts something does not happen" tests passed vacuously, one of them
+  written by hand into the plan.
 
-## The bug that changed the design
-
-`trackJoin` was specified as `overshoot = requested - consumed` — pointer travel
-minus the extent the layout absorbed. That is broken, and it took an
-implementer's own test-granularity note to surface it: the absorbed extent lags a
-frame *permanently*, so a steady 60px-per-move drag reads as a 60px overshoot
-with the seam mid-range, and releasing destroys a pane that never reached its
-floor. It only looked fine because the first tests drove 10px steps.
-
-It is now a reducer that accumulates per-move deltas only while `bounds.atMin` /
-`atMax` reports the seam pinned. Pinned by a test that drives one large move from
-rest and asserts it does not arm.
-
-**If you touch this, do not reintroduce a derived overshoot.** The clamp flags
-exist so that "are we pinned" is never answered by comparing floats, and their
-docstring says so.
+**So: mutation-check every negative assertion.** Break the thing on purpose and
+watch the test fail. Three defects here survived ordinary review and died to that.
 
 ## Decided in conversation, not visible in the diff
 
-- **Seam-join has no consumer behind it.** It was self-filed in `TODO.md` the same
-  day work began; neither closed consumer evaluation asked for it. It is being
-  built because it is small and unblocked. Tab-stacking, next, does have a
-  concrete gap behind it — it is the only entry left under "Still uncovered" in
-  the e2e section, and a library gap rather than a test gap.
+- **Seam-join had no consumer behind it.** Self-filed in `TODO.md` the same day
+  work began; neither closed consumer evaluation asked for it. Built because it
+  was small and unblocked.
 - **`candidateId`, not `victimId`.** The field is populated whenever the gesture
-  has a direction, including while `armed` is false. "Victim" read as a verdict a
-  caller might act on alone, and destroy is irreversible.
+  has a direction, including while `armed` is false, so a name that reads as a
+  verdict invited acting on it alone. Destroy is irreversible.
 - **A join's ids are `NodeId | string`**, matching `childId` and `affects` beside
   them, so a strategy working in `ItemId` needs no cast. The host casts once.
 - **`destroyBlockedBy` is deliberately stricter than the store.**
   `unregisterNode` checks the lock on the id it is handed, then cascades with no
   further checks, so a destroy-locked descendant dies silently today. Seam-join
   declines to exploit that rather than fixing it; the store gap is filed in
-  `TODO.md`.
+  `TODO.md` and fixing it there is a behaviour change.
 - **A seam already pinned at rest arms from its first move.** The move that
-  *reaches* a clamp still reads unpinned, so accumulation normally starts one move
-  later — but a pane already sitting on its floor has nowhere to go, so all travel
+  *reaches* a clamp still reads unpinned, so accumulation normally starts one
+  move later — but a pane already on its floor has nowhere to go, so all travel
   really is overshoot. Requiring a wiggle first would be worse.
-- **`<Zone>` / `<Panel>` get the destroy with no armed visual.**
-  `onJoinArmChange` is optional because the presets' declarative children have no
-  per-pane wrapper to mark. Whether that ships or the presets should suppress the
-  join until they can show it is an open question under review, not a decision.
+- **The presets show the point of no return but name no victim**, until the
+  context added in `presets.tsx` is exercised more widely. The join is *not*
+  suppressed there: one config key meaning different things depending on which
+  React entry point mounted the tree is a worse contract than a weaker
+  affordance.
+- **The armed state ships a default appearance**, which is a deliberate exception
+  to `styles.css`'s "cosmetics are the consumer's" rule. A destroy with no
+  confirmation step cannot wait on consumer CSS. It is `currentColor`-only, so a
+  consumer that sets no color sees nothing — the story demonstrates the trap.
+- **The gesture destroys; it does not redistribute.** Where the freed extent goes
+  is ordinary strip layout, and panes with an explicit `placement.size` under
+  `fill: false` leave it empty. Three documents claimed otherwise before it was
+  checked against the code.
 
-## Two questions filed but not decided
+## Traps that cost time, so you do not pay twice
 
-Both are in `TODO.md` under Drag and drop, written to make clear nothing was
-chosen: whether a shared gesture lifecycle should be extracted once a third
-copy of arm/cancel/commit appears, and whether input *binding* should come from
-`@weasel-js/gestures`. Also filed there: **drop-on-edge to split**, which is the
-one standard drop semantic this library has no answer for, and which shares its
-hard part (drop intent from a hit-test) with tab-stacking.
+- `createNode` takes `parentId` and `placement` as **top-level** fields — there
+  is no `membership:` input — and `container` needs `{ strategyId, config }`.
+- `exactOptionalPropertyTypes` is on: `{ join: maybeUndefined }` does not compile
+  against `join?: T`. Spread conditionally.
+- **There is no `store.undo()`.** `HistoryController` is generic over a snapshot
+  type and wired by the consumer, so "one undo step" is asserted as one
+  `transaction.begin`/`end` pair.
+- Strip does **not** divide a container evenly when panes carry no size — it
+  sizes each to its `minSize`, so a naive fixture starts every pane already
+  pinned.
+- An affordance handle's position comes from inline styles, so a stylesheet
+  cannot override it without `!important`. Style a pseudo-element instead.
 
-## Conventions worth not rediscovering
+## Three things filed, none decided
 
-`CLAUDE.md` has them all. The two that bite here: **every feature ships with an
-operable Ladle story in the same change**, because the Playwright suite drives
-Ladle; and **assert exact rects**, because a geometry assertion written as an
-inequality passes for the wrong reason.
+All in `TODO.md`, written so nothing reads as chosen:
 
-One more, learned this run: **mutation-check every test that asserts something
-does *not* happen.** Two such tests in this work passed vacuously on the first
-attempt — including one written into the plan by hand — and only failed honestly
-after the assertion was rewritten.
+- **Drop-on-edge to split [HIGH]** — the one standard drop semantic this library
+  has no answer for. `store.split` already does the mutation; the hit-test and
+  preview are missing. Shares its hard part with tab-stacking, so doing them
+  together is probably cheaper than either alone.
+- **Two gesture pipelines are converging.** `DragController` owns
+  arm/cancel/commit/lock/undo/announce for pane drags; `AffordanceHandle` now has
+  its own copy for seams. One duplicate is not an abstraction — extract when a
+  third appears.
+- **Whether input binding should come from `@weasel-js/gestures`.** It answers
+  "which input happened and what is bound to it", which windease has no
+  vocabulary for; it does not answer the in-flight, geometry-resolved half. The
+  trigger would be a consumer asking to rebind, not the catalog growing.
