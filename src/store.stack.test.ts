@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createNode } from './constructors.js';
 import { asNodeId, LockedError, type NodeId, Store } from './index.js';
 import { serialize } from './snapshot.js';
+import { captureTrace } from './test-utils/capture-trace.js';
 import { recordEvents } from './test-utils/record-events.js';
 
 const id = (s: string) => asNodeId(s);
@@ -131,6 +132,14 @@ describe('Store.stackNodes', () => {
     const { s, a, b } = seeded();
     s.stackNodes(a, b, { id: id('s1') });
     expect(s.getNode(id('s1'))?.lifecycle.state).toBe('visible');
+  });
+
+  it('traces the wrap it performed', () => {
+    const { s, a, b } = seeded();
+    const cap = captureTrace('store');
+    s.stackNodes(a, b, { id: id('s1') });
+    expect(cap.matching(/stack: a onto b in new s1@1/)).toHaveLength(1);
+    cap.stop();
   });
 
   it('passes its config through to the new container', () => {

@@ -116,6 +116,13 @@ Still open:
   split intent, so nothing emits one and `<Container>` never enables the
   bands.
 
+- **Only `<Container>` can stack on drop.** `stackOnDrop` is a `<Container>`
+  prop, and the drop target the declarative presets register through
+  `PresetShell` passes no `getDropIntent` at all — it passes no
+  `getInsertionIndex` either, so a `<Zone>` drop has always appended. Giving the
+  presets an intent means giving them a hit-test first, which is the same work
+  either way; nothing about the resolver is imperative-only.
+
 - **`<Zone config>` is read once, at creation.** `makeReconciler` reconciles
   `meta`, `hints`, `placement`, `lock` and `pinned`, and `<Zone>` adds
   `state` — but nothing reconciles `config`, so re-rendering with a changed
