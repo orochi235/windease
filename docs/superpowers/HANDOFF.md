@@ -1,4 +1,4 @@
-# Handoff: seam-join done, tab-stacking next
+# Handoff: tab-stacking next
 
 For whoever picks up windease next. Branch state, and the decisions made in
 conversation that the code does not record. The durable documents are
@@ -8,8 +8,9 @@ than repeating them.
 
 ## Repo state
 
-On branch **`seam-join`**, cut from `main`, **not merged**. `main` is still
-unpushed, ~50 commits ahead of `origin/main`.
+On **`main`**, clean. Seam-join merged at `022c3df`; the `seam-join` branch is
+merged and can be deleted. `main` is still **unpushed**, now ~78 commits ahead of
+`origin/main` — that is the pre-existing state, not something this work created.
 
 Seam-join is complete: 1190 unit tests, 186 e2e specs across three engines,
 lint/typecheck/build green. It shipped with a Ladle story
@@ -17,7 +18,8 @@ lint/typecheck/build green. It shipped with a Ladle story
 
 It was built from [the plan](plans/2026-08-22-seam-join.md), one task per
 subagent, with spec-compliance and code-quality review after each. **The plan's
-checkboxes were never ticked** — read the git log on this branch for what landed.
+checkboxes were never ticked**, and its Task 1 is marked superseded — read the
+git log for what actually landed.
 
 Nothing is left of it. The next feature is **tab-stacking**, and unlike seam-join
 it has a concrete gap behind it: it is the only entry left under "Still
