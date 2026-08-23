@@ -54,9 +54,8 @@ file measures.
 
 `DropTarget` gains `getDropIntent?(point): DropIntent | undefined`, beside the
 existing `getInsertionIndex`, which is kept and still honoured when no intent
-function is registered. `DragState.hover` gains `intent` and the resolved
-onto-child rect; `drop()` switches on the intent kind instead of always calling
-`moveNode`.
+function is registered. `DragState.hover` gains `intent`; `drop()` switches on
+the intent kind instead of always calling `moveNode`.
 
 Acceptance for a `stack` intent is not the check that exists. The onto-child is
 being *reparented*, so it needs `lock.move` clear and its parent `lock.arrange`
@@ -147,8 +146,10 @@ other way to know how tall a strip it has never seen will be.
 
 No default drop preview ships either. There is none for insertion today —
 `defaultDragOverlay` is a cursor-following chip and `insertIndex` sits in
-`DragOverlayContext` undrawn — so `intent` and the onto-child rect join it there
-and drawing stays the consumer's. Seam-join ships an appearance because it
+`DragOverlayContext` undrawn — so `intent` joins it there and drawing stays the
+consumer's. It carries `ontoId`, not a rect: the consumer resolves a node id to
+an element through `data-node` for everything else, and hover would otherwise
+carry per-frame geometry nothing in the engine reads. Seam-join ships an appearance because it
 destroys a pane with no confirmation step; a stack is one undo away, so that
 exception does not extend to it.
 

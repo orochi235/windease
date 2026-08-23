@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import type { Node, NodeId } from '../../index.js';
+import type { DropIntent, Node, NodeId } from '../../index.js';
 
 export interface DragOverlayContext {
   draggingId: NodeId;
@@ -9,6 +9,9 @@ export interface DragOverlayContext {
     targetId: NodeId;
     accepted: boolean;
     insertIndex?: number;
+    /** What kind of drop this would be. Resolve `ontoId` to an element the way
+     *  you resolve any node id — `[data-node="…"]` — to draw over it. */
+    intent?: DropIntent;
   } | null;
   rejected: boolean;
 }
