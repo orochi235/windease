@@ -27,6 +27,11 @@ export {
   type FrameScheduler,
   type Point,
 } from './dnd/DragEngine.js';
+export {
+  type DropIntent,
+  type DropIntentOptions,
+  resolveDropIntent,
+} from './dnd/dropIntent.js';
 export { type EdgeScrollOptions, edgeScrollDelta } from './dnd/edgeScroll.js';
 export {
   axisFromRects,
@@ -68,6 +73,7 @@ export {
   type TrackJoinInput,
   trackJoin,
 } from './layout/seam-join.js';
+export { stackStrategy } from './layout/stack.js';
 export { stripStrategy } from './layout/strip.js';
 export {
   getLayoutNodes,

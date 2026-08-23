@@ -1,0 +1,125 @@
+.ts-frame {
+  padding: 12px;
+  background: #101218;
+  border-radius: 8px;
+  display: inline-block;
+}
+
+.ts-zone {
+  background: #0b0d12;
+  border-radius: 6px;
+}
+
+.ts-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1b2030;
+  border: 1px solid #2b3346;
+  border-radius: 5px;
+  color: #dfe4ef;
+  overflow: hidden;
+}
+
+.ts-panel__title {
+  font:
+    600 12px / 1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  border-bottom: 1px solid #2b3346;
+}
+
+.ts-panel__grip {
+  cursor: grab;
+  padding: 0 8px 8px;
+  color: #6c7691;
+}
+
+.ts-panel__body {
+  padding: 10px 12px;
+  font:
+    12px / 1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  color: #97a0b5;
+}
+
+.ts-stack {
+  position: relative;
+  height: 100%;
+  background: #141826;
+  border: 1px solid #33405c;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+/* The stack body is a full-box Container that overlaps this band, so the strip
+   has to be raised or its clicks land on the container instead. */
+.ts-tabs {
+  z-index: 1;
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 28px;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 2px;
+  background: #0e1220;
+  border-bottom: 1px solid #33405c;
+}
+
+.ts-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #8d97ad;
+  font:
+    500 11px / 1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  padding: 0 10px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.ts-tab[aria-selected="true"] {
+  color: #e6ebf5;
+  background: #141826;
+  border-bottom-color: #5b8cff;
+}
+
+.ts-readout {
+  font:
+    12px / 1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: #8d97ad;
+  margin: 12px 0 0;
+}
+
+.ts-readout__value {
+  color: #e6ebf5;
+}
+
+.ts-prose {
+  max-width: 62ch;
+  font:
+    13px / 1.6 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  color: #97a0b5;
+}
+
+.ts-prose kbd {
+  font:
+    11px / 1 ui-monospace,
+    Menlo,
+    monospace;
+  border: 1px solid #33405c;
+  border-radius: 3px;
+  padding: 2px 4px;
+  color: #dfe4ef;
+}

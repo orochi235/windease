@@ -1,3 +1,4 @@
+import { createNode } from './constructors.js';
 import {
   CapabilityMissingError,
   CycleError,
@@ -24,6 +25,10 @@ import {
   type ThrottlePublishedPayload,
 } from './throttle.js';
 import { trace } from './trace.js';
+
+/** `container.strategyId` a stack carries. Named here because `stackNodes`
+ *  recognises an existing stack by it. */
+const STACK_STRATEGY_ID = 'stack';
 
 export interface StoreEvents {
   'node.registered': { id: NodeId };
@@ -1269,6 +1274,90 @@ export class Store {
    */
   unsplit(groupId: NodeId, opts?: MutateOptions): void {
     unsplitNode(this, groupId, opts);
+  }
+
+  /**
+   * Put `sourceId` and `ontoId` in one tabbed stack. When `ontoId` already
+   * lives in a stack this is an ordinary move into it; otherwise a new stack
+   * container takes `ontoId`'s slot — same parent, same index, inheriting its
+   * placement — and both nodes become its children.
+   *
+   * The new container gets `autoUnsplit`, so removing one of its last two
+   * children dissolves it again.
+   */
+  stackNodes(
+    sourceId: NodeId,
+    ontoId: NodeId,
+    opts: { id: NodeId; config?: Record<string, unknown> } & MutateOptions,
+  ): void {
+    const source = this.requireNode(sourceId);
+    const onto = this.requireNode(ontoId);
+    if (sourceId === ontoId) {
+      throw new InvariantViolationError('stack-self', `cannot stack ${sourceId} onto itself`, {
+        id: sourceId,
+      });
+    }
+    if (this.isDescendantOf(ontoId, sourceId)) {
+      throw new CycleError(sourceId, ontoId);
+    }
+    if (!onto.membership) {
+      throw new CapabilityMissingError(ontoId, 'membership', 'stackNodes');
+    }
+    if (!source.membership) {
+      throw new CapabilityMissingError(sourceId, 'membership', 'stackNodes');
+    }
+    const parentId = onto.membership.parentId;
+    const parent = this.requireNode(parentId);
+
+    if (parent.container?.strategyId === STACK_STRATEGY_ID) {
+      this.transact(() => {
+        this.moveNode(sourceId, parentId, undefined, opts);
+        this.updateContainerConfig(parentId, { activeId: sourceId }, opts);
+      }, 'stackNodes');
+      return;
+    }
+
+    // Everything the transaction needs, checked before it opens: `transact`
+    // does not roll back, so a throw from inside leaves a half-built stack.
+    if (this.nodesMap.has(opts.id)) throw new DuplicateNodeError(opts.id);
+    if (!parent.container) {
+      throw new InvariantViolationError(
+        'parent-not-container',
+        `parent ${parentId} has no container capability`,
+        { parentId, childId: ontoId },
+      );
+    }
+    this.assertUnlocked(sourceId, 'move', 'stackNodes', opts);
+    this.assertUnlocked(ontoId, 'move', 'stackNodes', opts);
+    this.assertUnlocked(parentId, 'arrange', 'stackNodes', opts);
+    this.assertUnlocked(parentId, 'accept', 'stackNodes', opts);
+    this.assertUnlocked(parentId, 'dragOut', 'stackNodes', opts);
+    this.assertUnlocked(source.membership.parentId, 'dragOut', 'stackNodes', opts);
+
+    const at = parent.container.childOrder.indexOf(ontoId);
+    const placement = { ...onto.membership.placement };
+
+    this.transact(() => {
+      this.registerNode(
+        createNode({
+          id: opts.id,
+          kind: 'group',
+          parentId,
+          placement,
+          container: {
+            strategyId: STACK_STRATEGY_ID,
+            // The pane you just moved is the one you expect to be looking at.
+            config: { ...opts.config, activeId: sourceId },
+          },
+        }),
+      );
+      this.showNode(opts.id);
+      this.setAutoUnsplit(opts.id, true);
+      this.reorderInParent(opts.id, at);
+      this.moveNode(ontoId, opts.id);
+      this.moveNode(sourceId, opts.id);
+    }, 'stackNodes');
+    trace('store', `stack: ${sourceId} onto ${ontoId} in new ${opts.id}@${at}`);
   }
 
   /**

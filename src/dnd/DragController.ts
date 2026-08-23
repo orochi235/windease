@@ -10,6 +10,7 @@ import {
   type Point,
   type StrategyLookup,
 } from './DragEngine.js';
+import type { DropIntent } from './dropIntent.js';
 import type { EdgeScrollOptions } from './edgeScroll.js';
 
 export type {
@@ -27,6 +28,9 @@ export interface DropTargetOptions {
   /** Map cursor (viewport coords) → prospective insertion index (0-based).
    *  Return undefined to leave `insertIndex` unset. */
   getInsertionIndex?: (point: Point) => number | undefined;
+  /** Map cursor → what kind of drop it is asking for. Takes precedence over
+   *  `getInsertionIndex`. */
+  getDropIntent?: (point: Point) => DropIntent | undefined;
   /**
    * The element that scrolls this target's content — the wrapper carrying
    * `overflow: auto`. Dragging toward its edge scrolls it. Omit and the
@@ -80,11 +84,16 @@ export class DragController {
   private escapeBound = false;
   private windowUpBound = false;
 
-  constructor(store: Store, getStrategy?: StrategyLookup) {
-    const options: { getStrategy?: StrategyLookup; schedule: FrameScheduler } = {
+  constructor(store: Store, getStrategy?: StrategyLookup, stackConfig?: Record<string, unknown>) {
+    const options: {
+      getStrategy?: StrategyLookup;
+      schedule: FrameScheduler;
+      stackConfig?: Record<string, unknown>;
+    } = {
       schedule: rafScheduler,
     };
     if (getStrategy) options.getStrategy = getStrategy;
+    if (stackConfig) options.stackConfig = stackConfig;
     this.engine = new DragEngine(store, options);
     // First subscriber, so attributes and window listeners are settled before
     // any consumer listener sees the new state.
@@ -120,6 +129,7 @@ export class DragController {
       depth: () => ancestorDepth(el),
       ...(canAccept ? { canAccept } : {}),
       ...(options?.getInsertionIndex ? { getInsertionIndex: options.getInsertionIndex } : {}),
+      ...(options?.getDropIntent ? { getDropIntent: options.getDropIntent } : {}),
       ...(options?.scrollEl
         ? {
             scroll: {

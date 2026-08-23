@@ -10,6 +10,11 @@ export interface Rect {
 
 export interface LayoutInfo {
   placements: ReadonlyMap<NodeId, Rect>;
+  /** Children a strategy ran and deliberately withheld. Empty whenever no
+   *  strategy ran — flow mode, and a zone whose strategy isn't registered —
+   *  which is what lets membership here mean "render nothing" rather than
+   *  "nobody placed me". */
+  unplaced: ReadonlyArray<NodeId>;
   /** Settle animation duration in ms — children should transition between
    *  placements over this duration. 0 = no transition. */
   settleMs: number;
@@ -21,7 +26,7 @@ export interface LayoutInfo {
   observeNatural?: (id: NodeId, el: Element) => () => void;
 }
 
-const EMPTY_LAYOUT: LayoutInfo = { placements: new Map(), settleMs: 0 };
+const EMPTY_LAYOUT: LayoutInfo = { placements: new Map(), unplaced: [], settleMs: 0 };
 
 export const LayoutContext = createContext<LayoutInfo>(EMPTY_LAYOUT);
 
@@ -33,6 +38,14 @@ export function LayoutScope({ value, children }: { value: LayoutInfo; children: 
 /** @group Hooks */
 export function useLayoutForSelf(id: NodeId): Rect | undefined {
   return useContext(LayoutContext).placements.get(id);
+}
+
+/** Whether the parent's strategy ran and withheld this child. False when no
+ *  strategy ran at all.
+ *
+ *  @group Hooks */
+export function useIsUnplaced(id: NodeId): boolean {
+  return useContext(LayoutContext).unplaced.includes(id);
 }
 
 /** @group Hooks */
