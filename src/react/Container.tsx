@@ -9,12 +9,15 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import {
-  axisFromRects,
-  childRectsForContainer,
-  insertionIndexByMidpoint,
-} from '../dnd/insertionIndex.js';
-import { accessibleName, type ChildOrderCommit, type NodeId } from '../index.js';
+import { resolveDropIntent } from '../dnd/dropIntent.js';
+import { axisFromRects, childRectsForContainer } from '../dnd/insertionIndex.js';
+import { accessibleName, type ChildOrderCommit, type NodeId, type Rect } from '../index.js';
+
+/** `childRectsForContainer` reports DOMRects; the resolver takes plain bounds. */
+function domRectToRect(r: DOMRect): Rect {
+  return { x: r.left, y: r.top, w: r.width, h: r.height };
+}
+
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
@@ -50,6 +53,13 @@ export interface ContainerProps {
   children?: ReactNode;
   /** Fixed viewport; omit to auto-measure via ResizeObserver. */
   viewport?: { w: number; h: number };
+  /**
+   * Let a drop onto the middle of a child stack the two into one tabbed
+   * container rather than inserting beside it. Off by default: the gesture
+   * restructures the tree, and a consumer with no tab strip drawn would end up
+   * with children it cannot reach.
+   */
+  stackOnDrop?: boolean;
   /**
    * The element that scrolls this container's content — the wrapper carrying
    * `overflow: auto`, not the box itself. Reports its offset so a pane's
@@ -173,6 +183,7 @@ function StoreContainer({
   affordanceKeyStep = 8,
   affordanceTabStops = true,
   onChildOrderChange,
+  stackOnDrop = false,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const store = useStore();
@@ -290,9 +301,9 @@ function StoreContainer({
     const strategyId = parent?.container?.strategyId;
     return dragController.registerDropTarget(parentId, el, undefined, {
       scrollEl: scrollRef?.current ?? null,
-      getInsertionIndex: (point) => {
+      getDropIntent: (point) => {
         const rects = childRectsForContainer(el);
-        if (rects.length === 0) return 0;
+        if (rects.length === 0) return { kind: 'insert', index: 0 };
         // Skip the source itself for same-parent previews.
         const sourceId = dragController.state()?.draggingId;
         const filtered = sourceId ? rects.filter((r) => r.id !== sourceId) : rects;
@@ -300,15 +311,16 @@ function StoreContainer({
         // to have set one, so read it off the arrangement CSS produced.
         const axis: 'x' | 'y' =
           cfg.axis ?? (isFlow ? axisFromRects(filtered) : strategyId === 'strip' ? 'x' : 'y');
-        const main = axis === 'y' ? point.y : point.x;
-        return insertionIndexByMidpoint(
-          filtered.map((r) => r.rect),
-          main,
+        return resolveDropIntent(
+          filtered.map((r) => ({ id: r.id, rect: domRectToRect(r.rect) })),
+          point,
           axis,
+          stackOnDrop ? { stack: true } : {},
         );
       },
     });
   }, [
+    stackOnDrop,
     dragController,
     parentId,
     parent?.container?.strategyId,

@@ -1,5 +1,5 @@
 import { type RefObject, useContext, useEffect } from 'react';
-import type { NodeId } from '../../index.js';
+import type { DropIntent, NodeId } from '../../index.js';
 import { DragContext } from './DragProvider.js';
 
 export interface UseDropTargetOptions {
@@ -15,6 +15,9 @@ export interface UseDropTargetOptions {
    *  the target's childOrder. Returning undefined leaves `insertIndex` unset
    *  on the drag state (the strategy then falls back to "append"). */
   getInsertionIndex?: (point: { x: number; y: number }) => number | undefined;
+  /** Map a cursor point to what kind of drop it is asking for. Takes
+   *  precedence over `getInsertionIndex`. */
+  getDropIntent?: (point: { x: number; y: number }) => DropIntent | undefined;
 }
 
 /**
@@ -36,7 +39,7 @@ export function useDropTarget(
     typeof canAcceptOrOptions === 'function'
       ? { canAccept: canAcceptOrOptions }
       : (canAcceptOrOptions ?? {});
-  const { canAccept, enabled, getInsertionIndex } = opts;
+  const { canAccept, enabled, getDropIntent, getInsertionIndex } = opts;
   // Always read the controller via useContext (not useDragController) so that
   // trees without a <DragProvider> can still call this hook with
   // `enabled: false` (e.g. PresetShell's unconditional call). When enabled
@@ -55,7 +58,12 @@ export function useDropTarget(
       nodeId,
       el,
       canAccept,
-      getInsertionIndex ? { getInsertionIndex } : undefined,
+      getInsertionIndex || getDropIntent
+        ? {
+            ...(getInsertionIndex ? { getInsertionIndex } : {}),
+            ...(getDropIntent ? { getDropIntent } : {}),
+          }
+        : undefined,
     );
-  }, [controller, nodeId, ref, enabled, canAccept, getInsertionIndex]);
+  }, [controller, nodeId, ref, enabled, canAccept, getInsertionIndex, getDropIntent]);
 }

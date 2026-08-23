@@ -33,7 +33,8 @@ export {
 } from './dnd/defaultDragOverlay.js';
 export { type DragHandleHandlers, useDragHandle } from './dnd/useDragHandle.js';
 export { useDragState } from './dnd/useDragState.js';
-export { useDropTarget } from './dnd/useDropTarget.js';
+export { type UseDropTargetOptions, useDropTarget } from './dnd/useDropTarget.js';
+export { type StackModel, type StackTab, useStack } from './dnd/useStack.js';
 // Keyboard focus and navigation
 export { FocusProvider, useFocusBinding } from './focus/FocusProvider.js';
 export {
@@ -54,8 +55,8 @@ export {
   type LayoutInfo,
   LayoutScope,
   type Rect,
-  useLayoutContext,
   useIsUnplaced,
+  useLayoutContext,
   useLayoutForSelf,
 } from './LayoutContext.js';
 export {
