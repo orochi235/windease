@@ -109,20 +109,43 @@ Still open:
 - **Drop on a pane's edge to split it [HIGH].** Drag A over the left third of
   B and drop: B splits, A takes the new half. The gesture every tiling manager
   and VS Code has, and the one standard drop semantic this library does not.
-  `store.split` already does the mutation, so what is missing is the hit-test —
-  which edge band the cursor is in — and the preview that shows which half A
-  will land in. Shares its hard part with tab-stacking: both need drop *intent*
-  from a hit-test, where `insertionIndexByMidpoint` answers only "which seam".
-  Doing them together is probably cheaper than either alone.
+  What was the hard part is done: `resolveDropIntent` already resolves a
+  `split` intent with its edge from the cross-axis bands, and `store.split`
+  already does the mutation. What is left is the commit path — `split` then
+  move A into the new half — and a preview. Until then the hover refuses a
+  split intent, so nothing emits one and `<Container>` never enables the
+  bands.
+
+- **`<Zone config>` is read once, at creation.** `makeReconciler` reconciles
+  `meta`, `hints`, `placement`, `lock` and `pinned`, and `<Zone>` adds
+  `state` — but nothing reconciles `config`, so re-rendering with a changed
+  `config` prop is silently ignored and the only way to change it is
+  `store.updateContainerConfig`. Found while testing a stack's `activeId`.
+  Either reconcile it or say in the prop's doc that it is initial-only; today
+  it reads as a controlled prop and is not one.
+
+- **Switching a stack's tab is gated by `lock.arrange`.** `useStack().activate`
+  writes through `updateContainerConfig`, which asserts that axis, so a stack
+  locked against rearrangement also cannot switch tabs. Activation is not
+  arrangement. The fix is a lock axis or an exemption, and neither is obviously
+  worth it — recorded in the drop-intent design as a known wart.
+
+- **A stack's body swallows clicks on its own tab strip.** The nested
+  `<Container>` is a full-box element overlapping the band `headerSize`
+  reserved, so a strip drawn before it in DOM order needs raising — the story
+  does it with one `z-index`. Every consumer drawing a strip will hit this.
+  Either the reserved band should not be part of the body element, or the
+  README's one-line warning is the whole fix.
 
 - **Two gesture pipelines are converging.** `DragController` drags panes and
   owns arm/cancel/commit/lock/undo/announce; `AffordanceHandle` drags seams and
   owns none of it, because until now a seam drag only wrote `placement.size`.
   Seam-join is the first seam gesture that mutates the tree, so it reimplements
   all six in the React layer. One duplicate is not yet an abstraction — the
-  point to extract a shared gesture lifecycle is when tab-stacking or
-  drop-on-edge needs a third copy, and the seam to watch is `trackJoin`
-  (`src/layout/seam-join.ts`), which is already shaped for it.
+  point to extract a shared gesture lifecycle is when a third copy appears, and
+  the seam to watch is `trackJoin` (`src/layout/seam-join.ts`), which is already
+  shaped for it. Tab-stacking did not add one: drop intent rides
+  `DragController`, which already owns all six.
 
 - **Open question, nothing decided: should input binding come from
   `@weasel-js/gestures`?** That package (1.0.4, zero dependencies, no React or
@@ -192,10 +215,10 @@ clamp until the join arms, and — in `capabilities.spec.ts` — keyboard move, 
 mode, grid `overflowMode` and a drag held at a scrolling container's edge. All
 three engines pass the pointer-capture cases unmodified.
 
-Still uncovered:
-
-- Drop *intent* — "into the seam between B and C" versus "onto B itself". Not
-  a gap in the suite so much as in the library; see Merging adjacent nodes.
+Nothing listed here is uncovered. `e2e/tab-stack.spec.ts` closed the last one —
+drop *intent*, "into the seam between B and C" versus "onto B itself" — which
+was a library gap rather than a suite gap. It drives the band geometry a real
+pointer resolves against, which jsdom has no layout to answer.
 
 `e2e/focus-drag.spec.ts`, `e2e/snapshot-roundtrip.spec.ts` and
 `e2e/stacking.spec.ts` close the three that were listed here. The stacking
@@ -271,12 +294,12 @@ three unrelated features sharing a verb, and separating them was the point.
 Coalescing shipped as `setAutoUnsplit` and seam-join as `joinOnOvershoot`;
 tab-stacking is what is left.
 
-- **Tab-stacking two panes into one.** Drop A onto B's body and the two
-  become a tabbed stack. The real work is not the merge, it is drop *intent*:
-  the hit-test has to separate "into the seam between B and C" from "onto B
-  itself", which `insertionIndexByMidpoint` deliberately does not do — it
-  answers only the first question. Needs a stack container preset and a tab
-  strip on top of that. The largest of the three by a wide margin.
+- **Tab-stacking two panes into one — shipped.** `<Container stackOnDrop>`
+  turns a drop in the middle of a pane into a tabbed stack. `resolveDropIntent`
+  answers the hit-test, `store.stackNodes` does the wrap, `stackStrategy` shows
+  the active child, and `useStack` is the tab model the consumer draws from.
+  Documented in the README's Drag and drop section; `src/dnd/dropIntent.ts`,
+  `src/layout/stack.ts` and `e2e/tab-stack.spec.ts`.
 
 - **Joining panes by dragging a seam past a neighbor's floor — shipped.** A
   strip opts in with `joinOnOvershoot`; overshooting a floor by `joinThreshold`
@@ -284,7 +307,7 @@ tab-stacking is what is left.
   the pane or any descendant refusing to arm. Documented in the README's Resize
   section; `src/layout/seam-join.ts` and `e2e/seam-join.spec.ts`.
 
-Tab-stacking is not blocked on anything.
+All three have shipped. Drop-on-edge is what the intent hit-test was built for.
 
 
 ## Canvas-host ergonomics

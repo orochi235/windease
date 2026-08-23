@@ -10,8 +10,7 @@ export interface LayoutItem {
   id: ItemId;
   hints?: {
     minSize?: Size;
-    /** Ceiling honored by the strip / stack / split strategies along their
-     *  main axis (and by split's ratio/explicit clamping). */
+    /** Ceiling honored by `stripStrategy` along its main axis. */
     maxSize?: Size;
     preferredSize?: Size;
     /** Per-axis request to be sized by measured content. See `NodeHints`. */
@@ -30,9 +29,8 @@ export interface LayoutItem {
   /**
    * Per-membership placement intent projected from `node.membership.placement`.
    * `size` is the public "fixed-px pane" API: set it via `store.patchPlacement`
-   * to pin a pane's main-axis extent. The strip / stack / split strategies
-   * honor it; split's gutter drag clears it (reverting to ratio control).
-   * Either `Size` dimension is optional.
+   * to pin a pane's main-axis extent. `stripStrategy` honors it, and its
+   * gutter drag clears it. Either `Size` dimension is optional.
    *
    * `span` is grid's cell-count analog of `size` — `cols`/`rows` are counts,
    * not pixels. Only `gridStrategy` reads it.

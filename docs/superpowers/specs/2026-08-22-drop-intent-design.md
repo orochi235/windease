@@ -104,9 +104,9 @@ drop-target registration alone without either needing to know about stacks.
 unplaced child renders nothing there. The presets path does not: `PresetShell`
 ends with `if (!selfRect) return shell`, because a child renders from the
 consumer's JSX and the rect only positions it. A missing rect legitimately means
-*nobody is placing me* — flow mode produces no placements at all, and a `<Panel>`
-outside any container has no `LayoutContext` — so it cannot be repurposed to
-mean hidden.
+*nobody is placing me* — flow mode produces no placements at all, and neither
+does a `<Zone>` whose `strategyId` is not in the registry — so it cannot be
+repurposed to mean hidden.
 
 `unplaced` can be, and needs no new strategy surface. `ContainerHost` already
 surfaces it, and it is empty in exactly the cases that must keep rendering: flow
@@ -123,7 +123,9 @@ closed — the same tree already hides them under `<Container>`, which is what t
 ## Activation
 
 `activeId` lives in `container.config`, defaults to the first child when unset,
-and is set to the source on a drop. `useStack(containerId)` returns
+and `stackNodes` sets it to the node it moved — you look at the pane you just
+dragged, not the one you dropped onto. That holds for a wrap and for a move into
+an existing stack. `useStack(containerId)` returns
 `{ tabs, activeId, activate }` and writes through `updateContainerConfig`.
 
 That call is gated by `lock.arrange`, so a stack locked against rearrangement
@@ -134,6 +136,14 @@ rather than fixed: a second lock axis costs more than the wart.
 
 The consumer draws the tab strip through `ChromeMap`, as it already draws every
 panel. The library ships the model, not the strip.
+
+Two host-side knobs fall out of that. `stackOnDrop` is a `<Container>` prop
+rather than strategy config: the hit-test belongs to the DOM adapter and no
+strategy reads it, so putting it in `container.config` would have meant adding a
+key to every strategy's `configSpec` that none of them consume. And the config a
+drop-created stack gets — `headerSize` above all — comes from
+`<DragProvider stackConfig>`, since the drop happens in the engine, which has no
+other way to know how tall a strip it has never seen will be.
 
 No default drop preview ships either. There is none for insertion today —
 `defaultDragOverlay` is a cursor-following chip and `insertIndex` sits in

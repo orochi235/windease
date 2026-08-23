@@ -519,6 +519,67 @@ attributes, the window-level Escape and pointerup safety nets, and per-frame
 coalescing of pointer samples. Samples run where they are made unless you pass
 a `schedule`.
 
+### Drop intent
+
+A drop target answers more than "which seam". `resolveDropIntent` turns the
+child rects and the cursor into what the drop is *asking for*:
+
+```ts
+type DropIntent =
+  | { kind: 'insert'; index: number }
+  | { kind: 'stack'; ontoId: ItemId }
+  | { kind: 'split'; ontoId: ItemId; edge: 'start' | 'end' };
+```
+
+Within the hovered child, bands along the main axis resolve to `insert` at the
+neighbouring seam, bands along the cross axis to `split`, and the centre to
+`stack`; corners go to the main axis. Bands are carved only for the intents you
+enable, so a resolver with none enabled returns exactly what
+`insertionIndexByMidpoint` returns — which is what makes this additive.
+
+`<Container>` wires it for you from the rects it already measures. Pass
+`stackOnDrop` to enable the centre band. `split` has no commit path yet and is
+refused at the hover, so nothing emits it.
+
+A target you register yourself takes `getDropIntent` beside the older
+`getInsertionIndex`, which still works and is still honoured when no intent
+function is registered:
+
+```ts
+useDropTarget(zoneId, ref, {
+  getDropIntent: (point) => resolveDropIntent(rects, point, 'x', { stack: true }),
+});
+```
+
+### Tab stacking
+
+With `stackOnDrop` on, a drop in the middle of a pane puts both panes in one
+tabbed stack: `stackStrategy` shows the active child and withholds the rest, and
+`store.stackNodes` does the wrap — a new container in the onto-pane's slot,
+inheriting its placement, holding both. It carries `autoUnsplit`, so dragging
+the last tab out dissolves it again and lifts the survivor.
+
+The tab strip is yours to draw. `useStack(containerId)` gives you the model:
+
+```tsx
+const { tabs, activeId, activate } = useStack(stackId);
+```
+
+`stackStrategy`'s `headerSize` config reserves the room your strip renders in —
+the core never measures it. Tell `<DragProvider>` what to give a stack a drop
+creates:
+
+```tsx
+<DragProvider stackConfig={{ headerSize: 28 }}>
+```
+
+Two things to know when you draw the strip. The stack body is a full-box
+`<Container>` overlapping the reserved band, so the strip needs to sit above it.
+And activation is written with `updateContainerConfig`, which `lock.arrange`
+gates — a stack locked against rearrangement cannot switch tabs either.
+
+See the **Tab stack / Stack on drop** story for the whole setup.
+
 ## Resize
 
 Pass `affordances` to `<Container>`, `<Zone>` or `<Panel container={...}>` to

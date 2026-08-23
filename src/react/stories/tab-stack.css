@@ -22,7 +22,10 @@
 }
 
 .ts-panel__title {
-  font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
+  font:
+    600 12px / 1 ui-sans-serif,
+    system-ui,
+    sans-serif;
   letter-spacing: 0.04em;
   padding: 10px 12px;
   border-bottom: 1px solid #2b3346;
@@ -36,7 +39,10 @@
 
 .ts-panel__body {
   padding: 10px 12px;
-  font: 12px/1.5 ui-sans-serif, system-ui, sans-serif;
+  font:
+    12px / 1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
   color: #97a0b5;
 }
 
@@ -69,20 +75,27 @@
   border: 0;
   background: transparent;
   color: #8d97ad;
-  font: 500 11px/1 ui-sans-serif, system-ui, sans-serif;
+  font:
+    500 11px / 1 ui-sans-serif,
+    system-ui,
+    sans-serif;
   padding: 0 10px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
 }
 
-.ts-tab[aria-selected='true'] {
+.ts-tab[aria-selected="true"] {
   color: #e6ebf5;
   background: #141826;
   border-bottom-color: #5b8cff;
 }
 
 .ts-readout {
-  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    12px / 1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   color: #8d97ad;
   margin: 12px 0 0;
 }
@@ -93,12 +106,18 @@
 
 .ts-prose {
   max-width: 62ch;
-  font: 13px/1.6 ui-sans-serif, system-ui, sans-serif;
+  font:
+    13px / 1.6 ui-sans-serif,
+    system-ui,
+    sans-serif;
   color: #97a0b5;
 }
 
 .ts-prose kbd {
-  font: 11px/1 ui-monospace, Menlo, monospace;
+  font:
+    11px / 1 ui-monospace,
+    Menlo,
+    monospace;
   border: 1px solid #33405c;
   border-radius: 3px;
   padding: 2px 4px;
