@@ -142,11 +142,15 @@ function AffordanceHandle({
   const setArmed = useCallback(
     (victimId: NodeId | null) => {
       if (armedRef.current === victimId) return;
+      trace(
+        'dnd',
+        `join ${victimId ? 'armed' : 'disarmed'}: ${affordance.id} → ${victimId ?? armedRef.current}`,
+      );
       armedRef.current = victimId;
       setArmedId(victimId);
       onJoinArmChange(victimId);
     },
-    [onJoinArmChange],
+    [onJoinArmChange, affordance.id],
   );
 
   const endGesture = useCallback(

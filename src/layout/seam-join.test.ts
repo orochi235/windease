@@ -82,6 +82,24 @@ describe('trackJoin — accumulation', () => {
   });
 });
 
+// A strip squeezed below the sum of its floors reports both ends pinned at
+// rest, with nothing having visibly stopped for the user.
+describe('trackJoin — a seam with no range at all', () => {
+  it('does not accumulate travel toward max', () => {
+    expect(track({ overshoot: 0, delta: 30, atMin: true, atMax: true })).toEqual({
+      armed: false,
+      overshoot: 0,
+    });
+  });
+
+  it('does not accumulate travel toward min', () => {
+    expect(track({ overshoot: 0, delta: -30, atMin: true, atMax: true })).toEqual({
+      armed: false,
+      overshoot: 0,
+    });
+  });
+});
+
 describe('trackJoin — unpinned travel never adds to the push', () => {
   it('does not grow overshoot when the seam is free again', () => {
     expect(track({ overshoot: 5, delta: 20 })).toEqual({

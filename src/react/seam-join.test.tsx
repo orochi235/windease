@@ -61,14 +61,14 @@ function withProviders(store: Store, ui: ReactNode) {
   );
 }
 
-function mount(store: Store) {
+function mount(store: Store, viewport = { w: 600, h: 200 }) {
   const { container } = render(
     withProviders(
       store,
       <Container
         parentId={asNodeId('root')}
         chrome={PANEL_CHROME}
-        viewport={{ w: 600, h: 200 }}
+        viewport={viewport}
         affordances
       />,
     ),
@@ -209,6 +209,29 @@ describe('seam join — arming', () => {
     expect(armedPane(container)).toBeNull();
     up(seam, x);
     expect(store.getNode(asNodeId('b'))).toBeDefined();
+  });
+});
+
+// Squeeze mode below the sum of the floors leaves every pane under its own,
+// so the seam reports both ends pinned with nothing having visibly stopped.
+describe('seam join — a strip too narrow for its floors', () => {
+  it('never arms, whichever way the seam is dragged', () => {
+    const store = seed();
+    const { container, seam } = mount(store, { w: 180, h: 200 });
+
+    down(seam);
+    let x = move(seam, 25);
+    expect(armedPane(container)).toBeNull();
+    up(seam, x);
+
+    down(seam, x);
+    x = move(seam, -25, x);
+    expect(armedPane(container)).toBeNull();
+    up(seam, x);
+
+    expect(store.getNode(asNodeId('a'))).toBeDefined();
+    expect(store.getNode(asNodeId('b'))).toBeDefined();
+    expect(store.getNode(asNodeId('c'))).toBeDefined();
   });
 });
 

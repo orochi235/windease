@@ -47,7 +47,10 @@ export interface JoinState {
  */
 export function trackJoin(input: TrackJoinInput): JoinState {
   const { overshoot, delta } = input;
-  const pinned = delta > 0 ? input.atMax : delta < 0 ? input.atMin : false;
+  // Pinned at both ends is the container being too small for its panes' floors,
+  // not a push against one, so no move in either direction is overshoot.
+  const pinned =
+    delta > 0 ? input.atMax && !input.atMin : delta < 0 ? input.atMin && !input.atMax : false;
   let next: number;
   if (pinned) {
     next = overshoot + delta;
