@@ -330,3 +330,71 @@ Note the consumer is pinned at `^0.8.0` and has not taken 1.0 yet, so it still
 carries a hand-rolled balanced-tree builder (`tree.ts`) working around
 `initialState`. Deleting that is klieg's migration to do, not a windease item —
 but it means feedback from that lab is 0.8-shaped until the upgrade lands.
+
+## Floating chrome over a tiled zone [HIGH]
+
+Every shipped strategy tiles: `grid`, `strip` and `stack` partition their
+container between their children. Nothing places a window free *over* content,
+which is what viewport chrome — a legend, a minimap, an inspector puck — needs.
+
+Planned in `docs/superpowers/plans/2026-08-23-floating-strategy.md`, against a
+design in klieg at
+`docs/superpowers/specs/2026-08-23-legend-palette-design.md`.
+
+`floatingStrategy(inner?)` is a decorator rather than a peer. `layout()` splits
+`items` on `meta.floating`, hands the rest to `inner` against the **full**
+container so tiling is unchanged and reserves no room for the panel, places the
+floating ones from its own state, and merges both into one `placements` map.
+Affordance ids are namespaced (`floating:drag:<id>`) so `reduce` routes by
+prefix. `canAccept` and `navigate` delegate, with floating items filtered out so
+the inner strategy never counts them; `configSpec` is the union of both. No
+existing strategy changes, and a container that wants no tiling wraps nothing.
+
+Four findings from designing it, each of which shaped the API:
+
+- **Eligible corners cannot be container config.** `ConfigFieldSpec` is
+  `'number' | 'boolean' | 'string' | readonly string[]`, where the array form is
+  an enum of allowed *scalars* (`field.includes(value)`), and
+  `checkStrategyConfig` reports unknown keys — so a list-valued config key both
+  fails validation and cannot be declared. Eligible corners are therefore
+  per-item `meta.snapCorners`, which is also the better semantics: `LayoutItem.meta`
+  *is* the `membership.placement` bag where `pinned` already lives, and two
+  floating panels in one container can differ. Container config keeps only the
+  scalars `inset`, `snapThreshold` and `defaultAnchor`.
+
+- **State is `{ x, y, anchor }`, not `{ anchor } | { x, y }`.** The union
+  deadlocks: while snapped, `layout()` resolves to the corner origin, so every
+  incoming delta is measured from that same origin and a slow drag outward
+  re-snaps forever. The continuous position must always accumulate, with
+  `anchor` a sticky cache over it. Storing `anchor` is still what makes a resize
+  exact. The visible consequence is correct sticky-snap behavior: un-snapping
+  jumps the panel up to `snapThreshold` px at once.
+
+- **`reduce` accumulates `dx`/`dy`, not absolute `payload.point`.** `point`
+  exists for strategies whose extents are *quantized* — grid cells, where a few
+  pixels round to no change; a floating position is continuous pixels. Resolving
+  against `point` would need the previous pointer held in state, and with no
+  drag-end event to clear it the next gesture's first move measures from where
+  the last one ended, teleporting the panel by up to its own width. It would
+  also persist a per-gesture value into container state, which snapshots.
+
+- **The drag handle is a band, not the whole panel.** `AffordanceLayer` renders
+  each affordance as an interactive element at its rect plus `hitPad`, above the
+  panels (`src/react/affordances.tsx:33`), so a full-panel handle makes the
+  panel's own buttons dead. `handleSize` confines it to a top band; a host that
+  wants "drag anywhere except the controls" turns the built-in handles off and
+  dispatches `floating:drag:<id>` itself.
+
+There is no drag-end event (`LayoutEvent.kind` is `'drag' | 'click' | 'key'`), so
+the snap is live during the drag and commits wherever the pointer is released,
+rather than resolving on release.
+
+**Deferred — `LayoutResult` carries no z-order.** Nothing in the contract says a
+floating item renders above a tiled one; today that falls to the host's render
+order. The options were an optional `z` on `LayoutResult`, or a separate
+`floating?: Map<ItemId, Rect>` key alongside `placements`. Both widen a type
+every strategy and every host shares, to serve a need only this strategy has so
+far, so it stays the host's problem until a second caller wants it.
+
+First consumer: klieg's corner lab, through a `FloatingPanel` in
+`@weasel-js/labkit`.
