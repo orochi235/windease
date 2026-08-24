@@ -94,3 +94,42 @@ test.describe('floating panel', () => {
     await expect(page.locator('[data-testid="legend-clicks"]')).toHaveText('0');
   });
 });
+
+test.describe('floating panel snapping to panes', () => {
+  const STORY = 'floating--snap-to-panes';
+
+  test('captures the corner of a tiled pane, not just the zone', async ({ page }) => {
+    await openStory(page, STORY);
+    const pane = await boxOf(page.locator('[data-node="panel-4"]'));
+    const legend = await boxOf(page.locator(LEGEND));
+    const handle = await boxOf(page.locator(HANDLE));
+    const from = centerOf(handle);
+
+    // Aim the legend's top-left a few px off the pane's top-left resting origin.
+    await dragMouse(page, from, {
+      x: from.x + (pane.x + 12 - legend.x) + 5,
+      y: from.y + (pane.y + 12 - legend.y) + 5,
+    });
+
+    const after = await boxOf(page.locator(LEGEND));
+    expect(Math.round(after.x - pane.x)).toBe(12);
+    expect(Math.round(after.y - pane.y)).toBe(12);
+  });
+
+  test('a pane corner captures nothing when snapToPanes is off', async ({ page }) => {
+    await openStory(page, 'floating--handle-band');
+    const pane = await boxOf(page.locator('[data-node="panel-4"]'));
+    const legend = await boxOf(page.locator(LEGEND));
+    const handle = await boxOf(page.locator(HANDLE));
+    const from = centerOf(handle);
+
+    await dragMouse(page, from, {
+      x: from.x + (pane.x + 12 - legend.x) + 5,
+      y: from.y + (pane.y + 12 - legend.y) + 5,
+    });
+
+    const after = await boxOf(page.locator(LEGEND));
+    expect(Math.round(after.x - pane.x)).toBe(17);
+    expect(Math.round(after.y - pane.y)).toBe(17);
+  });
+});

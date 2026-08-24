@@ -124,3 +124,67 @@ describe('floatingStrategy.reduce re-bases a stale anchor', () => {
     expect(s.reduce?.(anchored, drag(-40, 0), grown).at.legend).toMatchObject({ x: 448 });
   });
 });
+
+describe('floatingStrategy.reduce snapping to panes', () => {
+  /** Two panes side by side, so their inner corners sit mid-container. */
+  const split = {
+    name: 'split',
+    layout: ({ items }: { items: LayoutItem[] }) => ({
+      placements: new Map(
+        items.map((item, i) => [item.id, { x: i * 200, y: 0, w: 200, h: 300 }] as const),
+      ),
+      affordances: [],
+    }),
+  };
+  const tiled: LayoutItem = { id: 'pane-a', meta: {} };
+  const withPanes = (options: Record<string, unknown>) => ({
+    container,
+    options,
+    items: [panel, tiled],
+  });
+
+  it('ignores pane corners until snapToPanes says otherwise', () => {
+    const s = floatingStrategy(split);
+    const state = { at: { legend: { x: 130, y: 130, anchor: null } }, inner: undefined };
+    // (88, 12) is pane-a's top-right resting origin; nothing captures it here.
+    const next = s.reduce?.(state, drag(-42, -118), withPanes({}));
+    expect(next?.at.legend?.anchor).toBeNull();
+  });
+
+  it('captures a pane corner and remembers which pane', () => {
+    const s = floatingStrategy(split);
+    const state = { at: { legend: { x: 130, y: 130, anchor: null } }, inner: undefined };
+    const next = s.reduce?.(state, drag(-42, -118), withPanes({ snapToPanes: true }));
+    expect(next?.at.legend).toMatchObject({ anchor: 'top-right', anchorTo: 'pane-a' });
+  });
+
+  it('places a pane-anchored item at that pane corner', () => {
+    const s = floatingStrategy(split);
+    const state = {
+      at: { legend: { x: 0, y: 0, anchor: 'top-left' as const, anchorTo: 'pane-a' } },
+      inner: undefined,
+    };
+    const r = s.layout({
+      items: [panel, tiled],
+      container,
+      state,
+      options: { snapToPanes: true },
+    });
+    expect(r.placements.get('legend')).toEqual({ x: 12, y: 12, w: 100, h: 80 });
+  });
+
+  it('drops a pane-anchored item back to its free position when the pane is gone', () => {
+    const s = floatingStrategy(split);
+    const state = {
+      at: { legend: { x: 40, y: 60, anchor: 'top-left' as const, anchorTo: 'ghost' } },
+      inner: undefined,
+    };
+    const r = s.layout({
+      items: [panel, tiled],
+      container,
+      state,
+      options: { snapToPanes: true },
+    });
+    expect(r.placements.get('legend')).toEqual({ x: 40, y: 60, w: 100, h: 80 });
+  });
+});

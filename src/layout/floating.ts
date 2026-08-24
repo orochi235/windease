@@ -18,41 +18,62 @@ export interface Point {
   y: number;
 }
 
-/** Where an item of `size` rests when anchored to `corner`, `inset` px in on both axes. */
-export function cornerOrigin(corner: Corner, size: Size, container: Size, inset: number): Point {
+/** A rect a floating item can snap into: the container, or one tiled pane. */
+export interface SnapTarget {
+  /** The pane's item id, or null for the container itself. */
+  id: string | null;
+  rect: Rect;
+}
+
+/** Which target and corner an item is anchored to. */
+export interface SnapHit {
+  corner: Corner;
+  to: string | null;
+}
+
+/** The whole container as a snap target. */
+export function containerTarget(container: Size): SnapTarget {
+  return { id: null, rect: { x: 0, y: 0, w: container.w, h: container.h } };
+}
+
+/** Where an item of `size` rests when anchored to `corner` of `within`, `inset` px in. */
+export function cornerOrigin(corner: Corner, size: Size, within: Rect, inset: number): Point {
   const left = corner === 'top-left' || corner === 'bottom-left';
   const top = corner === 'top-left' || corner === 'top-right';
   return {
-    x: left ? inset : container.w - size.w - inset,
-    y: top ? inset : container.h - size.h - inset,
+    x: left ? within.x + inset : within.x + within.w - size.w - inset,
+    y: top ? within.y + inset : within.y + within.h - size.h - inset,
   };
 }
 
 /**
- * Nearest eligible corner whose resting origin is within `threshold` of `at` on
- * BOTH axes, or null. Per-axis rather than by radius: with inset and threshold
- * both 12, a panel shoved into the corner sits at (0,0), which is 12 away on each
- * axis but 16.97 away by radius — the gesture that most clearly means "snap here".
+ * Nearest eligible corner of any target whose resting origin is within
+ * `threshold` of `at` on BOTH axes, or null. Per-axis rather than by radius:
+ * with inset and threshold both 12, a panel shoved into the corner sits at
+ * (0,0), which is 12 away on each axis but 16.97 away by radius — the gesture
+ * that most clearly means "snap here".
  */
 export function snapCorner(
   at: Point,
   size: Size,
-  container: Size,
+  targets: readonly SnapTarget[],
   inset: number,
   threshold: number,
   eligible: readonly Corner[],
-): Corner | null {
-  let best: Corner | null = null;
+): SnapHit | null {
+  let best: SnapHit | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
-  for (const corner of eligible) {
-    const origin = cornerOrigin(corner, size, container, inset);
-    const dx = Math.abs(origin.x - at.x);
-    const dy = Math.abs(origin.y - at.y);
-    if (dx > threshold || dy > threshold) continue;
-    const distance = Math.max(dx, dy);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = corner;
+  for (const target of targets) {
+    for (const corner of eligible) {
+      const origin = cornerOrigin(corner, size, target.rect, inset);
+      const dx = Math.abs(origin.x - at.x);
+      const dy = Math.abs(origin.y - at.y);
+      if (dx > threshold || dy > threshold) continue;
+      const distance = Math.max(dx, dy);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = { corner, to: target.id };
+      }
     }
   }
   return best;
@@ -63,6 +84,8 @@ export interface FloatingPlacement {
   x: number;
   y: number;
   anchor: Corner | null;
+  /** The pane the anchor belongs to; absent means the container's own corner. */
+  anchorTo?: string;
 }
 
 export function isFloating(item: LayoutItem): boolean {
@@ -89,17 +112,34 @@ export function clampToContainer(at: Point, size: Size, container: Size): Point 
   };
 }
 
+/**
+ * Where an item rests right now: its anchor's corner when it has one that still
+ * resolves, and its free position otherwise. A pane anchor stops resolving when
+ * the pane is gone, which drops the item back to where it last was.
+ */
+export function resolveOrigin(
+  place: FloatingPlacement,
+  size: Size,
+  container: Size,
+  inset: number,
+  panes?: ReadonlyMap<string, Rect>,
+): Point {
+  if (place.anchor === null) return clampToContainer(place, size, container);
+  const within =
+    place.anchorTo === undefined ? containerTarget(container).rect : panes?.get(place.anchorTo);
+  if (!within) return clampToContainer(place, size, container);
+  return cornerOrigin(place.anchor, size, within, inset);
+}
+
 export function rectOf(
   item: LayoutItem,
   place: FloatingPlacement,
   container: Size,
   inset: number,
+  panes?: ReadonlyMap<string, Rect>,
 ): Rect {
   const size = sizeOf(item);
-  const origin =
-    place.anchor === null
-      ? clampToContainer(place, size, container)
-      : cornerOrigin(place.anchor, size, container, inset);
+  const origin = resolveOrigin(place, size, container, inset, panes);
   return { x: origin.x, y: origin.y, w: size.w, h: size.h };
 }
 
@@ -117,6 +157,9 @@ export interface FloatingConfig {
   /** Height of the drag band at the top of a floating item. `0` makes the whole
    *  item the handle, which covers its content. */
   handleSize?: number;
+  /** Also snap to the corners of the panes the inner strategy placed, not only
+   *  the container's own. Costs one extra inner layout pass per drag event. */
+  snapToPanes?: boolean;
 }
 
 export const DEFAULT_INSET = 12;
@@ -142,6 +185,7 @@ export function floatingStrategy<TInner>(
       inset: 'number',
       snapThreshold: 'number',
       handleSize: 'number',
+      snapToPanes: 'boolean',
       defaultAnchor: FLOATING_CORNERS,
     },
 
@@ -165,6 +209,9 @@ export function floatingStrategy<TInner>(
         : { placements: new Map(), affordances: [] };
 
       const placements = new Map(result.placements);
+      // The panes are the inner strategy's own placements; a floating item is
+      // never one of them, so this cannot anchor an item to itself.
+      const panes = cfg.snapToPanes ? result.placements : undefined;
       const affordances: Affordance[] = [...result.affordances];
       const unplaced = [...(result.unplaced ?? [])];
       for (const item of floating) {
@@ -176,7 +223,7 @@ export function floatingStrategy<TInner>(
           unplaced.push(item.id);
           continue;
         }
-        const rect = rectOf(item, state.at[item.id] ?? seed(options), container, inset);
+        const rect = rectOf(item, state.at[item.id] ?? seed(options), container, inset, panes);
         placements.set(item.id, rect);
         affordances.push({
           id: `${FLOATING_DRAG_PREFIX}${item.id}`,
@@ -212,30 +259,42 @@ export function floatingStrategy<TInner>(
       const place = state.at[id] ?? seed(context.options);
       const size = sizeOf(item);
 
-      // An anchor set by anything but a drag — the seed, or a container resize
-      // since — leaves x/y nowhere near where the item renders, so accumulating
-      // from them teleports the panel on the first move. Re-base on the corner
-      // when they disagree with it; a drag-set anchor always agrees, which is
-      // what lets a slow drag accumulate past the corner and escape.
+      // Pane corners are the inner strategy's placements, which only it can
+      // produce — so ask it, at the cost of one layout pass per drag event.
+      const panes =
+        cfg.snapToPanes && inner
+          ? inner.layout({
+              items: context.items.filter((i) => !isFloating(i)),
+              container: context.container,
+              state: state.inner as TInner,
+              options: context.options,
+            }).placements
+          : undefined;
+      const targets: SnapTarget[] = [containerTarget(context.container)];
+      if (panes) for (const [paneId, rect] of panes) targets.push({ id: paneId, rect });
+
+      // An anchor set by anything but a drag — the seed, or a resize since —
+      // leaves x/y nowhere near where the item renders, so accumulating from
+      // them teleports the panel on the first move. Re-base on where it rests
+      // when the two disagree; a drag-set anchor always agrees, which is what
+      // lets a slow drag accumulate past the corner and escape.
       const anchored =
-        place.anchor === null ? null : cornerOrigin(place.anchor, size, context.container, inset);
+        place.anchor === null ? null : resolveOrigin(place, size, context.container, inset, panes);
       const stale =
         anchored !== null &&
         (Math.abs(anchored.x - place.x) > threshold || Math.abs(anchored.y - place.y) > threshold);
       const base = stale && anchored ? anchored : place;
 
       const next = clampToContainer({ x: base.x + dx, y: base.y + dy }, size, context.container);
-      const anchor = snapCorner(
-        next,
-        size,
-        context.container,
-        inset,
-        threshold,
-        eligibleCorners(item),
-      );
+      const hit = snapCorner(next, size, targets, inset, threshold, eligibleCorners(item));
 
-      trace('layout', `floating: ${id} -> ${anchor ?? `${next.x},${next.y}`}`);
-      return { ...state, at: { ...state.at, [id]: { ...next, anchor } } };
+      trace(
+        'layout',
+        `floating: ${id} -> ${hit ? `${hit.corner} of ${hit.to ?? 'container'}` : `${next.x},${next.y}`}`,
+      );
+      const placed: FloatingPlacement = { ...next, anchor: hit?.corner ?? null };
+      if (hit?.to != null) placed.anchorTo = hit.to;
+      return { ...state, at: { ...state.at, [id]: placed } };
     },
 
     canAccept(items, options) {

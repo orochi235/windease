@@ -16,9 +16,11 @@ section below.
   against the full container, so tiling is unchanged and the panel reserves no space.
   `handleSize` confines the drag handle to a band, since an affordance covering the whole
   panel makes the panel's own controls unclickable; a host wanting a different grab rule
-  turns the built-in handles off and dispatches `floating:drag:<id>` itself. Stacking
-  order stays the host's, and an item nothing has sized yet is withheld into `unplaced`
-  rather than placed at zero size.
+  turns the built-in handles off and dispatches `floating:drag:<id>` itself. `snapToPanes`
+  adds every placed pane's corners to the snap targets, and the item remembers which pane
+  it caught so it rides that pane through a reflow. Stacking order stays the host's, and
+  an item nothing has sized yet is withheld into `unplaced` rather than placed at zero
+  size.
 
 - **Drop intent.** `resolveDropIntent(rects, cursor, axis, options)` turns child rects and a
   cursor into what the drop is asking for — `insert` at a seam, `stack` onto a child, or

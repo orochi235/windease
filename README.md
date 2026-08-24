@@ -604,11 +604,18 @@ store.patchPlacement(panelId, { floating: true, snapCorners: ['bottom-left', 'bo
 | `snapThreshold` | `12` | per-axis px within which a corner captures |
 | `defaultAnchor` | `'bottom-left'` | corner a newly floated item seeds at |
 | `handleSize` | `0` | height of the drag band; `0` makes the whole item the handle |
+| `snapToPanes` | `false` | also snap to the corners of the panes the inner strategy placed |
 
 Snapping is live during the drag — there is no drag-end event — so the item
 follows the pointer, sticks on reaching a corner, and lets go once the pointer
 travels `snapThreshold` past it. Un-snapping therefore moves the panel up to
 `snapThreshold` px at once.
+
+With `snapToPanes`, every pane the inner strategy placed offers its four corners
+too, and the item remembers which pane it caught — so it rides that pane through
+a resize or a reflow, and falls back to its free position if the pane goes away.
+The nearest corner wins when a pane's and the container's coincide. It costs one
+extra inner layout pass per drag event, which is why it is off by default.
 
 **The handle covers what it sits on.** An affordance is an interactive element
 at its own rect, so at the default `handleSize` of `0` the panel's own buttons

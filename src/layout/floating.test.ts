@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LayoutItem, Rect } from '../layout-types.js';
 import {
+  containerTarget,
   cornerOrigin,
   eligibleCorners,
   FLOATING_CORNERS,
@@ -13,13 +14,23 @@ import { stackStrategy } from './stack.js';
 
 const container = { w: 400, h: 300 };
 const size = { w: 100, h: 80 };
+const whole = containerTarget(container);
+const only = (target: { rect: { x: number; y: number; w: number; h: number } }) => [
+  { id: null, rect: target.rect },
+];
 
 describe('cornerOrigin', () => {
   it('insets from the named corner', () => {
-    expect(cornerOrigin('top-left', size, container, 12)).toEqual({ x: 12, y: 12 });
-    expect(cornerOrigin('top-right', size, container, 12)).toEqual({ x: 288, y: 12 });
-    expect(cornerOrigin('bottom-left', size, container, 12)).toEqual({ x: 12, y: 208 });
-    expect(cornerOrigin('bottom-right', size, container, 12)).toEqual({ x: 288, y: 208 });
+    expect(cornerOrigin('top-left', size, whole.rect, 12)).toEqual({ x: 12, y: 12 });
+    expect(cornerOrigin('top-right', size, whole.rect, 12)).toEqual({ x: 288, y: 12 });
+    expect(cornerOrigin('bottom-left', size, whole.rect, 12)).toEqual({ x: 12, y: 208 });
+    expect(cornerOrigin('bottom-right', size, whole.rect, 12)).toEqual({ x: 288, y: 208 });
+  });
+
+  it('insets from a pane corner in container coordinates', () => {
+    const pane = { x: 200, y: 150, w: 200, h: 150 };
+    expect(cornerOrigin('top-left', size, pane, 12)).toEqual({ x: 212, y: 162 });
+    expect(cornerOrigin('bottom-right', size, pane, 12)).toEqual({ x: 288, y: 208 });
   });
 });
 
@@ -27,29 +38,46 @@ describe('snapCorner', () => {
   const eligible = FLOATING_CORNERS;
 
   it('captures a position resting exactly on the corner origin', () => {
-    expect(snapCorner({ x: 12, y: 12 }, size, container, 12, 12, eligible)).toBe('top-left');
+    expect(snapCorner({ x: 12, y: 12 }, size, [whole], 12, 12, eligible)).toEqual({
+      corner: 'top-left',
+      to: null,
+    });
   });
 
   it('captures the shoved-into-the-corner case that a radius metric rejects', () => {
     // (0,0) is 12 on each axis from the (12,12) origin, but 16.97 away by radius.
-    expect(snapCorner({ x: 0, y: 0 }, size, container, 12, 12, eligible)).toBe('top-left');
+    expect(snapCorner({ x: 0, y: 0 }, size, [whole], 12, 12, eligible)?.corner).toBe('top-left');
   });
 
   it('rejects a position past the threshold on one axis only', () => {
-    expect(snapCorner({ x: 12, y: 25 }, size, container, 12, 12, eligible)).toBeNull();
+    expect(snapCorner({ x: 12, y: 25 }, size, [whole], 12, 12, eligible)).toBeNull();
   });
 
   it('never captures a corner outside the eligible set', () => {
-    expect(snapCorner({ x: 0, y: 0 }, size, container, 12, 12, ['bottom-right'])).toBeNull();
+    expect(snapCorner({ x: 0, y: 0 }, size, [whole], 12, 12, ['bottom-right'])).toBeNull();
   });
 
   it('picks the closer corner when two are in range', () => {
     const tiny = { w: 10, h: 10 };
-    const narrow = { w: 40, h: 300 };
+    const narrow = only(containerTarget({ w: 40, h: 300 }));
     // origins are x=12 (left) and x=18 (right); a position at x=17 is nearer the right.
-    expect(snapCorner({ x: 17, y: 12 }, tiny, narrow, 12, 12, ['top-left', 'top-right'])).toBe(
-      'top-right',
-    );
+    expect(
+      snapCorner({ x: 17, y: 12 }, tiny, narrow, 12, 12, ['top-left', 'top-right'])?.corner,
+    ).toBe('top-right');
+  });
+
+  it('names the pane it captured, and prefers the nearer of pane and container', () => {
+    const pane = { id: 'p1', rect: { x: 200, y: 150, w: 200, h: 150 } };
+    // The pane's bottom-right origin coincides with the container's, so a hit
+    // there is ambiguous — this one sits on the pane's top-left instead.
+    expect(snapCorner({ x: 212, y: 162 }, size, [whole, pane], 12, 12, FLOATING_CORNERS)).toEqual({
+      corner: 'top-left',
+      to: 'p1',
+    });
+    expect(snapCorner({ x: 12, y: 12 }, size, [whole, pane], 12, 12, FLOATING_CORNERS)).toEqual({
+      corner: 'top-left',
+      to: null,
+    });
   });
 });
 
@@ -241,6 +269,7 @@ describe('floatingStrategy.layout', () => {
       'handleSize',
       'inset',
       'snapThreshold',
+      'snapToPanes',
     ]);
   });
 
