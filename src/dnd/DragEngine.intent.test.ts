@@ -126,7 +126,7 @@ describe('DragEngine — drop intent', () => {
     expect(s.getNode(asNodeId('s1'))).toBeUndefined();
   });
 
-  it('refuses a split intent, which has no commit path yet', () => {
+  it('accepts a split intent', () => {
     const s = buildStore();
     const e = engineWith(s);
     e.addDropTarget(
@@ -135,8 +135,79 @@ describe('DragEngine — drop intent', () => {
     );
     e.tryBegin(asNodeId('p'));
     e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(true);
+    expect(e.state()?.hover?.intent).toEqual({
+      kind: 'split',
+      ontoId: 'b',
+      edge: 'start',
+      axis: 'y',
+    });
+  });
+
+  it('refuses to split a node onto itself', () => {
+    const s = buildStore();
+    const e = engineWith(s);
+    e.addDropTarget(
+      asNodeId('z'),
+      target({ kind: 'split', ontoId: 'p', edge: 'start', axis: 'y' }),
+    );
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(false);
+  });
+
+  it('refuses to split onto a move-locked child', () => {
+    const s = buildStore();
+    s.setLock(asNodeId('b'), { move: true });
+    const e = engineWith(s);
+    e.addDropTarget(
+      asNodeId('z'),
+      target({ kind: 'split', ontoId: 'b', edge: 'start', axis: 'y' }),
+    );
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(false);
+  });
+
+  it('refuses to split onto a descendant of the dragged node', () => {
+    const s = buildStore();
+    // p › mid › deep, so the target is neither the source nor its own child —
+    // only the onto-child is inside the dragged subtree.
+    s.ensureContainer(asNodeId('p'), 'strip', {});
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: {} },
+        id: asNodeId('mid'),
+        parentId: asNodeId('p'),
+      }),
+    );
+    s.registerNode(createNode({ kind: 'panel', id: asNodeId('deep'), parentId: asNodeId('mid') }));
+    s.showNode(asNodeId('deep'));
+    const e = engineWith(s);
+    e.addDropTarget(
+      asNodeId('mid'),
+      target({ kind: 'split', ontoId: 'deep', edge: 'start', axis: 'y' }),
+    );
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(false);
+  });
+
+  it('refuses a split intent on a parent whose order the host controls', () => {
+    const s = buildStore();
+    const e = engineWith(s);
+    const commit = vi.fn();
+    e.registerOrderControl(asNodeId('z'), commit);
+    e.addDropTarget(
+      asNodeId('z'),
+      target({ kind: 'split', ontoId: 'b', edge: 'start', axis: 'y' }),
+    );
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
     expect(e.state()?.hover?.accepted).toBe(false);
     e.drop();
+    expect(commit).not.toHaveBeenCalled();
     expect(order(s, 'z')).toEqual([asNodeId('a'), asNodeId('b')]);
   });
 

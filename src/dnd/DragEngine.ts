@@ -363,32 +363,34 @@ export class DragEngine {
 
   /**
    * Whether a non-`insert` intent can commit. The ordinary target checks can't
-   * answer these: until now the hovered target *was* the destination, and a
-   * stack reparents the onto-child instead.
+   * answer these: until now the hovered target *was* the destination, and both
+   * a stack and a split reparent the onto-child instead.
    */
   private checkIntent(targetId: NodeId, draggingId: NodeId, intent: DropIntent): boolean {
     if (intent.kind === 'insert') return true;
-    if (intent.kind === 'split') {
-      trace('dnd', `checkAccept ${targetId}: REJECT (split has no commit path)`);
-      return false;
-    }
     const ontoId = intent.ontoId as NodeId;
     if (ontoId === draggingId) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (stack onto the dragged node)`);
+      trace('dnd', `checkAccept ${targetId}: REJECT (${intent.kind} onto the dragged node)`);
       return false;
     }
     if (this.store.isLocked(ontoId, 'move')) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (stack onto ${ontoId} with lock.move)`);
+      trace(
+        'dnd',
+        `checkAccept ${targetId}: REJECT (${intent.kind} onto ${ontoId} with lock.move)`,
+      );
       return false;
     }
     if (this.isWithin(ontoId, draggingId)) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (stack onto own descendant ${ontoId})`);
+      trace(
+        'dnd',
+        `checkAccept ${targetId}: REJECT (${intent.kind} onto own descendant ${ontoId})`,
+      );
       return false;
     }
     // A wrap creates a node the host never asked for, so it cannot be handed to
     // a parent that owns its own child order.
     if (this.orderControls.has(targetId)) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (stack into a controlled parent)`);
+      trace('dnd', `checkAccept ${targetId}: REJECT (${intent.kind} into a controlled parent)`);
       return false;
     }
     return true;
