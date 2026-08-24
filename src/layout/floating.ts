@@ -1,4 +1,4 @@
-import type { Size } from '../layout-types.js';
+import type { LayoutItem, Rect, Size } from '../layout-types.js';
 
 export const FLOATING_CORNERS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const;
 
@@ -47,4 +47,49 @@ export function snapCorner(
     }
   }
   return best;
+}
+
+/** Where one floating item rests. `anchor` is a sticky cache over `x`/`y`. */
+export interface FloatingPlacement {
+  x: number;
+  y: number;
+  anchor: Corner | null;
+}
+
+export function isFloating(item: LayoutItem): boolean {
+  return item.meta?.floating === true;
+}
+
+export function eligibleCorners(item: LayoutItem): readonly Corner[] {
+  const raw = item.meta?.snapCorners;
+  if (!Array.isArray(raw)) return FLOATING_CORNERS;
+  const kept = raw.filter((c): c is Corner =>
+    (FLOATING_CORNERS as readonly string[]).includes(c as string),
+  );
+  return kept.length > 0 ? kept : FLOATING_CORNERS;
+}
+
+export function sizeOf(item: LayoutItem): Size {
+  return item.natural ?? item.hints?.preferredSize ?? { w: 0, h: 0 };
+}
+
+export function clampToContainer(at: Point, size: Size, container: Size): Point {
+  return {
+    x: Math.max(0, Math.min(at.x, container.w - size.w)),
+    y: Math.max(0, Math.min(at.y, container.h - size.h)),
+  };
+}
+
+export function rectOf(
+  item: LayoutItem,
+  place: FloatingPlacement,
+  container: Size,
+  inset: number,
+): Rect {
+  const size = sizeOf(item);
+  const origin =
+    place.anchor === null
+      ? clampToContainer(place, size, container)
+      : cornerOrigin(place.anchor, size, container, inset);
+  return { x: origin.x, y: origin.y, w: size.w, h: size.h };
 }

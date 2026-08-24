@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { cornerOrigin, FLOATING_CORNERS, snapCorner } from './floating.js';
+import type { LayoutItem } from '../layout-types.js';
+import {
+  cornerOrigin,
+  eligibleCorners,
+  FLOATING_CORNERS,
+  isFloating,
+  rectOf,
+  snapCorner,
+} from './floating.js';
 
 const container = { w: 400, h: 300 };
 const size = { w: 100, h: 80 };
@@ -40,5 +48,58 @@ describe('snapCorner', () => {
     expect(snapCorner({ x: 17, y: 12 }, tiny, narrow, 12, 12, ['top-left', 'top-right'])).toBe(
       'top-right',
     );
+  });
+});
+
+describe('isFloating', () => {
+  it('is true only for an item whose placement bag sets floating', () => {
+    expect(isFloating({ id: 'a', meta: { floating: true } })).toBe(true);
+    expect(isFloating({ id: 'a', meta: { floating: false } })).toBe(false);
+    expect(isFloating({ id: 'a' })).toBe(false);
+  });
+});
+
+describe('eligibleCorners', () => {
+  it('defaults to every corner', () => {
+    expect(eligibleCorners({ id: 'a' })).toEqual(FLOATING_CORNERS);
+  });
+
+  it('honors a valid subset', () => {
+    expect(eligibleCorners({ id: 'a', meta: { snapCorners: ['top-right'] } })).toEqual([
+      'top-right',
+    ]);
+  });
+
+  it('falls back to every corner when the subset names nothing real', () => {
+    expect(eligibleCorners({ id: 'a', meta: { snapCorners: ['middle'] } })).toEqual(
+      FLOATING_CORNERS,
+    );
+  });
+});
+
+describe('rectOf', () => {
+  const item: LayoutItem = { id: 'a', meta: { floating: true }, natural: { w: 100, h: 80 } };
+
+  it('resolves an anchored item against the corner, ignoring stored coordinates', () => {
+    const rect = rectOf(item, { x: 999, y: 999, anchor: 'bottom-right' }, container, 12);
+    expect(rect).toEqual({ x: 288, y: 208, w: 100, h: 80 });
+  });
+
+  it('clamps a free item inside the container', () => {
+    expect(rectOf(item, { x: -50, y: 999, anchor: null }, container, 12)).toEqual({
+      x: 0,
+      y: 220,
+      w: 100,
+      h: 80,
+    });
+  });
+
+  it('falls back to preferredSize when nothing has measured the item yet', () => {
+    const unmeasured: LayoutItem = {
+      id: 'a',
+      meta: { floating: true },
+      hints: { preferredSize: { w: 40, h: 20 } },
+    };
+    expect(rectOf(unmeasured, { x: 0, y: 0, anchor: null }, container, 12).w).toBe(40);
   });
 });
