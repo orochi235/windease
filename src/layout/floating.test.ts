@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { LayoutItem } from '../layout-types.js';
+import type { LayoutItem, Rect } from '../layout-types.js';
+import { stackStrategy } from './stack.js';
 import {
   cornerOrigin,
+  floatingStrategy,
   eligibleCorners,
   FLOATING_CORNERS,
   isFloating,
@@ -101,5 +103,150 @@ describe('rectOf', () => {
       hints: { preferredSize: { w: 40, h: 20 } },
     };
     expect(rectOf(unmeasured, { x: 0, y: 0, anchor: null }, container, 12).w).toBe(40);
+  });
+});
+
+const panel: LayoutItem = { id: 'legend', meta: { floating: true }, natural: { w: 100, h: 80 } };
+const pane: LayoutItem = { id: 'main' };
+
+describe('floatingStrategy.layout', () => {
+  it('places a floating item at its default anchor with no inner strategy', () => {
+    const s = floatingStrategy();
+    const state = s.initialState([panel], {});
+    const r = s.layout({ items: [panel], container, state, options: {} });
+    expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, w: 100, h: 80 });
+  });
+
+  it('honors defaultAnchor when seeding state', () => {
+    const s = floatingStrategy();
+    const state = s.initialState([panel], { defaultAnchor: 'top-right' });
+    const r = s.layout({
+      items: [panel],
+      container,
+      state,
+      options: { defaultAnchor: 'top-right' },
+    });
+    expect(r.placements.get('legend')).toEqual({ x: 288, y: 12, w: 100, h: 80 });
+  });
+
+  it('gives the inner strategy the full container, unreduced by the panel', () => {
+    const s = floatingStrategy(stackStrategy);
+    const state = s.initialState([panel, pane], {});
+    const r = s.layout({ items: [panel, pane], container, state, options: { activeId: 'main' } });
+    expect(r.placements.get('main')).toEqual({ x: 0, y: 0, w: 400, h: 300 });
+  });
+
+  it('never shows a floating item to the inner strategy', () => {
+    const seen: string[][] = [];
+    const spy = {
+      name: 'spy',
+      layout: ({ items }: { items: LayoutItem[] }) => {
+        seen.push(items.map((i) => i.id));
+        return { placements: new Map(), affordances: [] };
+      },
+    };
+    const s = floatingStrategy(spy);
+    s.layout({
+      items: [panel, pane],
+      container,
+      state: s.initialState([panel, pane], {}),
+      options: {},
+    });
+    expect(seen).toEqual([['main']]);
+  });
+
+  it('emits one namespaced drag-xy affordance per floating item', () => {
+    const s = floatingStrategy();
+    const r = s.layout({ items: [panel], container, state: s.initialState([panel], {}), options: {} });
+    expect(r.affordances).toHaveLength(1);
+    expect(r.affordances[0]).toMatchObject({
+      id: 'floating:drag:legend',
+      kind: 'drag-xy',
+      childId: 'legend',
+      cursor: 'grab',
+      rect: { x: 12, y: 208, w: 100, h: 80 },
+    });
+  });
+
+  it('confines the handle to a band at the top of the item when handleSize is set', () => {
+    const s = floatingStrategy();
+    const r = s.layout({
+      items: [panel],
+      container,
+      state: s.initialState([panel], {}),
+      options: { handleSize: 20 },
+    });
+    expect(r.affordances[0]?.rect).toEqual({ x: 12, y: 208, w: 100, h: 20 });
+  });
+
+  it('withholds an item nothing has sized yet rather than placing it at 0x0', () => {
+    const s = floatingStrategy();
+    const unsized: LayoutItem = { id: 'ghost', meta: { floating: true } };
+    const r = s.layout({
+      items: [unsized],
+      container,
+      state: s.initialState([unsized], {}),
+      options: {},
+    });
+    expect(r.placements.has('ghost')).toBe(false);
+    expect(r.unplaced).toEqual(['ghost']);
+    expect(r.affordances).toEqual([]);
+  });
+
+  it('never writes into the map the inner strategy returned', () => {
+    const innerMap = new Map<string, Rect>();
+    const spy = { name: 'spy', layout: () => ({ placements: innerMap, affordances: [] }) };
+    const s = floatingStrategy(spy);
+    const r = s.layout({
+      items: [panel],
+      container,
+      state: s.initialState([panel], {}),
+      options: {},
+    });
+    expect(innerMap.size).toBe(0);
+    expect(r.placements.has('legend')).toBe(true);
+  });
+
+  it('carries the inner strategy unplaced through', () => {
+    const s = floatingStrategy(stackStrategy);
+    const items = [panel, pane, { id: 'other' }];
+    const r = s.layout({
+      items,
+      container,
+      state: s.initialState(items, {}),
+      options: { activeId: 'main' },
+    });
+    expect(r.unplaced).toEqual(['other']);
+  });
+
+  it('places a floating item that state has never seen, at the default anchor', () => {
+    const s = floatingStrategy();
+    const r = s.layout({
+      items: [panel],
+      container,
+      state: { at: {}, inner: undefined },
+      options: {},
+    });
+    expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, w: 100, h: 80 });
+  });
+
+  it('declares every config key it reads', () => {
+    expect(Object.keys(floatingStrategy().configSpec ?? {}).sort()).toEqual([
+      'defaultAnchor',
+      'handleSize',
+      'inset',
+      'snapThreshold',
+    ]);
+  });
+
+  it('unions the inner strategy config keys into its own', () => {
+    const keys = Object.keys(floatingStrategy(stackStrategy).configSpec ?? {});
+    expect(keys).toContain('activeId');
+    expect(keys).toContain('inset');
+  });
+
+  it('names itself after the strategy it wraps', () => {
+    expect(floatingStrategy(stackStrategy).name).toBe('floating(stack)');
+    expect(floatingStrategy().name).toBe('floating');
   });
 });

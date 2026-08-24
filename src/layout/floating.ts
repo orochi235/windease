@@ -1,4 +1,13 @@
-import type { LayoutItem, Rect, Size } from '../layout-types.js';
+import type {
+  Affordance,
+  LayoutItem,
+  LayoutResult,
+  LayoutStrategy,
+  Rect,
+  Size,
+  StatefulLayoutStrategy,
+} from '../layout-types.js';
+import { trace } from '../trace.js';
 
 export const FLOATING_CORNERS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const;
 
@@ -92,4 +101,97 @@ export function rectOf(
       ? clampToContainer(place, size, container)
       : cornerOrigin(place.anchor, size, container, inset);
   return { x: origin.x, y: origin.y, w: size.w, h: size.h };
+}
+
+export interface FloatingState<TInner = unknown> {
+  /** Where each floating item rests, by item id. */
+  at: Record<string, FloatingPlacement>;
+  /** The wrapped strategy's own state, or undefined when nothing is wrapped. */
+  inner: TInner;
+}
+
+export interface FloatingConfig {
+  inset?: number;
+  snapThreshold?: number;
+  defaultAnchor?: Corner;
+  /** Height of the drag band at the top of a floating item. `0` makes the whole
+   *  item the handle, which covers its content. */
+  handleSize?: number;
+}
+
+export const DEFAULT_INSET = 12;
+export const DEFAULT_SNAP_THRESHOLD = 12;
+export const DEFAULT_ANCHOR: Corner = 'bottom-left';
+
+/** Affordance id prefix, so `reduce` can route without knowing the inner strategy. */
+export const FLOATING_DRAG_PREFIX = 'floating:drag:';
+
+function seed(options: Record<string, unknown> | undefined): FloatingPlacement {
+  const anchor = (options as FloatingConfig | undefined)?.defaultAnchor ?? DEFAULT_ANCHOR;
+  return { x: 0, y: 0, anchor };
+}
+
+export function floatingStrategy<TInner>(
+  inner?: LayoutStrategy<TInner, string, unknown>,
+): StatefulLayoutStrategy<FloatingState<TInner | undefined>, string> {
+  return {
+    name: inner ? `floating(${inner.name})` : 'floating',
+
+    configSpec: {
+      ...(inner?.configSpec ?? {}),
+      inset: 'number',
+      snapThreshold: 'number',
+      handleSize: 'number',
+      defaultAnchor: FLOATING_CORNERS,
+    },
+
+    initialState(items, options) {
+      const at: Record<string, FloatingPlacement> = {};
+      for (const item of items) if (isFloating(item)) at[item.id] = seed(options);
+      const tiled = items.filter((i) => !isFloating(i));
+      return { at, inner: inner?.initialState?.(tiled, options) };
+    },
+
+    layout({ items, container, state, options, preview }) {
+      const cfg = options as FloatingConfig;
+      const inset = cfg.inset ?? DEFAULT_INSET;
+      const handleSize = cfg.handleSize ?? 0;
+      const floating = items.filter(isFloating);
+      const tiled = items.filter((i) => !isFloating(i));
+
+      const innerInput = { items: tiled, container, state: state.inner as TInner, options };
+      const result: LayoutResult<string> = inner
+        ? inner.layout(preview ? { ...innerInput, preview } : innerInput)
+        : { placements: new Map(), affordances: [] };
+
+      const placements = new Map(result.placements);
+      const affordances: Affordance[] = [...result.affordances];
+      const unplaced = [...(result.unplaced ?? [])];
+      for (const item of floating) {
+        const size = sizeOf(item);
+        // A 0x0 rect renders as a panel that vanished. `natural` arrives only
+        // after a measurement, so withhold it until one does.
+        if (size.w <= 0 || size.h <= 0) {
+          trace('layout', `floating: ${item.id} has no size yet, withheld`);
+          unplaced.push(item.id);
+          continue;
+        }
+        const rect = rectOf(item, state.at[item.id] ?? seed(options), container, inset);
+        placements.set(item.id, rect);
+        affordances.push({
+          id: `${FLOATING_DRAG_PREFIX}${item.id}`,
+          kind: 'drag-xy',
+          rect: handleSize > 0 ? { ...rect, h: Math.min(handleSize, rect.h) } : rect,
+          cursor: 'grab',
+          childId: item.id,
+          affects: [item.id],
+        });
+      }
+
+      trace('layout', `floating: ${floating.length} over ${inner?.name ?? 'nothing'}`);
+      const out: LayoutResult<string> = { ...result, placements, affordances };
+      if (unplaced.length > 0) out.unplaced = unplaced;
+      return out;
+    },
+  };
 }
