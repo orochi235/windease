@@ -1,7 +1,8 @@
 # TODO
 
 Future work, sectioned by item. Append new ideas here rather than scattering
-them. Tag major items with `[HIGH]`. What has already shipped is in
+them. Tag major items with `[HIGH]`, and ones worth doing but not next with
+`[MED]`. What has already shipped is in
 [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Test-harness gaps
@@ -116,12 +117,27 @@ Still open:
   split intent, so nothing emits one and `<Container>` never enables the
   bands.
 
-- **Only `<Container>` can stack on drop.** `stackOnDrop` is a `<Container>`
-  prop, and the drop target the declarative presets register through
-  `PresetShell` passes no `getDropIntent` at all — it passes no
-  `getInsertionIndex` either, so a `<Zone>` drop has always appended. Giving the
-  presets an intent means giving them a hit-test first, which is the same work
-  either way; nothing about the resolver is imperative-only.
+- **A split has no live layout preview [MED].** Hovering an insertion makes the
+  destination lay out as if the drop had happened — `<Container>` feeds
+  `host.setPreview` an `insertId`/`insertIndex` and the panes part to make room
+  (`Container.tsx:206`, `useContainerLayout.ts:84`). A split gets a drawn
+  element instead (`splitPreview: 'element'`), because `LayoutPreview` models
+  one extra item in a container's child list and a split preview is a nested
+  group that does not exist yet: the parent must place a group in the hovered
+  pane's slot and something must lay out its interior. Adding `'layout'` to
+  `splitPreview` is a non-breaking addition to the union whenever that is worth
+  building.
+
+- **The declarative presets have no drop hit-test.** `stackOnDrop` and
+  `splitOnDrop` are `<Container>` props, and the drop target the presets
+  register through `PresetShell` passes no `getDropIntent` at all — it passes no
+  `getInsertionIndex` either, so a `<Zone>` drop has always appended. Two
+  features now depend on this: neither stacking nor drop-on-edge works under
+  `<Zone>` / `<Panel>`, and a preset that silently appends where the same
+  gesture splits under `<Container>` reads as a bug. Giving the presets an
+  intent means giving them a hit-test first, which is the same work either way;
+  nothing about the resolver is imperative-only, and fixing it also fixes plain
+  appending for every preset drop.
 
 - **`<Zone config>` is read once, at creation.** `makeReconciler` reconciles
   `meta`, `hints`, `placement`, `lock` and `pinned`, and `<Zone>` adds
@@ -174,6 +190,34 @@ Still open:
   makes a coordinated change a two-release sequence. Worth stealing regardless
   of the outcome: the `GESTURE_DESCRIPTORS` shape, one table every consumer
   reflects off, so adding an entry updates the matcher and the UI together.
+
+## Policies the library exports but nobody can replace [MED]
+
+`<Container>` ships two props of the same shape: `overlay` and `affordances`
+each take the built-in default *or* a function that replaces it, with the
+component still doing the measuring and handing the result over as context.
+`dropIntent` is the third. Each entry below is a pure policy the library
+exports and then calls from exactly one hardcoded site, so a consumer who
+wants a different rule can only re-implement it and correct the result after
+the fact.
+
+- **`chooseSuccessor`** (`src/focus/successor.ts:30`) picks who receives focus
+  when the focused node is destroyed. Wanting the left sibling rather than the
+  successor means listening for the focus event and moving focus again.
+- **`resolveNavigation`** (`src/focus/resolve.ts:77`) resolves directional
+  keyboard navigation from geometry. It already takes a `ResolveInput` bag, so
+  the callback shape is designed; nothing accepts one.
+- **A container's `canAccept`.** `<Container>` passes `undefined` for the drop
+  target's (`Container.tsx:302`), so per-container acceptance is only
+  expressible through a strategy's `canAccept` — per-strategy, not
+  per-container — or `lock.accept`, which is all or nothing.
+- **Edge-scroll tuning.** `<Container>` forwards only `scrollEl` to
+  `DropTargetOptions`, leaving `edgeScroll`'s rate and threshold unreachable.
+  Not a resolver, but the same dead end.
+
+`insertionIndexByMidpoint` and `axisFromRects` are deliberately absent:
+`dropIntent` subsumes both, because replacing the resolver replaces the calls
+to them.
 
 ## Groups
 
@@ -330,3 +374,61 @@ Note the consumer is pinned at `^0.8.0` and has not taken 1.0 yet, so it still
 carries a hand-rolled balanced-tree builder (`tree.ts`) working around
 `initialState`. Deleting that is klieg's migration to do, not a windease item —
 but it means feedback from that lab is 0.8-shaped until the upgrade lands.
+
+## Floating chrome over a tiled zone [HIGH]
+
+Every shipped strategy tiles: `grid`, `strip` and `stack` partition their
+container between their children. Nothing places a window free *over* content,
+which is what viewport chrome — a legend, a minimap, an inspector puck — needs.
+
+Planned in `docs/superpowers/plans/2026-08-23-floating-strategy.md`, against a
+design in klieg at
+`docs/superpowers/specs/2026-08-23-legend-palette-design.md`.
+
+`floatingStrategy(inner?)` is a decorator rather than a peer. `layout()` splits
+`items` on `meta.floating`, hands the rest to `inner` against the **full**
+container so tiling is unchanged and reserves no room for the panel, places the
+floating ones from its own state, and merges both into one `placements` map.
+Affordance ids are namespaced (`floating:drag:<id>`) so `reduce` routes by
+prefix. `canAccept` and `navigate` delegate, with floating items filtered out so
+the inner strategy never counts them; `configSpec` is the union of both. No
+existing strategy changes, and a container that wants no tiling wraps nothing.
+
+Three findings from designing it, each of which shaped the API:
+
+- **Eligible corners cannot be container config.** `ConfigFieldSpec` is
+  `'number' | 'boolean' | 'string' | readonly string[]`, where the array form is
+  an enum of allowed *scalars* (`field.includes(value)`), and
+  `checkStrategyConfig` reports unknown keys — so a list-valued config key both
+  fails validation and cannot be declared. Eligible corners are therefore
+  per-item `meta.snapCorners`, which is also the better semantics: `LayoutItem.meta`
+  *is* the `membership.placement` bag where `pinned` already lives, and two
+  floating panels in one container can differ. Container config keeps only the
+  scalars `inset`, `snapThreshold` and `defaultAnchor`.
+
+- **State is `{ x, y, anchor }`, not `{ anchor } | { x, y }`.** The union
+  deadlocks: while snapped, `layout()` resolves to the corner origin, so every
+  incoming delta is measured from that same origin and a slow drag outward
+  re-snaps forever. The continuous position must always accumulate, with
+  `anchor` a sticky cache over it. Storing `anchor` is still what makes a resize
+  exact. The visible consequence is correct sticky-snap behavior: un-snapping
+  jumps the panel up to `snapThreshold` px at once.
+
+- **`reduce` must work from absolute `payload.point`, not `dx`/`dy`.** Per the
+  `LayoutEvent` doc, a strategy whose extents are quantized never accumulates
+  small deltas. Motion is the difference between successive absolute points, so
+  the first event of a gesture only records the pointer and moves nothing.
+
+There is no drag-end event (`LayoutEvent.kind` is `'drag' | 'click' | 'key'`), so
+the snap is live during the drag and commits wherever the pointer is released,
+rather than resolving on release.
+
+**Deferred — `LayoutResult` carries no z-order.** Nothing in the contract says a
+floating item renders above a tiled one; today that falls to the host's render
+order. The options were an optional `z` on `LayoutResult`, or a separate
+`floating?: Map<ItemId, Rect>` key alongside `placements`. Both widen a type
+every strategy and every host shares, to serve a need only this strategy has so
+far, so it stays the host's problem until a second caller wants it.
+
+First consumer: klieg's corner lab, through a `FloatingPanel` in
+`@weasel-js/labkit`.
