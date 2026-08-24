@@ -330,3 +330,24 @@ Note the consumer is pinned at `^0.8.0` and has not taken 1.0 yet, so it still
 carries a hand-rolled balanced-tree builder (`tree.ts`) working around
 `initialState`. Deleting that is klieg's migration to do, not a windease item —
 but it means feedback from that lab is 0.8-shaped until the upgrade lands.
+
+## Floating chrome: z-order [MED]
+
+`floatingStrategy` shipped, but `LayoutResult` still carries no stacking order,
+so nothing in the contract says a floating item renders above a tiled one —
+today that falls to the host's render order. The options were an optional `z` on
+`LayoutResult`, or a separate `floating?: Map<ItemId, Rect>` key alongside
+`placements`. Both widen a type every strategy and every host shares, to serve a
+need only this strategy has so far, so it waits for a second caller.
+
+## Floating chrome: no keyboard move [MED]
+
+`AffordanceLayer` binds its key handler only to an affordance carrying `bounds`,
+which models a one-axis range — a seam's extent — and a free position is two
+axes with no meaningful min or max. So a floating panel is pointer-only, and a
+keyboard user cannot move it. Either `bounds` grows a two-axis form or the
+affordance layer takes a second keyboard contract; neither is worth designing
+before something wants it.
+
+First consumer: klieg's corner lab, through a `FloatingPanel` in
+`@weasel-js/labkit`.

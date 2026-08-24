@@ -1,0 +1,60 @@
+.floating-stage {
+  width: 480px;
+  height: 360px;
+}
+
+.floating-stage .windease-zone {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.floating-legend {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #2563eb;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgb(15 23 42 / 25%);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  color: #1e293b;
+  overflow: hidden;
+}
+
+/* The strategy's own hit area, painted so the handle is visible rather than
+   guessed at: this is exactly the rect `handleSize` produced. */
+.floating-stage [data-affordance-kind="drag-xy"] {
+  background: rgb(37 99 235 / 22%);
+  border: 1px dashed #2563eb;
+  box-sizing: border-box;
+}
+
+.floating-hint {
+  width: 480px;
+  margin: 12px 0 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  color: #475569;
+}
+
+.floating-legend__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.floating-legend__button {
+  align-self: flex-start;
+  font: inherit;
+  padding: 2px 8px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  background: #f8fafc;
+  cursor: pointer;
+}
