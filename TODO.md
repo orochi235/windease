@@ -47,7 +47,7 @@ Followups:
   ignores it; verify this matches user expectations once a real consumer
   ships pinning UI.
 
-## Strategy for partitioning workspace [HIGH]
+## Strategy for partitioning workspace [MED]
 
 Zones nested under one root container already tile, with draggable gutters
 between them: the Ladle Playground builds a single root `strip` and derives
@@ -59,11 +59,19 @@ so directional navigation and `Shift`-arrow moves cross between them. What the
 library has no opinion about is the arrangement itself: collapsible sidebars,
 gutters *between* roots, full-screen takeover.
 
-Open questions:
+**A `<Workspace>` primitive is not what a consumer is asking for.**
+`brainhouse/client`, the only application consumer, composes its shell from one
+root container plus its own CSS, and both things it hand-rolls against the
+library are *sizing*: a loop fitting a section to its content until a gutter
+drag stops it, and a clamp capping a sidebar's width. The first is
+`hints.sizing` plus the release recipe in the README's **Sizing a pane to its
+contents**; the second is `hints.maxSize`. Neither is an arrangement primitive
+([design](docs/superpowers/specs/2026-08-24-content-size-rearm-design.md)).
 
-- Does windease need a `<Workspace>` primitive that owns the multi-zone
-  layout (collapsible sidebar, resizable gutters, full-screen takeover of one
-  zone)? Or does that stay entirely in consumer CSS?
+Still open, waiting for a consumer to ask:
+
+- The arrangement itself — a gutter *between* separate roots, a collapsible
+  sidebar, full-screen takeover of one zone.
 - Should zones know about each other for purposes like "dock at the bottom of
   whichever zone has focus" or "promote selected window to main zone"?
 - Dynamic zone creation/teardown: brainhouse's worktree grouping might want

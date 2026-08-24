@@ -43,6 +43,14 @@ describe('stripStrategy content-driven sizing', () => {
     expect(r.placements.get('a')?.h).toBe(55);
   });
 
+  it('tracks its measurement again once the explicit size is cleared', () => {
+    // The release recipe empties the axis rather than deleting `size`, so an
+    // item that has been pinned and let go carries a `size` bag with nothing
+    // on the axis. That has to read as "no explicit size", not as zero.
+    const r = layoutY([content('a', 120, { placement: { size: {} } }), content('b', 80)]);
+    expect(r.placements.get('a')?.h).toBe(120);
+  });
+
   it('clamps a measured size to minSize and maxSize', () => {
     const r = layoutY([
       content('a', 10, { hints: { minSize: { w: 0, h: 60 } } }),

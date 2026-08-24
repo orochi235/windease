@@ -68,6 +68,13 @@ export const ContentSizedDock: Story = () => {
         <button type="button" data-testid="add-row" onClick={() => setExtra((n) => n + 1)}>
           add a row to Palette 1
         </button>
+        <button
+          type="button"
+          data-testid="release-size"
+          onClick={() => store.patchPlacement(asNodeId('palette-1'), { size: { h: undefined } })}
+        >
+          release Palette 1 back to its contents
+        </button>
         <div style={{ width: 260, height: 420 }}>
           <Container
             parentId={DOCK}
