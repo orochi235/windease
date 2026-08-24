@@ -59,6 +59,31 @@ test.describe('content-driven sizing', () => {
     await page.waitForTimeout(300);
     expect((await boxOf(pane)).h).toBe(pinned);
   });
+
+  test('releasing the size hands the pane back to measurement', async ({ page }) => {
+    await openStory(page, STORY);
+    const pane = page.locator('[data-node="palette-1"]');
+    const content = (await boxOf(pane)).h;
+
+    const gutter = page.locator('[role="separator"]').first();
+    const g = await boxOf(gutter);
+    await page.mouse.move(g.x + g.w / 2, g.y + g.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(g.x + g.w / 2, g.y + g.h / 2 + 60, { steps: 10 });
+    await page.mouse.up();
+    const pinned = (await boxOf(pane)).h;
+    expect(pinned).toBeGreaterThan(content);
+
+    await page.getByTestId('add-row').click();
+    await page.waitForTimeout(300);
+    expect((await boxOf(pane)).h).toBe(pinned);
+
+    // Back on measurement, and measuring what it holds now — the row added
+    // while pinned counts, so this is taller than the height it started at.
+    await page.getByTestId('release-size').click();
+    await expect.poll(async () => (await boxOf(pane)).h).toBeGreaterThan(content);
+    await expect.poll(async () => (await boxOf(pane)).h).toBeLessThan(pinned);
+  });
 });
 
 test.describe('gutter keyboard operation', () => {
