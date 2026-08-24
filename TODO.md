@@ -130,7 +130,7 @@ Still open:
   `splitPreview` is a non-breaking addition to the union whenever that is worth
   building.
 
-- **The declarative presets have no drop hit-test.** `stackOnDrop` and
+- **The declarative presets have no drop hit-test [HIGH].** `stackOnDrop` and
   `splitOnDrop` are `<Container>` props, and the drop target the presets
   register through `PresetShell` passes no `getDropIntent` at all — it passes no
   `getInsertionIndex` either, so a `<Zone>` drop has always appended. Two
