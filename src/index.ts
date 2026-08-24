@@ -66,6 +66,18 @@ export {
   type ConfigSpec,
   checkStrategyConfig,
 } from './layout/config-check.js';
+export {
+  type Corner,
+  DEFAULT_ANCHOR,
+  DEFAULT_INSET,
+  DEFAULT_SNAP_THRESHOLD,
+  FLOATING_CORNERS,
+  FLOATING_DRAG_PREFIX,
+  type FloatingConfig,
+  type FloatingPlacement,
+  type FloatingState,
+  floatingStrategy,
+} from './layout/floating.js';
 export { gridStrategy } from './layout/grid.js';
 export {
   DEFAULT_JOIN_THRESHOLD,

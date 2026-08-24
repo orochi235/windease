@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { LayoutItem, Rect } from '../layout-types.js';
-import { stackStrategy } from './stack.js';
 import {
   cornerOrigin,
-  floatingStrategy,
   eligibleCorners,
   FLOATING_CORNERS,
+  floatingStrategy,
   isFloating,
   rectOf,
   snapCorner,
 } from './floating.js';
+import { stackStrategy } from './stack.js';
 
 const container = { w: 400, h: 300 };
 const size = { w: 100, h: 80 };
@@ -157,7 +157,12 @@ describe('floatingStrategy.layout', () => {
 
   it('emits one namespaced drag-xy affordance per floating item', () => {
     const s = floatingStrategy();
-    const r = s.layout({ items: [panel], container, state: s.initialState([panel], {}), options: {} });
+    const r = s.layout({
+      items: [panel],
+      container,
+      state: s.initialState([panel], {}),
+      options: {},
+    });
     expect(r.affordances).toHaveLength(1);
     expect(r.affordances[0]).toMatchObject({
       id: 'floating:drag:legend',

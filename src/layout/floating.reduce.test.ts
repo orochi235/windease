@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LayoutEvent, LayoutItem } from '../layout-types.js';
-import { floatingStrategy, type FloatingState } from './floating.js';
+import { type FloatingState, floatingStrategy } from './floating.js';
 
 const container = { w: 400, h: 300 };
 const panel: LayoutItem = { id: 'legend', meta: { floating: true }, natural: { w: 100, h: 80 } };
