@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { asNodeId, createNode, type Rect, Store } from '../index.js';
-import { DragEngine, type DropTarget } from './DragEngine.js';
+import { DragEngine, type DragEngineOptions, type DropTarget } from './DragEngine.js';
 import type { DropIntent } from './dropIntent.js';
 
 const SQUARE: Rect = { x: 0, y: 0, w: 100, h: 100 };
@@ -32,8 +32,12 @@ function target(intent: DropIntent | undefined, extra: Partial<DropTarget> = {})
 
 const order = (s: Store, id: string) => s.getContainerView(asNodeId(id))?.childOrder ?? [];
 
-function engineWith(s: Store): DragEngine {
-  return new DragEngine(s, { makeStackId: () => asNodeId('s1') });
+function engineWith(s: Store, extra: Partial<DragEngineOptions> = {}): DragEngine {
+  return new DragEngine(s, {
+    makeStackId: () => asNodeId('s1'),
+    makeSplitId: () => asNodeId('g1'),
+    ...extra,
+  });
 }
 
 describe('DragEngine — drop intent', () => {
@@ -142,6 +146,66 @@ describe('DragEngine — drop intent', () => {
       edge: 'start',
       axis: 'y',
     });
+  });
+
+  it('commits a split at the drop', () => {
+    const s = buildStore();
+    const e = engineWith(s);
+    e.addDropTarget(
+      asNodeId('z'),
+      target({ kind: 'split', ontoId: 'b', edge: 'start', axis: 'y' }),
+    );
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    e.drop();
+    expect(order(s, 'z')).toEqual([asNodeId('a'), asNodeId('g1')]);
+    expect(order(s, 'g1')).toEqual([asNodeId('p'), asNodeId('b')]);
+    expect(s.getNode(asNodeId('g1'))?.container?.config).toMatchObject({ axis: 'y' });
+  });
+
+  it('puts the source in the far half for an end-edge drop', () => {
+    const s = buildStore();
+    const e = engineWith(s);
+    e.addDropTarget(asNodeId('z'), target({ kind: 'split', ontoId: 'b', edge: 'end', axis: 'y' }));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    e.drop();
+    expect(order(s, 'g1')).toEqual([asNodeId('b'), asNodeId('p')]);
+  });
+
+  it('merges splitConfig into the group it creates', () => {
+    const s = buildStore();
+    const e = engineWith(s, { splitConfig: { gap: 6 } });
+    e.addDropTarget(
+      asNodeId('z'),
+      target({ kind: 'split', ontoId: 'b', edge: 'start', axis: 'y' }),
+    );
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    e.drop();
+    expect(s.getNode(asNodeId('g1'))?.container?.config).toMatchObject({ gap: 6 });
+  });
+
+  // A flow container reads its axis off measured rects, so the axis of the
+  // same pane's split can change mid-drag as siblings reflow. Deduping the
+  // hover on ontoId and edge alone would keep the stale one.
+  it('treats a split whose axis changed as a new hover', () => {
+    const s = buildStore();
+    const e = engineWith(s);
+    let axis: 'x' | 'y' = 'y';
+    e.addDropTarget(asNodeId('z'), {
+      bounds: () => SQUARE,
+      getDropIntent: () => ({ kind: 'split', ontoId: 'b', edge: 'start', axis }),
+    });
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    const seen: (DropIntent | undefined)[] = [];
+    e.subscribe((st) => seen.push(st?.hover?.intent));
+    // Same point: a moved cursor re-emits on its own, which would hide whether
+    // the intent comparison noticed the axis.
+    axis = 'x';
+    e.updateHoverByPoint(50, 50);
+    expect(seen.at(-1)).toMatchObject({ kind: 'split', axis: 'x' });
   });
 
   it('refuses to split a node onto itself', () => {

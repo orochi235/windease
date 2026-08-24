@@ -19,6 +19,9 @@ export interface DragProviderProps {
    *  that matters: the tab strip is yours to draw, so its height is yours to
    *  declare. */
   stackConfig?: Record<string, unknown>;
+  /** Container config given to the strip a split drop creates, merged over its
+   *  `axis` and `fill`. */
+  splitConfig?: Record<string, unknown>;
 }
 
 /** @group Components */
@@ -26,12 +29,19 @@ export function DragProvider({
   children,
   dragOverlay = defaultDragOverlay,
   stackConfig,
+  splitConfig,
 }: DragProviderProps) {
   const store = useStore();
   const registry = useOptionalStrategyRegistry();
   const controller = useMemo(
-    () => new DragController(store, registry ? (sid) => registry.get(sid) : undefined, stackConfig),
-    [store, registry, stackConfig],
+    () =>
+      new DragController(
+        store,
+        registry ? (sid) => registry.get(sid) : undefined,
+        stackConfig,
+        splitConfig,
+      ),
+    [store, registry, stackConfig, splitConfig],
   );
 
   const [state, setState] = useState<DragState | null>(null);

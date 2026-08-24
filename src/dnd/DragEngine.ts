@@ -100,6 +100,12 @@ export interface DragEngineOptions {
    *  since the strip it reserves room for is the host's to draw and its height
    *  is the host's to know. */
   stackConfig?: Record<string, unknown>;
+  /** Id for a container a split drop creates. Defaults to `split-N`, skipping
+   *  any id the store already holds. */
+  makeSplitId?: () => NodeId;
+  /** Container config for the strip a split drop creates, merged over its
+   *  `axis` and `fill`. */
+  splitConfig?: Record<string, unknown>;
 }
 
 const immediate: FrameScheduler = {
@@ -122,7 +128,9 @@ function sameIntent(a: DropIntent | undefined, b: DropIntent | undefined): boole
   if (a.kind !== b.kind) return false;
   if (a.kind === 'insert' && b.kind === 'insert') return a.index === b.index;
   if (a.kind === 'stack' && b.kind === 'stack') return a.ontoId === b.ontoId;
-  if (a.kind === 'split' && b.kind === 'split') return a.ontoId === b.ontoId && a.edge === b.edge;
+  if (a.kind === 'split' && b.kind === 'split') {
+    return a.ontoId === b.ontoId && a.edge === b.edge && a.axis === b.axis;
+  }
   return false;
 }
 
@@ -152,7 +160,10 @@ export class DragEngine {
   private readonly getStrategy: StrategyLookup | undefined;
   private readonly makeStackId: () => NodeId;
   private readonly stackConfig: Record<string, unknown> | undefined;
+  private readonly makeSplitId: () => NodeId;
+  private readonly splitConfig: Record<string, unknown> | undefined;
   private stackSeq = 0;
+  private splitSeq = 0;
   private pendingPoint: Point | null = null;
   private frame: number | null = null;
   private scheduled = false;
@@ -166,6 +177,8 @@ export class DragEngine {
     this.schedule = options.schedule ?? immediate;
     this.makeStackId = options.makeStackId ?? (() => this.nextStackId());
     this.stackConfig = options.stackConfig;
+    this.makeSplitId = options.makeSplitId ?? (() => this.nextSplitId());
+    this.splitConfig = options.splitConfig;
   }
 
   state(): DragState | null {
@@ -415,6 +428,15 @@ export class DragEngine {
     return candidate;
   }
 
+  private nextSplitId(): NodeId {
+    let candidate: NodeId;
+    do {
+      this.splitSeq += 1;
+      candidate = `split-${this.splitSeq}` as NodeId;
+    } while (this.store.getNode(candidate) !== undefined);
+    return candidate;
+  }
+
   private setHover(hover: NonNullable<DragState['hover']> | null, cursor: Point): void {
     if (!this.active) return;
     const next: DragState['hover'] = hover
@@ -465,6 +487,23 @@ export class DragEngine {
           ...(this.stackConfig ? { config: this.stackConfig } : {}),
         });
         trace('dnd', `drop: stack ${draggingId} onto ${ontoId} as ${id}`);
+      } catch (err) {
+        trace('dnd', `drop failed: ${(err as Error).message}`);
+      }
+      this.clear();
+      return;
+    }
+    if (hover.intent?.kind === 'split') {
+      const { ontoId, edge, axis } = hover.intent;
+      const id = this.makeSplitId();
+      try {
+        this.store.splitInto(draggingId, ontoId as NodeId, {
+          id,
+          axis,
+          edge,
+          ...(this.splitConfig ? { config: this.splitConfig } : {}),
+        });
+        trace('dnd', `drop: split ${draggingId} onto ${ontoId} ${axis}/${edge} as ${id}`);
       } catch (err) {
         trace('dnd', `drop failed: ${(err as Error).message}`);
       }
