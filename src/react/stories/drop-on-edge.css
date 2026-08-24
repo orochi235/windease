@@ -1,0 +1,79 @@
+.doe-frame {
+  padding: 12px;
+  background: #101218;
+  border-radius: 8px;
+  display: inline-block;
+}
+
+.doe-zone {
+  background: #0b0d12;
+  border-radius: 6px;
+}
+
+.doe-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1b2030;
+  border: 1px solid #2b3346;
+  border-radius: 5px;
+  color: #dfe4ef;
+  overflow: hidden;
+}
+
+.doe-panel__title {
+  font:
+    600 12px / 1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  border-bottom: 1px solid #2b3346;
+  cursor: grab;
+}
+
+.doe-panel__body {
+  padding: 10px 12px;
+  font:
+    12px / 1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  color: #97a0b5;
+}
+
+.doe-group {
+  position: relative;
+  height: 100%;
+}
+
+/* The library ships this class with a `currentColor` default; the story gives
+   it a colour that reads against the dark panes. */
+.doe-zone .windease-split-preview,
+.doe-group .windease-split-preview {
+  background: #5b8cff;
+  opacity: 0.35;
+  border-radius: 4px;
+}
+
+.doe-readout {
+  font:
+    12px / 1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: #8d97ad;
+  margin: 12px 0 0;
+}
+
+.doe-readout__value {
+  color: #e6ebf5;
+}
+
+.doe-prose {
+  max-width: 62ch;
+  font:
+    13px / 1.6 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  color: #97a0b5;
+}

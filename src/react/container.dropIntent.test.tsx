@@ -5,7 +5,6 @@ import {
   createNode,
   type DragController,
   type DropIntent,
-  type NodeId,
   type Rect,
   Store,
   stripStrategy,
@@ -315,5 +314,3 @@ describe('<Container splitPreview>', () => {
     expect(preview(container)).toBeNull();
   });
 });
-
-export type { NodeId };

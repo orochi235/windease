@@ -17,7 +17,11 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
 
 - **A spec fails under parallel load about 1% of the time, on any engine.**
   Seen as `keyboard.spec.ts` "F6 cycles from inside a text input" on Firefox
-  in a full three-engine run, green 48/48 in isolation. No diagnosis yet. This
+  in a full three-engine run, green 48/48 in isolation; seen again as
+  `declarative-keyboard.spec.ts` "an arrow key crosses from the Zone column to
+  the Panel column", also Firefox, also green in isolation. Both are keyboard
+  specs, which is the first thing that looks like a pattern. No diagnosis yet.
+  This
   is what the old "WebKit is flaky" entry described — a different spec each
   time, only under contention — but that entry's headline case turned out to
   be the stale-hover drop defect, which is fixed and was never timing.
@@ -106,16 +110,6 @@ Still open:
   gesture; found because seam-join read those flags and armed on the first move
   in either direction, which is fixed. What a seam with no room should report
   instead is the open question.
-
-- **Drop on a pane's edge to split it [HIGH].** Drag A over the left third of
-  B and drop: B splits, A takes the new half. The gesture every tiling manager
-  and VS Code has, and the one standard drop semantic this library does not.
-  What was the hard part is done: `resolveDropIntent` already resolves a
-  `split` intent with its edge from the cross-axis bands, and `store.split`
-  already does the mutation. What is left is the commit path — `split` then
-  move A into the new half — and a preview. Until then the hover refuses a
-  split intent, so nothing emits one and `<Container>` never enables the
-  bands.
 
 - **A split has no live layout preview [MED].** Hovering an insertion makes the
   destination lay out as if the drop had happened — `<Container>` feeds
