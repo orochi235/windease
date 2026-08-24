@@ -193,5 +193,37 @@ export function floatingStrategy<TInner>(
       if (unplaced.length > 0) out.unplaced = unplaced;
       return out;
     },
+
+    reduce(state, event, context) {
+      if (!event.affordanceId.startsWith(FLOATING_DRAG_PREFIX)) {
+        if (!inner?.reduce) return state;
+        return { ...state, inner: inner.reduce(state.inner as TInner, event, context) };
+      }
+
+      const id = event.affordanceId.slice(FLOATING_DRAG_PREFIX.length);
+      const item = context.items.find((i) => i.id === id);
+      const dx = event.payload.dx ?? 0;
+      const dy = event.payload.dy ?? 0;
+      if (!item || (dx === 0 && dy === 0)) return state;
+
+      const cfg = context.options as FloatingConfig;
+      const inset = cfg.inset ?? DEFAULT_INSET;
+      const threshold = cfg.snapThreshold ?? DEFAULT_SNAP_THRESHOLD;
+      const place = state.at[id] ?? seed(context.options);
+      const size = sizeOf(item);
+
+      const next = clampToContainer({ x: place.x + dx, y: place.y + dy }, size, context.container);
+      const anchor = snapCorner(
+        next,
+        size,
+        context.container,
+        inset,
+        threshold,
+        eligibleCorners(item),
+      );
+
+      trace('layout', `floating: ${id} -> ${anchor ?? `${next.x},${next.y}`}`);
+      return { ...state, at: { ...state.at, [id]: { ...next, anchor } } };
+    },
   };
 }
