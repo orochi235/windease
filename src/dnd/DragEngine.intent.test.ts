@@ -129,7 +129,10 @@ describe('DragEngine — drop intent', () => {
   it('refuses a split intent, which has no commit path yet', () => {
     const s = buildStore();
     const e = engineWith(s);
-    e.addDropTarget(asNodeId('z'), target({ kind: 'split', ontoId: 'b', edge: 'start' }));
+    e.addDropTarget(
+      asNodeId('z'),
+      target({ kind: 'split', ontoId: 'b', edge: 'start', axis: 'y' }),
+    );
     e.tryBegin(asNodeId('p'));
     e.updateHoverByPoint(50, 50);
     expect(e.state()?.hover?.accepted).toBe(false);

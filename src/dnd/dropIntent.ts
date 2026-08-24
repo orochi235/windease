@@ -5,7 +5,9 @@ import { insertionIndexByMidpoint } from './insertionIndex.js';
 export type DropIntent =
   | { kind: 'insert'; index: number }
   | { kind: 'stack'; ontoId: ItemId }
-  | { kind: 'split'; ontoId: ItemId; edge: 'start' | 'end' };
+  /** `axis` is the strip axis of the group a split would create — the *cross*
+   *  axis of the container that resolved this, not that container's own. */
+  | { kind: 'split'; ontoId: ItemId; edge: 'start' | 'end'; axis: 'x' | 'y' };
 
 export interface DropIntentOptions {
   /** Carve a centre band that stacks onto the hovered child. */
@@ -71,12 +73,17 @@ export function resolveDropIntent(
   if (mainOffset > mainExtent * (1 - band)) return { kind: 'insert', index: hit + 1 };
 
   if (options.split) {
+    const cross: 'x' | 'y' = axis === 'x' ? 'y' : 'x';
     const crossPos = axis === 'x' ? cursor.y : cursor.x;
     const crossStart = axis === 'x' ? rect.y : rect.x;
     const crossExtent = axis === 'x' ? rect.h : rect.w;
     const crossOffset = crossPos - crossStart;
-    if (crossOffset < crossExtent * band) return { kind: 'split', ontoId: id, edge: 'start' };
-    if (crossOffset > crossExtent * (1 - band)) return { kind: 'split', ontoId: id, edge: 'end' };
+    if (crossOffset < crossExtent * band) {
+      return { kind: 'split', ontoId: id, edge: 'start', axis: cross };
+    }
+    if (crossOffset > crossExtent * (1 - band)) {
+      return { kind: 'split', ontoId: id, edge: 'end', axis: cross };
+    }
   }
 
   if (options.stack) return { kind: 'stack', ontoId: id };

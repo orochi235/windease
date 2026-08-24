@@ -47,11 +47,13 @@ describe('resolveDropIntent', () => {
       kind: 'split',
       ontoId: 'b',
       edge: 'start',
+      axis: 'y',
     });
     expect(resolveDropIntent(row, { x: 150, y: 95 }, 'x', { stack: true, split: true })).toEqual({
       kind: 'split',
       ontoId: 'b',
       edge: 'end',
+      axis: 'y',
     });
   });
 
@@ -92,5 +94,19 @@ describe('resolveDropIntent', () => {
       kind: 'insert',
       index: 1,
     });
+  });
+
+  it('splits with the cross axis of a horizontal container', () => {
+    const intent = resolveDropIntent(row, { x: 150, y: 5 }, 'x', { split: true });
+    expect(intent).toEqual({ kind: 'split', ontoId: 'b', edge: 'start', axis: 'y' });
+  });
+
+  it('splits with the cross axis of a vertical container', () => {
+    const column = [
+      { id: 'a', rect: { x: 0, y: 0, w: 100, h: 100 } },
+      { id: 'b', rect: { x: 0, y: 100, w: 100, h: 100 } },
+    ];
+    const intent = resolveDropIntent(column, { x: 95, y: 150 }, 'y', { split: true });
+    expect(intent).toEqual({ kind: 'split', ontoId: 'b', edge: 'end', axis: 'x' });
   });
 });
