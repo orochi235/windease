@@ -212,7 +212,19 @@ export function floatingStrategy<TInner>(
       const place = state.at[id] ?? seed(context.options);
       const size = sizeOf(item);
 
-      const next = clampToContainer({ x: place.x + dx, y: place.y + dy }, size, context.container);
+      // An anchor set by anything but a drag — the seed, or a container resize
+      // since — leaves x/y nowhere near where the item renders, so accumulating
+      // from them teleports the panel on the first move. Re-base on the corner
+      // when they disagree with it; a drag-set anchor always agrees, which is
+      // what lets a slow drag accumulate past the corner and escape.
+      const anchored =
+        place.anchor === null ? null : cornerOrigin(place.anchor, size, context.container, inset);
+      const stale =
+        anchored !== null &&
+        (Math.abs(anchored.x - place.x) > threshold || Math.abs(anchored.y - place.y) > threshold);
+      const base = stale && anchored ? anchored : place;
+
+      const next = clampToContainer({ x: base.x + dx, y: base.y + dy }, size, context.container);
       const anchor = snapCorner(
         next,
         size,

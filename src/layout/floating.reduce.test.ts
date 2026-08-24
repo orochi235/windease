@@ -96,3 +96,31 @@ describe('floatingStrategy.reduce', () => {
     expect(next?.inner).toBe(2);
   });
 });
+
+describe('floatingStrategy.reduce re-bases a stale anchor', () => {
+  const s = floatingStrategy();
+
+  it('drags an item seeded at an anchor from where it renders', () => {
+    // What `initialState` produces: an anchor, and coordinates that mean nothing.
+    const seeded: FloatingState<undefined> = {
+      at: { legend: { x: 0, y: 0, anchor: 'bottom-left' } },
+      inner: undefined,
+    };
+    // The item renders at (12, 208); the drag starts there, not at (0, 0).
+    expect(s.reduce?.(seeded, drag(30, 0), context).at.legend).toEqual({
+      x: 42,
+      y: 208,
+      anchor: null,
+    });
+  });
+
+  it('drags an item anchored before a resize from its post-resize corner', () => {
+    const anchored: FloatingState<undefined> = {
+      at: { legend: { x: 288, y: 208, anchor: 'bottom-right' } },
+      inner: undefined,
+    };
+    const grown = { ...context, container: { w: 600, h: 300 } };
+    // The corner moved to x=488 with the container; the drag follows it.
+    expect(s.reduce?.(anchored, drag(-40, 0), grown).at.legend).toMatchObject({ x: 448 });
+  });
+});
