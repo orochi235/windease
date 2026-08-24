@@ -100,6 +100,12 @@ export interface DragEngineOptions {
    *  since the strip it reserves room for is the host's to draw and its height
    *  is the host's to know. */
   stackConfig?: Record<string, unknown>;
+  /** Id for a container a split drop creates. Defaults to `split-N`, skipping
+   *  any id the store already holds. */
+  makeSplitId?: () => NodeId;
+  /** Container config for the strip a split drop creates, merged over its
+   *  `axis` and `fill`. */
+  splitConfig?: Record<string, unknown>;
 }
 
 const immediate: FrameScheduler = {
@@ -122,7 +128,9 @@ function sameIntent(a: DropIntent | undefined, b: DropIntent | undefined): boole
   if (a.kind !== b.kind) return false;
   if (a.kind === 'insert' && b.kind === 'insert') return a.index === b.index;
   if (a.kind === 'stack' && b.kind === 'stack') return a.ontoId === b.ontoId;
-  if (a.kind === 'split' && b.kind === 'split') return a.ontoId === b.ontoId && a.edge === b.edge;
+  if (a.kind === 'split' && b.kind === 'split') {
+    return a.ontoId === b.ontoId && a.edge === b.edge && a.axis === b.axis;
+  }
   return false;
 }
 
@@ -152,7 +160,10 @@ export class DragEngine {
   private readonly getStrategy: StrategyLookup | undefined;
   private readonly makeStackId: () => NodeId;
   private readonly stackConfig: Record<string, unknown> | undefined;
+  private readonly makeSplitId: () => NodeId;
+  private readonly splitConfig: Record<string, unknown> | undefined;
   private stackSeq = 0;
+  private splitSeq = 0;
   private pendingPoint: Point | null = null;
   private frame: number | null = null;
   private scheduled = false;
@@ -166,6 +177,8 @@ export class DragEngine {
     this.schedule = options.schedule ?? immediate;
     this.makeStackId = options.makeStackId ?? (() => this.nextStackId());
     this.stackConfig = options.stackConfig;
+    this.makeSplitId = options.makeSplitId ?? (() => this.nextSplitId());
+    this.splitConfig = options.splitConfig;
   }
 
   state(): DragState | null {
@@ -363,32 +376,34 @@ export class DragEngine {
 
   /**
    * Whether a non-`insert` intent can commit. The ordinary target checks can't
-   * answer these: until now the hovered target *was* the destination, and a
-   * stack reparents the onto-child instead.
+   * answer these: until now the hovered target *was* the destination, and both
+   * a stack and a split reparent the onto-child instead.
    */
   private checkIntent(targetId: NodeId, draggingId: NodeId, intent: DropIntent): boolean {
     if (intent.kind === 'insert') return true;
-    if (intent.kind === 'split') {
-      trace('dnd', `checkAccept ${targetId}: REJECT (split has no commit path)`);
-      return false;
-    }
     const ontoId = intent.ontoId as NodeId;
     if (ontoId === draggingId) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (stack onto the dragged node)`);
+      trace('dnd', `checkAccept ${targetId}: REJECT (${intent.kind} onto the dragged node)`);
       return false;
     }
     if (this.store.isLocked(ontoId, 'move')) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (stack onto ${ontoId} with lock.move)`);
+      trace(
+        'dnd',
+        `checkAccept ${targetId}: REJECT (${intent.kind} onto ${ontoId} with lock.move)`,
+      );
       return false;
     }
     if (this.isWithin(ontoId, draggingId)) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (stack onto own descendant ${ontoId})`);
+      trace(
+        'dnd',
+        `checkAccept ${targetId}: REJECT (${intent.kind} onto own descendant ${ontoId})`,
+      );
       return false;
     }
     // A wrap creates a node the host never asked for, so it cannot be handed to
     // a parent that owns its own child order.
     if (this.orderControls.has(targetId)) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (stack into a controlled parent)`);
+      trace('dnd', `checkAccept ${targetId}: REJECT (${intent.kind} into a controlled parent)`);
       return false;
     }
     return true;
@@ -409,6 +424,15 @@ export class DragEngine {
     do {
       this.stackSeq += 1;
       candidate = `stack-${this.stackSeq}` as NodeId;
+    } while (this.store.getNode(candidate) !== undefined);
+    return candidate;
+  }
+
+  private nextSplitId(): NodeId {
+    let candidate: NodeId;
+    do {
+      this.splitSeq += 1;
+      candidate = `split-${this.splitSeq}` as NodeId;
     } while (this.store.getNode(candidate) !== undefined);
     return candidate;
   }
@@ -463,6 +487,23 @@ export class DragEngine {
           ...(this.stackConfig ? { config: this.stackConfig } : {}),
         });
         trace('dnd', `drop: stack ${draggingId} onto ${ontoId} as ${id}`);
+      } catch (err) {
+        trace('dnd', `drop failed: ${(err as Error).message}`);
+      }
+      this.clear();
+      return;
+    }
+    if (hover.intent?.kind === 'split') {
+      const { ontoId, edge, axis } = hover.intent;
+      const id = this.makeSplitId();
+      try {
+        this.store.splitInto(draggingId, ontoId as NodeId, {
+          id,
+          axis,
+          edge,
+          ...(this.splitConfig ? { config: this.splitConfig } : {}),
+        });
+        trace('dnd', `drop: split ${draggingId} onto ${ontoId} ${axis}/${edge} as ${id}`);
       } catch (err) {
         trace('dnd', `drop failed: ${(err as Error).message}`);
       }

@@ -1361,6 +1361,101 @@ export class Store {
   }
 
   /**
+   * Put `sourceId` and `ontoId` in one new strip, splitting the slot `ontoId`
+   * occupied. The group takes that slot — same parent, same index, inheriting
+   * its placement and its pin — and `edge: 'start'` puts the source first.
+   *
+   * `axis` is the new strip's axis, which the caller supplies because a drop
+   * resolves it from geometry the store cannot see.
+   *
+   * The group gets `autoUnsplit`, so dragging either child out dissolves it.
+   */
+  splitInto(
+    sourceId: NodeId,
+    ontoId: NodeId,
+    opts: {
+      id: NodeId;
+      axis: 'x' | 'y';
+      edge: 'start' | 'end';
+      config?: Record<string, unknown>;
+    } & MutateOptions,
+  ): void {
+    const source = this.requireNode(sourceId);
+    const onto = this.requireNode(ontoId);
+    if (sourceId === ontoId) {
+      throw new InvariantViolationError('split-self', `cannot split ${sourceId} onto itself`, {
+        id: sourceId,
+      });
+    }
+    if (this.isDescendantOf(ontoId, sourceId)) {
+      throw new CycleError(sourceId, ontoId);
+    }
+    if (!onto.membership) {
+      throw new CapabilityMissingError(ontoId, 'membership', 'splitInto');
+    }
+    if (!source.membership) {
+      throw new CapabilityMissingError(sourceId, 'membership', 'splitInto');
+    }
+    const parentId = onto.membership.parentId;
+    const parent = this.requireNode(parentId);
+
+    // Everything the transaction needs, checked before it opens: `transact`
+    // does not roll back, so a throw from inside leaves a half-built group.
+    if (this.nodesMap.has(opts.id)) throw new DuplicateNodeError(opts.id);
+    if (!parent.container) {
+      throw new InvariantViolationError(
+        'parent-not-container',
+        `parent ${parentId} has no container capability`,
+        { parentId, childId: ontoId },
+      );
+    }
+    this.assertUnlocked(sourceId, 'move', 'splitInto', opts);
+    this.assertUnlocked(ontoId, 'move', 'splitInto', opts);
+    this.assertUnlocked(parentId, 'arrange', 'splitInto', opts);
+    this.assertUnlocked(parentId, 'accept', 'splitInto', opts);
+    this.assertUnlocked(parentId, 'dragOut', 'splitInto', opts);
+    this.assertUnlocked(source.membership.parentId, 'dragOut', 'splitInto', opts);
+
+    const at = parent.container.childOrder.indexOf(ontoId);
+    const placement = { ...onto.membership.placement };
+    delete placement.pinned;
+    const pinned = this.getPinnedIndex(ontoId);
+
+    this.transact(() => {
+      this.registerNode(
+        createNode({
+          id: opts.id,
+          kind: 'group',
+          parentId,
+          placement,
+          container: {
+            strategyId: 'strip',
+            config: { axis: opts.axis, fill: true, ...opts.config },
+          },
+        }),
+      );
+      this.showNode(opts.id);
+      this.setAutoUnsplit(opts.id, true);
+      this.reorderInParent(opts.id, at);
+      const [first, second] = opts.edge === 'start' ? [sourceId, ontoId] : [ontoId, sourceId];
+      this.moveNode(first, opts.id);
+      this.moveNode(second, opts.id);
+      // Both sizes were measured against the old parent's axis and mean nothing
+      // against this one; the group carries the outer slot's size. A pin index
+      // is likewise an index into the old parent's childOrder.
+      this.patchPlacement(sourceId, { size: undefined });
+      this.patchPlacement(ontoId, { size: undefined });
+      this.unpin(sourceId);
+      this.unpin(ontoId);
+      if (pinned !== null) this.setPinned(opts.id, pinned);
+    }, 'splitInto');
+    trace(
+      'store',
+      `splitInto: ${sourceId} onto ${ontoId} ${opts.axis}/${opts.edge} as ${opts.id}@${at}`,
+    );
+  }
+
+  /**
    * Snap the published view to truth and cancel pending flushes. Called by
    * `deserialize`; consumers should not need this.
    *

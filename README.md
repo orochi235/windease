@@ -528,7 +528,7 @@ child rects and the cursor into what the drop is *asking for*:
 type DropIntent =
   | { kind: 'insert'; index: number }
   | { kind: 'stack'; ontoId: ItemId }
-  | { kind: 'split'; ontoId: ItemId; edge: 'start' | 'end' };
+  | { kind: 'split'; ontoId: ItemId; edge: 'start' | 'end'; axis: 'x' | 'y' };
 ```
 
 Within the hovered child, bands along the main axis resolve to `insert` at the
@@ -537,9 +537,11 @@ neighbouring seam, bands along the cross axis to `split`, and the centre to
 enable, so a resolver with none enabled returns exactly what
 `insertionIndexByMidpoint` returns — which is what makes this additive.
 
-`<Container>` wires it for you from the rects it already measures. Pass
-`stackOnDrop` to enable the centre band. `split` has no commit path yet and is
-refused at the hover, so nothing emits it.
+A split's `axis` is the axis of the strip it would *create* — the cross axis of
+the container that resolved it, one flip from that container's own.
+
+`<Container>` wires it for you from the rects it already measures: pass
+`stackOnDrop` for the centre band, `splitOnDrop` for the cross-axis ones.
 
 A target you register yourself takes `getDropIntent` beside the older
 `getInsertionIndex`, which still works and is still honoured when no intent
@@ -549,6 +551,19 @@ function is registered:
 useDropTarget(zoneId, ref, {
   getDropIntent: (point) => resolveDropIntent(rects, point, 'x', { stack: true }),
 });
+```
+
+To keep `<Container>`'s measuring but change the answer, pass `dropIntent`
+instead. It receives the rects with the dragged node already removed, and its
+result replaces the built-in resolver's — which is how you tune band thickness,
+add quadrant zones, or refuse a split on a small pane:
+
+```tsx
+<Container
+  parentId={zoneId}
+  dropIntent={({ rects, point, axis }) =>
+    resolveDropIntent(rects, point, axis, { split: true, band: 0.4 })}
+/>
 ```
 
 ### Tab stacking
@@ -579,6 +594,42 @@ And activation is written with `updateContainerConfig`, which `lock.arrange`
 gates — a stack locked against rearrangement cannot switch tabs either.
 
 See the **Tab stack / Stack on drop** story for the whole setup.
+
+### Drop on edge
+
+With `splitOnDrop` on, a drop near a pane's cross-axis edge splits that pane:
+its slot becomes a two-pane strip holding it and the pane you dropped, with the
+dropped one first for a `'start'` edge. In a horizontal row that means the top
+and bottom edges split; the left and right ones keep inserting, which is the
+same visual result one axis over.
+
+`store.splitInto(sourceId, ontoId, { id, axis, edge })` is the mutation, and one
+undo step. The new strip takes the onto-pane's slot, inheriting its placement
+and its pin, and both children lose any `placement.size` they carried — each was
+measured against the parent they left. It carries `autoUnsplit`, so dragging
+either pane back out dissolves the pair and lifts the survivor.
+
+The seam between the two panes is draggable with no configuration; tell
+`<DragProvider>` anything else the new strip should carry:
+
+```tsx
+<DragProvider splitConfig={{ gap: 6 }}>
+```
+
+A prospective split draws a `div.windease-split-preview` over the half the drop
+would take, so the two edges are distinguishable before you release. The
+stylesheet gives it a subtle default; restyle it through that class, or pass
+`splitPreview="none"` and draw your own from the `intent` in
+`<DragProvider dragOverlay>`'s context.
+
+`splitOnDrop` and `stackOnDrop` are independent. With split on and stack off the
+centre of a pane still inserts — edges split, everything else inserts — which is
+what a consumer without tabs wants.
+
+Both are `<Container>` props. The declarative presets register a drop target
+with no hit-test at all, so a `<Zone>` drop still appends.
+
+See the **Drop on edge / Split on drop** story.
 
 ## Floating chrome over a tiled zone
 

@@ -30,8 +30,8 @@ section below.
   clamped so a centre always survives. Bands are carved only for the intents `options`
   enables, so with none enabled it returns exactly what `insertionIndexByMidpoint`
   returns. `DropTarget` and `useDropTarget` take `getDropIntent` beside the existing
-  `getInsertionIndex`, which still works unchanged. `split` has no commit path yet: the
-  hover refuses it, so nothing emits it.
+  `getInsertionIndex`, which still works unchanged. A `split` intent also carries the
+  `axis` of the strip it would create — the cross axis of the container that resolved it.
 - **Tab stacking.** Pass `stackOnDrop` to `<Container>` and a drop in the middle of a pane
   puts both panes in one tabbed stack. `stackStrategy` places the active child in the
   container less its `headerSize` band and reports the rest in `unplaced`; `activeId` in
@@ -43,6 +43,25 @@ section below.
   is the consumer's to draw; `useStack(containerId)` gives `{ tabs, activeId, activate }`,
   and `<DragProvider stackConfig>` says what config a drop-created stack gets. Activation
   writes through `updateContainerConfig`, which `lock.arrange` gates.
+- **Drop on edge.** Pass `splitOnDrop` to `<Container>` and a drop near a pane's
+  cross-axis edge splits that pane: its slot becomes a two-pane strip holding it and the
+  dropped pane, dropped one first for a `'start'` edge. `store.splitInto(sourceId,
+  ontoId, { id, axis, edge, config })` performs the wrap, validating every lock and cycle
+  before opening its transaction, so a refused call writes nothing and a host recording
+  history per transaction gets one undo step. The strip inherits the onto-pane's placement
+  and pinned index, and clears `placement.size` on both children, each having been measured
+  against the parent it left; it carries `autoUnsplit`, so dragging either pane back out
+  dissolves the pair. `<DragProvider splitConfig>` says what config a drop-created strip
+  gets — the seam is already draggable without it. `splitPreview` (`'element'` by default)
+  positions a `div.windease-split-preview` over the half the drop would take, with a
+  default appearance in `styles.css`; `'none'` leaves the drawing to you.
+  `splitOnDrop` and `stackOnDrop` are independent, and with split on and stack off the
+  centre of a pane still resolves to an insert.
+- **`<Container dropIntent>`.** Replaces the built-in drop hit-test outright, receiving the
+  measured child rects with the dragged node removed, the cursor, the container's axis and
+  the dragged node's id. The container keeps doing the measuring and the axis inference.
+  This is how band thickness, quadrant hit-tests and per-pane refusals are expressed, so no
+  `band` prop ships.
 
 - **Seam join.** On a strip with `resizeMode: 'neighbor'`, `joinOnOvershoot: true` lets a
   seam drag end in a destroy: push the seam past a pane's floor, keep pushing, and

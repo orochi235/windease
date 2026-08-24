@@ -9,9 +9,23 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { resolveDropIntent } from '../dnd/dropIntent.js';
+import type { Point } from '../dnd/DragEngine.js';
+import { type DropIntent, resolveDropIntent } from '../dnd/dropIntent.js';
 import { axisFromRects, childRectsForContainer } from '../dnd/insertionIndex.js';
 import { accessibleName, type ChildOrderCommit, type NodeId, type Rect } from '../index.js';
+
+/** What a `dropIntent` callback is handed. The container has already measured
+ *  and inferred the axis; the callback only decides what the drop means. */
+export interface DropIntentContext {
+  /** Direct children in DOM order, with the dragged node removed. */
+  rects: readonly { id: string; rect: Rect }[];
+  /** Cursor, in the space the host samples in. */
+  point: Point;
+  /** This container's own main axis — a split runs across it. */
+  axis: 'x' | 'y';
+  /** The node being dragged. */
+  sourceId: NodeId;
+}
 
 /** `childRectsForContainer` reports DOMRects; the resolver takes plain bounds. */
 function domRectToRect(r: DOMRect): Rect {
@@ -60,6 +74,35 @@ export interface ContainerProps {
    * with children it cannot reach.
    */
   stackOnDrop?: boolean;
+  /**
+   * Let a drop in a cross-axis band of a child split that child: the child's
+   * slot becomes a two-pane strip holding it and the dropped node. Off by
+   * default, like `stackOnDrop`, because it restructures the tree.
+   *
+   * With `stackOnDrop` off the centre of a child still resolves to an insert —
+   * the centre band is only carved for stacking — which is the "edges split,
+   * everything else inserts" model a consumer without tabs wants.
+   */
+  splitOnDrop?: boolean;
+  /**
+   * What a prospective split draws. `'element'` positions a
+   * `div.windease-split-preview` over the half the dragged node would take;
+   * restyle it through that class. `'none'` draws nothing, for consumers
+   * drawing their own through `<DragProvider dragOverlay>`, whose context
+   * already carries the intent. Default `'element'`.
+   */
+  splitPreview?: 'none' | 'element';
+  /**
+   * Replace the built-in drop hit-test. Receives the measured child rects with
+   * the dragged node already removed, the cursor, this container's own axis,
+   * and the dragged node's id; returns what the drop means.
+   *
+   * The default is
+   * `resolveDropIntent(rects, point, axis, { stack: stackOnDrop, split: splitOnDrop })`.
+   * Use this to change band thickness, add quadrant zones, or refuse an intent
+   * on small panes — `resolveDropIntent` is exported, so a tweak is one call.
+   */
+  dropIntent?: (ctx: DropIntentContext) => DropIntent | undefined;
   /**
    * The element that scrolls this container's content — the wrapper carrying
    * `overflow: auto`, not the box itself. Reports its offset so a pane's
@@ -184,6 +227,9 @@ function StoreContainer({
   affordanceTabStops = true,
   onChildOrderChange,
   stackOnDrop = false,
+  splitOnDrop = false,
+  splitPreview = 'element',
+  dropIntent,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const store = useStore();
@@ -311,16 +357,20 @@ function StoreContainer({
         // to have set one, so read it off the arrangement CSS produced.
         const axis: 'x' | 'y' =
           cfg.axis ?? (isFlow ? axisFromRects(filtered) : strategyId === 'strip' ? 'x' : 'y');
-        return resolveDropIntent(
-          filtered.map((r) => ({ id: r.id, rect: domRectToRect(r.rect) })),
-          point,
-          axis,
-          stackOnDrop ? { stack: true } : {},
-        );
+        const mapped = filtered.map((r) => ({ id: r.id, rect: domRectToRect(r.rect) }));
+        if (dropIntent && sourceId) {
+          return dropIntent({ rects: mapped, point, axis, sourceId });
+        }
+        return resolveDropIntent(mapped, point, axis, {
+          ...(stackOnDrop ? { stack: true } : {}),
+          ...(splitOnDrop ? { split: true } : {}),
+        });
       },
     });
   }, [
     stackOnDrop,
+    splitOnDrop,
+    dropIntent,
     dragController,
     parentId,
     parent?.container?.strategyId,
@@ -401,6 +451,37 @@ function StoreContainer({
   }
   if (previewSourceId && !renderEntries.has(previewSourceId)) {
     renderEntries.set(previewSourceId, { isReal: false });
+  }
+
+  // The half a prospective split would hand the dragged node. Geometry comes
+  // from the onto-child's placement, which is already in the space the children
+  // above are positioned in — no second measurement per pointermove.
+  const splitIntent =
+    splitPreview === 'element' &&
+    dragState?.hover?.targetId === parentId &&
+    dragState.hover.accepted &&
+    dragState.hover.intent?.kind === 'split'
+      ? dragState.hover.intent
+      : null;
+  const splitOnto = splitIntent ? layout.placements.get(splitIntent.ontoId as NodeId) : undefined;
+  let splitStyle: CSSProperties | null = null;
+  if (splitIntent && splitOnto) {
+    splitStyle =
+      splitIntent.axis === 'y'
+        ? {
+            ...CHILD_BASE,
+            left: splitOnto.x,
+            width: splitOnto.w,
+            height: splitOnto.h / 2,
+            top: splitIntent.edge === 'start' ? splitOnto.y : splitOnto.y + splitOnto.h / 2,
+          }
+        : {
+            ...CHILD_BASE,
+            top: splitOnto.y,
+            height: splitOnto.h,
+            width: splitOnto.w / 2,
+            left: splitIntent.edge === 'start' ? splitOnto.x : splitOnto.x + splitOnto.w / 2,
+          };
   }
 
   return (
@@ -488,6 +569,9 @@ function StoreContainer({
         onActiveChange={setDraggingAffordanceId}
         onJoinArmChange={setJoinArmedId}
       />
+      {splitStyle ? (
+        <div className="windease-split-preview" style={splitStyle} aria-hidden="true" />
+      ) : null}
       {renderedOverlay}
     </div>
   );

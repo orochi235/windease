@@ -8,7 +8,9 @@
  *   - .windease-window reads the --w-x/y/w/h custom properties the library
  *     writes per-instance, and exposes itself as a named CSS size container
  *     so widgets can adapt with @container queries.
- *   - .windease-insertion-line gets a subtle default appearance.
+ *   - .windease-insertion-line gets a subtle default appearance, as does
+ *     .windease-split-preview, which the library positions over the half a
+ *     prospective split would take.
  *   - [data-join-armed] gets a visible default: releasing an armed seam-join
  *     destroys a pane with no confirmation step, so the point of no return
  *     cannot wait on consumer CSS.
@@ -62,6 +64,12 @@
   border: 2px dashed currentColor;
   box-sizing: border-box;
   border-radius: 4px;
+}
+
+.windease-split-preview {
+  background: currentColor;
+  opacity: 0.25;
+  pointer-events: none;
 }
 
 /*

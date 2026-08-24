@@ -1,7 +1,8 @@
 # TODO
 
 Future work, sectioned by item. Append new ideas here rather than scattering
-them. Tag major items with `[HIGH]`. What has already shipped is in
+them. Tag major items with `[HIGH]`, and ones worth doing but not next with
+`[MED]`. What has already shipped is in
 [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Test-harness gaps
@@ -16,7 +17,11 @@ them. Tag major items with `[HIGH]`. What has already shipped is in
 
 - **A spec fails under parallel load about 1% of the time, on any engine.**
   Seen as `keyboard.spec.ts` "F6 cycles from inside a text input" on Firefox
-  in a full three-engine run, green 48/48 in isolation. No diagnosis yet. This
+  in a full three-engine run, green 48/48 in isolation; seen again as
+  `declarative-keyboard.spec.ts` "an arrow key crosses from the Zone column to
+  the Panel column", also Firefox, also green in isolation. Both are keyboard
+  specs, which is the first thing that looks like a pattern. No diagnosis yet.
+  This
   is what the old "WebKit is flaky" entry described — a different spec each
   time, only under contention — but that entry's headline case turned out to
   be the stale-hover drop defect, which is fixed and was never timing.
@@ -106,22 +111,27 @@ Still open:
   in either direction, which is fixed. What a seam with no room should report
   instead is the open question.
 
-- **Drop on a pane's edge to split it [HIGH].** Drag A over the left third of
-  B and drop: B splits, A takes the new half. The gesture every tiling manager
-  and VS Code has, and the one standard drop semantic this library does not.
-  What was the hard part is done: `resolveDropIntent` already resolves a
-  `split` intent with its edge from the cross-axis bands, and `store.split`
-  already does the mutation. What is left is the commit path — `split` then
-  move A into the new half — and a preview. Until then the hover refuses a
-  split intent, so nothing emits one and `<Container>` never enables the
-  bands.
+- **A split has no live layout preview [MED].** Hovering an insertion makes the
+  destination lay out as if the drop had happened — `<Container>` feeds
+  `host.setPreview` an `insertId`/`insertIndex` and the panes part to make room
+  (`Container.tsx:206`, `useContainerLayout.ts:84`). A split gets a drawn
+  element instead (`splitPreview: 'element'`), because `LayoutPreview` models
+  one extra item in a container's child list and a split preview is a nested
+  group that does not exist yet: the parent must place a group in the hovered
+  pane's slot and something must lay out its interior. Adding `'layout'` to
+  `splitPreview` is a non-breaking addition to the union whenever that is worth
+  building.
 
-- **Only `<Container>` can stack on drop.** `stackOnDrop` is a `<Container>`
-  prop, and the drop target the declarative presets register through
-  `PresetShell` passes no `getDropIntent` at all — it passes no
-  `getInsertionIndex` either, so a `<Zone>` drop has always appended. Giving the
-  presets an intent means giving them a hit-test first, which is the same work
-  either way; nothing about the resolver is imperative-only.
+- **The declarative presets have no drop hit-test.** `stackOnDrop` and
+  `splitOnDrop` are `<Container>` props, and the drop target the presets
+  register through `PresetShell` passes no `getDropIntent` at all — it passes no
+  `getInsertionIndex` either, so a `<Zone>` drop has always appended. Two
+  features now depend on this: neither stacking nor drop-on-edge works under
+  `<Zone>` / `<Panel>`, and a preset that silently appends where the same
+  gesture splits under `<Container>` reads as a bug. Giving the presets an
+  intent means giving them a hit-test first, which is the same work either way;
+  nothing about the resolver is imperative-only, and fixing it also fixes plain
+  appending for every preset drop.
 
 - **`<Zone config>` is read once, at creation.** `makeReconciler` reconciles
   `meta`, `hints`, `placement`, `lock` and `pinned`, and `<Zone>` adds
@@ -174,6 +184,34 @@ Still open:
   makes a coordinated change a two-release sequence. Worth stealing regardless
   of the outcome: the `GESTURE_DESCRIPTORS` shape, one table every consumer
   reflects off, so adding an entry updates the matcher and the UI together.
+
+## Policies the library exports but nobody can replace [MED]
+
+`<Container>` ships two props of the same shape: `overlay` and `affordances`
+each take the built-in default *or* a function that replaces it, with the
+component still doing the measuring and handing the result over as context.
+`dropIntent` is the third. Each entry below is a pure policy the library
+exports and then calls from exactly one hardcoded site, so a consumer who
+wants a different rule can only re-implement it and correct the result after
+the fact.
+
+- **`chooseSuccessor`** (`src/focus/successor.ts:30`) picks who receives focus
+  when the focused node is destroyed. Wanting the left sibling rather than the
+  successor means listening for the focus event and moving focus again.
+- **`resolveNavigation`** (`src/focus/resolve.ts:77`) resolves directional
+  keyboard navigation from geometry. It already takes a `ResolveInput` bag, so
+  the callback shape is designed; nothing accepts one.
+- **A container's `canAccept`.** `<Container>` passes `undefined` for the drop
+  target's (`Container.tsx:302`), so per-container acceptance is only
+  expressible through a strategy's `canAccept` — per-strategy, not
+  per-container — or `lock.accept`, which is all or nothing.
+- **Edge-scroll tuning.** `<Container>` forwards only `scrollEl` to
+  `DropTargetOptions`, leaving `edgeScroll`'s rate and threshold unreachable.
+  Not a resolver, but the same dead end.
+
+`insertionIndexByMidpoint` and `axisFromRects` are deliberately absent:
+`dropIntent` subsumes both, because replacing the resolver replaces the calls
+to them.
 
 ## Groups
 
