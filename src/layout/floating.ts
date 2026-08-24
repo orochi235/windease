@@ -225,5 +225,18 @@ export function floatingStrategy<TInner>(
       trace('layout', `floating: ${id} -> ${anchor ?? `${next.x},${next.y}`}`);
       return { ...state, at: { ...state.at, [id]: { ...next, anchor } } };
     },
+
+    canAccept(items, options) {
+      if (!inner?.canAccept) return true;
+      return inner.canAccept(
+        items.filter((i) => !isFloating(i)),
+        options,
+      );
+    },
+
+    navigate(input) {
+      if (!inner?.navigate) return undefined;
+      return inner.navigate({ ...input, items: input.items.filter((i) => !isFloating(i)) });
+    },
   };
 }

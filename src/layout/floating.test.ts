@@ -250,3 +250,31 @@ describe('floatingStrategy.layout', () => {
     expect(floatingStrategy().name).toBe('floating');
   });
 });
+
+describe('floatingStrategy delegation', () => {
+  const inner = {
+    name: 'picky',
+    layout: () => ({ placements: new Map(), affordances: [] }),
+    canAccept: (items: LayoutItem[]) => items.length < 3,
+    navigate: () => 'from-inner' as const,
+  };
+
+  it('asks the inner strategy about a drop, without counting floating items', () => {
+    const s = floatingStrategy(inner);
+    // Two items, one of them floating: the inner strategy sees one, so it accepts.
+    expect(s.canAccept?.([panel, pane], {})).toBe(true);
+    expect(s.canAccept?.([pane, { id: 'third' }], {})).toBe(true);
+    expect(s.canAccept?.([pane, { id: 'third' }, { id: 'fourth' }], {})).toBe(false);
+  });
+
+  it('accepts everything when nothing is wrapped', () => {
+    expect(floatingStrategy().canAccept?.([panel, pane], {})).toBe(true);
+  });
+
+  it('lets the inner strategy answer navigation', () => {
+    const s = floatingStrategy(inner);
+    expect(s.navigate?.({ items: [pane], from: 'main', direction: 'left', options: {} })).toBe(
+      'from-inner',
+    );
+  });
+});
