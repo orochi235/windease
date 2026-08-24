@@ -580,6 +580,59 @@ gates — a stack locked against rearrangement cannot switch tabs either.
 
 See the **Tab stack / Stack on drop** story for the whole setup.
 
+## Floating chrome over a tiled zone
+
+`floatingStrategy(inner?)` places items marked `floating` free over the
+container, and hands everything else to the strategy it wraps. The inner
+strategy gets the **full** container — a floating panel reserves no space.
+
+```ts
+import { floatingStrategy, gridStrategy } from 'windease';
+
+const strategies = { board: floatingStrategy(gridStrategy) };
+```
+
+An item floats through its placement bag, alongside the corners it may snap to:
+
+```ts
+store.patchPlacement(panelId, { floating: true, snapCorners: ['bottom-left', 'bottom-right'] });
+```
+
+| Config | Default | Meaning |
+| --- | --- | --- |
+| `inset` | `12` | px from the corner a snapped item rests at |
+| `snapThreshold` | `12` | per-axis px within which a corner captures |
+| `defaultAnchor` | `'bottom-left'` | corner a newly floated item seeds at |
+| `handleSize` | `0` | height of the drag band; `0` makes the whole item the handle |
+
+Snapping is live during the drag — there is no drag-end event — so the item
+follows the pointer, sticks on reaching a corner, and lets go once the pointer
+travels `snapThreshold` past it. Un-snapping therefore moves the panel up to
+`snapThreshold` px at once.
+
+**The handle covers what it sits on.** An affordance is an interactive element
+at its own rect, so at the default `handleSize` of `0` the panel's own buttons
+and links cannot be clicked. Either give it a title-bar band, or turn the
+built-in handles off and dispatch the drag yourself:
+
+```tsx
+<Container affordances={false} … />;
+
+layout.dispatchAffordance({
+  affordanceId: `floating:drag:${panelId}`,
+  kind: 'drag',
+  payload: { dx, dy },
+});
+```
+
+Two limits. An item with neither a measured `natural` size nor
+`hints.preferredSize` is withheld into `unplaced` rather than placed at zero
+size. And `LayoutResult` carries no stacking order, so a floating item renders
+above a tiled one only if the host renders it later — register it last, or give
+it a higher `z-index` yourself.
+
+See the **Floating** story for both handle modes.
+
 ## Resize
 
 Pass `affordances` to `<Container>`, `<Zone>` or `<Panel container={...}>` to
