@@ -186,4 +186,4 @@ export {
   trace,
 } from './trace.js';
 
-export const VERSION = '1.2.1';
+export const VERSION = '1.3.0';

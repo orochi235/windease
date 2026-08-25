@@ -1034,7 +1034,7 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
-### Unreleased — a destroy-locked descendant refuses the whole cascade
+### 1.3.0 — a destroy-locked descendant refuses the whole cascade
 
 `unregisterNode` asserted `lock.destroy` on the id it was handed and then
 cleared the subtree with no further checks, so a locked node nested inside a
@@ -1051,7 +1051,7 @@ relied on the cascade to clear a locked descendant, force the call.
 `destroyBlockedBy(store, id)` is the same check, exported for a gesture that
 wants to refuse before it offers.
 
-### Unreleased — strategies may declare their config keys
+### 1.3.0 — strategies may declare their config keys
 
 `LayoutStrategy.configSpec` is new and optional. A strategy that declares the
 keys it understands gets typos in `container.config` reported as `layout`
@@ -1063,7 +1063,7 @@ checked, so nothing changes for third-party strategies until they opt in.
 `checkStrategyConfig(name, config, spec)` is exported for hosts that would
 rather assert on config in their own tests than read traces.
 
-### Unreleased — `lock.arrange` gates `reorderInParent`
+### 1.3.0 — `lock.arrange` gates `reorderInParent`
 
 `arrange` governs whether a container's children may be rearranged, and it
 already refused `setChildOrder`. `reorderInParent` asserted only `move` on the
@@ -1083,7 +1083,7 @@ nothing. Grafting without `at` appends rather than reorders and is governed by
 `arrange` before opening their transaction and run their internals with locks
 suspended.
 
-### Unreleased — `lock.arrange` applies to any node
+### 1.3.0 — `lock.arrange` applies to any node
 
 `arrange` used to be dropped from the lock set of a node with no container,
 which made it bind on every call that rearranges children *except*

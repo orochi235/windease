@@ -6,7 +6,7 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
-## Unreleased
+## 1.3.0
 
 ### Added
 
