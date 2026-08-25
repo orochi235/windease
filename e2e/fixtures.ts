@@ -2,10 +2,17 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 /** Ladle serves each story at `?story=<id>`; ids come from `/meta.json`. */
 export async function openStory(page: Page, storyId: string): Promise<void> {
-  await page.goto(`/?story=${storyId}`, { waitUntil: 'networkidle' });
+  await page.goto(`/?story=${storyId}`);
   // The first layout pass needs a ResizeObserver callback, which lands after
-  // paint — waiting on a placed node is what tells us it has run.
-  await expect(page.locator('[data-node]').first()).toBeVisible();
+  // paint — waiting on a placed node is what tells us it has run, and is why
+  // `goto` needs no readiness option of its own.
+  //
+  // 30s rather than the 5s default: the first open in a browser process pays
+  // for a cold start and a cold Vite transform, which under machine load
+  // measured 6.2s on Firefox against 2.8s on Chromium — the whole of this
+  // suite's flake history. Every real assertion in these specs keeps the
+  // default budget; this is a precondition, not a claim about the library.
+  await expect(page.locator('[data-node]').first()).toBeVisible({ timeout: 30_000 });
 }
 
 export interface Box {
