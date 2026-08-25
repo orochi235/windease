@@ -62,6 +62,21 @@ describe('gutter keyboard resize', () => {
     expect(g.getAttribute('tabindex')).toBe('0');
   });
 
+  it('reports a seam with no room to move as disabled', () => {
+    // Two 20px floors in a 30px container: every pane sits at its floor and the
+    // seam's range is a single point. Announcing a slider there would promise
+    // travel it cannot make.
+    const { container } = render(tree(makeStore(), { viewport: { w: 200, h: 30 } }));
+    const g = gutter(container);
+    expect(g.getAttribute('aria-valuemin')).toBe(g.getAttribute('aria-valuemax'));
+    expect(g.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('leaves a seam with room to move enabled', () => {
+    const { container } = render(tree(makeStore()));
+    expect(gutter(container).getAttribute('aria-disabled')).toBeNull();
+  });
+
   it('names itself from the panes it moves', () => {
     const { container } = render(tree(makeStore()));
     expect(gutter(container).getAttribute('aria-label')).toBe('resize Palette 1 and Palette 2');

@@ -45,7 +45,7 @@ export function useStack(containerId: NodeId): StackModel {
     (id: NodeId) => {
       const view = store.getContainerView(containerId);
       if (!view?.childOrder.includes(id)) return;
-      store.updateContainerConfig(containerId, { activeId: id });
+      store.setActiveChild(containerId, id);
     },
     [store, containerId],
   );

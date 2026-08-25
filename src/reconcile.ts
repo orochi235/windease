@@ -66,6 +66,59 @@ export function reconcileHints(store: Store, id: NodeId, hints: NodeHints): void
   store.setHints(id, hints as Record<string, unknown>);
 }
 
+/**
+ * Reconcile a declared container config against the one the last render
+ * declared. Skips under the container's arrange lock.
+ *
+ * Diffed against `prev` rather than against the store, because the store's copy
+ * also holds keys a gesture wrote — a stack's `activeId` moves on every tab
+ * click, and re-asserting the declared config on the next render would snap the
+ * tab back. A key `prev` declared and `next` drops is deleted, so the prop still
+ * reads declaratively for the keys it names.
+ */
+export function reconcileContainerConfig(
+  store: Store,
+  id: NodeId,
+  next: unknown,
+  prev: unknown,
+): void {
+  if (sameConfig(next, prev)) return;
+  if (store.isLocked(id, 'arrange')) {
+    trace('layout', `config reconcile skipped for ${id}: locked (arrange)`);
+    return;
+  }
+  store.updateContainerConfig(id, configPatch(next, prev));
+}
+
+/** The patch that takes `prev` to `next`: every key `next` names, plus
+ *  `undefined` for one `prev` named and `next` dropped. */
+function configPatch(next: unknown, prev: unknown): unknown {
+  if (!isRecord(next)) return next;
+  const patch: Record<string, unknown> = { ...next };
+  if (isRecord(prev)) {
+    for (const key of Object.keys(prev)) if (!(key in next)) patch[key] = undefined;
+  }
+  return patch;
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/** Structural equality, so a config literal rebuilt each render with the same
+ *  values does not rewrite the store and notify its way into a render loop. */
+function sameConfig(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((v, i) => sameConfig(v, b[i]));
+  }
+  if (!isRecord(a) || !isRecord(b)) return false;
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every((k) => k in b && sameConfig(a[k], b[k]));
+}
+
 /** Reconcile persisted strategy state. Skips under the container's arrange lock. */
 export function reconcileContainerState(store: Store, id: NodeId, state: unknown): void {
   if (store.isLocked(id, 'arrange')) {

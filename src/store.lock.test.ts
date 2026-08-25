@@ -134,10 +134,28 @@ describe('Store — destroy lock', () => {
     expect(s.getNode(p)).toBeUndefined();
   });
 
-  it('cascades through a locked child when an ancestor is destroyed', () => {
+  it('refuses to destroy an ancestor holding a destroy-locked descendant', () => {
     const { s, z, p } = seeded();
     s.setLock(p, { destroy: true });
-    s.unregisterNode(z);
+    expect(() => s.unregisterNode(z)).toThrow(LockedError);
+    // The refusal names the descendant that refused, not the id passed in.
+    expect(() => s.unregisterNode(z)).toThrow(new RegExp(`on ${p} `));
+    expect(s.getNode(p)).toBeDefined();
+    expect(s.getNode(z)).toBeDefined();
+  });
+
+  it('destroys through a locked descendant under force', () => {
+    const { s, z, p } = seeded();
+    s.setLock(p, { destroy: true });
+    s.unregisterNode(z, { force: true });
+    expect(s.getNode(p)).toBeUndefined();
+    expect(s.getNode(z)).toBeUndefined();
+  });
+
+  it('destroys through a locked descendant inside withLocksSuspended', () => {
+    const { s, z, p } = seeded();
+    s.setLock(p, { destroy: true });
+    s.withLocksSuspended(() => s.unregisterNode(z));
     expect(s.getNode(p)).toBeUndefined();
     expect(s.getNode(z)).toBeUndefined();
   });

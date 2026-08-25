@@ -362,6 +362,11 @@ function AffordanceHandle({
 
   const armedName = armedId !== null ? accessibleName(store, armedId) : null;
 
+  // A container squeezed under the sum of its panes' floors leaves every pane
+  // at its floor, and the seam between them reports a range of one point.
+  // Reported disabled rather than as a slider promising travel it cannot make.
+  const rangeless = bounds !== undefined && bounds.valueMax <= bounds.valueMin;
+
   return (
     <>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: role is separator whenever the key handler is attached; the rule cannot see through the conditional. */}
@@ -384,6 +389,7 @@ function AffordanceHandle({
         aria-valuemin={bounds ? Math.round(bounds.valueMin) : undefined}
         aria-valuemax={bounds ? Math.round(bounds.valueMax) : undefined}
         aria-label={bounds ? label : undefined}
+        aria-disabled={rangeless ? true : undefined}
       >
         <div
           style={innerStyle}

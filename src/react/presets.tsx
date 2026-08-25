@@ -13,8 +13,10 @@ import {
 import type { ChildSort } from '../child-sort.js';
 import type { DropIntent, Node, NodeHints, NodeId, PlacementCommit, Store } from '../index.js';
 import {
+  accessibleName,
   createNode,
   reconcileChildOrder,
+  reconcileContainerConfig,
   reconcileContainerState,
   reconcileHints,
   reconcilePinned,
@@ -136,7 +138,8 @@ interface AffordanceHostProps {
 export interface PanelProps extends CommonBindingProps, PresentationalProps, AffordanceHostProps {
   /** Promotes this panel to a container with the given strategy. Lets it host
    *  nested presets (`<Panel container={...}><Panel /></Panel>`). When absent,
-   *  Panel is a leaf — nested presets will fail with "parent has no container". */
+   *  Panel is a leaf — nested presets will fail with "parent has no container".
+   *  `config` reconciles the way `<Zone config>` does. */
   container?: { strategyId: string; config?: unknown };
   /** When true, wraps the panel's rendered content in a DragHandle so the
    *  user can drag this panel to another acceptsDrops target. */
@@ -183,6 +186,7 @@ function useMeasure(store: Store, id: NodeId, parent: LayoutInfo): PresetShellPr
 
 /** @group Components */
 export function Panel(props: PanelProps) {
+  const declaredConfig = useRef<unknown>(props.container?.config ?? {});
   const { id } = useNodeBinding({
     ...defined({ id: props.id, parentId: props.parentId, order: props.order }),
     kindHintForAutoId: 'panel',
@@ -211,7 +215,13 @@ export function Panel(props: PanelProps) {
           : null),
       });
     },
-    reconcile: makeReconciler(props),
+    reconcile: (store, id) => {
+      makeReconciler(props)(store, id);
+      if (props.container) {
+        reconcileContainerConfig(store, id, props.container.config ?? {}, declaredConfig.current);
+        declaredConfig.current = props.container.config ?? {};
+      }
+    },
   });
 
   // A pending `pinned` prop that skipped because the parent was arrange-
@@ -333,6 +343,9 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
 
 export interface ZoneProps extends CommonBindingProps, PresentationalProps, AffordanceHostProps {
   strategyId?: string;
+  /** Config for this zone's strategy. Reconciled against what the last render
+   *  declared: a changed key is applied and a dropped one deleted, while a key
+   *  a gesture wrote — a stack's `activeId` — is left alone. */
   config?: unknown;
   viewport?: { w: number; h: number };
   state?: unknown;
@@ -360,6 +373,9 @@ export interface ZoneProps extends CommonBindingProps, PresentationalProps, Affo
 
 /** @group Components */
 export function Zone(props: ZoneProps) {
+  // The config this component last declared. The factory writes the first one,
+  // so the reconcile below sees a change only when the prop itself moves.
+  const declaredConfig = useRef<unknown>(props.config);
   const { id } = useNodeBinding({
     ...defined({ id: props.id, parentId: props.parentId, order: props.order }),
     kindHintForAutoId: 'zone',
@@ -384,6 +400,8 @@ export function Zone(props: ZoneProps) {
       const base = makeReconciler(props);
       base(store, id);
       if (props.state !== undefined) reconcileContainerState(store, id, props.state);
+      reconcileContainerConfig(store, id, props.config, declaredConfig.current);
+      declaredConfig.current = props.config;
     },
   });
 
@@ -705,6 +723,7 @@ function PresetShell({
   const shell = (
     <ChildRegistryContext.Provider value={registry}>
       <ParentScope parentId={id}>
+        {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label is set only alongside role="group", under the same condition; the rule cannot see through the conditional. */}
         <div
           ref={wrapperRef}
           className={compose(wrapperClass, className)}
@@ -714,6 +733,8 @@ function PresetShell({
           data-node-container={id}
           data-join-armed={armedByParent === id ? 'true' : undefined}
           tabIndex={focusable ? (rovingId === id ? 0 : -1) : undefined}
+          role={focusable ? 'group' : undefined}
+          aria-label={focusable ? accessibleName(store, id) : undefined}
         >
           {measure ? (
             <MeasuredContent

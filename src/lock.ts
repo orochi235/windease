@@ -41,18 +41,17 @@ export function resolveLock(node: Node, input: boolean | LockSet): LockSet {
 
 /**
  * The first node in `id`'s subtree — `id` itself included — carrying
- * `lock.destroy`, or null when nothing does.
+ * `lock.destroy`, or null when nothing does. Returns the blocker rather than a
+ * boolean so a refusal can name which descendant refused.
  *
- * Deliberately stricter than the store it guards: `unregisterNode` asserts the
- * lock on the id it is handed and then cascades with no further checks, so a
- * locked descendant dies silently. A gesture that offers to destroy a subtree
- * asks this first, and returns the blocker rather than a boolean so the
- * refusal can name which descendant refused.
+ * Reads through `store.isLocked`, so `withLocksSuspended` clears it: `unsplit`
+ * and `hydrate` both destroy subtrees under suspension and must not be stopped
+ * by a lock they already decided to ignore.
  */
 export function destroyBlockedBy(store: Store, id: NodeId): NodeId | null {
   const node = store.getNode(id);
   if (!node) return null;
-  if (node.lock?.destroy === true) return id;
+  if (store.isLocked(id, 'destroy')) return id;
   for (const childId of node.container?.childOrder ?? []) {
     const blocker = destroyBlockedBy(store, childId);
     if (blocker !== null) return blocker;

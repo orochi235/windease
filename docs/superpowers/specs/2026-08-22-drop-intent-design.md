@@ -125,11 +125,11 @@ closed — the same tree already hides them under `<Container>`, which is what t
 and `stackNodes` sets it to the node it moved — you look at the pane you just
 dragged, not the one you dropped onto. That holds for a wrap and for a move into
 an existing stack. `useStack(containerId)` returns
-`{ tabs, activeId, activate }` and writes through `updateContainerConfig`.
+`{ tabs, activeId, activate }` and writes through `store.setActiveChild`.
 
-That call is gated by `lock.arrange`, so a stack locked against rearrangement
-also cannot switch tabs. This is the wrong axis for activation. It is recorded
-rather than fixed: a second lock axis costs more than the wart.
+No lock gates that call. `arrange` governs how a container's children are
+arranged, and which one a stack shows is not an arrangement — activation got its
+own verb rather than a second lock axis.
 
 ## Chrome
 

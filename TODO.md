@@ -78,16 +78,9 @@ Still open, waiting for a consumer to ask:
   zones that appear and disappear as worktrees are added/removed. Today
   `registerNode`/`unregisterNode` work; what's missing is a UX for it.
 
-## Preset panes carry no ARIA role or name
+## A flow `<Panel>` reports no child geometry
 
-`PresetShell` (`src/react/presets.tsx`) gives a pane that declares `focus` the
-same roving tab stop `<Container>` gives the children it renders, but not the
-`role="group"` and `aria-label` that go with it there — writing both literally
-needs a biome suppression, and writing them conditionally trips
-`useValidAriaProps`. A screen reader still hears the move through
-`bindAnnouncer`; what is missing is the name on arrival.
-
-Also still open: a `<Panel>` that is both a container and declares
+A `<Panel>` that is both a container and declares
 `hints.render: 'flow'` reports no child geometry. `usePublishGeometry` reads
 placements, and a flow container has none; the DOM measurement that covers this
 for `<Container>` (`measureFlow`) stays there because it harvests the children
@@ -109,16 +102,6 @@ Still open:
 - **Inter-zone resize** — dragging the gutter *between* zones is a
   workspace-level concern; see "Strategy for partitioning workspace".
 
-- **A seam in an over-squeezed strip reports a slider with no range.**
-  `finishBounds` (`src/layout/strip.ts`) sets `atMin` and `atMax` from
-  `valueNow` against the bounds, so a container narrower than the sum of its
-  panes' `minSize` floors leaves every pane at its floor with
-  `valueNow === valueMin === valueMax` — both flags true, and a screen reader
-  hears `aria-valuemin === aria-valuemax`. Pre-existing and unrelated to any one
-  gesture; found because seam-join read those flags and armed on the first move
-  in either direction, which is fixed. What a seam with no room should report
-  instead is the open question.
-
 - **A split has no live layout preview [MED].** Hovering an insertion makes the
   destination lay out as if the drop had happened — `<Container>` feeds
   `host.setPreview` an `insertId`/`insertIndex` and the panes part to make room
@@ -135,27 +118,6 @@ Still open:
   shaded half showing which side the drop takes has no preset equivalent, so a
   preset split is aimed blind. The same is true of the insertion preview, which
   `<Container>` feeds through `host.setPreview`.
-
-- **`<Zone config>` is read once, at creation.** `makeReconciler` reconciles
-  `meta`, `hints`, `placement`, `lock` and `pinned`, and `<Zone>` adds
-  `state` — but nothing reconciles `config`, so re-rendering with a changed
-  `config` prop is silently ignored and the only way to change it is
-  `store.updateContainerConfig`. Found while testing a stack's `activeId`.
-  Either reconcile it or say in the prop's doc that it is initial-only; today
-  it reads as a controlled prop and is not one.
-
-- **Switching a stack's tab is gated by `lock.arrange`.** `useStack().activate`
-  writes through `updateContainerConfig`, which asserts that axis, so a stack
-  locked against rearrangement also cannot switch tabs. Activation is not
-  arrangement. The fix is a lock axis or an exemption, and neither is obviously
-  worth it — recorded in the drop-intent design as a known wart.
-
-- **A stack's body swallows clicks on its own tab strip.** The nested
-  `<Container>` is a full-box element overlapping the band `headerSize`
-  reserved, so a strip drawn before it in DOM order needs raising — the story
-  does it with one `z-index`. Every consumer drawing a strip will hit this.
-  Either the reserved band should not be part of the body element, or the
-  README's one-line warning is the whole fix.
 
 - **Two gesture pipelines are converging.** `DragController` drags panes and
   owns arm/cancel/commit/lock/undo/announce; `AffordanceHandle` drags seams and
@@ -308,14 +270,6 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   nothing fits is clamped to the container rather than overflowed, so a
   consumer who would rather see the excess than a clamped pane has no way to
   ask for it. A choice, not a law — revisit if anyone wants the other one.
-- **`unregisterNode`'s cascade does not check descendant locks.** It asserts
-  `lock.destroy` on the id it is handed, then clears the subtree through
-  `detachAndRemove`, which asserts nothing — so a destroy-locked node nested
-  inside a destroyed subtree dies silently. Nothing reaches this today by
-  gesture; seam-join is the first thing that would, and it declines to, by
-  refusing to arm when any descendant is locked (`destroyBlockedBy`). Fixing it
-  in the store is the real repair, and it is a behavior change: hosts that
-  destroy a subtree today would start throwing.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like

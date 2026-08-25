@@ -71,6 +71,16 @@ describe('useStack', () => {
     expect(seen.current?.activeId).toBe(id('b'));
   });
 
+  it('activate switches tabs on a stack locked against rearrangement', async () => {
+    const store = seeded();
+    store.setLock(id('s1'), { arrange: true });
+    const seen = mount(store);
+    await act(async () => {
+      seen.current?.activate(id('b'));
+    });
+    expect(seen.current?.activeId).toBe(id('b'));
+  });
+
   it('activate is a no-op for an id that is not a child', () => {
     const store = seeded();
     const seen = mount(store);

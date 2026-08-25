@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createNode } from './constructors.js';
-import { asNodeId, LockedError, type NodeId, Store } from './index.js';
+import {
+  asNodeId,
+  CapabilityMissingError,
+  InvariantViolationError,
+  LockedError,
+  type NodeId,
+  Store,
+} from './index.js';
 import { serialize } from './snapshot.js';
 import { captureTrace } from './test-utils/capture-trace.js';
 import { recordEvents } from './test-utils/record-events.js';
@@ -146,5 +153,37 @@ describe('Store.stackNodes', () => {
     const { s, a, b } = seeded();
     s.stackNodes(a, b, { id: id('s1'), config: { headerSize: 28 } });
     expect(s.getNode(id('s1'))?.container?.config).toMatchObject({ headerSize: 28 });
+  });
+});
+
+describe('Store.setActiveChild', () => {
+  /** zone `z` › stack `s1` › panels `a`, `b`; `c` stays outside the stack. */
+  function stacked(): { s: Store; st: NodeId } {
+    const { s, a, b } = seeded();
+    s.stackNodes(a, b, { id: id('s1') });
+    return { s, st: id('s1') };
+  }
+
+  it('writes activeId into the container config', () => {
+    const { s, st } = stacked();
+    s.setActiveChild(st, id('a'));
+    expect(s.getNode(st)?.container?.config).toMatchObject({ activeId: id('a') });
+  });
+
+  it('switches the active child on an arrange-locked stack', () => {
+    const { s, st } = stacked();
+    s.setLock(st, { arrange: true });
+    s.setActiveChild(st, id('a'));
+    expect(s.getNode(st)?.container?.config).toMatchObject({ activeId: id('a') });
+  });
+
+  it('refuses an id that is not a child of the container', () => {
+    const { s, st } = stacked();
+    expect(() => s.setActiveChild(st, id('c'))).toThrow(InvariantViolationError);
+  });
+
+  it('refuses a node with no container capability', () => {
+    const { s } = stacked();
+    expect(() => s.setActiveChild(id('a'), id('b'))).toThrow(CapabilityMissingError);
   });
 });

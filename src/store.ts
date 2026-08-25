@@ -10,7 +10,7 @@ import {
 } from './errors.js';
 import { TypedEmitter } from './events.js';
 import { chooseSuccessor } from './focus/successor.js';
-import { type LockAxis, type LockSet, resolveLock } from './lock.js';
+import { destroyBlockedBy, type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeHints, NodeId } from './node.js';
 import { placeRespectingPins } from './pinning.js';
 import { splitNode, unsplitNode } from './split.js';
@@ -318,6 +318,10 @@ export class Store {
   unregisterNode(id: NodeId, opts?: MutateOptions): void {
     this.assertUnlocked(id, 'destroy', 'unregisterNode', opts);
     const node = this.requireNode(id);
+    if (opts?.force !== true) {
+      const blocker = destroyBlockedBy(this, id);
+      if (blocker !== null) throw new LockedError(blocker, 'destroy', 'unregisterNode');
+    }
     const wasIn = node.membership?.parentId;
     this.transact(() => {
       this.#unregisterNodeInner(id, node);
@@ -835,6 +839,25 @@ export class Store {
     this.replaceContainer(id, (c) => ({ ...c, config: next }));
     this.events.emit('container.configChanged', { id, from, to: next });
     this.scheduleNotify();
+  }
+
+  /**
+   * Show `childId` in `id`'s stack, by writing `activeId` into the container
+   * config. No lock gates it: `arrange` governs how children are arranged, and
+   * which one a stack shows is not an arrangement — a stack locked against
+   * rearrangement still switches tabs.
+   */
+  setActiveChild(id: NodeId, childId: NodeId, opts?: MutateOptions): void {
+    const node = this.requireNode(id);
+    if (!node.container) throw new CapabilityMissingError(id, 'container', 'setActiveChild');
+    if (!node.container.childOrder.includes(childId)) {
+      throw new InvariantViolationError(
+        'not-a-child',
+        `setActiveChild: ${childId} is not a child of ${id}`,
+        { id, childId },
+      );
+    }
+    this.updateContainerConfig(id, { activeId: childId }, { ...opts, force: true });
   }
 
   /**

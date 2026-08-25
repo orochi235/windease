@@ -150,6 +150,7 @@ export { observePixelRatio } from './pixel-ratio.js';
 export {
   type ObservedChild,
   reconcileChildOrder,
+  reconcileContainerConfig,
   reconcileContainerState,
   reconcileHints,
   reconcilePinned,

@@ -588,10 +588,14 @@ creates:
 <DragProvider stackConfig={{ headerSize: 28 }}>
 ```
 
-Two things to know when you draw the strip. The stack body is a full-box
-`<Container>` overlapping the reserved band, so the strip needs to sit above it.
-And activation is written with `updateContainerConfig`, which `lock.arrange`
-gates — a stack locked against rearrangement cannot switch tabs either.
+One thing to know when you draw the strip: the stack body is a full-box
+`<Container>` overlapping the reserved band, so a strip drawn before it in DOM
+order swallows its own clicks. Raise the strip — `position: relative` and a
+`z-index` above the body is the whole fix.
+
+`activate` writes through `store.setActiveChild`, which no lock gates: `arrange`
+governs how a container's children are arranged, and which tab a stack shows is
+not an arrangement.
 
 See the **Tab stack / Stack on drop** story for the whole setup.
 
@@ -1029,6 +1033,23 @@ placement travels with it. Focus does not move — call `focusNode` yourself if
 the arriving subtree should take it.
 
 ## Breaking changes
+
+### Unreleased — a destroy-locked descendant refuses the whole cascade
+
+`unregisterNode` asserted `lock.destroy` on the id it was handed and then
+cleared the subtree with no further checks, so a locked node nested inside a
+destroyed subtree died silently — the lock held only when you named that node
+directly.
+
+The whole subtree is now checked before anything is removed. Destroying an
+ancestor of a destroy-locked node throws `LockedError` naming the descendant
+that refused, and writes nothing. `{ force: true }` and `withLocksSuspended`
+destroy through it as before — which is what React unmount, `unsplit` and
+`hydrate` already use, so nothing inside the library changes behavior. If you
+relied on the cascade to clear a locked descendant, force the call.
+
+`destroyBlockedBy(store, id)` is the same check, exported for a gesture that
+wants to refuse before it offers.
 
 ### Unreleased — strategies may declare their config keys
 

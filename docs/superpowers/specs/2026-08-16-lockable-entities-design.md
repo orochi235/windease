@@ -52,7 +52,7 @@ store.getLock(id): Readonly<LockSet>;           // resolved and capability-filte
 | --------- | ------------ | ------------------------------------------------------------ |
 | `move`    | `membership` | `moveNode` (as source), `reorderInParent`                      |
 | `resize`  | `membership` | `patchPlacement`, reserved `size` key only                     |
-| `destroy` | —            | `unregisterNode`                                               |
+| `destroy` | —            | `unregisterNode`, on the id and every node under it            |
 | `accept`  | `container`  | `moveNode` (as target)                                         |
 | `dragOut` | `container`  | `moveNode` where the source's parent is this node              |
 | `arrange` | `container`  | `setChildOrder`, `setContainerState`, `updateContainerConfig`   |

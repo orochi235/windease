@@ -145,9 +145,38 @@ section below.
 - **Affordances and content sizing in the declarative path.** `hints` is a prop on
   `<Zone>` / `<Panel>`, and affordances reach the presets, so the declarative and
   imperative paths no longer disagree about what a container can express.
+- **`store.setActiveChild(containerId, childId)`.** Shows a child of a stack. No lock
+  gates it — `arrange` governs how a container's children are arranged, and which one a
+  stack shows is not an arrangement, so a stack locked against rearrangement still
+  switches tabs. `useStack().activate` writes through it, and refuses an id that is not a
+  child of the container.
+- **A name on a preset pane a screen reader lands on.** `<Zone>` / `<Panel>` gave a pane
+  that declares `focus` the same roving tab stop `<Container>` gives the children it
+  renders, but not the `role="group"` and `aria-label` that go with it there — so arriving
+  by keyboard announced nothing. A pane that declares no focus takes no tab stop and still
+  gets neither.
 
 ### Changed
 
+- **`<Zone config>` and `<Panel container={{ config }}>` are reconciled.** Re-rendering
+  with a changed `config` prop was silently ignored, so the only way to change one was
+  `store.updateContainerConfig` — the prop read as controlled and was not. It is now
+  diffed against what the last render declared: a key the prop drops is deleted, and a key
+  a gesture wrote (a stack's `activeId`) is left alone, so a tab click is not undone by the
+  next render. Skipped entirely while the container is `arrange`-locked, like the other
+  reconciled fields.
+- **Destroying a subtree refuses when any node in it is destroy-locked.**
+  `unregisterNode` asserted `lock.destroy` on the id it was handed and then cascaded with
+  no further checks, so a locked descendant died silently. It now throws `LockedError`
+  naming the descendant that refused, and writes nothing. `{ force: true }` and
+  `withLocksSuspended` still destroy through it — which is what React unmount, `unsplit`
+  and `hydrate` already use. A host that relied on the cascade to clear a locked
+  descendant now has to force the call.
+- **A seam with no room to move reports `aria-disabled`.** A container squeezed under the
+  sum of its panes' `minSize` floors leaves every pane at its floor, and the seam between
+  them reported a slider whose `aria-valuemin` equalled its `aria-valuemax`. It keeps its
+  tab stop and its position in the reading order; what changes is that it no longer
+  promises travel it cannot make.
 - **A child a strategy withheld now renders nothing under `<Zone>` / `<Panel>`.** It
   previously fell back to normal flow, unpositioned, because those presets treat a missing
   rect as "nobody is placing me" — which is still what flow mode and an unregistered
