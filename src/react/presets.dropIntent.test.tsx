@@ -1,7 +1,14 @@
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { childRectsForContainer } from '../dnd/insertionIndex.js';
-import { asNodeId, type DragController, type Rect, Store, stripStrategy } from '../index.js';
+import {
+  asNodeId,
+  createNode,
+  type DragController,
+  type Rect,
+  Store,
+  stripStrategy,
+} from '../index.js';
 import { DragProvider, useDragController } from './dnd/DragProvider.js';
 import { Panel, Provider, StrategyRegistryProvider, Zone } from './index.js';
 
@@ -110,6 +117,36 @@ async function hoverAt(
   // The sample is frame-scheduled, so the hover is not resolved on return.
   await new Promise((r) => setTimeout(r, 20));
 }
+
+describe('preset DOM contract, imperative children', () => {
+  it('harvests a child the zone rendered imperatively', async () => {
+    const store = new Store();
+    const zoneId = asNodeId('shelf');
+    const { container } = render(
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={STRATEGIES}>
+          <Zone
+            id={zoneId}
+            strategyId="strip"
+            config={{ axis: 'x', fill: true }}
+            viewport={{ w: 200, h: 100 }}
+            renderImperative={(node) => <div className={`imp-${node.id}`} />}
+          />
+        </StrategyRegistryProvider>
+      </Provider>,
+    );
+    // The zone is JSX-owned, its child is not — the provenance a drop that
+    // restructures the tree forces, since a preset cannot adopt a node the
+    // store made.
+    await act(async () => {
+      const impId = asNodeId('imp');
+      store.registerNode(createNode({ id: impId, kind: 'panel', focus: true, parentId: zoneId }));
+      store.showNode(impId);
+    });
+    const shelf = container.querySelector('[data-node="shelf"]') as HTMLElement;
+    expect(childRectsForContainer(shelf).map((r) => r.id)).toEqual(['imp']);
+  });
+});
 
 describe('a preset resolves a drop intent', () => {
   it('reports the insertion index the cursor is nearest', async () => {

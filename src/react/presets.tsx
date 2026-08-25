@@ -495,7 +495,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
       const rect = layout.placements.get(node.id);
       if (!rect) continue;
       out.push(
-        <AbsoluteWrapper key={`imp-${node.id}`} rect={rect} parentId={props.id}>
+        <AbsoluteWrapper key={`imp-${node.id}`} rect={rect} parentId={props.id} nodeId={node.id}>
           {renderImperative(node)}
         </AbsoluteWrapper>,
       );
@@ -750,10 +750,15 @@ function PresetShell({
 function AbsoluteWrapper({
   rect,
   parentId,
+  nodeId,
   children,
 }: {
   rect: Rect;
   parentId?: NodeId | undefined;
+  /** Set when this box is the child's only chrome — an imperative render,
+   *  which stamps no `data-node` of its own and would be invisible to every
+   *  DOM harvest, the drop hit-test included. */
+  nodeId?: NodeId | undefined;
   children: ReactNode;
 }) {
   const { settleMs } = useLayoutContext();
@@ -768,7 +773,7 @@ function AbsoluteWrapper({
     style.transition = `left ${settleMs}ms ease, top ${settleMs}ms ease, width ${settleMs}ms ease, height ${settleMs}ms ease`;
   }
   return (
-    <div style={style} data-node-container={parentId}>
+    <div style={style} data-node={nodeId} data-node-container={parentId}>
       {children}
     </div>
   );

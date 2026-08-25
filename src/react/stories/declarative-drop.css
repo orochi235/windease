@@ -1,0 +1,108 @@
+.dd-frame {
+  padding: 12px;
+  background: #101218;
+  border-radius: 8px;
+  display: inline-block;
+}
+
+.dd-zone {
+  background: #0b0d12;
+  border-radius: 6px;
+}
+
+.dd-pane {
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1b2030;
+  border: 1px solid #2b3346;
+  border-radius: 5px;
+  color: #dfe4ef;
+  overflow: hidden;
+}
+
+.dd-pane__title {
+  font:
+    600 12px / 1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  border-bottom: 1px solid #2b3346;
+  cursor: grab;
+}
+
+.dd-pane__body {
+  padding: 10px 12px;
+  font:
+    12px / 1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  color: #97a0b5;
+}
+
+.dd-nested {
+  position: relative;
+  height: 100%;
+}
+
+/* The stack's body is a full-box container overlapping the header band it
+   reserved, so the strip needs raising or it cannot be clicked. */
+.dd-tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 4px;
+  height: 26px;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.dd-tab {
+  font:
+    11px / 1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  padding: 5px 9px;
+  border-radius: 4px;
+  border: 1px solid #2b3346;
+  background: #151a27;
+  color: #97a0b5;
+  cursor: pointer;
+}
+
+.dd-tab[aria-selected="true"] {
+  background: #24304a;
+  color: #e6ebf5;
+}
+
+.dd-zone .windease-split-preview,
+.dd-nested .windease-split-preview {
+  background: #5b8cff;
+  opacity: 0.35;
+  border-radius: 4px;
+}
+
+.dd-readout {
+  font:
+    12px / 1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: #8d97ad;
+  margin: 12px 0 0;
+}
+
+.dd-readout__value {
+  color: #e6ebf5;
+}
+
+.dd-prose {
+  max-width: 62ch;
+  font:
+    13px / 1.6 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  color: #97a0b5;
+}
