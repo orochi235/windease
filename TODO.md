@@ -15,16 +15,23 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   mutation returns. The one live instance has been fixed; nothing
   prevents a new one, so this stays on the list as a review item.
 
-- **A spec fails under parallel load about 1% of the time, on any engine.**
-  Seen as `keyboard.spec.ts` "F6 cycles from inside a text input" on Firefox
-  in a full three-engine run, green 48/48 in isolation; seen again as
+- **Specs fail under machine load, always on Firefox. [HIGH]** Not keyboard-
+  specific, which is what the first two sightings suggested: an e2e run sharing
+  the machine with a full `vitest run` failed four at once — grid
+  `overflowMode: 'scroll'` in `capabilities.spec.ts`, two `drop-on-edge` splits,
+  and a `floating` hit-test — where the two earlier sightings were
+  `keyboard.spec.ts` "F6 cycles from inside a text input" and
   `declarative-keyboard.spec.ts` "an arrow key crosses from the Zone column to
-  the Panel column", also Firefox, also green in isolation. Both are keyboard
-  specs, which is the first thing that looks like a pattern. No diagnosis yet.
-  This
-  is what the old "WebKit is flaky" entry described — a different spec each
-  time, only under contention — but that entry's headline case turned out to
-  be the stale-hover drop defect, which is fixed and was never timing.
+  the Panel column". Every one of them is green in isolation (25/25 in 28.6s
+  against 12.5s for a single spec under load), and the same suite is 261/261 on
+  an idle machine.
+
+  What they share is polling a measurement — a box that has to grow, a rect a
+  drop lands in — so the first hypothesis is a fixed timeout against a
+  layout/paint that contention stretches past it, not a race in the library.
+  Nothing points at library code yet. Worth reproducing deliberately under
+  `taskset`/`nice` load rather than waiting to catch it, and worth checking
+  whether these polls are `expect.poll` with the default timeout.
 
 ## Pinning items within a zone
 
