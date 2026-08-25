@@ -15,23 +15,35 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   mutation returns. The one live instance has been fixed; nothing
   prevents a new one, so this stays on the list as a review item.
 
-- **Specs fail under machine load, always on Firefox. [HIGH]** Not keyboard-
-  specific, which is what the first two sightings suggested: an e2e run sharing
-  the machine with a full `vitest run` failed four at once — grid
-  `overflowMode: 'scroll'` in `capabilities.spec.ts`, two `drop-on-edge` splits,
-  and a `floating` hit-test — where the two earlier sightings were
-  `keyboard.spec.ts` "F6 cycles from inside a text input" and
-  `declarative-keyboard.spec.ts` "an arrow key crosses from the Zone column to
-  the Panel column". Every one of them is green in isolation (25/25 in 28.6s
-  against 12.5s for a single spec under load), and the same suite is 261/261 on
-  an idle machine.
+- **CI's e2e job has been red since 2026-08-22, always on WebKit. [HIGH]**
+  Five consecutive runs on `main`, last green 2026-08-21. Different specs each
+  run — `content-sizing.spec.ts` "a pane is as tall as its contents",
+  `drag.spec.ts` "dropping a panel on the other zone reparents it",
+  `insertion.spec.ts` "a drop aimed at index 0 is routed around the pinned
+  head", and most recently `floating.spec.ts` "dragging back off the corner
+  leaves it free" — but the engine is WebKit every time, and macOS WebKit
+  passes all of them locally. The floating case is deterministic rather than
+  flaky: `after.right` is 12 against an expected >60 on both the run and its
+  retry, meaning the panel stayed snapped to the corner instead of coming
+  free. So the suspects are the ones that differ between WebKit builds —
+  pointer/drag emulation and font metrics — not timing.
 
-  What they share is polling a measurement — a box that has to grow, a rect a
-  drop lands in — so the first hypothesis is a fixed timeout against a
-  layout/paint that contention stretches past it, not a race in the library.
-  Nothing points at library code yet. Worth reproducing deliberately under
-  `taskset`/`nice` load rather than waiting to catch it, and worth checking
-  whether these polls are `expect.poll` with the default timeout.
+  Nothing gates a release on this: `release.yml` runs lint, typecheck and unit
+  tests, not e2e, which is how 1.3.0 published with CI red. Decide whether it
+  should.
+
+- **A spec can fail under machine load, on the engine slowest to start.** The
+  margin, not a race: `openStory` waits for the first placed node, and against
+  a cold Vite cache under load that costs 5071ms and 6216ms on Firefox against
+  2784ms on Chromium and 2381ms on WebKit — where the budget was the default
+  5s. Now a condition-based wait with a 30s budget (`e2e/fixtures.ts`), sized
+  against the 15.4s the slowest cold-cache test actually takes.
+
+  Kept on the list because the suite itself never failed on demand: three
+  attempts at suite level — synthetic CPU load, cold cache, and a concurrent
+  `vitest run` — all stayed green, so the fix is verified against the measured
+  margin rather than against a reproduction.
+  `scripts/probe-story-load.mjs` measures that margin per engine.
 
 ## Pinning items within a zone
 
