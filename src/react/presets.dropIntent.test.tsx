@@ -116,9 +116,13 @@ describe('a preset resolves a drop intent', () => {
     const store = new Store();
     let c!: DragController;
     const { container } = render(
-      presetTree(store, (ctl) => {
-        c = ctl;
-      }, {}),
+      presetTree(
+        store,
+        (ctl) => {
+          c = ctl;
+        },
+        {},
+      ),
     );
     // `a` is in flight, so `b` is the only rect left: a cursor left of its
     // midpoint inserts before it rather than appending after it.
@@ -130,9 +134,13 @@ describe('a preset resolves a drop intent', () => {
     const store = new Store();
     let c!: DragController;
     const { container } = render(
-      presetTree(store, (ctl) => {
-        c = ctl;
-      }, { stackOnDrop: true }),
+      presetTree(
+        store,
+        (ctl) => {
+          c = ctl;
+        },
+        { stackOnDrop: true },
+      ),
     );
     await hoverAt(c, container, { x: 150, y: 50 });
     expect(c.state()?.hover?.intent?.kind).toBe('stack');
@@ -142,9 +150,13 @@ describe('a preset resolves a drop intent', () => {
     const store = new Store();
     let c!: DragController;
     const { container } = render(
-      presetTree(store, (ctl) => {
-        c = ctl;
-      }, { splitOnDrop: true }),
+      presetTree(
+        store,
+        (ctl) => {
+          c = ctl;
+        },
+        { splitOnDrop: true },
+      ),
     );
     // The top edge of `b` is the cross axis of a horizontal strip.
     await hoverAt(c, container, { x: 150, y: 4 });

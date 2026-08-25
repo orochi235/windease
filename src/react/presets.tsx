@@ -501,7 +501,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
       );
     }
     return out;
-  }, [renderImperative, allChildren, layout.placements]);
+  }, [renderImperative, allChildren, layout.placements, props.id]);
 
   return (
     <LayoutScope value={layoutInfo}>
