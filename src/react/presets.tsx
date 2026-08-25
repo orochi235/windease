@@ -469,7 +469,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
       const rect = layout.placements.get(node.id);
       if (!rect) continue;
       out.push(
-        <AbsoluteWrapper key={`imp-${node.id}`} rect={rect}>
+        <AbsoluteWrapper key={`imp-${node.id}`} rect={rect} parentId={props.id}>
           {renderImperative(node)}
         </AbsoluteWrapper>,
       );
@@ -656,6 +656,7 @@ function PresetShell({
           style={style}
           data-testid={testId}
           data-node={id}
+          data-node-container={id}
           data-join-armed={armedByParent === id ? 'true' : undefined}
           tabIndex={focusable ? (rovingId === id ? 0 : -1) : undefined}
         >
@@ -681,13 +682,25 @@ function PresetShell({
   if (withheld) return null;
   if (!selfRect) return shell;
 
-  return <AbsoluteWrapper rect={selfRect}>{shell}</AbsoluteWrapper>;
+  return (
+    <AbsoluteWrapper rect={selfRect} parentId={store.getNode(id)?.membership?.parentId}>
+      {shell}
+    </AbsoluteWrapper>
+  );
 }
 
 /** Absolute-positioned box that places its child at the strategy-computed
  *  rect. Reads `settleMs` from `LayoutContext` so all siblings animate
  *  consistently. */
-function AbsoluteWrapper({ rect, children }: { rect: Rect; children: ReactNode }) {
+function AbsoluteWrapper({
+  rect,
+  parentId,
+  children,
+}: {
+  rect: Rect;
+  parentId?: NodeId | undefined;
+  children: ReactNode;
+}) {
   const { settleMs } = useLayoutContext();
   const style: CSSProperties = {
     position: 'absolute',
@@ -699,5 +712,9 @@ function AbsoluteWrapper({ rect, children }: { rect: Rect; children: ReactNode }
   if (settleMs > 0) {
     style.transition = `left ${settleMs}ms ease, top ${settleMs}ms ease, width ${settleMs}ms ease, height ${settleMs}ms ease`;
   }
-  return <div style={style}>{children}</div>;
+  return (
+    <div style={style} data-node-container={parentId}>
+      {children}
+    </div>
+  );
 }
