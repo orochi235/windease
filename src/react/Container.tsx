@@ -9,31 +9,15 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import type { Point } from '../dnd/DragEngine.js';
-import { type DropIntent, resolveDropIntent } from '../dnd/dropIntent.js';
-import { axisFromRects, childRectsForContainer } from '../dnd/insertionIndex.js';
-import { accessibleName, type ChildOrderCommit, type NodeId, type Rect } from '../index.js';
+import type { DropIntent } from '../dnd/dropIntent.js';
+import { childRectsForContainer } from '../dnd/insertionIndex.js';
+import { accessibleName, type ChildOrderCommit, type NodeId } from '../index.js';
 
-/** What a `dropIntent` callback is handed. The container has already measured
- *  and inferred the axis; the callback only decides what the drop means. */
-export interface DropIntentContext {
-  /** Direct children in DOM order, with the dragged node removed. */
-  rects: readonly { id: string; rect: Rect }[];
-  /** Cursor, in the space the host samples in. */
-  point: Point;
-  /** This container's own main axis — a split runs across it. */
-  axis: 'x' | 'y';
-  /** The node being dragged. */
-  sourceId: NodeId;
-}
-
-/** `childRectsForContainer` reports DOMRects; the resolver takes plain bounds. */
-function domRectToRect(r: DOMRect): Rect {
-  return { x: r.left, y: r.top, w: r.width, h: r.height };
-}
+export type { DropIntentContext } from './dnd/useDropIntentTarget.js';
 
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragContext } from './dnd/DragProvider.js';
+import { type DropIntentContext, useDropIntentTarget } from './dnd/useDropIntentTarget.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useGeometryRegistry } from './focus/useGeometrySource.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
@@ -334,50 +318,16 @@ function StoreContainer({
     return dragController.registerOrderControl(parentId, onChildOrderChange);
   }, [dragController, parentId, onChildOrderChange]);
 
-  // Register a default getInsertionIndex on the container element so the
-  // controller can resolve cursor → child slot without consumer wiring.
-  // Strategy axis is inferred from container.config.axis (defaults to 'y'
-  // for stack, 'x' for strip — for grid we leave it undefined and let the
-  // strategy's fast path handle it via list order).
-  useEffect(() => {
-    if (!dragController) return;
-    const el = ref.current;
-    if (!el) return;
-    const cfg = (parent?.container?.config ?? {}) as { axis?: 'x' | 'y' };
-    const strategyId = parent?.container?.strategyId;
-    return dragController.registerDropTarget(parentId, el, undefined, {
-      scrollEl: scrollRef?.current ?? null,
-      getDropIntent: (point) => {
-        const rects = childRectsForContainer(el);
-        if (rects.length === 0) return { kind: 'insert', index: 0 };
-        // Skip the source itself for same-parent previews.
-        const sourceId = dragController.state()?.draggingId;
-        const filtered = sourceId ? rects.filter((r) => r.id !== sourceId) : rects;
-        // A flow container has no strategy to infer an axis from and no reason
-        // to have set one, so read it off the arrangement CSS produced.
-        const axis: 'x' | 'y' =
-          cfg.axis ?? (isFlow ? axisFromRects(filtered) : strategyId === 'strip' ? 'x' : 'y');
-        const mapped = filtered.map((r) => ({ id: r.id, rect: domRectToRect(r.rect) }));
-        if (dropIntent && sourceId) {
-          return dropIntent({ rects: mapped, point, axis, sourceId });
-        }
-        return resolveDropIntent(mapped, point, axis, {
-          ...(stackOnDrop ? { stack: true } : {}),
-          ...(splitOnDrop ? { split: true } : {}),
-        });
-      },
-    });
-  }, [
+  const containerCfg = (parent?.container?.config ?? {}) as { axis?: 'x' | 'y' };
+  useDropIntentTarget(parentId, ref, {
+    ...(containerCfg.axis ? { axis: containerCfg.axis } : {}),
+    ...(parent?.container?.strategyId ? { strategyId: parent.container.strategyId } : {}),
+    isFlow,
     stackOnDrop,
     splitOnDrop,
-    dropIntent,
-    dragController,
-    parentId,
-    parent?.container?.strategyId,
-    parent?.container?.config,
-    isFlow,
-    scrollRef,
-  ]);
+    ...(dropIntent ? { dropIntent } : {}),
+    ...(scrollRef ? { scrollRef } : {}),
+  });
 
   // Track which affordance is currently being dragged (if any) so we can
   // suppress the settle transition (cursor IS the motion) AND expose the id
