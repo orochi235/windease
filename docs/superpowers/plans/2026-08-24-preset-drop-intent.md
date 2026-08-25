@@ -62,7 +62,10 @@ export interface DropIntentTargetOptions {
   stackOnDrop?: boolean | undefined;
   splitOnDrop?: boolean | undefined;
   dropIntent?: ((ctx: DropIntentContext) => DropIntent | undefined) | undefined;
-  scrollEl?: Element | null | undefined;
+  /** The ref to the element that scrolls this container's content. A ref, not
+   *  an element: `.current` is null on the first render and the effect must
+   *  read it when it runs. */
+  scrollRef?: RefObject<Element | null> | undefined;
   canAccept?: ((sourceId: NodeId) => boolean) | undefined;
 }
 
@@ -93,7 +96,7 @@ export function useDropIntentTarget(
     stackOnDrop,
     splitOnDrop,
     dropIntent,
-    scrollEl,
+    scrollRef,
     canAccept,
   } = opts;
   const controller = useContext(DragContext);
@@ -103,7 +106,7 @@ export function useDropIntentTarget(
     const el = ref.current;
     if (!el) return;
     return controller.registerDropTarget(parentId, el, canAccept, {
-      scrollEl: scrollEl ?? null,
+      scrollEl: scrollRef?.current ?? null,
       getDropIntent: (point) => {
         const rects = childRectsForContainer(el);
         if (rects.length === 0) return { kind: 'insert', index: 0 };
@@ -134,7 +137,7 @@ export function useDropIntentTarget(
     stackOnDrop,
     splitOnDrop,
     dropIntent,
-    scrollEl,
+    scrollRef,
   ]);
 }
 ```
@@ -152,7 +155,7 @@ In `src/react/Container.tsx`, delete the `useEffect` that begins with the commen
     stackOnDrop,
     splitOnDrop,
     ...(dropIntent ? { dropIntent } : {}),
-    scrollEl: scrollRef?.current ?? null,
+    ...(scrollRef ? { scrollRef } : {}),
   });
 ```
 
