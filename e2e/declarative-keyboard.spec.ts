@@ -20,14 +20,22 @@ function settleFrames(page: Page) {
   );
 }
 
-/** Top-to-bottom order of the left column's panes, read off their rendered
- *  positions rather than the store. */
-async function leftColumnOrder(page: Page): Promise<string[]> {
+/**
+ * Top-to-bottom order of the left column's panes, read off their rendered
+ * positions rather than the store — or null while any of them has no box yet.
+ *
+ * The column is a `<Zone>` with no viewport prop, so it measures itself before
+ * it can place anything, and until that lands its panes render in flow at full
+ * height. `openStory` cannot wait that out: every preset stamps `data-node`, so
+ * the zone above these panes satisfies it on the first paint. Null rather than
+ * a throw so a caller can poll for the settled column.
+ */
+async function leftColumnOrder(page: Page): Promise<string[] | null> {
   const ids = ['kb-a', 'kb-b', 'kb-c'];
   const withTops: Array<{ id: string; top: number }> = [];
   for (const id of ids) {
     const box = await page.locator(`[data-node="${id}"]`).boundingBox();
-    if (!box) throw new Error(`${id} has no box`);
+    if (!box) return null;
     withTops.push({ id, top: box.y });
   }
   return withTops.sort((a, b) => a.top - b.top).map((e) => e.id);
@@ -60,7 +68,7 @@ test.describe('preset-built tree', () => {
 
   test('shift+arrow moves the pane itself', async ({ page }) => {
     await openStory(page, STORY);
-    expect(await leftColumnOrder(page)).toEqual(['kb-a', 'kb-b', 'kb-c']);
+    await expect.poll(() => leftColumnOrder(page)).toEqual(['kb-a', 'kb-b', 'kb-c']);
     await page.locator('[data-node="kb-a"]').click();
     await expect.poll(() => focusedNode(page)).toBe('kb-a');
 

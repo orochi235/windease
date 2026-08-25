@@ -15,32 +15,13 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   mutation returns. The one live instance has been fixed; nothing
   prevents a new one, so this stays on the list as a review item.
 
-- **Three arrow-key specs fail on Linux WebKit, and CI has never reported them. [HIGH]**
-  `declarative-keyboard.spec.ts` "an arrow key at the outer edge is inert" and the same
-  case in `parallel-zones.spec.ts` fail every run in a Linux WebKit container;
-  `declarative-keyboard.spec.ts` "shift+arrow moves the pane itself" fails
-  intermittently there. All three pass on macOS WebKit and on the other two
-  engines. They are not the native-drag defect — they fail with that fix reverted
-  too — and they are not what turned CI red, which was four drag specs now fixed.
-  Whether CI hides them behind `retries: 1` or its WebKit differs from the
-  container's is the first thing to establish.
-
-  Reproduce Linux WebKit locally without waiting on CI — this is what found the
-  native-drag defect, and it runs in under a minute:
-
-  ```
-  npx ladle serve --host 0.0.0.0 --port 61000 --viteConfig <config allowing all hosts>
-  docker run --rm --add-host=host.docker.internal:host-gateway \
-    -v "$PWD":/repo:ro -v /tmp/work:/work -w /work \
-    mcr.microsoft.com/playwright:v1.62.1-noble \
-    bash -lc 'cp -r /repo/e2e /work/e2e && npm i @playwright/test@1.62.1 \
-      && npx playwright test -c playwright.linux.config.ts --project=webkit'
-  ```
-
-  The container needs its own config: `testDir` pointing at its copy of `e2e/`
-  (so `@playwright/test` resolves to the container's install, not the host's
-  macOS binaries), no `webServer`, and `baseURL` at `host.docker.internal`.
-  Ladle's Vite refuses that Host header without `server.allowedHosts`.
+- **A geometry read straight after `openStory` can catch a preset tree
+  mid-layout.** Fixed for `declarative-keyboard.spec.ts`, which read the left
+  column's pane boxes before the column had measured itself and placed them —
+  the panes render in flow at full height until then, and `openStory` cannot
+  wait that out, because every preset stamps `data-node` and the zone above them
+  satisfies it on the first paint. That spec polls now. Any other spec that
+  reads geometry without polling has the same exposure.
 
 - **Nothing gates a release on e2e.** `release.yml` runs lint, typecheck and unit
   tests, which is how 1.3.0 published while CI's e2e job was red. Decide whether
