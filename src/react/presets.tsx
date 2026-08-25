@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react';
 import type { ChildSort } from '../child-sort.js';
-import type { Node, NodeHints, NodeId, PlacementCommit, Store } from '../index.js';
+import type { DropIntent, Node, NodeHints, NodeId, PlacementCommit, Store } from '../index.js';
 import {
   createNode,
   reconcileChildOrder,
@@ -23,7 +23,7 @@ import {
 import type { LockSet } from '../lock.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragHandle } from './dnd/DragHandle.js';
-import { useDropTarget } from './dnd/useDropTarget.js';
+import { type DropIntentContext, useDropIntentTarget } from './dnd/useDropIntentTarget.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
 import { useChildren, useFocusedNode } from './hooks.js';
@@ -56,6 +56,16 @@ interface CommonBindingProps {
    *  consumers can drag items into it. The element must have a container
    *  capability (Zone always does; Panel needs the `container` prop). */
   acceptsDrops?: boolean;
+  /** Let a drop onto the middle of a child stack the two into one tabbed
+   *  container. Off by default, like `<Container stackOnDrop>`: the gesture
+   *  restructures the tree. Requires `acceptsDrops`. */
+  stackOnDrop?: boolean;
+  /** Let a drop in a cross-axis band of a child split that child's slot into a
+   *  two-pane strip. Off by default. Requires `acceptsDrops`. */
+  splitOnDrop?: boolean;
+  /** Replace the built-in drop hit-test — the callback `<Container dropIntent>`
+   *  takes, on the preset that hosts the layout. */
+  dropIntent?: (ctx: DropIntentContext) => DropIntent | undefined;
   /** Permissions restricting what the user may do to this node. `true` locks
    *  every axis the node's capabilities support. */
   lock?: boolean | LockSet;
@@ -232,6 +242,11 @@ export function Panel(props: PanelProps) {
       title={props.title}
       testId={props['data-testid']}
       acceptsDrops={props.acceptsDrops}
+      drop={{
+        ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
+        ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
+        ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
+      }}
       measure={measure}
     >
       {props.draggable ? <DragHandle nodeId={id}>{props.children}</DragHandle> : props.children}
@@ -284,6 +299,12 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         testId={props['data-testid']}
         innerRef={ref}
         acceptsDrops={props.acceptsDrops}
+        drop={{
+          ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
+          ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
+          ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
+          hostsLayout: true,
+        }}
         measure={props.measure}
         joinArmedId={joinArmedId}
       >
@@ -400,6 +421,11 @@ export function Zone(props: ZoneProps) {
       testId={props['data-testid']}
       sort={props.sort}
       acceptsDrops={props.acceptsDrops}
+      drop={{
+        ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
+        ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
+        ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
+      }}
       measure={measure}
     >
       {props.children}
@@ -489,6 +515,12 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         sort={props.sort}
         innerRef={ref}
         acceptsDrops={props.acceptsDrops}
+        drop={{
+          ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
+          ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
+          ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
+          hostsLayout: true,
+        }}
         measure={props.measure}
         joinArmedId={joinArmedId}
       >
@@ -546,9 +578,21 @@ interface PresetShellProps {
    *  measure the container viewport. */
   innerRef?: RefObject<HTMLDivElement | null> | undefined;
   /** When true, registers the wrapper div as a drop target via
-   *  `useDropTarget`. The hook is always called (to preserve hook order);
-   *  registration is conditional on this flag. */
+   *  `useDropIntentTarget`. The hook is always called (to preserve hook
+   *  order); registration is conditional on this flag. */
   acceptsDrops?: boolean | undefined;
+  /** Drop hit-test inputs, from the preset that owns them. `<Container>` runs
+   *  the same hook. */
+  drop?:
+    | {
+        stackOnDrop?: boolean | undefined;
+        splitOnDrop?: boolean | undefined;
+        dropIntent?: ((ctx: DropIntentContext) => DropIntent | undefined) | undefined;
+        /** A strategy places these children. Without one, CSS does, and the
+         *  axis is read off the arrangement rather than the config. */
+        hostsLayout?: boolean | undefined;
+      }
+    | undefined;
   /** Wraps this preset's content in a measurement box reporting its natural
    *  extent, for a node whose `hints.sizing` asked to be measured. */
   measure?:
@@ -572,22 +616,33 @@ function PresetShell({
   sort,
   innerRef,
   acceptsDrops,
+  drop,
   measure,
   joinArmedId,
 }: PresetShellProps) {
   // We need a single ref on the wrapper div that serves both layout
   // measurement (innerRef, when provided) and drop-target registration.
-  // useDropTarget is always called to keep hook order stable; the `enabled`
-  // flag gates the underlying registerDropTarget call.
+  // The hook is always called to keep hook order stable; the `enabled` flag
+  // gates the underlying registerDropTarget call.
   const ownRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef = innerRef ?? ownRef;
-  useDropTarget(id, wrapperRef, { enabled: acceptsDrops === true });
+  const store = useStore();
+  const ownContainer = store.getNode(id)?.container;
+  const ownAxis = (ownContainer?.config as { axis?: 'x' | 'y' } | undefined)?.axis;
+  useDropIntentTarget(id, wrapperRef, {
+    enabled: acceptsDrops === true,
+    ...(ownAxis ? { axis: ownAxis } : {}),
+    ...(ownContainer?.strategyId ? { strategyId: ownContainer.strategyId } : {}),
+    isFlow: !drop?.hostsLayout,
+    ...(drop?.stackOnDrop ? { stackOnDrop: drop.stackOnDrop } : {}),
+    ...(drop?.splitOnDrop ? { splitOnDrop: drop.splitOnDrop } : {}),
+    ...(drop?.dropIntent ? { dropIntent: drop.dropIntent } : {}),
+  });
   const registry = useChildRegistry();
   // Reset at the top of every render so we capture only the current JSX
   // children, not stale entries from a prior render.
   registry.reset();
 
-  const store = useStore();
   // Subscribe to children so this component re-renders (and the layout
   // effect re-fires) when imperative siblings appear or disappear.
   useChildren(id);
