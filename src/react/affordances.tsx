@@ -18,6 +18,7 @@ import {
   trackJoin,
 } from '../index.js';
 import type { Store } from '../store.js';
+import { preventNativeDrag } from './dnd/nativeDrag.js';
 import type { ContainerLayout } from './useContainerLayout.js';
 
 /** Args passed to function-form `affordances` callbacks. The function fully
@@ -380,6 +381,8 @@ function AffordanceHandle({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        draggable={false}
+        onDragStart={preventNativeDrag}
         onKeyDown={bounds ? onKeyDown : undefined}
         onBlur={onBlur}
         role={bounds ? 'separator' : undefined}

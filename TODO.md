@@ -15,22 +15,36 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   mutation returns. The one live instance has been fixed; nothing
   prevents a new one, so this stays on the list as a review item.
 
-- **CI's e2e job has been red since 2026-08-22, always on WebKit. [HIGH]**
-  Five consecutive runs on `main`, last green 2026-08-21. Different specs each
-  run — `content-sizing.spec.ts` "a pane is as tall as its contents",
-  `drag.spec.ts` "dropping a panel on the other zone reparents it",
-  `insertion.spec.ts` "a drop aimed at index 0 is routed around the pinned
-  head", and most recently `floating.spec.ts` "dragging back off the corner
-  leaves it free" — but the engine is WebKit every time, and macOS WebKit
-  passes all of them locally. The floating case is deterministic rather than
-  flaky: `after.right` is 12 against an expected >60 on both the run and its
-  retry, meaning the panel stayed snapped to the corner instead of coming
-  free. So the suspects are the ones that differ between WebKit builds —
-  pointer/drag emulation and font metrics — not timing.
+- **Three arrow-key specs fail on Linux WebKit, and CI has never reported them. [HIGH]**
+  `declarative-keyboard.spec.ts` "an arrow key at the outer edge is inert" and the same
+  case in `parallel-zones.spec.ts` fail every run in a Linux WebKit container;
+  `declarative-keyboard.spec.ts` "shift+arrow moves the pane itself" fails
+  intermittently there. All three pass on macOS WebKit and on the other two
+  engines. They are not the native-drag defect — they fail with that fix reverted
+  too — and they are not what turned CI red, which was four drag specs now fixed.
+  Whether CI hides them behind `retries: 1` or its WebKit differs from the
+  container's is the first thing to establish.
 
-  Nothing gates a release on this: `release.yml` runs lint, typecheck and unit
-  tests, not e2e, which is how 1.3.0 published with CI red. Decide whether it
-  should.
+  Reproduce Linux WebKit locally without waiting on CI — this is what found the
+  native-drag defect, and it runs in under a minute:
+
+  ```
+  npx ladle serve --host 0.0.0.0 --port 61000 --viteConfig <config allowing all hosts>
+  docker run --rm --add-host=host.docker.internal:host-gateway \
+    -v "$PWD":/repo:ro -v /tmp/work:/work -w /work \
+    mcr.microsoft.com/playwright:v1.62.1-noble \
+    bash -lc 'cp -r /repo/e2e /work/e2e && npm i @playwright/test@1.62.1 \
+      && npx playwright test -c playwright.linux.config.ts --project=webkit'
+  ```
+
+  The container needs its own config: `testDir` pointing at its copy of `e2e/`
+  (so `@playwright/test` resolves to the container's install, not the host's
+  macOS binaries), no `webServer`, and `baseURL` at `host.docker.internal`.
+  Ladle's Vite refuses that Host header without `server.allowedHosts`.
+
+- **Nothing gates a release on e2e.** `release.yml` runs lint, typecheck and unit
+  tests, which is how 1.3.0 published while CI's e2e job was red. Decide whether
+  the tag should wait on it.
 
 - **A spec can fail under machine load, on the engine slowest to start.** The
   margin, not a race: `openStory` waits for the first placed node, and against

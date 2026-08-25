@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { NodeId } from '../../index.js';
 import { useDragHandle } from './useDragHandle.js';
+import { preventNativeDrag } from './nativeDrag.js';
 
 export interface DragHandleProps {
   nodeId: NodeId;
@@ -21,6 +22,8 @@ export function DragHandle({ nodeId, children, className, style }: DragHandlePro
       onPointerMove={handlers.onPointerMove}
       onPointerUp={handlers.onPointerUp}
       onPointerCancel={handlers.onPointerCancel}
+      draggable={false}
+      onDragStart={preventNativeDrag}
     >
       {children}
     </div>

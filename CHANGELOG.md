@@ -6,6 +6,17 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
+## Unreleased
+
+### Fixed
+
+- **A drag no longer dies partway through on WebKit.** A `<DragHandle>` and an affordance hit
+  area are plain elements the browser was free to drag itself, and WebKit does: partway through
+  a pointer gesture it starts a native drag and stops delivering pointer events entirely — no
+  further `pointermove`, no `pointerup`, no `pointercancel` — so the pane or seam freezes where
+  it was and the handle never learns the gesture ended. Both now refuse it. Reproduced on Linux
+  WebKit, where a floating panel dragged off a corner it had snapped to could not leave.
+
 ## 1.3.0
 
 ### Added
