@@ -10,6 +10,16 @@ section below.
 
 ### Added
 
+- **A drop hit-test on the declarative presets.** `<Zone>` and
+  `<Panel container={…}>` take `stackOnDrop`, `splitOnDrop` and `dropIntent`, and
+  resolve a cursor into an insertion index, a stack or a split — the hit-test
+  `<Container>` runs, now shared by both. Before this a preset drop appended
+  regardless of where the cursor was, and neither tab-stacking nor drop-on-edge
+  reached the declarative API at all. A preset that hosts a layout now publishes
+  `data-node-container`, and a child it places imperatively publishes
+  `data-node`, so both are visible to the harvest. Presets draw no split preview
+  band; that stays a `<Container>` render.
+
 - **`floatingStrategy(inner?)`.** Places items marked `floating` in their placement bag
   free over the container — snapping to corners by per-axis distance, with the eligible
   corners per item in `snapCorners` — and hands every other item to the wrapped strategy

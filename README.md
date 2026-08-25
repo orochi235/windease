@@ -626,10 +626,19 @@ stylesheet gives it a subtle default; restyle it through that class, or pass
 centre of a pane still inserts — edges split, everything else inserts — which is
 what a consumer without tabs wants.
 
-Both are `<Container>` props. The declarative presets register a drop target
-with no hit-test at all, so a `<Zone>` drop still appends.
+`<Zone>` and `<Panel container={…}>` take the same two props, plus `dropIntent`,
+gated by `acceptsDrops` — the presets run the same hit-test `<Container>` does.
+What they do not draw is the split preview band; that is a `<Container>` render,
+so a preset drop resolves the same intent with no shaded half to aim at.
 
-See the **Drop on edge / Split on drop** story.
+A pane a preset declares in JSX cannot be re-parented by a drop: JSX owns the
+node's lifetime, and a preset can only host a node it created itself. Where a
+drop may stack or split, register the panes on the store and render them with
+`<Zone renderImperative>` — the boxes it places are harvested by the hit-test
+like any other child.
+
+See the **Drop on edge / Split on drop** and **Declarative / Drop intent**
+stories.
 
 ## Floating chrome over a tiled zone
 

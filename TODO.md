@@ -130,16 +130,11 @@ Still open:
   `splitPreview` is a non-breaking addition to the union whenever that is worth
   building.
 
-- **The declarative presets have no drop hit-test [HIGH].** `stackOnDrop` and
-  `splitOnDrop` are `<Container>` props, and the drop target the presets
-  register through `PresetShell` passes no `getDropIntent` at all — it passes no
-  `getInsertionIndex` either, so a `<Zone>` drop has always appended. Two
-  features now depend on this: neither stacking nor drop-on-edge works under
-  `<Zone>` / `<Panel>`, and a preset that silently appends where the same
-  gesture splits under `<Container>` reads as a bug. Giving the presets an
-  intent means giving them a hit-test first, which is the same work either way;
-  nothing about the resolver is imperative-only, and fixing it also fixes plain
-  appending for every preset drop.
+- **A preset drop draws no split preview [MED].** `<Zone>` and `<Panel>` now
+  resolve a `split` intent, but `splitPreview` is a `<Container>` render — the
+  shaded half showing which side the drop takes has no preset equivalent, so a
+  preset split is aimed blind. The same is true of the insertion preview, which
+  `<Container>` feeds through `host.setPreview`.
 
 - **`<Zone config>` is read once, at creation.** `makeReconciler` reconciles
   `meta`, `hints`, `placement`, `lock` and `pinned`, and `<Zone>` adds
