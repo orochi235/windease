@@ -44,7 +44,8 @@ by comparing the child's `parentElement`'s `data-node-container` against the
 container's own. Presets set neither, so the comparison is `null === null` and
 the harvest collects every nested `[data-node]` at any depth — a zone inside a
 zone would hit-test against its grandchildren. So `PresetShell`'s wrapper carries
-`data-node-container={id}` when it hosts a layout, and `AbsoluteWrapper` carries
+`data-node-container={id}` on the path that hosts a layout (`ZoneWithLayout` /
+`PanelWithLayout` — a container capability with its strategy in scope), and `AbsoluteWrapper` carries
 `data-node-container={parentId}` so a placed child's box names its owner.
 Flow-mode children already sit directly inside the wrapper and match.
 
