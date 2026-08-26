@@ -10,6 +10,13 @@ section below.
 
 ### Fixed
 
+- **A preset rendering in flow now reports its children's geometry.** A `<Zone>` or `<Panel>`
+  that both hosts a container and declares `hints.render: 'flow'` runs no strategy, so it has
+  no placements to publish — and nothing measured the children the browser had arranged
+  instead. They reached the focus registry with no rects at all, so directional keyboard
+  navigation could not score them: arrow keys neither moved within such a column nor crossed
+  out of it. The presets now measure in flow, as `<Container>` already did.
+
 - **A drag no longer dies partway through on WebKit.** A `<DragHandle>` and an affordance hit
   area are plain elements the browser was free to drag itself, and WebKit does: partway through
   a pointer gesture it starts a native drag and stops delivering pointer events entirely — no

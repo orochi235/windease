@@ -10,7 +10,6 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { DropIntent } from '../dnd/dropIntent.js';
-import { childRectsForContainer } from '../dnd/insertionIndex.js';
 import { accessibleName, type ChildOrderCommit, type NodeId } from '../index.js';
 
 export type { DropIntentContext } from './dnd/useDropIntentTarget.js';
@@ -19,7 +18,7 @@ import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { type DropIntentContext, useDropIntentTarget } from './dnd/useDropIntentTarget.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
-import { useGeometryRegistry } from './focus/useGeometrySource.js';
+import { useFlowGeometry } from './focus/useFlowGeometry.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
 import { useChildren, useFocusedNode, useNode } from './hooks.js';
 import { MeasuredContent } from './measure.js';
@@ -246,65 +245,11 @@ function StoreContainer({
 
   const layout = useContainerLayout(parentId, ref, viewport, preview);
 
-  const geometryRegistry = useGeometryRegistry();
   usePublishGeometry(parentId, ref, layout);
 
   const isFlow = layout.mode === 'flow';
   const childKey = children.map((c) => String(c.id)).join('|');
-  const flowRects = useRef<string[]>([]);
-
-  // In flow the browser owns the arrangement, so the rects the focus resolver
-  // needs come from measurement rather than from placements. Composed against
-  // this container's own origin so both modes report into one space.
-  const measureFlow = useCallback(() => {
-    const el = ref.current;
-    if (!el || !geometryRegistry) return;
-    const self = el.getBoundingClientRect();
-    const selfOrigin = geometryRegistry.rects.get(String(parentId));
-    const originX = (selfOrigin?.x ?? 0) - self.x;
-    const originY = (selfOrigin?.y ?? 0) - self.y;
-    flowRects.current = [];
-    for (const child of childRectsForContainer(el)) {
-      flowRects.current.push(child.id);
-      geometryRegistry.rects.set(child.id, {
-        x: originX + child.rect.x,
-        y: originY + child.rect.y,
-        w: child.rect.width,
-        h: child.rect.height,
-      });
-    }
-    geometryRegistry.commit();
-  }, [geometryRegistry, parentId]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: childKey re-observes when the child set changes; it is never read.
-  useEffect(() => {
-    if (!isFlow || !geometryRegistry) return;
-    const el = ref.current;
-    if (!el) return;
-    measureFlow();
-    const forget = () => {
-      for (const cid of flowRects.current) geometryRegistry.rects.delete(cid);
-      flowRects.current = [];
-      geometryRegistry.commit();
-    };
-    // Same degradation as the viewport observer: measure once and hold there
-    // rather than fail.
-    if (typeof ResizeObserver === 'undefined') return forget;
-    const ro = new ResizeObserver(measureFlow);
-    ro.observe(el);
-    for (const k of Array.from(el.querySelectorAll('[data-node]'))) ro.observe(k);
-    return () => {
-      ro.disconnect();
-      forget();
-    };
-  }, [isFlow, geometryRegistry, childKey, measureFlow]);
-
-  // A class toggle can move a pane without resizing anything, which no
-  // observer reports. Re-measuring per commit covers every such change that
-  // React drove; the observers cover the ones it did not.
-  useEffect(() => {
-    if (isFlow) measureFlow();
-  });
+  useFlowGeometry(parentId, ref, isFlow, childKey);
 
   const observeScroll = layout.observeScroll;
   useEffect(() => {

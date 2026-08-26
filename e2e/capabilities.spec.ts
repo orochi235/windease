@@ -61,6 +61,38 @@ test.describe('flow mode', () => {
   });
 });
 
+test.describe('flow mode on a preset', () => {
+  const STORY = 'flow-mode--preset-flow-column';
+
+  const focused = (page: import('@playwright/test').Page) =>
+    page.evaluate(
+      () => document.activeElement?.closest('[data-node]')?.getAttribute('data-node') ?? null,
+    );
+
+  // The column is a <Panel> that both hosts a container and renders in flow, so
+  // it has no placements to publish and has to measure its children instead.
+  // Without that they carry no geometry and the resolver cannot score them.
+  test('an arrow key moves down a flow preset column', async ({ page }) => {
+    await openStory(page, STORY);
+    await page.locator('[data-node="fp-a"]').click();
+    await expect.poll(() => focused(page)).toBe('fp-a');
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect.poll(() => focused(page)).toBe('fp-b');
+  });
+
+  test('an arrow key crosses from the flow column to the placed sibling', async ({ page }) => {
+    await openStory(page, STORY);
+    await page.locator('[data-node="fp-a"]').click();
+    await expect.poll(() => focused(page)).toBe('fp-a');
+
+    await page.keyboard.press('ArrowRight');
+
+    await expect.poll(() => focused(page)).toBe('fp-right');
+  });
+});
+
 test.describe('grid overflowMode', () => {
   const STORY = 'scrolling--grid-overflow-modes';
   const gridBox = (page: import('@playwright/test').Page) =>

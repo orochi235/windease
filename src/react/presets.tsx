@@ -27,6 +27,7 @@ import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragHandle } from './dnd/DragHandle.js';
 import { type DropIntentContext, useDropIntentTarget } from './dnd/useDropIntentTarget.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
+import { useFlowGeometry } from './focus/useFlowGeometry.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
 import { useChildren, useFocusedNode } from './hooks.js';
 import {
@@ -184,6 +185,16 @@ function useMeasure(store: Store, id: NodeId, parent: LayoutInfo): PresetShellPr
   return { observe, widthByContent: sizing.w === 'content' };
 }
 
+/** `useFlowGeometry` with the child key read from the store rather than JSX. */
+function useFlowChildGeometry(
+  id: NodeId,
+  ref: RefObject<HTMLDivElement | null>,
+  isFlow: boolean,
+): void {
+  const children = useChildren(id);
+  useFlowGeometry(id, ref, isFlow, children.map((c) => String(c.id)).join('|'));
+}
+
 /** @group Components */
 export function Panel(props: PanelProps) {
   const declaredConfig = useRef<unknown>(props.container?.config ?? {});
@@ -280,6 +291,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const layout = useContainerLayout(props.id, ref);
   usePublishGeometry(props.id, ref, layout);
+  useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
   const settleMs = DEFAULT_SETTLE_MS;
   const [, setDraggingAffordanceId] = useState<string | null>(null);
@@ -475,6 +487,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const layout = useContainerLayout(props.id, ref, props.viewport);
   usePublishGeometry(props.id, ref, layout);
+  useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
   const settleMs = props.settleMs ?? DEFAULT_SETTLE_MS;
   const [, setDraggingAffordanceId] = useState<string | null>(null);
@@ -663,7 +676,16 @@ function PresetShell({
 
   // Subscribe to children so this component re-renders (and the layout
   // effect re-fires) when imperative siblings appear or disappear.
-  useChildren(id);
+  const shellChildren = useChildren(id);
+
+  // The plain path runs no strategy, so there are no placements to publish and
+  // the children have to be measured for the focus registry instead.
+  useFlowGeometry(
+    id,
+    wrapperRef,
+    ownContainer !== undefined && !drop?.hostsLayout,
+    shellChildren.map((c) => String(c.id)).join('|'),
+  );
 
   // Same roving tab stop `<Container>` gives the children it renders: without
   // it a preset pane cannot take the caret, so nothing can navigate away from

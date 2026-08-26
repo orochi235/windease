@@ -11,8 +11,10 @@ import {
   defaultDragOverlay,
   FocusProvider,
   GeometryProvider,
+  Panel,
   Provider,
   StrategyRegistryProvider,
+  Zone,
 } from '../index.js';
 import '../styles.css';
 import './capabilities.css';
@@ -107,6 +109,55 @@ export const FlowVersusPlaced: Story = () => {
                 back to <code>stripStrategy</code>.
               </p>
             </DragProvider>
+          </FocusProvider>
+        </GeometryProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+const COLUMN = asNodeId('fp-column');
+const RIGHT = asNodeId('fp-right');
+const FLOW_PANES = ['fp-a', 'fp-b', 'fp-c'];
+
+/**
+ * The same hint on a preset rather than on `<Container>`. The left column is a
+ * `<Panel>` that is both a container and in flow — CSS stacks its panes — and
+ * arrowing between them is what proves the preset reports their geometry.
+ */
+export const PresetFlowColumn: Story = () => {
+  const store = useMemo(() => new Store(), []);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <GeometryProvider>
+          <FocusProvider>
+            <div className="cap-stage">
+              <Zone
+                id={asNodeId('fp-zone')}
+                strategyId="strip"
+                config={{ axis: 'x', fill: true, gap: 8, padding: 8 }}
+                viewport={{ w: 720, h: 460 }}
+              >
+                <Panel
+                  id={COLUMN}
+                  container={{ strategyId: 'strip', config: { axis: 'y' } }}
+                  hints={{ render: 'flow' }}
+                  className="cap-flow-column"
+                >
+                  {FLOW_PANES.map((id) => (
+                    <Panel key={id} id={asNodeId(id)} className="cap-pane" title={id} />
+                  ))}
+                </Panel>
+                <Panel id={RIGHT} className="cap-pane" title="placed sibling" />
+              </Zone>
+            </div>
+            <p className="cap-hint">
+              The left column runs no strategy — <code>.cap-flow-column</code> stacks its three
+              panes. Click one and arrow up or down to move within the column, or right to cross to
+              the placed sibling: the resolver scores all four from one coordinate space, because
+              the flow preset measures its children instead of placing them.
+            </p>
           </FocusProvider>
         </GeometryProvider>
       </StrategyRegistryProvider>

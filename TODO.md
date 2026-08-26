@@ -88,15 +88,6 @@ Still open, waiting for a consumer to ask:
   zones that appear and disappear as worktrees are added/removed. Today
   `registerNode`/`unregisterNode` work; what's missing is a UX for it.
 
-## A flow `<Panel>` reports no child geometry
-
-A `<Panel>` that is both a container and declares
-`hints.render: 'flow'` reports no child geometry. `usePublishGeometry` reads
-placements, and a flow container has none; the DOM measurement that covers this
-for `<Container>` (`measureFlow`) stays there because it harvests the children
-`<Container>` itself rendered. `<Zone>` is unaffected — a flow zone never takes
-the layout-hosting path.
-
 ## Drag and drop
 
 Shipped, and documented in the README's Drag and drop and Resize sections:

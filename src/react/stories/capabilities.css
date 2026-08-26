@@ -158,3 +158,18 @@
   padding: 0 6px;
   color: #94a3b8;
 }
+
+/* A flow column inside a placed preset: the panes stack because of this rule,
+   not because a strategy placed them. */
+.cap-flow-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.cap-flow-column > [data-node] {
+  flex: 1 1 0;
+}
