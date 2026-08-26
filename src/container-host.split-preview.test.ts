@@ -113,6 +113,21 @@ describe('ContainerHost split preview', () => {
     expect(h.layout()).toBe(first);
   });
 
+  it('holds the geometry steady while only the cursor moves', () => {
+    // The cursor picks the band; it does not place the halves. If it leaked
+    // into the geometry the panes would jitter under the pointer for the whole
+    // hover, so this is the property that makes recomputing per pointermove
+    // harmless rather than merely cheap.
+    const h = host(build());
+    const seen = new Set<string>();
+    for (let i = 0; i < 5; i++) {
+      h.setPreview({ ...splitOntoB, cursor: { x: 150 + i, y: 5 + i } });
+      const r = h.layout().placements.get(B)!;
+      seen.add(`${r.x},${r.y},${r.w},${r.h}`);
+    }
+    expect([...seen]).toEqual(['0,50,200,50']);
+  });
+
   it('still splices the source in for an ordinary insert preview', () => {
     const h = host(build());
     h.setPreview({ insertId: 'd', insertIndex: 0, cursor: { x: 0, y: 0 } });

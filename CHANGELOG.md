@@ -17,10 +17,9 @@ section below.
   included — so the preview and the committed layout cannot disagree. Insertion has previewed
   this way since it shipped; a split was the odd one out.
 
-  `<Container splitPreview>` accordingly grows a `'layout'` member and defaults to it.
-  `.windease-split-preview` is still drawn on the half the drop would take, so styling carries
-  over untouched; pass `splitPreview="element"` for the previous behavior, where the pane stayed
-  full size and only the shading moved.
+  `<Container splitPreview>` accordingly grows a `'layout'` member and defaults to it. Nothing
+  in the API broke, but panes now move during a hover — see
+  [Breaking changes](README.md#breaking-changes) for what that touches and how to opt out.
 
 ### Fixed
 

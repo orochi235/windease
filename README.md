@@ -1045,6 +1045,28 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
+### Unreleased — a split drop previews as a layout
+
+`<Container splitPreview>` defaulted to `'element'`, which drew a translucent
+band over a pane that stayed its full size. It now defaults to `'layout'`: the
+pane under the cursor shrinks to the half it will actually get and the dragged
+pane's rect fills the other, both placed by running the strategy the new strip
+will be created with.
+
+Nothing in the API broke — `splitPreview` gained a union member and
+`.windease-split-preview` is still drawn on the half the drop takes, so styling
+carries over untouched. What changes is that panes move during a hover, which a
+consumer may have been relying on not happening:
+
+- **Chrome that measures itself on resize** now does so mid-drag. The hovered
+  pane's box changes once when the cursor enters a band, not continuously, so
+  a `ResizeObserver` fires once per band entry rather than per pointermove.
+- **A `<Container>` nested in the hovered pane** re-runs its own strategy at the
+  halved size, so its children move too.
+
+Pass `splitPreview="element"` for the previous behavior. It is not deprecated —
+it exists for exactly this case.
+
 ### 1.3.0 — a destroy-locked descendant refuses the whole cascade
 
 `unregisterNode` asserted `lock.destroy` on the id it was handed and then
