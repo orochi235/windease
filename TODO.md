@@ -23,10 +23,6 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   satisfies it on the first paint. That spec polls now. Any other spec that
   reads geometry without polling has the same exposure.
 
-- **Nothing gates a release on e2e.** `release.yml` runs lint, typecheck and unit
-  tests, which is how 1.3.0 published while CI's e2e job was red. Decide whether
-  the tag should wait on it.
-
 - **A spec can fail under machine load, on the engine slowest to start.** The
   margin, not a race: `openStory` waits for the first placed node, and against
   a cold Vite cache under load that costs 5071ms and 6216ms on Firefox against
@@ -230,14 +226,15 @@ sibling leaves.
 ## Playwright e2e suite
 
 Shipped. `npm run test:e2e` drives the Ladle stories in Chromium, Firefox and
-WebKit; the config starts Ladle itself, so there is nothing to run first. 62
-specs across fourteen files cover the gestures jsdom cannot: gutter resize
-including pointer-capture tracking after the cursor leaves the handle,
-cross-zone drag with escape-cancel and drop-outside, ResizeObserver relayout on
-viewport change, insertion index against a pinned head, a seam pushed past its
-clamp until the join arms, and — in `capabilities.spec.ts` — keyboard move, flow
-mode, grid `overflowMode` and a drag held at a scrolling container's edge. All
-three engines pass the pointer-capture cases unmodified.
+WebKit; the config starts Ladle itself, so there is nothing to run first. A tag
+cannot publish without a green run of it (`scripts/require-green-ci.sh`, called
+from `release.yml`). 87 specs across eighteen files cover the gestures jsdom
+cannot: gutter resize including pointer-capture tracking after the cursor leaves
+the handle, cross-zone drag with escape-cancel and drop-outside, ResizeObserver
+relayout on viewport change, insertion index against a pinned head, a seam
+pushed past its clamp until the join arms, and — in `capabilities.spec.ts` —
+keyboard move, flow mode, grid `overflowMode` and a drag held at a scrolling
+container's edge. All three engines pass the pointer-capture cases unmodified.
 
 Nothing listed here is uncovered. `e2e/tab-stack.spec.ts` closed the last one —
 drop *intent*, "into the seam between B and C" versus "onto B itself" — which
