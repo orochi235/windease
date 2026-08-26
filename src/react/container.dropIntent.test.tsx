@@ -48,7 +48,7 @@ interface TreeProps {
   capture: (c: DragController) => void;
   splitOnDrop?: boolean;
   stackOnDrop?: boolean;
-  splitPreview?: 'none' | 'element';
+  splitPreview?: 'none' | 'element' | 'layout';
   dropIntent?: (ctx: DropIntentContext) => DropIntent | undefined;
 }
 
@@ -112,6 +112,36 @@ function stubRects(container: HTMLElement): void {
         height: 100,
         x: 0,
         y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  }
+}
+
+/**
+ * Re-stub the panes at the geometry a `'layout'` split preview produces: `a`
+ * leaves the row so the group takes the whole box, source in the top half.
+ * jsdom lays nothing out, so the displacement the real DOM performs has to be
+ * staged by hand.
+ */
+function stubPreviewedRects(container: HTMLElement): void {
+  const rects: Record<string, Rect> = {
+    a: { x: 0, y: 0, w: 200, h: 50 },
+    b: { x: 0, y: 50, w: 200, h: 50 },
+  };
+  for (const el of Array.from(container.querySelectorAll('[data-node]'))) {
+    const id = el.getAttribute('data-node');
+    const r = id ? rects[id] : undefined;
+    if (!r) continue;
+    el.getBoundingClientRect = () =>
+      ({
+        left: r.x,
+        top: r.y,
+        right: r.x + r.w,
+        bottom: r.y + r.h,
+        width: r.w,
+        height: r.h,
+        x: r.x,
+        y: r.y,
         toJSON: () => ({}),
       }) as DOMRect;
   }
@@ -207,14 +237,21 @@ describe('<Container> drop intent', () => {
 describe('<Container splitPreview>', () => {
   const preview = (container: HTMLElement) =>
     container.querySelector('.windease-split-preview') as HTMLElement | null;
+  const paneStyle = (container: HTMLElement, id: string) => {
+    const el = container.querySelector(`[data-node="${id}"]`) as HTMLElement | null;
+    return el
+      ? { left: el.style.left, top: el.style.top, width: el.style.width, height: el.style.height }
+      : null;
+  };
 
-  it('draws over the near half for a start-edge intent', async () => {
+  it("draws over the near half of the un-shrunk pane under 'element'", async () => {
     const store = makeStore();
     let controller!: DragController;
     const { container } = render(
       tree({
         store,
         splitOnDrop: true,
+        splitPreview: 'element',
         capture: (c) => {
           controller = c;
         },
@@ -233,7 +270,99 @@ describe('<Container splitPreview>', () => {
     expect(el?.style.height).toBe('50px');
   });
 
-  it('draws over the far half for an end-edge intent', async () => {
+  it("draws over the far half for an end-edge intent under 'element'", async () => {
+    const store = makeStore();
+    let controller!: DragController;
+    const { container } = render(
+      tree({
+        store,
+        splitOnDrop: true,
+        splitPreview: 'element',
+        capture: (c) => {
+          controller = c;
+        },
+      }),
+    );
+
+    await hover(controller, container, { x: 150, y: 95 });
+
+    expect(preview(container)?.style.top).toBe('50px');
+    expect(preview(container)?.style.height).toBe('50px');
+  });
+
+  it("leaves the onto-pane at full size under 'element'", async () => {
+    const store = makeStore();
+    let controller!: DragController;
+    const { container } = render(
+      tree({
+        store,
+        splitOnDrop: true,
+        splitPreview: 'element',
+        capture: (c) => {
+          controller = c;
+        },
+      }),
+    );
+
+    await hover(controller, container, { x: 150, y: 5 });
+
+    expect(paneStyle(container, 'b')).toMatchObject({ top: '0px', height: '100px' });
+  });
+
+  it("shrinks the onto-pane to its post-drop half under 'layout'", async () => {
+    const store = makeStore();
+    let controller!: DragController;
+    const { container } = render(
+      tree({
+        store,
+        splitOnDrop: true,
+        capture: (c) => {
+          controller = c;
+        },
+      }),
+    );
+
+    await hover(controller, container, { x: 150, y: 5 });
+
+    // `a` moves into the new group, so the group inherits `b`'s slot — which,
+    // with `a` gone from the parent, is the whole 200x100 container. `b` takes
+    // the bottom half of it because the drop lands on the start edge.
+    expect(paneStyle(container, 'b')).toEqual({
+      left: '0px',
+      top: '50px',
+      width: '200px',
+      height: '50px',
+    });
+  });
+
+  it("puts the dragged node in the other half under 'layout'", async () => {
+    const store = makeStore();
+    let controller!: DragController;
+    const { container } = render(
+      tree({
+        store,
+        splitOnDrop: true,
+        capture: (c) => {
+          controller = c;
+        },
+      }),
+    );
+
+    await hover(controller, container, { x: 150, y: 5 });
+
+    expect(paneStyle(container, 'a')).toEqual({
+      left: '0px',
+      top: '0px',
+      width: '200px',
+      height: '50px',
+    });
+    // The drawn element covers that half rather than half the onto-pane.
+    expect(preview(container)).toMatchObject({
+      style: { left: '0px', top: '0px', width: '200px', height: '50px' },
+    });
+  });
+
+  it("swaps which half each pane takes on an end-edge intent under 'layout'", async () => {
     const store = makeStore();
     let controller!: DragController;
     const { container } = render(
@@ -248,8 +377,38 @@ describe('<Container splitPreview>', () => {
 
     await hover(controller, container, { x: 150, y: 95 });
 
-    expect(preview(container)?.style.top).toBe('50px');
-    expect(preview(container)?.style.height).toBe('50px');
+    expect(paneStyle(container, 'b')).toMatchObject({ top: '0px', height: '50px' });
+    expect(paneStyle(container, 'a')).toMatchObject({ top: '50px', height: '50px' });
+  });
+
+  it('holds the split once the preview has moved the pane out from under the cursor', async () => {
+    const store = makeStore();
+    let controller!: DragController;
+    const { container } = render(
+      tree({
+        store,
+        splitOnDrop: true,
+        capture: (c) => {
+          controller = c;
+        },
+      }),
+    );
+
+    await hover(controller, container, { x: 150, y: 5 });
+    expect(controller.state()?.hover?.intent).toMatchObject({ kind: 'split', ontoId: 'b' });
+
+    // The pane the cursor is over has shrunk to the bottom half, so a hit-test
+    // against the live DOM now lands in the source's half and reads the drop
+    // as an insert. The intent has to resolve against the un-displaced row.
+    stubPreviewedRects(container);
+    controller.updateHoverByPoint(150, 5);
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(controller.state()?.hover?.intent).toMatchObject({
+      kind: 'split',
+      ontoId: 'b',
+      edge: 'start',
+    });
   });
 
   it('draws nothing when splitPreview is none', async () => {

@@ -121,6 +121,27 @@ this is the second trap:
 readonly field, so `<Container>` reads the same object the engine will commit
 with.
 
+## The hit-test cannot read the preview it caused
+
+Found by the browser suite, and the reason this change is not purely additive.
+`useDropIntentTarget` harvests live DOM rects on every `pointermove`. A layout
+preview moves a child that is *not* the dragged node, so crossing into a pane's
+top band shrinks that pane out from under the cursor, and the next sample reads
+the point as landing in the source's half — the intent falls back to an insert
+and the split never commits. Filtering the source out of the rect list, which
+is what covers an insertion preview, does nothing here.
+
+So `<Container>` stamps `data-split-preview` alongside the moved layout in the
+same commit, and the hook keeps the last harvest taken while that attribute was
+absent, resolving against it for as long as it is present. Every sample either
+sees clean geometry or has clean geometry cached, including the one that walks
+back out of the band.
+
+The cache goes stale if the container itself resizes during a split hover.
+Nothing has been built for that: it is a container resizing inside the few
+hundred milliseconds a hover lasts, and the next sample after the preview
+clears re-harvests.
+
 ## Tests
 
 Headless except where the gesture is the point.
@@ -135,7 +156,8 @@ Headless except where the gesture is the point.
   flips.
 - `<Container>`: `'layout'` shrinks the onto-pane and places the source in the
   other half; `'element'` leaves the onto-pane full-size; `'none'` draws
-  nothing; the element's rect is the interior one under `'layout'`.
+  nothing; the element's rect is the interior one under `'layout'`; and the
+  intent survives the displacement the preview causes.
 - Ladle + Playwright in all three engines: hovering a pane's top edge halves
   that pane's rendered box and puts the source's placeholder above it,
   releasing produces exactly the previewed geometry, and Escape restores the

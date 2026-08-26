@@ -1,7 +1,7 @@
 export default { title: 'Drop on edge' };
 
 import type { Story } from '@ladle/react';
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { asNodeId, createNode, type NodeId, Store, stripStrategy } from '../../index.js';
 import {
   type ChromeMap,
@@ -83,8 +83,12 @@ function Readout() {
   );
 }
 
+const PREVIEW_MODES = ['layout', 'element', 'none'] as const;
+type PreviewMode = (typeof PREVIEW_MODES)[number];
+
 export const SplitOnDrop: Story = () => {
   const store = useMemo(() => makeStore(), []);
+  const [mode, setMode] = useState<PreviewMode>('layout');
 
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -98,11 +102,17 @@ export const SplitOnDrop: Story = () => {
       ),
       group: ({ node }) => (
         <div className="doe-group" data-testid={`group-${node.id}`}>
-          <Container parentId={node.id} chrome={chrome} splitOnDrop affordances />
+          <Container
+            parentId={node.id}
+            chrome={chrome}
+            splitOnDrop
+            splitPreview={mode}
+            affordances
+          />
         </div>
       ),
     }),
-    [],
+    [mode],
   );
 
   return (
@@ -115,10 +125,27 @@ export const SplitOnDrop: Story = () => {
               chrome={chrome}
               viewport={VIEWPORT}
               splitOnDrop
+              splitPreview={mode}
               affordances
               className="windease-zone doe-zone"
             />
           </div>
+          <fieldset className="doe-modes">
+            <legend>splitPreview</legend>
+            {PREVIEW_MODES.map((m) => (
+              <label key={m} className="doe-modes__option">
+                <input
+                  type="radio"
+                  name="splitPreview"
+                  value={m}
+                  checked={mode === m}
+                  onChange={() => setMode(m)}
+                  data-testid={`mode-${m}`}
+                />
+                {m}
+              </label>
+            ))}
+          </fieldset>
           <Readout />
           <div className="doe-prose">
             <p>
@@ -127,8 +154,14 @@ export const SplitOnDrop: Story = () => {
               instead and it inserts beside it, as it always did.
             </p>
             <p>
-              The shaded band shows which half the drop would take. The new seam drags. Drag either
-              pane back out and the pair dissolves, lifting the survivor into the row.
+              The shaded band shows which half the drop would take. Under <code>layout</code>, the
+              default, the target pane also shrinks to the half it will actually get, so the hover
+              shows the real post-drop geometry; <code>element</code> only shades, and{' '}
+              <code>none</code> leaves the drawing to you.
+            </p>
+            <p>
+              The new seam drags. Drag either pane back out and the pair dissolves, lifting the
+              survivor into the row.
             </p>
           </div>
         </DragProvider>

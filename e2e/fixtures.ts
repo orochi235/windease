@@ -50,6 +50,28 @@ export function centerOf(b: Box): { x: number; y: number } {
 }
 
 /**
+ * The whole box once it holds steady across `holds` consecutive reads. Panes
+ * animate between placements (`settleMs`, 150ms by default), so a box read the
+ * instant a gesture changes the layout is a frame of that animation rather
+ * than the layout — which reads as "the preview did nothing".
+ */
+export async function settledBox(locator: Locator, holds = 3): Promise<Box> {
+  let last = '';
+  let streak = 0;
+  let box: Box | null = null;
+  for (let i = 0; i < 60; i++) {
+    const b = await locator.boundingBox();
+    const key = b ? [b.x, b.y, b.width, b.height].map(Math.round).join(',') : '';
+    if (b) box = { x: b.x, y: b.y, w: b.width, h: b.height };
+    streak = key === last && key !== '' ? streak + 1 : 0;
+    if (streak >= holds - 1 && box) return box;
+    last = key;
+    await locator.page().waitForTimeout(40);
+  }
+  throw new Error(`box never settled (last ${last})`);
+}
+
+/**
  * Width once it holds steady across `holds` consecutive reads. A single
  * repeat is not enough: on first paint each container measures itself only
  * when its own ResizeObserver reports, so a parent can sit at a stale width

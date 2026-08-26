@@ -1,4 +1,4 @@
-import { type RefObject, useContext, useEffect } from 'react';
+import { type RefObject, useContext, useEffect, useRef } from 'react';
 import type { Point } from '../../dnd/DragEngine.js';
 import { type DropIntent, resolveDropIntent } from '../../dnd/dropIntent.js';
 import { axisFromRects, childRectsForContainer } from '../../dnd/insertionIndex.js';
@@ -71,6 +71,14 @@ export function useDropIntentTarget(
     canAccept,
   } = opts;
   const controller = useContext(DragContext);
+  // The last harvest taken while nothing was displacing children. A split
+  // preview moves a child that is *not* the source, so hit-testing the live
+  // DOM would resolve the intent against geometry the preview itself
+  // produced — cross into a pane's top band, the pane shrinks out from under
+  // the cursor, and the next pointermove reads the drop as an insert.
+  // Filtering the source (below) covers an insertion preview; nothing covered
+  // this one.
+  const undisplaced = useRef<{ id: string; rect: DOMRect }[] | null>(null);
   useEffect(() => {
     if (enabled === false) return;
     if (!controller) return;
@@ -79,7 +87,10 @@ export function useDropIntentTarget(
     return controller.registerDropTarget(parentId, el, canAccept, {
       scrollEl: scrollRef?.current ?? null,
       getDropIntent: (point) => {
-        const rects = childRectsForContainer(el);
+        const live = childRectsForContainer(el);
+        const displaced = el.getAttribute('data-split-preview') === 'true';
+        if (!displaced) undisplaced.current = live;
+        const rects = displaced ? (undisplaced.current ?? live) : live;
         if (rects.length === 0) return { kind: 'insert', index: 0 };
         // Skip the source itself for same-parent previews.
         const sourceId = controller.state()?.draggingId;

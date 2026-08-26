@@ -620,11 +620,22 @@ The seam between the two panes is draggable with no configuration; tell
 <DragProvider splitConfig={{ gap: 6 }}>
 ```
 
-A prospective split draws a `div.windease-split-preview` over the half the drop
-would take, so the two edges are distinguishable before you release. The
-stylesheet gives it a subtle default; restyle it through that class, or pass
-`splitPreview="none"` and draw your own from the `intent` in
-`<DragProvider dragOverlay>`'s context.
+A prospective split lays the destination out as if you had already released:
+the pane under the cursor shrinks to the half it will actually get, the dragged
+pane's rect fills the other, and a `div.windease-split-preview` marks that half.
+Both halves come from running the strategy the new strip will be created with —
+`splitConfig` included — so what you aim at is what you get.
+
+```tsx
+<Container splitOnDrop splitPreview="layout" />   // default
+<Container splitOnDrop splitPreview="element" />  // shade only, pane stays put
+<Container splitOnDrop splitPreview="none" />     // draw your own
+```
+
+The stylesheet gives the element a subtle default; restyle it through that
+class, or pass `splitPreview="none"` and draw your own from the `intent` in
+`<DragProvider dragOverlay>`'s context. `'element'` is the earlier behavior,
+kept for a consumer whose panes are too expensive to lay out on every hover.
 
 `splitOnDrop` and `stackOnDrop` are independent. With split on and stack off the
 centre of a pane still inserts — edges split, everything else inserts — which is
@@ -632,8 +643,8 @@ what a consumer without tabs wants.
 
 `<Zone>` and `<Panel container={…}>` take the same two props, plus `dropIntent`,
 gated by `acceptsDrops` — the presets run the same hit-test `<Container>` does.
-What they do not draw is the split preview band; that is a `<Container>` render,
-so a preset drop resolves the same intent with no shaded half to aim at.
+What they do not draw is the split preview; that is a `<Container>` render, so a
+preset drop resolves the same intent with nothing to aim at.
 
 A pane a preset declares in JSX cannot be re-parented by a drop: JSX owns the
 node's lifetime, and a preset can only host a node it created itself. Where a

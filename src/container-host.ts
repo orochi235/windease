@@ -1,4 +1,5 @@
 import { checkStrategyConfig } from './layout/config-check.js';
+import { splitPreviewPlacements } from './layout/split-preview.js';
 import { nodeToLayoutItem, runStrategyForContainer } from './layout-node-adapter.js';
 import type {
   Affordance,
@@ -10,7 +11,7 @@ import type {
   StrategyRegistry,
 } from './layout-types.js';
 import type { ContainerCap, NodeId } from './node.js';
-import type { Store } from './store.js';
+import { SPLIT_STRATEGY_ID, type Store } from './store.js';
 import { trace } from './trace.js';
 
 export interface ContainerLayout {
@@ -383,7 +384,10 @@ export class ContainerHost {
         a.insertId === p.insertId &&
         a.insertIndex === p.insertIndex &&
         a.cursor.x === p.cursor.x &&
-        a.cursor.y === p.cursor.y);
+        a.cursor.y === p.cursor.y &&
+        a.split?.ontoId === p.split?.ontoId &&
+        a.split?.edge === p.split?.edge &&
+        a.split?.axis === p.split?.axis);
     if (same) return;
     this.#preview = p;
     this.#invalidate();
@@ -575,6 +579,39 @@ export class ContainerHost {
     }
   }
 
+  /**
+   * Replace the onto-child's slot with the two halves the prospective split
+   * would produce. Mutates `placements` and reports whether it could: a
+   * registry with no split strategy, or an onto-child the parent did not
+   * place, leaves the un-split layout alone rather than a half-applied one.
+   */
+  #applySplitPreview(
+    placements: Map<NodeId, Rect>,
+    sourceId: string,
+    split: NonNullable<LayoutPreview['split']>,
+  ): boolean {
+    const slot = placements.get(split.ontoId as NodeId);
+    if (!slot) {
+      trace('layout', `split preview: ${split.ontoId} unplaced, showing the un-split layout`);
+      return false;
+    }
+    const strategy = this.#registry.get(SPLIT_STRATEGY_ID);
+    if (!strategy) {
+      trace('layout', `split preview: no '${SPLIT_STRATEGY_ID}' strategy registered`);
+      return false;
+    }
+    const halves = splitPreviewPlacements(
+      slot,
+      sourceId,
+      split,
+      strategy as LayoutStrategy<never, string, unknown>,
+    );
+    if (!halves) return false;
+    for (const [id, rect] of halves) placements.set(id as NodeId, rect);
+    trace('layout', `split preview: ${sourceId} into ${split.ontoId} ${split.axis}/${split.edge}`);
+    return true;
+  }
+
   #compute(): ContainerLayout {
     const node = this.#store.getNode(this.#parentId);
     const container = node?.container;
@@ -590,7 +627,7 @@ export class ContainerHost {
     this.#checkConfig(strategy, container.config);
 
     const preview = this.#preview;
-    if (preview && strategy.getDropPreview) {
+    if (preview && !preview.split && strategy.getDropPreview) {
       const fast = strategy.getDropPreview({
         items: this.#store
           .getChildren(this.#parentId)
@@ -642,12 +679,15 @@ export class ContainerHost {
     const affordances = this.#store.isLocked(this.#parentId, 'arrange')
       ? []
       : result.affordances.filter((a) => !affectsResizeLocked(this.#store, a.affects));
+    const split = preview?.split
+      ? this.#applySplitPreview(result.placements, preview.insertId, preview.split)
+      : true;
     const out: ContainerLayout = {
       placements: result.placements,
       affordances,
       unplaced: result.unplaced ?? [],
       viewport,
-      isPreview: result.isPreview ?? false,
+      isPreview: split ? (result.isPreview ?? false) : false,
       mode: 'placed',
       scroll: this.#scroll,
     };

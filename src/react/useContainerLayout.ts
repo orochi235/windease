@@ -77,7 +77,8 @@ export function useContainerLayout(
 
   // Identity of `preview` changes every pointermove; the host dedupes by value.
   const previewKey = preview
-    ? `${preview.insertId}|${preview.insertIndex ?? '-'}|${preview.cursor.x}|${preview.cursor.y}`
+    ? `${preview.insertId}|${preview.insertIndex ?? '-'}|${preview.cursor.x}|${preview.cursor.y}` +
+      `|${preview.split ? `${preview.split.ontoId}:${preview.split.axis}:${preview.split.edge}` : '-'}`
     : '';
   // biome-ignore lint/correctness/useExhaustiveDependencies: previewKey is a stable identity for `preview`.
   useEffect(() => {

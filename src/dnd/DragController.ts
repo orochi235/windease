@@ -78,6 +78,13 @@ function ancestorDepth(el: Element): number {
  * and pointermove walks the registry to find the deepest match.
  */
 export class DragController {
+  /**
+   * The `<DragProvider splitConfig>` this controller commits a split with.
+   * Public because `<Container splitPreview="layout">` lays the preview out
+   * with it — reading the same object is what stops the preview and the drop
+   * from disagreeing over `gap`.
+   */
+  readonly splitConfig: Record<string, unknown> | undefined;
   private readonly engine: DragEngine;
   private readonly elements = new Map<NodeId, Element>();
   private stamped: NodeId | null = null;
@@ -98,6 +105,7 @@ export class DragController {
     } = {
       schedule: rafScheduler,
     };
+    this.splitConfig = splitConfig;
     if (getStrategy) options.getStrategy = getStrategy;
     if (stackConfig) options.stackConfig = stackConfig;
     if (splitConfig) options.splitConfig = splitConfig;

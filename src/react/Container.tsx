@@ -68,13 +68,19 @@ export interface ContainerProps {
    */
   splitOnDrop?: boolean;
   /**
-   * What a prospective split draws. `'element'` positions a
-   * `div.windease-split-preview` over the half the dragged node would take;
-   * restyle it through that class. `'none'` draws nothing, for consumers
-   * drawing their own through `<DragProvider dragOverlay>`, whose context
-   * already carries the intent. Default `'element'`.
+   * What a prospective split draws.
+   *
+   * `'layout'` (default) lays the destination out as if the drop had happened:
+   * the onto-pane shrinks to the half it will actually get and the dragged
+   * node's rect fills the other, both placed by the strategy the group will be
+   * created with. `'element'` leaves the onto-pane full-size and only draws
+   * over it. Both position a `div.windease-split-preview` on the half the
+   * dragged node would take; restyle it through that class.
+   *
+   * `'none'` draws nothing, for consumers drawing their own through
+   * `<DragProvider dragOverlay>`, whose context already carries the intent.
    */
-  splitPreview?: 'none' | 'element';
+  splitPreview?: 'none' | 'element' | 'layout';
   /**
    * Replace the built-in drop hit-test. Receives the measured child rects with
    * the dragged node already removed, the cursor, this container's own axis,
@@ -211,7 +217,7 @@ function StoreContainer({
   onChildOrderChange,
   stackOnDrop = false,
   splitOnDrop = false,
-  splitPreview = 'element',
+  splitPreview = 'layout',
   dropIntent,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -232,14 +238,25 @@ function StoreContainer({
 
   // Compute preview from current drag state. Only when this container is
   // the hover target AND the hover is accepted; otherwise preview is omitted.
+  const hover =
+    dragState?.hover?.targetId === parentId && dragState.hover.accepted ? dragState.hover : null;
+  const splitIntent = hover?.intent?.kind === 'split' ? hover.intent : null;
+  const previewSplit =
+    splitPreview === 'layout' && splitIntent
+      ? {
+          ontoId: splitIntent.ontoId,
+          edge: splitIntent.edge,
+          axis: splitIntent.axis,
+          ...(dragController?.splitConfig ? { config: dragController.splitConfig } : {}),
+        }
+      : undefined;
   const preview =
-    dragState?.hover?.targetId === parentId && dragState.hover.accepted
+    hover && dragState
       ? {
           insertId: dragState.draggingId,
-          ...(dragState.hover.insertIndex !== undefined
-            ? { insertIndex: dragState.hover.insertIndex }
-            : {}),
+          ...(hover.insertIndex !== undefined ? { insertIndex: hover.insertIndex } : {}),
           cursor: dragState.cursor,
+          ...(previewSplit ? { split: previewSplit } : {}),
         }
       : undefined;
 
@@ -349,33 +366,41 @@ function StoreContainer({
   }
 
   // The half a prospective split would hand the dragged node. Geometry comes
-  // from the onto-child's placement, which is already in the space the children
-  // above are positioned in — no second measurement per pointermove.
-  const splitIntent =
-    splitPreview === 'element' &&
-    dragState?.hover?.targetId === parentId &&
-    dragState.hover.accepted &&
-    dragState.hover.intent?.kind === 'split'
-      ? dragState.hover.intent
-      : null;
-  const splitOnto = splitIntent ? layout.placements.get(splitIntent.ontoId as NodeId) : undefined;
+  // from placements, the space the children above are positioned in — no second
+  // measurement per pointermove. Which placement differs by mode: under
+  // 'layout' the source already holds the interior half, while under 'element'
+  // the onto-child still holds the whole slot and the half has to be derived.
+  const drawSplit = splitPreview !== 'none' && splitIntent ? splitIntent : null;
+  const splitHalf =
+    drawSplit && splitPreview === 'layout' && dragState
+      ? layout.placements.get(dragState.draggingId)
+      : undefined;
+  const splitOnto = drawSplit ? layout.placements.get(drawSplit.ontoId as NodeId) : undefined;
   let splitStyle: CSSProperties | null = null;
-  if (splitIntent && splitOnto) {
+  if (splitHalf) {
+    splitStyle = {
+      ...CHILD_BASE,
+      left: splitHalf.x,
+      top: splitHalf.y,
+      width: splitHalf.w,
+      height: splitHalf.h,
+    };
+  } else if (drawSplit && splitOnto) {
     splitStyle =
-      splitIntent.axis === 'y'
+      drawSplit.axis === 'y'
         ? {
             ...CHILD_BASE,
             left: splitOnto.x,
             width: splitOnto.w,
             height: splitOnto.h / 2,
-            top: splitIntent.edge === 'start' ? splitOnto.y : splitOnto.y + splitOnto.h / 2,
+            top: drawSplit.edge === 'start' ? splitOnto.y : splitOnto.y + splitOnto.h / 2,
           }
         : {
             ...CHILD_BASE,
             top: splitOnto.y,
             height: splitOnto.h,
             width: splitOnto.w / 2,
-            left: splitIntent.edge === 'start' ? splitOnto.x : splitOnto.x + splitOnto.w / 2,
+            left: drawSplit.edge === 'start' ? splitOnto.x : splitOnto.x + splitOnto.w / 2,
           };
   }
 
@@ -386,6 +411,7 @@ function StoreContainer({
       style={containerStyle}
       data-node-container={parentId}
       data-preview={layout.isPreview ? 'true' : undefined}
+      data-split-preview={previewSplit && layout.isPreview ? 'true' : undefined}
     >
       {Array.from(renderEntries.entries()).map(([id, { isReal }]) => {
         const rect = layout.placements.get(id);

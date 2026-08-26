@@ -173,6 +173,21 @@ export interface LayoutPreview {
   insertId: string;
   insertIndex?: number;
   cursor: { x: number; y: number };
+  /**
+   * Present when the drop splits `ontoId`'s slot instead of inserting a
+   * sibling. `insertIndex` means nothing then — the parent's child list keeps
+   * its length, because the group takes the slot `ontoId` already held.
+   *
+   * `config` is the prospective group's strategy config, which the host cannot
+   * derive; without it the halves are off by whatever `gap` and `padding` the
+   * drop will actually commit with.
+   */
+  split?: {
+    ontoId: string;
+    edge: 'start' | 'end';
+    axis: 'x' | 'y';
+    config?: Record<string, unknown>;
+  };
 }
 
 export interface LayoutResult<TId extends string = string, TMeta = unknown> {

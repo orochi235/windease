@@ -8,7 +8,27 @@ section below.
 
 ## Unreleased
 
+### Changed
+
+- **A prospective split now previews as a layout, not a shade.** Hovering a pane's cross-axis
+  edge with `splitOnDrop` lays the destination out as if the drop had happened: the pane under
+  the cursor shrinks to the half it will actually get and the dragged pane's rect fills the
+  other, both placed by running the strategy the new strip will be created with — `splitConfig`
+  included — so the preview and the committed layout cannot disagree. Insertion has previewed
+  this way since it shipped; a split was the odd one out.
+
+  `<Container splitPreview>` accordingly grows a `'layout'` member and defaults to it.
+  `.windease-split-preview` is still drawn on the half the drop would take, so styling carries
+  over untouched; pass `splitPreview="element"` for the previous behavior, where the pane stayed
+  full size and only the shading moved.
+
 ### Fixed
+
+- **A split intent no longer flips to an insert mid-hover.** The drop hit-test read live DOM
+  rects, so once a preview displaced a pane the next `pointermove` resolved the intent against
+  geometry the preview itself had produced — cross into a pane's top band and the pane shrank
+  out from under the cursor, turning the drop back into a plain insert. Only reachable with the
+  new layout preview; the hit-test now resolves against the un-displaced row.
 
 - **A preset rendering in flow now reports its children's geometry.** A `<Zone>` or `<Panel>`
   that both hosts a container and declares `hints.render: 'flow'` runs no strategy, so it has

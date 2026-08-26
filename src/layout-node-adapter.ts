@@ -1,4 +1,11 @@
-import type { LayoutItem, LayoutNode, LayoutResult, LayoutStrategy, Size } from './layout-types.js';
+import type {
+  LayoutItem,
+  LayoutNode,
+  LayoutPreview,
+  LayoutResult,
+  LayoutStrategy,
+  Size,
+} from './layout-types.js';
 import type { Node, NodeId } from './node.js';
 import type { Store } from './store.js';
 
@@ -85,7 +92,7 @@ export function runStrategyForContainer<TState>(
   viewport: Size,
   strategy: LayoutStrategy<TState, string, unknown>,
   state: TState,
-  preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } },
+  preview?: LayoutPreview,
   natural?: ReadonlyMap<string, Size>,
 ): LayoutResult<NodeId, unknown> {
   const parent = store.getNode(parentId);
@@ -99,11 +106,18 @@ export function runStrategyForContainer<TState>(
     if (measured && item.hints?.sizing) item.natural = measured;
     items.push(item);
   }
+  // A split preview inverts the rule below: the group takes the onto-child's
+  // slot, so the parent's child count is unchanged, and a same-parent source
+  // is one the drop will move *out*. Splicing it in would narrow every slot.
+  if (preview?.split) {
+    const from = items.findIndex((it) => it.id === preview.insertId);
+    if (from !== -1) items.splice(from, 1);
+  }
   // When previewing an insert, splice the source in at the requested index
   // (or append) so strategies that don't read `preview` still get the right
   // item count. We pass `preview` through so strategies that DO read it can
   // use the cursor for sub-index positioning.
-  if (preview) {
+  else if (preview) {
     const alreadyPresent = items.some((it) => it.id === preview.insertId);
     if (!alreadyPresent) {
       const ghostItem: LayoutItem = { id: preview.insertId };
@@ -129,7 +143,7 @@ export function runStrategyForContainer<TState>(
     container: Size;
     state: TState;
     options: Record<string, unknown>;
-    preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } };
+    preview?: LayoutPreview;
   } = { items, container: viewport, state, options: config };
   if (preview) input.preview = preview;
   const result = strategy.layout(input);

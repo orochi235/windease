@@ -29,6 +29,12 @@ import { trace } from './trace.js';
 /** `container.strategyId` a stack carries. Named here because `stackNodes`
  *  recognises an existing stack by it. */
 const STACK_STRATEGY_ID = 'stack';
+/**
+ * The strategy `splitInto` gives the group it mints. Exported because the drop
+ * preview runs it against the prospective slot; a preview that guessed a
+ * different one would disagree with the layout the drop produces.
+ */
+export const SPLIT_STRATEGY_ID = 'strip';
 
 export interface StoreEvents {
   'node.registered': { id: NodeId };
@@ -1452,7 +1458,7 @@ export class Store {
           parentId,
           placement,
           container: {
-            strategyId: 'strip',
+            strategyId: SPLIT_STRATEGY_ID,
             config: { axis: opts.axis, fill: true, ...opts.config },
           },
         }),

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, centerOf, openStory } from './fixtures.js';
+import { boxOf, centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
  * Drop-on-edge is a drop *intent* gesture: where inside a pane the cursor lands
@@ -116,5 +116,72 @@ test.describe('drop on edge', () => {
 
     await dropOn(page, 'a', 'c', 0.94, 0.5);
     await expect(readout(page)).not.toContainText('split-1');
+  });
+});
+
+test.describe("splitPreview 'layout'", () => {
+  const near = (a: number, b: number) => Math.abs(a - b) <= 2;
+
+  test('the hovered pane shrinks to the half it will actually get', async ({ page }) => {
+    await openStory(page, STORY);
+    const before = await settledBox(pane(page, 'b'));
+    await dragOver(page, 'a', 'b', 0.5, 0.08);
+
+    const during = await settledBox(pane(page, 'b'));
+    expect(during.h).toBeLessThan(before.h * 0.6);
+    // Bottom half, because the drop lands on the start edge.
+    expect(during.y).toBeGreaterThan(before.y + before.h * 0.4);
+    await page.mouse.up();
+  });
+
+  test('what the preview showed is what the drop produces', async ({ page }) => {
+    await openStory(page, STORY);
+    await dragOver(page, 'a', 'b', 0.5, 0.08);
+    const previewed = await settledBox(pane(page, 'b'));
+    await page.mouse.up();
+    await expect(readout(page)).toContainText('split-1:a,b');
+
+    const committed = await settledBox(pane(page, 'b'));
+    expect(near(committed.x, previewed.x)).toBe(true);
+    expect(near(committed.y, previewed.y)).toBe(true);
+    expect(near(committed.w, previewed.w)).toBe(true);
+    expect(near(committed.h, previewed.h)).toBe(true);
+  });
+
+  test('escaping the drag restores the pane', async ({ page }) => {
+    await openStory(page, STORY);
+    const before = await settledBox(pane(page, 'b'));
+    await dragOver(page, 'a', 'b', 0.5, 0.08);
+    expect((await settledBox(pane(page, 'b'))).h).toBeLessThan(before.h * 0.6);
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    await expect(readout(page)).not.toContainText('split-1');
+    expect(near((await settledBox(pane(page, 'b'))).h, before.h)).toBe(true);
+  });
+
+  test("'element' leaves the hovered pane at full size", async ({ page }) => {
+    await openStory(page, STORY);
+    await page.locator('[data-testid="mode-element"]').check();
+    const before = await settledBox(pane(page, 'b'));
+    await dragOver(page, 'a', 'b', 0.5, 0.08);
+
+    await expect(page.locator('.windease-split-preview')).toBeVisible();
+    expect(near((await settledBox(pane(page, 'b'))).h, before.h)).toBe(true);
+    await page.mouse.up();
+  });
+
+  test("'none' neither relayouts nor draws", async ({ page }) => {
+    await openStory(page, STORY);
+    await page.locator('[data-testid="mode-none"]').check();
+    const before = await settledBox(pane(page, 'b'));
+    await dragOver(page, 'a', 'b', 0.5, 0.08);
+
+    await expect(page.locator('.windease-split-preview')).toHaveCount(0);
+    expect(near((await settledBox(pane(page, 'b'))).h, before.h)).toBe(true);
+    await page.mouse.up();
+    // The intent still commits — 'none' suppresses the drawing, not the drop.
+    await expect(readout(page)).toContainText('split-1:a,b');
   });
 });

@@ -94,31 +94,23 @@ Shipped, and documented in the README's Drag and drop and Resize sections:
 `<DragHandle>`, drop-target highlighting with an insertion-point preview,
 reorder within a zone, a cursor-following ghost (`defaultDragOverlay`, replaced
 via `renderOverlay`), and the settle animation (`settleMs` on `<Container>`,
-suppressed under `prefers-reduced-motion`). Per-child resize shipped in 0.5.0
-via `placement.size`; `resizeMode: 'neighbor'` makes a seam behave like a
-splitter rather than pushing panes down the stack.
+suppressed under `prefers-reduced-motion`). A prospective split previews as a
+live layout (`splitPreview: 'layout'`, now the default). Per-child resize
+shipped in 0.5.0 via `placement.size`; `resizeMode: 'neighbor'` makes a seam
+behave like a splitter rather than pushing panes down the stack.
 
 Still open:
 
 - **Inter-zone resize** — dragging the gutter *between* zones is a
   workspace-level concern; see "Strategy for partitioning workspace".
 
-- **A split has no live layout preview [MED].** Hovering an insertion makes the
-  destination lay out as if the drop had happened — `<Container>` feeds
-  `host.setPreview` an `insertId`/`insertIndex` and the panes part to make room
-  (`Container.tsx:206`, `useContainerLayout.ts:84`). A split gets a drawn
-  element instead (`splitPreview: 'element'`), because `LayoutPreview` models
-  one extra item in a container's child list and a split preview is a nested
-  group that does not exist yet: the parent must place a group in the hovered
-  pane's slot and something must lay out its interior. Adding `'layout'` to
-  `splitPreview` is a non-breaking addition to the union whenever that is worth
-  building.
-
 - **A preset drop draws no split preview [MED].** `<Zone>` and `<Panel>` now
-  resolve a `split` intent, but `splitPreview` is a `<Container>` render — the
-  shaded half showing which side the drop takes has no preset equivalent, so a
+  resolve a `split` intent, but `splitPreview` is a `<Container>` render, so a
   preset split is aimed blind. The same is true of the insertion preview, which
-  `<Container>` feeds through `host.setPreview`.
+  `<Container>` feeds through `host.setPreview`. What a preset would need is
+  already built — `LayoutPreview.split` and `ContainerHost`'s overlay are where
+  the work lives, and both are preset-agnostic; the presets just never build the
+  bag ([design](docs/superpowers/specs/2026-08-26-split-layout-preview-design.md)).
 
 - **Two gesture pipelines are converging.** `DragController` drags panes and
   owns arm/cancel/commit/lock/undo/announce; `AffordanceHandle` drags seams and
