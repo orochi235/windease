@@ -20,21 +20,38 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   column's pane boxes before the column had measured itself and placed them —
   the panes render in flow at full height until then, and `openStory` cannot
   wait that out, because every preset stamps `data-node` and the zone above them
-  satisfies it on the first paint. That spec polls now. Any other spec that
-  reads geometry without polling has the same exposure.
+  satisfies it on the first paint. That spec polls now.
 
-- **A spec can fail under machine load, on the engine slowest to start.** The
-  margin, not a race: `openStory` waits for the first placed node, and against
-  a cold Vite cache under load that costs 5071ms and 6216ms on Firefox against
-  2784ms on Chromium and 2381ms on WebKit — where the budget was the default
-  5s. Now a condition-based wait with a 30s budget (`e2e/fixtures.ts`), sized
-  against the 15.4s the slowest cold-cache test actually takes.
+  `settledBox` (`e2e/fixtures.ts`) is the poll to reach for — a box read the
+  instant a gesture changes the layout is a frame of the settle animation
+  rather than the layout, which reads as "the gesture did nothing". Still
+  exposed, worst first by ratio of geometry reads to polls:
+  `floating.spec.ts` (18 reads, none), `resize.spec.ts` (10, none),
+  `content-sizing.spec.ts` (17, 4 — and it has actually failed this way),
+  `stacking.spec.ts` and `declarative-drop.spec.ts` (6, none).
 
-  Kept on the list because the suite itself never failed on demand: three
-  attempts at suite level — synthetic CPU load, cold cache, and a concurrent
-  `vitest run` — all stayed green, so the fix is verified against the measured
-  margin rather than against a reproduction.
-  `scripts/probe-story-load.mjs` measures that margin per engine.
+- **The suite fails under machine load, and the failing specs move between
+  runs.** Reproduces readily once the load average passes roughly twice the
+  core count — three consecutive full runs at 25–32 on a 12-core machine
+  produced three non-overlapping failure sets. That wandering is the signature:
+  a red run whose failures move when you re-run it is the machine, not your
+  change. `--workers=2` does not rescue it, and re-running one spec alone
+  always passes, so isolation proves nothing either way.
+
+  Three distinct modes, and only the first is bounded by anything:
+
+  - **Story-load margin.** `openStory` waits for the first placed node; against
+    a cold Vite cache under load that cost 6216ms on Firefox against 2381ms on
+    WebKit, past the default 5s. Now a condition-based wait with a 30s budget
+    (`e2e/fixtures.ts`), sized against the 15.4s the slowest cold-cache test
+    takes. `scripts/probe-story-load.mjs` measures it per engine.
+  - **Whole-test timeout**, seen on both Firefox and WebKit: a single call
+    never resolves — `keyboard.press`, a drop — and the test hits Playwright's
+    own 30s. Nothing bounds this; it is starvation, and raising the budget only
+    trades a red run for a slow one.
+  - **A geometry assertion read mid-layout**, the entry above — a real
+    `toBeGreaterThan` failure rather than a timeout, so it is the one mode that
+    can be mistaken for a genuine regression.
 
 ## Pinning items within a zone
 
