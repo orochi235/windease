@@ -251,6 +251,27 @@ strategy either way:
 host.setNaturalSize(id, { w, h }); // or host.observeNatural(id, el)
 ```
 
+### Sizing a grid to its rows
+
+`hints.sizing` sizes a pane to what is inside it. A host that instead wants the
+*grid itself* to be as tall as the rows it produced needs the row count, and a
+grid derives its whole tiling — columns, rows, which item is in which cell —
+from the item count, their spans and the config, without reading the container
+at all. `gridTiling` reports it:
+
+```ts
+const { cols, rows } = gridTiling(items, config);
+const height = rows * MY_ROW_HEIGHT + gap * (rows - 1);
+```
+
+It takes no container and lays nothing out. Empty `items` tiles to `0 x 0`, so
+the height comes out zero rather than one empty row.
+
+Grid reports counts and not an extent because it has no opinion about how tall
+a row should be — pick that yourself, usually from `cols` and the width you
+already know. A config `layout` would reject is rejected here too, rather than
+answered with a tiling nothing will render.
+
 ## Collapsing a pane
 
 There is no collapse state. A collapsed pane is a sized pane: write

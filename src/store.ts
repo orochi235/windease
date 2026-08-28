@@ -13,6 +13,7 @@ import { chooseSuccessor } from './focus/successor.js';
 import { destroyBlockedBy, type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeHints, NodeId } from './node.js';
 import { placeRespectingPins } from './pinning.js';
+import { sameConfig } from './same-config.js';
 import { splitNode, unsplitNode } from './split.js';
 import type { SplitInput } from './split-types.js';
 import {
@@ -841,7 +842,10 @@ export class Store {
     } else {
       next = patch;
     }
-    if (next === from) return;
+    // Value equality, not reference: the merge branch always allocates, so a
+    // host recomputing config from a ResizeObserver would otherwise emit and
+    // notify on every tick that changed nothing.
+    if (sameConfig(next, from)) return;
     this.replaceContainer(id, (c) => ({ ...c, config: next }));
     this.events.emit('container.configChanged', { id, from, to: next });
     this.scheduleNotify();

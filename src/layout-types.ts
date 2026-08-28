@@ -1,4 +1,4 @@
-import type { ConfigSpec } from './layout/config-check.js';
+import type { ConfigConflict, ConfigSpec } from './layout/config-check.js';
 import type { NodeId } from './node.js';
 import type { Store } from './store.js';
 
@@ -261,6 +261,13 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
    * fallback to the default. Optional; a strategy without one is not checked.
    */
   configSpec?: ConfigSpec;
+  /**
+   * Config keys that conflict with each other, which `configSpec` cannot
+   * express because each key is individually valid. Reported through the same
+   * `layout` trace as a typo — the failure otherwise is silent, and looks like
+   * the strategy ignoring a setting for no reason.
+   */
+  configConflicts?: readonly ConfigConflict[];
   /** Seed state for a container that has none persisted yet. `options` is the
    *  container's strategy config, so the seed can honor it. */
   initialState?(items: LayoutItem[], options?: Record<string, unknown>): TState;

@@ -12,6 +12,22 @@ export type ConfigFieldSpec = 'number' | 'boolean' | 'string' | readonly string[
  *  strategy config is optional throughout. */
 export type ConfigSpec = Readonly<Record<string, ConfigFieldSpec>>;
 
+/**
+ * A relationship between config keys that {@link ConfigSpec} cannot express,
+ * because both keys are individually valid. Two shapes, and the difference
+ * matters to whoever reads the diagnostic:
+ *
+ * - `exclusive` — the keys cancel each other and the strategy cannot honor
+ *   both. Set one.
+ * - `ignored` — `key` is valid, but a branch taken by any of `when` never
+ *   reads it. The layout is the one `when` describes, and `key` does nothing.
+ *
+ * @group Layout
+ */
+export type ConfigConflict =
+  | { readonly kind: 'exclusive'; readonly keys: readonly string[] }
+  | { readonly kind: 'ignored'; readonly key: string; readonly when: readonly string[] };
+
 /** Levenshtein distance, capped: only used to decide whether to name a
  *  suggestion, so the exact figure past the cap is worthless. */
 function distance(a: string, b: string, cap: number): number {
@@ -43,6 +59,13 @@ function nearestKey(key: string, known: string[]): string | null {
   return best?.key ?? null;
 }
 
+/** "'a'", "'a' and 'b'", "'a', 'b' and 'c'" — read inside a sentence. */
+function list(keys: readonly string[]): string {
+  const quoted = keys.map((k) => `'${k}'`);
+  if (quoted.length <= 1) return quoted[0] ?? '';
+  return `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`;
+}
+
 function describe(spec: ConfigFieldSpec): string {
   return Array.isArray(spec) ? spec.map((v) => `'${v}'`).join(' | ') : String(spec);
 }
@@ -58,6 +81,7 @@ export function checkStrategyConfig(
   strategyName: string,
   config: unknown,
   spec: ConfigSpec,
+  conflicts?: readonly ConfigConflict[],
 ): string[] {
   if (typeof config !== 'object' || config === null || Array.isArray(config)) return [];
   const known = Object.keys(spec);
@@ -89,5 +113,26 @@ export function checkStrategyConfig(
       );
     }
   }
+
+  const bag = config as Record<string, unknown>;
+  const set = (key: string): boolean => Object.hasOwn(bag, key) && bag[key] !== undefined;
+
+  for (const conflict of conflicts ?? []) {
+    if (conflict.kind === 'exclusive') {
+      const clashing = conflict.keys.filter(set);
+      if (clashing.length > 1) {
+        problems.push(`${strategyName}: config ${list(clashing)} are mutually exclusive — set one`);
+      }
+      continue;
+    }
+    if (!set(conflict.key)) continue;
+    const blockers = conflict.when.filter(set);
+    if (blockers.length > 0) {
+      problems.push(
+        `${strategyName}: config '${conflict.key}' is ignored when ${list(blockers)} is set`,
+      );
+    }
+  }
+
   return problems;
 }

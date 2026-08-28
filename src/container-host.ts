@@ -574,7 +574,12 @@ export class ContainerHost {
   #checkConfig(strategy: LayoutStrategy<unknown, string, unknown>, config: unknown): void {
     if (!strategy.configSpec || config === this.#checkedConfig) return;
     this.#checkedConfig = config;
-    for (const problem of checkStrategyConfig(strategy.name, config, strategy.configSpec)) {
+    for (const problem of checkStrategyConfig(
+      strategy.name,
+      config,
+      strategy.configSpec,
+      strategy.configConflicts,
+    )) {
       trace('layout', problem);
     }
   }

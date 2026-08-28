@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createNode } from './constructors.js';
 import { ContainerHost } from './container-host.js';
 import { asNodeId, Store } from './index.js';
+import { gridStrategy } from './layout/grid.js';
 import { stripStrategy } from './layout/strip.js';
 import { configureTrace } from './trace.js';
 
@@ -72,5 +73,53 @@ describe('ContainerHost — config problems', () => {
     store.updateContainerConfig(Z, { axsi: undefined, wobble: 1 });
     host.layout();
     expect(logged.filter((l) => l.includes('wobble'))).toHaveLength(1);
+  });
+});
+
+/** `cols` and `maxCols` are both valid numbers, so nothing in `configSpec`
+ *  objects to a config carrying both — and grid then reads one and silently
+ *  drops the other. */
+describe('ContainerHost — conflicting config keys', () => {
+  let logged: string[];
+
+  beforeEach(() => {
+    logged = [];
+    vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      logged.push(args.map(String).join(' '));
+    });
+    configureTrace('layout');
+  });
+
+  afterEach(() => {
+    configureTrace(null);
+    vi.restoreAllMocks();
+  });
+
+  function gridHost(config: Record<string, unknown>) {
+    const store = new Store();
+    store.registerNode(
+      createNode({ kind: 'zone', id: Z, container: { strategyId: 'grid', config } }),
+    );
+    const p = asNodeId('p');
+    store.registerNode(createNode({ kind: 'panel', focus: true, id: p, parentId: Z }));
+    store.showNode(p);
+    const host = new ContainerHost(store, Z, new Map([['grid', gridStrategy as never]]));
+    host.setViewport({ w: 200, h: 100 });
+    return host;
+  }
+
+  it('traces the cap grid silently ignores', () => {
+    gridHost({ cols: 2, maxCols: 4 }).layout();
+    expect(logged.join('\n')).toContain("'maxCols' is ignored when 'cols' is set");
+  });
+
+  it('traces a fixed row count that a fixed column count shadows', () => {
+    gridHost({ cols: 2, rows: 3 }).layout();
+    expect(logged.join('\n')).toContain("'rows' is ignored when 'cols' is set");
+  });
+
+  it('says nothing about a config that sets only one of a conflicting pair', () => {
+    gridHost({ cols: 2, gap: 8 }).layout();
+    expect(logged.join('\n')).not.toContain('ignored');
   });
 });

@@ -499,6 +499,40 @@ describe('Store — container config', () => {
     expect(cb).toHaveBeenCalled();
   });
 
+  it('stays quiet when a patch merges to the values already held', () => {
+    const s = fresh();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols: 2, rows: 3 } },
+        id: id('z'),
+      }),
+    );
+    const cb = vi.fn();
+    s.events.on('container.configChanged', cb);
+    // A host recomputing its config on every resize hands over a fresh object
+    // each time; only the values decide whether anything changed.
+    s.updateContainerConfig(id('z'), { cols: 2 });
+    s.updateContainerConfig(id('z'), { cols: 2, rows: 3 });
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('still publishes when a delete is the only change', () => {
+    const s = fresh();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: { cols: 2, rows: 3 } },
+        id: id('z'),
+      }),
+    );
+    const cb = vi.fn();
+    s.events.on('container.configChanged', cb);
+    s.updateContainerConfig(id('z'), { rows: undefined });
+    expect(s.getContainerView(id('z'))?.config).toEqual({ cols: 2 });
+    expect(cb).toHaveBeenCalled();
+  });
+
   it('setAllowsPinning false clears held pins', () => {
     const s = fresh();
     s.registerNode(

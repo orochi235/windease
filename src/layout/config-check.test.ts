@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type ConfigSpec, checkStrategyConfig } from './config-check.js';
+import { type ConfigConflict, type ConfigSpec, checkStrategyConfig } from './config-check.js';
 
 const SPEC: ConfigSpec = {
   axis: ['x', 'y'],
@@ -53,5 +53,57 @@ describe('checkStrategyConfig', () => {
   it('is quiet on a null or non-object config', () => {
     expect(checkStrategyConfig('strip', null, SPEC)).toEqual([]);
     expect(checkStrategyConfig('strip', 7, SPEC)).toEqual([]);
+  });
+});
+
+const CONFLICTS: readonly ConfigConflict[] = [
+  { kind: 'exclusive', keys: ['gap', 'fill'] },
+  { kind: 'ignored', key: 'label', when: ['axis', 'gap'] },
+];
+
+describe('checkStrategyConfig — conflicting keys', () => {
+  it('says nothing when only one of an exclusive pair is set', () => {
+    expect(checkStrategyConfig('strip', { gap: 8 }, SPEC, CONFLICTS)).toEqual([]);
+  });
+
+  it('names both members of an exclusive pair that are set together', () => {
+    const [problem] = checkStrategyConfig('strip', { gap: 8, fill: true }, SPEC, CONFLICTS);
+    expect(problem).toContain('mutually exclusive');
+    expect(problem).toContain("'gap'");
+    expect(problem).toContain("'fill'");
+  });
+
+  it('reports a key the config makes irrelevant, naming what shadowed it', () => {
+    const [problem] = checkStrategyConfig('strip', { label: 'x', axis: 'y' }, SPEC, CONFLICTS);
+    expect(problem).toContain("'label' is ignored when 'axis' is set");
+  });
+
+  it('names every key that shadowed it, not just the first', () => {
+    const [problem] = checkStrategyConfig(
+      'strip',
+      { label: 'x', axis: 'y', gap: 4 },
+      SPEC,
+      CONFLICTS,
+    );
+    expect(problem).toContain("'axis' and 'gap'");
+  });
+
+  it('stays quiet about an ignored key that was never set', () => {
+    expect(checkStrategyConfig('strip', { axis: 'y' }, SPEC, CONFLICTS)).toEqual([]);
+  });
+
+  it('treats an explicit undefined as absent on both sides of a conflict', () => {
+    expect(
+      checkStrategyConfig(
+        'strip',
+        { gap: undefined, fill: true, label: undefined },
+        SPEC,
+        CONFLICTS,
+      ),
+    ).toEqual([]);
+  });
+
+  it('checks nothing extra when a strategy declares no conflicts', () => {
+    expect(checkStrategyConfig('strip', { gap: 8, fill: true }, SPEC)).toEqual([]);
   });
 });

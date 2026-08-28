@@ -8,6 +8,32 @@ section below.
 
 ## Unreleased
 
+### Added
+
+- **`gridTiling(items, options)`** reports the columns and rows a grid config
+  produces, taking no container and laying nothing out. A host sizing a grid to
+  its own content previously had to call `gridStrategy.layout()` at a throwaway
+  height and invert the cell arithmetic to recover the row count — a grid
+  derives its tiling from the item count, the spans and the config alone, so
+  the number was always available without a pass. Reports counts rather than an
+  extent: grid has no opinion about row height. See
+  [Sizing a grid to its rows](README.md#sizing-a-grid-to-its-rows).
+
+- **Strategies can declare conflicting config keys**, through
+  `LayoutStrategy.configConflicts`, and `ContainerHost` traces them alongside
+  the typos `configSpec` already catches. Two shapes: `exclusive` keys that
+  cancel each other, and an `ignored` key that some other key's branch never
+  reads. `gridStrategy` declares its own — setting `cols` has always made
+  `maxCols`, `rows` and `orientation` dead config, silently.
+
+### Fixed
+
+- **`updateContainerConfig` no longer republishes a patch that changed
+  nothing.** The merge branch always allocates, so the existing reference check
+  never fired and a host recomputing its config from a `ResizeObserver` emitted
+  `container.configChanged` and scheduled a notify on every tick. Now compared
+  by value, matching what the React reconciler already did on its own path.
+
 ### Changed
 
 - **A prospective split now previews as a layout, not a shade.** Hovering a pane's cross-axis

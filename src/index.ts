@@ -62,6 +62,7 @@ export type { FocusAdapter, GeometrySource, NavDirection, NavIntent } from './fo
 export { Machine, type MachineDef, type MachineSubscriber } from './fsm.js';
 export { HistoryController, type HistoryControllerOptions } from './history.js';
 export {
+  type ConfigConflict,
   type ConfigFieldSpec,
   type ConfigSpec,
   checkStrategyConfig,
@@ -78,7 +79,7 @@ export {
   type FloatingState,
   floatingStrategy,
 } from './layout/floating.js';
-export { gridStrategy } from './layout/grid.js';
+export { gridStrategy, gridTiling } from './layout/grid.js';
 export {
   DEFAULT_JOIN_THRESHOLD,
   type JoinState,

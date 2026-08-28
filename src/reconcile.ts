@@ -1,5 +1,6 @@
 import { type ChildSort, defaultChildSort } from './child-sort.js';
 import type { NodeHints, NodeId } from './node.js';
+import { isRecord, sameConfig } from './same-config.js';
 import type { Store } from './store.js';
 import { trace } from './trace.js';
 
@@ -99,24 +100,6 @@ function configPatch(next: unknown, prev: unknown): unknown {
     for (const key of Object.keys(prev)) if (!(key in next)) patch[key] = undefined;
   }
   return patch;
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
-
-/** Structural equality, so a config literal rebuilt each render with the same
- *  values does not rewrite the store and notify its way into a render loop. */
-function sameConfig(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true;
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-    return a.every((v, i) => sameConfig(v, b[i]));
-  }
-  if (!isRecord(a) || !isRecord(b)) return false;
-  const keys = Object.keys(a);
-  if (keys.length !== Object.keys(b).length) return false;
-  return keys.every((k) => k in b && sameConfig(a[k], b[k]));
 }
 
 /** Reconcile persisted strategy state. Skips under the container's arrange lock. */

@@ -199,7 +199,97 @@ function reserveCells(
 }
 
 /**
- * Resolve the same dimensions, cell sizes and reservations `layout` does.
+ * Cols, rows and cell reservations — the whole tiling, which grid derives from
+ * the item count, their spans and the config alone. The container never enters
+ * here; it only divides the result into cells. `layout`, `gridGeometry` and the
+ * public `gridTiling` all resolve dimensions through this, so the three cannot
+ * disagree about which item is in which cell.
+ */
+function resolveTiling(
+  items: LayoutItem[],
+  cfg: GridConfig,
+): {
+  cols: number;
+  rows: number;
+  rowCap: number | undefined;
+  itemCap: number;
+  cells: Map<string, ReservedCell>;
+} {
+  const maxCols = cfg.maxCols !== undefined ? Math.max(1, cfg.maxCols) : undefined;
+  const maxRows = cfg.maxRows !== undefined ? Math.max(1, cfg.maxRows) : undefined;
+  const fill = cfg.fill ?? true;
+
+  if (cfg.maxItems !== undefined && (maxCols !== undefined || maxRows !== undefined)) {
+    throw new Error('gridStrategy: maxItems is mutually exclusive with maxCols/maxRows');
+  }
+
+  let cols: number;
+  let rowCap: number | undefined;
+  if (cfg.cols !== undefined) {
+    cols = Math.max(1, cfg.cols);
+    rowCap = maxRows;
+  } else if (cfg.rows !== undefined) {
+    const fixedRows = Math.max(1, cfg.rows);
+    if (fill) {
+      const needed = Math.ceil(items.length / fixedRows);
+      cols = maxCols !== undefined ? Math.min(maxCols, needed) : needed;
+    } else {
+      cols = maxCols ?? Math.max(1, Math.ceil(items.length / fixedRows));
+    }
+    cols = Math.max(1, cols);
+    rowCap = fixedRows;
+  } else if (!fill && maxCols !== undefined) {
+    // fill=false with max dimensions: lock to the full max grid.
+    cols = maxCols;
+    rowCap = maxRows;
+  } else {
+    const root = Math.sqrt(items.length);
+    const ideal = (cfg.orientation ?? 'wide') === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
+    cols = maxCols !== undefined ? Math.min(maxCols, ideal) : ideal;
+    cols = Math.max(1, cols);
+    rowCap = maxRows;
+  }
+
+  const itemCap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
+
+  // Two passes: the first (priority order — pins win the capacity race)
+  // decides *which* items survive; the second (childOrder) assigns actual
+  // cells, so position among the survivors never depends on pin status.
+  const priorityPlaced = reserveCells(byCapacityPriority(items), cols, rowCap, itemCap);
+  const survivors = items.filter((it) => priorityPlaced.has(it.id));
+  const cells = reserveCells(survivors, cols, rowCap, survivors.length);
+
+  let usedRows = 1;
+  for (const cell of cells.values()) usedRows = Math.max(usedRows, cell.row + cell.rows);
+  const rows = !fill && rowCap !== undefined ? rowCap : usedRows;
+
+  return { cols, rows, rowCap, itemCap, cells };
+}
+
+/**
+ * The tiling `options` produces for `items`: how many columns and rows, with
+ * no container involved. A host that sizes a grid from its content — rows
+ * times a row height it chooses itself — reads the counts here instead of
+ * laying out at a throwaway height and inverting the cell arithmetic to
+ * recover them. Grid has no opinion about row height, so it reports counts
+ * and not an extent.
+ *
+ * Empty `items` tiles to `0 x 0`, so a content-sized host gets a zero height
+ * rather than one empty row.
+ *
+ * @group Strategies
+ */
+export function gridTiling(
+  items: LayoutItem[],
+  options: Record<string, unknown> = {},
+): { cols: number; rows: number } {
+  if (items.length === 0) return { cols: 0, rows: 0 };
+  const { cols, rows } = resolveTiling(items, options as GridConfig);
+  return { cols, rows };
+}
+
+/**
+ * `resolveTiling` plus the cell sizes the container divides into.
  * `dispatchAffordance` must agree with the pass that drew the affordance — the
  * two computing cells differently is the whole class of bug `placedOf` closes
  * for strip.
@@ -220,55 +310,13 @@ function gridGeometry(
   if (items.length === 0) return null;
   const gap = cfg.gap ?? 0;
   const padding = cfg.padding ?? 0;
-  const maxCols = cfg.maxCols !== undefined ? Math.max(1, cfg.maxCols) : undefined;
-  const maxRows = cfg.maxRows !== undefined ? Math.max(1, cfg.maxRows) : undefined;
-  const fill = cfg.fill ?? true;
-
-  let cols: number;
-  let rowCap: number | undefined;
-  if (cfg.cols !== undefined) {
-    cols = Math.max(1, cfg.cols);
-    rowCap = maxRows;
-  } else if (cfg.rows !== undefined) {
-    const fixedRows = Math.max(1, cfg.rows);
-    if (fill) {
-      const needed = Math.ceil(items.length / fixedRows);
-      cols = maxCols !== undefined ? Math.min(maxCols, needed) : needed;
-    } else {
-      cols = maxCols ?? Math.max(1, Math.ceil(items.length / fixedRows));
-    }
-    cols = Math.max(1, cols);
-    rowCap = fixedRows;
-  } else if (!fill && maxCols !== undefined) {
-    cols = maxCols;
-    rowCap = maxRows;
-  } else {
-    const root = Math.sqrt(items.length);
-    const ideal = (cfg.orientation ?? 'wide') === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
-    cols = maxCols !== undefined ? Math.min(maxCols, ideal) : ideal;
-    cols = Math.max(1, cols);
-    rowCap = maxRows;
-  }
-
-  const itemCap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
-  const priorityPlaced = reserveCells(byCapacityPriority(items), cols, rowCap, itemCap);
-  const survivors = items.filter((it) => priorityPlaced.has(it.id));
-  const cells = reserveCells(survivors, cols, rowCap, survivors.length);
-
-  let usedRows = 1;
-  for (const cell of cells.values()) usedRows = Math.max(usedRows, cell.row + cell.rows);
-  const rows = !fill && rowCap !== undefined ? rowCap : usedRows;
-
+  const tiling = resolveTiling(items, cfg);
   const usableW = container.w - 2 * padding;
   const usableH = container.h - 2 * padding;
   return {
-    cols,
-    rows,
-    rowCap,
-    itemCap,
-    cellW: (usableW - gap * (cols - 1)) / cols,
-    cellH: (usableH - gap * (rows - 1)) / rows,
-    cells,
+    ...tiling,
+    cellW: (usableW - gap * (tiling.cols - 1)) / tiling.cols,
+    cellH: (usableH - gap * (tiling.rows - 1)) / tiling.rows,
   };
 }
 
@@ -336,6 +384,13 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     resizable: 'boolean',
     overflowMode: ['squeeze', 'scroll', 'unplace'],
   },
+  configConflicts: [
+    { kind: 'exclusive', keys: ['maxItems', 'maxCols', 'maxRows'] },
+    { kind: 'ignored', key: 'rows', when: ['cols'] },
+    { kind: 'ignored', key: 'maxCols', when: ['cols'] },
+    { kind: 'ignored', key: 'maxRows', when: ['rows'] },
+    { kind: 'ignored', key: 'orientation', when: ['cols', 'rows'] },
+  ],
   canAccept(items, options): boolean {
     return fitsCapacity(options as GridConfig, items);
   },
@@ -391,56 +446,8 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       return empty;
     }
 
-    const hasGridCap = cfg.maxCols !== undefined || cfg.maxRows !== undefined;
-    if (cfg.maxItems !== undefined && hasGridCap) {
-      throw new Error('gridStrategy: maxItems is mutually exclusive with maxCols/maxRows');
-    }
-    const maxCols = cfg.maxCols !== undefined ? Math.max(1, cfg.maxCols) : undefined;
-    const maxRows = cfg.maxRows !== undefined ? Math.max(1, cfg.maxRows) : undefined;
-    const fill = cfg.fill ?? true;
-
-    let cols: number;
-    let rowCap: number | undefined;
-    if (cfg.cols !== undefined) {
-      cols = Math.max(1, cfg.cols);
-      rowCap = maxRows;
-    } else if (cfg.rows !== undefined) {
-      const fixedRows = Math.max(1, cfg.rows);
-      if (fill) {
-        const needed = Math.ceil(items.length / fixedRows);
-        cols = maxCols !== undefined ? Math.min(maxCols, needed) : needed;
-      } else {
-        cols = maxCols ?? Math.max(1, Math.ceil(items.length / fixedRows));
-      }
-      cols = Math.max(1, cols);
-      rowCap = fixedRows;
-    } else if (!fill && maxCols !== undefined) {
-      // fill=false with max dimensions: lock to the full max grid.
-      cols = maxCols;
-      rowCap = maxRows;
-    } else {
-      const root = Math.sqrt(items.length);
-      const ideal =
-        (cfg.orientation ?? 'wide') === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
-      cols = maxCols !== undefined ? Math.min(maxCols, ideal) : ideal;
-      cols = Math.max(1, cols);
-      rowCap = maxRows;
-    }
-
-    const itemCap =
-      cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
-
-    // Two passes: the first (priority order — pins win the capacity race)
-    // decides *which* items survive; the second (childOrder) assigns actual
-    // cells, so position among the survivors never depends on pin status.
-    const priorityPlaced = reserveCells(byCapacityPriority(items), cols, rowCap, itemCap);
-    const survivors = items.filter((it) => priorityPlaced.has(it.id));
-    const cells = reserveCells(survivors, cols, rowCap, survivors.length);
+    const { cols, rows, rowCap, itemCap, cells } = resolveTiling(items, cfg);
     const unplaced = items.filter((it) => !cells.has(it.id)).map((it) => it.id);
-
-    let usedRows = 1;
-    for (const cell of cells.values()) usedRows = Math.max(usedRows, cell.row + cell.rows);
-    const rows = !fill && rowCap !== undefined ? rowCap : usedRows;
 
     const usableW = container.w - 2 * padding;
     const usableH = container.h - 2 * padding;
