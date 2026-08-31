@@ -9,6 +9,7 @@ import {
   PinIndexError,
 } from './errors.js';
 import { TypedEmitter } from './events.js';
+import type { SuccessorPolicy } from './focus/successor.js';
 import { chooseSuccessor } from './focus/successor.js';
 import { destroyBlockedBy, type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeHints, NodeId } from './node.js';
@@ -144,8 +145,10 @@ export class Store {
   private readonly publisher: Publisher;
   private locksSuspended = 0;
   private txnDepth = 0;
+  private readonly successorPolicy: SuccessorPolicy | undefined;
 
   constructor(options: StoreOptions = {}) {
+    this.successorPolicy = options.chooseSuccessor;
     this.publisher = new Publisher({
       truth: this.nodesMap,
       policy: options.throttle,
@@ -1128,7 +1131,8 @@ export class Store {
 
   private succeedFocus(from: NodeId, reason: 'destroyed' | 'hidden' | 'moved'): void {
     if (this.focusedIdValue !== from) return;
-    const to = chooseSuccessor(this, from);
+    const chosen = this.successorPolicy?.({ store: this, departing: from, reason });
+    const to = chosen === undefined ? chooseSuccessor(this, from) : chosen;
     this.focusedIdValue = null;
     if (to) {
       this.focusNode(to);

@@ -57,7 +57,11 @@ export { accessibleName } from './focus/name.js';
 export { navigableLeaves } from './focus/navigable.js';
 export { nullFocusAdapter } from './focus/nullAdapter.js';
 export { type ResolveInput, resolveNavigation } from './focus/resolve.js';
-export { chooseSuccessor } from './focus/successor.js';
+export {
+  chooseSuccessor,
+  type SuccessorInput,
+  type SuccessorPolicy,
+} from './focus/successor.js';
 export type { FocusAdapter, GeometrySource, NavDirection, NavIntent } from './focus/types.js';
 export { Machine, type MachineDef, type MachineSubscriber } from './fsm.js';
 export { HistoryController, type HistoryControllerOptions } from './history.js';

@@ -7,6 +7,7 @@
  */
 
 import { InvalidThrottlePolicyError } from './errors.js';
+import type { SuccessorPolicy } from './focus/successor.js';
 import type { Node, NodeId } from './node.js';
 import { trace } from './trace.js';
 
@@ -111,6 +112,8 @@ function validateThrottlePolicy(policy: ThrottlePolicy): void {
 export interface StoreOptions {
   throttle?: ThrottlePolicy;
   clock?: Clock;
+  /** Replaces the built-in focus-successor rule. See {@link SuccessorPolicy}. */
+  chooseSuccessor?: SuccessorPolicy;
 }
 
 /**

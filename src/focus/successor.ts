@@ -52,3 +52,19 @@ export function chooseSuccessor(store: Store, departing: NodeId): NodeId | null 
 
   return firstLeafDepthFirst(store, store.rootIds, departing);
 }
+
+/**
+ * What `Store` is doing to `departing` when it asks. A consumer plausibly
+ * wants a different successor on destroy than on hide.
+ */
+export interface SuccessorInput {
+  store: Store;
+  departing: NodeId;
+  reason: 'destroyed' | 'hidden' | 'moved';
+}
+
+/**
+ * Replaces {@link chooseSuccessor}. Return an id to choose it, `null` to focus
+ * nobody deliberately, or `undefined` to let the built-in decide.
+ */
+export type SuccessorPolicy = (ctx: SuccessorInput) => NodeId | null | undefined;
