@@ -1,0 +1,29 @@
+/* Monospace carries a larger x-height and wider glyphs than the serif and sans
+   it sits inside, so matching their px makes it read a size too big. Ladle
+   renders inline `code` in prose at the body's own 16px.
+
+   Values are explicit rather than `calc(1em - 2px)`: Ladle already sizes code
+   per context with its own ratios, and subtracting from the *parent* raised
+   the ones it had deliberately set smaller — table cells went 13 → 14 and
+   headings 26 → 30. Each rule below is two below what that context measured. */
+
+/* Body text: 16 → 14. */
+main :is(p, li, blockquote, dd, dt) code,
+main kbd,
+main samp {
+  font-size: 14px;
+}
+
+/* Table cells, which Ladle already sets to 13: → 11. */
+main :is(td, th) code {
+  font-size: 11px;
+}
+
+/* Code blocks, 13 → 11. Kept out of the selectors above so a `code` inside a
+   `pre` cannot shrink twice. */
+main pre {
+  font-size: 11px;
+}
+
+/* Headings are left alone: their code scales with the heading and reads in
+   proportion already. */

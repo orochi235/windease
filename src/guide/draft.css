@@ -41,3 +41,24 @@
 [data-theme="dark"] .gd-draft__body {
   color: #fecaca;
 }
+
+/* Glossary tag chips. */
+.gd-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #e2e8f0;
+  font:
+    500 10px / 1.6 system-ui,
+    sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475569;
+  vertical-align: 1px;
+}
+
+[data-theme="dark"] .gd-tag {
+  background: #334155;
+  color: #cbd5e1;
+}

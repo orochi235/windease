@@ -2,7 +2,7 @@ export default { title: 'Flow mode' };
 
 import type { Story } from '@ladle/react';
 import { useMemo, useState } from 'react';
-import { asNodeId, createNode, Store, stripStrategy } from '../../index.js';
+import { asNodeId, createNode, type NodeId, Store, stripStrategy } from '../../index.js';
 import {
   type ChromeMap,
   Container,
@@ -70,6 +70,14 @@ export const FlowVersusPlaced: Story = () => {
     [],
   );
 
+  /** Rotating the order is the cheapest way to make the settle transition
+   *  visible without a drag — and to show that flow has none. */
+  const shuffle = () => {
+    const order = store.getNode(ZONE)?.container?.childOrder;
+    if (!order || order.length < 2) return;
+    store.setChildOrder(ZONE, [...order.slice(1), order[0] as NodeId]);
+  };
+
   return (
     <Provider store={store} key={String(flow)}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
@@ -86,6 +94,9 @@ export const FlowVersusPlaced: Story = () => {
                   />{' '}
                   <code>hints.render: 'flow'</code>
                 </label>
+                <button type="button" data-testid="shuffle" onClick={shuffle}>
+                  Rotate order
+                </button>
                 <span>
                   {flow ? 'CSS grid is arranging these' : 'stripStrategy is arranging these'}
                 </span>
@@ -95,18 +106,28 @@ export const FlowVersusPlaced: Story = () => {
                   parentId={ZONE}
                   chrome={chrome}
                   viewport={{ w: 720, h: 460 }}
+                  affordances
+                  settleMs={260}
                   className={flow ? 'windease-zone cap-flow-grid' : 'windease-zone'}
                 />
               </div>
               <p className="cap-hint">
-                Flow runs no strategy: the panes are ordinary in-flow children and{' '}
-                <code>.cap-flow-grid</code> — a plain{' '}
-                <code>repeat(auto-fit, minmax(150px, 1fr))</code> — arranges them, so narrowing the
-                window rewraps them for free. Drag and arrow navigation work either way, because the
-                hit-test always measured the DOM and the focus resolver takes rects from a source
-                that measures in flow. What you give up is everything downstream of the strategy: no
-                gutters, no <code>unplaced</code>, no settle animation. Untick to hand the same tree
-                back to <code>stripStrategy</code>.
+                Both modes get the same <code>affordances</code> and{' '}
+                <code>
+                  settleMs={'{'}260{'}'}
+                </code>
+                . Placed, that buys draggable gutters between the panes and a settle transition —
+                press <strong>Rotate order</strong> and watch them glide. Ticked, both are simply
+                absent: a flow container runs no strategy, so there are no affordances to render,
+                and the transition moves <code>left</code>/<code>top</code>, which in-flow panes do
+                not have. The props are inert rather than rejected.
+              </p>
+              <p className="cap-hint">
+                What still works either way: dragging, and arrow navigation. The hit-test always
+                measured the DOM, and the focus resolver takes rects from a source that measures in
+                flow. <code>.cap-flow-grid</code> is a plain{' '}
+                <code>repeat(auto-fit, minmax(150px, 1fr))</code>, so narrowing the window rewraps
+                for free — which is the thing strip cannot do.
               </p>
             </DragProvider>
           </FocusProvider>

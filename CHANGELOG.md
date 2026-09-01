@@ -70,6 +70,17 @@ section below.
   the published build. Every chapter carries a first-draft banner: the prose has
   not been edited or checked line by line against the code.
 
+- **Monospace across the playground and guide is 2px smaller.** Ladle renders
+  inline `code` at the body's own 16px, and monospace at a serif's px reads a
+  size too big. Body code drops to 14, code blocks and table cells to 11;
+  headings keep their own proportion.
+
+- **`Flow mode / FlowVersusPlaced` demonstrates what flow gives up instead of
+  asserting it.** Both modes now pass `affordances` and `settleMs`, so placed
+  gets draggable gutters and a settle transition and flow visibly gets neither
+  — the props are inert there rather than rejected. A "rotate order" control
+  makes the transition visible without a drag.
+
 - **`Policies/Accept` starts with room in one zone.** Every zone was seeded at
   its `maxItems` cap, so no drop could visibly re-lay-out a destination —
   acceptance was always immediately followed by withholding, and the layout
