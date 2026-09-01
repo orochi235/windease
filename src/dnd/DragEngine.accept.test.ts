@@ -39,6 +39,24 @@ function fullStore(): Store {
   return s;
 }
 
+/** z2 is empty, so the strategy accepts the drop on its own. */
+function openStore(): Store {
+  const s = new Store();
+  for (const z of ['z1', 'z2']) {
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'exactly-two', config: {} },
+        id: asNodeId(z),
+      }),
+    );
+  }
+  s.registerNode(
+    createNode({ kind: 'panel', focus: true, id: asNodeId('p'), parentId: asNodeId('z1') }),
+  );
+  return s;
+}
+
 function engineWith(s: Store, target: Partial<DropTarget>): DragEngine {
   const e = new DragEngine(s, { getStrategy: () => exactlyTwoStrategy });
   e.addDropTarget(asNodeId('z2'), at(SQUARE, target));
@@ -54,25 +72,24 @@ describe('DragEngine — acceptPolicy', () => {
   });
 
   it('undefined defers to the strategy, which refuses', () => {
-    const e = engineWith(fullStore(), { acceptPolicy: () => undefined });
+    let calls = 0;
+    const e = engineWith(fullStore(), {
+      acceptPolicy: () => {
+        calls += 1;
+        return undefined;
+      },
+    });
+    expect(calls).toBe(1);
     expect(e.state()?.hover?.accepted).toBe(false);
   });
 
+  it('undefined defers to the strategy, which accepts', () => {
+    const e = engineWith(openStore(), { acceptPolicy: () => undefined });
+    expect(e.state()?.hover?.accepted).toBe(true);
+  });
+
   it('false rejects even where the strategy would accept', () => {
-    const s = new Store();
-    for (const z of ['z1', 'z2']) {
-      s.registerNode(
-        createNode({
-          kind: 'zone',
-          container: { strategyId: 'exactly-two', config: {} },
-          id: asNodeId(z),
-        }),
-      );
-    }
-    s.registerNode(
-      createNode({ kind: 'panel', focus: true, id: asNodeId('p'), parentId: asNodeId('z1') }),
-    );
-    const e = engineWith(s, { acceptPolicy: () => false });
+    const e = engineWith(openStore(), { acceptPolicy: () => false });
     expect(e.state()?.hover?.accepted).toBe(false);
   });
 
@@ -98,18 +115,22 @@ describe('DragEngine — acceptPolicy', () => {
   });
 
   it('the deprecated canAccept still vetoes after the policy accepted', () => {
-    const e = engineWith(fullStore(), { acceptPolicy: () => true, canAccept: () => false });
+    const e = engineWith(openStore(), { acceptPolicy: () => true, canAccept: () => false });
     expect(e.state()?.hover?.accepted).toBe(false);
   });
 
+  it('accepts the same drop once the deprecated canAccept is gone', () => {
+    const e = engineWith(openStore(), { acceptPolicy: () => true });
+    expect(e.state()?.hover?.accepted).toBe(true);
+  });
+
   it('a policy that throws defers to the strategy instead of killing the drag', () => {
-    const e = engineWith(fullStore(), {
+    const e = engineWith(openStore(), {
       acceptPolicy: () => {
         throw new Error('boom');
       },
     });
-    // fullStore's z2 is at the exactly-two cap, so the strategy refuses.
-    expect(e.state()?.hover?.accepted).toBe(false);
+    expect(e.state()?.hover?.accepted).toBe(true);
   });
 
   it('builds no prospective child list when nothing will read it', () => {
