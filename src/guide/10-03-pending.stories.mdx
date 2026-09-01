@@ -7,7 +7,12 @@ import { DraftBanner } from './Draft.tsx';
 
 # Why has this not appeared yet?
 
-`store.getPending(id)` answers it.
+Throttling makes a mutation and its appearance two separate events, which means
+a node can be correct in the store and absent from the screen at the same time.
+That is the intended behaviour, and it is indistinguishable from a bug when you
+are staring at it. These are the tools for telling the two apart.
+
+`store.getPending(id)` is the direct question:
 
 ```ts
 const pending = store.getPending(nodeId);

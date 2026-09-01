@@ -7,6 +7,10 @@ import { DraftBanner } from './Draft.tsx';
 
 # Install and entry points
 
+windease ships as one package with two entry points, and which one you import
+from decides how much of the library you take on. The same seam runs through
+everything else in this guide, so it is the first thing to get straight.
+
 ```sh
 npm install windease
 ```
@@ -33,5 +37,5 @@ import from `windease/react`.
 The split is not cosmetic. Layout is arithmetic over plain data, so anything
 that reads or writes the DOM is an adapter on top — which is why a canvas host
 or a headless test can drive the same engine. See
-[1.3](/?story=guide--01-tour--1-03-one-shape-four-capabilities) for what that
+[1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities) for what that
 buys you.

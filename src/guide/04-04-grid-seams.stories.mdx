@@ -8,7 +8,12 @@ import { ResizableGrid } from '../react/stories/Grid.stories.tsx';
 
 # Grid seams
 
-`gridStrategy` takes `resizable: true` and emits the same affordances — except
+A grid resizes too, but what a seam *means* there is different: you are not
+moving a boundary by pixels, you are giving an item another column. Everything
+from the last three chapters still applies — the same affordances, the same
+keyboard contract — with one substitution.
+
+`gridStrategy` takes `resizable: true` and emits those affordances — except
 they write `placement.span`.
 
 ```tsx

@@ -7,7 +7,10 @@ import { DraftBanner } from './Draft.tsx';
 
 # Saving one subtree
 
-When your app's saved unit is one workspace rather than the whole session.
+*Grafting* is attaching a previously-serialized subtree into a store, under a
+parent you choose — the counterpart to serializing one branch instead of the
+whole tree. Together they are for an app whose saved unit is one workspace, one
+document or one tab, rather than the entire session.
 
 ```ts
 const saved = serialize(store, { root: workspaceId });

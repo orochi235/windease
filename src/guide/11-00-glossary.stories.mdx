@@ -14,100 +14,108 @@ registering an element as a drop target at all. Not `lock.accept`, which refuses
 drops, and not `acceptPolicy`, which decides them. Three things that all sound
 like drop permission; this is the one that opts in.
 
-**`activity`** <span className="gd-tag">state</span> — a node's free-form bag for
+**activity** <span className="gd-tag">state</span> — a node's free-form bag for
 high-frequency signals a strategy reads, such as recency or unread counts. Kept
 separate from `meta` so churn does not touch it.
 
-**Affordance** <span className="gd-tag">layout</span> — an interactive region a
+**affordance** <span className="gd-tag">layout</span> — an interactive region a
 strategy emits alongside its placements: a resize edge, a gutter, a click
 target. Described in layout coordinates; the host renders and binds it.
 
-**Capability** <span className="gd-tag">model</span> — an optional field granting
+**capability** <span className="gd-tag">model</span> — an optional field granting
 a node an ability: `container`, `membership`, `focus`. Decided at `createNode`
 and fixed for the node's life.
 
-**Chrome** <span className="gd-tag">interaction</span> — the consumer's rendering
+**chrome** <span className="gd-tag">interaction</span> — the consumer's rendering
 for one node, dispatched on `node.kind`. A container's handler receives its
 already-rendered subtree and decides where to mount it.
 
-**`container`** <span className="gd-tag">model</span> — the capability answering
+**container** <span className="gd-tag">model</span> — the capability answering
 *can I have children?* Holds `childOrder`, `strategyId` and `config`. See
 `membership`, which answers the opposite question.
 
-**Drop intent** <span className="gd-tag">interaction</span> — what a drop is
+**drop intent** <span className="gd-tag">interaction</span> — what a drop is
 asking for: `insert`, `stack`, or `split`. Bands are carved only for the intents
 you enable, so with none enabled the resolver returns a plain insertion index.
 
-**Graft** <span className="gd-tag">persistence</span> — attaching a subtree
+**gesture** <span className="gd-tag">interaction</span> — one continuous
+interaction the library tracks from start to commit: a drag from pointerdown to
+release, a seam pushed and let go, or the keyboard equivalent of either. A
+gesture can be abandoned — `Escape` cancels mid-drag and nothing is written — so
+the store sees a single result rather than every intermediate state. Controlled
+props intercept library-mediated gestures only; a direct `store` call is the
+host acting on itself and always commits.
+
+**graft** <span className="gd-tag">persistence</span> — attaching a subtree
 snapshot under a parent in some store. Every id must be absent from the target;
 nothing is remapped, because a snapshot's ids are usually the host's own keys.
 
-**Group** <span className="gd-tag">model</span> — a node carrying both
+**group** <span className="gd-tag">model</span> — a node carrying both
 `container` and `membership`. Written `<Zone parentId kind="group">`; there is no
 `<Group>` component.
 
-**Gutter** <span className="gd-tag">layout</span> — strip's word for the seam
+**gutter** <span className="gd-tag">layout</span> — strip's word for the seam
 between two panes.
 
-**`hints`** <span className="gd-tag">state</span> — node-intrinsic layout
+**hints** <span className="gd-tag">state</span> — node-intrinsic layout
 preferences: `minSize`, `maxSize`, `preferredSize`, `sizing`, `order`, `render`.
 Hints, not guarantees — a strategy honours what it understands.
 
-**Join** <span className="gd-tag">layout</span> — a seam gesture that ends in
+**join** <span className="gd-tag">layout</span> — a seam gesture that ends in
 destroying a pane rather than clamping. Off by default, because it deletes with
 no confirmation step.
 
-**`kind`** <span className="gd-tag">model</span> — a free-form label. The core
+**kind** <span className="gd-tag">model</span> — a free-form label. The core
 stores it and never reads it; React dispatches chrome on it. **Not a type.**
 
-**`lock`** <span className="gd-tag">state</span> — which operations a node
+**lock** <span className="gd-tag">state</span> — which operations a node
 refuses, by axis: `move`, `resize`, `destroy`, `accept`, `dragOut`, `arrange`.
 Enforced by the store, which throws `LockedError`. Not `pinned`: `lock` answers
 *who may operate on this node?*, `pinned` answers *where does it end up?* A node
 can be either, both, or neither.
 
-**`membership`** <span className="gd-tag">model</span> — the capability answering
+**membership** <span className="gd-tag">model</span> — the capability answering
 *do I have a parent?* Holds `parentId`, `placement` and the transit machine.
 **The opposite question from `container`**, and the single most common source of
 confusion in this library.
 
-**`meta`** <span className="gd-tag">state</span> — a node's intrinsic free-form
+**meta** <span className="gd-tag">state</span> — a node's intrinsic free-form
 data. **Survives `moveNode`**, unlike `placement`. The overload to watch: both
 are "meta" in spirit and their lifetimes are opposites.
 
-**Node** <span className="gd-tag">model</span> — the single shape everything in
+**node** <span className="gd-tag">model</span> — the single shape everything in
 the tree takes. Carries `lifecycle` plus any combination of `container`,
 `membership` and `focus`. There is no window type and no zone type.
 
-**Overflow** <span className="gd-tag">layout</span> — how far placed content
+**overflow** <span className="gd-tag">layout</span> — how far placed content
 exceeds the container, per axis; absent when it fits. Distinct from `unplaced`,
 which is capacity by *count* — a row can overflow with everything placed.
 
-**Panel** <span className="gd-tag">model</span> — the childless one: `membership`
+**panel** <span className="gd-tag">model</span> — the childless one: `membership`
 and no `container`. Set `container` on it and it hosts a tree of its own.
 
-**`pinned`** <span className="gd-tag">state</span> — a reserved `placement` key:
+**pinned** <span className="gd-tag">state</span> — a reserved `placement` key:
 the index a child holds in its parent's `childOrder` against third parties. It
 yields when the pinned node is itself the one being reordered. Not `lock`.
 
-**`placement`** <span className="gd-tag">state</span> — a node's per-membership
+**placement** <span className="gd-tag">state</span> — a node's per-membership
 free-form data. **Cleared on detach.** Reserved keys: `pinned`, `size` (pixels,
 strip), `span` (cell counts, grid).
 
-**Policy** <span className="gd-tag">interaction</span> — a replaceable decision
+**policy** <span className="gd-tag">interaction</span> — a replaceable decision
 with a tri-state contract: a value to choose, a deliberate negative to refuse,
 `undefined` to defer to the built-in. Three exist: `acceptPolicy`,
 `chooseSuccessor`, `resolveNavigation`. One that throws is traced and treated as
 `undefined`.
 
-**Provenance** <span className="gd-tag">interaction</span> — whether a node was
+**provenance** <span className="gd-tag">interaction</span> — whether a node was
 created by JSX or registered on the store. Determines whether a preset will
 render it, and whether a drop can reparent it.
 
-**Seam** <span className="gd-tag">layout</span> — the affordance between two
+**seam** <span className="gd-tag">layout</span> — the affordance between two
 panes. See `gutter`, the same thing in strip's vocabulary.
 
-**Snapshot** <span className="gd-tag">persistence</span> — the JSON-safe form of
+**snapshot** <span className="gd-tag">persistence</span> — the JSON-safe form of
 a store or subtree. Excludes destroyed nodes, transit state and `lastFocusedId`.
 Always read from truth, never from the published view.
 
@@ -116,7 +124,7 @@ strategy: one child visible, the rest withheld. **Not the axis-stacking strategy
 removed in 0.9.0**, whose replacement is `stripStrategy` with
 `{ axis: 'y', fill: true }`. The name was reused.
 
-**Strategy** <span className="gd-tag">layout</span> — a pure function from
+**strategy** <span className="gd-tag">layout</span> — a pure function from
 `{ items, container, state, options }` to a `LayoutResult`. Never touches the
 DOM, never measures; measurement arrives as an input.
 
@@ -124,12 +132,12 @@ DOM, never measures; measurement arrives as an input.
 into one history step. **Does not roll back** — a callback that throws partway
 leaves every mutation it already made.
 
-**Truth vs published** <span className="gd-tag">state</span> — the real current
+**truth vs published** <span className="gd-tag">state</span> — the real current
 state versus what subscribers have been shown. Identical unless a throttle
 policy is configured; `getNodeTruth` reads the former, `getNode` the latter.
 
-**`unplaced`** <span className="gd-tag">layout</span> — items a strategy declined
+**unplaced** <span className="gd-tag">layout</span> — items a strategy declined
 to place. Not an error: render them in a tray, or hide them.
 
-**Zone** <span className="gd-tag">model</span> — a container with no membership:
+**zone** <span className="gd-tag">model</span> — a container with no membership:
 children, no parent. A root. Not "the one without children" — that is a panel.

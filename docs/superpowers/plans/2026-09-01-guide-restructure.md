@@ -130,6 +130,22 @@ Glossary — not to enlarge it in place.
 
 ---
 
+## How a chapter opens
+
+The first paragraph defines the word in the title and says what the chapter
+covers. Both halves, in that order, before any fact about the API.
+
+Readers arrive mid-guide from a search and from the sidebar, so a chapter cannot
+assume the one before it was read. "Announcements" meant nothing until the page
+said an announcement is text spoken to a screen reader; "Mixed provenance" meant
+nothing until the page said provenance is where a node came from. A chapter that
+opens on `store.getPending(id)` answers it. has told the reader nothing at all.
+
+Defining is not explaining from first principles. One or two sentences, in the
+reader's vocabulary, then get on with it.
+
+---
+
 ## §1 · Tour
 
 A brief tour of the engine that shows off two or three capabilities worth being

@@ -8,7 +8,12 @@ import { Grid, ContentSizedGrid } from '../react/stories/Grid.stories.tsx';
 
 # `gridStrategy`
 
-Uniform cells, filled left to right.
+`gridStrategy` arranges children in uniform cells, filled left to right. Unlike
+strip, it derives its whole tiling from the item count and the config rather
+than from the space available, which is what makes the row count knowable before
+anything is laid out.
+
+Config, spans, and sizing a grid to its own rows.
 
 ```tsx
 <Zone strategyId="grid" config={{ cols: 3, gap: 8, padding: 8 }} />

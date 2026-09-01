@@ -7,6 +7,10 @@ import { DraftBanner } from './Draft.tsx';
 
 # Snapshot and hydrate
 
+A layout is worth saving: the user arranged it, and they expect it back. The
+whole tree serialises to plain JSON — no custom revivers, no class instances to
+reconstruct — so you can put it wherever you already put state.
+
 ```ts
 const snap = serialize(store);
 localStorage.setItem('layout', JSON.stringify(snap));

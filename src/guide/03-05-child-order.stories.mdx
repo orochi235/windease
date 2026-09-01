@@ -7,6 +7,12 @@ import { DraftBanner } from './Draft.tsx';
 
 # Who owns child order
 
+The order children sit in is a single piece of state, and both you and the user
+have a claim on it: you know which panes should exist, they decide how the panes
+are arranged. Deciding who writes that state is the choice this chapter is
+about, and getting it wrong is why a drop can appear to succeed and then undo
+itself on the next render.
+
 `container.childOrder` is the single canonical ordering. Layout, `useChildren`,
 snapshot and DnD all read it, and every mutation that adds, removes, moves or
 reorders rewrites it.

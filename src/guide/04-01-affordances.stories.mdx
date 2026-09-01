@@ -8,10 +8,19 @@ import { HorizontalStrip } from '../react/stories/Strip.stories.tsx';
 
 # Affordances and seams
 
+An *affordance* is an interactive region a strategy hands back along with its
+placements — a resize edge, a gutter between two panes, a click target. The
+strategy says where it is and what it adjusts; the host draws it and binds the
+pointer. A *seam* is the everyday word for the one between two panes, and
+`stripStrategy` calls it a gutter.
+
+That indirection is why resize works on a canvas as readily as in the DOM, and
+why this section needs less setup than you would expect.
+
 **Resize costs no new provider.** A `Provider` and a
 `StrategyRegistryProvider` is the whole stack — seams bind their own pointer
 handlers and read nothing from the drag context. This is the cheapest
-interactivity in the library, and it is worth knowing before you reach for
+interactivity in the library, so check whether it is all you need before reaching for
 [§5](/?story=guide--05-drag-and-drop--5-01-wiring-a-drag).
 
 An *affordance* is an interactive region a strategy emits alongside its

@@ -8,6 +8,11 @@ import { Playground } from '../react/stories/Playground.stories.tsx';
 
 # Custom chrome and affordance renderers
 
+windease decides *where* things go; you decide what they look like. Three hooks
+hand that back to you at different depths — the contents of each node, an
+overlay across a whole container, and the seams the strategy emitted. This is
+the last stop before writing a strategy of your own, and usually far enough.
+
 ## Chrome
 
 A chrome handler draws one node's surrounding UI and decides where its subtree

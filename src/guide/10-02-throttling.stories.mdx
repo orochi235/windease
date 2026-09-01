@@ -8,8 +8,13 @@ import { Bounce, ColdStartFlood } from '../react/stories/Throttling.stories.tsx'
 
 # Throttling
 
-For a store driven from a live event stream. All of it is opt-in — omit
-`throttle` and the store behaves exactly as it always has.
+*Throttling* here means pacing how fast changes reach the screen — deliberately
+showing the user less than the store knows, so a burst of updates does not
+become a burst of re-renders. It is for a store driven by something that changes
+faster than a person can read: a live event feed, a process list, a log.
+
+Three independent knobs, covered below. All of it is opt-in — omit `throttle`
+and the store behaves exactly as it always has.
 
 ```ts
 const store = new Store({

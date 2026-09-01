@@ -8,6 +8,13 @@ import { MixedProvenance } from '../react/stories/DeclarativePlayground.stories.
 
 # Mixed provenance
 
+A node's *provenance* is simply where it came from: created by a JSX element, or
+registered directly on the store. Nothing marks it — the store treats both
+identically — but the React presets do not, and that asymmetry is behind a whole
+family of bugs where a drop appears to work and then silently does nothing.
+
+This chapter is what happens when one container holds some of each.
+
 A zone can hold children JSX declared *and* children registered on the store.
 The two have different lifetimes, and the preset only manages its own.
 

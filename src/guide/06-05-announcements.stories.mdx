@@ -7,9 +7,18 @@ import { DraftBanner } from './Draft.tsx';
 
 # Announcements
 
-Moving focus announces the new pane's name for free. What needs saying out loud
-is a change that moves **no** focus: the focused pane closing, or being relocated
-under a different parent.
+An *announcement* is a line of text spoken to a screen reader — written into a
+live region, which is a small element the browser watches and reads aloud when
+its contents change. A window manager needs them because its most important
+events are purely visual: a pane closes, a pane moves to another dock, and a
+user who is not looking at the screen has no way to know either happened.
+
+This chapter covers which of those windease speaks for you, which it stays quiet
+about on purpose, and how to say them yourself on a host with no DOM.
+
+Moving focus announces the new pane's name for free. windease speaks two more,
+both changes that move **no** focus and would otherwise pass in silence: the
+focused pane closing, and the focused pane moving under a different parent.
 
 **React**
 

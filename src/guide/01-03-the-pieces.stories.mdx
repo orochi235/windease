@@ -1,0 +1,66 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+
+<Meta title="Guide/01 Tour/1.03 The pieces in every example" />
+
+<DraftBanner />
+
+# The pieces in every example
+
+Every code sample in this guide assumes a few components are above it, and it
+would be tedious to repeat them on each page. Here is the whole cast, one line
+each. **You do not need to understand any of them yet** — each has its own
+chapter, linked below. This is so the examples read.
+
+## Always present
+
+**`<Provider>`** owns the store. Everything windease does reads from or writes
+to that one object; omit the `store` prop and the Provider makes one for you.
+
+**`<StrategyRegistryProvider>`** maps the strings containers use — `"strip"`,
+`"grid"` — to the functions that do the arranging. A container naming a
+strategy nobody registered lays nothing out, which is the first thing to check
+when a zone renders empty.
+
+## One of these two, to put nodes on screen
+
+**`<Zone>` and `<Panel>`** are the declarative pair: the JSX owns the tree, so
+declaring a `<Panel>` creates it and removing it destroys it. React only, and
+the shortest path to something working.
+
+**`<Container>` with a chrome map** is the imperative one: you mutate the store
+and it renders whatever is there. More setup, and the one that survives drag,
+stacking and splitting — see
+[§3](/?story=guide--03-building-the-tree--3-02-the-react-presets) for why that
+matters and which to pick.
+
+Both appear throughout. When a sample uses `<Zone>` it could have used
+`<Container>`, and the layout being demonstrated is the same either way.
+
+## Added when a chapter needs them
+
+**`<DragProvider>`** turns on drag and drop
+([§5](/?story=guide--05-drag-and-drop--5-01-wiring-a-drag)).
+
+**`<GeometryProvider>` and `<FocusProvider>`** turn on keyboard navigation, and
+always appear together
+([§6](/?story=guide--06-keyboard-and-focus--6-01-the-focus-model)).
+
+Neither is required by the other, and neither is required for layout or resize.
+That independence is the guide's running order: each section adds at most one
+provider to the stack.
+
+## So a full example looks like this
+
+```tsx
+<Provider>
+  <StrategyRegistryProvider strategies={{ strip: stripStrategy }}>
+    <Zone strategyId="strip" config={{ axis: 'x' }}>
+      <Panel id="left" />
+      <Panel id="right" />
+    </Zone>
+  </StrategyRegistryProvider>
+</Provider>
+```
+
+Later samples show only the inner part. Assume the two providers are there.

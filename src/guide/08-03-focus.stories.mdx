@@ -8,8 +8,16 @@ import { MoveWithShiftArrow } from '../react/stories/KeyboardMove.stories.tsx';
 
 # Focus
 
-`focus` is the one capability that is opt-in per node rather than implied by
-shape.
+Focus is which single pane the user is currently *in* — the one their keys go
+to, and the one a screen reader is describing. windease tracks that itself
+rather than reading it off the document, because a pane is a node in a tree
+long before it is an element, and a canvas host has no `activeElement` to read.
+
+The machine on each node records only whether that node holds it. The rule that
+there is exactly one such node lives in the store, above them all.
+
+`focus` is also the one capability that is opt-in per node rather than implied
+by shape.
 
 ```ts
 createNode({ id, parentId, focus: true });   // focusable

@@ -7,6 +7,11 @@ import { DraftBanner } from './Draft.tsx';
 
 # Hydrating in place
 
+`deserialize` has two forms, and the difference between them matters more than
+it looks. One builds a store; the other refills the one you already have. Load a
+saved layout into a running app with the wrong one and the app quietly stops
+responding.
+
 ```ts
 deserialize(snap);          // builds a brand-new Store
 deserialize(store, snap);   // repopulates the one you have
