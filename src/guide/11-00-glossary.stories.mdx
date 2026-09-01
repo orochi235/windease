@@ -119,10 +119,12 @@ panes. See `gutter`, the same thing in strip's vocabulary.
 a store or subtree. Excludes destroyed nodes, transit state and `lastFocusedId`.
 Always read from truth, never from the published view.
 
-**`stackStrategy`** <span className="gd-tag">layout</span> — the *tabbed*
-strategy: one child visible, the rest withheld. **Not the axis-stacking strategy
-removed in 0.9.0**, whose replacement is `stripStrategy` with
-`{ axis: 'y', fill: true }`. The name was reused.
+**stack strategy** <span className="gd-tag">layout</span> — the tabbed one: a
+single child visible, the rest withheld into unplaced, and the tab strip is
+yours to draw. Exported as `stackStrategy`. **Not the axis-stacking strategy
+removed in 0.9.0**, whose replacement is the strip strategy with
+`{ axis: 'y', fill: true }` — the name was reused, and the two have nothing in
+common.
 
 **strategy** <span className="gd-tag">layout</span> — a pure function from
 `{ items, container, state, options }` to a `LayoutResult`. Never touches the
