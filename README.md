@@ -523,7 +523,8 @@ the tree under `<DragProvider>`. The drag controller honors:
 - The destination strategy's `canAccept(prospective-items, options)` — e.g.
   a strategy with a `maxItems` config refusing a drop that would overflow it.
 - `canAccept` on the container itself, which overrides that answer.
-- An optional consumer-supplied `canAccept(sourceId)` on the drop target.
+- An optional consumer-supplied `canAccept(sourceId)` on the drop target,
+  deprecated in favor of `acceptPolicy` and removed at 2.0.0.
 
 `<Container canAccept>` — and the same prop on `<Zone>` and `<Panel>` — is how
 one container disagrees with its strategy. It sees the child list the strategy
@@ -534,6 +535,9 @@ refuse, `false` refuses where it would accept, `undefined` defers to it. A
 ```tsx
 <Container parentId={zoneId} canAccept={({ items }) => items.length <= 4} />
 ```
+
+A target you register yourself takes the same callback as `acceptPolicy`:
+`useDropTarget(zoneId, ref, { acceptPolicy })`.
 
 It runs on every `pointermove` of a drag, so keep it O(items). Accepting is not
 capacity: a `strip` reads `maxItems` when it lays out too, so a drop accepted

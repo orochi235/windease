@@ -14,7 +14,7 @@ DOM-level drag concerns into the DOM-independent core.
 | `chooseSuccessor` | `Store.succeedFocus` | `StoreOptions` |
 | `resolveNavigation` | `resolveMove`, `FocusProvider` | `StoreOptions`, read inside `resolveNavigation` |
 | a container's `canAccept` | `DragEngine.checkAccept` | `<Container>` / preset prop |
-| edge-scroll tuning | `DragEngine`'s scroll sampler | `<Container>` / preset prop |
+| edge-scroll tuning | `DragEngine`'s scroll sampler | `<Container>` prop |
 
 ## Every override is tri-state
 
@@ -43,9 +43,10 @@ registered with its children already gone and no notification. This is the
 `store.transact` rule in `CLAUDE.md` applied one level out: validate before
 mutating rather than relying on an inner call to throw.
 
-"Cannot use" is per policy: a successor id that is not `isFocusable`; a
-navigation id that is not a node. `null` and `false` are deliberate answers and
-are never second-guessed — only a returned *id* is validated.
+"Cannot use" is per policy: a successor id that is not `isFocusable`, or that
+names the departing node itself; a navigation id that is not `isFocusable`.
+`null` and `false` are deliberate answers and are never second-guessed — only a
+returned *id* is validated.
 
 ## `StoreOptions` grows two policies
 
@@ -155,11 +156,12 @@ hardcodes `{ scrollEl, getDropIntent }`.
 - `<Container>` gains `canAccept` and `edgeScroll` props.
 - `useDropIntentTarget` gains `edgeScroll`, and widens `canAccept` to the
   `acceptPolicy` shape.
-- `PresetShell`'s `drop` bag gains both, and `<Zone>` / `<Panel>` expose them —
-  the path 1.3.0 used for `stackOnDrop` / `splitOnDrop` / `dropIntent`.
+- `PresetShell`'s `drop` bag gains `canAccept`, and `<Zone>` / `<Panel>` expose
+  it — the path 1.3.0 used for `stackOnDrop` / `splitOnDrop` / `dropIntent`.
 
-Presets pass no `scrollRef` today, so they have no edge scrolling at all;
-`edgeScroll` is inert without one, and it comes along with this.
+`edgeScroll` stops at `<Container>`. Presets pass no `scrollRef`, so
+`registerDropTarget` gets no scroll element and registers no scroll bag at all;
+an `edgeScroll` prop on a preset would tune something that never runs.
 
 ## Tests
 
@@ -170,7 +172,7 @@ three return values does what it says; the navigation policy pre-empts
 
 React: a container widening a `strip` past its `maxItems` cap, narrowing within
 it, and deferring; a deprecated `canAccept` still vetoing after a policy
-returned `true`; `edgeScroll` reaching the engine from a preset.
+returned `true`; `edgeScroll` reaching the engine from `<Container>`.
 
 A Ladle story carries the browser coverage: a container that refuses drops by
 source kind, operable rather than merely rendered, so Playwright can drive it.

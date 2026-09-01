@@ -19,7 +19,7 @@ section below.
   extent: grid has no opinion about row height. See
   [Sizing a grid to its rows](README.md#sizing-a-grid-to-its-rows).
 
-- **Four built-in policies are now replaceable.** Each is tri-state: return a
+- **Three built-in policies are now replaceable.** Each is tri-state: return a
   value to choose it, a deliberate negative to refuse, or `undefined` to fall
   through to the built-in. A policy that throws, or answers with something the
   library cannot use, is traced and treated as `undefined`.
@@ -34,9 +34,6 @@ section below.
     takes a drop, from `{ items, options, sourceId }`. This one widens as well
     as narrows: `true` accepts where the strategy would refuse. `lock.accept`
     still refuses regardless; a lock is not a policy.
-  - `<Container edgeScroll>` — `{ margin, maxRate }`, the auto-scroll ramp
-    during a drag. `<Container>` only: the presets have no `scrollRef` and
-    cannot honor it.
 
   Acceptance and capacity stay separate decisions, which bites on a `strip`:
   `maxItems` caps what the strategy places as well as what it accepts, so
@@ -44,8 +41,15 @@ section below.
   into `unplaced`, where it renders nothing.
 
   New exported types: `SuccessorInput`, `SuccessorPolicy`, `NavigationPolicy`
-  and `AcceptContext` — the last, with `EdgeScrollOptions`, also from
-  `windease/react`.
+  and `AcceptContext` — the last also from `windease/react`.
+
+- **`<Container edgeScroll={{ margin, maxRate }}>`** reshapes the auto-scroll
+  ramp a drag follows near the edge of a scrolling container; the previously
+  hardcoded values are its defaults. A tuning bag, not a policy: nothing to
+  refuse, nothing to defer to. `<Container>` only — the presets take no
+  `scrollRef` and never auto-scroll at all. `EdgeScrollOptions` is exported from
+  `windease` and `windease/react`. See
+  [Telling windease where the scroll got to](README.md#telling-windease-where-the-scroll-got-to).
 
 - **Strategies can declare conflicting config keys**, through
   `LayoutStrategy.configConflicts`, and `ContainerHost` traces them alongside
@@ -68,7 +72,8 @@ section below.
   `acceptPolicy`, which sees the prospective child list and the container's
   config, and can widen a strategy's answer as well as narrow it. The old
   callback still runs, as a trailing veto after `acceptPolicy` and the strategy
-  have both agreed.
+  have both agreed. A target registered by hand moves over with
+  `useDropTarget(id, ref, { acceptPolicy })`, which forwards the new bag.
 
 - **A prospective split now previews as a layout, not a shade.** Hovering a pane's cross-axis
   edge with `splitOnDrop` lays the destination out as if the drop had happened: the pane under
