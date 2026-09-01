@@ -155,6 +155,26 @@ stateDiagram-v2
     focused --> blurred: blur
 ```
 
+## Replacing the built-in rules
+
+Three of the library's decisions are replaceable policies, and share one
+contract: return a value to choose it, `null` or `false` to refuse
+deliberately, `undefined` to defer to the built-in. A policy that throws, or
+answers with something the library cannot use, is traced and treated as
+`undefined` — a bad policy degrades to the built-in rather than breaking the
+gesture.
+
+- [`new Store({ chooseSuccessor })`](#moving-a-pane-without-a-pointer) — who
+  takes focus when the focused pane is destroyed or hidden.
+- [`new Store({ resolveNavigation })`](#moving-a-pane-without-a-pointer) — how
+  a direction or intent resolves to a pane.
+- [`<Container acceptPolicy>`](#drag-and-drop) — whether a container takes a
+  drop. The same prop is on `<Zone>` and `<Panel>`.
+
+[`<Container edgeScroll>`](#telling-windease-where-the-scroll-got-to) is
+adjacent but not a policy: a tuning bag for the auto-scroll ramp, with nothing
+to refuse and nothing to defer to.
+
 ## Who owns child order
 
 `<Zone>` reconciles its children's order from JSX child order on every render.

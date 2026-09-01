@@ -41,7 +41,8 @@ section below.
   into `unplaced`, where it renders nothing.
 
   New exported types: `SuccessorInput`, `SuccessorPolicy`, `NavigationPolicy`
-  and `AcceptContext` — the last also from `windease/react`.
+  and `AcceptContext` — the last also from `windease/react`. See
+  [Replacing the built-in rules](README.md#replacing-the-built-in-rules).
 
 - **`<Container edgeScroll={{ margin, maxRate }}>`** reshapes the auto-scroll
   ramp a drag follows near the edge of a scrolling container; the previously
