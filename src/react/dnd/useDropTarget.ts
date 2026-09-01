@@ -4,8 +4,13 @@ import type { DropIntent, NodeId } from '../../index.js';
 import { DragContext } from './DragProvider.js';
 
 export interface UseDropTargetOptions {
-  /** Predicate to reject specific sources (e.g. forbid drops from outside a
-   *  particular sub-tree). */
+  /**
+   * Predicate to reject specific sources (e.g. forbid drops from outside a
+   * particular sub-tree).
+   *
+   * @deprecated Removed at 2.0.0. Use `acceptPolicy`, which can widen a
+   * strategy's answer as well as narrow it.
+   */
   canAccept?: (sourceId: NodeId) => boolean;
   /** Whether this target takes the drop, from the prospective post-drop child
    *  list. `true` accepts even where the strategy would refuse, `false`
