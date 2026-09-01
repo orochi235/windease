@@ -67,4 +67,30 @@ describe('successor policy', () => {
     s.unregisterNode(id('a'));
     expect(reasons).toEqual(['destroyed']);
   });
+
+  it('a throwing policy falls through to the built-in and the destroy still completes', () => {
+    const s = row(['a', 'b', 'c'], () => {
+      throw new Error('boom');
+    });
+    s.focusNode(id('b'));
+    s.unregisterNode(id('b'));
+    expect(s.getNode(id('b'))).toBeUndefined();
+    expect(s.focusedId).toBe(id('c'));
+  });
+
+  it('an id for a node that does not exist falls through to the built-in', () => {
+    const s = row(['a', 'b', 'c'], () => id('does-not-exist'));
+    s.focusNode(id('b'));
+    s.unregisterNode(id('b'));
+    expect(s.getNode(id('b'))).toBeUndefined();
+    expect(s.focusedId).toBe(id('c'));
+  });
+
+  it('null is honored, not overridden by the unusable-answer guard', () => {
+    const s = row(['a', 'b', 'c'], () => null);
+    s.focusNode(id('b'));
+    s.unregisterNode(id('b'));
+    expect(s.getNode(id('b'))).toBeUndefined();
+    expect(s.focusedId).toBeNull();
+  });
 });

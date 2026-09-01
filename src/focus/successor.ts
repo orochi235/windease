@@ -1,7 +1,7 @@
 import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 
-function isFocusable(store: Store, id: NodeId): boolean {
+export function isFocusable(store: Store, id: NodeId): boolean {
   const n = store.getNode(id);
   return !!n?.focus && n.lifecycle.state === 'visible';
 }

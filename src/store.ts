@@ -9,8 +9,7 @@ import {
   PinIndexError,
 } from './errors.js';
 import { TypedEmitter } from './events.js';
-import type { SuccessorPolicy } from './focus/successor.js';
-import { chooseSuccessor } from './focus/successor.js';
+import { chooseSuccessor, isFocusable, type SuccessorPolicy } from './focus/successor.js';
 import { destroyBlockedBy, type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeHints, NodeId } from './node.js';
 import { placeRespectingPins } from './pinning.js';
@@ -1131,7 +1130,17 @@ export class Store {
 
   private succeedFocus(from: NodeId, reason: 'destroyed' | 'hidden' | 'moved'): void {
     if (this.focusedIdValue !== from) return;
-    const chosen = this.successorPolicy?.({ store: this, departing: from, reason });
+    let chosen: NodeId | null | undefined;
+    try {
+      chosen = this.successorPolicy?.({ store: this, departing: from, reason });
+    } catch (err) {
+      trace('store', `successor policy threw, using built-in: ${err}`);
+      chosen = undefined;
+    }
+    if (chosen && !isFocusable(this, chosen)) {
+      trace('store', `successor policy returned unusable ${chosen}, using built-in`);
+      chosen = undefined;
+    }
     const to = chosen === undefined ? chooseSuccessor(this, from) : chosen;
     this.focusedIdValue = null;
     if (to) {
