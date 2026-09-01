@@ -13,6 +13,8 @@ export {
   DragController,
   type DragState,
 } from '../dnd/DragController.js';
+export type { AcceptContext } from '../dnd/DragEngine.js';
+export type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
 export { childRectsForContainer, insertionIndexByMidpoint } from '../dnd/insertionIndex.js';
 export type {
   AffordanceRenderArgs,

@@ -1,10 +1,12 @@
 import { cleanup, render } from '@testing-library/react';
+import { useRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   type AcceptContext,
   asNodeId,
   createNode,
   type DragController,
+  type EdgeScrollOptions,
   type Rect,
   Store,
   stripStrategy,
@@ -76,10 +78,10 @@ function tree({ store, capture, canAccept }: TreeProps) {
   );
 }
 
-/** jsdom lays nothing out, so the container's box has to be staged by hand or
- *  the cursor hits no target at all. */
-function stubRects(container: HTMLElement): void {
-  const asDomRect = (r: Rect) =>
+/** jsdom lays nothing out, so every box a hit-test reads has to be staged by
+ *  hand or the cursor lands on no target at all. */
+function stubBox(el: Element, r: Rect): void {
+  el.getBoundingClientRect = () =>
     ({
       left: r.x,
       top: r.y,
@@ -91,12 +93,15 @@ function stubRects(container: HTMLElement): void {
       y: r.y,
       toJSON: () => ({}),
     }) as DOMRect;
+}
+
+function stubRects(container: HTMLElement): void {
   const box = container.querySelector('[data-node-container]');
-  if (box) box.getBoundingClientRect = () => asDomRect({ x: 0, y: 0, w: 200, h: 100 });
+  if (box) stubBox(box, { x: 0, y: 0, w: 200, h: 100 });
   const kids = Array.from(container.querySelectorAll('[data-node]'));
   kids.forEach((el, i) => {
     const w = 200 / Math.max(1, kids.length);
-    el.getBoundingClientRect = () => asDomRect({ x: i * w, y: 0, w, h: 100 });
+    stubBox(el, { x: i * w, y: 0, w, h: 100 });
   });
 }
 
@@ -177,5 +182,100 @@ describe('<Container canAccept>', () => {
     expect(last.items.map((i) => i.id)).toEqual(['a', 'b', SOURCE]);
     expect(last.options.maxItems).toBe(2);
     expect(last.sourceId).toBe(SOURCE);
+  });
+});
+
+/** The scrolling wrapper `<Container>` is told about, so a drag held near its
+ *  edge has something to scroll. */
+function Scrolling({ edgeScroll }: { edgeScroll?: EdgeScrollOptions }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  return (
+    <div ref={scrollRef} data-testid="scroller">
+      <Container
+        parentId={Z}
+        chrome={{}}
+        viewport={{ w: 200, h: 100 }}
+        scrollRef={scrollRef}
+        {...(edgeScroll ? { edgeScroll } : {})}
+      />
+    </div>
+  );
+}
+
+function scrollTree({
+  store,
+  capture,
+  edgeScroll,
+}: TreeProps & { edgeScroll?: EdgeScrollOptions }) {
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
+        <DragProvider>
+          <CaptureController into={capture} />
+          <Scrolling {...(edgeScroll ? { edgeScroll } : {})} />
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+}
+
+/** jsdom's own `scrollLeft` setter drops the write, so the box records it. */
+function recordScrollLeft(el: HTMLElement): () => number {
+  let left = 0;
+  Object.defineProperty(el, 'scrollLeft', {
+    get: () => left,
+    set: (v: number) => {
+      left = v;
+    },
+    configurable: true,
+  });
+  return () => left;
+}
+
+function mountScrolling(edgeScroll?: EdgeScrollOptions) {
+  let controller!: DragController;
+  const { container, getByTestId } = render(
+    scrollTree({
+      store: makeStore(['a']),
+      ...(edgeScroll ? { edgeScroll } : {}),
+      capture: (c) => {
+        controller = c;
+      },
+    }),
+  );
+  const scroller = getByTestId('scroller');
+  stubRects(container);
+  stubBox(scroller, { x: 0, y: 0, w: 200, h: 100 });
+  return { container, controller: () => controller, read: recordScrollLeft(scroller) };
+}
+
+/** Hold the drag against the right edge of the scrolling box. */
+async function hoverEdge(c: DragController, container: HTMLElement): Promise<void> {
+  c.tryBegin(SOURCE);
+  await new Promise((r) => setTimeout(r, 20));
+  stubRects(container);
+  c.updateHoverByPoint(198, 50);
+  await new Promise((r) => setTimeout(r, 20));
+}
+
+// Whether the ramp feels right under a real pointer is browser work; these pin
+// only that the prop reaches the engine's scroll bag.
+describe('<Container edgeScroll>', () => {
+  it('scrolls the box a drag is held at the edge of', async () => {
+    const { container, controller, read } = mountScrolling();
+
+    await hoverEdge(controller(), container);
+    controller().cancel();
+
+    expect(read()).toBeGreaterThan(0);
+  });
+
+  it('takes a ramp that says never to scroll', async () => {
+    const { container, controller, read } = mountScrolling({ maxRate: 0 });
+
+    await hoverEdge(controller(), container);
+    controller().cancel();
+
+    expect(read()).toBe(0);
   });
 });

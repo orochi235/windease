@@ -105,6 +105,8 @@ export interface ContainerProps {
    * Decide whether this container accepts a drop, overriding the strategy's
    * own `canAccept`. `true` accepts where the strategy would refuse, `false`
    * refuses, `undefined` defers to it. A `lock.accept` refuses regardless.
+   * Not `useDropTarget`'s `canAccept`, which is handed a source id and can
+   * only veto.
    *
    * Runs on every drag `pointermove` — keep it O(items.length) or smaller.
    */
