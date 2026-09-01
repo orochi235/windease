@@ -1,4 +1,4 @@
-export default { title: 'Accept policy' };
+export default { title: 'Policies/Accept' };
 
 import type { Story } from '@ladle/react';
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';

@@ -42,7 +42,9 @@ section below.
 
   New exported types: `SuccessorInput`, `SuccessorPolicy`, `NavigationPolicy`
   and `AcceptContext` — the last also from `windease/react`. See
-  [Replacing the built-in rules](README.md#replacing-the-built-in-rules).
+  [Replacing the built-in rules](README.md#replacing-the-built-in-rules), and
+  the playground's Policies section, which runs each policy beside the built-in
+  it replaces.
 
 - **`<Container edgeScroll={{ margin, maxRate }}>`** reshapes the auto-scroll
   ramp a drag follows near the edge of a scrolling container; the previously

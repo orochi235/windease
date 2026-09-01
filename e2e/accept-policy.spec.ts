@@ -7,7 +7,7 @@ import { centerOf, openStory, settledBox } from './fixtures.js';
  * `pointermove`, and what it returns decides whether the release commits.
  */
 
-const STORY = 'accept-policy--widening-the-cap';
+const STORY = 'policies--accept--widening-the-cap';
 
 const handle = (page: Page, id: string) => page.locator(`[data-windease-drag-handle="${id}"]`);
 const frame = (page: Page, zone: string) => page.locator(`[data-testid="frame-${zone}"]`);
