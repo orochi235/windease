@@ -70,9 +70,9 @@ interface CommonBindingProps {
   /** Replace the built-in drop hit-test — the callback `<Container dropIntent>`
    *  takes, on the preset that hosts the layout. */
   dropIntent?: (ctx: DropIntentContext) => DropIntent | undefined;
-  /** Override this preset's drop acceptance — the callback `<Container canAccept>`
+  /** Override this preset's drop acceptance — the callback `<Container acceptPolicy>`
    *  takes. Runs on every drag `pointermove`. */
-  canAccept?: (ctx: AcceptContext) => boolean | undefined;
+  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
   /** Permissions restricting what the user may do to this node. `true` locks
    *  every axis the node's capabilities support. */
   lock?: boolean | LockSet;
@@ -117,7 +117,7 @@ function dropBag(props: CommonBindingProps, hostsLayout?: boolean): PresetShellP
     stackOnDrop: props.stackOnDrop,
     splitOnDrop: props.splitOnDrop,
     dropIntent: props.dropIntent,
-    canAccept: props.canAccept,
+    acceptPolicy: props.acceptPolicy,
     hostsLayout,
   });
 }
@@ -618,7 +618,7 @@ interface PresetShellProps {
         stackOnDrop?: boolean | undefined;
         splitOnDrop?: boolean | undefined;
         dropIntent?: ((ctx: DropIntentContext) => DropIntent | undefined) | undefined;
-        canAccept?: ((ctx: AcceptContext) => boolean | undefined) | undefined;
+        acceptPolicy?: ((ctx: AcceptContext) => boolean | undefined) | undefined;
         /** A strategy places these children. Without one, CSS does, and the
          *  axis is read off the arrangement rather than the config. */
         hostsLayout?: boolean | undefined;
@@ -668,7 +668,7 @@ function PresetShell({
     ...(drop?.stackOnDrop ? { stackOnDrop: drop.stackOnDrop } : {}),
     ...(drop?.splitOnDrop ? { splitOnDrop: drop.splitOnDrop } : {}),
     ...(drop?.dropIntent ? { dropIntent: drop.dropIntent } : {}),
-    ...(drop?.canAccept ? { acceptPolicy: drop.canAccept } : {}),
+    ...(drop?.acceptPolicy ? { acceptPolicy: drop.acceptPolicy } : {}),
   });
   const registry = useChildRegistry();
   // Reset at the top of every render so we capture only the current JSX

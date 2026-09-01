@@ -58,10 +58,10 @@ function CaptureController({ into }: { into: (c: DragController) => void }) {
 interface TreeProps {
   store: Store;
   capture: (c: DragController) => void;
-  canAccept?: (ctx: AcceptContext) => boolean | undefined;
+  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
 }
 
-function tree({ store, capture, canAccept }: TreeProps) {
+function tree({ store, capture, acceptPolicy }: TreeProps) {
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
@@ -71,7 +71,7 @@ function tree({ store, capture, canAccept }: TreeProps) {
             parentId={Z}
             chrome={{}}
             viewport={{ w: 200, h: 100 }}
-            {...(canAccept ? { canAccept } : {})}
+            {...(acceptPolicy ? { acceptPolicy } : {})}
           />
         </DragProvider>
       </StrategyRegistryProvider>
@@ -116,12 +116,12 @@ async function hover(c: DragController, container: HTMLElement): Promise<void> {
   await new Promise((r) => setTimeout(r, 20));
 }
 
-function mount(store: Store, canAccept?: (ctx: AcceptContext) => boolean | undefined) {
+function mount(store: Store, acceptPolicy?: (ctx: AcceptContext) => boolean | undefined) {
   let controller!: DragController;
   const { container } = render(
     tree({
       store,
-      ...(canAccept ? { canAccept } : {}),
+      ...(acceptPolicy ? { acceptPolicy } : {}),
       capture: (c) => {
         controller = c;
       },
@@ -130,7 +130,7 @@ function mount(store: Store, canAccept?: (ctx: AcceptContext) => boolean | undef
   return { container, controller: () => controller };
 }
 
-describe('<Container canAccept>', () => {
+describe('<Container acceptPolicy>', () => {
   it('leaves the strategy in charge when unset', async () => {
     const { container, controller } = mount(makeStore(['a', 'b']));
 
@@ -288,7 +288,7 @@ const STRIP = { strip: stripStrategy as never };
 function zoneTree(
   store: Store,
   capture: (c: DragController) => void,
-  canAccept?: (ctx: AcceptContext) => boolean | undefined,
+  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined,
 ) {
   return (
     <Provider store={store}>
@@ -301,7 +301,7 @@ function zoneTree(
             config={{ axis: 'x', fill: true, maxItems: 2 }}
             viewport={{ w: 200, h: 100 }}
             acceptsDrops
-            {...(canAccept ? { canAccept } : {})}
+            {...(acceptPolicy ? { acceptPolicy } : {})}
           >
             <Panel id={asNodeId('a')} />
             <Panel id={asNodeId('b')} />
@@ -339,7 +339,7 @@ async function hoverZone(c: DragController, container: HTMLElement): Promise<voi
   await new Promise((r) => setTimeout(r, 20));
 }
 
-function mountZone(store: Store, canAccept?: (ctx: AcceptContext) => boolean | undefined) {
+function mountZone(store: Store, acceptPolicy?: (ctx: AcceptContext) => boolean | undefined) {
   let controller!: DragController;
   const { container } = render(
     zoneTree(
@@ -347,13 +347,13 @@ function mountZone(store: Store, canAccept?: (ctx: AcceptContext) => boolean | u
       (c) => {
         controller = c;
       },
-      canAccept,
+      acceptPolicy,
     ),
   );
   return { container, controller: () => controller };
 }
 
-describe('<Zone canAccept>', () => {
+describe('<Zone acceptPolicy>', () => {
   it('rejects a further drop at the strategy cap when unset', async () => {
     const { container, controller } = mountZone(new Store());
 

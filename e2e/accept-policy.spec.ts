@@ -2,7 +2,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
- * `canAccept` overrides the strategy's own answer, and the only place that
+ * `acceptPolicy` overrides the strategy's own answer, and the only place that
  * decision is observable end to end is a real pointer drag: it runs on every
  * `pointermove`, and what it returns decides whether the release commits.
  */
@@ -34,7 +34,7 @@ async function dragInto(page: Page, sourceId: string, zoneId: string, verdict: s
   await page.mouse.up();
 }
 
-test.describe('canAccept', () => {
+test.describe('acceptPolicy', () => {
   test('a lenient zone takes a drop its strategy would refuse', async ({ page }) => {
     await openStory(page, STORY);
     expect(await childIds(page, 'zone-lenient')).toEqual(['lenient-1', 'lenient-2']);
@@ -66,7 +66,7 @@ test.describe('canAccept', () => {
     await dragInto(page, 'strict-1', 'zone-lenient', 'accept');
     await expect.poll(() => childIds(page, 'zone-lenient')).toHaveLength(3);
 
-    // `canAccept` returns undefined past three, so `maxItems: 2` decides again.
+    // `acceptPolicy` returns undefined past three, so `maxItems: 2` decides again.
     await dragInto(page, 'strict-2', 'zone-lenient', 'reject');
 
     await expect

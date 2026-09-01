@@ -105,12 +105,10 @@ export interface ContainerProps {
    * Decide whether this container accepts a drop, overriding the strategy's
    * own `canAccept`. `true` accepts where the strategy would refuse, `false`
    * refuses, `undefined` defers to it. A `lock.accept` refuses regardless.
-   * Not `useDropTarget`'s `canAccept`, which is handed a source id and can
-   * only veto.
    *
    * Runs on every drag `pointermove` — keep it O(items.length) or smaller.
    */
-  canAccept?: (ctx: AcceptContext) => boolean | undefined;
+  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
   /** Ramp shape for edge scrolling during a drag. Inert without `scrollRef`. */
   edgeScroll?: EdgeScrollOptions;
   className?: string;
@@ -233,7 +231,7 @@ function StoreContainer({
   splitOnDrop = false,
   splitPreview = 'layout',
   dropIntent,
-  canAccept,
+  acceptPolicy,
   edgeScroll,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -305,7 +303,7 @@ function StoreContainer({
     splitOnDrop,
     ...(dropIntent ? { dropIntent } : {}),
     ...(scrollRef ? { scrollRef } : {}),
-    ...(canAccept ? { acceptPolicy: canAccept } : {}),
+    ...(acceptPolicy ? { acceptPolicy } : {}),
     ...(edgeScroll ? { edgeScroll } : {}),
   });
 

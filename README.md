@@ -522,21 +522,21 @@ the tree under `<DragProvider>`. The drag controller honors:
 - `lock.accept` on the target — zone-level drop refusal.
 - The destination strategy's `canAccept(prospective-items, options)` — e.g.
   a strategy with a `maxItems` config refusing a drop that would overflow it.
-- `canAccept` on the container itself, which overrides that answer.
+- `acceptPolicy` on the container itself, which overrides that answer.
 - An optional consumer-supplied `canAccept(sourceId)` on the drop target,
   deprecated in favor of `acceptPolicy` and removed at 2.0.0.
 
-`<Container canAccept>` — and the same prop on `<Zone>` and `<Panel>` — is how
+`<Container acceptPolicy>` — and the same prop on `<Zone>` and `<Panel>` — is how
 one container disagrees with its strategy. It sees the child list the strategy
 would see, plus who is being dragged; `true` accepts where the strategy would
 refuse, `false` refuses where it would accept, `undefined` defers to it. A
 `lock.accept` refuses regardless.
 
 ```tsx
-<Container parentId={zoneId} canAccept={({ items }) => items.length <= 4} />
+<Container parentId={zoneId} acceptPolicy={({ items }) => items.length <= 4} />
 ```
 
-A target you register yourself takes the same callback as `acceptPolicy`:
+A target you register yourself takes the same callback:
 `useDropTarget(zoneId, ref, { acceptPolicy })`.
 
 It runs on every `pointermove` of a drag, so keep it O(items). Accepting is not
@@ -686,7 +686,7 @@ centre of a pane still inserts — edges split, everything else inserts — whic
 what a consumer without tabs wants.
 
 `<Zone>` and `<Panel container={…}>` take the same two props, plus `dropIntent`
-and `canAccept`, gated by `acceptsDrops` — the presets run the same hit-test
+and `acceptPolicy`, gated by `acceptsDrops` — the presets run the same hit-test
 `<Container>` does. What they do not draw is the split preview; that is a
 `<Container>` render, so a preset drop resolves the same intent with nothing to
 aim at.

@@ -30,14 +30,14 @@ section below.
   - `new Store({ resolveNavigation })` — how a direction or intent resolves to a
     node, consulted ahead of `strategy.navigate` and the geometric fallback. The
     id it returns must name a focusable, visible node.
-  - `canAccept` on `<Container>`, `<Zone>` and `<Panel>` — whether a container
+  - `acceptPolicy` on `<Container>`, `<Zone>` and `<Panel>` — whether a container
     takes a drop, from `{ items, options, sourceId }`. This one widens as well
     as narrows: `true` accepts where the strategy would refuse. `lock.accept`
     still refuses regardless; a lock is not a policy.
 
   Acceptance and capacity stay separate decisions, which bites on a `strip`:
   `maxItems` caps what the strategy places as well as what it accepts, so
-  `canAccept: () => true` on a full strip takes the pane and then withholds it
+  `acceptPolicy: () => true` on a full strip takes the pane and then withholds it
   into `unplaced`, where it renders nothing.
 
   New exported types: `SuccessorInput`, `SuccessorPolicy`, `NavigationPolicy`

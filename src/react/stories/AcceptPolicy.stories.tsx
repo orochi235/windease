@@ -105,12 +105,12 @@ function AcceptZone({
   zoneId,
   label,
   note,
-  canAccept,
+  acceptPolicy,
 }: {
   zoneId: NodeId;
   label: string;
   note: string;
-  canAccept?: (ctx: AcceptContext) => boolean | undefined;
+  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
 }) {
   const drag = useDragState();
   const hover = drag?.hover ?? null;
@@ -135,7 +135,7 @@ function AcceptZone({
           className="ap-zone"
           data-testid={zoneId}
           renderImperative={renderPane}
-          {...(canAccept ? { canAccept } : {})}
+          {...(acceptPolicy ? { acceptPolicy } : {})}
         >
           <Withheld zoneId={zoneId} />
         </Zone>
@@ -152,18 +152,18 @@ function Board() {
   useSeededPanes(store);
   return (
     <div className="ap-row">
-      <AcceptZone zoneId={STRICT} label="Strict" note="no canAccept" />
+      <AcceptZone zoneId={STRICT} label="Strict" note="no acceptPolicy" />
       <AcceptZone
         zoneId={LENIENT}
         label="Lenient"
-        note="canAccept: items.length ≤ 3"
-        canAccept={acceptUpToThree}
+        note="acceptPolicy: items.length ≤ 3"
+        acceptPolicy={acceptUpToThree}
       />
       <AcceptZone
         zoneId={REFUSING}
         label="Refusing"
-        note="canAccept: false"
-        canAccept={refuseEverything}
+        note="acceptPolicy: false"
+        acceptPolicy={refuseEverything}
       />
     </div>
   );
@@ -181,17 +181,17 @@ export const WideningTheCap: Story = () => {
             <p>
               All three zones are <code>strip</code> with <code>maxItems: 2</code>. Strict and
               Lenient are full, so the strategy refuses a third pane in either. Lenient passes a{' '}
-              <code>canAccept</code> that answers <code>true</code> up to three items — drag a pane
-              into it and the frame turns green and the drop lands. Drag one into Strict and the
-              frame turns red and the release does nothing.
+              <code>acceptPolicy</code> that answers <code>true</code> up to three items — drag a
+              pane into it and the frame turns green and the drop lands. Drag one into Strict and
+              the frame turns red and the release does nothing.
             </p>
             <p>
               Refusing holds one pane, so the strategy has room for a second and would take it. Its{' '}
-              <code>canAccept</code> returns <code>false</code> regardless. An override narrows as
-              well as widens, which is what makes it an override rather than a cap.
+              <code>acceptPolicy</code> returns <code>false</code> regardless. An override narrows
+              as well as widens, which is what makes it an override rather than a cap.
             </p>
             <p>
-              Move a second pane into Lenient and it refuses that one too: <code>canAccept</code>{' '}
+              Move a second pane into Lenient and it refuses that one too: <code>acceptPolicy</code>{' '}
               returns <code>undefined</code> at four items, which defers to <code>maxItems</code>{' '}
               again.
             </p>

@@ -13,7 +13,7 @@ DOM-level drag concerns into the DOM-independent core.
 | --- | --- | --- |
 | `chooseSuccessor` | `Store.succeedFocus` | `StoreOptions` |
 | `resolveNavigation` | `resolveMove`, `FocusProvider` | `StoreOptions`, read inside `resolveNavigation` |
-| a container's `canAccept` | `DragEngine.checkAccept` | `<Container>` / preset prop |
+| a container's `acceptPolicy` | `DragEngine.checkAccept` | `<Container>` / preset prop |
 | edge-scroll tuning | `DragEngine`'s scroll sampler | `<Container>` prop |
 
 ## Every override is tri-state
@@ -101,7 +101,7 @@ internal `builtinResolve` (no policy) out of the public entry, and have the
 public entry own the re-entrancy flag. Without this a policy that computes
 against the default recurses until the stack dies.
 
-## `canAccept` becomes an override, not a third veto
+## `acceptPolicy` becomes an override, not a third veto
 
 `DragEngine.checkAccept` today runs `lock.accept`, then
 `strategy.canAccept(items, options)`, then the drop target's
@@ -153,10 +153,10 @@ new cost on every drag.
 already carries `edgeScroll`; `useDropIntentTarget` does not accept it and
 hardcodes `{ scrollEl, getDropIntent }`.
 
-- `<Container>` gains `canAccept` and `edgeScroll` props.
+- `<Container>` gains `acceptPolicy` and `edgeScroll` props.
 - `useDropIntentTarget` gains `edgeScroll`, and widens `canAccept` to the
   `acceptPolicy` shape.
-- `PresetShell`'s `drop` bag gains `canAccept`, and `<Zone>` / `<Panel>` expose
+- `PresetShell`'s `drop` bag gains `acceptPolicy`, and `<Zone>` / `<Panel>` expose
   it — the path 1.3.0 used for `stackOnDrop` / `splitOnDrop` / `dropIntent`.
 
 `edgeScroll` stops at `<Container>`. Presets pass no `scrollRef`, so
