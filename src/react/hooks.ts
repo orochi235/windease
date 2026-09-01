@@ -21,7 +21,13 @@ function publishedKey(store: Store, ids: readonly NodeId[] | undefined): string 
   return key;
 }
 
-/** @group Hooks */
+/**
+ * Subscribe to one node, re-rendering whenever its record is replaced.
+ * `undefined` while the id is unknown or, under a throttle policy, not yet
+ * published. Cheap enough to call per component — the store hands back the
+ * same reference until something actually changes.
+ * @group Hooks
+ */
 export function useNode(id: NodeId): Node | undefined {
   const store = useStore();
   return useSyncExternalStore(
@@ -30,7 +36,13 @@ export function useNode(id: NodeId): Node | undefined {
   );
 }
 
-/** @group Hooks */
+/**
+ * Subscribe to a derived slice of one node. `select` runs on every store
+ * notification, so it must be cheap and must return a stable value for
+ * unchanged input — returning a fresh object or array each call re-renders on
+ * every mutation anywhere in the tree.
+ * @group Hooks
+ */
 export function useNodeSelector<T>(id: NodeId, select: (n: Node) => T): T | undefined {
   const store = useStore();
   return useSyncExternalStore(
@@ -42,7 +54,12 @@ export function useNodeSelector<T>(id: NodeId, select: (n: Node) => T): T | unde
   );
 }
 
-/** @group Hooks */
+/**
+ * A container's children, in `childOrder`, with unpublished ids omitted. The
+ * returned array is referentially stable until the membership or the published
+ * set actually changes, so it is safe as a dependency.
+ * @group Hooks
+ */
 export function useChildren(parentId: NodeId): readonly Node[] {
   // Subscribe to the parent node directly; derive children from its
   // container.childOrder via useMemo so the array is stable until childOrder
@@ -70,7 +87,11 @@ export function useChildren(parentId: NodeId): readonly Node[] {
   }, [store, childOrder, published]);
 }
 
-/** @group Hooks */
+/**
+ * The single focused node, or `undefined` when nothing holds focus. Tracks the
+ * store's focus invariant, not the DOM's `activeElement`.
+ * @group Hooks
+ */
 export function useFocusedNode(): Node | undefined {
   const store = useStore();
   const focusedId = useSyncExternalStore(
@@ -80,7 +101,11 @@ export function useFocusedNode(): Node | undefined {
   return useNode(focusedId ?? (undefined as unknown as NodeId));
 }
 
-/** @group Hooks */
+/**
+ * Every parentless node, in registration order. The entry point for rendering
+ * a tree whose roots the consumer doesn't name explicitly.
+ * @group Hooks
+ */
 export function useRootNodes(): readonly Node[] {
   const store = useStore();
   // Subscribe to a stable snapshot of rootIds. We rely on the store
@@ -107,7 +132,11 @@ export function useRootNodes(): readonly Node[] {
   }, [store, rootKey]);
 }
 
-/** @group Hooks */
+/**
+ * A node's free-form `activity` bag — the channel for high-frequency signals a
+ * strategy reads (recency, unread counts) that shouldn't churn `node.meta`.
+ * @group Hooks
+ */
 export function useActivity(id: NodeId): Record<string, unknown> | undefined {
   const store = useStore();
   return useSyncExternalStore(

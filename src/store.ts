@@ -38,6 +38,12 @@ const STACK_STRATEGY_ID = 'stack';
  */
 export const SPLIT_STRATEGY_ID = 'strip';
 
+/**
+ * Every event the store emits, as name → payload. Subscribe with `store.on`.
+ *
+ * These fire on the published timeline, so under a throttle policy a
+ * transition is announced when it publishes rather than when it was applied.
+ */
 export interface StoreEvents {
   'node.registered': { id: NodeId };
   'node.unregistered': { id: NodeId };
@@ -1565,6 +1571,7 @@ function clampIndex(at: number | undefined, length: number): number {
   return at;
 }
 
+/** Per-call overrides accepted by mutating store methods. */
 export interface MutateOptions {
   /** Bypass lock guards for this call. */
   force?: boolean;

@@ -1,8 +1,17 @@
 import type { Node, NodeId } from './node.js';
 import type { Store } from './store.js';
 
+/**
+ * One restrictable operation. Which axes apply to a node follows from its
+ * capabilities: `move`/`resize` need `membership`, `accept`/`dragOut` need
+ * `container`, and `destroy`/`arrange` always apply.
+ */
 export type LockAxis = 'move' | 'resize' | 'destroy' | 'accept' | 'dragOut' | 'arrange';
 
+/**
+ * The axes locked on a node. Absent and `false` both mean unlocked. Enforced
+ * by the store, which throws `LockedError` — not merely a UI hint.
+ */
 export type LockSet = Partial<Record<LockAxis, boolean>>;
 
 const MEMBERSHIP_AXES = ['move', 'resize'] as const;

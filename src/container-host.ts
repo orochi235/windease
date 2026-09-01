@@ -14,6 +14,12 @@ import type { ContainerCap, NodeId } from './node.js';
 import { SPLIT_STRATEGY_ID, type Store } from './store.js';
 import { trace } from './trace.js';
 
+/**
+ * One layout pass's result as a host consumes it: where each child goes, what
+ * is grabbable, what didn't fit, and the viewport it was computed against.
+ * `viewport` is null before the host has reported a size, when `placements`
+ * is empty rather than guessed.
+ */
 export interface ContainerLayout {
   placements: Map<NodeId, Rect>;
   affordances: Affordance[];

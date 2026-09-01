@@ -3,6 +3,8 @@ import type { Node, NodeId, Store } from '../index.js';
 import { useChildren, useNode, useRootNodes } from './hooks.js';
 import { Provider } from './Provider.js';
 
+/** What a {@link ChromeHandler} receives: the node to render, and its
+ *  already-rendered subtree when it is a container. */
 export interface ChromeArgs {
   node: Node;
   /** Recursively-rendered subtree if `node` has a container capability,
@@ -11,6 +13,11 @@ export interface ChromeArgs {
   children: ReactNode | null;
 }
 
+/**
+ * Renders one node's surrounding UI — title bar, borders, whatever the app
+ * needs — and decides where `args.children` is mounted inside it. Returning
+ * without mounting them hides the whole subtree.
+ */
 export type ChromeHandler = (args: ChromeArgs) => ReactNode;
 
 /**
@@ -34,12 +41,21 @@ function resolveChrome(chrome: Chrome, node: Node): ChromeHandler | undefined {
   return chrome.default;
 }
 
+/** Props for {@link NodeRenderer}. */
 export interface NodeRendererProps {
   id: NodeId;
   chrome: Chrome;
 }
 
-/** @group Components */
+/**
+ * Renders the subtree rooted at `id` by handing each node to `chrome`.
+ * Hidden and destroyed nodes render nothing, along with their descendants.
+ *
+ * The imperative counterpart to the `Zone`/`Panel` presets: use this when the
+ * tree's shape lives in the store rather than in JSX. Requires a `Provider`
+ * above it — {@link Root} supplies one.
+ * @group Components
+ */
 export function NodeRenderer({ id, chrome }: NodeRendererProps) {
   const node = useNode(id);
   const children = useChildren(id);
@@ -55,12 +71,17 @@ export function NodeRenderer({ id, chrome }: NodeRendererProps) {
   return handler({ node, children: subtree });
 }
 
+/** Props for {@link Root}. */
 export interface RootProps {
   store: Store;
   chrome: Chrome;
 }
 
-/** @group Components */
+/**
+ * Mounts a `Provider` for `store` and renders every parentless node through
+ * `chrome`. The one-line entry point for a store-driven tree.
+ * @group Components
+ */
 export function Root({ store, chrome }: RootProps) {
   return (
     <Provider store={store}>

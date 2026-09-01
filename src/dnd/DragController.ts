@@ -25,6 +25,11 @@ export type {
   StrategyLookup,
 } from './DragEngine.js';
 
+/**
+ * How one element behaves as a drop target: which container it stands for,
+ * which restructuring drops it permits, and any overrides of the built-in
+ * hit-test and acceptance rules.
+ */
 export interface DropTargetOptions {
   /** Map cursor (viewport coords) → prospective insertion index (0-based).
    *  Return undefined to leave `insertIndex` unset. */

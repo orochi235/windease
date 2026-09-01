@@ -46,10 +46,17 @@ export function GeometryProvider({ children }: { children: ReactNode }) {
   return createElement(GeometryContext.Provider, { value: registry.current }, children);
 }
 
+/** The enclosing geometry registry, or `null` outside a `GeometryProvider`. */
 export function useGeometryRegistry(): GeometryRegistry | null {
   return useContext(GeometryContext);
 }
 
+/**
+ * Reports where nodes are, for directional navigation and keyboard moves.
+ * Rects come from what the presets published rather than from
+ * `getBoundingClientRect`, so this stays correct across nesting and costs no
+ * layout flush.
+ */
 export function useGeometrySource(): GeometrySource {
   const registry = useContext(GeometryContext);
   return useMemo(

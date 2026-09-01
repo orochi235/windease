@@ -9,10 +9,13 @@ import type {
 } from '../layout-types.js';
 import { trace } from '../trace.js';
 
+/** The four corners a floating item can anchor to. */
 export const FLOATING_CORNERS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const;
 
+/** One of {@link FLOATING_CORNERS}. */
 export type Corner = (typeof FLOATING_CORNERS)[number];
 
+/** A position in container-relative coordinates. */
 export interface Point {
   x: number;
   y: number;
@@ -143,6 +146,8 @@ export function rectOf(
   return { x: origin.x, y: origin.y, w: size.w, h: size.h };
 }
 
+/** {@link floatingStrategy}'s state: where the floating items rest, plus
+ *  whatever state the wrapped strategy keeps for the tiled ones. */
 export interface FloatingState<TInner = unknown> {
   /** Where each floating item rests, by item id. */
   at: Record<string, FloatingPlacement>;
@@ -150,6 +155,7 @@ export interface FloatingState<TInner = unknown> {
   inner: TInner;
 }
 
+/** `container.config` keys {@link floatingStrategy} reads. */
 export interface FloatingConfig {
   inset?: number;
   snapThreshold?: number;
@@ -162,8 +168,11 @@ export interface FloatingConfig {
   snapToPanes?: boolean;
 }
 
+/** Pixels between a snapped item and its target's edges. */
 export const DEFAULT_INSET = 12;
+/** How near a corner a drag must end to snap to it, in pixels. */
 export const DEFAULT_SNAP_THRESHOLD = 12;
+/** The corner a floating item takes when nothing says otherwise. */
 export const DEFAULT_ANCHOR: Corner = 'bottom-left';
 
 /** Affordance id prefix, so `reduce` can route without knowing the inner strategy. */
@@ -174,6 +183,15 @@ function seed(options: Record<string, unknown> | undefined): FloatingPlacement {
   return { x: 0, y: 0, anchor };
 }
 
+/**
+ * Wraps another strategy so items marked `meta.floating` are dragged freely
+ * and corner-snapped, while the rest are tiled by `inner` as usual. Called
+ * with no argument, everything floats.
+ *
+ * Anchors are sticky: a snapped item keeps its corner across container
+ * resizes rather than holding the pixel position it happened to land on.
+ * @group Strategies
+ */
 export function floatingStrategy<TInner>(
   inner?: LayoutStrategy<TInner, string, unknown>,
 ): StatefulLayoutStrategy<FloatingState<TInner | undefined>, string> {

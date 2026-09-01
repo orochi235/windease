@@ -21,10 +21,16 @@ export const TRACE_CATEGORIES = [
   'zone', // deprecated alias for 'container'; remove in v0.3
   'container',
 ] as const;
+/** One of the pre-declared trace channels in `TRACE_CATEGORIES`. */
 export type TraceCategory = (typeof TRACE_CATEGORIES)[number];
 
 let enabled: Set<TraceCategory> = new Set();
 
+/**
+ * Enable trace categories at runtime, replacing whatever was enabled before.
+ * Accepts a comma-separated string, an array, `'*'` for everything, or `null`
+ * to silence tracing. Unrecognized category names are dropped silently.
+ */
 export function configureTrace(spec: string | readonly TraceCategory[] | '*' | null): void {
   if (spec === null || spec === '') {
     enabled = new Set();
@@ -51,10 +57,21 @@ export function configureTrace(spec: string | readonly TraceCategory[] | '*' | n
   );
 }
 
+/**
+ * Whether a category is currently enabled. Use it to guard building an
+ * expensive trace payload; the `trace` call itself is already cheap when off.
+ */
 export function isTraceEnabled(category: TraceCategory): boolean {
   return enabled.has(category);
 }
 
+/**
+ * Emit a diagnostic line on `category`, if enabled. One `Set` lookup when
+ * disabled, so call it freely — this is the intended way to instrument
+ * library code, never `console.log`.
+ *
+ * Diagnostics only: user-visible failures throw a `WindeaseError` instead.
+ */
 export function trace(category: TraceCategory, message: string, data?: unknown): void {
   if (!enabled.has(category)) return;
   const tag = `[windease:${category}]`;

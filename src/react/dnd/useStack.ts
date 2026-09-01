@@ -3,12 +3,16 @@ import { accessibleName, type NodeId } from '../../index.js';
 import { useChildren, useNode } from '../hooks.js';
 import { useStore } from '../Provider.js';
 
+/** One tab in a {@link StackModel}: the child it selects and the label to
+ *  show for it. */
 export interface StackTab {
   id: NodeId;
   /** What to label the tab with. */
   title: string;
 }
 
+/** A tabbed container rendered as data — the tabs, which is active, and the
+ *  callbacks to switch or close one. Bring your own markup. */
 export interface StackModel {
   /** The stack's children, in `childOrder`. */
   tabs: StackTab[];

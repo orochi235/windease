@@ -4,6 +4,11 @@ import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
 import type { Node, NodeHints, NodeId } from './node.js';
 
+/**
+ * Input to {@link createNode}. Which capabilities the node ends up with is
+ * decided here and is fixed for its lifetime: `parentId` grants `membership`,
+ * `container` grants `container`, `focus` grants `focus`.
+ */
 export interface CreateNodeInput {
   id: NodeId;
   /** Free-form label. Drives the React ChromeMap and CSS classes only; core never reads it. */
@@ -28,7 +33,15 @@ export interface CreateNodeInput {
   lock?: boolean | LockSet | undefined;
 }
 
-/** @group Constructors */
+/**
+ * Build a `Node`. The only supported way to make one — the capability machines
+ * are constructed here, so an object literal shaped like a `Node` will not
+ * work.
+ *
+ * Creating a node does not add it to a store; pass the result to
+ * `store.registerNode`.
+ * @group Constructors
+ */
 export function createNode(input: CreateNodeInput): Node {
   const node: Node = {
     id: input.id,

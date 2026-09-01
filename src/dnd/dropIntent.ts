@@ -9,6 +9,8 @@ export type DropIntent =
    *  axis of the container that resolved this, not that container's own. */
   | { kind: 'split'; ontoId: ItemId; edge: 'start' | 'end'; axis: 'x' | 'y' };
 
+/** Which restructuring intents a hit-test may return. Everything is off by
+ *  default: both stacking and splitting reshape the tree. */
 export interface DropIntentOptions {
   /** Carve a centre band that stacks onto the hovered child. */
   stack?: boolean;

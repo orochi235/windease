@@ -29,12 +29,25 @@ export interface Clock {
   clearTimeout(h: TimerHandle): void;
 }
 
+/**
+ * The default {@link Clock}, backed by `Date.now` and `setTimeout`. Pass a
+ * fake one in `StoreOptions.clock` to drive throttling deterministically in
+ * tests.
+ */
 export const systemClock: Clock = {
   now: () => Date.now(),
   setTimeout: (fn, ms) => setTimeout(fn, ms),
   clearTimeout: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
 };
 
+/**
+ * How the store paces what it publishes to subscribers. Purely presentational:
+ * truth is updated immediately either way, and only the published view — what
+ * `getNode` and the React hooks see — is delayed.
+ *
+ * Validated when the store is constructed; a bad field throws
+ * `InvalidThrottlePolicyError` rather than degrading at runtime.
+ */
 export interface ThrottlePolicy {
   /**
    * Flush window in ms. Omit for microtask scheduling (the default). Must
@@ -110,6 +123,8 @@ function validateThrottlePolicy(policy: ThrottlePolicy): void {
   }
 }
 
+/** Constructor options for `Store`, covering publish pacing and the policies
+ *  a consumer may replace. */
 export interface StoreOptions {
   throttle?: ThrottlePolicy;
   clock?: Clock;

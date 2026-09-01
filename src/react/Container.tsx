@@ -37,8 +37,11 @@ export interface OverlayContext extends ContainerLayout {
   /** ID of the affordance currently being dragged, or null. */
   draggingAffordanceId: string | null;
 }
+/** Draws custom chrome over a container's children, given the layout that
+ *  just ran. Use it for drop indicators and selection rings. */
 export type OverlayRenderer = (ctx: OverlayContext) => ReactNode;
 
+/** Props for {@link Container}. */
 export interface ContainerProps {
   /** The container node whose children to render. */
   parentId: NodeId;

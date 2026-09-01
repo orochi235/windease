@@ -1,5 +1,14 @@
+/** Default event-name → payload mapping for {@link TypedEmitter}: any name,
+ *  any payload. Supply your own interface for checked event names. */
 export type EventMap = Record<string, unknown>;
 
+/**
+ * Small synchronous emitter with event names and payloads checked against `M`.
+ * `on` returns its own unsubscribe function.
+ *
+ * A throwing listener is logged and skipped so it can't take out the others,
+ * which also means a thrown error will not reach the code that emitted.
+ */
 export class TypedEmitter<M extends object = EventMap> {
   private readonly listeners = new Map<keyof M, Set<(payload: unknown) => void>>();
 

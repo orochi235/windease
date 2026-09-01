@@ -5,6 +5,8 @@ import { ContainerHost, type ContainerLayout as HostLayout } from '../index.js';
 import { useStore } from './Provider.js';
 import { useStrategyRegistry } from './strategies.js';
 
+/** The core's `ContainerLayout` plus the React-side dispatchers a host needs
+ *  to drive affordances. */
 export interface ContainerLayout extends HostLayout {
   /**
    * Feed a strategy event (e.g. drag delta on an affordance) into the

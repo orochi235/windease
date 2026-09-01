@@ -5,6 +5,7 @@ import { useStore } from '../Provider.js';
 import { useOptionalStrategyRegistry } from '../strategies.js';
 import { type DragOverlayRenderer, defaultDragOverlay } from './defaultDragOverlay.js';
 
+/** Raw drag-controller context. Prefer {@link useDragController}. */
 export const DragContext = createContext<DragController | null>(null);
 
 export interface DragProviderProps {
@@ -24,7 +25,12 @@ export interface DragProviderProps {
   splitConfig?: Record<string, unknown>;
 }
 
-/** @group Components */
+/**
+ * Owns the drag session for its subtree: binds pointer events, tracks the
+ * hovered target, and renders the drag overlay. Required above any drag handle
+ * or drop target.
+ * @group Components
+ */
 export function DragProvider({
   children,
   dragOverlay = defaultDragOverlay,
@@ -71,7 +77,11 @@ function DragOverlayPortal({ state, render }: { state: DragState; render: DragOv
   );
 }
 
-/** @group Hooks */
+/**
+ * The nearest {@link DragProvider}'s controller, for starting or inspecting a
+ * drag imperatively. Throws when no provider is mounted.
+ * @group Hooks
+ */
 export function useDragController(): DragController {
   const ctrl = useContext(DragContext);
   if (!ctrl) {

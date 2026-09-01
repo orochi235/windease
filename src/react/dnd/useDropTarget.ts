@@ -3,6 +3,7 @@ import type { AcceptContext } from '../../dnd/DragEngine.js';
 import type { DropIntent, NodeId } from '../../index.js';
 import { DragContext } from './DragProvider.js';
 
+/** Options for {@link useDropTarget}. */
 export interface UseDropTargetOptions {
   /**
    * Predicate to reject specific sources (e.g. forbid drops from outside a

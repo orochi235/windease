@@ -6,6 +6,11 @@ import type { GeometrySource } from './types.js';
  *  makes exact-zero comparisons unreliable. */
 const MIN_NAVIGABLE_PX = 1;
 
+/**
+ * Every leaf that can currently take focus, in document order. Hidden and
+ * destroyed subtrees are excluded, as are nodes with no measurable rect —
+ * which is what keeps a zero-size or unplaced pane out of the tab ring.
+ */
 export function navigableLeaves(store: Store, geometry: GeometrySource): NodeId[] {
   const out: NodeId[] = [];
   const walk = (ids: readonly NodeId[]): void => {

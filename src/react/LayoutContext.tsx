@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useContext } from 'react';
 import type { NodeId, PlacementCommit } from '../index.js';
 
+/** A child's placement in its parent's coordinate space. */
 export interface Rect {
   x: number;
   y: number;
@@ -8,6 +9,8 @@ export interface Rect {
   h: number;
 }
 
+/** What a container publishes to its children: their placements, which of
+ *  them went unplaced, and the settle duration for moves between them. */
 export interface LayoutInfo {
   placements: ReadonlyMap<NodeId, Rect>;
   /** Children a strategy ran and deliberately withheld. Empty whenever no
@@ -28,14 +31,28 @@ export interface LayoutInfo {
 
 const EMPTY_LAYOUT: LayoutInfo = { placements: new Map(), unplaced: [], settleMs: 0 };
 
+/**
+ * Raw layout context. Defaults to an empty layout, so a preset rendered
+ * outside any container reads no placement rather than throwing — which is
+ * what lets the same component render both inside a zone and standalone.
+ */
 export const LayoutContext = createContext<LayoutInfo>(EMPTY_LAYOUT);
 
-/** @group Components */
+/**
+ * Publishes one container's layout to its subtree. Container presets do this
+ * for you; use it directly only when hosting a strategy by hand.
+ * @group Components
+ */
 export function LayoutScope({ value, children }: { value: LayoutInfo; children: ReactNode }) {
   return <LayoutContext.Provider value={value}>{children}</LayoutContext.Provider>;
 }
 
-/** @group Hooks */
+/**
+ * This node's rect from the enclosing container's last layout pass, or
+ * `undefined` before one has run or when the strategy withheld it. Read it to
+ * position custom chrome; the presets already apply it themselves.
+ * @group Hooks
+ */
 export function useLayoutForSelf(id: NodeId): Rect | undefined {
   return useContext(LayoutContext).placements.get(id);
 }
@@ -48,7 +65,11 @@ export function useIsUnplaced(id: NodeId): boolean {
   return useContext(LayoutContext).unplaced.includes(id);
 }
 
-/** @group Hooks */
+/**
+ * The enclosing container's whole {@link LayoutInfo}. Prefer
+ * {@link useLayoutForSelf} when one rect is all you need.
+ * @group Hooks
+ */
 export function useLayoutContext(): LayoutInfo {
   return useContext(LayoutContext);
 }

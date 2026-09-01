@@ -5,6 +5,9 @@ import type { NodeId } from '../node.js';
  *  no threshold of its own. */
 export const DEFAULT_JOIN_THRESHOLD = 24;
 
+/** Input to {@link trackJoin}: the seam's current overshoot and the rules for
+ *  whether the node it would destroy may be destroyed.
+ *  @group Layout */
 export interface TrackJoinInput {
   join: AffordanceJoin;
   /** Overshoot accumulated so far this gesture; 0 when it began. */
@@ -21,6 +24,9 @@ export interface TrackJoinInput {
   canDestroy: (id: NodeId | string) => boolean;
 }
 
+/** Whether the seam is armed to destroy a node, and which one — what a host
+ *  needs to preview the join before the pointer is released.
+ *  @group Layout */
 export interface JoinState {
   armed: boolean;
   /**

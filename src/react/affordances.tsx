@@ -30,6 +30,10 @@ export interface AffordanceRenderArgs {
   hitPad: number;
 }
 
+/**
+ * Replaces the built-in affordance layer wholesale. Taking this over means
+ * owning pointer handling and keyboard operability for every seam it draws.
+ */
 export type AffordanceRenderer = (args: AffordanceRenderArgs) => ReactNode;
 
 const AFFORDANCE_BASE: CSSProperties = {

@@ -66,7 +66,11 @@ export function useChildRegistry(): ChildRegistryAPI {
   }, []);
 }
 
-/** @group Hooks */
+/**
+ * The container id a preset would attach to here, or `null` at the root of the
+ * store. What `<Panel>` reads when no `parentId` prop is given.
+ * @group Hooks
+ */
 export function useParentId(): NodeId | null {
   return useContext(ParentContext);
 }

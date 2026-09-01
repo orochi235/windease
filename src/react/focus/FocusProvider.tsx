@@ -37,6 +37,11 @@ interface FocusBinding {
 
 const FocusBindingContext = createContext<FocusBinding | null>(null);
 
+/**
+ * The enclosing {@link FocusProvider}'s binding, or `null` when there is none.
+ * Presets use it to register themselves as focusable; absence is legitimate,
+ * so this returns null rather than throwing.
+ */
 export function useFocusBinding(): FocusBinding | null {
   return useContext(FocusBindingContext);
 }
@@ -51,6 +56,11 @@ export interface FocusProviderProps {
   announce?: boolean;
 }
 
+/**
+ * Reflects store focus onto the DOM and handles keyboard navigation for its
+ * subtree. Without one, focus is still tracked in the store but nothing moves
+ * the caret and no arrow key navigates.
+ */
 export function FocusProvider({ children, announce = true }: FocusProviderProps) {
   const store = useStore();
   const applying = useRef(false);

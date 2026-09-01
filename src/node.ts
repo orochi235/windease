@@ -4,8 +4,16 @@ import type { FocusEvent, FocusState } from './machines/focus.js';
 import type { LifecycleEvent, LifecycleState } from './machines/lifecycle.js';
 import type { TransitEvent, TransitState } from './machines/transit.js';
 
+/**
+ * Opaque identifier for a node. Branded so a bare `string` can't be passed
+ * where an id belongs; build one with `asNodeId`.
+ */
 export type NodeId = string & { readonly __brand: 'NodeId' };
 
+/**
+ * Brand a plain string as a `NodeId`. A cast, not a validation — the store
+ * still rejects ids it doesn't know.
+ */
 export const asNodeId = (s: string): NodeId => s as NodeId;
 
 /**
@@ -16,6 +24,11 @@ export const asNodeId = (s: string): NodeId => s as NodeId;
  */
 export type NodeKind = string;
 
+/**
+ * Node-intrinsic sizing and rendering requests that layout strategies read.
+ * Hints, not guarantees: a strategy honors what it understands and ignores the
+ * rest, so nothing here is a contract that a given rect comes back.
+ */
 export interface NodeHints {
   /** Floor for strategy clamping and resize-drag. */
   minSize?: { w: number; h: number };
@@ -41,10 +54,21 @@ export interface NodeHints {
   order?: number;
 }
 
+/** Every node's state machine: `mounted → visible ↔ hidden → destroyed`. */
 export type LifecycleCap = Machine<LifecycleState, LifecycleEvent>;
+/** Guards a node's move between parents so a reparent is atomic. Carried on
+ *  `membership`, so only a node with a parent has one. */
 export type TransitCap = Machine<TransitState, TransitEvent>;
+/** Tracks whether this node holds focus. Its presence is what makes a node
+ *  focusable at all; the store enforces one focused node per tree. */
 export type FocusCap = Machine<FocusState, FocusEvent>;
 
+/**
+ * The "can I have children?" capability. A node carrying it hosts children in
+ * `childOrder` and lays them out with the strategy named by `strategyId`.
+ * Independent of `MembershipCap`: a zone is a container with no membership, a
+ * panel the reverse, and a group carries both.
+ */
 export interface ContainerCap {
   strategyId: string;
   config: unknown;
@@ -84,6 +108,12 @@ export interface ContainerCap {
   state?: unknown;
 }
 
+/**
+ * The "do I have a parent?" capability, holding that parent's id and this
+ * node's `placement` within it. Per-membership and therefore transient:
+ * `moveNode` clears `placement`, so anything that must survive a move belongs
+ * in `node.meta` instead.
+ */
 export interface MembershipCap {
   parentId: NodeId;
   /**
@@ -104,6 +134,16 @@ export interface MembershipCap {
   transit: TransitCap;
 }
 
+/**
+ * The single shape every node in the tree takes. There is no window type and
+ * no zone type: a node carries `lifecycle` plus any combination of the
+ * optional `container` / `membership` / `focus` capabilities, and `kind` is a
+ * free-form label the core never interprets. Zone, Group and Panel are React
+ * presets over this shape, not distinct types.
+ *
+ * Build one with `createNode`; treat instances as immutable, since every store
+ * mutation produces a fresh reference.
+ */
 export interface Node {
   id: NodeId;
   /** Free-form role label; see `NodeKind` JSDoc. Optional. */

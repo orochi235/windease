@@ -2,10 +2,21 @@ import type { ConfigConflict, ConfigSpec } from './layout/config-check.js';
 import type { NodeId } from './node.js';
 import type { Store } from './store.js';
 
+/** A layout item's identifier. Plain `string`, not `NodeId`: strategies run
+ *  over items that need not come from a store. */
 export type ItemId = string;
+/** Position and extent, in the container's coordinate space. Origin is the
+ *  container's top-left, not the viewport's. */
 export type Rect = { x: number; y: number; w: number; h: number };
+/** A width/height pair with no position. */
 export type Size = { w: number; h: number };
 
+/**
+ * One child as a strategy sees it: an id plus the hints, measurements and
+ * placement intent needed to size it. Projected from a `Node` by
+ * `nodeToLayoutItem`, but constructible by hand — strategies are pure
+ * functions over these and never touch a store or the DOM.
+ */
 export interface LayoutItem {
   id: ItemId;
   hints?: {
@@ -71,6 +82,11 @@ export interface LayoutNode {
  *  layer because `ContainerHost` resolves strategies with no binding present. */
 export type StrategyRegistry = ReadonlyMap<string, LayoutStrategy<unknown, string, unknown>>;
 
+/**
+ * The affordance kinds the shipped React layer knows how to render and drive.
+ * `Affordance.kind` widens to `string`, so a strategy may emit its own kind
+ * and supply a renderer for it.
+ */
 export type BuiltinAffordanceKind =
   | 'drag-x'
   | 'drag-y'
@@ -99,6 +115,13 @@ export interface AffordanceJoin {
   threshold: number;
 }
 
+/**
+ * An interactive region a strategy emits alongside its placements — a resize
+ * edge, a gutter between panes, a click target. The strategy describes it in
+ * layout coordinates and the host renders and binds it, which is what keeps
+ * the core free of the DOM: `bounds` carries `orientation` / `valueNow` and an
+ * adapter maps those onto `aria-*`.
+ */
 export interface Affordance<TMeta = unknown> {
   id: string;
   kind: BuiltinAffordanceKind | string;
@@ -190,6 +213,11 @@ export interface LayoutPreview {
   };
 }
 
+/**
+ * What a strategy returns: where each child goes, what the user can grab, and
+ * what didn't fit. An item absent from `placements` is not rendered, so a
+ * strategy that drops an item should also report it in `unplaced`.
+ */
 export interface LayoutResult<TId extends string = string, TMeta = unknown> {
   placements: Map<TId, Rect>;
   affordances: Affordance<TMeta>[];
@@ -216,6 +244,11 @@ export interface LayoutResult<TId extends string = string, TMeta = unknown> {
   isPreview?: boolean;
 }
 
+/**
+ * A gesture on an affordance, fed back to the strategy through `reduce` and
+ * `dispatchAffordance`. Coordinates are container-relative and deltas are
+ * cumulative from the gesture's start, not per-frame.
+ */
 export interface LayoutEvent {
   affordanceId: string;
   /**
@@ -252,6 +285,18 @@ export type StatefulLayoutStrategy<
   initialState(items: LayoutItem[], options?: Record<string, unknown>): TState;
 };
 
+/**
+ * The layout contract: a pure function from `{ items, container, state,
+ * options }` to a `LayoutResult`, plus optional hooks for gesture handling,
+ * drop acceptance and keyboard navigation. Everything beyond `name` and
+ * `layout` is optional, and a strategy is free to ignore inputs it doesn't
+ * understand.
+ *
+ * Implementations must not read or write the DOM, measure anything, or mutate
+ * their inputs — measurement arrives as `LayoutItem.natural`, filled in by an
+ * adapter. Register one with `StrategyRegistryProvider` and name it from
+ * `container.strategyId`.
+ */
 export interface LayoutStrategy<TState = void, TId extends string = string, TMeta = unknown> {
   name: string;
   /**

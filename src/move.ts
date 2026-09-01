@@ -10,6 +10,8 @@ export type MovePlan =
   | { kind: 'reorder'; id: NodeId; parentId: NodeId; at: number }
   | { kind: 'reparent'; id: NodeId; fromParentId: NodeId; parentId: NodeId; at: number };
 
+/** Input to `resolveMove`: the node to move, the direction, and the geometry
+ *  to resolve it against. */
 export interface ResolveMoveInput {
   store: Store;
   /** The node being moved — the focused one, for a keyboard gesture. */
@@ -74,6 +76,13 @@ export function resolveMove({
   return { kind: 'reparent', id: from, fromParentId, parentId, at };
 }
 
+/**
+ * Perform a plan from `resolveMove`. Split from resolution so a host can show
+ * the destination, or refuse it, before anything is committed.
+ *
+ * Plans go stale: a tree mutated between resolve and apply may reject this one
+ * or move the node somewhere the plan no longer describes.
+ */
 export function applyMove(store: Store, plan: MovePlan): void {
   if (plan.kind === 'reorder') store.reorderInParent(plan.id, plan.at);
   else store.moveNode(plan.id, plan.parentId, plan.at);

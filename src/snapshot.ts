@@ -13,6 +13,12 @@ import { asNodeId, type Node, type NodeId, type NodeKind } from './node.js';
 import { type MutateOptions, Store } from './store.js';
 import { trace } from './trace.js';
 
+/**
+ * One node's JSON-safe form. Capability machines are flattened to their
+ * current state name and rebuilt on hydrate; `transit` is omitted entirely,
+ * since a move in flight is not a state worth restoring.
+ * @group Snapshots
+ */
 export interface SerializedNode {
   id: string;
   kind?: NodeKind;
@@ -42,6 +48,11 @@ export interface SerializedNode {
   lock?: LockSet;
 }
 
+/**
+ * A whole store, or one subtree, as JSON. `version` is checked on read and a
+ * mismatch throws rather than being migrated silently.
+ * @group Snapshots
+ */
 export interface SerializedStore {
   version: 5;
   nodes: SerializedNode[];
@@ -91,6 +102,8 @@ function serializeNode(node: Node): SerializedNode {
   return out;
 }
 
+/** Options for {@link serialize}.
+ *  @group Snapshots */
 export interface SerializeOptions {
   /** Serialize only this node and its descendants. */
   root?: NodeId;
@@ -151,6 +164,8 @@ function serializeSubtree(store: Store, rootId: NodeId): SerializedStore {
   return out;
 }
 
+/** Options for {@link graft}.
+ *  @group Snapshots */
 export interface GraftOptions extends MutateOptions {
   /** Index within the target parent's `childOrder`. Appends when omitted. */
   at?: number;

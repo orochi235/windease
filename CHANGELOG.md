@@ -59,6 +59,12 @@ section below.
   reads. `gridStrategy` declares its own — setting `cols` has always made
   `maxCols`, `rows` and `orientation` dead config, silently.
 
+- **Every symbol in the API reference now carries a description.** The
+  generated reference had rendered 143 of its 230 entries — including `Node`,
+  `LayoutStrategy`, `createNode` and each error class — as a bare signature
+  over a populated member table, because the TSDoc sat on the members rather
+  than the declaration. No API changed.
+
 ### Fixed
 
 - **`updateContainerConfig` no longer republishes a patch that changed

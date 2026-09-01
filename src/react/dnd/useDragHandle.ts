@@ -5,6 +5,7 @@ import { useNode } from '../hooks.js';
 import { useStore } from '../Provider.js';
 import { useDragController } from './DragProvider.js';
 
+/** Props to spread onto whatever element should start a drag. */
 export interface DragHandleHandlers {
   onPointerDown: (e: ReactPointerEvent<Element>) => void;
   onPointerMove: (e: ReactPointerEvent<Element>) => void;
@@ -19,7 +20,11 @@ const NOOP_HANDLERS: DragHandleHandlers = {
   onPointerCancel: () => {},
 };
 
-/** @group Hooks */
+/**
+ * The handler props that make an element drag `nodeId`. The hook behind
+ * {@link DragHandle}; use it directly to keep your own element and styling.
+ * @group Hooks
+ */
 export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
   const controller = useDragController();
   const node = useNode(nodeId);

@@ -7,6 +7,11 @@ export interface GeometrySource {
   rectOf(id: NodeId): Rect | null;
 }
 
+/**
+ * A requested focus move. `next`/`prev` walk document order and stop at the
+ * ends; `cycleNext`/`cyclePrev` wrap; the four directions resolve
+ * geometrically.
+ */
 export type NavIntent =
   | 'next'
   | 'prev'
@@ -19,6 +24,7 @@ export type NavIntent =
   | 'cycleNext'
   | 'cyclePrev';
 
+/** The subset of {@link NavIntent} that is resolved by geometry. */
 export type NavDirection = 'left' | 'right' | 'up' | 'down';
 
 /** Reflects model focus onto whatever the host platform's focus is. The DOM

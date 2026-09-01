@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { DropIntent, Node, NodeId } from '../../index.js';
 
+/** What a {@link DragOverlayRenderer} is given: the node being dragged, where
+ *  the cursor is, and whether the current target would refuse it. */
 export interface DragOverlayContext {
   draggingId: NodeId;
   cursor: { x: number; y: number };
@@ -16,6 +18,8 @@ export interface DragOverlayContext {
   rejected: boolean;
 }
 
+/** Draws the thing that follows the cursor during a drag. Rendered above the
+ *  tree and positioned for you; return `null` to draw nothing. */
 export type DragOverlayRenderer = (ctx: DragOverlayContext) => ReactNode;
 
 const BASE_STYLE: CSSProperties = {

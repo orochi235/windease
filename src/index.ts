@@ -196,4 +196,5 @@ export {
   trace,
 } from './trace.js';
 
+/** The package version this build was published as. */
 export const VERSION = '1.3.0';

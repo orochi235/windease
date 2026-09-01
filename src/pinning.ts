@@ -1,6 +1,7 @@
 import { InvariantViolationError } from './errors.js';
 import type { NodeId } from './node.js';
 
+/** Reports a child's held index, or `null` when it isn't pinned. */
 export type PinnedIndexOf = (id: NodeId) => number | null;
 
 /**

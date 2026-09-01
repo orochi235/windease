@@ -7,6 +7,7 @@ import { navigableLeaves } from './navigable.js';
 import { isFocusable } from './successor.js';
 import type { GeometrySource, NavDirection, NavIntent } from './types.js';
 
+/** Input to {@link resolveNavigation} and to a {@link NavigationPolicy}. */
 export interface ResolveInput {
   store: Store;
   from: NodeId;
@@ -146,6 +147,15 @@ export type NavigationPolicy = (input: ResolveInput) => NodeId | null | undefine
  *  forever; the re-entrant call answers from the built-in instead. */
 let consultingPolicy = false;
 
+/**
+ * Resolve a navigation intent to the node that should take focus, or `null`
+ * when the intent is dead. Consults the store's `resolveNavigation` policy
+ * when one is set, then the target container's strategy, then geometry.
+ *
+ * A policy that throws, or returns something that isn't a node id, is traced
+ * and ignored in favor of the built-in result — navigation degrades rather
+ * than breaking.
+ */
 export function resolveNavigation(input: ResolveInput): NodeId | null {
   if (consultingPolicy) return builtinResolve(input);
   const policy = input.store.navigationPolicy;

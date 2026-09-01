@@ -299,7 +299,16 @@ function placedOf(
   return { placed, unplaced };
 }
 
-/** @group Strategies */
+/**
+ * Stacks children along one axis, sharing the main-axis extent and filling the
+ * cross axis. `{ axis: 'y' }` is what used to be called "stack". Config takes
+ * `axis`, `gap` and `padding`.
+ *
+ * Honors `placement.size` on the main axis for fixed-px panes, and emits a
+ * gutter between each pair — dragging one clears both panes' stored size.
+ * `store.split` builds nested strips, which is how binary splits are made.
+ * @group Strategies
+ */
 export const stripStrategy: LayoutStrategy<void, string> = {
   name: 'strip',
   configSpec: {

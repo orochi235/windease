@@ -153,6 +153,7 @@ interface AffordanceHostProps {
 
 /* ---------- Panel ---------- */
 
+/** Props for {@link Panel}. */
 export interface PanelProps extends CommonBindingProps, PresentationalProps, AffordanceHostProps {
   /** Promotes this panel to a container with the given strategy. Lets it host
    *  nested presets (`<Panel container={...}><Panel /></Panel>`). When absent,
@@ -212,7 +213,15 @@ function useFlowChildGeometry(
   useFlowGeometry(id, ref, isFlow, children.map((c) => String(c.id)).join('|'));
 }
 
-/** @group Components */
+/**
+ * A leaf node preset: focusable, optionally draggable, and rendered at
+ * whatever rect its parent's strategy assigns. Needs a parent, whether from
+ * enclosing JSX or an explicit `parentId`.
+ *
+ * Pass `container` to promote it to a container that hosts nested presets —
+ * that, not a separate component, is how "a tray inside a window" is built.
+ * @group Components
+ */
 export function Panel(props: PanelProps) {
   const declaredConfig = useRef<unknown>(props.container?.config ?? {});
   const { id } = useNodeBinding({
@@ -361,6 +370,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
 
 /* ---------- Zone ---------- */
 
+/** Props for {@link Zone}. */
 export interface ZoneProps extends CommonBindingProps, PresentationalProps, AffordanceHostProps {
   strategyId?: string;
   /** Config for this zone's strategy. Reconciled against what the last render
@@ -391,7 +401,13 @@ export interface ZoneProps extends CommonBindingProps, PresentationalProps, Affo
   kind?: string;
 }
 
-/** @group Components */
+/**
+ * A container preset: runs a layout strategy over its children and places
+ * them. Used without `parentId` it is a root; given one it nests, which is how
+ * a group is expressed (`<Zone parentId kind="group">`) — there is no separate
+ * Group component.
+ * @group Components
+ */
 export function Zone(props: ZoneProps) {
   // The config this component last declared. The factory writes the first one,
   // so the reconcile below sees a change only when the prop itself moves.

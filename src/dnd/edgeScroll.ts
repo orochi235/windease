@@ -1,6 +1,8 @@
 import type { Rect } from '../layout-types.js';
 import type { Point } from './DragEngine.js';
 
+/** Tunes the auto-scroll ramp: how wide the hot zone at each edge is and how
+ *  fast the scroll runs across it. */
 export interface EdgeScrollOptions {
   /** How near an edge the cursor must come before scrolling starts. */
   margin?: number;

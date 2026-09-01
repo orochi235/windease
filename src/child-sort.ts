@@ -1,5 +1,7 @@
 import type { NodeId } from './node.js';
 
+/** One observed child handed to a {@link ChildSort}: its id and the `order`
+ *  its JSX declared, if any. */
 export interface ChildSortEntry {
   id: NodeId;
   order: number | undefined;

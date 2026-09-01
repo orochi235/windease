@@ -368,7 +368,14 @@ function spanReach(
   };
 }
 
-/** @group Strategies */
+/**
+ * Lays children out in a uniform grid, filling rows left to right. Config
+ * takes `cols` / `rows`, `gap` and `padding`; capping either dimension makes
+ * the overflow `unplaced` rather than shrinking cells.
+ *
+ * Reads `placement.span` for children that should cover several cells.
+ * @group Strategies
+ */
 export const gridStrategy: LayoutStrategy<void, string> = {
   name: 'grid',
   configSpec: {

@@ -10,13 +10,21 @@ import { type EdgeScrollOptions, edgeScrollDelta } from './edgeScroll.js';
  *  `strategy.canAccept` on the prospective post-drop child list. */
 export type StrategyLookup = (id: string) => LayoutStrategy<unknown, string, unknown> | undefined;
 
+/**
+ * Why a drag ended without a drop: the target refused it, the cursor left every
+ * target, the user pressed Escape, or the target went away mid-drag.
+ */
 export type DragCancelReason = 'rejected' | 'outside' | 'escape' | 'unregistered';
 
+/** A cursor position. Which space it is in depends on the call — hover
+ *  samples are viewport coordinates, scroll deltas are pixels per tick. */
 export interface Point {
   x: number;
   y: number;
 }
 
+/** The engine's public view of a drag in progress: what is moving, what is
+ *  under the cursor, and whether that target would take it. */
 export interface DragState {
   draggingId: NodeId;
   /** Latest cursor position, in whatever space the host samples in. Always
@@ -102,11 +110,14 @@ export interface ChildOrderChange {
  */
 export type ChildOrderCommit = (nextChildIds: NodeId[], change: ChildOrderChange) => void;
 
+/** Coalesces hover samples. The DOM host schedules per animation frame; a
+ *  headless caller can run them synchronously. */
 export interface FrameScheduler {
   request(cb: () => void): number;
   cancel(handle: number): void;
 }
 
+/** Construction options for {@link DragEngine}. */
 export interface DragEngineOptions {
   getStrategy?: StrategyLookup;
   schedule?: FrameScheduler;

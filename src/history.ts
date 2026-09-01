@@ -1,11 +1,21 @@
 import { trace } from './trace.js';
 
+/** Options for {@link HistoryController}. */
 export interface HistoryControllerOptions {
   capacity?: number;
 }
 
 const DEFAULT_CAPACITY = 100;
 
+/**
+ * Undo/redo over whole snapshots, generic in what a snapshot is — pair it with
+ * `serialize`/`deserialize` to get history over a `Store`.
+ *
+ * Keeps a cursor into a bounded stack: pushing after an undo discards the
+ * redo tail, and the oldest entry is evicted past `capacity`. Pushes between
+ * `beginTransaction` and `endTransaction` collapse into one entry, so a
+ * multi-step operation undoes as a unit.
+ */
 export class HistoryController<TSnapshot> {
   private stack: TSnapshot[] = [];
   private cursor = -1;
