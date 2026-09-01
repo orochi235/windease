@@ -14,41 +14,41 @@ than concepts in their own right.
 **`acceptsDrops`** <span className="gd-tag">interaction</span> — a preset prop
 registering an element as a drop target at all. Not `lock.accept`, which refuses
 drops, and not `acceptPolicy`, which decides them. Three things that all sound
-like drop permission; this is the one that opts in.
+like drop permission; this is the one that opts in. ([5.1](/?story=guide--05-drag-and-drop--5-01-wiring-a-drag))
 
 **activity** <span className="gd-tag">state</span> — a node's free-form bag for
 high-frequency signals a strategy reads, such as recency or unread counts. Kept
-separate from `meta` so churn does not touch it.
+separate from `meta` so churn does not touch it. ([7.2](/?story=guide--07-customization--7-02-where-state-goes))
 
 **affordance** <span className="gd-tag">layout</span> — an interactive region a
 strategy emits alongside its placements: a resize edge, a gutter, a click
-target. Described in layout coordinates; the host renders and binds it.
+target. Described in layout coordinates; the host renders and binds it. ([4.1](/?story=guide--04-resize--4-01-affordances-and-seams))
 
 **capability** <span className="gd-tag">model</span> — an optional field granting
 a node an ability: `container`, `membership`, `focus`. Decided at `createNode`
-and fixed for the node's life.
+and fixed for the node's life. ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities), [7.1](/?story=guide--07-customization--7-01-the-capabilities-in-full))
 
 **chrome** <span className="gd-tag">interaction</span> — the consumer's rendering
 for one node, dispatched on `node.kind`. A container's handler receives its
-already-rendered subtree and decides where to mount it.
+already-rendered subtree and decides where to mount it. ([3.3](/?story=guide--03-building-the-tree--3-03-imperative), [7.11](/?story=guide--07-customization--7-11-custom-chrome-and-affordance-renderers))
 
 **container** <span className="gd-tag">model</span> — the capability answering
 *can I have children?* Holds `childOrder`, `strategyId` and `config`. See
-`membership`, which answers the opposite question.
+`membership`, which answers the opposite question. ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities), [7.1](/?story=guide--07-customization--7-01-the-capabilities-in-full))
 
 **drag handle** <span className="gd-tag gd-tag--support">supporting</span> — the element that starts a drag of a
 given node. `<DragHandle nodeId>` wraps one, or `useDragHandle` returns the props
 to spread onto your own. Only what the handle covers is grabbable, which is how
-a pane gets a draggable title bar and a selectable body.
+a pane gets a draggable title bar and a selectable body. ([5.1](/?story=guide--05-drag-and-drop--5-01-wiring-a-drag))
 
 **drop intent** <span className="gd-tag">interaction</span> — what a drop is
 asking for: `insert`, `stack`, or `split`. Bands are carved only for the intents
-you enable, so with none enabled the resolver returns a plain insertion index.
+you enable, so with none enabled the resolver returns a plain insertion index. ([5.2](/?story=guide--05-drag-and-drop--5-02-drop-intent))
 
 **drop target** <span className="gd-tag gd-tag--support">supporting</span> — a container registered as somewhere a
 drag can be released, via `useDropTarget` or `acceptsDrops` on a preset. Being a
 container is not enough; a target has to opt in. Nested targets resolve
-innermost-first.
+innermost-first. ([5.1](/?story=guide--05-drag-and-drop--5-01-wiring-a-drag))
 
 **gesture** <span className="gd-tag">interaction</span> — one continuous
 interaction the library tracks from start to commit: a drag from pointerdown to
@@ -56,22 +56,22 @@ release, a seam pushed and let go, or the keyboard equivalent of either. A
 gesture can be abandoned — `Escape` cancels mid-drag and nothing is written — so
 the store sees a single result rather than every intermediate state. Controlled
 props intercept library-mediated gestures only; a direct `store` call is the
-host acting on itself and always commits.
+host acting on itself and always commits. ([5.1](/?story=guide--05-drag-and-drop--5-01-wiring-a-drag))
 
 **graft** <span className="gd-tag">persistence</span> — attaching a subtree
 snapshot under a parent in some store. Every id must be absent from the target;
-nothing is remapped, because a snapshot's ids are usually the host's own keys.
+nothing is remapped, because a snapshot's ids are usually the host's own keys. ([9.4](/?story=guide--09-history-and-persistence--9-04-saving-one-subtree))
 
 **group** <span className="gd-tag">model</span> — a node carrying both
 `container` and `membership`. Written `<Zone parentId kind="group">`; there is no
-`<Group>` component.
+`<Group>` component. ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities), [3.6](/?story=guide--03-building-the-tree--3-06-nesting-and-recursion))
 
 **gutter** <span className="gd-tag">layout</span> — a seam sitting *between*
 two panes, belonging to neither. Both strip and grid emit them, and the word is
 used throughout the library rather than by one strategy. The distinction that
 matters: a gutter has no single owner, so it carries no `childId` and reports
 every pane it moves in `affects`, where a single-child resize edge names the one
-child whose size it writes.
+child whose size it writes. ([4.1](/?story=guide--04-resize--4-01-affordances-and-seams))
 
 **hints** <span className="gd-tag">state</span> — node-intrinsic layout
 requests: `minSize`, `maxSize`, `preferredSize`, `sizing`, `order`, `render`.
@@ -79,45 +79,45 @@ Each is read by the strategies that implement it and silently ignored by the
 rest — strip clamps to `maxSize`, grid never looks at it — and only on an axis
 that strategy actually sizes, so `{ h: 'content' }` does nothing in a horizontal
 strip. A hint that appears to have no effect usually means this strategy does
-not read it, rather than that the value is wrong.
+not read it, rather than that the value is wrong. ([2.6](/?story=guide--02-layout--2-06-sizing-a-pane-to-its-contents), [7.2](/?story=guide--07-customization--7-02-where-state-goes))
 
 **join** <span className="gd-tag">layout</span> — a seam gesture that ends in
 destroying a pane rather than clamping. Off by default, because it deletes with
-no confirmation step.
+no confirmation step. ([4.3](/?story=guide--04-resize--4-03-seam-join))
 
 **kind** <span className="gd-tag">model</span> — a free-form label. The core
-stores it and never reads it; React dispatches chrome on it. **Not a type.**
+stores it and never reads it; React dispatches chrome on it. **Not a type.** ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities))
 
 **layout item** <span className="gd-tag gd-tag--support">supporting</span> — a child as a strategy sees it: an id plus
 the hints, placement and any measured natural size. Projected from a node, but
-constructible by hand, which is what lets a strategy be tested without a store.
+constructible by hand, which is what lets a strategy be tested without a store. ([2.1](/?story=guide--02-layout--2-01-what-a-strategy-is))
 
 **live region** <span className="gd-tag gd-tag--support">supporting</span> — a small element the browser watches and
 reads aloud when its text changes. `FocusProvider` renders a polite one and
-writes announcements into it.
+writes announcements into it. ([6.5](/?story=guide--06-keyboard-and-focus--6-05-announcements))
 
 **lock** <span className="gd-tag">state</span> — which operations a node
 refuses, by axis: `move`, `resize`, `destroy`, `accept`, `dragOut`, `arrange`.
 Enforced by the store, which throws `LockedError`. Not `pinned`: `lock` answers
 *who may operate on this node?*, `pinned` answers *where does it end up?* A node
-can be either, both, or neither.
+can be either, both, or neither. ([7.3](/?story=guide--07-customization--7-03-locks))
 
 **membership** <span className="gd-tag">model</span> — the capability answering
 *do I have a parent?* Holds `parentId`, `placement` and the transit machine.
 **The opposite question from `container`**, and the single most common source of
-confusion in this library.
+confusion in this library. ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities), [7.1](/?story=guide--07-customization--7-01-the-capabilities-in-full))
 
 **meta** <span className="gd-tag">state</span> — a node's intrinsic free-form
 data. **Survives `moveNode`**, unlike `placement`. The overload to watch: both
-are "meta" in spirit and their lifetimes are opposites.
+are "meta" in spirit and their lifetimes are opposites. ([7.2](/?story=guide--07-customization--7-02-where-state-goes))
 
 **node** <span className="gd-tag">model</span> — the single shape everything in
 the tree takes. Carries `lifecycle` plus any combination of `container`,
-`membership` and `focus`. There is no window type and no zone type.
+`membership` and `focus`. There is no window type and no zone type. ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities), [7.1](/?story=guide--07-customization--7-01-the-capabilities-in-full))
 
 **overflow** <span className="gd-tag">layout</span> — how far placed content
 exceeds the container, per axis; absent when it fits. Distinct from `unplaced`,
-which is capacity by *count* — a row can overflow with everything placed.
+which is capacity by *count* — a row can overflow with everything placed. ([2.7](/?story=guide--02-layout--2-07-when-panes-don-t-fit))
 
 **pane** <span className="gd-tag gd-tag--support">supporting</span> — a node as the user sees it: one rectangle on
 screen with content in it. Usually a panel, though a group renders as a pane
@@ -125,80 +125,80 @@ too. The word is about what is drawn rather than what the node carries, which is
 why the guide says "pane" wherever the shape does not matter.
 
 **panel** <span className="gd-tag">model</span> — the childless one: `membership`
-and no `container`. Set `container` on it and it hosts a tree of its own.
+and no `container`. Set `container` on it and it hosts a tree of its own. ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities), [3.2](/?story=guide--03-building-the-tree--3-02-the-react-presets))
 
 **pinned** <span className="gd-tag">state</span> — a reserved `placement` key:
 the index a child holds in its parent's `childOrder` against third parties. It
-yields when the pinned node is itself the one being reordered. Not `lock`.
+yields when the pinned node is itself the one being reordered. Not `lock`. ([7.2](/?story=guide--07-customization--7-02-where-state-goes))
 
 **placement** <span className="gd-tag">state</span> — a node's per-membership
 free-form data. **Cleared on detach.** Reserved keys: `pinned`, `size` (pixels,
-strip), `span` (cell counts, grid).
+strip), `span` (cell counts, grid). ([7.2](/?story=guide--07-customization--7-02-where-state-goes))
 
 **policy** <span className="gd-tag">interaction</span> — a replaceable decision
 with a tri-state contract: a value to choose, a deliberate negative to refuse,
 `undefined` to defer to the built-in. Three exist: `acceptPolicy`,
 `chooseSuccessor`, `resolveNavigation`. One that throws is traced and treated as
-`undefined`.
+`undefined`. ([7.4](/?story=guide--07-customization--7-04-the-policy-contract))
 
 **provenance** <span className="gd-tag">interaction</span> — whether a node was
 created by JSX or registered on the store. Determines whether a preset will
-render it, and whether a drop can reparent it.
+render it, and whether a drop can reparent it. ([3.4](/?story=guide--03-building-the-tree--3-04-mixed-provenance))
 
 **rect** <span className="gd-tag gd-tag--support">supporting</span> — a position and size, `{ x, y, w, h }`, in the
 container's own coordinate space rather than the viewport's. What a strategy
-returns per child, and what geometry reports for navigation.
+returns per child, and what geometry reports for navigation. ([2.1](/?story=guide--02-layout--2-01-what-a-strategy-is))
 
 **root** <span className="gd-tag gd-tag--support">supporting</span> — a node with no parent: children, no membership. The store lists
 them in `rootIds`, and a root never auto-collapses, because there is no
-grandparent to lift its survivor into.
+grandparent to lift its survivor into. ([3.3](/?story=guide--03-building-the-tree--3-03-imperative))
 
 **seam** <span className="gd-tag">layout</span> — the general word for a
 draggable boundary a strategy emitted, whether it sits between two panes or on
-the edge of one. Every gutter is a seam; not every seam is a gutter.
+the edge of one. Every gutter is a seam; not every seam is a gutter. ([4.1](/?story=guide--04-resize--4-01-affordances-and-seams))
 
 **snapshot** <span className="gd-tag">persistence</span> — the JSON-safe form of
 a store or subtree. Excludes destroyed nodes, transit state and `lastFocusedId`.
-Always read from truth, never from the published view.
+Always read from truth, never from the published view. ([9.2](/?story=guide--09-history-and-persistence--9-02-snapshot-and-hydrate))
 
 **stack strategy** <span className="gd-tag">layout</span> — the tabbed one: a
 single child visible, the rest withheld into unplaced, and the tab strip is
 yours to draw. Exported as `stackStrategy`. **Not the axis-stacking strategy
 removed in 0.9.0**, whose replacement is the strip strategy with
 `{ axis: 'y', fill: true }` — the name was reused, and the two have nothing in
-common.
+common. ([2.4](/?story=guide--02-layout--2-04-stack), [5.3](/?story=guide--05-drag-and-drop--5-03-tab-stacking))
 
 **store** <span className="gd-tag gd-tag--support">supporting</span> — the object holding every node, enforcing the
 structural invariants, and notifying subscribers. One per tree; everything else
-in the library reads from or writes to it.
+in the library reads from or writes to it. ([9.1](/?story=guide--09-history-and-persistence--9-01-the-store))
 
 **strategy** <span className="gd-tag">layout</span> — a pure function from
 `{ items, container, state, options }` to a `LayoutResult`. Never touches the
-DOM, never measures; measurement arrives as an input.
+DOM, never measures; measurement arrives as an input. ([2.1](/?story=guide--02-layout--2-01-what-a-strategy-is), [7.9](/?story=guide--07-customization--7-09-writing-a-strategy))
 
 **subtree** <span className="gd-tag gd-tag--support">supporting</span> — a node and all its descendants. The unit
 `serialize({ root })` captures and `graft` reattaches, and the unit a destroy
-cascades through.
+cascades through. ([9.4](/?story=guide--09-history-and-persistence--9-04-saving-one-subtree))
 
 **`transact`** <span className="gd-tag">persistence</span> — groups mutations
 into one history step. **Does not roll back** — a callback that throws partway
-leaves every mutation it already made.
+leaves every mutation it already made. ([9.6](/?story=guide--09-history-and-persistence--9-06-transact-does-not-roll-back))
 
 **transaction** <span className="gd-tag gd-tag--support">supporting</span> — a group of mutations recorded
 as one history step, opened by `store.transact` and bracketed by
-`transaction.begin` / `transaction.end` events. Not atomic — see `transact`.
+`transaction.begin` / `transaction.end` events. Not atomic — see `transact`. ([9.6](/?story=guide--09-history-and-persistence--9-06-transact-does-not-roll-back))
 
 **truth vs published** <span className="gd-tag">state</span> — the real current
 state versus what subscribers have been shown. Identical unless a throttle
-policy is configured; `getNodeTruth` reads the former, `getNode` the latter.
+policy is configured; `getNodeTruth` reads the former, `getNode` the latter. ([10.1](/?story=guide--10-performance-and-diagnosis--10-01-truth-vs-published))
 
 **unplaced** <span className="gd-tag">layout</span> — items a strategy declined
-to place. Not an error: render them in a tray, or hide them.
+to place. Not an error: render them in a tray, or hide them. ([2.7](/?story=guide--02-layout--2-07-when-panes-don-t-fit))
 
 **viewport** <span className="gd-tag gd-tag--support">supporting</span> — the size a container was told it has,
 `{ w, h }`. Strategies lay out against it; it is set with
 `ContainerHost.setViewport` or observed off an element, and is null before a
-host has reported one.
+host has reported one. ([2.10](/?story=guide--02-layout--2-10-non--dom-and-canvas-hosts))
 
 **zone** <span className="gd-tag">model</span> — a container with no membership:
-children, no parent. A root. Not "the one without children" — that is a panel.
+children, no parent. A root. Not "the one without children" — that is a panel. ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities), [3.2](/?story=guide--03-building-the-tree--3-02-the-react-presets))
