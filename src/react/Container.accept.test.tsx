@@ -14,6 +14,7 @@ import {
 import { Container } from './Container.js';
 import { DragProvider, useDragController } from './dnd/DragProvider.js';
 import { Provider } from './Provider.js';
+import { Panel, Zone } from './presets.js';
 import { StrategyRegistryProvider } from './strategies.js';
 
 afterEach(cleanup);
@@ -277,5 +278,111 @@ describe('<Container edgeScroll>', () => {
     controller().cancel();
 
     expect(read()).toBe(0);
+  });
+});
+
+const STRIP = { strip: stripStrategy as never };
+
+/** `z` a strip capped at two panes, already full with `a`/`b`; `other` holds
+ *  the panel `p` to be dragged in — the same discipline as `makeStore`. */
+function zoneTree(
+  store: Store,
+  capture: (c: DragController) => void,
+  canAccept?: (ctx: AcceptContext) => boolean | undefined,
+) {
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRIP}>
+        <DragProvider>
+          <CaptureController into={capture} />
+          <Zone
+            id={Z}
+            strategyId="strip"
+            config={{ axis: 'x', fill: true, maxItems: 2 }}
+            viewport={{ w: 200, h: 100 }}
+            acceptsDrops
+            {...(canAccept ? { canAccept } : {})}
+          >
+            <Panel id={asNodeId('a')} />
+            <Panel id={asNodeId('b')} />
+          </Zone>
+          <Zone id={OTHER} strategyId="strip" config={{ axis: 'x', fill: true }}>
+            <Panel id={SOURCE} />
+          </Zone>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+}
+
+function stubZoneRects(container: HTMLElement): void {
+  const rects: Record<string, Rect> = {
+    z: { x: 0, y: 0, w: 200, h: 100 },
+    a: { x: 0, y: 0, w: 100, h: 100 },
+    b: { x: 100, y: 0, w: 100, h: 100 },
+    other: { x: 0, y: 200, w: 200, h: 100 },
+    p: { x: 0, y: 200, w: 200, h: 100 },
+  };
+  for (const el of Array.from(container.querySelectorAll('[data-node]'))) {
+    const id = el.getAttribute('data-node');
+    const r = id ? rects[id] : undefined;
+    if (r) stubBox(el, r);
+  }
+}
+
+async function hoverZone(c: DragController, container: HTMLElement): Promise<void> {
+  stubZoneRects(container);
+  c.tryBegin(SOURCE);
+  await new Promise((r) => setTimeout(r, 20));
+  stubZoneRects(container);
+  c.updateHoverByPoint(100, 50);
+  await new Promise((r) => setTimeout(r, 20));
+}
+
+function mountZone(store: Store, canAccept?: (ctx: AcceptContext) => boolean | undefined) {
+  let controller!: DragController;
+  const { container } = render(
+    zoneTree(
+      store,
+      (c) => {
+        controller = c;
+      },
+      canAccept,
+    ),
+  );
+  return { container, controller: () => controller };
+}
+
+describe('<Zone canAccept>', () => {
+  it('rejects a further drop at the strategy cap when unset', async () => {
+    const { container, controller } = mountZone(new Store());
+
+    await hoverZone(controller(), container);
+
+    expect(controller().state()?.hover?.accepted).toBe(false);
+  });
+
+  it('accepts where the strategy would refuse', async () => {
+    const { container, controller } = mountZone(new Store(), () => true);
+
+    await hoverZone(controller(), container);
+
+    expect(controller().state()?.hover?.accepted).toBe(true);
+  });
+
+  it('is asked about the post-drop child list and the container config', async () => {
+    const seen: AcceptContext[] = [];
+    const { container, controller } = mountZone(new Store(), (ctx) => {
+      seen.push(ctx);
+      return true;
+    });
+
+    await hoverZone(controller(), container);
+
+    expect(seen.length).toBeGreaterThan(0);
+    const last = seen.at(-1) as AcceptContext;
+    expect(last.items.map((i) => i.id)).toEqual(['a', 'b', SOURCE]);
+    expect(last.options.maxItems).toBe(2);
+    expect(last.sourceId).toBe(SOURCE);
   });
 });

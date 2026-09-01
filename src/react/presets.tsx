@@ -11,6 +11,8 @@ import {
   useState,
 } from 'react';
 import type { ChildSort } from '../child-sort.js';
+import type { AcceptContext } from '../dnd/DragEngine.js';
+import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
 import type { DropIntent, Node, NodeHints, NodeId, PlacementCommit, Store } from '../index.js';
 import {
   accessibleName,
@@ -69,6 +71,11 @@ interface CommonBindingProps {
   /** Replace the built-in drop hit-test — the callback `<Container dropIntent>`
    *  takes, on the preset that hosts the layout. */
   dropIntent?: (ctx: DropIntentContext) => DropIntent | undefined;
+  /** Override this preset's drop acceptance — the callback `<Container canAccept>`
+   *  takes. Runs on every drag `pointermove`. */
+  canAccept?: (ctx: AcceptContext) => boolean | undefined;
+  /** Ramp shape for edge scrolling during a drag. */
+  edgeScroll?: EdgeScrollOptions;
   /** Permissions restricting what the user may do to this node. `true` locks
    *  every axis the node's capabilities support. */
   lock?: boolean | LockSet;
@@ -267,6 +274,8 @@ export function Panel(props: PanelProps) {
         ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
         ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
         ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
+        ...(props.canAccept ? { canAccept: props.canAccept } : {}),
+        ...(props.edgeScroll ? { edgeScroll: props.edgeScroll } : {}),
       }}
       measure={measure}
     >
@@ -325,6 +334,8 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
           ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
           ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
           ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
+          ...(props.canAccept ? { canAccept: props.canAccept } : {}),
+          ...(props.edgeScroll ? { edgeScroll: props.edgeScroll } : {}),
           hostsLayout: true,
         }}
         measure={props.measure}
@@ -455,6 +466,8 @@ export function Zone(props: ZoneProps) {
         ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
         ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
         ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
+        ...(props.canAccept ? { canAccept: props.canAccept } : {}),
+        ...(props.edgeScroll ? { edgeScroll: props.edgeScroll } : {}),
       }}
       measure={measure}
     >
@@ -550,6 +563,8 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
           ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
           ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
           ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
+          ...(props.canAccept ? { canAccept: props.canAccept } : {}),
+          ...(props.edgeScroll ? { edgeScroll: props.edgeScroll } : {}),
           hostsLayout: true,
         }}
         measure={props.measure}
@@ -619,6 +634,8 @@ interface PresetShellProps {
         stackOnDrop?: boolean | undefined;
         splitOnDrop?: boolean | undefined;
         dropIntent?: ((ctx: DropIntentContext) => DropIntent | undefined) | undefined;
+        canAccept?: ((ctx: AcceptContext) => boolean | undefined) | undefined;
+        edgeScroll?: EdgeScrollOptions | undefined;
         /** A strategy places these children. Without one, CSS does, and the
          *  axis is read off the arrangement rather than the config. */
         hostsLayout?: boolean | undefined;
@@ -668,6 +685,8 @@ function PresetShell({
     ...(drop?.stackOnDrop ? { stackOnDrop: drop.stackOnDrop } : {}),
     ...(drop?.splitOnDrop ? { splitOnDrop: drop.splitOnDrop } : {}),
     ...(drop?.dropIntent ? { dropIntent: drop.dropIntent } : {}),
+    ...(drop?.canAccept ? { acceptPolicy: drop.canAccept } : {}),
+    ...(drop?.edgeScroll ? { edgeScroll: drop.edgeScroll } : {}),
   });
   const registry = useChildRegistry();
   // Reset at the top of every render so we capture only the current JSX
