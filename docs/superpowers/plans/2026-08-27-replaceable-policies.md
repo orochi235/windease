@@ -18,6 +18,12 @@
 
 **`canAccept` is a hot path.** It runs on every drag `pointermove`. Task 3 is the one place where a careless edit costs real frames; it has an explicit guard step for that reason.
 
+**Every policy call is guarded.** Added after Task 1's review found the failure mode. Each of these callbacks is arbitrary consumer code running inside a library operation, so **a policy that throws, or returns an answer the library cannot use, is traced and treated as `undefined`** — the built-in decides. `TypedEmitter.emit` (`src/events.ts:22-25`) is the house precedent: it already swallows a consumer listener's throw and logs.
+
+This is not defensive padding. `#unregisterNodeInner` calls `succeedFocus` (`src/store.ts:356`) *after* destroying the departing node's descendants and *before* `detachAndRemove`, the `node.unregistered` emit and `scheduleNotify()`. An unguarded throw there escapes `unregisterNode` and leaves the node registered with its children already gone and no notification.
+
+`null` and `false` are deliberate answers and are never second-guessed — only a returned *id* is validated. Tasks 1, 2 and 3 each carry the guard for their own policy.
+
 **Commit gate.** Before every `git commit` step below, invoke the **`prepare-js-commit`** skill. For this repo that resolves to:
 
 ```bash
@@ -427,18 +433,33 @@ export function resolveNavigation(input: ResolveInput): NodeId | null {
   if (consultingPolicy) return builtinResolve(input);
   const policy = input.store.navigationPolicy;
   if (!policy) return builtinResolve(input);
+  let chosen: NodeId | null | undefined;
   consultingPolicy = true;
   try {
-    const chosen = policy(input);
-    if (chosen !== undefined) return chosen;
-    return builtinResolve(input);
+    chosen = policy(input);
+  } catch (err) {
+    trace('focus', `navigation policy threw, using built-in: ${err}`);
+    chosen = undefined;
   } finally {
     consultingPolicy = false;
   }
+  if (chosen && !input.store.getNode(chosen)) {
+    trace('focus', `navigation policy returned unknown ${chosen}, using built-in`);
+    chosen = undefined;
+  }
+  if (chosen !== undefined) return chosen;
+  return builtinResolve(input);
 }
 ```
 
-Note the `finally`: the flag must reset even when the policy throws, or one bad call silently disables the policy for the rest of the session.
+Two things here, both load-bearing:
+
+- **The `finally` resets the flag even when the policy throws**, or one bad call silently disables the policy for the rest of the session. Keep the flag reset in `finally` and the fall-through *outside* the `try`, so `builtinResolve` does not run while the flag is set.
+- **`chosen &&` deliberately lets `null` through unvalidated.** `null` is the deliberate "refuse the move" answer and must keep working; only a returned id is checked.
+
+`focus` is not currently a trace category. Check the `TRACE_CATEGORIES` tuple in `src/trace.ts` — if it is absent, use `workspace`, which is what `move.ts` already traces navigation under. Do not add a category for this.
+
+**Report back on one thing you must check rather than assume:** `FocusProvider` (`src/react/focus/FocusProvider.tsx:222`) calls `focusNode(to)` with this result, and `focusNode` throws `CapabilityMissingError` for a node with no `focus` capability. Validating "is a known node" prevents `NodeNotFoundError` but not that. Read the call site, decide whether the guard needs to require focusability too, and say what you found and what you chose — do not silently pick one.
 
 - [ ] **Step 4: Add the field to `StoreOptions` and expose it on `Store`**
 
@@ -639,6 +660,16 @@ describe('DragEngine — acceptPolicy', () => {
     expect(e.state()?.hover?.accepted).toBe(false);
   });
 
+  it('a policy that throws defers to the strategy instead of killing the drag', () => {
+    const e = engineWith(fullStore(), {
+      acceptPolicy: () => {
+        throw new Error('boom');
+      },
+    });
+    // fullStore's z2 is at the exactly-two cap, so the strategy refuses.
+    expect(e.state()?.hover?.accepted).toBe(false);
+  });
+
   it('is not called when the target has no policy', () => {
     // Regression guard for the hot path: no policy and no strategy means the
     // prospective child list is never built.
@@ -724,7 +755,14 @@ Replace `src/dnd/DragEngine.ts:332-374` — everything from `const targetNode` t
         : [...current.map((c) => ({ id: c.id })), { id: draggingId }];
       const options = (container?.config ?? {}) as Record<string, unknown>;
 
-      const verdict = target?.acceptPolicy?.({ items, options, sourceId: draggingId });
+      let verdict: boolean | undefined;
+      try {
+        verdict = target?.acceptPolicy?.({ items, options, sourceId: draggingId });
+      } catch (err) {
+        // A policy that throws must not kill the drag; the strategy decides.
+        trace('dnd', `checkAccept ${targetId}: acceptPolicy threw, deferring: ${err}`);
+        verdict = undefined;
+      }
       if (verdict === false) {
         trace('dnd', `checkAccept ${targetId}: REJECT (acceptPolicy said no)`);
         return false;

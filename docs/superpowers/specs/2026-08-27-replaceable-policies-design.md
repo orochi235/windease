@@ -26,6 +26,27 @@ This is what keeps a consumer from reimplementing the 90% they did not want to
 change. Wanting the left sibling on destroy is a three-line callback that
 returns `undefined` for every other case.
 
+## A policy that misbehaves is treated as `undefined`
+
+Every one of these callbacks is arbitrary consumer code running inside a
+library operation. Each call is wrapped: **a policy that throws, or that
+returns an answer the library cannot use, is traced and falls through to the
+built-in.** `TypedEmitter.emit` (`events.ts`) already swallows and logs a
+consumer listener's throw for the same reason.
+
+Without this the successor policy is a store-corrupter, not a nuisance.
+`#unregisterNodeInner` calls `succeedFocus` *after* destroying the departing
+node's descendants and *before* `detachAndRemove`, the `node.unregistered`
+emit, and `scheduleNotify()` — so a policy that throws, or that names a node
+`focusNode` will reject, escapes `unregisterNode` and leaves the node
+registered with its children already gone and no notification. This is the
+`store.transact` rule in `CLAUDE.md` applied one level out: validate before
+mutating rather than relying on an inner call to throw.
+
+"Cannot use" is per policy: a successor id that is not `isFocusable`; a
+navigation id that is not a node. `null` and `false` are deliberate answers and
+are never second-guessed — only a returned *id* is validated.
+
 ## `StoreOptions` grows two policies
 
 ```ts
