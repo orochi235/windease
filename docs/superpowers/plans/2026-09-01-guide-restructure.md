@@ -13,7 +13,7 @@ someone wiring windease into a React app. Knows React. Does not know that
 
 **Granularity:** a **chapter** is one MDX page. A **section** groups them, and
 maps onto a Ladle title prefix the way `Policies/Accept` already does —
-`Guide/Layout/Strip`. Ten sections, 63 chapters.
+`Guide/Layout/Strip`. Ten sections, 64 chapters.
 
 **Stories keep their own top-level sections.** The guide lives under a `Guide/`
 prefix and does not absorb them; a chapter *embeds* a story rather than
@@ -106,6 +106,13 @@ the first.
 Everything else — snapshots, history, locks, throttling, tracing, policies —
 attaches at any tier and belongs after the ladder, not inside it.
 
+**State machines moved to §8, with an abbreviated §3.1 up front.** A reader
+can learn that a registered node is invisible until `showNode` without meeting
+the word "machine"; the FSM mechanics are for someone extending, and sat second
+only because the README had them there. Layout and Building the tree also
+swapped, so the first thing after the tour is what the library does rather than
+how a tree is assembled.
+
 **The model is split, not deferred.** §1.3 tours it: one node shape, four
 optional capabilities, and the one demonstration that makes the idea land — a
 panel that becomes a container is a tray inside a window, and no new type was
@@ -150,17 +157,20 @@ neighbour be absorbed; drop on an edge and watch a slot split in two. All three
 already have stories, and all three read as "I could not build that in an
 afternoon."
 
-## §2 · State machines
-
-Every node carries a lifecycle, and every story calls `showNode` — a reader who
-skips this gets a blank screen and no idea why. One chapter each, per the
-markup.
+## §2 · Layout
 
 | Chapter | Source | Demo |
 | --- | --- | --- |
-| 2.1 Lifecycle: `mounted → visible ↔ hidden → destroyed` | README `State machines` (L112–157) | needed |
-| 2.2 Transit: moves that must be atomic | same | needed |
-| 2.3 Focus: the single-focus invariant | same | `Keyboard move` |
+| 2.1 What a strategy is | concepts `Layout strategies` | — |
+| 2.2 `strip` | — | `Strip` |
+| 2.3 `grid` | README `Sizing a grid to its rows` (L274–294) | `Grid` |
+| 2.4 `stack` | — | `Stack` |
+| 2.5 `floating` — a wrapper, not a peer | README L725–784 | `Floating` |
+| 2.6 Sizing a pane to its contents | README L235–273 | `Content sizing` |
+| 2.7 When panes don't fit | README L360–404 | `Scrolling / GridOverflowModes` |
+| 2.8 Telling windease where the scroll got to | README L405–448 | `Scrolling` |
+| 2.9 Letting CSS do the layout | README L449–506 | `Flow mode` |
+| 2.10 Non-DOM and canvas hosts | README `Canvas hosts` (L507–533) | needed |
 
 ## §3 · Building the tree
 
@@ -169,66 +179,52 @@ states outright: **who owns the tree, JSX or the store?**
 
 | Chapter | Source | Demo |
 | --- | --- | --- |
+| 3.1 Showing and hiding nodes | README `State machines` (L112–157) | needed |
 | 3.1 Declarative: `<Zone>` and `<Panel>` | README L178–205 | `Declarative / MixedProvenance` |
 | 3.2 Imperative: `<Container>`, chrome, `<Root>` | README `Imperative API` (L94–111) | needed (`<Root>`) |
 | 3.3 Mixed provenance | — | `Declarative / MixedProvenance` |
 | 3.4 Who owns child order | README L178–234 | `Declarative / MixedProvenance` |
 | 3.5 Nesting and recursion | — | `Recursive zones / Trays` |
 
-## §4 · Layout
-
-| Chapter | Source | Demo |
-| --- | --- | --- |
-| 4.1 What a strategy is | concepts `Layout strategies` | — |
-| 4.2 `strip` | — | `Strip` |
-| 4.3 `grid` | README `Sizing a grid to its rows` (L274–294) | `Grid` |
-| 4.4 `stack` | — | `Stack` |
-| 4.5 `floating` — a wrapper, not a peer | README L725–784 | `Floating` |
-| 4.6 Sizing a pane to its contents | README L235–273 | `Content sizing` |
-| 4.7 When panes don't fit | README L360–404 | `Scrolling / GridOverflowModes` |
-| 4.8 Telling windease where the scroll got to | README L405–448 | `Scrolling` |
-| 4.9 Letting CSS do the layout | README L449–506 | `Flow mode` |
-| 4.10 Non-DOM and canvas hosts | README `Canvas hosts` (L507–533) | needed |
-
-## §5 · Resize
+## §4 · Resize
 
 Placed here deliberately: it costs no new provider, so it is the cheapest
 interactivity in the library. Say that on 5.1.
 
 | Chapter | Source | Demo |
 | --- | --- | --- |
-| 5.1 Affordances and seams | README `Resize` (L785–834) | `Strip` |
-| 5.2 `bounds`, and why a host never recomputes reach | README L785–834 | `Recursive zones / SplitResize` |
-| 5.3 Seam join: overshoot to destroy | README `Seam join` (L835–879) | `Seam join` |
-| 5.4 Grid seams | README `Grid seams` (L880–900) | `Grid / ResizableGrid` |
-| 5.5 Collapsing a pane | README L295–330 | `Split operation` |
-| 5.6 Collapsing a group that empties out | README L331–359 | `Split operation` |
+| 4.1 Affordances and seams | README `Resize` (L785–834) | `Strip` |
+| 4.2 `bounds`, and why a host never recomputes reach | README L785–834 | `Recursive zones / SplitResize` |
+| 4.3 Seam join: overshoot to destroy | README `Seam join` (L835–879) | `Seam join` |
+| 4.4 Grid seams | README `Grid seams` (L880–900) | `Grid / ResizableGrid` |
+| 4.5 Collapsing a pane | README L295–330 | `Split operation` |
+| 4.6 Collapsing a group that empties out | README L331–359 | `Split operation` |
 
-## §6 · Drag and drop — `+ DragProvider`
+## §5 · Drag and drop — `+ DragProvider`
 
 | Chapter | Source | Demo |
 | --- | --- | --- |
-| 6.1 Wiring a drag | README `Drag and drop` (L534–585) | `Declarative / DropIntent` |
-| 6.2 Drop intent | README `Drop intent` (L586–632) | `Declarative / DropIntent` |
-| 6.3 Tab stacking | README `Tab stacking` (L633–665) | `Tab stack` |
-| 6.4 Drop on edge | README `Drop on edge` (L666–724) | `Drop on edge` |
-| 6.5 Edge scroll during a drag | README L405–448 | `Scrolling / DragToTheEdgeToScroll` |
-| 6.6 Floating chrome over a tiled zone | README L725–784 | `Floating` |
-| 6.7 The parallel-zones trap | — | `Parallel zones` |
+| 5.1 Wiring a drag | README `Drag and drop` (L534–585) | `Declarative / DropIntent` |
+| 5.2 Drop intent | README `Drop intent` (L586–632) | `Declarative / DropIntent` |
+| 5.3 Tab stacking | README `Tab stacking` (L633–665) | `Tab stack` |
+| 5.4 Drop on edge | README `Drop on edge` (L666–724) | `Drop on edge` |
+| 5.5 Edge scroll during a drag | README L405–448 | `Scrolling / DragToTheEdgeToScroll` |
+| 5.6 Floating chrome over a tiled zone | README L725–784 | `Floating` |
+| 5.7 The parallel-zones trap | — | `Parallel zones` |
 
-## §7 · Keyboard and focus — `+ Geometry` `+ Focus`
+## §6 · Keyboard and focus — `+ Geometry` `+ Focus`
 
 Parallel to §6, not after it. Say so on 7.1.
 
 | Chapter | Source | Demo |
 | --- | --- | --- |
-| 7.1 The focus model and `canFocus` | README L901–940 | `Keyboard move` |
-| 7.2 Geometry is an input, never a measurement | concepts `React layer` | `Scrolling / ScrollAwareNavigation` |
-| 7.3 Navigating | README L901–940 | `Declarative / KeyboardNav` |
-| 7.4 Moving a pane without a pointer | README L941–986 | `Keyboard move` |
-| 7.5 Announcements | README `Announcements` (L987–1008) | needed |
+| 6.1 The focus model and `canFocus` | README L901–940 | `Keyboard move` |
+| 6.2 Geometry is an input, never a measurement | concepts `React layer` | `Scrolling / ScrollAwareNavigation` |
+| 6.3 Navigating | README L901–940 | `Declarative / KeyboardNav` |
+| 6.4 Moving a pane without a pointer | README L941–986 | `Keyboard move` |
+| 6.5 Announcements | README `Announcements` (L987–1008) | needed |
 
-## §8 · Customization
+## §7 · Customization
 
 The through-line: every chapter is the host taking back a decision the library
 was making. It opens with the model in full, because that is the first thing an
@@ -236,22 +232,34 @@ extender needs and the first place the tour's summary stops being enough.
 
 | Chapter | Source | Demo |
 | --- | --- | --- |
-| 8.1 The capabilities in full | concepts `Capabilities` | `Recursive zones / Trays` |
-| 8.2 Where state goes: the four buckets | concepts `Two scopes of free-form data` | — |
-| 8.3 Locks | concepts `node.lock` | `Seam join` |
-| 8.4 The policy contract | README L158–177 | — |
-| 8.5 `acceptPolicy` | README L534–585 | `Policies/Accept` |
-| 8.6 `chooseSuccessor` | README L941–986 | `Policies/Focus successor` |
-| 8.7 `resolveNavigation` | README L941–986 | `Policies/Navigation` |
-| 8.8 Controlled placement and order | — | needed |
-| 8.9 Writing a strategy | concepts `Layout strategies` | needed |
-| 8.10 `configSpec` and `configConflicts` | CHANGELOG 1.3.0 | — |
-| 8.11 Custom chrome and affordance renderers | concepts `React layer` | `Playground` |
+| 7.1 The capabilities in full | concepts `Capabilities` | `Recursive zones / Trays` |
+| 7.2 Where state goes: the four buckets | concepts `Two scopes of free-form data` | — |
+| 7.3 Locks | concepts `node.lock` | `Seam join` |
+| 7.4 The policy contract | README L158–177 | — |
+| 7.5 `acceptPolicy` | README L534–585 | `Policies/Accept` |
+| 7.6 `chooseSuccessor` | README L941–986 | `Policies/Focus successor` |
+| 7.7 `resolveNavigation` | README L941–986 | `Policies/Navigation` |
+| 7.8 Controlled placement and order | — | needed |
+| 7.9 Writing a strategy | concepts `Layout strategies` | needed |
+| 7.10 `configSpec` and `configConflicts` | CHANGELOG 1.3.0 | — |
+| 7.11 Custom chrome and affordance renderers | concepts `React layer` | `Playground` |
 
 `edgeScroll` is named in 8.4 as the counter-example — a tuning bag, not a
 policy, with nothing to refuse and nothing to defer to. Locks get 8.3 rather
 than a mention in 8.4 because a lock refuses regardless of what a policy says,
 which is a different mechanism wearing a similar shape.
+
+## §8 · State machines
+
+Every node carries a lifecycle, and every story calls `showNode` — a reader who
+skips this gets a blank screen and no idea why. One chapter each, per the
+markup.
+
+| Chapter | Source | Demo |
+| --- | --- | --- |
+| 8.1 Lifecycle: `mounted → visible ↔ hidden → destroyed` | README `State machines` (L112–157) | needed |
+| 8.2 Transit: moves that must be atomic | same | needed |
+| 8.3 Focus: the single-focus invariant | same | `Keyboard move` |
 
 ## §9 · History and persistence
 
@@ -299,7 +307,6 @@ otherwise ship: `container` vs `membership`; `node.meta` vs
 `membership.placement`; `pinned` vs `locked`; `acceptsDrops` vs `lock.accept`.
 
 - Source: `docs/concepts.md`, plus the naming-trap rules in `CLAUDE.md`
-
 ---
 
 ## What the README keeps

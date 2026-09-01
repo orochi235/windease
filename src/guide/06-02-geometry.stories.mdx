@@ -1,0 +1,54 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+import { ScrollAwareNavigation } from '../react/stories/Scrolling.stories.tsx';
+
+<Meta title="Guide/06 Keyboard and focus/6.02 Geometry is an input" />
+
+<DraftBanner />
+
+# Geometry is an input, never a measurement
+
+Directional navigation compares pane rectangles. The resolver never measures —
+a host supplies the geometry.
+
+```ts
+interface GeometrySource {
+  rectOf(id: NodeId): Rect | null;
+}
+```
+
+**React**
+
+`<GeometryProvider>` maintains the registry; `useGeometrySource()` reads it.
+Rects come from what the presets and `<Container>` published, not from
+`getBoundingClientRect` — so it stays correct across nesting and costs no layout
+flush.
+
+**Core**
+
+Supply your own. A canvas host already knows where it drew everything:
+
+```ts
+const geometry = { rectOf: (id) => surface.rectFor(id) ?? null };
+resolveNavigation({ store, from, intent: 'right', geometry });
+```
+
+This is the same principle as measurement in
+[2.6](/?story=guide--02-layout--2-06-sizing-a-pane-to-its-contents): the core
+takes the number, it does not go and get it.
+
+## One coordinate space
+
+Every container's rects compose into a single space, including nested ones and
+scrolled ones — which is why a `scrollRef` matters for navigation and not just
+for scrolling
+([2.8](/?story=guide--02-layout--2-08-telling-windease-where-the-scroll-got-to)).
+
+<ScrollAwareNavigation />
+
+## What counts as navigable
+
+`navigableLeaves(store, geometry)` is the set, in document order: every leaf
+that can take focus, excluding hidden and destroyed subtrees **and nodes with no
+measurable rect**. That last clause is what keeps a zero-size or unplaced pane
+out of the tab ring — including anything a strategy put in `unplaced`.

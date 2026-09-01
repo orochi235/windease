@@ -1,0 +1,47 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+import { HorizontalStrip, VerticalStrip } from '../react/stories/Strip.stories.tsx';
+
+<Meta title="Guide/02 Layout/2.02 strip" />
+
+<DraftBanner />
+
+# `stripStrategy`
+
+Children share one axis and fill the cross axis. This is the workhorse — rows,
+columns, docks, and every split a `store.split` builds.
+
+```tsx
+<Zone strategyId="strip" config={{ axis: 'x', gap: 8, padding: 8, fill: true }} />
+```
+
+| Config | Meaning |
+| --- | --- |
+| `axis` | `'x'` or `'y'` |
+| `fill` | stretch to the container's main extent |
+| `gap`, `padding` | pixels |
+| `defaultItemSize` | main-axis extent for an item stating none |
+| `maxItems` | capacity cap; the rest go to `unplaced` |
+| `overflowMode` | `'squeeze'` (default), `'scroll'`, `'unplace'` |
+
+<HorizontalStrip />
+
+`{ axis: 'y' }` is a column. Strip covers both axes, which is why the
+axis-stacking strategy removed in 0.9.0 has no replacement of its own — today's
+`stackStrategy` is a different thing entirely
+([2.4](/?story=guide--02-layout--2-04-stack)).
+
+<VerticalStrip />
+
+## Sizing
+
+Strip honors `hints.minSize` as a floor, `hints.maxSize` as a ceiling, and
+`placement.size` as an explicit pixel extent along the main axis. Siblings
+without an explicit size share the remainder.
+
+```ts
+store.patchPlacement(id, { size: { w: 240 } });
+```
+
+It emits a gutter after every non-last child, so resize comes for free
+([§4](/?story=guide--04-resize--4-01-affordances-and-seams)).

@@ -1,0 +1,48 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+
+<Meta title="Guide/07 Customization/7.02 Where state goes" />
+
+<DraftBanner />
+
+# Where state goes: the four buckets
+
+Four places to put data on a node. **Pick the one whose lifetime matches.**
+
+| Where | Lifetime | For |
+| --- | --- | --- |
+| `node.meta` | intrinsic; survives `moveNode` | title, URL, anything about the node itself |
+| `membership.placement` | per-membership; **cleared on detach** | state that exists *because of this placement* |
+| `container.config` | container's strategy options | `cols`, `gap`, `axis` |
+| `hints` | layout-only soft prefs | `minSize`, `maxSize`, `preferredSize`, `sizing`, `order` |
+
+The trap: **`meta` is overloaded by scope.** `node.meta` survives a move;
+`membership.placement` does not. A remembered collapsed height belongs in `meta`
+([4.5](/?story=guide--04-resize--4-05-collapsing-a-pane)); a pin index belongs in
+`placement`.
+
+`node.activity` is a fifth, for high-frequency signals a strategy reads —
+recency, unread counts — kept out of `meta` so it does not churn it.
+
+## Reserved keys on `placement`
+
+- **`pinned: number`** — the index this node holds in the parent's `childOrder`,
+  against third parties. Not writable through `patchPlacement`; both throw and
+  name `setPinned` / `unpin`.
+- **`size: { w?, h? }`** — fixed **pixel** extent, honoured by strip along its
+  main axis. A gutter drag on a split *clears* it.
+- **`span: { cols?, rows? }`** — fixed **cell-count** extent, grid only. Separate
+  from `size` so one key never means two units.
+
+## Reserved key on `meta`
+
+- **`title: string`** — the accessible name. Without one, `accessibleName()`
+  falls back to kind plus sibling index, which changes when a sibling is added.
+
+## `pinned` is not `locked`
+
+`pinned` answers *where does this node end up?*; `lock` answers *who may operate
+on it?* A node can be pinned and unlocked, locked and unpinned, both, or
+neither. See [7.3](/?story=guide--07-customization--7-03-locks).
+
+`setAllowsPinning(id, false)` opts a container out of pinning entirely.

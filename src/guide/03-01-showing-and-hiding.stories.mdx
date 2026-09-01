@@ -1,0 +1,61 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+
+<Meta title="Guide/03 Building the tree/3.01 Showing and hiding nodes" />
+
+<DraftBanner />
+
+# Showing and hiding nodes
+
+Registering a node does not put it on screen. A node arrives *mounted* — the
+store knows about it, layout does not place it, and nothing renders it. One more
+call makes it visible:
+
+```ts
+store.registerNode(createNode({ id, parentId }));
+store.showNode(id);
+```
+
+**This is the single most common reason a tree comes up empty.** If you built
+the nodes, no error was thrown, and the container is blank, this is almost
+always why. Every story in this playground calls `showNode` in its setup.
+
+The presets do it for you. `<Zone>` and `<Panel>` show what they create and
+destroy it when the JSX stops declaring it, so the declarative path never has to
+think about this — it is the imperative path where it bites.
+
+## The four states
+
+| State | Means |
+| --- | --- |
+| `mounted` | registered, not yet shown — renders nothing |
+| `visible` | on screen and laid out |
+| `hidden` | temporarily out, keeps its place |
+| `destroyed` | gone for good |
+
+```ts
+store.showNode(id);         // mounted or hidden → visible
+store.hideNode(id);         // visible → hidden
+store.unregisterNode(id);   // → destroyed, and cascades to descendants
+```
+
+## Hidden is not zero-sized
+
+A hidden node keeps its slot in the parent's `childOrder` and keeps its
+placement, but it is skipped entirely — no rect, no keyboard stop, nothing
+drawn. It is *absent from the pass*, not present at zero size. So hiding a pane
+and showing it again restores it where it was, and its siblings reflow to fill
+the gap meanwhile.
+
+Destroying is one-way. There is no reviving a destroyed node; build a new one.
+
+## Nothing throws
+
+Showing an already-visible node, or hiding a hidden one, does nothing at all
+rather than failing. Asking for a transition that makes no sense — showing a
+destroyed node — is refused the same silent way. So you can call these without
+guarding.
+
+That refusal-instead-of-throw behaviour, and the machinery underneath it, is
+[§8](/?story=guide--08-state-machines--8-01-lifecycle). You do not need it to
+use any of the above.

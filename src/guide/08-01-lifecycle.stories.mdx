@@ -1,0 +1,42 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+
+<Meta title="Guide/08 State machines/8.01 Lifecycle" />
+
+<DraftBanner />
+
+# Lifecycle
+
+Every node carries a lifecycle machine. It is the reason a node you registered
+may not be on screen.
+
+```
+mounted → visible ↔ hidden → destroyed
+```
+
+A node starts `mounted`, not `visible`. Nothing renders it until you say so:
+
+```ts
+store.registerNode(createNode({ id, parentId }));
+store.showNode(id);   // mounted → visible
+```
+
+This is the most common cause of "my tree is empty". Every story in this
+playground calls `showNode` in its setup.
+
+`hideNode` sends it back. Hidden nodes keep their place in `childOrder`, keep
+their placement, and are skipped by layout and by keyboard navigation — a
+hidden pane is not a zero-size pane, it is absent from the pass.
+
+`destroyed` is terminal. `unregisterNode` takes a node there, cascades to its
+descendants, and the record is gone from the published tree.
+
+The presets do this for you: `<Panel>` and `<Zone>` show what they create, and
+destroy it when the JSX stops declaring it. You only call these directly when
+the store owns the tree.
+
+## Transitions are refused, not thrown
+
+`Machine.send` returns `false` for a transition the table does not allow rather
+than throwing, so asking is cheap and a redundant `showNode` is inert. A
+destroyed node never comes back — build a new one.

@@ -1,0 +1,54 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+import { StackOnDrop } from '../react/stories/TabStack.stories.tsx';
+
+<Meta title="Guide/05 Drag and drop/5.03 Tab stacking" />
+
+<DraftBanner />
+
+# Tab stacking
+
+With `stackOnDrop`, a drop in the middle of a pane puts both panes in one tabbed
+stack.
+
+<StackOnDrop />
+
+**React**
+
+```tsx
+<Container stackOnDrop />
+<DragProvider stackConfig={{ headerSize: 28 }}>
+```
+
+**Core**
+
+```ts
+store.stackNodes(sourceId, ontoId, { id: stackId, config: { headerSize: 28 } });
+```
+
+`stackNodes` does the wrap: a new container in the onto-pane's slot, inheriting
+its placement, holding both. It validates every lock and cycle *before* opening
+its transaction, so a refused call writes nothing and a host recording history
+per transaction gets one undo step.
+
+It carries `autoUnsplit`, so dragging the last tab out dissolves the stack and
+lifts the survivor.
+
+## Drawing the strip
+
+`stackStrategy` shows the active child and withholds the rest
+([2.4](/?story=guide--02-layout--2-04-stack)). The strip is yours:
+
+```tsx
+const { tabs, activeId, activate } = useStack(stackId);
+```
+
+`useStack` is React-only; without it, read `container.config.activeId` and
+`childOrder` from the store yourself.
+
+`activate` writes through `store.setActiveChild`, which no lock gates: `arrange`
+governs how children are arranged, and which tab shows is not an arrangement.
+
+**The trap.** The stack body is a full-box `<Container>` overlapping the reserved
+band, so a strip drawn before it in DOM order swallows its own clicks.
+`position: relative` and a `z-index` above the body is the whole fix.

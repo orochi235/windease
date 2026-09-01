@@ -1,0 +1,59 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+import { SplitResize } from '../react/stories/RecursiveSplit.stories.tsx';
+
+<Meta title="Guide/04 Resize/4.02 bounds, and why a host never recomputes reach" />
+
+<DraftBanner />
+
+# `bounds`, and why a host never recomputes reach
+
+Every resize affordance carries the extent it adjusts and the range it can
+actually reach:
+
+```ts
+bounds: {
+  orientation: 'horizontal' | 'vertical',
+  valueNow: number,
+  valueMin: number,
+  valueMax: number,
+  atMin: boolean,
+  atMax: boolean,
+  step?: number,
+}
+```
+
+**The strategy emits this because only the strategy knows the effective range.**
+A child's own `maxSize` is not the ceiling when its siblings' minimums already
+claim the remaining extent. A host re-deriving the range would be recomputing
+what the layout pass just computed, and would advertise a maximum the drag
+refuses to reach.
+
+<SplitResize />
+
+## Details that matter
+
+`atMin` / `atMax` are set by the code that performed the clamp, not derived by
+comparing `valueNow` to the bounds — float equality is not a reliable test.
+
+`valueMin` is never above `valueNow`, so the range always contains the current
+value. A pane deliberately sized under its own `minSize` — a collapsed palette —
+reports its own extent as the floor rather than an unreachable one.
+
+`step` is how far one keyboard press should move it, in the same units as
+`valueNow`. Absent means the host picks. A strategy whose units are not pixels
+sets it, so one press is one meaningful increment rather than 8 of something —
+which is exactly what grid does
+([4.4](/?story=guide--04-resize--4-04-grid-seams)).
+
+## Naming is not DOM-shaped
+
+`orientation` / `valueNow` / `label` mean something to a canvas host. A DOM
+adapter maps them onto `aria-*`; a non-DOM host reads them directly. The core
+never says `role="separator"`.
+
+## Under `resizeMode: 'neighbor'`
+
+A step is bounded by the pair, so a pane can stop moving because its *neighbour*
+hit a limit while it is nowhere near its own. `aria-valuenow` reflects where it
+actually landed.

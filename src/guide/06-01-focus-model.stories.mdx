@@ -1,0 +1,54 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+import { MoveWithShiftArrow } from '../react/stories/KeyboardMove.stories.tsx';
+
+<Meta title="Guide/06 Keyboard and focus/6.01 The focus model" />
+
+<DraftBanner />
+
+# The focus model
+
+**Keyboard is parallel to drag and drop, not after it.** Neither depends on the
+other — you can ship a fully navigable layout with no `DragProvider` anywhere.
+
+Two providers make a layout reachable:
+
+```tsx
+<GeometryProvider>
+  <FocusProvider>
+    <Container parentId={ROOT} chrome={chrome} />
+  </FocusProvider>
+</GeometryProvider>
+```
+
+`<GeometryProvider>` collects each pane's absolute rect so navigation can be
+resolved by position. `<FocusProvider>` owns the tab stop, the keymap, and the
+round-trip between DOM focus and `store.focusedId`. They always appear together.
+
+`FocusProvider` renders one wrapper with `display: contents`, so it takes no
+layout box — but it needs `windease/styles.css` imported for that rule.
+
+## The whole layout costs one Tab stop
+
+Exactly one pane wrapper carries `tabIndex 0` — the focused one, or the first
+navigable pane when nothing is focused — and the rest are `-1`. **Tab moves past
+the layout, not through it.**
+
+windease never intercepts Tab: panes hold forms, editors and third-party widgets
+that need it.
+
+| Key | Moves | Active when |
+| --- | --- | --- |
+| `←` `→` `↑` `↓` | to the nearest pane that way | the pane wrapper itself has focus |
+| `Home` / `End` | to first / last sibling | the pane wrapper itself has focus |
+| `F6` / `Shift+F6` | next / previous pane in the whole tree, wrapping | anywhere, including inside pane content |
+| `Shift` + arrow | the pane itself | the pane wrapper itself has focus |
+
+Arrows only act when the wrapper is the event target, so pressing `←` in a text
+input moves the caret rather than navigating away mid-word. **F6 is the escape
+hatch** out of content that swallows arrows.
+
+<MoveWithShiftArrow />
+
+`canFocus(id)` asks whether a node could take focus. `hasFocus` is deprecated
+and means "has a focus machine" — compare `store.focusedId` instead.

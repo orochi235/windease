@@ -1,0 +1,64 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+import { KeyboardNav } from '../react/stories/DeclarativePlayground.stories.tsx';
+
+<Meta title="Guide/06 Keyboard and focus/6.03 Navigating" />
+
+<DraftBanner />
+
+# Navigating
+
+A navigation intent resolves through three layers, first answer winning.
+
+1. `new Store({ resolveNavigation })` — the consumer policy, asked first
+2. `strategy.navigate?` — the container's own rule
+3. geometry — nearest pane in that direction
+
+Each answers the same three ways: an id to win, `undefined` to fall through,
+`null` to declare the direction dead.
+
+<KeyboardNav />
+
+## Intents
+
+```ts
+type NavIntent =
+  | 'next' | 'prev' | 'first' | 'last'
+  | 'left' | 'right' | 'up' | 'down'
+  | 'cycleNext' | 'cyclePrev';
+```
+
+`next`/`prev` walk document order and stop at the ends; `cycleNext`/`cyclePrev`
+wrap; the four directions resolve geometrically.
+
+## A strategy that knows better
+
+Cross-axis drift costs less than primary-axis distance in the geometric search,
+so a pane straight ahead beats a nearer one off to the side. A strategy whose
+arrangement makes that wrong says so:
+
+```ts
+navigate({ items, from, direction, options }) {
+  return direction === 'left' ? previousTabId : undefined;
+}
+```
+
+**Core**
+
+```ts
+const to = resolveNavigation({ store, from, intent: 'right', geometry, strategies });
+if (to) store.focusNode(to);
+```
+
+Replacing the resolution outright is
+[7.7](/?story=guide--07-customization--7-07-resolve-navigation).
+
+## Names
+
+Panes are named for screen readers by `meta.title`, falling back to kind plus
+sibling index — which changes when a sibling is added. **A layout with more than
+a couple of panes should set titles.**
+
+```ts
+store.setMeta(id, { title: 'Editor' });
+```

@@ -1,0 +1,46 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+import { DragToTheEdgeToScroll } from '../react/stories/Scrolling.stories.tsx';
+
+<Meta title="Guide/05 Drag and drop/5.05 Edge scroll" />
+
+<DraftBanner />
+
+# Edge scroll
+
+Dragging a pane toward the edge of a scrolling container scrolls it, and keeps
+scrolling while the cursor is held there.
+
+<DragToTheEdgeToScroll />
+
+**Nothing to turn on.** A container with a `scrollRef`
+([2.8](/?story=guide--02-layout--2-08-telling-windease-where-the-scroll-got-to))
+auto-scrolls; one without never does.
+
+The rate ramps from zero at 48px out to 16px per frame at the edge, and **holds
+there past it** so overshooting a target does not fight you.
+
+**React**
+
+```tsx
+<Container scrollRef={scrollRef} edgeScroll={{ margin: 64, maxRate: 24 }} />
+```
+
+The two numbers above are the defaults. The presets take no `scrollRef`, so
+neither auto-scroll nor `edgeScroll` reaches them.
+
+**Core**
+
+```ts
+const delta = edgeScrollDelta(bounds, point, { margin: 64, maxRate: 24 });
+```
+
+Pure and exported, for a host driving its own drag loop. `DropTargetOptions`
+takes the same bag.
+
+## It is a tuning bag, not a policy
+
+`edgeScroll` reshapes a ramp. There is nothing to refuse and nothing to defer
+to, which is exactly what separates it from the three replaceable policies in
+[§7](/?story=guide--07-customization--7-04-the-policy-contract) — a distinction
+worth keeping straight, because it takes a similar-looking prop.

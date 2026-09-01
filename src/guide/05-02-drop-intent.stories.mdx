@@ -1,0 +1,64 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+import { DropIntent as DropIntentStory } from '../react/stories/DeclarativeDrop.stories.tsx';
+
+<Meta title="Guide/05 Drag and drop/5.02 Drop intent" />
+
+<DraftBanner />
+
+# Drop intent
+
+A drop target answers more than "which seam". `resolveDropIntent` turns child
+rects and a cursor into what the drop is *asking for*.
+
+```ts
+type DropIntent =
+  | { kind: 'insert'; index: number }
+  | { kind: 'stack'; ontoId: ItemId }
+  | { kind: 'split'; ontoId: ItemId; edge: 'start' | 'end'; axis: 'x' | 'y' };
+```
+
+Within the hovered child, bands along the main axis resolve to `insert` at the
+neighbouring seam, bands along the cross axis to `split`, and the centre to
+`stack`. Corners go to the main axis.
+
+**Bands are carved only for the intents you enable**, so a resolver with none
+enabled returns exactly what `insertionIndexByMidpoint` returns. That is what
+makes the whole feature additive.
+
+A split's `axis` is the axis of the strip it would *create* — the cross axis of
+the container that resolved it, one flip from that container's own.
+
+**React**
+
+```tsx
+<Container stackOnDrop splitOnDrop />
+```
+
+`<Container>` wires it from the rects it already measures. To keep its measuring
+but change the answer, pass `dropIntent` — it receives the rects with the dragged
+node already removed:
+
+```tsx
+<Container
+  parentId={zoneId}
+  dropIntent={({ rects, point, axis }) =>
+    resolveDropIntent(rects, point, axis, { split: true, band: 0.4 })}
+/>
+```
+
+That is how you tune band thickness, add quadrant zones, or refuse a split on a
+small pane.
+
+**Core**
+
+```ts
+useDropTarget(zoneId, ref, {
+  getDropIntent: (point) => resolveDropIntent(rects, point, 'x', { stack: true }),
+});
+```
+
+`getInsertionIndex` still works and is still honoured when no intent function is
+registered.
+
+<DropIntentStory />

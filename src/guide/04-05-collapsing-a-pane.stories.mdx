@@ -1,0 +1,49 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+
+<Meta title="Guide/04 Resize/4.05 Collapsing a pane" />
+
+<DraftBanner />
+
+# Collapsing a pane
+
+There is no collapse state. **A collapsed pane is a sized pane** — write
+`placement.size` down to your header extent, and write it back to expand.
+
+```tsx
+const HEADER = 32;
+
+const collapse = (id: NodeId) =>
+  store.transact(() => {
+    const h = (store.getNode(id)?.membership?.placement?.size as { h?: number })?.h;
+    store.setMeta(id, { expandedH: h });
+    store.patchPlacement(id, { size: { h: HEADER } });
+  }, 'collapse');
+
+const expand = (id: NodeId) =>
+  store.transact(() => {
+    const h = store.getNode(id)?.meta?.expandedH as number | undefined;
+    store.patchPlacement(id, { size: { h } });
+    store.setMeta(id, { expandedH: undefined });
+  }, 'expand');
+```
+
+`transact` makes each one a single undo step. `meta` round-trips through
+`serialize`, so a collapsed layout survives save and reload — and `meta` rather
+than `placement` because the remembered height should survive a `moveNode`.
+
+## `minSize` does not block this
+
+It floors a pane that states no size of its own, and it still stops a gutter drag
+from crossing it. But **a size you write is taken as intent and rendered as
+written**. So a palette can declare a 120px minimum for its expanded state and
+still collapse to a 32px header.
+
+(A measurement is the exception — it *is* floored, because it states no intent.
+See [2.6](/?story=guide--02-layout--2-06-sizing-a-pane-to-its-contents).)
+
+## What the pattern owes its users
+
+Keep the collapsed pane's accessible name, and keep its expand control reachable
+from the keyboard in whatever still renders. A pane that can be collapsed and
+not reopened without a mouse is worse than one that never collapsed.

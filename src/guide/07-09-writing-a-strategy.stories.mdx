@@ -1,0 +1,75 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+
+<Meta title="Guide/07 Customization/7.09 Writing a strategy" />
+
+<DraftBanner />
+
+# Writing a strategy
+
+A strategy is an object with a `name` and a `layout`. Everything else is
+optional.
+
+```ts
+import type { LayoutStrategy } from 'windease';
+
+export const diagonalStrategy: LayoutStrategy<void, string> = {
+  name: 'diagonal',
+  configSpec: { step: 'number', size: 'number' },
+
+  layout({ items, container, options }) {
+    const step = (options.step as number) ?? 40;
+    const size = (options.size as number) ?? 120;
+    const placements = new Map<string, { x: number; y: number; w: number; h: number }>();
+
+    items.forEach((item, i) => {
+      placements.set(item.id, { x: i * step, y: i * step, w: size, h: size });
+    });
+
+    const reach = (items.length - 1) * step + size;
+    return {
+      placements,
+      affordances: [],
+      ...(reach > container.w ? { overflow: { w: reach - container.w, h: 0 } } : {}),
+    };
+  },
+};
+```
+
+Register it like any built-in:
+
+```tsx
+<StrategyRegistryProvider strategies={{ diagonal: diagonalStrategy }}>
+```
+
+## The rules
+
+**Pure.** No DOM, no measuring, no mutating inputs. Measurement arrives as
+`LayoutItem.natural`, filled in by an adapter — that is what lets the same
+strategy run headless and on a canvas.
+
+**Report what you drop.** An item absent from `placements` is not rendered. Say
+so in `unplaced` rather than losing it silently.
+
+**Report overflow instead of crushing.** Set `overflow` rather than shrinking
+children past their constraints, so a host can scroll or resize deliberately.
+
+## The optional hooks
+
+| Hook | For |
+| --- | --- |
+| `initialState` | seed state for a container with none persisted |
+| `reduce` | fold a gesture into your own state |
+| `dispatchAffordance` | write per-child placement instead of container state |
+| `canAccept` | refuse a drop you cannot lay out |
+| `navigate` | override directional navigation inside you |
+| `getDropPreview` | a cheap preview instead of a full `layout({ preview })` |
+
+## Declare your config
+
+`configSpec` turns a typo in `container.config` into a `layout` trace instead of a
+silent fallback to the default. `configConflicts` covers keys that are each
+individually valid but cancel each other — grid declares its own, because setting
+`cols` has always made `maxCols`, `rows` and `orientation` dead config.
+
+Both are optional and both are cheap. A strategy without them is not checked.

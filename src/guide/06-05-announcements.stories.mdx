@@ -1,0 +1,54 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+
+<Meta title="Guide/06 Keyboard and focus/6.05 Announcements" />
+
+<DraftBanner />
+
+# Announcements
+
+Moving focus announces the new pane's name for free. What needs saying out loud
+is a change that moves **no** focus: the focused pane closing, or being relocated
+under a different parent.
+
+**React**
+
+`FocusProvider` renders a polite live region and speaks them — "Editor closed",
+"Editor moved to Sidebar, position 2 of 3".
+
+```tsx
+<FocusProvider announce={false}>   // for a host that owns its own live region
+```
+
+**Core**
+
+`bindAnnouncer` composes the same text from the store and hands it to a
+`FocusAdapter`:
+
+```ts
+const off = bindAnnouncer(store, {
+  present: (id) => surface.drawFocusRing(id),
+  announce: (text) => surface.liveRegion.say(text),
+});
+```
+
+`FocusAdapter` is the whole non-DOM focus surface: `present` reflects model
+focus onto whatever the host has, `announce` speaks. Input flows the other way
+through store methods, so it needs no surface here. `nullFocusAdapter` is the
+no-op for tests.
+
+## Only what the user is in
+
+Changes to the focused pane, or to a subtree focus sits inside, are spoken. A
+host relocating thirty panes the user is not in narrates nothing — otherwise a
+bulk operation would flood the live region.
+
+## Names come from `meta.title`
+
+`accessibleName(store, id)` is the resolution: `meta.title`, falling back to kind
+plus one-based sibling index. The fallback changes when a sibling is added, which
+is why a real layout sets titles.
+
+Seam-join arming is also announced
+([4.3](/?story=guide--04-resize--4-03-seam-join)) — a gesture that destroys a pane
+should not be silent.

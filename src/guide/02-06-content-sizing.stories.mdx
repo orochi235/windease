@@ -1,0 +1,54 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+import { ContentSizedDock } from '../react/stories/ContentSizing.stories.tsx';
+
+<Meta title="Guide/02 Layout/2.06 Sizing a pane to its contents" />
+
+<DraftBanner />
+
+# Sizing a pane to its contents
+
+Declare it per axis and the library measures for you.
+
+```tsx
+<Panel id={id} hints={{ sizing: { h: 'content' } }} />
+```
+
+```ts
+createNode({ id, parentId, hints: { sizing: { h: 'content' } } });
+```
+
+<ContentSizedDock />
+
+## What is actually measured
+
+`<Container>` and the presets wrap a content-sized pane's children in an
+auto-height div and observe *that*. Measuring the positioned box would measure
+the library's own output and never settle.
+
+So give the wrapper's contents a real intrinsic height. **A child stretched with
+`height: 100%` reports the pane, not the content** — this is the failure mode,
+and it looks like the measurement being ignored.
+
+## A measurement is a stated size
+
+It scales under pressure, it is capped by `hints.maxSize`, and it loses to
+`placement.size`. So **dragging a gutter pins the pane** and it stops tracking
+its contents. Clear the size to resume:
+
+```ts
+store.patchPlacement(id, { size: { h: undefined } });
+```
+
+One asymmetry worth knowing: unlike a size you write, a measurement *is* floored
+at `hints.minSize`. The exemption that lets a pane collapse below its minimum
+exists for deliberate intent, and a measurement states none.
+
+## Without React
+
+The core never measures. Report it yourself:
+
+```ts
+host.setNaturalSize(id, { w, h });
+host.observeNatural(id, el);   // DOM convenience over the same call
+```

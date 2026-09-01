@@ -1,0 +1,51 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+
+<Meta title="Guide/07 Customization/7.04 The policy contract" />
+
+<DraftBanner />
+
+# The policy contract
+
+Three of the library's decisions are replaceable, and they share one contract.
+
+**Return a value to choose it, a deliberate negative to refuse, `undefined` to
+defer to the built-in.**
+
+| Policy | Where | Decides |
+| --- | --- | --- |
+| `acceptPolicy` | `<Container>`, `<Zone>`, `<Panel>` | whether a container takes a drop |
+| `chooseSuccessor` | `new Store({ … })` | who takes focus when the focused node departs |
+| `resolveNavigation` | `new Store({ … })` | how a direction resolves to a node |
+
+The tri-state is the whole design. A consumer who wants to change one case does
+not reimplement the rest — return `undefined` for everything else and the
+built-in handles it.
+
+Refusing and deferring are different. `null`/`false` is an answer; `undefined` is
+"ask someone else".
+
+## A bad policy degrades, it does not break
+
+Each of these is arbitrary consumer code running inside a library operation. So:
+
+**A policy that throws, or answers with something the library cannot use, is
+traced and treated as `undefined`.**
+
+The built-in decides, the gesture completes, and the failure shows up on a trace
+category rather than as a broken drag. Only a returned *id* is validated —
+`null` and `false` are deliberate answers and are never second-guessed.
+
+A policy that calls back into the thing it replaces gets the built-in rather than
+recursing forever.
+
+## What is not a policy
+
+`edgeScroll` is a tuning bag — nothing to refuse, nothing to defer to
+([5.5](/?story=guide--05-drag-and-drop--5-05-edge-scroll)).
+
+Locks are not policies either: a lock refuses regardless of what a policy said
+([7.3](/?story=guide--07-customization--7-03-locks)).
+
+`strategy.canAccept` and `strategy.navigate` are the *strategy's* opinion, which
+a policy is asked ahead of.

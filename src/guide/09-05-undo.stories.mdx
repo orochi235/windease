@@ -51,7 +51,7 @@ The store emits `transaction.begin` / `transaction.end` around `store.transact`,
 so a host can bracket history on those events and get this for free. Every
 `unregisterNode` emits the pair too — which is how a removal and the
 `autoUnsplit` collapse it triggered become one undo step
-([5.6](/?story=guide--05-resize--5-06-collapsing-a-group-that-empties-out)).
+([4.6](/?story=guide--04-resize--4-06-collapsing-a-group-that-empties-out)).
 
 ## History reads truth
 
