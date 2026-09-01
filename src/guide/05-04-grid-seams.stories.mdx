@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { ResizableGrid } from '../react/stories/Grid.stories.tsx';
 
-<Meta title="Guide/5 Resize/5.4 Grid seams" />
+<Meta title="Guide/05 Resize/5.04 Grid seams" />
+
+<DraftBanner />
 
 # Grid seams
 
@@ -18,7 +21,7 @@ they write `placement.span`.
 `aria-valuenow` reads as a column or row count. A keyboard press moves exactly
 one cell, because the affordance reports its own `bounds.step` rather than
 taking the container's pixel default — which is the concrete payoff of `step`
-existing at all ([5.2](/?story=guide--5-resize--5-2-bounds-and-why-a-host-never-recomputes-reach)).
+existing at all ([5.2](/?story=guide--05-resize--5-02-bounds-and-why-a-host-never-recomputes-reach)).
 
 ## A grid packs rather than pairs
 

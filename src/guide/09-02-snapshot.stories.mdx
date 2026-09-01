@@ -1,6 +1,9 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 
-<Meta title="Guide/9 History and persistence/9.2 Snapshot and hydrate" />
+<Meta title="Guide/09 History and persistence/9.02 Snapshot and hydrate" />
+
+<DraftBanner />
 
 # Snapshot and hydrate
 
@@ -18,7 +21,7 @@ than being migrated silently.
 
 - **Destroyed nodes.** Gone is gone.
 - **Transit state.** A move in flight is not worth restoring
-  ([2.2](/?story=guide--2-state-machines--2-2-transit)).
+  ([2.2](/?story=guide--02-state-machines--2-02-transit)).
 - **`container.lastFocusedId`.** Session state, not document state.
 - **Measurements.** `hints.sizing` persists — it is intrinsic advice — but the
   measured `natural` size never enters a snapshot and is re-measured on mount.
@@ -31,13 +34,13 @@ hydrate.
 Under a throttle policy, `serialize` reads `nodesTruth`, not the published view.
 So persistence and undo are unaffected by pacing — you never save a
 half-published tree
-([10.1](/?story=guide--10-performance-and-diagnosis--10-1-truth-vs-published)).
+([10.1](/?story=guide--10-performance-and-diagnosis--10-01-truth-vs-published)).
 
 ## What round-trips for free
 
 `meta`, `lock`, `hints`, `placement` and `container.config` are all ordinary
 fields. That is why a collapsed pane
-([5.5](/?story=guide--5-resize--5-5-collapsing-a-pane)) and a seam-dragged size
+([5.5](/?story=guide--05-resize--5-05-collapsing-a-pane)) and a seam-dragged size
 survive a reload with no extra work: a seam drag writes `placement.size`, and
 `placement.size` is just a field.
 

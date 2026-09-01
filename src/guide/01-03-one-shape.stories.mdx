@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { Trays } from '../react/stories/RecursiveZones.stories.tsx';
 
-<Meta title="Guide/1 Tour/1.3 One shape, four capabilities" />
+<Meta title="Guide/01 Tour/1.03 One shape, four capabilities" />
+
+<DraftBanner />
 
 # One shape, four capabilities
 
@@ -38,4 +41,4 @@ createNode({ id, parentId, container: { strategyId: 'grid', config: {} } });
 
 Every capability is decided at `createNode` and fixed for the node's life. The
 fields inside them — and which of the four state buckets owns what — are
-[§8](/?story=guide--8-customization--8-1-the-capabilities-in-full).
+[§8](/?story=guide--08-customization--8-01-the-capabilities-in-full).

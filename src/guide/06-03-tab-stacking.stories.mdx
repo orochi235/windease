@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { StackOnDrop } from '../react/stories/TabStack.stories.tsx';
 
-<Meta title="Guide/6 Drag and drop/6.3 Tab stacking" />
+<Meta title="Guide/06 Drag and drop/6.03 Tab stacking" />
+
+<DraftBanner />
 
 # Tab stacking
 
@@ -34,7 +37,7 @@ lifts the survivor.
 ## Drawing the strip
 
 `stackStrategy` shows the active child and withholds the rest
-([4.4](/?story=guide--4-layout--4-4-stack)). The strip is yours:
+([4.4](/?story=guide--04-layout--4-04-stack)). The strip is yours:
 
 ```tsx
 const { tabs, activeId, activate } = useStack(stackId);

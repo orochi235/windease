@@ -1,6 +1,9 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 
-<Meta title="Guide/10 Performance and diagnosis/10.6 Hot paths" />
+<Meta title="Guide/10 Performance and diagnosis/10.06 Hot paths" />
+
+<DraftBanner />
 
 # Hot paths
 
@@ -36,7 +39,7 @@ component, not the tree's root.
 ## `snapToPanes` costs an inner layout pass per drag event
 
 Off by default for that reason
-([4.5](/?story=guide--4-layout--4-5-floating)).
+([4.5](/?story=guide--04-layout--4-05-floating)).
 
 ## What is already cheap
 
@@ -53,7 +56,7 @@ published set actually changes.
 
 `notifyMs` and `stagger` bound how often React sees changes, so they help a store
 driven from a live event stream
-([10.2](/?story=guide--10-performance-and-diagnosis--10-2-throttling)).
+([10.2](/?story=guide--10-performance-and-diagnosis--10-02-throttling)).
 
 They do not help a slow strategy or an expensive chrome handler — those run on
 the flush that does happen. Measure before reaching for a policy.

@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { DragBetween } from '../react/stories/ParallelZonesDnd.stories.tsx';
 
-<Meta title="Guide/6 Drag and drop/6.7 The parallel-zones trap" />
+<Meta title="Guide/06 Drag and drop/6.07 The parallel-zones trap" />
+
+<DraftBanner />
 
 # The parallel-zones trap
 
@@ -31,7 +34,7 @@ Register the panes on the store, render them through `renderImperative` or a
 
 Or keep JSX declaring *which* panes exist and hand arrangement to the user with
 `preserveStoreOrder`
-([3.4](/?story=guide--3-building-the-tree--3-4-who-owns-child-order)).
+([3.4](/?story=guide--03-building-the-tree--3-04-who-owns-child-order)).
 
 ## Innermost wins
 

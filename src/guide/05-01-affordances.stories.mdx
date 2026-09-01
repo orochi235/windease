@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { HorizontalStrip } from '../react/stories/Strip.stories.tsx';
 
-<Meta title="Guide/5 Resize/5.1 Affordances and seams" />
+<Meta title="Guide/05 Resize/5.01 Affordances and seams" />
+
+<DraftBanner />
 
 # Affordances and seams
 
@@ -9,7 +12,7 @@ import { HorizontalStrip } from '../react/stories/Strip.stories.tsx';
 `StrategyRegistryProvider` is the whole stack — seams bind their own pointer
 handlers and read nothing from the drag context. This is the cheapest
 interactivity in the library, and it is worth knowing before you reach for
-[§6](/?story=guide--6-drag-and-drop--6-1-wiring-a-drag).
+[§6](/?story=guide--06-drag-and-drop--6-01-wiring-a-drag).
 
 An *affordance* is an interactive region a strategy emits alongside its
 placements: a resize edge, a gutter, a click target. The strategy describes it

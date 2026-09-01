@@ -1,6 +1,9 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 
-<Meta title="Guide/8 Customization/8.8 Controlled placement and order" />
+<Meta title="Guide/08 Customization/8.08 Controlled placement and order" />
+
+<DraftBanner />
 
 # Controlled placement and order
 
@@ -56,5 +59,5 @@ to it and mutating it later is a bug — treat it as the value to render from.
 
 `preserveStoreOrder` is the opposite trade: the store keeps order and JSX stops
 fighting it
-([3.4](/?story=guide--3-building-the-tree--3-4-who-owns-child-order)). Reach for
+([3.4](/?story=guide--03-building-the-tree--3-04-who-owns-child-order)). Reach for
 controlled order only when the host genuinely owns arrangement.

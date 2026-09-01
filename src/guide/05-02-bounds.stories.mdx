@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { SplitResize } from '../react/stories/RecursiveSplit.stories.tsx';
 
-<Meta title="Guide/5 Resize/5.2 bounds, and why a host never recomputes reach" />
+<Meta title="Guide/05 Resize/5.02 bounds, and why a host never recomputes reach" />
+
+<DraftBanner />
 
 # `bounds`, and why a host never recomputes reach
 
@@ -41,7 +44,7 @@ reports its own extent as the floor rather than an unreachable one.
 `valueNow`. Absent means the host picks. A strategy whose units are not pixels
 sets it, so one press is one meaningful increment rather than 8 of something —
 which is exactly what grid does
-([5.4](/?story=guide--5-resize--5-4-grid-seams)).
+([5.4](/?story=guide--05-resize--5-04-grid-seams)).
 
 ## Naming is not DOM-shaped
 

@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { SplitAndUnsplit } from '../react/stories/SplitOperation.stories.tsx';
 
-<Meta title="Guide/5 Resize/5.6 Collapsing a group that empties out" />
+<Meta title="Guide/05 Resize/5.06 Collapsing a group that empties out" />
+
+<DraftBanner />
 
 # Collapsing a group that empties out
 
@@ -42,4 +45,4 @@ the removal that caused it. If you bracket history on `transaction.begin` /
 
 Drops that create stacks and splits set `autoUnsplit` themselves, which is why
 dragging the last tab out of a stack dissolves it
-([6.3](/?story=guide--6-drag-and-drop--6-3-tab-stacking)).
+([6.3](/?story=guide--06-drag-and-drop--6-03-tab-stacking)).

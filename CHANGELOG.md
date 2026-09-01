@@ -67,7 +67,8 @@ section below.
   and that keyboard and drag are parallel opt-ins, neither gating the other.
   Chapters embed the existing stories by importing them, so a demo cannot drift
   from the page describing it. Written as MDX under `src/guide`, excluded from
-  the published build.
+  the published build. Every chapter carries a first-draft banner: the prose has
+  not been edited or checked line by line against the code.
 
 - **`Policies/Accept` starts with room in one zone.** Every zone was seeded at
   its `maxItems` cap, so no drop could visibly re-lay-out a destination —

@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { MixedProvenance } from '../react/stories/DeclarativePlayground.stories.tsx';
 
-<Meta title="Guide/3 Building the tree/3.1 Declarative" />
+<Meta title="Guide/03 Building the tree/3.01 Declarative" />
+
+<DraftBanner />
 
 # Declarative: `<Zone>` and `<Panel>`
 
@@ -36,7 +39,7 @@ prop declares will be reverted on the next render**. Declare `placement` and a
 seam drag is undone; declare children and a drop that reparents one is undone.
 
 That is not a bug to work around but a fork to choose:
-[3.4](/?story=guide--3-building-the-tree--3-4-who-owns-child-order) covers
+[3.4](/?story=guide--03-building-the-tree--3-04-who-owns-child-order) covers
 handing specific decisions back.
 
 <MixedProvenance />

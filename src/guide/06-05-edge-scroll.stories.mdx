@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { DragToTheEdgeToScroll } from '../react/stories/Scrolling.stories.tsx';
 
-<Meta title="Guide/6 Drag and drop/6.5 Edge scroll" />
+<Meta title="Guide/06 Drag and drop/6.05 Edge scroll" />
+
+<DraftBanner />
 
 # Edge scroll
 
@@ -11,7 +14,7 @@ scrolling while the cursor is held there.
 <DragToTheEdgeToScroll />
 
 **Nothing to turn on.** A container with a `scrollRef`
-([4.8](/?story=guide--4-layout--4-8-telling-windease-where-the-scroll-got-to))
+([4.8](/?story=guide--04-layout--4-08-telling-windease-where-the-scroll-got-to))
 auto-scrolls; one without never does.
 
 The rate ramps from zero at 48px out to 16px per frame at the edge, and **holds
@@ -39,5 +42,5 @@ takes the same bag.
 
 `edgeScroll` reshapes a ramp. There is nothing to refuse and nothing to defer
 to, which is exactly what separates it from the three replaceable policies in
-[§8](/?story=guide--8-customization--8-4-the-policy-contract) — a distinction
+[§8](/?story=guide--08-customization--8-04-the-policy-contract) — a distinction
 worth keeping straight, because it takes a similar-looking prop.

@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { JoinOnOvershoot } from '../react/stories/SeamJoin.stories.tsx';
 
-<Meta title="Guide/8 Customization/8.3 Locks" />
+<Meta title="Guide/08 Customization/8.03 Locks" />
+
+<DraftBanner />
 
 # Locks
 
@@ -48,7 +51,7 @@ That is why a seam never arms over a pane holding a destroy-locked descendant:
 
 A policy is consulted and may defer. A lock refuses regardless of what any
 policy answered — `acceptPolicy` returning `true` does not get past
-`lock.accept`. See [8.4](/?story=guide--8-customization--8-4-the-policy-contract).
+`lock.accept`. See [8.4](/?story=guide--08-customization--8-04-the-policy-contract).
 
 `acceptsDrops` is a third thing again: a React prop that registers an element as
 a drop target at all. Not locking a zone is not the same as opting it in.

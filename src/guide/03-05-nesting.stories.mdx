@@ -1,8 +1,11 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { Trays } from '../react/stories/RecursiveZones.stories.tsx';
 import { SplitAndUnsplit } from '../react/stories/SplitOperation.stories.tsx';
 
-<Meta title="Guide/3 Building the tree/3.5 Nesting and recursion" />
+<Meta title="Guide/03 Building the tree/3.05 Nesting and recursion" />
+
+<DraftBanner />
 
 # Nesting and recursion
 
@@ -42,4 +45,4 @@ is why registering a child, removing one and dragging one all just work.
 
 `setAutoUnsplit(groupId, true)` makes a group collapse itself when a removal
 leaves it holding one child; see
-[5.6](/?story=guide--5-resize--5-6-collapsing-a-group-that-empties-out).
+[5.6](/?story=guide--05-resize--5-06-collapsing-a-group-that-empties-out).

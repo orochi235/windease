@@ -1,6 +1,9 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 
-<Meta title="Guide/9 History and persistence/9.6 transact does not roll back" />
+<Meta title="Guide/09 History and persistence/9.06 transact does not roll back" />
+
+<DraftBanner />
 
 # `transact` does not roll back
 
@@ -46,7 +49,7 @@ call writes nothing at all rather than half a stack.
 Rolling back would mean snapshotting the whole store on every `transact` and
 restoring on throw — the cost paid on every successful call to serve the failing
 one. Undo already exists for the case where you want to go back
-([9.5](/?story=guide--9-history-and-persistence--9-5-undo-and-redo)); this is the
+([9.5](/?story=guide--09-history-and-persistence--9-05-undo-and-redo)); this is the
 cheap grouping primitive underneath it.
 
 If you want the atomic version, take a snapshot before and hydrate it back on

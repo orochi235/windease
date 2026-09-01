@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { WrappingAtTheEnds } from '../react/stories/NavigationPolicy.stories.tsx';
 
-<Meta title="Guide/8 Customization/8.7 resolveNavigation" />
+<Meta title="Guide/08 Customization/8.07 resolveNavigation" />
+
+<DraftBanner />
 
 # `resolveNavigation`
 
@@ -47,6 +50,6 @@ recursing.
 ## It also governs moving
 
 `Shift`+arrow resolves through the same path
-([7.4](/?story=guide--7-keyboard-and-focus--7-4-moving-a-pane-without-a-pointer)),
+([7.4](/?story=guide--07-keyboard-and-focus--7-04-moving-a-pane-without-a-pointer)),
 so a navigation policy customises both gestures at once. That is usually what you
 want; if it is not, branch on `intent`.

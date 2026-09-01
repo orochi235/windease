@@ -1,7 +1,10 @@
 import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
 import { ScrollAwareNavigation } from '../react/stories/Scrolling.stories.tsx';
 
-<Meta title="Guide/7 Keyboard and focus/7.2 Geometry is an input" />
+<Meta title="Guide/07 Keyboard and focus/7.02 Geometry is an input" />
+
+<DraftBanner />
 
 # Geometry is an input, never a measurement
 
@@ -31,7 +34,7 @@ resolveNavigation({ store, from, intent: 'right', geometry });
 ```
 
 This is the same principle as measurement in
-[4.6](/?story=guide--4-layout--4-6-sizing-a-pane-to-its-contents): the core
+[4.6](/?story=guide--04-layout--4-06-sizing-a-pane-to-its-contents): the core
 takes the number, it does not go and get it.
 
 ## One coordinate space
@@ -39,7 +42,7 @@ takes the number, it does not go and get it.
 Every container's rects compose into a single space, including nested ones and
 scrolled ones — which is why a `scrollRef` matters for navigation and not just
 for scrolling
-([4.8](/?story=guide--4-layout--4-8-telling-windease-where-the-scroll-got-to)).
+([4.8](/?story=guide--04-layout--4-08-telling-windease-where-the-scroll-got-to)).
 
 <ScrollAwareNavigation />
 
