@@ -13,7 +13,7 @@ someone wiring windease into a React app. Knows React. Does not know that
 
 **Granularity:** a **chapter** is one MDX page. A **section** groups them, and
 maps onto a Ladle title prefix the way `Policies/Accept` already does —
-`Guide/Layout/Strip`. Ten sections, 44 chapters.
+`Guide/Layout/Strip`. Ten sections, 63 chapters.
 
 **Stories keep their own top-level sections.** The guide lives under a `Guide/`
 prefix and does not absorb them; a chapter *embeds* a story rather than
@@ -106,12 +106,20 @@ the first.
 Everything else — snapshots, history, locks, throttling, tracing, policies —
 attaches at any tier and belongs after the ladder, not inside it.
 
-**The model is deferred to §8 on purpose.** Capabilities are the thing you need
-to *extend* windease, not to use it: nothing in §§1–7 requires a reader to know
-that a zone is a container with no membership. The Glossary covers anyone who
-meets a term early, and the tour introduces them informally. The risk is real
-but bounded — every chapter before §8 must survive being read by someone who
-has not met `ContainerCap`, and a chapter that cannot is mis-scoped.
+**The model is split, not deferred.** §1.3 tours it: one node shape, four
+optional capabilities, and the one demonstration that makes the idea land — a
+panel that becomes a container is a tray inside a window, and no new type was
+involved. That is what a reader needs to *read* the rest of the guide.
+
+§8.1–8.2 is the reference: every capability, every field, which of the four
+buckets owns what, and what survives `moveNode`. That is what a reader needs to
+*extend* the library, and nothing in §§2–7 requires it.
+
+The split is the load-bearing decision here, so it needs a test rather than good
+intentions: **a chapter before §8 may name a capability but must never require
+a field of one.** A chapter that cannot be read by someone who has met §1.3 and
+not §8.1 is mis-scoped, and the fix is to move the dependency into §1.3 or the
+Glossary — not to enlarge it in place.
 
 ---
 
@@ -124,12 +132,22 @@ impressed by. Not a vocabulary lesson — the reader should want to keep reading
 | --- | --- | --- |
 | 1.1 Install and entry points | README L1–46 | — |
 | 1.2 A tree in twenty lines | README `Quick start` (L47–93) | new, minimal |
-| 1.3 What it can do | — | `Playground`, `Tab stack`, `Seam join` |
+| 1.3 One shape, four capabilities — a tour | concepts `Mental model` | `Recursive zones / Trays` |
+| 1.4 What it can do | — | `Tab stack`, `Seam join`, `Drop on edge` |
 
-1.3 is the one that has to earn the rest. Candidates, strongest first: drag a
-pane onto another and watch it become a tab stack; overshoot a seam and watch
-the neighbour be absorbed; drop on an edge and watch a slot split in two. All
-three already have stories, and all three read as "I could not build that in an
+**1.3 shows the model; it does not teach it.** The reader has just written a
+`<Zone>` and a `<Panel>` in 1.2 and reasonably believes those are two types.
+This chapter's whole job is that they are one: a node carries `lifecycle` plus
+any of `container` / `membership` / `focus`, `kind` is a label the core never
+reads, and setting `container` on a panel makes it host children — which is why
+"a tray inside a window" needs no new component. One demo, one paragraph per
+capability, and a link to §8 for the fields. It ends there; the four state
+buckets, locks and the `moveNode` lifetime rules are §8's.
+
+1.4 has to earn the rest of the guide. Strongest first: drag a pane onto
+another and watch it become a tab stack; overshoot a seam and watch the
+neighbour be absorbed; drop on an edge and watch a slot split in two. All three
+already have stories, and all three read as "I could not build that in an
 afternoon."
 
 ## §2 · State machines
@@ -212,13 +230,13 @@ Parallel to §6, not after it. Say so on 7.1.
 
 ## §8 · Customization
 
-Where the model finally lands, because this is the first place a reader needs
-it. The through-line: every chapter is the host taking back a decision the
-library was making.
+The through-line: every chapter is the host taking back a decision the library
+was making. It opens with the model in full, because that is the first thing an
+extender needs and the first place the tour's summary stops being enough.
 
 | Chapter | Source | Demo |
 | --- | --- | --- |
-| 8.1 One node shape, four capabilities | concepts `Capabilities`, `Mental model` | `Recursive zones / Trays` |
+| 8.1 The capabilities in full | concepts `Capabilities` | `Recursive zones / Trays` |
 | 8.2 Where state goes: the four buckets | concepts `Two scopes of free-form data` | — |
 | 8.3 Locks | concepts `node.lock` | `Seam join` |
 | 8.4 The policy contract | README L158–177 | — |
