@@ -109,6 +109,19 @@ function defined<T extends Record<string, unknown>>(obj: T): Partial<T> {
   return out;
 }
 
+/** Collects a preset's drop-related props into the bag `PresetShell` forwards
+ *  to `useDropIntentTarget` — one place a new drop prop or preset variant has
+ *  to reach, instead of four call sites that can silently diverge. */
+function dropBag(props: CommonBindingProps, hostsLayout?: boolean): PresetShellProps['drop'] {
+  return defined({
+    stackOnDrop: props.stackOnDrop,
+    splitOnDrop: props.splitOnDrop,
+    dropIntent: props.dropIntent,
+    canAccept: props.canAccept,
+    hostsLayout,
+  });
+}
+
 /** Forces a re-render when `targetId`'s lock changes. Nothing else re-renders
  *  the caller on a bare lock flip, so a render-time reconcile gated on
  *  `isLocked(targetId, ...)` would otherwise stay stuck after an unlock. */
@@ -267,12 +280,7 @@ export function Panel(props: PanelProps) {
       title={props.title}
       testId={props['data-testid']}
       acceptsDrops={props.acceptsDrops}
-      drop={{
-        ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
-        ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
-        ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
-        ...(props.canAccept ? { canAccept: props.canAccept } : {}),
-      }}
+      drop={dropBag(props)}
       measure={measure}
     >
       {props.draggable ? <DragHandle nodeId={id}>{props.children}</DragHandle> : props.children}
@@ -326,13 +334,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         testId={props['data-testid']}
         innerRef={ref}
         acceptsDrops={props.acceptsDrops}
-        drop={{
-          ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
-          ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
-          ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
-          ...(props.canAccept ? { canAccept: props.canAccept } : {}),
-          hostsLayout: true,
-        }}
+        drop={dropBag(props, true)}
         measure={props.measure}
         joinArmedId={joinArmedId}
       >
@@ -457,12 +459,7 @@ export function Zone(props: ZoneProps) {
       testId={props['data-testid']}
       sort={props.sort}
       acceptsDrops={props.acceptsDrops}
-      drop={{
-        ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
-        ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
-        ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
-        ...(props.canAccept ? { canAccept: props.canAccept } : {}),
-      }}
+      drop={dropBag(props)}
       measure={measure}
     >
       {props.children}
@@ -553,13 +550,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         sort={props.sort}
         innerRef={ref}
         acceptsDrops={props.acceptsDrops}
-        drop={{
-          ...(props.stackOnDrop ? { stackOnDrop: props.stackOnDrop } : {}),
-          ...(props.splitOnDrop ? { splitOnDrop: props.splitOnDrop } : {}),
-          ...(props.dropIntent ? { dropIntent: props.dropIntent } : {}),
-          ...(props.canAccept ? { canAccept: props.canAccept } : {}),
-          hostsLayout: true,
-        }}
+        drop={dropBag(props, true)}
         measure={props.measure}
         joinArmedId={joinArmedId}
       >
