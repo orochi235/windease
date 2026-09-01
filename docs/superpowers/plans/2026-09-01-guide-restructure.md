@@ -280,10 +280,14 @@ budget for.
 
 ## Glossary
 
-Its own page, linked from every chapter's first use of a term. This library's
-difficulty is almost entirely vocabulary, and a term defined six chapters back
-is not available to someone who landed mid-guide from a search. It also carries
-§§1–7, which deliberately run ahead of the model in §8.
+Its own page, linked from every chapter's first use of a term. It exists for
+navigation, not because the terms are the hard part: readers arrive mid-guide
+from a search, and a term defined six chapters back is not available to them.
+It also carries §§1–7, which deliberately run ahead of the model in §8.
+
+Several terms are overloaded rather than merely unfamiliar, which is what makes
+a single lookup point worth having — `meta` means different things by scope,
+and `stack` has meant two different strategies.
 
 Entries: node, capability, container, membership, placement, hints, meta,
 activity, kind, pinned, locked, zone, group, panel, strategy, affordance, seam,
