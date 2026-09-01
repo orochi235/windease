@@ -390,7 +390,7 @@ export class DragEngine {
         trace('dnd', `checkAccept ${targetId}: REJECT (acceptPolicy said no)`);
         return false;
       }
-      if (verdict === undefined && strategy?.canAccept && !strategy.canAccept(items, options)) {
+      if (verdict !== true && strategy?.canAccept && !strategy.canAccept(items, options)) {
         trace(
           'dnd',
           `checkAccept ${targetId}: REJECT (strategy ${strategy.name}.canAccept said no for ${items.length} items)`,

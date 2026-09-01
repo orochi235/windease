@@ -146,8 +146,12 @@ export class Store {
   private locksSuspended = 0;
   private txnDepth = 0;
   private readonly successorPolicy: SuccessorPolicy | undefined;
-  /** The navigation policy this store was constructed with, read by
-   *  `resolveNavigation`. */
+  /**
+   * The navigation policy this store was constructed with, read by
+   * `resolveNavigation`.
+   *
+   * @internal
+   */
   readonly navigationPolicy: NavigationPolicy | undefined;
 
   constructor(options: StoreOptions = {}) {

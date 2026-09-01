@@ -124,13 +124,27 @@ describe('DragEngine — acceptPolicy', () => {
     expect(e.state()?.hover?.accepted).toBe(true);
   });
 
-  it('a policy that throws defers to the strategy instead of killing the drag', () => {
+  it('a policy that throws defers to the strategy, which refuses', () => {
+    const e = engineWith(fullStore(), {
+      acceptPolicy: () => {
+        throw new Error('boom');
+      },
+    });
+    expect(e.state()?.hover?.accepted).toBe(false);
+  });
+
+  it('a policy that throws defers to the strategy, which accepts', () => {
     const e = engineWith(openStore(), {
       acceptPolicy: () => {
         throw new Error('boom');
       },
     });
     expect(e.state()?.hover?.accepted).toBe(true);
+  });
+
+  it('an answer that is neither true nor false defers to the strategy', () => {
+    const e = engineWith(fullStore(), { acceptPolicy: () => 0 as never });
+    expect(e.state()?.hover?.accepted).toBe(false);
   });
 
   it('builds no prospective child list when nothing will read it', () => {

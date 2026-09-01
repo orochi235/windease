@@ -1,4 +1,5 @@
 import { type RefObject, useContext, useEffect } from 'react';
+import type { AcceptContext } from '../../dnd/DragEngine.js';
 import type { DropIntent, NodeId } from '../../index.js';
 import { DragContext } from './DragProvider.js';
 
@@ -6,6 +7,10 @@ export interface UseDropTargetOptions {
   /** Predicate to reject specific sources (e.g. forbid drops from outside a
    *  particular sub-tree). */
   canAccept?: (sourceId: NodeId) => boolean;
+  /** Whether this target takes the drop, from the prospective post-drop child
+   *  list. `true` accepts even where the strategy would refuse, `false`
+   *  refuses, `undefined` defers to it. */
+  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
   /** When false, skip registration. Useful for opt-in props on declarative
    *  presets where the hook must be called unconditionally to preserve hook
    *  order, but registration should depend on a runtime flag. Defaults to
@@ -39,7 +44,7 @@ export function useDropTarget(
     typeof canAcceptOrOptions === 'function'
       ? { canAccept: canAcceptOrOptions }
       : (canAcceptOrOptions ?? {});
-  const { canAccept, enabled, getDropIntent, getInsertionIndex } = opts;
+  const { acceptPolicy, canAccept, enabled, getDropIntent, getInsertionIndex } = opts;
   // Always read the controller via useContext (not useDragController) so that
   // trees without a <DragProvider> can still call this hook with
   // `enabled: false` (e.g. PresetShell's unconditional call). When enabled
@@ -58,12 +63,13 @@ export function useDropTarget(
       nodeId,
       el,
       canAccept,
-      getInsertionIndex || getDropIntent
+      acceptPolicy || getInsertionIndex || getDropIntent
         ? {
+            ...(acceptPolicy ? { acceptPolicy } : {}),
             ...(getInsertionIndex ? { getInsertionIndex } : {}),
             ...(getDropIntent ? { getDropIntent } : {}),
           }
         : undefined,
     );
-  }, [controller, nodeId, ref, enabled, canAccept, getInsertionIndex, getDropIntent]);
+  }, [controller, nodeId, ref, enabled, acceptPolicy, canAccept, getInsertionIndex, getDropIntent]);
 }

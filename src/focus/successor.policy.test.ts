@@ -37,10 +37,11 @@ describe('successor policy', () => {
     expect(s.focusedId).toBe(id('c'));
   });
 
-  it('null focuses nobody, deliberately', () => {
+  it('null focuses nobody, deliberately, and is not overridden by the unusable-answer guard', () => {
     const s = row(['a', 'b', 'c'], () => null);
     s.focusNode(id('b'));
     s.unregisterNode(id('b'));
+    expect(s.getNode(id('b'))).toBeUndefined();
     expect(s.focusedId).toBeNull();
   });
 
@@ -85,14 +86,6 @@ describe('successor policy', () => {
     s.unregisterNode(id('b'));
     expect(s.getNode(id('b'))).toBeUndefined();
     expect(s.focusedId).toBe(id('c'));
-  });
-
-  it('null is honored, not overridden by the unusable-answer guard', () => {
-    const s = row(['a', 'b', 'c'], () => null);
-    s.focusNode(id('b'));
-    s.unregisterNode(id('b'));
-    expect(s.getNode(id('b'))).toBeUndefined();
-    expect(s.focusedId).toBeNull();
   });
 
   it('the departing id itself falls through to the built-in', () => {
