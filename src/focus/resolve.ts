@@ -136,9 +136,9 @@ function builtinResolve({
  * `null` to refuse the move, or `undefined` to fall through to
  * `strategy.navigate` and then to geometry.
  *
- * A returned id must name a focusable, visible node — the built-in only ever
- * answers with one, and the React focus binding focuses whatever comes back.
- * Anything else is traced and treated as `undefined`.
+ * A returned id must name a focusable, visible node — the React focus binding
+ * focuses whatever comes back. Anything else is traced and treated as
+ * `undefined`.
  */
 export type NavigationPolicy = (input: ResolveInput) => NodeId | null | undefined;
 

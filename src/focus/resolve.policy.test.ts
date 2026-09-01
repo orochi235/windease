@@ -86,13 +86,15 @@ describe('resolveNavigation — consumer policy', () => {
     expect(depth).toBe(1);
   });
 
-  it('a policy that throws falls through to the built-in', () => {
+  it('the flag resets after a policy throws, so the next call is consulted', () => {
+    let calls = 0;
     const { store, geometry } = scene(() => {
-      throw new Error('boom');
+      calls++;
+      if (calls === 1) throw new Error('boom');
+      return id('c');
     });
     expect(resolveNavigation({ store, from: id('a'), intent: 'right', geometry })).toBe(id('b'));
-    // A second call must consult the policy again, not silently skip it.
-    expect(resolveNavigation({ store, from: id('a'), intent: 'right', geometry })).toBe(id('b'));
+    expect(resolveNavigation({ store, from: id('a'), intent: 'right', geometry })).toBe(id('c'));
   });
 
   it('an id for a node that does not exist falls through to the built-in', () => {
