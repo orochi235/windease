@@ -2,7 +2,9 @@ import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { LayoutItem, LayoutStrategy, Rect } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
+import { trace } from '../trace.js';
 import { navigableLeaves } from './navigable.js';
+import { isFocusable } from './successor.js';
 import type { GeometrySource, NavDirection, NavIntent } from './types.js';
 
 export interface ResolveInput {
@@ -74,7 +76,7 @@ function siblingsOf(store: Store, from: NodeId, geometry: GeometrySource): NodeI
     .filter((cid) => navigable.has(cid));
 }
 
-export function resolveNavigation({
+function builtinResolve({
   store,
   from,
   intent,
@@ -127,4 +129,41 @@ export function resolveNavigation({
     default:
       return null;
   }
+}
+
+/**
+ * Replaces the built-in navigation resolution. Return an id to choose it,
+ * `null` to refuse the move, or `undefined` to fall through to
+ * `strategy.navigate` and then to geometry.
+ *
+ * A returned id must name a focusable, visible node — the built-in only ever
+ * answers with one, and the React focus binding focuses whatever comes back.
+ * Anything else is traced and treated as `undefined`.
+ */
+export type NavigationPolicy = (input: ResolveInput) => NodeId | null | undefined;
+
+/** A policy that calls back into `resolveNavigation` would otherwise recurse
+ *  forever; the re-entrant call answers from the built-in instead. */
+let consultingPolicy = false;
+
+export function resolveNavigation(input: ResolveInput): NodeId | null {
+  if (consultingPolicy) return builtinResolve(input);
+  const policy = input.store.navigationPolicy;
+  if (!policy) return builtinResolve(input);
+  let chosen: NodeId | null | undefined;
+  consultingPolicy = true;
+  try {
+    chosen = policy(input);
+  } catch (err) {
+    trace('workspace', `navigation policy threw, using built-in: ${err}`);
+    chosen = undefined;
+  } finally {
+    consultingPolicy = false;
+  }
+  if (chosen && !isFocusable(input.store, chosen)) {
+    trace('workspace', `navigation policy returned unusable ${chosen}, using built-in`);
+    chosen = undefined;
+  }
+  if (chosen !== undefined) return chosen;
+  return builtinResolve(input);
 }

@@ -7,6 +7,7 @@
  */
 
 import { InvalidThrottlePolicyError } from './errors.js';
+import type { NavigationPolicy } from './focus/resolve.js';
 import type { SuccessorPolicy } from './focus/successor.js';
 import type { Node, NodeId } from './node.js';
 import { trace } from './trace.js';
@@ -114,6 +115,8 @@ export interface StoreOptions {
   clock?: Clock;
   /** Replaces the built-in focus-successor rule. See {@link SuccessorPolicy}. */
   chooseSuccessor?: SuccessorPolicy;
+  /** Replaces the built-in navigation resolution. See {@link NavigationPolicy}. */
+  resolveNavigation?: NavigationPolicy;
 }
 
 /**

@@ -9,6 +9,7 @@ import {
   PinIndexError,
 } from './errors.js';
 import { TypedEmitter } from './events.js';
+import type { NavigationPolicy } from './focus/resolve.js';
 import { chooseSuccessor, isFocusable, type SuccessorPolicy } from './focus/successor.js';
 import { destroyBlockedBy, type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeHints, NodeId } from './node.js';
@@ -145,9 +146,13 @@ export class Store {
   private locksSuspended = 0;
   private txnDepth = 0;
   private readonly successorPolicy: SuccessorPolicy | undefined;
+  /** The navigation policy this store was constructed with, read by
+   *  `resolveNavigation`. */
+  readonly navigationPolicy: NavigationPolicy | undefined;
 
   constructor(options: StoreOptions = {}) {
     this.successorPolicy = options.chooseSuccessor;
+    this.navigationPolicy = options.resolveNavigation;
     this.publisher = new Publisher({
       truth: this.nodesMap,
       policy: options.throttle,

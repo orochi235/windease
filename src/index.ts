@@ -56,7 +56,11 @@ export { bindAnnouncer } from './focus/announcer.js';
 export { accessibleName } from './focus/name.js';
 export { navigableLeaves } from './focus/navigable.js';
 export { nullFocusAdapter } from './focus/nullAdapter.js';
-export { type ResolveInput, resolveNavigation } from './focus/resolve.js';
+export {
+  type NavigationPolicy,
+  type ResolveInput,
+  resolveNavigation,
+} from './focus/resolve.js';
 export {
   chooseSuccessor,
   type SuccessorInput,
