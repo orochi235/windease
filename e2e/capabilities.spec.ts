@@ -105,10 +105,10 @@ test.describe('grid overflowMode', () => {
     await expect.poll(async () => (await gridBox(page)).h).toBeGreaterThan(squeezed);
   });
 
-  test('unplace drops the cells that do not fit', async ({ page }) => {
+  test('unplaced drops the cells that do not fit', async ({ page }) => {
     await openStory(page, STORY);
     const all = await page.locator('.cap-pane').count();
-    await page.locator('[data-testid="mode-unplace"]').check();
+    await page.locator('[data-testid="mode-unplaced"]').check();
     await expect.poll(() => page.locator('.cap-pane').count()).toBeLessThan(all);
   });
 });

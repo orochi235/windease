@@ -108,6 +108,14 @@ section below.
   over a populated member table, because the TSDoc sat on the members rather
   than the declaration. No API changed.
 
+- **`overflowMode: 'unplace'` is now `'unplaced'`.** Breaking, on both
+  `stripStrategy` and `gridStrategy`. The mode populates `LayoutResult.unplaced`
+  and every trace and doc calls the result "unplaced", so the config value now
+  matches the thing it produces. `'unplace'` was also a coined verb — English
+  does not unplace anything — where `unplaced` is an ordinary adjective.
+  `configSpec` rejects the old value, so a stale config surfaces as a `layout`
+  trace rather than silently falling back to `'squeeze'`.
+
 ### Fixed
 
 - **`updateContainerConfig` no longer republishes a patch that changed

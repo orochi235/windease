@@ -91,22 +91,22 @@ describe('strip overflowMode', () => {
     });
   });
 
-  describe('unplace', () => {
+  describe('unplaced', () => {
     it('drops the panes that do not fit rather than shrinking any of them', () => {
-      const r = run(asking(150), { axis: 'y', overflowMode: 'unplace' });
+      const r = run(asking(150), { axis: 'y', overflowMode: 'unplaced' });
       expect(heights(r)).toEqual([150, 150]);
       expect(r.unplaced).toEqual(['p3']);
     });
 
     it('keeps the panes it placed at their asked extent', () => {
-      const r = run(asking(150), { axis: 'y', overflowMode: 'unplace' });
+      const r = run(asking(150), { axis: 'y', overflowMode: 'unplaced' });
       expect(r.overflow).toBeUndefined();
     });
 
     it('counts gap and padding against the budget', () => {
       // 2 panes of 150 plus one 10px gap and 2*5 padding is 320; a third would
       // need another 160 and the container holds 400.
-      const r = run(asking(150), { axis: 'y', overflowMode: 'unplace', gap: 10, padding: 5 });
+      const r = run(asking(150), { axis: 'y', overflowMode: 'unplaced', gap: 10, padding: 5 });
       expect(r.unplaced).toEqual(['p3']);
     });
 
@@ -114,19 +114,19 @@ describe('strip overflowMode', () => {
       // Placing nothing renders an empty container and hides the problem. The
       // one pane that must be placed is clamped rather than overflowed, so the
       // mode keeps its promise that `unplace` never reports overflow.
-      const r = run(asking(900, 2), { axis: 'y', overflowMode: 'unplace' });
+      const r = run(asking(900, 2), { axis: 'y', overflowMode: 'unplaced' });
       expect(heights(r)).toEqual([400]);
       expect(r.unplaced).toEqual(['p2']);
       expect(r.overflow).toBeUndefined();
     });
 
     it('composes with the count cap rather than replacing it', () => {
-      const r = run(asking(50, 4), { axis: 'y', overflowMode: 'unplace', maxItems: 2 });
+      const r = run(asking(50, 4), { axis: 'y', overflowMode: 'unplaced', maxItems: 2 });
       expect(r.unplaced).toEqual(['p3', 'p4']);
     });
 
     it('unplaces nothing when everything fits', () => {
-      const r = run(asking(100), { axis: 'y', overflowMode: 'unplace' });
+      const r = run(asking(100), { axis: 'y', overflowMode: 'unplaced' });
       expect(heights(r)).toEqual([100, 100, 100]);
       expect(r.unplaced).toBeUndefined();
     });
@@ -134,7 +134,7 @@ describe('strip overflowMode', () => {
 
   describe('affordances agree with the placements', () => {
     it('emits no seam for a pane the size policy unplaced', () => {
-      const r = run(asking(150), { axis: 'y', overflowMode: 'unplace', resizable: true });
+      const r = run(asking(150), { axis: 'y', overflowMode: 'unplaced', resizable: true });
       const ids = r.affordances.map((a) => a.childId);
       expect(ids).not.toContain('p3');
     });

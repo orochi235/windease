@@ -389,7 +389,7 @@ be careful with the other one. A measurement is a stated size, so under
 below what it measured and `overflow` stays absent, because nothing bound.
 Under `scroll` each pane holds at its measurement.
 
-`'unplace'` places what fits at full extent and routes the rest to
+`'unplaced'` places what fits at full extent and routes the rest to
 `LayoutResult.unplaced`, which is also where `maxItems` sends items over its
 count cap — the two compose. When even the first pane doesn't fit it is placed
 anyway, clamped to the container, so an overflowing dock never renders empty.
@@ -398,9 +398,9 @@ anyway, clamped to the container, so an overflowing dock never renders empty.
 them. A grid derives its cells from the container, so it can always divide the
 space and only overflows once an item states a `hints.minSize` floor. Under
 `'squeeze'` the floors are ignored, as they always were; under `'scroll'` the
-cells hold at their floor and the excess is reported; under `'unplace'` the
+cells hold at their floor and the excess is reported; under `'unplaced'` the
 rows that fit are kept and the rest go to `unplaced`. A container too narrow
-for the floors reports width `overflow` under `'unplace'` too, since dropping
+for the floors reports width `overflow` under `'unplaced'` too, since dropping
 rows cannot widen a cell.
 
 `overflow` is reported per axis and absent when the content fits, so a consumer
@@ -1125,6 +1125,19 @@ placement travels with it. Focus does not move — call `focusNode` yourself if
 the arriving subtree should take it.
 
 ## Breaking changes
+
+### Unreleased — `overflowMode: 'unplace'` renamed to `'unplaced'`
+
+Breaking, on `stripStrategy` and `gridStrategy`. Rename the config value:
+
+```diff
+- config={{ overflowMode: 'unplace' }}
++ config={{ overflowMode: 'unplaced' }}
+```
+
+The mode fills `LayoutResult.unplaced`, so the value now matches the field it
+produces. `configSpec` rejects the old spelling, which surfaces as a `layout`
+trace rather than a silent fallback to `'squeeze'`.
 
 ### Unreleased — a split drop previews as a layout
 

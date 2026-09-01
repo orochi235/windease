@@ -72,10 +72,10 @@ interface StripConfig {
    * whole excess as `overflow`, for a host that sizes a scrolling box to it.
    * A measured pane holds at its measurement rather than shrinking below it.
    *
-   * `'unplace'` places what fits at full extent and sends the rest to
+   * `'unplaced'` places what fits at full extent and sends the rest to
    * `unplaced`. Composes with `maxItems`, which caps by count instead.
    */
-  overflowMode?: 'squeeze' | 'scroll' | 'unplace';
+  overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
 }
 
 function explicitAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
@@ -268,7 +268,7 @@ function intrinsicAxis(item: LayoutItem, axis: 'x' | 'y'): number {
 
 /** Capacity-selected subset both `layout` and `dispatchAffordance` must agree
  *  on — the two drifting apart is the whole class of bug this closes. So the
- *  size budget under `overflowMode: 'unplace'` is resolved here too, not at
+ *  size budget under `overflowMode: 'unplaced'` is resolved here too, not at
  *  the one call site that happens to need it. */
 function placedOf(
   items: LayoutItem[],
@@ -278,7 +278,7 @@ function placedOf(
 ): { placed: LayoutItem[]; unplaced: string[] } {
   const cap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
   const byCount = selectByCapacity(items, Math.min(items.length, cap));
-  if (cfg.overflowMode !== 'unplace') return byCount;
+  if (cfg.overflowMode !== 'unplaced') return byCount;
 
   const gap = cfg.gap ?? 0;
   const padding = cfg.padding ?? 0;
@@ -322,7 +322,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     joinOnOvershoot: 'boolean',
     joinThreshold: 'number',
     maxItems: 'number',
-    overflowMode: ['squeeze', 'scroll', 'unplace'],
+    overflowMode: ['squeeze', 'scroll', 'unplaced'],
   },
   canAccept(items, options): boolean {
     const cap = (options as StripConfig).maxItems;

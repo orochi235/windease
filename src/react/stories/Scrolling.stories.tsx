@@ -205,7 +205,7 @@ export const DragToTheEdgeToScroll: Story = () => {
   );
 };
 
-const MODES = ['squeeze', 'scroll', 'unplace'] as const;
+const MODES = ['squeeze', 'scroll', 'unplaced'] as const;
 
 function makeGrid(): Store {
   const s = new Store();

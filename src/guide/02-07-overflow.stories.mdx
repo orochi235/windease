@@ -23,7 +23,7 @@ so all you supply is a wrapper that scrolls:
   <Zone strategyId="strip" config={{ axis: 'y', overflowMode: 'scroll' }}>
 ```
 
-**`'unplace'`** places what fits at full extent and routes the rest to
+**`'unplaced'`** places what fits at full extent and routes the rest to
 `unplaced` — the same place `maxItems` sends items over its cap, so the two
 compose. When even the first pane does not fit it is placed anyway, clamped, so
 an overflowing dock never renders empty.
@@ -40,7 +40,7 @@ each pane holds at its measurement.
 ## Grid differs in what triggers it
 
 A grid derives cells from the container, so it can always divide the space and
-only overflows once an item states a `minSize` floor. Under `'unplace'` a
+only overflows once an item states a `minSize` floor. Under `'unplaced'` a
 container too narrow for the floors reports width overflow too — dropping rows
 cannot widen a cell.
 

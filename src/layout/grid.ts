@@ -60,12 +60,12 @@ interface GridConfig {
    * `'scroll'` lays the cells out at their floors and reports the excess as
    * `overflow`, for a host that sizes a scrolling box to it.
    *
-   * `'unplace'` keeps the rows that fit at the floors and sends the rest to
+   * `'unplaced'` keeps the rows that fit at the floors and sends the rest to
    * `unplaced`, composing with the count caps above. A container too narrow
    * for the floors still reports width `overflow`, since dropping rows cannot
    * widen a cell.
    */
-  overflowMode?: 'squeeze' | 'scroll' | 'unplace';
+  overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
 }
 
 /** cols/rowCap resolution shared by `canAccept`/`getDropPreview`. Unlike
@@ -389,7 +389,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     gap: 'number',
     padding: 'number',
     resizable: 'boolean',
-    overflowMode: ['squeeze', 'scroll', 'unplace'],
+    overflowMode: ['squeeze', 'scroll', 'unplaced'],
   },
   configConflicts: [
     { kind: 'exclusive', keys: ['maxItems', 'maxCols', 'maxRows'] },
@@ -468,7 +468,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     let rowsUsed = rows;
     let cellH = heightFor(rowsUsed);
 
-    if (mode === 'unplace' && cellH * rowsUsed + gap * (rowsUsed - 1) > usableH) {
+    if (mode === 'unplaced' && cellH * rowsUsed + gap * (rowsUsed - 1) > usableH) {
       // The first row is placed even when it does not fit, so an overflowing
       // grid never renders empty — same rule strip follows.
       rowsUsed = Math.max(1, Math.floor((usableH + gap) / (heightFor(1) + gap)));

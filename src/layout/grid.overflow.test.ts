@@ -38,25 +38,25 @@ describe('gridStrategy — overflowMode', () => {
   });
 
   it('unplace keeps the rows that fit and sends the rest away', () => {
-    const out = run(items(2, { w: 0, h: 80 }), { cols: 1, overflowMode: 'unplace' });
+    const out = run(items(2, { w: 0, h: 80 }), { cols: 1, overflowMode: 'unplaced' });
     expect(out.unplaced).toEqual(['p1']);
     expect(out.placements.has('p0')).toBe(true);
     expect(out.overflow).toBeUndefined();
   });
 
   it('unplace places the first row even when it does not fit', () => {
-    const out = run(items(3, { w: 0, h: 500 }), { cols: 1, overflowMode: 'unplace' });
+    const out = run(items(3, { w: 0, h: 500 }), { cols: 1, overflowMode: 'unplaced' });
     expect(out.placements.has('p0')).toBe(true);
     expect(out.unplaced).toEqual(['p1', 'p2']);
   });
 
   it('unplace still reports width overflow, which dropping rows cannot fix', () => {
-    const out = run(items(2, { w: 80, h: 0 }), { cols: 2, overflowMode: 'unplace' });
+    const out = run(items(2, { w: 80, h: 0 }), { cols: 2, overflowMode: 'unplaced' });
     expect(out.overflow?.w).toBe(60);
   });
 
   it('reports nothing when no item states a floor', () => {
-    for (const overflowMode of ['squeeze', 'scroll', 'unplace']) {
+    for (const overflowMode of ['squeeze', 'scroll', 'unplaced']) {
       expect(run(items(4), { cols: 2, overflowMode }).overflow).toBeUndefined();
     }
   });
@@ -71,7 +71,7 @@ describe('gridStrategy — overflowMode', () => {
     const out = run(items(4, { w: 0, h: 80 }), {
       cols: 1,
       maxItems: 2,
-      overflowMode: 'unplace',
+      overflowMode: 'unplaced',
     });
     expect(out.unplaced).toContain('p2');
     expect(out.unplaced).toContain('p3');
