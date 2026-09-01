@@ -36,6 +36,15 @@ export interface DragState {
   } | null;
 }
 
+/** What a drop target's `acceptPolicy` is asked about: the child list the
+ *  container would have after the drop, exactly as `strategy.canAccept` sees
+ *  it, plus who is being dropped. */
+export interface AcceptContext {
+  items: { id: NodeId }[];
+  options: Record<string, unknown>;
+  sourceId: NodeId;
+}
+
 /**
  * A registered drop target, as data. The host supplies geometry; the engine
  * never measures. `bounds` and `depth` are read once per hover sample, so keep
@@ -48,7 +57,14 @@ export interface DropTarget {
   /** Innermost-wins tiebreak between overlapping targets: the largest depth
    *  claims the hover. Absent counts as 0. */
   depth?(): number;
+  /**
+   * @deprecated Removed at 2.0.0. Use `acceptPolicy`, which can widen a
+   * strategy's answer as well as narrow it.
+   */
   canAccept?(sourceId: NodeId): boolean;
+  /** Replaces `strategy.canAccept` for this target. `true` accepts even where
+   *  the strategy would refuse, `false` refuses, `undefined` defers to it. */
+  acceptPolicy?(ctx: AcceptContext): boolean | undefined;
   getInsertionIndex?(point: Point): number | undefined;
   /** What kind of drop the cursor is asking for. Takes precedence over
    *  `getInsertionIndex`, which stays for targets that answer only "which
@@ -344,29 +360,47 @@ export class DragEngine {
       return false;
     }
 
-    // Strategy-level constraint: e.g. a strategy refusing anything but 2 items.
-    if (targetNode?.container && this.getStrategy) {
-      const strategy = this.getStrategy(targetNode.container.strategyId);
-      if (strategy?.canAccept) {
-        const current = this.store
-          .getChildren(targetId)
-          .filter((c) => c.lifecycle.state !== 'destroyed');
-        const alreadyChild = current.some((c) => c.id === draggingId);
-        const items = alreadyChild
-          ? current.map((c) => ({ id: c.id }))
-          : [...current.map((c) => ({ id: c.id })), { id: draggingId }];
-        const options = (targetNode.container.config ?? {}) as Record<string, unknown>;
-        if (!strategy.canAccept(items, options)) {
-          trace(
-            'dnd',
-            `checkAccept ${targetId}: REJECT (strategy ${strategy.name}.canAccept said no for ${items.length} items)`,
-          );
-          return false;
-        }
+    const target = this.dropTargets.get(targetId);
+    const container = targetNode?.container;
+    const strategy =
+      container && this.getStrategy ? this.getStrategy(container.strategyId) : undefined;
+
+    // Building the prospective child list is O(children) on the pointermove
+    // path, so only pay for it when something will actually read it.
+    if (target?.acceptPolicy || strategy?.canAccept) {
+      const current = this.store
+        .getChildren(targetId)
+        .filter((c) => c.lifecycle.state !== 'destroyed');
+      const alreadyChild = current.some((c) => c.id === draggingId);
+      const items = alreadyChild
+        ? current.map((c) => ({ id: c.id }))
+        : [...current.map((c) => ({ id: c.id })), { id: draggingId }];
+      const options = (container?.config ?? {}) as Record<string, unknown>;
+
+      let verdict: boolean | undefined;
+      try {
+        verdict = target?.acceptPolicy?.({ items, options, sourceId: draggingId });
+      } catch (err) {
+        // A policy that throws must not kill the drag; the strategy decides.
+        trace('dnd', `checkAccept ${targetId}: acceptPolicy threw, deferring: ${err}`);
+        verdict = undefined;
+      }
+      if (verdict === false) {
+        trace('dnd', `checkAccept ${targetId}: REJECT (acceptPolicy said no)`);
+        return false;
+      }
+      if (verdict === undefined && strategy?.canAccept && !strategy.canAccept(items, options)) {
+        trace(
+          'dnd',
+          `checkAccept ${targetId}: REJECT (strategy ${strategy.name}.canAccept said no for ${items.length} items)`,
+        );
+        return false;
+      }
+      if (verdict === true && strategy?.canAccept) {
+        trace('dnd', `checkAccept ${targetId}: acceptPolicy overrode ${strategy.name}.canAccept`);
       }
     }
 
-    const target = this.dropTargets.get(targetId);
     if (target?.canAccept && !target.canAccept(draggingId)) {
       trace('dnd', `checkAccept ${targetId}: REJECT (consumer canAccept said no)`);
       return false;

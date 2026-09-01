@@ -21,6 +21,7 @@ export {
   type StrategyLookup,
 } from './dnd/DragController.js';
 export {
+  type AcceptContext,
   DragEngine,
   type DragEngineOptions,
   type DropTarget,
