@@ -1,0 +1,39 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/9 History and persistence/9.3 Hydrating in place" />
+
+# Hydrating in place
+
+```ts
+deserialize(snap);          // builds a brand-new Store
+deserialize(store, snap);   // repopulates the one you have
+```
+
+The two-argument form exists because the one-argument form has two costs that
+are easy to miss.
+
+**It builds a store with default options.** Whatever `throttle` policy, `clock`,
+or replaceable policies you configured are gone — the new store has none of them.
+
+**It leaves existing subscribers pointed at the old instance.** Every
+`store.subscribe`, every React `Provider` holding it, every `store.on` listener
+is still attached to a store nobody is mutating any more. The UI simply stops
+updating, which reads as a hang rather than as an error.
+
+So for a load into a running app, pass the store:
+
+```ts
+deserialize(store, snap);
+```
+
+It clears the target in place before repopulating, emitting `node.unregistered`
+and `node.cascadeDestroyed` for whatever was there before the snapshot lands. A
+host maintaining its own index of nodes gets the removals it needs.
+
+The one-argument form is genuinely fine for a one-shot load at startup, before
+anything has subscribed and before you have configured anything. That is the case
+it is for.
+
+`<Provider store={store}>` captures the store on first render and never swaps it,
+so hydrating in place is also how you load into a mounted tree without a
+remount.

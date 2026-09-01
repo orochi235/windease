@@ -1,0 +1,68 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/9 History and persistence/9.1 The store" />
+
+# The store
+
+The store holds every node, enforces the structural invariants, and tells
+subscribers when something changed.
+
+```ts
+const store = new Store();
+const stop = store.subscribe(() => rerender());
+```
+
+## Record replacement
+
+**Every mutation produces a fresh `Node` reference.** Nothing is edited in place,
+so `useSyncExternalStore` invalidates correctly by default and a memo keyed on a
+node is correct without a deep compare.
+
+The consequence: never hold a `Node` across a mutation. Hold the `NodeId` and
+re-read.
+
+## What it enforces
+
+Structure only — no cycles, one focused node, `parentId` must name a container,
+bidirectional links stay consistent. It never relates `kind` to capabilities.
+
+Violations throw a typed error carrying a `code`
+([10.5](/?story=guide--10-performance-and-diagnosis--10-5-errors-and-their-codes)).
+
+## Reading
+
+```ts
+store.getNode(id);
+store.getChildren(parentId);
+store.getParent(id);
+store.getAncestors(id);
+store.isContainer(id);
+store.canFocus(id);
+```
+
+**React**
+
+```tsx
+const node = useNode(id);
+const children = useChildren(parentId);
+const focused = useFocusedNode();
+const roots = useRootNodes();
+```
+
+`useNodeSelector(id, select)` narrows — but `select` runs on every notification,
+so it must be cheap and must return a stable value for unchanged input.
+Returning a fresh object re-renders on every mutation anywhere in the tree.
+
+## `transact` does not roll back
+
+```ts
+store.transact(() => {
+  store.setMeta(id, { … });
+  store.patchPlacement(id, { … });
+}, 'collapse');
+```
+
+It groups mutations into one history step. **A callback that throws partway
+leaves every mutation it already made.** So a multi-step operation validates
+fully before opening the transaction rather than relying on an inner call to
+throw — which is exactly what `stackNodes` and `splitInto` do.

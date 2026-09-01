@@ -1,0 +1,57 @@
+import { Meta } from '@ladle/react';
+import { Bounce, ColdStartFlood } from '../react/stories/Throttling.stories.tsx';
+
+<Meta title="Guide/10 Performance and diagnosis/10.2 Throttling" />
+
+# Throttling
+
+For a store driven from a live event stream. All of it is opt-in — omit
+`throttle` and the store behaves exactly as it always has.
+
+```ts
+const store = new Store({
+  throttle: {
+    notifyMs: 32,                  // coalesce bursts into one flush
+    dwell: { lifecycle: 150 },     // min quiet time before a state publishes
+    stagger: { batch: 8, ms: 40 }, // publish mass transitions in waves
+  },
+});
+```
+
+## The three knobs do different jobs
+
+**`notifyMs`** coalesces bursts into one flush per window. A frame budget.
+
+**`dwell`** is a *debounce, not a leading-edge throttle*: a node publishes once it
+has been quiet for `dwellMs`, or when `maxWaitMs` has elapsed since it first went
+dirty — the starvation cap that stops a permanently-noisy node from never
+updating. Defaults to 4× the largest configured dwell.
+
+Only an FSM transition on a configured machine starts or restarts a dwell.
+Ordinary field writes — activity, placement, meta — never gate on it.
+
+<Bounce />
+
+**`stagger`** publishes at most `batch` newly-eligible nodes per `ms`-spaced
+wave, oldest-dirty-first. A mass transition animates in deterministic batches
+instead of all at once.
+
+<ColdStartFlood />
+
+## It validates at construction
+
+A negative or `NaN` `notifyMs` / `dwell` / `maxWaitMs`, a `stagger.batch` below
+1, or a negative `stagger.ms` throws `InvalidThrottlePolicyError` **when the
+store is constructed**, not on the first publish.
+
+`notifyMs: 0` and `maxWaitMs: 0` are legal, meaningful values — a real zero-delay
+timer, distinct from omitting the field.
+
+## Supply your own clock
+
+```ts
+new Store({ throttle, clock: fakeClock });
+```
+
+`systemClock` is the default. A fake one makes throttling deterministic in tests
+rather than a sleep.

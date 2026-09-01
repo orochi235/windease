@@ -1,0 +1,49 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/10 Performance and diagnosis/10.3 Why has this not appeared yet" />
+
+# Why has this not appeared yet?
+
+`store.getPending(id)` answers it.
+
+```ts
+const pending = store.getPending(nodeId);
+// null when nothing is withheld — always null on a store with no throttle policy
+if (pending) {
+  const { since, touched, dwellMs, machine, bypass, coalesced, eligibleAt } = pending;
+}
+```
+
+Two fields are easy to misread:
+
+**`eligibleAt` is when the gate opens, not when the node publishes.** `notifyMs`
+coalescing and stagger waves can both defer the real flush past it.
+
+**`coalesced` counts internal dirty-marks, not store operations.** It is a churn
+indicator, not a change tally.
+
+## The paired events
+
+```ts
+store.events.on('throttle.pending', ({ id, since }) => { … });
+store.events.on('throttle.published', ({ id, heldMs, coalesced, forced }) => { … });
+```
+
+`throttle.pending` fires when a node first goes dirty, *before* the dwell gate
+has settled — so it carries no `dwellMs` / `eligibleAt`. Read `getPending` for
+those.
+
+**Exactly one `throttle.published` follows each `throttle.pending` for the same
+id**, including a node unregistered while pending or dropped by `deserialize`.
+So a consumer maintaining a `Set<NodeId>` of withheld nodes is correct at every
+point, not merely balanced at the end. That guarantee is the reason to use the
+events rather than polling.
+
+## Or just look
+
+```sh
+WINDEASE_TRACE=throttle npm test
+```
+
+Prints the publish decisions as they are made, which is usually faster than
+instrumenting.

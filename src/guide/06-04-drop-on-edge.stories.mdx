@@ -1,0 +1,63 @@
+import { Meta } from '@ladle/react';
+import { SplitOnDrop } from '../react/stories/DropOnEdge.stories.tsx';
+
+<Meta title="Guide/6 Drag and drop/6.4 Drop on edge" />
+
+# Drop on edge
+
+With `splitOnDrop`, a drop near a pane's cross-axis edge splits that pane: its
+slot becomes a two-pane strip holding it and the pane you dropped, with the
+dropped one first for a `'start'` edge.
+
+In a horizontal row that means the top and bottom edges split; left and right
+keep inserting, which is the same visual result one axis over.
+
+<SplitOnDrop />
+
+**React**
+
+```tsx
+<Container splitOnDrop />
+<DragProvider splitConfig={{ gap: 6 }}>
+```
+
+**Core**
+
+```ts
+store.splitInto(sourceId, ontoId, { id: stripId, axis: 'y', edge: 'start' });
+```
+
+One undo step. The new strip takes the onto-pane's slot, inheriting its placement
+and its pin, and **both children lose any `placement.size` they carried** — each
+was measured against the parent they left. It carries `autoUnsplit`, so dragging
+either pane back out dissolves the pair.
+
+The seam between the two is draggable with no configuration.
+
+## The preview
+
+A prospective split lays the destination out as if you had already released: the
+pane under the cursor shrinks to the half it will get, the dragged pane's rect
+fills the other, and a `div.windease-split-preview` marks that half.
+
+```tsx
+<Container splitOnDrop splitPreview="layout" />   // default
+<Container splitOnDrop splitPreview="element" />  // shade only, pane stays put
+<Container splitOnDrop splitPreview="none" />     // draw your own
+```
+
+Both halves come from running the strategy the new strip will actually be created
+with — `splitConfig` included — so what you aim at is what you get.
+
+`splitOnDrop` and `stackOnDrop` are independent. Split on, stack off: edges
+split, everything else inserts — what a consumer without tabs wants.
+
+## The preset limitation
+
+`<Zone>` and `<Panel container>` take the same props gated by `acceptsDrops`, and
+run the same hit-test. What they do not draw is the split preview — that is a
+`<Container>` render.
+
+And a pane a preset *declares in JSX* cannot be re-parented by a drop at all. Use
+`renderImperative`; see
+[3.3](/?story=guide--3-building-the-tree--3-3-mixed-provenance).

@@ -1,0 +1,109 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/11 Glossary/Glossary" />
+
+# Glossary
+
+Terms in the order they make sense, not alphabetically — but each is
+self-contained, because most readers arrive here from a link mid-chapter.
+
+## The model
+
+**Node** — the single shape everything in the tree takes. Carries `lifecycle`
+plus any combination of three optional capabilities. There is no window type and
+no zone type.
+
+**Capability** — an optional field that grants a node an ability: `container`,
+`membership`, `focus`. Fixed at `createNode` and never changed after.
+
+**`container`** — "can I have children?" Holds `childOrder`, `strategyId` and
+`config`.
+
+**`membership`** — "do I have a parent?" Holds `parentId`, `placement` and the
+transit machine. **The opposite question from `container`**, which is the single
+most common source of confusion here.
+
+**Zone** — a container with no membership: children, no parent. A root.
+
+**Panel** — the childless one: membership, no container.
+
+**Group** — both. `<Zone parentId kind="group">` is how you write one; there is
+no `<Group>` component.
+
+**`kind`** — a free-form label. The core stores it and never reads it; React
+dispatches chrome on it. **Not a type.**
+
+## State
+
+**`meta`** — node-intrinsic free-form data. Survives `moveNode`.
+
+**`placement`** — per-membership free-form data. **Cleared on detach.** This is
+the overload to watch: `node.meta` and `membership.placement` are both "meta" in
+spirit and have opposite lifetimes.
+
+**`hints`** — layout-only soft preferences: `minSize`, `maxSize`,
+`preferredSize`, `sizing`, `order`, `render`.
+
+**`activity`** — high-frequency signals a strategy reads, kept out of `meta` so
+it does not churn it.
+
+**`pinned`** — a reserved `placement` key: the index a child holds in its
+parent's `childOrder` against third parties.
+
+**`locked`** — a `lock` axis. **Not `pinned`.** `pinned` answers *where does this
+node end up?*; `lock` answers *who may operate on it?* A node can be either,
+both, or neither.
+
+**Truth vs published** — the real current state versus what subscribers have been
+shown. Identical unless a throttle policy is configured.
+
+## Layout
+
+**Strategy** — a pure function from `{ items, container, state, options }` to a
+`LayoutResult`. Never touches the DOM, never measures.
+
+**`stackStrategy`** — the *tabbed* strategy: one child visible, the rest
+withheld. **Not the axis-stacking strategy removed in 0.9.0**, whose replacement
+is `stripStrategy` with `{ axis: 'y', fill: true }`. The name was reused.
+
+**Affordance** — an interactive region a strategy emits alongside its placements:
+a resize edge, a gutter, a click target. Described in layout coordinates; the
+host renders and binds it.
+
+**Seam** — the affordance between two panes. **Gutter** is the same thing in
+strip's vocabulary.
+
+**Join** — a seam gesture that ends in destroying a pane rather than clamping.
+
+**`unplaced`** — items the strategy declined to place. Not an error; render them
+in a tray or hide them.
+
+**Overflow** — how far placed content exceeds the container, per axis. Distinct
+from `unplaced`, which is capacity by *count*.
+
+## Interaction
+
+**Drop intent** — what a drop is asking for: `insert`, `stack` or `split`.
+
+**Chrome** — the consumer's rendering for one node, keyed by `kind`.
+
+**Provenance** — whether a node was created by JSX or registered on the store.
+Determines whether a preset will render it, and whether a drop can reparent it.
+
+**Policy** — a replaceable decision with a tri-state contract: a value to choose,
+a deliberate negative to refuse, `undefined` to defer. Three exist:
+`acceptPolicy`, `chooseSuccessor`, `resolveNavigation`.
+
+**`acceptsDrops`** — a React prop registering an element as a drop target at all.
+**Not `lock.accept`**, which refuses drops, and not a policy. Three different
+things that all sound like drop permission.
+
+## Persistence
+
+**Snapshot** — the JSON-safe form of a store or a subtree. Excludes destroyed
+nodes, transit state and `lastFocusedId`.
+
+**Graft** — attaching a subtree snapshot under a parent in some store. Ids must
+not collide; nothing is remapped.
+
+**`transact`** — groups mutations into one history step. **Does not roll back.**

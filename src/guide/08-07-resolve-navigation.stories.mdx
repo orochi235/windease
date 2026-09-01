@@ -1,0 +1,52 @@
+import { Meta } from '@ladle/react';
+import { WrappingAtTheEnds } from '../react/stories/NavigationPolicy.stories.tsx';
+
+<Meta title="Guide/8 Customization/8.7 resolveNavigation" />
+
+# `resolveNavigation`
+
+Replaces how a direction or intent resolves to a node. Asked **first** — ahead of
+`strategy.navigate` and the geometric search.
+
+```ts
+const store = new Store({
+  resolveNavigation: (input) => {
+    if (input.intent === 'up' || input.intent === 'down') return null;
+    if (input.intent !== 'left' && input.intent !== 'right') return undefined;
+    const at = ORDER.indexOf(input.from);
+    if (at < 0) return undefined;
+    return ORDER[(at + (input.intent === 'right' ? 1 : -1) + ORDER.length) % ORDER.length];
+  },
+});
+```
+
+It receives the whole `ResolveInput` bag — `store`, `from`, `intent`, `geometry`,
+`strategies` — so it can consult geometry itself before deciding.
+
+<WrappingAtTheEnds />
+
+## The three answers do different things
+
+An **id** wins. `null` **refuses** the move outright — nobody else is asked.
+`undefined` falls through to `strategy.navigate` and then to geometry.
+
+The distinction between `null` and `undefined` is the one worth internalising:
+"there is no answer here" versus "do not ask anyone else". A row that should not
+respond to `↑` returns `null`; a row with no opinion about `↑` returns
+`undefined` and lets geometry find the pane above.
+
+## Guards
+
+The id must name a focusable, visible node — the React binding focuses whatever
+comes back. Anything else is traced on the `workspace` category and the built-in
+answers.
+
+A policy that calls `resolveNavigation` again gets the built-in rather than
+recursing.
+
+## It also governs moving
+
+`Shift`+arrow resolves through the same path
+([7.4](/?story=guide--7-keyboard-and-focus--7-4-moving-a-pane-without-a-pointer)),
+so a navigation policy customises both gestures at once. That is usually what you
+want; if it is not, branch on `intent`.

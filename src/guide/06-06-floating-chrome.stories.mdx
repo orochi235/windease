@@ -1,0 +1,55 @@
+import { Meta } from '@ladle/react';
+import { WholePanelHandle } from '../react/stories/Floating.stories.tsx';
+
+<Meta title="Guide/6 Drag and drop/6.6 Floating chrome over a tiled zone" />
+
+# Floating chrome over a tiled zone
+
+A floating panel is dragged by an affordance, not by the drag engine — which is
+why this works with no `DragProvider` at all.
+
+```ts
+const strategies = { board: floatingStrategy(gridStrategy) };
+store.patchPlacement(panelId, { floating: true });
+```
+
+<WholePanelHandle />
+
+The strategy is covered in
+[4.5](/?story=guide--4-layout--4-5-floating). What matters here is the gesture.
+
+## The handle covers what it sits on
+
+An affordance is an interactive element at its own rect. At the default
+`handleSize: 0` the whole panel is the handle, so its own buttons and links
+cannot be clicked.
+
+Two ways out. Give it a title-bar band:
+
+```ts
+config: { handleSize: 28 }
+```
+
+Or turn the built-in handles off and dispatch the drag yourself:
+
+**React**
+
+```tsx
+<Container affordances={false} … />
+```
+
+**Core**
+
+```ts
+layout.dispatchAffordance({
+  affordanceId: `floating:drag:${panelId}`,
+  kind: 'drag',
+  payload: { dx, dy },
+});
+```
+
+## Snapping is live
+
+There is no drag-end event. The item follows the pointer, sticks on reaching a
+corner, and lets go once the pointer travels `snapThreshold` past it — so
+un-snapping moves the panel up to `snapThreshold` px at once.

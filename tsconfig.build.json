@@ -10,6 +10,7 @@
     "**/*.test.tsx",
     "**/*.stories.tsx",
     "src/react/stories/**",
+    "src/guide/**",
     "src/test-utils/**"
   ]
 }

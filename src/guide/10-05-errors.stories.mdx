@@ -1,0 +1,56 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/10 Performance and diagnosis/10.5 Errors and their codes" />
+
+# Errors and their codes
+
+Every error the library throws extends `WindeaseError` and carries a `code`.
+
+```ts
+try {
+  store.moveNode(id, target);
+} catch (err) {
+  if (err instanceof WindeaseError) {
+    switch (err.code) {
+      case 'locked': …
+      case 'cycle-detected': …
+    }
+  }
+}
+```
+
+**Branch on `code`, not on `instanceof` and not on `message`.** Both survive
+bundling less reliably, and messages are not a contract.
+
+| Class | Code | Means |
+| --- | --- | --- |
+| `NodeNotFoundError` | `unknown-node` | id the store does not hold — often already destroyed |
+| `DuplicateNodeError` | `duplicate-id` | id already present; hydrating into a non-empty store |
+| `CapabilityMissingError` | `capability-missing` | needs a capability this node lacks — fix at `createNode` |
+| `CycleError` | `cycle-detected` | a move would make a node its own ancestor |
+| `StrategyRejectionError` | `strategy-rejected` | the target strategy refused via `canAccept` |
+| `LockedError` | `locked` | a `lock` axis forbade it; `axis` names which |
+| `PinIndexError` | `pin-index-out-of-range` | pin index outside the child count |
+| `InvalidThrottlePolicyError` | `invalid-throttle-policy` | bad policy field, at construction |
+| `InvariantViolationError` | *caller-supplied* | **a bug in windease** |
+
+## The union is open
+
+`WindeaseErrorCode` ends in `(string & {})` because `InvariantViolationError`
+carries a caller-supplied code. An exhaustive `switch` still needs a default arm.
+
+## Two that mean different things
+
+`CycleError` and `LockedError` are thrown **before anything is mutated**, so the
+tree is untouched and the caller can retry differently.
+
+`InvariantViolationError` means a structural invariant the store maintains was
+found broken. That is a bug in windease rather than in your code — `context`
+carries the state that tripped it and belongs in the report.
+
+## Refusals that are not errors
+
+Plenty of things decline silently by design: a keyboard move at the edge of the
+tree, `resolveMove` returning `null`, `Machine.send` returning `false`, a policy
+answering `undefined`. Silence is the intended behavior there — do not wrap them
+in try/catch looking for a throw that never comes.

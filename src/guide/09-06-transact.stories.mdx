@@ -1,0 +1,53 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/9 History and persistence/9.6 transact does not roll back" />
+
+# `transact` does not roll back
+
+This is the one thing about the store most likely to cost you a corrupted tree,
+so it gets its own page.
+
+```ts
+store.transact(() => {
+  store.patchPlacement(a, { size: { h: 100 } });
+  store.moveNode(b, elsewhere);      // throws
+  store.setMeta(c, { … });           // never runs
+}, 'my-operation');
+```
+
+**The first mutation stands.** `transact` groups mutations for history and
+emits `transaction.begin` / `transaction.end`; it is not a database transaction
+and there is no rollback.
+
+So the tree is left with the placement written, the move not made, and the meta
+not set — a state no code path intended.
+
+## The rule
+
+**Validate fully before opening the transaction.** Never rely on an inner call to
+throw as your check.
+
+```ts
+// check everything first
+if (store.isLocked(b, 'move')) return;
+if (wouldCycle(store, b, elsewhere)) return;
+
+store.transact(() => {
+  // now nothing in here can fail
+});
+```
+
+The library holds itself to this. `stackNodes` and `splitInto` both validate
+every lock and cycle *before* opening their transaction, which is why a refused
+call writes nothing at all rather than half a stack.
+
+## Why it is not a real transaction
+
+Rolling back would mean snapshotting the whole store on every `transact` and
+restoring on throw — the cost paid on every successful call to serve the failing
+one. Undo already exists for the case where you want to go back
+([9.5](/?story=guide--9-history-and-persistence--9-5-undo-and-redo)); this is the
+cheap grouping primitive underneath it.
+
+If you want the atomic version, take a snapshot before and hydrate it back on
+catch. That is the same trade, made explicitly, at the call site that needs it.

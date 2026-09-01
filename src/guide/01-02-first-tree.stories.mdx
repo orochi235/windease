@@ -1,0 +1,72 @@
+import { Meta } from '@ladle/react';
+import { FirstTree } from './demos.tsx';
+
+<Meta title="Guide/1 Tour/1.2 A tree in twenty lines" />
+
+# A tree in twenty lines
+
+A zone holds panes and lays them out with a named strategy.
+
+```tsx
+import { Provider, StrategyRegistryProvider, Zone, Panel } from 'windease/react';
+import { stripStrategy } from 'windease';
+import 'windease/styles.css';
+
+const strategies = { strip: stripStrategy };
+
+export function App() {
+  return (
+    <Provider>
+      <StrategyRegistryProvider strategies={strategies}>
+        <Zone strategyId="strip" config={{ axis: 'x', gap: 8, padding: 8, fill: true }}>
+          <Panel id="left">left</Panel>
+          <Panel id="right">right</Panel>
+        </Zone>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+}
+```
+
+<FirstTree />
+
+Three things are doing work.
+
+`<Provider>` owns the store. Omit the `store` prop and it creates one for you.
+
+`<StrategyRegistryProvider>` maps the string `"strip"` to an implementation. **A
+container naming a strategy nobody registered lays nothing out** — this is the
+first thing to check when a zone renders empty.
+
+`<Zone>` and `<Panel>` are presets. The JSX owns the tree: declare a panel and it
+is registered and shown, remove it and it is destroyed.
+
+## The same tree without React
+
+The core does not need the React layer. It does need someone to draw the result —
+this builds the tree and computes placements, and stops there.
+
+```ts
+import { Store, createNode, asNodeId, ContainerHost, stripStrategy } from 'windease';
+
+const store = new Store();
+const root = asNodeId('root');
+
+store.registerNode(
+  createNode({ id: root, container: { strategyId: 'strip', config: { axis: 'x', gap: 8 } } }),
+);
+store.showNode(root);
+
+for (const name of ['left', 'right']) {
+  const id = asNodeId(name);
+  store.registerNode(createNode({ id, parentId: root, focus: true }));
+  store.showNode(id);
+}
+
+const host = new ContainerHost(store, root, new Map([['strip', stripStrategy]]));
+host.setViewport({ w: 420, h: 160 });
+host.layout().placements;   // Map { 'left' => Rect, 'right' => Rect }
+```
+
+Note `showNode` on every node: a node starts `mounted`, not `visible`
+([2.1](/?story=guide--2-state-machines--2-1-lifecycle)).

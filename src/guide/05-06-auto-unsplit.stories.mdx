@@ -1,0 +1,45 @@
+import { Meta } from '@ladle/react';
+import { SplitAndUnsplit } from '../react/stories/SplitOperation.stories.tsx';
+
+<Meta title="Guide/5 Resize/5.6 Collapsing a group that empties out" />
+
+# Collapsing a group that empties out
+
+A group that started with two panes and lost one is a wrapper around nothing:
+one child, one extra layout level, one extra level of nesting in every snapshot.
+
+```ts
+store.setAutoUnsplit(groupId, true);
+store.unregisterNode(paneA);   // paneB takes the group's place; the group is gone
+```
+
+The survivor is lifted into the grandparent at the group's index, inheriting the
+group's placement and pinned position, and the group is destroyed.
+
+<SplitAndUnsplit />
+
+## Why it is opt-in
+
+A zone you created on purpose has to survive being emptied, so the trigger
+cannot live in `unregisterNode` itself.
+
+It fires only on the *transition*, not on any container that happens to hold one
+child — so you can still build a group up a pane at a time.
+
+**A root never collapses**: there is no grandparent to lift into.
+
+A `destroy` or `dragOut` lock on the group, or `arrange` on its parent, quietly
+leaves the tree alone rather than failing the removal that triggered it.
+
+## It does not cascade, and does not need to
+
+Lifting the survivor swaps it for the group in the grandparent, so the
+grandparent's child count is unchanged.
+
+Removals are bracketed in a transaction, so the collapse is one undo step with
+the removal that caused it. If you bracket history on `transaction.begin` /
+`transaction.end`, every `unregisterNode` emits that pair — collapse or not.
+
+Drops that create stacks and splits set `autoUnsplit` themselves, which is why
+dragging the last tab out of a stack dissolves it
+([6.3](/?story=guide--6-drag-and-drop--6-3-tab-stacking)).

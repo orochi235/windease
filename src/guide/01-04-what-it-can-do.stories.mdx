@@ -1,0 +1,37 @@
+import { Meta } from '@ladle/react';
+import { StackOnDrop } from '../react/stories/TabStack.stories.tsx';
+import { JoinOnOvershoot } from '../react/stories/SeamJoin.stories.tsx';
+import { SplitOnDrop } from '../react/stories/DropOnEdge.stories.tsx';
+
+<Meta title="Guide/1 Tour/1.4 What it can do" />
+
+# What it can do
+
+Three gestures that are most of the reason to reach for a window manager rather
+than write one. All three are operable here.
+
+## Drop onto a pane to make a tab stack
+
+A drop in the middle of a pane wraps both in a tabbed container that inherits
+the target's slot. Drag the last tab out and the stack dissolves again.
+
+<StackOnDrop />
+
+## Overshoot a seam to absorb a pane
+
+Push a seam past its neighbour's floor and keep pushing: the gesture arms, and
+releasing closes that pane. One transaction, so it is one undo step.
+
+<JoinOnOvershoot />
+
+## Drop on an edge to split a slot
+
+A drop near a pane's cross-axis edge turns its slot into a two-pane strip. The
+preview lays out the destination as it will actually be, so what you aim at is
+what you get.
+
+<SplitOnDrop />
+
+None of these is a special case in the core. Each is a store mutation over the
+same node tree, which is why they compose and why undo, snapshot and locks
+apply to all of them without knowing what they are.

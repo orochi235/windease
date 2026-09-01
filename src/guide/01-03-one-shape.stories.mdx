@@ -1,0 +1,41 @@
+import { Meta } from '@ladle/react';
+import { Trays } from '../react/stories/RecursiveZones.stories.tsx';
+
+<Meta title="Guide/1 Tour/1.3 One shape, four capabilities" />
+
+# One shape, four capabilities
+
+You just wrote a `<Zone>` and a `<Panel>` and could reasonably conclude those
+are two types. They are not. There is one `Node` shape, and it carries
+`lifecycle` plus any combination of three optional capabilities.
+
+| Capability | Answers |
+| --- | --- |
+| `lifecycle` | where am I in my life? — every node has one |
+| `container` | **can I have children?** holds `childOrder` |
+| `membership` | **do I have a parent?** holds `parentId` and my `placement` |
+| `focus` | can I hold focus? |
+
+`container` and `membership` answer opposite questions, which is the single
+most useful thing to know about this library. A zone is not "the one without
+children" — it is the one *with* children and *no parent*. The childless one is
+a panel. A node with both is what everyone calls a group.
+
+`node.kind` is a free-form label. The core stores it and never reads it; React
+dispatches chrome on it. It is not a type.
+
+## What that buys you
+
+Set `container` on a panel and it hosts children. There is no recursive-panel
+type, no `<Group>` component — a tray inside a window is a panel that happens
+to be a container:
+
+```ts
+createNode({ id, parentId, container: { strategyId: 'grid', config: {} } });
+```
+
+<Trays />
+
+Every capability is decided at `createNode` and fixed for the node's life. The
+fields inside them — and which of the four state buckets owns what — are
+[§8](/?story=guide--8-customization--8-1-the-capabilities-in-full).

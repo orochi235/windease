@@ -1,0 +1,34 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/1 Tour/1.1 Install and entry points" />
+
+# Install and entry points
+
+```sh
+npm install windease
+```
+
+One package, two entry points. `windease` is the framework-agnostic core — the
+store, the node model, layout strategies, snapshots. It runs with no `document`
+and no `window`.
+
+```ts
+import { Store, createNode, stripStrategy } from 'windease';
+```
+
+`windease/react` is the React binding: providers, hooks, and the components that
+turn placements into pixels.
+
+```ts
+import { Provider, Zone, Panel } from 'windease/react';
+import 'windease/styles.css';
+```
+
+React is an optional peer dependency (`react@^19`). Install it only if you
+import from `windease/react`.
+
+The split is not cosmetic. Layout is arithmetic over plain data, so anything
+that reads or writes the DOM is an adapter on top — which is why a canvas host
+or a headless test can drive the same engine. See
+[1.3](/?story=guide--1-tour--1-3-one-shape-four-capabilities) for what that
+buys you.

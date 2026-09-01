@@ -1,0 +1,44 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/9 History and persistence/9.4 Saving one subtree" />
+
+# Saving one subtree
+
+When your app's saved unit is one workspace rather than the whole session.
+
+```ts
+const saved = serialize(store, { root: workspaceId });
+store.unregisterNode(workspaceId);
+
+// …later, possibly in a different store
+graft(store, saved, dockId, { at: 0 });
+```
+
+`serialize(store, { root })` captures a node and its descendants.
+`graft(store, snap, parentId, opts)` attaches it under a parent and returns the
+attached root's id.
+
+## Ids are the host's record keys
+
+**Every id in the snapshot must be absent from the target store.** A collision
+throws `DuplicateNodeError` before anything is mutated, rather than remapping.
+
+That is deliberate: a snapshot's ids are usually the host's own keys into its
+data, so silently renaming them would break the association between a pane and
+whatever it displays. If you need copies, mint new ids yourself before grafting.
+
+## What travels and what does not
+
+The subtree root's `placement` travels with it — `SerializedStore.rootPlacement`
+carries it, because within its own snapshot the subtree root *is* a root and has
+no membership to hold it. `deserialize` ignores that field, since a store root
+has no parent to be placed in.
+
+**Focus does not move**, even when the snapshot names a focused node. Call
+`focusNode` yourself if the arriving subtree should take it.
+
+## Why it needs exactly one root
+
+`graft` refuses a snapshot with more than one root: it has one `parentId` and one
+`at` to attach with, and nothing sensible to do with a second tree. A whole-store
+snapshot with several roots is `deserialize`'s job, not `graft`'s.

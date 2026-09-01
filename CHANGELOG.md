@@ -61,6 +61,20 @@ section below.
   reads. `gridStrategy` declares its own — setting `cols` has always made
   `maxCols`, `rows` and `orientation` dead config, silently.
 
+- **A guide, published beside the playground.** Sixty-four chapters across ten
+  sections, ordered by what each capability costs to adopt rather than by the
+  order features shipped — which surfaces that resize needs no `DragProvider`
+  and that keyboard and drag are parallel opt-ins, neither gating the other.
+  Chapters embed the existing stories by importing them, so a demo cannot drift
+  from the page describing it. Written as MDX under `src/guide`, excluded from
+  the published build.
+
+- **`Policies/Accept` starts with room in one zone.** Every zone was seeded at
+  its `maxItems` cap, so no drop could visibly re-lay-out a destination —
+  acceptance was always immediately followed by withholding, and the layout
+  looked frozen on any drop. Lenient now holds one pane, so the first drop
+  resizes both panes and the second demonstrates the cap.
+
 - **The README and `docs/concepts.md` said there were two built-in strategies.**
   There are four. Both documents still carried the 0.9.0 line that "there is no
   separate stack strategy", written before 1.3.0 reused the name for tab

@@ -1,0 +1,57 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/9 History and persistence/9.5 Undo and redo" />
+
+# Undo and redo
+
+`HistoryController` is undo over whole snapshots, generic in what a snapshot is.
+Pair it with `serialize` / `deserialize` and you have undo over a store.
+
+```ts
+const history = new HistoryController<SerializedStore>({ capacity: 100 });
+
+history.push(serialize(store));               // seed
+
+store.subscribe(() => history.push(serialize(store)));
+
+function undo() {
+  const snap = history.undo();
+  if (snap) deserialize(store, snap);         // in place — keeps subscribers
+}
+```
+
+Note `deserialize(store, snap)`, not `deserialize(snap)`
+([9.3](/?story=guide--9-history-and-persistence--9-3-hydrating-in-place)).
+
+## The cursor
+
+A bounded stack with a cursor. Pushing after an undo **discards the redo tail**,
+which is what every editor does. Past `capacity` the oldest entry is evicted.
+
+```ts
+history.canUndo();
+history.canRedo();
+```
+
+## Transactions collapse
+
+```ts
+history.beginTransaction();
+// …pushes here are deferred
+history.endTransaction(serialize(store));
+```
+
+Pushes between the pair fold into one entry, so a multi-step operation undoes as
+a unit.
+
+The store emits `transaction.begin` / `transaction.end` around `store.transact`,
+so a host can bracket history on those events and get this for free. Every
+`unregisterNode` emits the pair too — which is how a removal and the
+`autoUnsplit` collapse it triggered become one undo step
+([5.6](/?story=guide--5-resize--5-6-collapsing-a-group-that-empties-out)).
+
+## History reads truth
+
+Like snapshots, unaffected by throttling. And `transact` does not roll back
+([9.1](/?story=guide--9-history-and-persistence--9-1-the-store)) — history gives
+you undo, not atomicity.

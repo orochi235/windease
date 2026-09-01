@@ -1,0 +1,49 @@
+import { Meta } from '@ladle/react';
+import { ScrollAwareNavigation } from '../react/stories/Scrolling.stories.tsx';
+
+<Meta title="Guide/4 Layout/4.8 Telling windease where the scroll got to" />
+
+# Telling windease where the scroll got to
+
+The scrolling wrapper is yours, so the offset is something windease has to be
+told. Point `scrollRef` at the element that scrolls:
+
+```tsx
+const scrollRef = useRef<HTMLDivElement>(null);
+
+<div ref={scrollRef} className="dock-scroll">
+  <Container parentId={dockId} chrome={chrome} scrollRef={scrollRef} />
+</div>
+```
+
+## What it changes, and what it does not
+
+Placements stay unscrolled. The strategy lays out the whole extent and knows
+nothing about what is on screen — scrolling never re-runs it.
+
+What the offset changes is the *reported position* of a pane, which is what
+directional keyboard navigation compares. Without it, a scrolled container is
+navigated against positions its panes no longer occupy, and a scrolled container
+beside an unscrolled one disagree about where they both are.
+
+<ScrollAwareNavigation />
+
+Each container answers for its own offset, so nesting composes: a scrolling dock
+inside a scrolling workspace needs a `scrollRef` on each, and the chain resolves
+to one space. A flow container needs none — it is measured from the DOM, which
+counts scroll already.
+
+## Auto-scroll comes with it
+
+The same ref gives you edge auto-scroll during a drag
+([6.5](/?story=guide--6-drag-and-drop--6-5-edge-scroll)). A container with no
+`scrollRef` never auto-scrolls, and the presets take no `scrollRef` at all.
+
+## Headless
+
+```ts
+host.setScroll({ x, y });   // the real API
+host.observeScroll(el);     // DOM convenience over it
+```
+
+For a canvas host panning its own surface with no scroll box to read.

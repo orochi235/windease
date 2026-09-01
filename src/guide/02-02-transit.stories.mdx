@@ -1,0 +1,36 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/2 State machines/2.2 Transit" />
+
+# Transit
+
+A node with a parent carries a second machine: `transit`, which guards its move
+between parents.
+
+```
+idle → claiming | releasing → idle
+```
+
+It exists because a reparent is two edits — leave one `childOrder`, join
+another — and a tree observed halfway through has a node in both places or
+neither. `moveNode` runs the pair atomically and transit is what marks the
+window.
+
+**Transit comes with `membership`, not with being a leaf.** Any node with a
+parent has one, a nested zone as much as a panel. A root has none, because it
+has nowhere to move from.
+
+```ts
+createNode({ id, parentId }).membership.transit          // present
+createNode({ id, container: {...} }).membership          // undefined — a root
+```
+
+## It is deliberately not serialized
+
+`SerializedNode` carries no transit state. A move in flight is not a fact worth
+restoring: a snapshot taken mid-drag hydrates with the node settled in whichever
+parent the store had committed. This is the same reasoning that keeps
+`lastFocusedId` out of snapshots — session state, not document state.
+
+You rarely touch this machine. It matters when you are reading a node mid-move
+in a trace and wondering why it appears settled.

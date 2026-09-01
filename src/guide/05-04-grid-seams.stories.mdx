@@ -1,0 +1,33 @@
+import { Meta } from '@ladle/react';
+import { ResizableGrid } from '../react/stories/Grid.stories.tsx';
+
+<Meta title="Guide/5 Resize/5.4 Grid seams" />
+
+# Grid seams
+
+`gridStrategy` takes `resizable: true` and emits the same affordances — except
+they write `placement.span`.
+
+```tsx
+<Zone strategyId="grid" config={{ resizable: true }} />
+```
+
+<ResizableGrid />
+
+**Cell counts, not pixels.** An extent moves a whole cell at a time and
+`aria-valuenow` reads as a column or row count. A keyboard press moves exactly
+one cell, because the affordance reports its own `bounds.step` rather than
+taking the container's pixel default — which is the concrete payoff of `step`
+existing at all ([5.2](/?story=guide--5-resize--5-2-bounds-and-why-a-host-never-recomputes-reach)).
+
+## A grid packs rather than pairs
+
+There is no one neighbour a seam trades with: growing an item costs whoever no
+longer fits. So the reported maximum is the largest span at which every sibling
+is still placed — in a grid with no `maxRows`, that means it grows a row rather
+than dropping anyone.
+
+A seam appears wherever a span can move in either direction, including on an
+item already spanning to the edge, so a grown item can always be brought back.
+
+`span` is gated by `lock.resize` exactly as `size` is.

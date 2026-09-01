@@ -1,0 +1,59 @@
+import { Meta } from '@ladle/react';
+import { FlowVersusPlaced } from '../react/stories/FlowMode.stories.tsx';
+
+<Meta title="Guide/4 Layout/4.9 Letting CSS do the layout" />
+
+# Letting CSS do the layout
+
+A container that declares `hints.render: 'flow'` runs no strategy. Its children
+render as ordinary in-flow elements and your CSS arranges them.
+
+```tsx
+<Zone id={DOCK} hints={{ render: 'flow' }} className="dock-grid">
+  <Panel id="a" />
+  <Panel id="b" />
+</Zone>
+```
+
+```css
+.dock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+```
+
+This is for a host adopting windease into a layout that is already a working
+CSS grid and wants the gestures, not the geometry. `strategyId` is optional, and
+the hint outranks a registered strategy.
+
+<FlowVersusPlaced />
+
+## What still works
+
+Drag and drop including the insertion index — the hit-test measures the DOM and
+never read placements. Directional navigation and `Shift`-arrow moves, because
+rects reach the resolver by measurement and compose into the same coordinate
+space as every placed container. Focus, announcements, snapshot and undo are
+untouched.
+
+## What you give up
+
+All of it downstream of the strategy pass.
+
+| Gone | Because |
+| --- | --- |
+| `layout.placements` | nothing computes a rect |
+| Resize gutters and every affordance | a strategy emits them |
+| `unplaced` and `overflowMode` | capacity is a strategy decision |
+| `cols` / `rows` / `axis` / `gap` | these are CSS now |
+| `hints.sizing` measurement | the measurement feeds a strategy |
+| The settle animation | it transitions `left`/`top`, which in-flow panes lack |
+
+Mixing is the point: keep strategy zones where you want gutters or
+auto-balance, mark the plain tilings flow.
+
+One hazard: geometry is re-measured after every render and on any
+`ResizeObserver` fire. A layout shift driven by neither — CSS alone moving a
+pane without resizing or re-rendering — can leave navigation reading a stale
+rect.

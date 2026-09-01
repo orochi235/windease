@@ -1,0 +1,59 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/10 Performance and diagnosis/10.6 Hot paths" />
+
+# Hot paths
+
+Four places where a careless callback costs real frames.
+
+## `acceptPolicy` runs on every `pointermove`
+
+The one genuinely hot callback. Keep it `O(items)` or smaller and defer expensive
+checks to drop time.
+
+```ts
+acceptPolicy: ({ items }) => items.length <= 4          // fine
+acceptPolicy: ({ items }) => items.some(expensiveCheck) // not
+```
+
+The same applies to `strategy.canAccept`, which it overrides.
+
+## `useNodeSelector`'s selector runs on every notification
+
+```tsx
+useNodeSelector(id, (n) => n.meta?.title);        // stable — fine
+useNodeSelector(id, (n) => ({ ...n.meta }));      // fresh object every call
+```
+
+A selector returning a fresh object or array re-renders on every mutation
+*anywhere in the tree*. Return a primitive, or the same reference.
+
+## `useDragState` re-renders on every hover sample
+
+Keep the subscribing component small. A drag overlay reading it should be its own
+component, not the tree's root.
+
+## `snapToPanes` costs an inner layout pass per drag event
+
+Off by default for that reason
+([4.5](/?story=guide--4-layout--4-5-floating)).
+
+## What is already cheap
+
+`trace` when disabled — one `Set` lookup.
+
+Reading a node. Record replacement means `getNode` hands back the same reference
+until something actually changes, so a memo keyed on it is correct without a deep
+compare.
+
+`useChildren`, which is referentially stable until the membership or the
+published set actually changes.
+
+## Where throttling helps and where it does not
+
+`notifyMs` and `stagger` bound how often React sees changes, so they help a store
+driven from a live event stream
+([10.2](/?story=guide--10-performance-and-diagnosis--10-2-throttling)).
+
+They do not help a slow strategy or an expensive chrome handler — those run on
+the flush that does happen. Measure before reaching for a policy.

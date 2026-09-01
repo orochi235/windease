@@ -1,0 +1,60 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/10 Performance and diagnosis/10.4 Tracing" />
+
+# Tracing
+
+The fastest path to diagnosing a bad drop, a stuck drag or a missing undo step is
+a categorized log of what the library was doing at the time.
+
+## Turning it on
+
+```sh
+WINDEASE_TRACE=dnd,history npm test
+```
+
+```js
+localStorage.setItem('windease.trace', '*'); location.reload();
+```
+
+```ts
+import { configureTrace } from 'windease';
+configureTrace('dnd');
+configureTrace(null);   // silence
+```
+
+Categories are checked at call time, so toggling at runtime takes effect
+immediately. `'*'` enables everything.
+
+## The categories
+
+| Category | Covers |
+| --- | --- |
+| `dnd` | drag lifecycle, hit-tests, drops, capture transitions |
+| `history` | push, undo, redo, transaction begin/end, evictions |
+| `layout` | strategy calls, results, overflow, **config typos and conflicts** |
+| `store` | mutations, event emissions, policy refusals |
+| `throttle` | publish decisions |
+| `workspace` | gestures, zone-swap, **navigation policy refusals** |
+| `zone` | mount, viewport changes, render decisions |
+
+`zone` is a deprecated alias for `container`.
+
+The two bolded ones are where a silently-degrading feature reports itself: a
+misspelled config key, or a policy that threw and fell back to the built-in
+([8.4](/?story=guide--8-customization--8-4-the-policy-contract)). If something
+is "just not working" and nothing threw, turn these on first.
+
+## Cost
+
+One `Set` lookup when disabled. `isTraceEnabled(category)` guards building an
+expensive payload:
+
+```ts
+if (isTraceEnabled('layout')) trace('layout', summarize(items));
+```
+
+## Traces are not an API
+
+They are diagnostic. A user-visible failure throws a `WindeaseError` instead —
+never rely on parsing a trace line.

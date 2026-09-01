@@ -1,0 +1,45 @@
+import { Meta } from '@ladle/react';
+import { TruthVsPublished } from '../react/stories/Throttling.stories.tsx';
+
+<Meta title="Guide/10 Performance and diagnosis/10.1 Truth vs published" />
+
+# Truth vs published
+
+The store keeps two views. Under no throttle policy they are identical, and this
+page does not matter. Under one, the difference is the whole feature.
+
+| Published | Truth |
+| --- | --- |
+| `getNode(id)` | `getNodeTruth(id)` |
+| `nodes` | `nodesTruth` |
+| `rootIds` | `rootIdsTruth` |
+| `focusedId` | `focusedIdTruth` |
+
+**Throttling gates observation, never truth.** A mutation lands in truth
+immediately. What is paced is when subscribers and the React layer get to see it.
+
+<TruthVsPublished />
+
+## Which one you want
+
+**Published**, almost always. It is what the UI renders, and reading truth in a
+component gives you a value React was not told about — it renders once and then
+looks stale until something else publishes.
+
+**Truth** for anything that must reflect the real current state regardless of
+pacing: a save, an export, a decision about what to do next.
+
+`serialize` and history already read truth, so persistence and undo are
+unaffected by pacing without you doing anything.
+
+## Flushing
+
+```ts
+store.flushNow();
+```
+
+Publishes everything pending immediately, bypassing `notifyMs`, `dwell` and
+`stagger` alike. Useful before a screenshot, a measurement, or a test assertion.
+
+`resetPublished()` is the harder reset, dropping the published view back to
+truth wholesale.

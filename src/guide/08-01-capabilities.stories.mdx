@@ -1,0 +1,65 @@
+import { Meta } from '@ladle/react';
+import { Trays } from '../react/stories/RecursiveZones.stories.tsx';
+
+<Meta title="Guide/8 Customization/8.1 The capabilities in full" />
+
+# The capabilities in full
+
+[1.3](/?story=guide--1-tour--1-3-one-shape-four-capabilities) showed the shape.
+This is the reference.
+
+## `lifecycle` — every node
+
+A `Machine<LifecycleState, LifecycleEvent>`. See
+[2.1](/?story=guide--2-state-machines--2-1-lifecycle).
+
+## `container` — "can I have children?"
+
+```ts
+interface ContainerCap {
+  strategyId: string;
+  config: unknown;
+  childOrder: NodeId[];
+  allowsPinning: boolean;
+  autoUnsplit?: boolean;
+  lastFocusedId?: NodeId;
+  state?: unknown;
+}
+```
+
+`childOrder` is the single canonical ordering — prefer `setChildOrder`,
+`reorderInParent` and `moveNode` over touching it.
+
+`lastFocusedId` is maintained by the store, is session-only, and is deliberately
+**not serialized**.
+
+## `membership` — "do I have a parent?"
+
+```ts
+interface MembershipCap {
+  parentId: NodeId;
+  placement: Record<string, unknown>;
+  transit: TransitCap;
+}
+```
+
+Independent axes. A zone is a container with no membership; a panel the reverse;
+a group carries both.
+
+<Trays />
+
+## `focus` — opt-in
+
+`createNode({ focus: true })`. `<Panel>` passes it, `<Zone>` does not.
+
+## Fixed at construction
+
+Which capabilities a node has is decided at `createNode` and never changes. An
+operation needing one a node lacks throws `CapabilityMissingError`, and the fix
+is at construction, not at the call site.
+
+`ensureContainer(id, strategyId, config)` is the one exception — it promotes a
+node to a container, and is gated by `lock.arrange`.
+
+The core enforces only structure: `parentId` must name a container, no cycles,
+one focused node. It never relates `kind` to capabilities.

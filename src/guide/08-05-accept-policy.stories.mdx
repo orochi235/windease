@@ -1,0 +1,51 @@
+import { Meta } from '@ladle/react';
+import { WideningTheCap } from '../react/stories/AcceptPolicy.stories.tsx';
+
+<Meta title="Guide/8 Customization/8.5 acceptPolicy" />
+
+# `acceptPolicy`
+
+How one container disagrees with its strategy about taking a drop.
+
+```tsx
+<Container parentId={zoneId} acceptPolicy={({ items }) => items.length <= 4} />
+```
+
+It sees the child list the strategy would see, plus who is being dragged:
+
+```ts
+({ items, options, sourceId }) => boolean | undefined
+```
+
+`true` accepts where the strategy would refuse, `false` refuses where it would
+accept, `undefined` defers. **This one widens as well as narrows**, which is what
+makes it an override rather than a cap.
+
+A target you register yourself takes the same callback:
+
+```ts
+useDropTarget(zoneId, ref, { acceptPolicy });
+```
+
+The presets take it too, gated by `acceptsDrops`.
+
+<WideningTheCap />
+
+## Two things to get right
+
+**It runs on every `pointermove` of a drag.** Keep it O(items) or smaller and
+defer expensive checks to drop time. This is the one genuinely hot callback in
+the library.
+
+**Accepting is not capacity.** A `strip` reads `maxItems` when it lays out too,
+so a drop accepted past the cap lands in `unplaced` and renders nothing — the
+zone takes the pane and then withholds it. If you widen acceptance, widen the
+capacity or render `unplaced`.
+
+A `lock.accept` refuses regardless.
+
+## The deprecated one
+
+`useDropTarget`'s older `canAccept(sourceId)` still works and is removed at
+2.0.0. It only ever saw the source id, never the prospective child list, which is
+why it could not express the common cases.

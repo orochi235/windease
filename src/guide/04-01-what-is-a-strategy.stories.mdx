@@ -1,0 +1,49 @@
+import { Meta } from '@ladle/react';
+
+<Meta title="Guide/4 Layout/4.1 What a strategy is" />
+
+# What a strategy is
+
+A layout strategy is a pure function from four inputs to a result.
+
+```ts
+layout({ items, container, state, options }): LayoutResult
+```
+
+`items` are the children as `LayoutItem`s — id, hints, placement, any measured
+`natural` size. `container` is a `{ w, h }`. `state` is whatever the strategy
+persists. `options` is `container.config`.
+
+It returns placements, affordances, and what did not fit:
+
+```ts
+{
+  placements: Map<ItemId, Rect>,
+  affordances: Affordance[],
+  unplaced?: ItemId[],
+  overflow?: { w: number; h: number },
+}
+```
+
+## What a strategy may not do
+
+It may not read or write the DOM, measure anything, or mutate its inputs.
+Measurement arrives as `LayoutItem.natural`, filled in by an adapter.
+
+That constraint is what lets the same strategy run in a headless test, in a
+canvas host, and under React without changing. An item absent from `placements`
+is not rendered — a strategy that drops one should say so in `unplaced`.
+
+## Registering one
+
+Strategies are named in `container.strategyId` and resolved through a registry:
+
+```tsx
+<StrategyRegistryProvider strategies={{ strip: stripStrategy, grid: gridStrategy }}>
+```
+
+A container naming an id nobody registered lays nothing out.
+
+Four built-ins ship: `stripStrategy`, `gridStrategy`, `stackStrategy` and
+`floatingStrategy`. Writing your own is
+[8.9](/?story=guide--8-customization--8-9-writing-a-strategy).
