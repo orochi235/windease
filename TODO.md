@@ -129,6 +129,26 @@ Still open:
   the work lives, and both are preset-agnostic; the presets just never build the
   bag ([design](docs/superpowers/specs/2026-08-26-split-layout-preview-design.md)).
 
+- **A wrap drop is asked about the wrong child list [MED].**
+  `DragEngine.checkAccept` (`src/dnd/DragEngine.ts:349`) gates on `checkIntent`
+  and then falls through to the acceptance block regardless, so a `stack` or
+  `split` intent is asked about `[...children, dragged]` — but a wrap drop does
+  not change the parent's child count: stacking `p` onto `a` in `[a, b]` yields
+  `[stack-1, b]`. A `strip` at `maxItems: 2` therefore refuses a stack that
+  would have left it at two. This already governed `strategy.canAccept`;
+  `acceptPolicy` now inherits it. The fix is a prospective list that knows the
+  intent, with its own tests.
+
+- **The presets cannot edge-scroll [MED].** `scrollRef` is a `<Container>` prop
+  (`src/react/Container.tsx:103`), so a preset's `scrollEl` is always null and
+  `DragController` never registers the scroll bag for it. That is why
+  `edgeScroll` ships on `<Container>` alone — the presets would need a
+  `scrollRef` of their own before the ramp meant anything there.
+
+- **`insertionIndexByMidpoint` and `axisFromRects` stay unreplaceable,
+  deliberately.** `dropIntent` subsumes both, because replacing the resolver
+  replaces the calls to them.
+
 - **Two gesture pipelines are converging.** `DragController` drags panes and
   owns arm/cancel/commit/lock/undo/announce; `AffordanceHandle` drags seams and
   owns none of it, because until now a seam drag only wrote `placement.size`.
@@ -160,33 +180,24 @@ Still open:
   of the outcome: the `GESTURE_DESCRIPTORS` shape, one table every consumer
   reflects off, so adding an entry updates the matcher and the UI together.
 
-## Policies the library exports but nobody can replace [MED]
+## Focus bookkeeping
 
-`<Container>` ships two props of the same shape: `overlay` and `affordances`
-each take the built-in default *or* a function that replaces it, with the
-component still doing the measuring and handing the result over as context.
-`dropIntent` is the third. Each entry below is a pure policy the library
-exports and then calls from exactly one hardcoded site, so a consumer who
-wants a different rule can only re-implement it and correct the result after
-the fact.
+- **Two nodes report `focused` after a succession [HIGH].** When the focused
+  node is destroyed or hidden, `succeedFocus` clears `focusedIdValue`
+  (`src/store.ts:1150`) before calling `focusNode`, whose blur branch is guarded
+  on that field being truthy (`:1193`) — so the departing node is never sent
+  `blur` and keeps `node.focus.state === 'focused'` alongside its successor.
+  `store.focusedId` is right; the node field lies, and a consumer drawing a
+  focus ring from `node.focus.state` draws two. Reproduces with no successor
+  policy configured.
 
-- **`chooseSuccessor`** (`src/focus/successor.ts:30`) picks who receives focus
-  when the focused node is destroyed. Wanting the left sibling rather than the
-  successor means listening for the focus event and moving focus again.
-- **`resolveNavigation`** (`src/focus/resolve.ts:77`) resolves directional
-  keyboard navigation from geometry. It already takes a `ResolveInput` bag, so
-  the callback shape is designed; nothing accepts one.
-- **A container's `canAccept`.** `<Container>` passes `undefined` for the drop
-  target's (`Container.tsx:302`), so per-container acceptance is only
-  expressible through a strategy's `canAccept` — per-strategy, not
-  per-container — or `lock.accept`, which is all or nothing.
-- **Edge-scroll tuning.** `<Container>` forwards only `scrollEl` to
-  `DropTargetOptions`, leaving `edgeScroll`'s rate and threshold unreachable.
-  Not a resolver, but the same dead end.
-
-`insertionIndexByMidpoint` and `axisFromRects` are deliberately absent:
-`dropIntent` subsumes both, because replacing the resolver replaces the calls
-to them.
+- **`strategy.navigate`'s answer is never validated [MED].**
+  `src/focus/resolve.ts:102` casts it `as NodeId` and returns it, so a custom
+  strategy can name a node with no focus capability — and `FocusProvider` calls
+  `store.focusNode(to)` from a raw `keydown` listener with no try/catch
+  (`src/react/focus/FocusProvider.tsx:225`), so the `CapabilityMissingError`
+  takes out the keypress. `resolveNavigation` validates a *policy's* answer with
+  `isFocusable`; the strategy path beside it does not.
 
 ## Groups
 
@@ -277,6 +288,10 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   point, so narrowing either breaks a consumer who annotated against it — the
   `| string` on `Affordance.kind` protects assignment into that field, not a
   direct use of the exported union.
+- **Every `REJECT` trace in `DragEngine.checkAccept` fires per pointermove
+  sample**, not per hover transition — the per-frame chatter the tracing tenet
+  in `CLAUDE.md` warns against. Left as is: those lines are the whole record of
+  why a drop was refused, and `dnd` is off by default.
 - **`unplace` never reports overflow.** The one pane that must be placed when
   nothing fits is clamped to the container rather than overflowed, so a
   consumer who would rather see the excess than a clamped pane has no way to
