@@ -1,6 +1,7 @@
 import { type RefObject, useContext, useEffect, useRef } from 'react';
-import type { Point } from '../../dnd/DragEngine.js';
+import type { AcceptContext, Point } from '../../dnd/DragEngine.js';
 import { type DropIntent, resolveDropIntent } from '../../dnd/dropIntent.js';
+import type { EdgeScrollOptions } from '../../dnd/edgeScroll.js';
 import { axisFromRects, childRectsForContainer } from '../../dnd/insertionIndex.js';
 import type { NodeId, Rect } from '../../index.js';
 import { DragContext } from './DragProvider.js';
@@ -38,6 +39,9 @@ export interface DropIntentTargetOptions {
    *  read it when it runs. */
   scrollRef?: RefObject<Element | null> | undefined;
   canAccept?: ((sourceId: NodeId) => boolean) | undefined;
+  acceptPolicy?: ((ctx: AcceptContext) => boolean | undefined) | undefined;
+  /** Ramp shape for edge scrolling. Inert without `scrollRef`. */
+  edgeScroll?: EdgeScrollOptions | undefined;
 }
 
 /** `childRectsForContainer` reports DOMRects; the resolver takes plain bounds. */
@@ -69,6 +73,8 @@ export function useDropIntentTarget(
     dropIntent,
     scrollRef,
     canAccept,
+    acceptPolicy,
+    edgeScroll,
   } = opts;
   const controller = useContext(DragContext);
   // The last harvest taken while nothing was displacing children. A split
@@ -86,6 +92,8 @@ export function useDropIntentTarget(
     if (!el) return;
     return controller.registerDropTarget(parentId, el, canAccept, {
       scrollEl: scrollRef?.current ?? null,
+      ...(acceptPolicy ? { acceptPolicy } : {}),
+      ...(edgeScroll ? { edgeScroll } : {}),
       getDropIntent: (point) => {
         const live = childRectsForContainer(el);
         const displaced = el.getAttribute('data-split-preview') === 'true';
@@ -122,5 +130,7 @@ export function useDropIntentTarget(
     splitOnDrop,
     dropIntent,
     scrollRef,
+    acceptPolicy,
+    edgeScroll,
   ]);
 }

@@ -2,6 +2,7 @@ import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
 import {
+  type AcceptContext,
   type ChildOrderCommit,
   type DragCancelReason,
   DragEngine,
@@ -39,6 +40,8 @@ export interface DropTargetOptions {
   scrollEl?: Element | null;
   /** Ramp shape for that scrolling. See `edgeScrollDelta`. */
   edgeScroll?: EdgeScrollOptions;
+  /** Overrides `strategy.canAccept` for this target. See `DropTarget.acceptPolicy`. */
+  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
 }
 
 function rectOf(el: Element): { x: number; y: number; w: number; h: number } {
@@ -143,6 +146,7 @@ export class DragController {
       bounds: () => rectOf(el),
       depth: () => ancestorDepth(el),
       ...(canAccept ? { canAccept } : {}),
+      ...(options?.acceptPolicy ? { acceptPolicy: options.acceptPolicy } : {}),
       ...(options?.getInsertionIndex ? { getInsertionIndex: options.getInsertionIndex } : {}),
       ...(options?.getDropIntent ? { getDropIntent: options.getDropIntent } : {}),
       ...(options?.scrollEl

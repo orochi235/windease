@@ -9,7 +9,9 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import type { AcceptContext } from '../dnd/DragEngine.js';
 import type { DropIntent } from '../dnd/dropIntent.js';
+import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
 import { accessibleName, type ChildOrderCommit, type NodeId } from '../index.js';
 
 export type { DropIntentContext } from './dnd/useDropIntentTarget.js';
@@ -99,6 +101,16 @@ export interface ContainerProps {
    * scrolled container navigates against unscrolled positions.
    */
   scrollRef?: RefObject<Element | null>;
+  /**
+   * Decide whether this container accepts a drop, overriding the strategy's
+   * own `canAccept`. `true` accepts where the strategy would refuse, `false`
+   * refuses, `undefined` defers to it. A `lock.accept` refuses regardless.
+   *
+   * Runs on every drag `pointermove` — keep it O(items.length) or smaller.
+   */
+  canAccept?: (ctx: AcceptContext) => boolean | undefined;
+  /** Ramp shape for edge scrolling during a drag. Inert without `scrollRef`. */
+  edgeScroll?: EdgeScrollOptions;
   className?: string;
   style?: CSSProperties;
   /**
@@ -219,6 +231,8 @@ function StoreContainer({
   splitOnDrop = false,
   splitPreview = 'layout',
   dropIntent,
+  canAccept,
+  edgeScroll,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const store = useStore();
@@ -289,6 +303,8 @@ function StoreContainer({
     splitOnDrop,
     ...(dropIntent ? { dropIntent } : {}),
     ...(scrollRef ? { scrollRef } : {}),
+    ...(canAccept ? { acceptPolicy: canAccept } : {}),
+    ...(edgeScroll ? { edgeScroll } : {}),
   });
 
   // Track which affordance is currently being dragged (if any) so we can
