@@ -1137,7 +1137,7 @@ export class Store {
       trace('store', `successor policy threw, using built-in: ${err}`);
       chosen = undefined;
     }
-    if (chosen && !isFocusable(this, chosen)) {
+    if (chosen && (chosen === from || !isFocusable(this, chosen))) {
       trace('store', `successor policy returned unusable ${chosen}, using built-in`);
       chosen = undefined;
     }

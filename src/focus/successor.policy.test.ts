@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createNode } from '../constructors.js';
 import { asNodeId, type NodeId } from '../node.js';
 import { Store } from '../store.js';
+import { recordEvents } from '../test-utils/record-events.js';
 import type { SuccessorInput } from './successor.js';
 
 function id(s: string): NodeId {
@@ -92,5 +93,17 @@ describe('successor policy', () => {
     s.unregisterNode(id('b'));
     expect(s.getNode(id('b'))).toBeUndefined();
     expect(s.focusedId).toBeNull();
+  });
+
+  it('the departing id itself falls through to the built-in', () => {
+    const s = row(['a', 'b', 'c'], (ctx) => ctx.departing);
+    const rec = recordEvents(s, 'focus.successor');
+    s.focusNode(id('b'));
+    s.unregisterNode(id('b'));
+    expect(s.getNode(id('b'))).toBeUndefined();
+    expect(s.focusedId).toBe(id('c'));
+    expect(rec.of('focus.successor')).toEqual([
+      { from: id('b'), to: id('c'), reason: 'destroyed' },
+    ]);
   });
 });
