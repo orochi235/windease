@@ -7,7 +7,9 @@ import { DraftBanner } from './Draft.tsx';
 
 # Glossary
 
-Alphabetical. Tags say which part of the library a term belongs to.
+Alphabetical. Tags say which part of the library a term belongs to; entries
+tagged **supporting** are the vocabulary the other definitions lean on rather
+than concepts in their own right.
 
 **`acceptsDrops`** <span className="gd-tag">interaction</span> — a preset prop
 registering an element as a drop target at all. Not `lock.accept`, which refuses
@@ -34,9 +36,19 @@ already-rendered subtree and decides where to mount it.
 *can I have children?* Holds `childOrder`, `strategyId` and `config`. See
 `membership`, which answers the opposite question.
 
+**drag handle** <span className="gd-tag gd-tag--support">supporting</span> — the element that starts a drag of a
+given node. `<DragHandle nodeId>` wraps one, or `useDragHandle` returns the props
+to spread onto your own. Only what the handle covers is grabbable, which is how
+a pane gets a draggable title bar and a selectable body.
+
 **drop intent** <span className="gd-tag">interaction</span> — what a drop is
 asking for: `insert`, `stack`, or `split`. Bands are carved only for the intents
 you enable, so with none enabled the resolver returns a plain insertion index.
+
+**drop target** <span className="gd-tag gd-tag--support">supporting</span> — a container registered as somewhere a
+drag can be released, via `useDropTarget` or `acceptsDrops` on a preset. Being a
+container is not enough; a target has to opt in. Nested targets resolve
+innermost-first.
 
 **gesture** <span className="gd-tag">interaction</span> — one continuous
 interaction the library tracks from start to commit: a drag from pointerdown to
@@ -54,8 +66,12 @@ nothing is remapped, because a snapshot's ids are usually the host's own keys.
 `container` and `membership`. Written `<Zone parentId kind="group">`; there is no
 `<Group>` component.
 
-**gutter** <span className="gd-tag">layout</span> — strip's word for the seam
-between two panes.
+**gutter** <span className="gd-tag">layout</span> — a seam sitting *between*
+two panes, belonging to neither. Both strip and grid emit them, and the word is
+used throughout the library rather than by one strategy. The distinction that
+matters: a gutter has no single owner, so it carries no `childId` and reports
+every pane it moves in `affects`, where a single-child resize edge names the one
+child whose size it writes.
 
 **hints** <span className="gd-tag">state</span> — node-intrinsic layout
 requests: `minSize`, `maxSize`, `preferredSize`, `sizing`, `order`, `render`.
@@ -71,6 +87,14 @@ no confirmation step.
 
 **kind** <span className="gd-tag">model</span> — a free-form label. The core
 stores it and never reads it; React dispatches chrome on it. **Not a type.**
+
+**layout item** <span className="gd-tag gd-tag--support">supporting</span> — a child as a strategy sees it: an id plus
+the hints, placement and any measured natural size. Projected from a node, but
+constructible by hand, which is what lets a strategy be tested without a store.
+
+**live region** <span className="gd-tag gd-tag--support">supporting</span> — a small element the browser watches and
+reads aloud when its text changes. `FocusProvider` renders a polite one and
+writes announcements into it.
 
 **lock** <span className="gd-tag">state</span> — which operations a node
 refuses, by axis: `move`, `resize`, `destroy`, `accept`, `dragOut`, `arrange`.
@@ -95,6 +119,11 @@ the tree takes. Carries `lifecycle` plus any combination of `container`,
 exceeds the container, per axis; absent when it fits. Distinct from `unplaced`,
 which is capacity by *count* — a row can overflow with everything placed.
 
+**pane** <span className="gd-tag gd-tag--support">supporting</span> — a node as the user sees it: one rectangle on
+screen with content in it. Usually a panel, though a group renders as a pane
+too. The word is about what is drawn rather than what the node carries, which is
+why the guide says "pane" wherever the shape does not matter.
+
 **panel** <span className="gd-tag">model</span> — the childless one: `membership`
 and no `container`. Set `container` on it and it hosts a tree of its own.
 
@@ -116,8 +145,17 @@ with a tri-state contract: a value to choose, a deliberate negative to refuse,
 created by JSX or registered on the store. Determines whether a preset will
 render it, and whether a drop can reparent it.
 
-**seam** <span className="gd-tag">layout</span> — the affordance between two
-panes. See `gutter`, the same thing in strip's vocabulary.
+**rect** <span className="gd-tag gd-tag--support">supporting</span> — a position and size, `{ x, y, w, h }`, in the
+container's own coordinate space rather than the viewport's. What a strategy
+returns per child, and what geometry reports for navigation.
+
+**root** <span className="gd-tag gd-tag--support">supporting</span> — a node with no parent: children, no membership. The store lists
+them in `rootIds`, and a root never auto-collapses, because there is no
+grandparent to lift its survivor into.
+
+**seam** <span className="gd-tag">layout</span> — the general word for a
+draggable boundary a strategy emitted, whether it sits between two panes or on
+the edge of one. Every gutter is a seam; not every seam is a gutter.
 
 **snapshot** <span className="gd-tag">persistence</span> — the JSON-safe form of
 a store or subtree. Excludes destroyed nodes, transit state and `lastFocusedId`.
@@ -130,13 +168,25 @@ removed in 0.9.0**, whose replacement is the strip strategy with
 `{ axis: 'y', fill: true }` — the name was reused, and the two have nothing in
 common.
 
+**store** <span className="gd-tag gd-tag--support">supporting</span> — the object holding every node, enforcing the
+structural invariants, and notifying subscribers. One per tree; everything else
+in the library reads from or writes to it.
+
 **strategy** <span className="gd-tag">layout</span> — a pure function from
 `{ items, container, state, options }` to a `LayoutResult`. Never touches the
 DOM, never measures; measurement arrives as an input.
 
+**subtree** <span className="gd-tag gd-tag--support">supporting</span> — a node and all its descendants. The unit
+`serialize({ root })` captures and `graft` reattaches, and the unit a destroy
+cascades through.
+
 **`transact`** <span className="gd-tag">persistence</span> — groups mutations
 into one history step. **Does not roll back** — a callback that throws partway
 leaves every mutation it already made.
+
+**transaction** <span className="gd-tag gd-tag--support">supporting</span> — a group of mutations recorded
+as one history step, opened by `store.transact` and bracketed by
+`transaction.begin` / `transaction.end` events. Not atomic — see `transact`.
 
 **truth vs published** <span className="gd-tag">state</span> — the real current
 state versus what subscribers have been shown. Identical unless a throttle
@@ -144,6 +194,11 @@ policy is configured; `getNodeTruth` reads the former, `getNode` the latter.
 
 **unplaced** <span className="gd-tag">layout</span> — items a strategy declined
 to place. Not an error: render them in a tray, or hide them.
+
+**viewport** <span className="gd-tag gd-tag--support">supporting</span> — the size a container was told it has,
+`{ w, h }`. Strategies lay out against it; it is set with
+`ContainerHost.setViewport` or observed off an element, and is null before a
+host has reported one.
 
 **zone** <span className="gd-tag">model</span> — a container with no membership:
 children, no parent. A root. Not "the one without children" — that is a panel.

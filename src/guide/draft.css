@@ -62,3 +62,18 @@
   background: #334155;
   color: #cbd5e1;
 }
+
+/* Supporting glossary entries: terms the primary definitions lean on, kept
+   distinguishable so the list still reads as a set of concepts plus the
+   vocabulary they need. */
+.gd-tag--support {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+}
+
+[data-theme="dark"] .gd-tag--support {
+  background: transparent;
+  border-color: #475569;
+  color: #94a3b8;
+}
