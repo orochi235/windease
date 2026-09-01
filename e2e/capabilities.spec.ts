@@ -114,20 +114,55 @@ test.describe('grid overflowMode', () => {
 });
 
 test.describe('scrolling containers', () => {
-  test('dragging to the edge scrolls the container', async ({ page }) => {
-    await openStory(page, 'scrolling--drag-to-the-edge-to-scroll');
-    const scroller = page.locator('.cap-scroller');
-    const box = await boxOf(scroller);
-    const grip = await boxOf(page.locator('[data-node="pane-1"]'));
+  const SCROLLER = '.cap-scroller';
 
+  /** Press a pane and hold the cursor `inset` px above the scroller's bottom
+   *  edge. Never hold nearer than ~10px: the browser's own selection autoscroll
+   *  takes over there and runs the box to the bottom whatever the library did. */
+  async function holdAbove(page: import('@playwright/test').Page, inset: number) {
+    const box = await boxOf(page.locator(SCROLLER));
+    const grip = await boxOf(page.locator('[data-node="pane-1"]'));
     await page.mouse.move(grip.x + grip.w / 2, grip.y + 12);
     await page.mouse.down();
-    // Hold near the bottom edge: the scroll has to continue without further
-    // pointer input, which is the half a single dragMouse cannot exercise.
-    await page.mouse.move(grip.x + grip.w / 2, box.y + box.h - 6, { steps: 12 });
-    await expect
-      .poll(() => scroller.evaluate((el) => el.scrollTop), { timeout: 3000 })
-      .toBeGreaterThan(20);
+    await page.mouse.move(grip.x + grip.w / 2, box.y + box.h - inset, { steps: 12 });
+  }
+
+  const scrollTop = (page: import('@playwright/test').Page) =>
+    page.locator(SCROLLER).evaluate((el) => el.scrollTop);
+
+  test('dragging to the edge scrolls the container', async ({ page }) => {
+    await openStory(page, 'scrolling--drag-to-the-edge-to-scroll');
+    // Inside the default 48px margin: the scroll has to continue without
+    // further pointer input, which is the half a single dragMouse cannot
+    // exercise.
+    await holdAbove(page, 36);
+    await expect.poll(() => scrollTop(page), { timeout: 3000 }).toBeGreaterThan(20);
+    await page.mouse.up();
+  });
+
+  test('maxRate 0 refuses to scroll where the default ramp does', async ({ page }) => {
+    await openStory(page, 'scrolling--drag-to-the-edge-to-scroll');
+    await page.locator('[data-testid="ramp-off"]').check();
+
+    await holdAbove(page, 36);
+    await page.waitForTimeout(1000);
+
+    expect(await scrollTop(page)).toBe(0);
+    await page.mouse.up();
+  });
+
+  test('a wide margin scrolls from a cursor the default ramp ignores', async ({ page }) => {
+    await openStory(page, 'scrolling--drag-to-the-edge-to-scroll');
+    // 144px above the edge, three times the default margin.
+    await holdAbove(page, 144);
+    await page.waitForTimeout(1000);
+    expect(await scrollTop(page)).toBe(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+
+    await page.locator('[data-testid="ramp-eager"]').check();
+    await holdAbove(page, 144);
+    await expect.poll(() => scrollTop(page), { timeout: 3000 }).toBeGreaterThan(20);
     await page.mouse.up();
   });
 
