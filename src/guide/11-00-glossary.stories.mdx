@@ -124,8 +124,13 @@ screen with content in it. Usually a panel, though a group renders as a pane
 too. The word is about what is drawn rather than what the node carries, which is
 why the guide says "pane" wherever the shape does not matter.
 
-**panel** <span className="gd-tag">model</span> — the childless one: `membership`
-and no `container`. Set `container` on it and it hosts a tree of its own. ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities), [3.2](/?story=guide--03-building-the-tree--3-02-the-react-presets))
+**panel** <span className="gd-tag">model</span> — a node with a parent and no
+children: it has `membership`, so it sits somewhere, and no `container`, so
+nothing sits inside it. That is the whole test, and it is the shape you get from
+`<Panel>`. Being a panel is not permanent — give one a container, either at
+construction with `<Panel container={{…}}>` or later with `ensureContainer`, and
+it hosts a tree of its own while still being called a panel. What the word
+tracks is that it renders as one pane of content. ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities), [3.2](/?story=guide--03-building-the-tree--3-02-the-react-presets))
 
 **pinned** <span className="gd-tag">state</span> — a reserved `placement` key:
 the index a child holds in its parent's `childOrder` against third parties. It
@@ -161,12 +166,10 @@ the edge of one. Every gutter is a seam; not every seam is a gutter. ([4.1](/?st
 a store or subtree. Excludes destroyed nodes, transit state and `lastFocusedId`.
 Always read from truth, never from the published view. ([9.2](/?story=guide--09-history-and-persistence--9-02-snapshot-and-hydrate))
 
-**stack strategy** <span className="gd-tag">layout</span> — the tabbed one: a
-single child visible, the rest withheld into unplaced, and the tab strip is
-yours to draw. Exported as `stackStrategy`. **Not the axis-stacking strategy
-removed in 0.9.0**, whose replacement is the strip strategy with
-`{ axis: 'y', fill: true }` — the name was reused, and the two have nothing in
-common. ([2.4](/?story=guide--02-layout--2-04-stack), [5.3](/?story=guide--05-drag-and-drop--5-03-tab-stacking))
+**stack strategy** <span className="gd-tag">layout</span> — lays out one child
+at full size and reports the rest as unplaced, reserving a band at the top for a
+tab strip you draw yourself. `activeId` in the container config picks the
+visible one. Exported as `stackStrategy`. ([2.4](/?story=guide--02-layout--2-04-stack), [5.3](/?story=guide--05-drag-and-drop--5-03-tab-stacking))
 
 **store** <span className="gd-tag gd-tag--support">supporting</span> — the object holding every node, enforcing the
 structural invariants, and notifying subscribers. One per tree; everything else
