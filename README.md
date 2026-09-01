@@ -418,9 +418,13 @@ there. The rate ramps from zero at 48px out to 16px per frame at the edge, and
 holds there past it so overshooting a target does not fight you. Nothing to
 turn on — a container with no `scrollRef` never auto-scrolls.
 
+`<Container edgeScroll={{ margin, maxRate }}>` reshapes that ramp — the two
+numbers above are its defaults. The presets take no `scrollRef`, so neither
+auto-scroll nor `edgeScroll` reaches them.
+
 `edgeScrollDelta(bounds, point, options)` is the arithmetic on its own, pure
 and exported, for a host driving its own drag loop. `DropTargetOptions` takes
-`edgeScroll: { margin, maxRate }` to reshape the ramp.
+the same `edgeScroll` bag.
 
 ## Letting CSS do the layout
 
@@ -518,7 +522,22 @@ the tree under `<DragProvider>`. The drag controller honors:
 - `lock.accept` on the target — zone-level drop refusal.
 - The destination strategy's `canAccept(prospective-items, options)` — e.g.
   a strategy with a `maxItems` config refusing a drop that would overflow it.
+- `canAccept` on the container itself, which overrides that answer.
 - An optional consumer-supplied `canAccept(sourceId)` on the drop target.
+
+`<Container canAccept>` — and the same prop on `<Zone>` and `<Panel>` — is how
+one container disagrees with its strategy. It sees the child list the strategy
+would see, plus who is being dragged; `true` accepts where the strategy would
+refuse, `false` refuses where it would accept, `undefined` defers to it. A
+`lock.accept` refuses regardless.
+
+```tsx
+<Container parentId={zoneId} canAccept={({ items }) => items.length <= 4} />
+```
+
+It runs on every `pointermove` of a drag, so keep it O(items). Accepting is not
+capacity: a `strip` reads `maxItems` when it lays out too, so a drop accepted
+past the cap lands in `unplaced` and renders nothing.
 
 See the **Parallel zones / Drag between** story for the canonical setup.
 
@@ -662,13 +681,16 @@ kept for a consumer whose panes are too expensive to lay out on every hover.
 centre of a pane still inserts — edges split, everything else inserts — which is
 what a consumer without tabs wants.
 
-`<Zone>` and `<Panel container={…}>` take the same two props, plus `dropIntent`,
-gated by `acceptsDrops` — the presets run the same hit-test `<Container>` does.
-What they do not draw is the split preview; that is a `<Container>` render, so a
-preset drop resolves the same intent with nothing to aim at.
+`<Zone>` and `<Panel container={…}>` take the same two props, plus `dropIntent`
+and `canAccept`, gated by `acceptsDrops` — the presets run the same hit-test
+`<Container>` does. What they do not draw is the split preview; that is a
+`<Container>` render, so a preset drop resolves the same intent with nothing to
+aim at.
 
 A pane a preset declares in JSX cannot be re-parented by a drop: JSX owns the
-node's lifetime, and a preset can only host a node it created itself. Where a
+node's lifetime, and a preset can only host a node it created itself. The store
+move goes through, but the pane keeps rendering in the zone that declared it,
+with no rect — it does not appear in the destination at all. Where a
 drop may stack or split, register the panes on the store and render them with
 `<Zone renderImperative>` — the boxes it places are harvested by the hit-test
 like any other child.
@@ -923,10 +945,20 @@ Directional moves compare pane rectangles. A strategy that knows better can
 say so by implementing `navigate?` — return an id to win, `undefined` to fall
 through to the geometric search, `null` to declare that direction dead.
 
+A consumer wanting a rule no strategy owns replaces the resolution outright with
+`new Store({ resolveNavigation })`, which is asked first — ahead of `navigate?`
+and the geometry — and answers the same three ways. It receives the
+`ResolveInput` bag (`store`, `from`, `intent`, `geometry`, `strategies`), and
+the id it returns must name a focusable, visible node; anything else is traced
+and the built-in answers instead. A policy that calls `resolveNavigation` again
+gets the built-in rather than recursing.
+
 When the focused pane is destroyed or hidden, the store picks a successor
 rather than dropping focus to the document, and reports the choice on
 `focus.successor` with a `reason` of `destroyed` or `hidden`. `to` is null
-only when nothing focusable is left.
+only when nothing focusable is left. `new Store({ chooseSuccessor })` replaces
+that choice: it receives `{ store, departing, reason }` and returns an id,
+`null` to focus nobody, or `undefined` for the built-in order.
 
 ### Announcements
 

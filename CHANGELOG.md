@@ -19,6 +19,34 @@ section below.
   extent: grid has no opinion about row height. See
   [Sizing a grid to its rows](README.md#sizing-a-grid-to-its-rows).
 
+- **Four built-in policies are now replaceable.** Each is tri-state: return a
+  value to choose it, a deliberate negative to refuse, or `undefined` to fall
+  through to the built-in. A policy that throws, or answers with something the
+  library cannot use, is traced and treated as `undefined`.
+
+  - `new Store({ chooseSuccessor })` — who takes focus when the focused node is
+    destroyed or hidden, from `{ store, departing, reason }`. `null` focuses
+    nobody, deliberately.
+  - `new Store({ resolveNavigation })` — how a direction or intent resolves to a
+    node, consulted ahead of `strategy.navigate` and the geometric fallback. The
+    id it returns must name a focusable, visible node.
+  - `canAccept` on `<Container>`, `<Zone>` and `<Panel>` — whether a container
+    takes a drop, from `{ items, options, sourceId }`. This one widens as well
+    as narrows: `true` accepts where the strategy would refuse. `lock.accept`
+    still refuses regardless; a lock is not a policy.
+  - `<Container edgeScroll>` — `{ margin, maxRate }`, the auto-scroll ramp
+    during a drag. `<Container>` only: the presets have no `scrollRef` and
+    cannot honor it.
+
+  Acceptance and capacity stay separate decisions, which bites on a `strip`:
+  `maxItems` caps what the strategy places as well as what it accepts, so
+  `canAccept: () => true` on a full strip takes the pane and then withholds it
+  into `unplaced`, where it renders nothing.
+
+  New exported types: `SuccessorInput`, `SuccessorPolicy`, `NavigationPolicy`
+  and `AcceptContext` — the last, with `EdgeScrollOptions`, also from
+  `windease/react`.
+
 - **Strategies can declare conflicting config keys**, through
   `LayoutStrategy.configConflicts`, and `ContainerHost` traces them alongside
   the typos `configSpec` already catches. Two shapes: `exclusive` keys that
@@ -35,6 +63,12 @@ section below.
   by value, matching what the React reconciler already did on its own path.
 
 ### Changed
+
+- **`DropTarget.canAccept(sourceId)` is deprecated**, removed at 2.0.0. Use
+  `acceptPolicy`, which sees the prospective child list and the container's
+  config, and can widen a strategy's answer as well as narrow it. The old
+  callback still runs, as a trailing veto after `acceptPolicy` and the strategy
+  have both agreed.
 
 - **A prospective split now previews as a layout, not a shade.** Hovering a pane's cross-axis
   edge with `splitOnDrop` lays the destination out as if the drop had happened: the pane under
