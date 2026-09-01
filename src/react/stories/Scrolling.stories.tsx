@@ -9,6 +9,7 @@ import {
   DragHandle,
   DragProvider,
   defaultDragOverlay,
+  type EdgeScrollOptions,
   FocusProvider,
   GeometryProvider,
   Provider,
@@ -135,17 +136,43 @@ export const ScrollAwareNavigation: Story = () => {
   );
 };
 
+/** Named `edgeScroll` ramps. Module-level so the identity is stable: the prop
+ *  is a drop-target registration dependency, and a fresh object each render
+ *  would re-register the target on every one. */
+const RAMPS: Record<string, EdgeScrollOptions | undefined> = {
+  default: undefined,
+  eager: { margin: 200, maxRate: 24 },
+  off: { maxRate: 0 },
+};
+const RAMP_NAMES = ['default', 'eager', 'off'] as const;
+
 /** Same dock, drag enabled: the pointer never has to leave the box. */
 export const DragToTheEdgeToScroll: Story = () => {
   const store = useMemo(() => makeDock(), []);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const chrome = useMemo(() => paneChrome(true), []);
+  const [ramp, setRamp] = useState<(typeof RAMP_NAMES)[number]>('default');
+  const edgeScroll = RAMPS[ramp];
 
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <GeometryProvider>
           <DragProvider dragOverlay={defaultDragOverlay}>
+            <div className="cap-bar">
+              {RAMP_NAMES.map((name) => (
+                <label key={name}>
+                  <input
+                    type="radio"
+                    name="edge-scroll-ramp"
+                    checked={ramp === name}
+                    data-testid={`ramp-${name}`}
+                    onChange={() => setRamp(name)}
+                  />{' '}
+                  <code>{name}</code>
+                </label>
+              ))}
+            </div>
             <div className="cap-scroller" ref={scrollRef}>
               <Container
                 parentId={DOCK}
@@ -153,14 +180,22 @@ export const DragToTheEdgeToScroll: Story = () => {
                 viewport={{ w: 284, h: 344 }}
                 className="windease-zone"
                 scrollRef={scrollRef}
+                {...(edgeScroll ? { edgeScroll } : {})}
               />
             </div>
             <p className="cap-hint">
               Pick up a pane by its grip and hold the cursor near the top or bottom edge — the dock
               scrolls, and keeps scrolling while you hold there rather than moving one step per
-              pointer event. The rate ramps from nothing 48px out to full speed at the edge, and
-              holds past it, so overshooting does not fight you. The same <code>scrollRef</code>{' '}
-              drives it; a container without one never auto-scrolls.
+              pointer event. The same <code>scrollRef</code> drives it; a container without one
+              never auto-scrolls.
+            </p>
+            <p className="cap-hint">
+              <code>edgeScroll</code> is the ramp's shape. <code>default</code> passes nothing, so
+              the rate climbs from zero 48px out to 16px per sample at the edge and holds there past
+              it — overshooting a target does not fight you. <code>eager</code> is{' '}
+              <code>{'{ margin: 200, maxRate: 24 }'}</code>: the margin swallows most of the box, so
+              a cursor held well short of the edge already scrolls, and faster. <code>off</code> is{' '}
+              <code>{'{ maxRate: 0 }'}</code>: hold anywhere inside the box and nothing moves.
             </p>
           </DragProvider>
         </GeometryProvider>

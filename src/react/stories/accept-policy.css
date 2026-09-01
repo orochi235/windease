@@ -1,0 +1,147 @@
+.ap-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.ap-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-column__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 0 8px;
+  font:
+    600 13px / 1.2 system-ui,
+    sans-serif;
+  color: #334155;
+}
+
+.ap-column__note {
+  font:
+    12px / 1.2 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: #64748b;
+}
+
+.ap-frame {
+  padding: 4px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  width: fit-content;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.ap-frame--accept {
+  background: #ecfdf5;
+  border-color: #10b981;
+  border-style: solid;
+}
+
+.ap-frame--reject {
+  background: #fef2f2;
+  border-color: #ef4444;
+  border-style: solid;
+}
+
+.ap-zone {
+  border-radius: 6px;
+  background: #fff;
+}
+
+.ap-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  background: #1b2030;
+  border: 1px solid #2b3346;
+  border-radius: 5px;
+  color: #dfe4ef;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.ap-pane:active {
+  cursor: grabbing;
+}
+
+.ap-pane__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font:
+    600 12px / 1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  border-bottom: 1px solid #2b3346;
+}
+
+.ap-pane__grip {
+  color: rgba(223, 228, 239, 0.45);
+  letter-spacing: -2px;
+}
+
+.ap-pane__body {
+  padding: 10px 12px;
+  font:
+    12px / 1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  color: #97a0b5;
+}
+
+.ap-withheld {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  /* The zone paints its placed children after `children`, so the banner needs
+     to be lifted or the pane on top of it hides it. */
+  z-index: 1;
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.88);
+  color: #fbbf24;
+  font:
+    11px / 1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  pointer-events: none;
+}
+
+.ap-order {
+  margin: 10px 0 0;
+  font:
+    12px / 1.5 system-ui,
+    sans-serif;
+  color: #64748b;
+}
+
+.ap-order__value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #0f172a;
+}
+
+.ap-prose {
+  max-width: 62ch;
+  margin-top: 20px;
+  font:
+    13px / 1.6 system-ui,
+    sans-serif;
+  color: #475569;
+}
