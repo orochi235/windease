@@ -37,16 +37,20 @@ async function dragInto(page: Page, sourceId: string, zoneId: string, verdict: s
 test.describe('acceptPolicy', () => {
   test('a lenient zone takes a drop its strategy would refuse', async ({ page }) => {
     await openStory(page, STORY);
-    expect(await childIds(page, 'zone-lenient')).toEqual(['lenient-1', 'lenient-2']);
+    expect(await childIds(page, 'zone-lenient')).toEqual(['lenient-1']);
 
+    // First drop: the zone has room, so it lands and both panes re-lay out.
     await dragInto(page, 'strict-1', 'zone-lenient', 'accept');
+    await expect.poll(() => childIds(page, 'zone-lenient')).toEqual(['lenient-1', 'strict-1']);
+    await expect.poll(() => childIds(page, 'zone-strict')).toEqual(['strict-2']);
+    await expect(page.locator('[data-testid="withheld-zone-lenient"]')).toBeHidden();
 
+    // Second drop: past the cap, so only `acceptPolicy` lets it in — and strip
+    // still places `maxItems` and reports the rest, which the story names.
+    await dragInto(page, 'strict-2', 'zone-lenient', 'accept');
     await expect
       .poll(() => childIds(page, 'zone-lenient'))
-      .toEqual(['lenient-1', 'lenient-2', 'strict-1']);
-    await expect.poll(() => childIds(page, 'zone-strict')).toEqual(['strict-2']);
-    // Accepting is not the same as making room: strip still places `maxItems`
-    // and reports the rest, which the story names.
+      .toEqual(['lenient-1', 'strict-1', 'strict-2']);
     await expect(page.locator('[data-testid="withheld-zone-lenient"]')).toBeVisible();
   });
 
@@ -57,22 +61,26 @@ test.describe('acceptPolicy', () => {
     await dragInto(page, 'lenient-1', 'zone-strict', 'reject');
 
     await expect.poll(() => childIds(page, 'zone-strict')).toEqual(['strict-1', 'strict-2']);
-    await expect.poll(() => childIds(page, 'zone-lenient')).toEqual(['lenient-1', 'lenient-2']);
+    await expect.poll(() => childIds(page, 'zone-lenient')).toEqual(['lenient-1']);
     expect(await settledBox(page.locator('[data-node="lenient-1"]'))).toEqual(before);
   });
 
   test('a fourth item hands the answer back to the strategy', async ({ page }) => {
     await openStory(page, STORY);
+
+    // Fill Lenient to the three `acceptPolicy` allows: one seeded, two dropped.
     await dragInto(page, 'strict-1', 'zone-lenient', 'accept');
+    await expect.poll(() => childIds(page, 'zone-lenient')).toHaveLength(2);
+    await dragInto(page, 'strict-2', 'zone-lenient', 'accept');
     await expect.poll(() => childIds(page, 'zone-lenient')).toHaveLength(3);
 
     // `acceptPolicy` returns undefined past three, so `maxItems: 2` decides again.
-    await dragInto(page, 'strict-2', 'zone-lenient', 'reject');
+    await dragInto(page, 'refusing-1', 'zone-lenient', 'reject');
 
     await expect
       .poll(() => childIds(page, 'zone-lenient'))
-      .toEqual(['lenient-1', 'lenient-2', 'strict-1']);
-    await expect.poll(() => childIds(page, 'zone-strict')).toEqual(['strict-2']);
+      .toEqual(['lenient-1', 'strict-1', 'strict-2']);
+    await expect.poll(() => childIds(page, 'zone-refusing')).toEqual(['refusing-1']);
   });
 
   test('a false answer refuses a drop the strategy has room for', async ({ page }) => {

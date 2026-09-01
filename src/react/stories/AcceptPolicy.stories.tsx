@@ -30,7 +30,6 @@ const PANES: Array<[NodeId, NodeId, string]> = [
   [asNodeId('strict-1'), STRICT, 'Alpha'],
   [asNodeId('strict-2'), STRICT, 'Bravo'],
   [asNodeId('lenient-1'), LENIENT, 'Charlie'],
-  [asNodeId('lenient-2'), LENIENT, 'Delta'],
   [asNodeId('refusing-1'), REFUSING, 'Echo'],
 ];
 
@@ -179,11 +178,10 @@ export const WideningTheCap: Story = () => {
           <Board />
           <div className="ap-prose">
             <p>
-              All three zones are <code>strip</code> with <code>maxItems: 2</code>. Strict and
-              Lenient are full, so the strategy refuses a third pane in either. Lenient passes a{' '}
-              <code>acceptPolicy</code> that answers <code>true</code> up to three items — drag a
-              pane into it and the frame turns green and the drop lands. Drag one into Strict and
-              the frame turns red and the release does nothing.
+              All three zones are <code>strip</code> with <code>maxItems: 2</code>. Strict is full,
+              so the strategy refuses a third pane: drag one in and the frame turns red and the
+              release does nothing. Lenient holds one pane and has room — drag a pane in and the
+              frame turns green, the drop lands, and both panes resize to share the zone.
             </p>
             <p>
               Refusing holds one pane, so the strategy has room for a second and would take it. Its{' '}
@@ -191,9 +189,10 @@ export const WideningTheCap: Story = () => {
               as well as widens, which is what makes it an override rather than a cap.
             </p>
             <p>
-              Move a second pane into Lenient and it refuses that one too: <code>acceptPolicy</code>{' '}
-              returns <code>undefined</code> at four items, which defers to <code>maxItems</code>{' '}
-              again.
+              Now move a second pane into Lenient. Its <code>acceptPolicy</code> answers{' '}
+              <code>true</code> up to three items, so the drop is accepted where the strategy would
+              have refused — and this time nothing resizes, because acceptance is not capacity. A
+              fourth defers to <code>maxItems</code> again and is refused outright.
             </p>
             <p>
               Acceptance and capacity are separate decisions. A widened zone takes the pane into its{' '}
