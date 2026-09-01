@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { asNodeId, createNode, type LayoutStrategy, type Rect, Store } from '../index.js';
 import { type AcceptContext, DragEngine, type DropTarget } from './DragEngine.js';
 
@@ -112,9 +112,7 @@ describe('DragEngine — acceptPolicy', () => {
     expect(e.state()?.hover?.accepted).toBe(false);
   });
 
-  it('is not called when the target has no policy', () => {
-    // Regression guard for the hot path: no policy and no strategy means the
-    // prospective child list is never built.
+  it('builds no prospective child list when nothing will read it', () => {
     const s = new Store();
     s.registerNode(
       createNode({
@@ -136,7 +134,11 @@ describe('DragEngine — acceptPolicy', () => {
     const e = new DragEngine(s);
     e.addDropTarget(asNodeId('z2'), at(SQUARE));
     e.tryBegin(asNodeId('p'));
+    // Spy after tryBegin: the begin path calls getChildren itself, so a spy
+    // installed earlier is already dirty by the time the hover runs.
+    const spy = vi.spyOn(s, 'getChildren');
     e.updateHoverByPoint(50, 50);
     expect(e.state()?.hover?.accepted).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
   });
 });
