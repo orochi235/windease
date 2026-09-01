@@ -195,8 +195,11 @@ as one history step, opened by `store.transact` and bracketed by
 state versus what subscribers have been shown. Identical unless a throttle
 policy is configured; `getNodeTruth` reads the former, `getNode` the latter. ([10.1](/?story=guide--10-performance-and-diagnosis--10-01-truth-vs-published))
 
-**unplaced** <span className="gd-tag">layout</span> — items a strategy declined
-to place. Not an error: render them in a tray, or hide them. ([2.7](/?story=guide--02-layout--2-07-when-panes-don-t-fit))
+**unplaced** <span className="gd-tag">layout</span> — items a strategy left out
+because they wouldn't fit, reported back rather than dropped. Not an error, and
+not hidden either: the node is still visible and still a child, so the host can
+draw it wherever it likes — an overflow tray, a "3 more" chip — by reading
+`layout.unplaced` or the `useIsUnplaced(id)` hook. ([2.7](/?story=guide--02-layout--2-07-when-panes-don-t-fit))
 
 **viewport** <span className="gd-tag gd-tag--support">supporting</span> — the size a container was told it has,
 `{ w, h }`. Strategies lay out against it; it is set with
