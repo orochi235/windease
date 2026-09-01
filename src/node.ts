@@ -26,8 +26,10 @@ export type NodeKind = string;
 
 /**
  * Node-intrinsic sizing and rendering requests that layout strategies read.
- * Hints, not guarantees: a strategy honors what it understands and ignores the
- * rest, so nothing here is a contract that a given rect comes back.
+ * Each field is honored only by the strategies implementing it — `stripStrategy`
+ * clamps to `maxSize`, `gridStrategy` never reads it — and only on an axis that
+ * strategy sizes, so `{ h: 'content' }` is inert in a horizontal strip. None of
+ * it is a contract that a given rect comes back.
  */
 export interface NodeHints {
   /** Floor for strategy clamping and resize-drag. */

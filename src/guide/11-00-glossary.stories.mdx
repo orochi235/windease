@@ -58,8 +58,12 @@ nothing is remapped, because a snapshot's ids are usually the host's own keys.
 between two panes.
 
 **hints** <span className="gd-tag">state</span> — node-intrinsic layout
-preferences: `minSize`, `maxSize`, `preferredSize`, `sizing`, `order`, `render`.
-Hints, not guarantees — a strategy honours what it understands.
+requests: `minSize`, `maxSize`, `preferredSize`, `sizing`, `order`, `render`.
+Each is read by the strategies that implement it and silently ignored by the
+rest — strip clamps to `maxSize`, grid never looks at it — and only on an axis
+that strategy actually sizes, so `{ h: 'content' }` does nothing in a horizontal
+strip. A hint that appears to have no effect usually means this strategy does
+not read it, rather than that the value is wrong.
 
 **join** <span className="gd-tag">layout</span> — a seam gesture that ends in
 destroying a pane rather than clamping. Off by default, because it deletes with
