@@ -1,6 +1,6 @@
 .ap-row {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   align-items: flex-start;
 }
 

@@ -160,6 +160,7 @@ export const DragToTheEdgeToScroll: Story = () => {
         <GeometryProvider>
           <DragProvider dragOverlay={defaultDragOverlay}>
             <div className="cap-bar">
+              <code>edgeScroll:</code>
               {RAMP_NAMES.map((name) => (
                 <label key={name}>
                   <input

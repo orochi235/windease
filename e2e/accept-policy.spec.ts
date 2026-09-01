@@ -44,7 +44,7 @@ test.describe('canAccept', () => {
     await expect
       .poll(() => childIds(page, 'zone-lenient'))
       .toEqual(['lenient-1', 'lenient-2', 'strict-1']);
-    expect(await childIds(page, 'zone-strict')).toEqual(['strict-2']);
+    await expect.poll(() => childIds(page, 'zone-strict')).toEqual(['strict-2']);
     // Accepting is not the same as making room: strip still places `maxItems`
     // and reports the rest, which the story names.
     await expect(page.locator('[data-testid="withheld-zone-lenient"]')).toBeVisible();
@@ -56,8 +56,8 @@ test.describe('canAccept', () => {
 
     await dragInto(page, 'lenient-1', 'zone-strict', 'reject');
 
-    expect(await childIds(page, 'zone-strict')).toEqual(['strict-1', 'strict-2']);
-    expect(await childIds(page, 'zone-lenient')).toEqual(['lenient-1', 'lenient-2']);
+    await expect.poll(() => childIds(page, 'zone-strict')).toEqual(['strict-1', 'strict-2']);
+    await expect.poll(() => childIds(page, 'zone-lenient')).toEqual(['lenient-1', 'lenient-2']);
     expect(await settledBox(page.locator('[data-node="lenient-1"]'))).toEqual(before);
   });
 
@@ -69,7 +69,20 @@ test.describe('canAccept', () => {
     // `canAccept` returns undefined past three, so `maxItems: 2` decides again.
     await dragInto(page, 'strict-2', 'zone-lenient', 'reject');
 
-    expect(await childIds(page, 'zone-lenient')).toEqual(['lenient-1', 'lenient-2', 'strict-1']);
-    expect(await childIds(page, 'zone-strict')).toEqual(['strict-2']);
+    await expect
+      .poll(() => childIds(page, 'zone-lenient'))
+      .toEqual(['lenient-1', 'lenient-2', 'strict-1']);
+    await expect.poll(() => childIds(page, 'zone-strict')).toEqual(['strict-2']);
+  });
+
+  test('a false answer refuses a drop the strategy has room for', async ({ page }) => {
+    await openStory(page, STORY);
+    // One pane under a cap of two: `strip.canAccept` would take this drop.
+    expect(await childIds(page, 'zone-refusing')).toEqual(['refusing-1']);
+
+    await dragInto(page, 'strict-1', 'zone-refusing', 'reject');
+
+    await expect.poll(() => childIds(page, 'zone-refusing')).toEqual(['refusing-1']);
+    await expect.poll(() => childIds(page, 'zone-strict')).toEqual(['strict-1', 'strict-2']);
   });
 });

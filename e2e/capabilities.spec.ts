@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { boxOf, openStory } from './fixtures.js';
+import { boxOf, openStory, settledBox } from './fixtures.js';
 
 /**
  * Browser coverage for the capability stories. Each of these is a gesture the
@@ -117,14 +117,20 @@ test.describe('scrolling containers', () => {
   const SCROLLER = '.cap-scroller';
 
   /** Press a pane and hold the cursor `inset` px above the scroller's bottom
-   *  edge. Never hold nearer than ~10px: the browser's own selection autoscroll
-   *  takes over there and runs the box to the bottom whatever the library did. */
+   *  edge, then wait for the overlay that proves the drag is live. Never hold
+   *  nearer than ~10px: on Chromium the browser's own selection autoscroll takes
+   *  over there and runs the box to the bottom whatever the library did.
+   *  Firefox and WebKit do not, so a test written at the edge is green on one
+   *  engine for a reason that has nothing to do with the library. */
   async function holdAbove(page: import('@playwright/test').Page, inset: number) {
-    const box = await boxOf(page.locator(SCROLLER));
-    const grip = await boxOf(page.locator('[data-node="pane-1"]'));
+    const box = await settledBox(page.locator(SCROLLER));
+    const grip = await settledBox(page.locator('[data-node="pane-1"]'));
     await page.mouse.move(grip.x + grip.w / 2, grip.y + 12);
     await page.mouse.down();
     await page.mouse.move(grip.x + grip.w / 2, box.y + box.h - inset, { steps: 12 });
+    // Without this a starved drag that never begins is indistinguishable from a
+    // ramp that correctly declined to scroll.
+    await expect(page.locator('[data-testid="windease-drag-overlay"]')).toBeVisible();
   }
 
   const scrollTop = (page: import('@playwright/test').Page) =>
@@ -136,7 +142,7 @@ test.describe('scrolling containers', () => {
     // further pointer input, which is the half a single dragMouse cannot
     // exercise.
     await holdAbove(page, 36);
-    await expect.poll(() => scrollTop(page), { timeout: 3000 }).toBeGreaterThan(20);
+    await expect.poll(() => scrollTop(page)).toBeGreaterThan(20);
     await page.mouse.up();
   });
 
@@ -162,7 +168,7 @@ test.describe('scrolling containers', () => {
 
     await page.locator('[data-testid="ramp-eager"]').check();
     await holdAbove(page, 144);
-    await expect.poll(() => scrollTop(page), { timeout: 3000 }).toBeGreaterThan(20);
+    await expect.poll(() => scrollTop(page)).toBeGreaterThan(20);
     await page.mouse.up();
   });
 

@@ -21,8 +21,9 @@ const STRATEGIES = { strip: stripStrategy as never };
 
 const STRICT = asNodeId('zone-strict');
 const LENIENT = asNodeId('zone-lenient');
+const REFUSING = asNodeId('zone-refusing');
 
-const VIEWPORT = { w: 260, h: 300 };
+const VIEWPORT = { w: 220, h: 300 };
 const CONFIG = { axis: 'y', gap: 8, padding: 8, fill: true, maxItems: 2 };
 
 const PANES: Array<[NodeId, NodeId, string]> = [
@@ -30,6 +31,7 @@ const PANES: Array<[NodeId, NodeId, string]> = [
   [asNodeId('strict-2'), STRICT, 'Bravo'],
   [asNodeId('lenient-1'), LENIENT, 'Charlie'],
   [asNodeId('lenient-2'), LENIENT, 'Delta'],
+  [asNodeId('refusing-1'), REFUSING, 'Echo'],
 ];
 
 /** Accepts a third item where `maxItems: 2` would refuse, and defers on a
@@ -38,11 +40,16 @@ function acceptUpToThree(ctx: AcceptContext): boolean | undefined {
   return ctx.items.length <= 3 ? true : undefined;
 }
 
+/** The narrowing direction: refuses a drop the strategy has room for. */
+function refuseEverything(): boolean {
+  return false;
+}
+
 /** The panes are the store's, not the JSX's: a drop re-parents one, and a
  *  preset only renders the children it created itself. */
 function useSeededPanes(store: Store): void {
   useEffect(() => {
-    if (!store.getNode(STRICT) || !store.getNode(LENIENT)) return;
+    if (!store.getNode(STRICT) || !store.getNode(LENIENT) || !store.getNode(REFUSING)) return;
     for (const [id, parentId, title] of PANES) {
       if (store.getNode(id)) continue;
       store.registerNode(createNode({ kind: 'panel', focus: true, id, parentId, meta: { title } }));
@@ -152,6 +159,12 @@ function Board() {
         note="canAccept: items.length ≤ 3"
         canAccept={acceptUpToThree}
       />
+      <AcceptZone
+        zoneId={REFUSING}
+        label="Refusing"
+        note="canAccept: false"
+        canAccept={refuseEverything}
+      />
     </div>
   );
 }
@@ -166,16 +179,21 @@ export const WideningTheCap: Story = () => {
           <Board />
           <div className="ap-prose">
             <p>
-              Both zones are <code>strip</code> with <code>maxItems: 2</code> and both are full, so
-              the strategy refuses a third pane in either. The right zone passes a{' '}
+              All three zones are <code>strip</code> with <code>maxItems: 2</code>. Strict and
+              Lenient are full, so the strategy refuses a third pane in either. Lenient passes a{' '}
               <code>canAccept</code> that answers <code>true</code> up to three items — drag a pane
-              into it and the frame turns green and the drop lands. Drag one into the left zone and
-              the frame turns red and the release does nothing.
+              into it and the frame turns green and the drop lands. Drag one into Strict and the
+              frame turns red and the release does nothing.
             </p>
             <p>
-              Move a second pane across and the right zone refuses that one too:{' '}
-              <code>canAccept</code> returns <code>undefined</code> at four items, which defers to{' '}
-              <code>maxItems</code> again.
+              Refusing holds one pane, so the strategy has room for a second and would take it. Its{' '}
+              <code>canAccept</code> returns <code>false</code> regardless. An override narrows as
+              well as widens, which is what makes it an override rather than a cap.
+            </p>
+            <p>
+              Move a second pane into Lenient and it refuses that one too: <code>canAccept</code>{' '}
+              returns <code>undefined</code> at four items, which defers to <code>maxItems</code>{' '}
+              again.
             </p>
             <p>
               Acceptance and capacity are separate decisions. A widened zone takes the pane into its{' '}
