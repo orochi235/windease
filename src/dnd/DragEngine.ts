@@ -36,9 +36,10 @@ export interface DragState {
   } | null;
 }
 
-/** What a drop target's `acceptPolicy` is asked about: the child list the
- *  container would have after the drop, exactly as `strategy.canAccept` sees
- *  it, plus who is being dropped. */
+/** What a drop target's `acceptPolicy` is asked about: the child list
+ *  `strategy.canAccept` would see for this drop, plus who is being dropped.
+ *  A stack or split intent still shows the source as a new child, though a
+ *  wrap drop leaves the parent's child count unchanged. */
 export interface AcceptContext {
   items: { id: NodeId }[];
   options: Record<string, unknown>;
