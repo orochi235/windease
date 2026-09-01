@@ -312,22 +312,32 @@ strategy receives.
 children it's handed. When a child is itself a container
 (`isContainer: true`), the strategy treats it as any other parented item.
 The React `NodeRenderer` then mounts the child's own strategy inside the
-placement rect. Built-in strategies (grid, strip, split) work
-unchanged on recursive trees.
+placement rect. Built-in strategies work unchanged on recursive trees.
+(`split` is not among them — `store.split` is a verb over the node tree, not a
+strategy.)
 
 Built-ins:
 
 - **`gridStrategy`** — `cols`, `rows`, `orientation`, `maxCols`, `maxRows`,
   `maxItems`, `gap`, `padding`. `maxItems` mutually exclusive with
   `maxCols`/`maxRows`.
-- **`stripStrategy`** — main-axis stack with `axis` ('x' or 'y'), `fill`,
-  `defaultItemSize`, `gap`, `padding`, `maxItems`. There is no separate
-  "stack" strategy — `{ axis: 'y', fill: true }` is what stack was; strip
-  covers both axes. Honors child `hints.minSize` as a pixel floor and
-  `hints.maxSize` as a ceiling, plus `placement.size` for a fixed-px pane.
+- **`stripStrategy`** — children share one axis: `axis` ('x' or 'y'), `fill`,
+  `defaultItemSize`, `gap`, `padding`, `maxItems`. Strip covers both axes, so
+  `{ axis: 'y', fill: true }` replaces the axis-stacking strategy removed in
+  0.9.0 — not today's `stackStrategy`, which is unrelated. Honors child
+  `hints.minSize` as a pixel floor and `hints.maxSize` as a ceiling, plus
+  `placement.size` for a fixed-px pane.
   `store.split(id, input)` (see Store API) builds nested strip trees —
   workspace-level splits with draggable gutters — without a dedicated
   strategy of its own.
+- **`stackStrategy`** — one child visible, the rest reported in `unplaced`:
+  `activeId` picks it (falling back to the first child), `headerSize` reserves
+  the band your tab strip renders in, plus `padding`. The core never measures
+  the strip and never draws it; `useStack(containerId)` gives you the model.
+- **`floatingStrategy(inner?)`** — wraps another strategy. Items whose
+  `meta.floating` is true are placed free and corner-snapped; the rest are
+  tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
+  `handleSize`, `snapToPanes`. Called with no argument, everything floats.
 
 ## React layer
 

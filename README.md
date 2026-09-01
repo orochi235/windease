@@ -32,17 +32,21 @@ See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
   children, and a child may itself be a container. "Tray inside a window"
   is just a panel whose `container` is set.
 - **Universal lifecycle.** Every node carries an FSM
-  (`mounted → visible ↔ hidden → destroyed`); panels additionally carry
-  `transit` (atomic moves) and `focus` (single-focus invariant).
+  (`mounted → visible ↔ hidden → destroyed`). A node with a parent also carries
+  `transit` (atomic moves) — a nested zone as much as a leaf. `focus`
+  (single-focus invariant) is opt-in per node via `createNode({ focus: true })`,
+  which is what `<Panel>` passes and `<Zone>` does not.
 - **Record replacement.** Every store mutation produces a fresh `Node`
   reference; React's `useSyncExternalStore` invalidates correctly by
   default.
 - **JSON-safe snapshots** via `serialize(store)` / `deserialize(snap)`.
-- **Layout strategies** are pure functions. Built-ins: `gridStrategy` and
-  `stripStrategy` (main-axis stack with capacity handling; `{ axis: 'y' }`
-  is what "stack" was). Strategies work unchanged on recursive trees via the
-  `LayoutNode` adapter. `store.split(id, input)` builds nested `stripStrategy`
-  trees without a dedicated strategy of its own.
+- **Layout strategies** are pure functions. Four built-ins: `stripStrategy`
+  (children share one axis, with capacity handling), `gridStrategy`,
+  `stackStrategy` (one child visible, you draw the tab strip) and
+  `floatingStrategy(inner?)`, which wraps another strategy so items marked
+  `floating` sit free over what it tiles. Strategies work unchanged on
+  recursive trees via the `LayoutNode` adapter. `store.split(id, input)` builds
+  nested `stripStrategy` trees without a dedicated strategy of its own.
 
 ## Quick start
 
@@ -1252,6 +1256,11 @@ Breaking. Three exports are removed; each has a direct replacement.
 | `splitStrategy` (+ `SplitNode`, `SplitOptions`, `SplitMeta`) | `store.split(id, input)` |
 | `stackStrategy` | `stripStrategy` with `{ axis: 'y', fill: true }` |
 | `createGroup`, `<Group>` | `createZone({ parentId })`, `<Zone parentId kind="group">` |
+
+The `stackStrategy` removed here stacked children along an axis. The name was
+reused in 1.3.0 for [tab stacking](#tab-stacking) — an unrelated strategy that
+shows one child and withholds the rest. Migrating from 0.9.0 means `stripStrategy`,
+not today's `stackStrategy`.
 
 - **`store.split(id, input)` / `store.unsplit(groupId)`.** Split is a verb over
   the node tree rather than a strategy holding its own tree, so registering a

@@ -61,6 +61,21 @@ section below.
   reads. `gridStrategy` declares its own — setting `cols` has always made
   `maxCols`, `rows` and `orientation` dead config, silently.
 
+- **The README and `docs/concepts.md` said there were two built-in strategies.**
+  There are four. Both documents still carried the 0.9.0 line that "there is no
+  separate stack strategy", written before 1.3.0 reused the name for tab
+  stacking — which the README then documented 600 lines further down, and which
+  `concepts.md` denied outright. `floatingStrategy` was missing from both lists,
+  and `concepts.md` counted `split` as a strategy when `store.split` is a verb
+  over the tree. The 0.9.0 migration row now says which `stackStrategy` it
+  means.
+
+- **The README said panels carry `transit` and `focus`.** `transit` comes with
+  `membership`, so any node with a parent has one, a nested zone included;
+  `focus` is opt-in per node through `createNode({ focus: true })`, which
+  `<Panel>` passes and `<Zone>` does not. The old wording reintroduced a panel
+  type in the same list that opens by saying there are no types.
+
 - **Every symbol in the API reference now carries a description.** The
   generated reference had rendered 143 of its 230 entries — including `Node`,
   `LayoutStrategy`, `createNode` and each error class — as a bare signature
