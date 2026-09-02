@@ -57,3 +57,29 @@ test.describe('a drop on a preset resolves where the cursor is', () => {
     expect(Math.abs(moved.x - target.x)).toBeLessThanOrEqual(1);
   });
 });
+
+test.describe('a custom dropIntent replaces the hit-test', () => {
+  const STORY = 'declarative--custom-drop-intent';
+
+  test('a wide pane still stacks, as the shipped resolver would', async ({ page }) => {
+    await openStory(page, STORY);
+    const bravo = await boxOf(page.locator('[data-node="bravo"]'));
+    await dropAt(page, 'grip-alpha', { x: bravo.x + bravo.w / 2, y: bravo.y + bravo.h / 2 });
+    await expect(page.getByTestId('dd-readout')).toHaveText(
+      /shelf:stack-\d+,charlie stack-\d+:bravo,alpha/,
+    );
+  });
+
+  test('the sliver refuses the stack and takes an insert instead', async ({ page }) => {
+    await openStory(page, STORY);
+    const sliver = await boxOf(page.locator('[data-node="charlie"]'));
+    expect(Math.round(sliver.w)).toBeLessThan(160);
+
+    // The same gesture, on a pane the rule protects: dead centre, which is
+    // nothing but the stack band.
+    await dropAt(page, 'grip-alpha', { x: sliver.x + sliver.w / 2, y: sliver.y + sliver.h / 2 });
+
+    await expect(page.getByTestId('dd-readout')).toHaveText(/^shelf:[a-z,]+$/);
+    await expect(page.getByTestId('dd-readout')).toHaveText(/alpha/);
+  });
+});

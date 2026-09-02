@@ -1,5 +1,6 @@
 import { Meta } from '@ladle/react';
 import { DraftBanner } from './Draft.tsx';
+import { LiveRegion } from '../react/stories/Announcements.stories.tsx';
 
 <Meta title="Guide/06 Keyboard and focus/6.05 Announcements" />
 
@@ -16,9 +17,10 @@ user who is not looking at the screen has no way to know either happened.
 This chapter covers which of those windease speaks for you, which it stays quiet
 about on purpose, and how to say them yourself on a host with no DOM.
 
-Moving focus announces the new pane's name for free. windease speaks two more,
-both changes that move **no** focus and would otherwise pass in silence: the
-focused pane closing, and the focused pane moving under a different parent.
+Moving focus announces the new pane's name for free. windease speaks three
+more, all changes that move **no** focus and would otherwise pass in silence:
+the focused pane closing, moving under a different parent, and changing position
+among its siblings.
 
 **React**
 
@@ -28,6 +30,11 @@ focused pane closing, and the focused pane moving under a different parent.
 ```tsx
 <FocusProvider announce={false}>   // for a host that owns its own live region
 ```
+
+The demo unhides the region so you can read what it says. Focus a pane, then
+close it, move it, or reorder it — focus stays put through all three.
+
+<LiveRegion />
 
 **Core**
 

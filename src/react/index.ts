@@ -23,6 +23,7 @@ export type {
 export {
   Container,
   type ContainerProps,
+  type DropIntentContext,
   type OverlayContext,
   type OverlayRenderer,
 } from './Container.js';

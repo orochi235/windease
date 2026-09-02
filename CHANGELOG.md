@@ -10,6 +10,11 @@ section below.
 
 ### Added
 
+- **`DropIntentContext` is exported from `windease/react`.** It is the argument
+  type of the public `<Container dropIntent>` / `<Zone dropIntent>` prop, and
+  had no importable name — a consumer writing the callback anywhere but inline
+  could not annotate it.
+
 - **`gridTiling(items, options)`** reports the columns and rows a grid config
   produces, taking no container and laying nothing out. A host sizing a grid to
   its own content previously had to call `gridStrategy.layout()` at a throwaway
@@ -60,6 +65,16 @@ section below.
   cancel each other, and an `ignored` key that some other key's branch never
   reads. `gridStrategy` declares its own — setting `cols` has always made
   `maxCols`, `rows` and `orientation` dead config, silently.
+
+- **Eight public props that had no demo now have one, each operable and each
+  covered by a Playwright spec.** `affordanceHitPad`, `affordanceKeyStep` and
+  `affordanceTabStops` in `Affordance tuning / Tuning`; `overlay` in
+  `Affordance tuning / Layout overlay`; `onPlacementChange` and
+  `onChildOrderChange` in `Controlled`; `FocusProvider announce` in
+  `Announcements`, which unhides the live region so the spoken text is on
+  screen; and `dropIntent` in `Declarative / Custom drop intent`, which refuses
+  a stack onto a pane too narrow for a tab strip. Guide chapters 4.01, 5.02,
+  6.05, 7.08 and 7.11 embed them.
 
 - **A guide, published beside the playground.** Sixty-four chapters across ten
   sections, ordered by what each capability costs to adopt rather than by the
@@ -117,6 +132,10 @@ section below.
   trace rather than silently falling back to `'squeeze'`.
 
 ### Fixed
+
+- **The announcements docs listed two spoken changes where the announcer has
+  always spoken three.** A reorder among siblings is announced too, and was
+  missing from both the README and guide 6.05.
 
 - **`updateContainerConfig` no longer republishes a patch that changed
   nothing.** The merge branch always allocates, so the existing reference check

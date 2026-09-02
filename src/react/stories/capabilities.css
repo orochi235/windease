@@ -173,3 +173,76 @@
 .cap-flow-column > [data-node] {
   flex: 1 1 0;
 }
+
+.cap-stage--strip {
+  width: 640px;
+  height: 180px;
+}
+
+/* Overlay chrome: drawn over the children, so it must never take the pointer
+   away from the seam it is reporting on. */
+.cap-overlay-tag,
+.cap-overlay-status {
+  position: absolute;
+  pointer-events: none;
+  font:
+    11px / 1.4 ui-monospace,
+    monospace;
+  color: #334155;
+}
+
+.cap-overlay-tag {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #e2e8f0cc;
+}
+
+.cap-overlay-status {
+  right: 6px;
+  top: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.cap-stage--column {
+  width: 260px;
+  height: 300px;
+}
+
+.cap-row {
+  display: flex;
+  gap: 12px;
+}
+
+/* The live region is visually hidden where it ships; this story is about what
+   it says, so inside the demo it is an ordinary box. */
+.cap-live .windease-live-region {
+  position: static;
+  width: auto;
+  height: 22px;
+  margin: 8px 0 0;
+  padding: 3px 8px;
+  overflow: visible;
+  clip-path: none;
+  border-radius: 4px;
+  background: #1e293b;
+  color: #f8fafc;
+  font:
+    12px / 16px ui-monospace,
+    monospace;
+}
+
+/* A 4px gutter is invisible unpainted, and every seam story here is about
+   grabbing one. */
+.cap-stage [data-affordance-kind="resize-x"],
+.cap-stage [data-affordance-kind="resize-y"] {
+  background: #94a3b8;
+  border-radius: 2px;
+}
+
+.cap-stage .windease-affordance-hit:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
