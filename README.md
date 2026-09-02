@@ -991,11 +991,11 @@ that choice: it receives `{ store, departing, reason }` and returns an id,
 ### Announcements
 
 Moving focus announces the new pane's name for free. What needs saying out
-loud is a change that moves *no* focus: the focused pane closing, or being
-relocated under a different parent. `FocusProvider` renders a polite live
-region for those and speaks them — "Editor closed", "Editor moved to Sidebar,
-position 2 of 3". Pass `announce={false}` for a host that owns its own live
-region.
+loud is a change that moves *no* focus: the focused pane closing, being
+relocated under a different parent, or changing position among its siblings.
+`FocusProvider` renders a polite live region for those and speaks them —
+"Editor closed", "Editor moved to Sidebar, position 2 of 3". Pass
+`announce={false}` for a host that owns its own live region.
 
 Only changes to the focused pane, or to a subtree focus sits inside, are
 spoken; a host relocating thirty panes the user is not in narrates nothing.

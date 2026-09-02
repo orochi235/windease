@@ -1,6 +1,9 @@
 import { Meta } from '@ladle/react';
 import { DraftBanner } from './Draft.tsx';
-import { DropIntent as DropIntentStory } from '../react/stories/DeclarativeDrop.stories.tsx';
+import {
+  CustomDropIntent,
+  DropIntent as DropIntentStory,
+} from '../react/stories/DeclarativeDrop.stories.tsx';
 
 <Meta title="Guide/05 Drag and drop/5.02 Drop intent" />
 
@@ -48,7 +51,10 @@ node already removed:
 ```
 
 That is how you tune band thickness, add quadrant zones, or refuse a split on a
-small pane.
+small pane. The demo below refuses a *stack* onto anything under 160px wide —
+the sliver's middle inserts beside it, while the wide pane still stacks:
+
+<CustomDropIntent />
 
 **Core**
 

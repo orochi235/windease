@@ -1,6 +1,7 @@
 import { Meta } from '@ladle/react';
 import { DraftBanner } from './Draft.tsx';
 import { Playground } from '../react/stories/Playground.stories.tsx';
+import { LayoutOverlay } from '../react/stories/AffordanceTuning.stories.tsx';
 
 <Meta title="Guide/07 Customization/7.11 Custom chrome and affordance renderers" />
 
@@ -52,7 +53,10 @@ The function form dispatches however you like:
 <Container overlay={({ placements, draggingAffordanceId }) => …} />
 ```
 
-For drop indicators and selection rings.
+For drop indicators and selection rings — or, below, a live readout of the
+placements and the seam currently under the pointer.
+
+<LayoutOverlay />
 
 ## Affordance renderers
 

@@ -1,5 +1,6 @@
 import { Meta } from '@ladle/react';
 import { DraftBanner } from './Draft.tsx';
+import { ChildOrder, Placement } from '../react/stories/Controlled.stories.tsx';
 
 <Meta title="Guide/07 Customization/7.08 Controlled placement and order" />
 
@@ -30,6 +31,8 @@ const [h, setH] = useState(200);
 
 Controlled and uncontrolled panes mix freely in one row.
 
+<Placement />
+
 **Core**
 
 ```ts
@@ -51,6 +54,8 @@ standalone.
 A drop hands you the list it would have written. Only **library-mediated**
 gestures are intercepted: `store.reorderInParent` called directly still commits,
 since that is the host acting on itself.
+
+<ChildOrder />
 
 ## Do not copy the bag
 

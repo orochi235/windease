@@ -1,6 +1,7 @@
 import { Meta } from '@ladle/react';
 import { DraftBanner } from './Draft.tsx';
 import { HorizontalStrip } from '../react/stories/Strip.stories.tsx';
+import { Tuning } from '../react/stories/AffordanceTuning.stories.tsx';
 
 <Meta title="Guide/04 Resize/4.01 Affordances and seams" />
 
@@ -56,3 +57,9 @@ works while a gutter holds focus.
 Every gutter is a tab stop — the WAI-ARIA window-splitter pattern — which gets
 tiring in a dock of many panes. `affordanceTabStops={false}` keeps the ARIA and
 drops the stops.
+
+All three are live below: widen the pad and the seam catches the pointer further
+out than the line it draws, raise the step and one arrow press moves further,
+untick the stops and `Tab` walks past the seams.
+
+<Tuning />

@@ -5,8 +5,10 @@ import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import {
   asNodeId,
   createNode,
+  type DropIntent as Intent,
   type Node,
   type NodeId,
+  resolveDropIntent,
   Store,
   stackStrategy,
   stripStrategy,
@@ -16,6 +18,7 @@ import {
   Container,
   DragHandle,
   DragProvider,
+  type DropIntentContext,
   Provider,
   preserveStoreOrder,
   StrategyRegistryProvider,
@@ -33,11 +36,37 @@ const VIEWPORT = { w: 660, h: 300 };
 const SPLIT_CONFIG = { gap: 6 };
 const STACK_CONFIG = { headerSize: 26 };
 
-const PANES = [
+interface Pane {
+  id: NodeId;
+  title: string;
+  /** Explicit width, so `CustomDropIntent` has a pane of each size. */
+  width?: number;
+}
+
+const PANES: Pane[] = [
   { id: asNodeId('alpha'), title: 'Alpha' },
   { id: asNodeId('bravo'), title: 'Bravo' },
   { id: asNodeId('charlie'), title: 'Charlie' },
 ];
+
+const NARROW_PANES: Pane[] = [
+  { id: asNodeId('alpha'), title: 'Alpha' },
+  { id: asNodeId('bravo'), title: 'Bravo (wide)' },
+  { id: asNodeId('charlie'), title: 'Sliver', width: 90 },
+];
+
+/** Stacking buries a pane behind a tab strip, which a 90px sliver has no room
+ *  to show. Everything else is the shipped hit-test — a custom resolver is
+ *  usually one call plus a rule, not a reimplementation. */
+const MIN_STACK_W = 160;
+
+function noStackOnSlivers({ rects, point, axis }: DropIntentContext): Intent {
+  const intent = resolveDropIntent(rects, point, axis, { stack: true, split: true });
+  if (intent.kind !== 'stack') return intent;
+  const onto = rects.find((r) => r.id === intent.ontoId);
+  if (onto && onto.rect.w < MIN_STACK_W) return resolveDropIntent(rects, point, axis, {});
+  return intent;
+}
 
 function PaneBody({ id, title }: { id: NodeId; title: string }) {
   return (
@@ -98,7 +127,13 @@ function Readout() {
   );
 }
 
-function Shelf() {
+interface ShelfProps {
+  panes?: Pane[];
+  /** Replaces the built-in hit-test on the shelf and on every nested group. */
+  intent?: (ctx: DropIntentContext) => Intent | undefined;
+}
+
+function Shelf({ panes = PANES, intent }: ShelfProps = {}) {
   const store = useStore();
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -112,7 +147,7 @@ function Shelf() {
   // adopt a node it created itself — so the panes are the store's.
   useEffect(() => {
     if (!store.getNode(ROOT)) return;
-    for (const pane of PANES) {
+    for (const pane of panes) {
       if (store.getNode(pane.id)) continue;
       store.registerNode(
         createNode({
@@ -121,12 +156,13 @@ function Shelf() {
           focus: true,
           parentId: ROOT,
           hints: { minSize: { w: 40, h: 30 } },
+          ...(pane.width ? { placement: { size: { w: pane.width } } } : {}),
           meta: { title: pane.title },
         }),
       );
       store.showNode(pane.id);
     }
-  }, [store]);
+  }, [store, panes]);
 
   const renderNested = useCallback(
     (node: Node) => {
@@ -143,11 +179,12 @@ function Shelf() {
             splitOnDrop
             affordances
             className="windease-zone dd-nested__zone"
+            {...(intent ? { dropIntent: intent } : {})}
           />
         </div>
       );
     },
-    [chrome],
+    [chrome, intent],
   );
 
   return (
@@ -163,6 +200,7 @@ function Shelf() {
       splitOnDrop
       affordances
       renderImperative={renderNested}
+      {...(intent ? { dropIntent: intent } : {})}
     />
   );
 }
@@ -183,6 +221,36 @@ export const DropIntent: Story = () => {
               <code>&lt;Container&gt;</code> at the top. Drag a pane by its header onto a{' '}
               <b>left or right seam</b> to insert it there, onto a pane's <b>middle</b> to stack the
               two into tabs, or onto its <b>top or bottom edge</b> to split that slot.
+            </p>
+          </div>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+/**
+ * The same shelf with `dropIntent` replacing the hit-test: a stack is refused
+ * onto anything under 160px wide and becomes an insert beside it instead. The
+ * `Sliver` sits at 90px, so its middle behaves like its seam.
+ */
+export const CustomDropIntent: Story = () => {
+  const store = useMemo(() => new Store(), []);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <DragProvider splitConfig={SPLIT_CONFIG} stackConfig={STACK_CONFIG}>
+          <div className="dd-frame">
+            <Shelf panes={NARROW_PANES} intent={noStackOnSlivers} />
+          </div>
+          <Readout />
+          <div className="dd-prose">
+            <p>
+              Drop <b>Alpha</b> on the middle of <b>Bravo</b> and the two stack, as they would
+              without the override. Drop it on the middle of the <b>Sliver</b> and it inserts beside
+              it — the rule refuses a stack onto a pane too narrow to show a tab strip. The resolver
+              is the shipped <code>resolveDropIntent</code> called twice, once with stacking on and
+              once with it off.
             </p>
           </div>
         </DragProvider>
