@@ -60,6 +60,35 @@ describe('focus successor', () => {
     rec.stop();
   });
 
+  it('blurs the departing node when a successor takes over', () => {
+    const s = row(['a', 'b']);
+    s.focusNode(id('a'));
+    s.hideNode(id('a'));
+    expect(s.focusedId).toBe(id('b'));
+    expect(s.getNode(id('a'))?.focus?.state).toBe('blurred');
+    expect(s.getNode(id('b'))?.focus?.state).toBe('focused');
+  });
+
+  it('blurs the departing node when nothing succeeds it', () => {
+    const s = row(['a']);
+    s.focusNode(id('a'));
+    s.hideNode(id('a'));
+    expect(s.focusedId).toBeNull();
+    expect(s.getNode(id('a'))?.focus?.state).toBe('blurred');
+  });
+
+  it('emits the departing blur before the successor focus', () => {
+    const s = row(['a', 'b']);
+    s.focusNode(id('a'));
+    const rec = recordEvents(s, 'node.transitioned');
+    s.hideNode(id('a'));
+    expect(rec.of('node.transitioned').filter((e) => e.machine === 'focus')).toEqual([
+      { id: id('a'), machine: 'focus', from: 'focused', to: 'blurred' },
+      { id: id('b'), machine: 'focus', from: 'blurred', to: 'focused' },
+    ]);
+    rec.stop();
+  });
+
   it('does not fire on an explicit focusNode', () => {
     const s = row(['a', 'b']);
     const rec = recordEvents(s, 'focus.successor');

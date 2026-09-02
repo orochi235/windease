@@ -133,6 +133,12 @@ section below.
 
 ### Fixed
 
+- **Two nodes reported `focused` after a focus succession.** When the focused
+  node was destroyed or hidden, the departing node was never sent `blur` — it
+  kept `node.focus.state === 'focused'` alongside its successor, and emitted no
+  `node.transitioned`, so a host drawing a focus ring from the node field drew
+  two of them. `store.focusedId` was always right; only the node field lied.
+
 - **The announcements docs listed two spoken changes where the announcer has
   always spoken three.** A reorder among siblings is announced too, and was
   missing from both the README and guide 6.05.

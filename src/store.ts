@@ -1157,13 +1157,8 @@ export class Store {
       chosen = undefined;
     }
     const to = chosen === undefined ? chooseSuccessor(this, from) : chosen;
-    this.focusedIdValue = null;
-    if (to) {
-      this.focusNode(to);
-    } else {
-      this.publisher.markGlobalsDirty();
-      this.scheduleNotify();
-    }
+    this.blurAll();
+    if (to) this.focusNode(to);
     this.events.emit('focus.successor', { from, to, reason });
     trace('store', `focus successor: ${from} → ${to ?? 'none'} (${reason})`);
   }

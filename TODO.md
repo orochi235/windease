@@ -182,15 +182,6 @@ Still open:
 
 ## Focus bookkeeping
 
-- **Two nodes report `focused` after a succession [HIGH].** When the focused
-  node is destroyed or hidden, `succeedFocus` clears `focusedIdValue`
-  (`src/store.ts:1150`) before calling `focusNode`, whose blur branch is guarded
-  on that field being truthy (`:1193`) — so the departing node is never sent
-  `blur` and keeps `node.focus.state === 'focused'` alongside its successor.
-  `store.focusedId` is right; the node field lies, and a consumer drawing a
-  focus ring from `node.focus.state` draws two. Reproduces with no successor
-  policy configured.
-
 - **`strategy.navigate`'s answer is never validated [MED].**
   `src/focus/resolve.ts:102` casts it `as NodeId` and returns it, so a custom
   strategy can name a node with no focus capability — and `FocusProvider` calls
