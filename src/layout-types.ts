@@ -6,8 +6,12 @@ import type { Store } from './store.js';
  *  over items that need not come from a store. */
 export type ItemId = string;
 /** Position and extent, in the container's coordinate space. Origin is the
- *  container's top-left, not the viewport's. */
-export type Rect = { x: number; y: number; w: number; h: number };
+ *  container's top-left, not the viewport's.
+ *
+ *  Every rect the library emits sets `z` — `0` from a 2D strategy, which is
+ *  where a 2D layout genuinely sits — so a read site never needs `?? 0`. It
+ *  stays optional only so hand-built literals keep compiling. */
+export type Rect = { x: number; y: number; z: number; w: number; h: number };
 /** A width/height pair with no position. */
 export type Size = { w: number; h: number };
 
@@ -236,6 +240,14 @@ export interface LayoutResult<TId extends string = string, TMeta = unknown> {
    * with everything placed.
    */
   overflow?: { w: number; h: number };
+  /**
+   * Per-placement values the core carries to the host and never reads —
+   * opacity, a rotation, an LOD tier. Untyped on purpose: the library commits
+   * to the transport, not to a vocabulary it has no predicate over. Every
+   * value is a `number` so a host can interpolate two results without knowing
+   * what any key means.
+   */
+  channels?: Map<TId, Record<string, number>>;
   /**
    * True when this result was produced in response to a `preview` input and
    * the strategy honored it. `<Container>` uses this to know whether to

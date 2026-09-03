@@ -10,7 +10,7 @@ const ratioStrategy: StatefulLayoutStrategy<Ratios> = {
   initialState: (items: LayoutItem[]) => ({ ratios: items.map(() => 1 / items.length) }),
   layout: ({ items, state }) => ({
     placements: new Map(
-      items.map((item, i) => [item.id, { x: 0, y: 0, w: (state.ratios[i] ?? 0) * 100, h: 10 }]),
+      items.map((item, i) => [item.id, { x: 0, y: 0, z: 0, w: (state.ratios[i] ?? 0) * 100, h: 10 }]),
     ),
     affordances: [],
   }),

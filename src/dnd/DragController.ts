@@ -49,9 +49,9 @@ export interface DropTargetOptions {
   acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
 }
 
-function rectOf(el: Element): { x: number; y: number; w: number; h: number } {
+function rectOf(el: Element): { x: number; y: number; z: number; w: number; h: number } {
   const r = el.getBoundingClientRect();
-  return { x: r.left, y: r.top, w: r.right - r.left, h: r.bottom - r.top };
+  return { x: r.left, y: r.top, z: 0, w: r.right - r.left, h: r.bottom - r.top };
 }
 
 const rafScheduler: FrameScheduler = {

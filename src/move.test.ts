@@ -4,12 +4,13 @@ import type { GeometrySource } from './focus/types.js';
 import { applyMove, resolveMove } from './move.js';
 import { asNodeId, type NodeId } from './node.js';
 import { Store } from './store.js';
+import type { Rect } from './layout-types.js';
 
 function id(s: string): NodeId {
   return asNodeId(s);
 }
 
-type Rects = Record<string, { x: number; y: number; w: number; h: number }>;
+type Rects = Record<string, Rect>;
 
 function geometryOf(map: Rects): GeometrySource {
   return { rectOf: (nid) => map[nid] ?? null };
@@ -29,9 +30,9 @@ function row(): { store: Store; geometry: GeometrySource } {
   return {
     store,
     geometry: geometryOf({
-      a: { x: 0, y: 0, w: 100, h: 100 },
-      b: { x: 100, y: 0, w: 100, h: 100 },
-      c: { x: 200, y: 0, w: 100, h: 100 },
+      a: { x: 0, y: 0, z: 0, w: 100, h: 100 },
+      b: { x: 100, y: 0, z: 0, w: 100, h: 100 },
+      c: { x: 200, y: 0, z: 0, w: 100, h: 100 },
     }),
   };
 }
@@ -58,10 +59,10 @@ function twoZones(): { store: Store; geometry: GeometrySource } {
   return {
     store,
     geometry: geometryOf({
-      a: { x: 0, y: 0, w: 100, h: 100 },
-      b: { x: 100, y: 0, w: 100, h: 100 },
-      c: { x: 300, y: 0, w: 100, h: 100 },
-      d: { x: 400, y: 0, w: 100, h: 100 },
+      a: { x: 0, y: 0, z: 0, w: 100, h: 100 },
+      b: { x: 100, y: 0, z: 0, w: 100, h: 100 },
+      c: { x: 300, y: 0, z: 0, w: 100, h: 100 },
+      d: { x: 400, y: 0, z: 0, w: 100, h: 100 },
     }),
   };
 }
@@ -174,8 +175,8 @@ describe('resolveMove — refusals', () => {
     store.registerNode(createNode({ kind: 'panel', focus: true, id: id('x'), parentId: id('g') }));
     store.showNode(id('x'));
     const geometry = geometryOf({
-      g: { x: 0, y: 0, w: 100, h: 100 },
-      x: { x: 100, y: 0, w: 100, h: 100 },
+      g: { x: 0, y: 0, z: 0, w: 100, h: 100 },
+      x: { x: 100, y: 0, z: 0, w: 100, h: 100 },
     });
     expect(resolveMove({ store, from: id('g'), direction: 'right', geometry })).toBeNull();
   });

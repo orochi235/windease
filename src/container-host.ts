@@ -41,6 +41,11 @@ export interface ContainerLayout {
    */
   mode: 'placed' | 'flow';
   /**
+   * Per-placement values the strategy attached and the core never read. Absent
+   * unless the strategy emitted some. See `LayoutResult.channels`.
+   */
+  channels?: Map<NodeId, Record<string, number>>;
+  /**
    * How far this container's content is scrolled away from its origin. Zero
    * unless a host reports otherwise through `setScroll`.
    *
@@ -703,6 +708,7 @@ export class ContainerHost {
       scroll: this.#scroll,
     };
     if (result.overflow) out.overflow = result.overflow;
+    if (result.channels) out.channels = result.channels;
     return out;
   }
 }

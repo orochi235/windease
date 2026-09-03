@@ -490,6 +490,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       placements.set(item.id, {
         x: padding + cell.col * (cellW + gap),
         y: padding + cell.row * (cellH + gap),
+        z: 0,
         w: cell.cols * cellW + (cell.cols - 1) * gap,
         h: cell.rows * cellH + (cell.rows - 1) * gap,
       });
@@ -509,7 +510,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
           affordances.push({
             id: `resize-x-${item.id}`,
             kind: 'resize-x',
-            rect: { x: rect.x + rect.w - 2, y: rect.y, w: 4, h: rect.h },
+            rect: { x: rect.x + rect.w - 2, y: rect.y, z: 0, w: 4, h: rect.h },
             cursor: 'ew-resize',
             childId: item.id,
             affects: [item.id],
@@ -528,7 +529,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
           affordances.push({
             id: `resize-y-${item.id}`,
             kind: 'resize-y',
-            rect: { x: rect.x, y: rect.y + rect.h - 2, w: rect.w, h: 4 },
+            rect: { x: rect.x, y: rect.y + rect.h - 2, z: 0, w: rect.w, h: 4 },
             cursor: 'ns-resize',
             childId: item.id,
             affects: [item.id],

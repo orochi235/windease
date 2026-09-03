@@ -95,13 +95,13 @@ afterEach(() => {
 describe('preset geometry', () => {
   it('publishes a preset root own rect in document coordinates', () => {
     const { geometry } = mount();
-    expect(geometry.rectOf(ZONE)).toEqual({ x: 40, y: 10, w: 100, h: 200 });
+    expect(geometry.rectOf(ZONE)).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 200 });
   });
 
   it('composes preset panes against that origin', () => {
     const { geometry } = mount();
-    expect(geometry.rectOf(A)).toEqual({ x: 40, y: 10, w: 100, h: 100 });
-    expect(geometry.rectOf(B)).toEqual({ x: 40, y: 110, w: 100, h: 100 });
+    expect(geometry.rectOf(A)).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 100 });
+    expect(geometry.rectOf(B)).toEqual({ x: 40, y: 110, z: 0, w: 100, h: 100 });
   });
 
   it('gives the first preset pane the tab stop, so a keyboard user can enter', () => {
@@ -169,8 +169,8 @@ describe('preset geometry — flow', () => {
   it('measures the children a flow preset let the browser arrange', async () => {
     const geometry = mountFlow();
     await waitFor(() => {
-      expect(geometry.rectOf(F1)).toEqual({ x: 40, y: 10, w: 100, h: 60 });
+      expect(geometry.rectOf(F1)).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 60 });
     });
-    expect(geometry.rectOf(F2)).toEqual({ x: 40, y: 70, w: 100, h: 90 });
+    expect(geometry.rectOf(F2)).toEqual({ x: 40, y: 70, z: 0, w: 100, h: 90 });
   });
 });

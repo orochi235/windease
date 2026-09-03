@@ -6,7 +6,7 @@ describe('Affordance + LayoutStrategy extensions', () => {
     const a: Affordance = {
       id: 'resize-z',
       kind: 'resize-y',
-      rect: { x: 0, y: 0, w: 10, h: 4 },
+      rect: { x: 0, y: 0, z: 0, w: 10, h: 4 },
       childId: 'child-a',
     };
     expect(a.kind).toBe('resize-y');

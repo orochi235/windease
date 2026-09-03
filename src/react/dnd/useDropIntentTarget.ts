@@ -46,7 +46,7 @@ export interface DropIntentTargetOptions {
 
 /** `childRectsForContainer` reports DOMRects; the resolver takes plain bounds. */
 function domRectToRect(r: DOMRect): Rect {
-  return { x: r.left, y: r.top, w: r.width, h: r.height };
+  return { x: r.left, y: r.top, z: 0, w: r.width, h: r.height };
 }
 
 /**

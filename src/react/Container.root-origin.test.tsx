@@ -183,33 +183,33 @@ describe('root container origins', () => {
     stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
     stubScroll(20, 30);
     const { geometry } = mount(['left']);
-    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 60, y: 40, w: 100, h: 200 });
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 60, y: 40, z: 0, w: 100, h: 200 });
   });
 
   it('composes a root children against that origin', () => {
     stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
     const { geometry } = mount(['left']);
-    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 40, y: 10, w: 100, h: 100 });
-    expect(geometry.rectOf(asNodeId('left-b'))).toEqual({ x: 40, y: 110, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('left-b'))).toEqual({ x: 40, y: 110, z: 0, w: 100, h: 100 });
   });
 
   it('moves children with a root that moved without resizing', () => {
     stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
     const { geometry, rerender } = mount(['left']);
-    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 40, y: 10, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 100 });
 
     stubRects({ left: { x: 200, y: 300, w: 100, h: 200 } });
     rerender();
 
-    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 200, y: 300, w: 100, h: 200 });
-    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 200, y: 300, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 200, y: 300, z: 0, w: 100, h: 200 });
+    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 200, y: 300, z: 0, w: 100, h: 100 });
   });
 
   it('survives a StrictMode double mount', () => {
     stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
     const { geometry } = mount(['left'], { strict: true });
-    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 200 });
-    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 40, y: 10, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 200 });
+    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 100 });
   });
 
   it('keeps two sibling roots in disjoint coordinate ranges', () => {
@@ -219,10 +219,10 @@ describe('root container origins', () => {
     });
     const { geometry } = mount(['left', 'right']);
 
-    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 0, y: 0, w: 100, h: 100 });
-    expect(geometry.rectOf(asNodeId('left-b'))).toEqual({ x: 0, y: 100, w: 100, h: 100 });
-    expect(geometry.rectOf(asNodeId('right-a'))).toEqual({ x: 300, y: 0, w: 100, h: 100 });
-    expect(geometry.rectOf(asNodeId('right-b'))).toEqual({ x: 300, y: 100, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('left-a'))).toEqual({ x: 0, y: 0, z: 0, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('left-b'))).toEqual({ x: 0, y: 100, z: 0, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('right-a'))).toEqual({ x: 300, y: 0, z: 0, w: 100, h: 100 });
+    expect(geometry.rectOf(asNodeId('right-b'))).toEqual({ x: 300, y: 100, z: 0, w: 100, h: 100 });
   });
 
   it('leaves a parented container unplaced when no one renders its parent', () => {
@@ -264,7 +264,7 @@ describe('root container origins', () => {
   it('re-measures a root on a page scroll', async () => {
     stubRects({ left: { x: 40, y: 10, w: 100, h: 200 } });
     const { geometry } = mount(['left']);
-    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 200 });
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 200 });
 
     // A scroll moves the element up in viewport coordinates while its document
     // position holds; the height changes too so a stale entry cannot coincide.
@@ -274,7 +274,7 @@ describe('root container origins', () => {
       window.dispatchEvent(new Event('scroll'));
     });
 
-    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 150 });
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 150 });
   });
 
   it('re-measures a root on a window resize', async () => {
@@ -286,7 +286,7 @@ describe('root container origins', () => {
       window.dispatchEvent(new Event('resize'));
     });
 
-    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 20, y: 5, w: 60, h: 150 });
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 20, y: 5, z: 0, w: 60, h: 150 });
   });
 
   it('stops listening once the root unmounts', () => {
@@ -320,7 +320,7 @@ describe('root container origins', () => {
       inner.dispatchEvent(new Event('scroll'));
     });
 
-    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 150 });
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 150 });
   });
 
   it('measures once for a burst of scroll events', async () => {
@@ -347,7 +347,7 @@ describe('root container origins', () => {
 
     // One coalesced measure, plus the re-measure the resulting commit runs.
     expect((measures.left ?? 0) - before).toBeLessThanOrEqual(2);
-    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 15, w: 100, h: 200 });
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 15, z: 0, w: 100, h: 200 });
   });
 
   it('drops a pending frame when the root unmounts', async () => {
@@ -393,7 +393,7 @@ describe('root container origins', () => {
       window.dispatchEvent(new Event('scroll'));
     });
 
-    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, w: 100, h: 200 });
+    expect(geometry.rectOf(asNodeId('left'))).toEqual({ x: 40, y: 10, z: 0, w: 100, h: 200 });
   });
 
   it('settles when two containers render the same root id', () => {

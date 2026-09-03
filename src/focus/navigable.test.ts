@@ -13,7 +13,7 @@ function rects(map: Record<string, [number, number, number, number]>): GeometryS
   return {
     rectOf(nid) {
       const r = map[nid];
-      return r ? { x: r[0], y: r[1], w: r[2], h: r[3] } : null;
+      return r ? { x: r[0], y: r[1], z: 0, w: r[2], h: r[3] } : null;
     },
   };
 }

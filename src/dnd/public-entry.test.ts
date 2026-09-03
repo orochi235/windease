@@ -88,7 +88,7 @@ describe('drag from the core entry point, with no binding', () => {
     );
 
     const engine = new DragEngine(store);
-    engine.addDropTarget(asNodeId('z2'), { bounds: () => ({ x: 0, y: 0, w: 100, h: 100 }) });
+    engine.addDropTarget(asNodeId('z2'), { bounds: () => ({ x: 0, y: 0, z: 0, w: 100, h: 100 }) });
     expect(engine.tryBegin(asNodeId('p'))).toBe(true);
     engine.updateHoverByPoint(50, 50);
     expect(engine.state()?.hover).toMatchObject({ targetId: 'z2', accepted: true });

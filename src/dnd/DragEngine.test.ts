@@ -34,7 +34,7 @@ function at(rect: Rect, extra: Partial<DropTarget> = {}): DropTarget {
   return { bounds: () => rect, ...extra };
 }
 
-const SQUARE: Rect = { x: 0, y: 0, w: 100, h: 100 };
+const SQUARE: Rect = { x: 0, y: 0, z: 0, w: 100, h: 100 };
 
 describe('DragEngine', () => {
   it('hovers the target whose bounds contain the point', () => {
@@ -222,8 +222,8 @@ describe('DragEngine', () => {
       const s = buildStore();
       const { queue, schedule } = deferred();
       const e = new DragEngine(s, { schedule });
-      e.addDropTarget(asNodeId('z1'), at({ x: 0, y: 0, w: 100, h: 100 }));
-      e.addDropTarget(asNodeId('z2'), at({ x: 200, y: 0, w: 100, h: 100 }));
+      e.addDropTarget(asNodeId('z1'), at({ x: 0, y: 0, z: 0, w: 100, h: 100 }));
+      e.addDropTarget(asNodeId('z2'), at({ x: 200, y: 0, z: 0, w: 100, h: 100 }));
       e.tryBegin(asNodeId('p'));
 
       e.updateHoverByPoint(50, 50);
@@ -242,7 +242,7 @@ describe('DragEngine', () => {
       const s = buildStore();
       const { queue, schedule } = deferred();
       const e = new DragEngine(s, { schedule });
-      e.addDropTarget(asNodeId('z2'), at({ x: 200, y: 0, w: 100, h: 100 }));
+      e.addDropTarget(asNodeId('z2'), at({ x: 200, y: 0, z: 0, w: 100, h: 100 }));
       e.tryBegin(asNodeId('p'));
 
       e.updateHoverByPoint(250, 50);
@@ -260,7 +260,7 @@ describe('DragEngine', () => {
       const s = buildStore();
       const { queue, schedule } = deferred();
       const e = new DragEngine(s, { schedule });
-      e.addDropTarget(asNodeId('z2'), at({ x: 200, y: 0, w: 100, h: 100 }));
+      e.addDropTarget(asNodeId('z2'), at({ x: 200, y: 0, z: 0, w: 100, h: 100 }));
       e.tryBegin(asNodeId('p'));
 
       e.updateHoverByPoint(250, 50);

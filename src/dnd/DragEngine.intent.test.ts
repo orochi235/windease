@@ -3,7 +3,7 @@ import { asNodeId, createNode, type Rect, Store } from '../index.js';
 import { DragEngine, type DragEngineOptions, type DropTarget } from './DragEngine.js';
 import type { DropIntent } from './dropIntent.js';
 
-const SQUARE: Rect = { x: 0, y: 0, w: 100, h: 100 };
+const SQUARE: Rect = { x: 0, y: 0, z: 0, w: 100, h: 100 };
 
 /** strip zone `z` holding panels `a`, `b`, plus a loose panel `p` in `other`. */
 function buildStore(): Store {

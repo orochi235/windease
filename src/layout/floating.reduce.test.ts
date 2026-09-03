@@ -131,7 +131,7 @@ describe('floatingStrategy.reduce snapping to panes', () => {
     name: 'split',
     layout: ({ items }: { items: LayoutItem[] }) => ({
       placements: new Map(
-        items.map((item, i) => [item.id, { x: i * 200, y: 0, w: 200, h: 300 }] as const),
+        items.map((item, i) => [item.id, { x: i * 200, y: 0, z: 0, w: 200, h: 300 }] as const),
       ),
       affordances: [],
     }),
@@ -170,7 +170,7 @@ describe('floatingStrategy.reduce snapping to panes', () => {
       state,
       options: { snapToPanes: true },
     });
-    expect(r.placements.get('legend')).toEqual({ x: 12, y: 12, w: 100, h: 80 });
+    expect(r.placements.get('legend')).toEqual({ x: 12, y: 12, z: 0, w: 100, h: 80 });
   });
 
   it('drops a pane-anchored item back to its free position when the pane is gone', () => {
@@ -185,6 +185,6 @@ describe('floatingStrategy.reduce snapping to panes', () => {
       state,
       options: { snapToPanes: true },
     });
-    expect(r.placements.get('legend')).toEqual({ x: 40, y: 60, w: 100, h: 80 });
+    expect(r.placements.get('legend')).toEqual({ x: 40, y: 60, z: 0, w: 100, h: 80 });
   });
 });

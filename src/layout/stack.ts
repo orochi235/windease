@@ -44,6 +44,7 @@ export const stackStrategy: LayoutStrategy<void, string> = {
     placements.set(active.id, {
       x: padding,
       y: headerSize + padding,
+      z: 0,
       w: Math.max(0, container.w - padding * 2),
       h: Math.max(0, container.h - headerSize - padding * 2),
     });

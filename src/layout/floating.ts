@@ -36,7 +36,7 @@ export interface SnapHit {
 
 /** The whole container as a snap target. */
 export function containerTarget(container: Size): SnapTarget {
-  return { id: null, rect: { x: 0, y: 0, w: container.w, h: container.h } };
+  return { id: null, rect: { x: 0, y: 0, z: 0, w: container.w, h: container.h } };
 }
 
 /** Where an item of `size` rests when anchored to `corner` of `within`, `inset` px in. */
@@ -143,7 +143,7 @@ export function rectOf(
 ): Rect {
   const size = sizeOf(item);
   const origin = resolveOrigin(place, size, container, inset, panes);
-  return { x: origin.x, y: origin.y, w: size.w, h: size.h };
+  return { x: origin.x, y: origin.y, z: 0, w: size.w, h: size.h };
 }
 
 /** {@link floatingStrategy}'s state: where the floating items rest, plus

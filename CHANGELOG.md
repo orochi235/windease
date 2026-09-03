@@ -10,6 +10,14 @@ section below.
 
 ### Added
 
+- **`LayoutResult.channels`** carries per-placement numbers the core never
+  reads — an opacity, a rotation, an LOD tier — from a strategy to its host.
+  Deliberately untyped (`Map<id, Record<string, number>>`): the library commits
+  to the transport, not to a vocabulary it has no predicate over, and every
+  value being a `number` is what lets a host interpolate two results without
+  knowing what any key means. `ContainerHost` republishes it unchanged and
+  leaves the field absent when a strategy emits none.
+
 - **`store.moveNodes(ids, toParentId, at?)`** moves a set of nodes into one
   parent as a single operation. The set is validated in full before the first
   mutation — a `moveNode` loop that meets a locked node halfway throws with the
@@ -165,6 +173,11 @@ section below.
   by value, matching what the React reconciler already did on its own path.
 
 ### Changed
+
+- **`Rect` now carries a required `z`.** Breaking for hand-built rects; every
+  rect the library emits sets it, so read sites need no `?? 0`. The shipped
+  strategies are planar and emit `0`. See
+  [Breaking changes](README.md#breaking-changes).
 
 - **`DropTarget.canAccept(sourceId)` is deprecated**, removed at 2.0.0. Use
   `acceptPolicy`, which sees the prospective child list and the container's

@@ -9,7 +9,7 @@ const exactlyTwoStrategy: LayoutStrategy<unknown, string, unknown> = {
   layout: () => ({ placements: new Map(), affordances: [] }),
 };
 
-const SQUARE: Rect = { x: 0, y: 0, w: 100, h: 100 };
+const SQUARE: Rect = { x: 0, y: 0, z: 0, w: 100, h: 100 };
 
 function at(rect: Rect, extra: Partial<DropTarget> = {}): DropTarget {
   return { bounds: () => rect, ...extra };

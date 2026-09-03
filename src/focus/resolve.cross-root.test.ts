@@ -4,6 +4,7 @@ import { asNodeId, type NodeId } from '../node.js';
 import { Store } from '../store.js';
 import { resolveNavigation } from './resolve.js';
 import type { GeometrySource } from './types.js';
+import type { Rect } from '../layout-types.js';
 
 function id(s: string): NodeId {
   return asNodeId(s);
@@ -28,11 +29,11 @@ function twoRoots(): { store: Store; geometry: GeometrySource } {
     store.showNode(id(zid));
   }
 
-  const map: Record<string, { x: number; y: number; w: number; h: number }> = {};
+  const map: Record<string, Rect> = {};
   for (const [zid, pid, x, y] of Object.values(layout)) {
     store.registerNode(createNode({ kind: 'panel', focus: true, id: id(pid), parentId: id(zid) }));
     store.showNode(id(pid));
-    map[pid] = { x, y, w: 100, h: 100 };
+    map[pid] = { x, y, z: 0, w: 100, h: 100 };
   }
 
   return { store, geometry: { rectOf: (nid) => map[nid] ?? null } };

@@ -1159,6 +1159,24 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
+### Unreleased — `Rect` carries a required `z`
+
+Breaking for anything that builds a `Rect` by hand — a test fixture, a
+`GeometrySource`, a custom strategy's placements:
+
+```diff
+- { x: 0, y: 0, w: 100, h: 100 }
++ { x: 0, y: 0, z: 0, w: 100, h: 100 }
+```
+
+Every rect the library emits sets it, so a *read* site needs no `?? 0` and
+nothing that only consumes placements has to change. `0` rather than optional
+because a 2D layout genuinely sits at depth zero; making it optional would push
+the absent case onto every reader forever to save one field in a fixture.
+
+A strategy is free to emit a non-zero `z`, which is what a depth-aware host
+renders. The shipped strategies are all planar and emit `0`.
+
 ### Unreleased — `overflowMode: 'unplace'` renamed to `'unplaced'`
 
 Breaking, on `stripStrategy` and `gridStrategy`. Rename the config value:

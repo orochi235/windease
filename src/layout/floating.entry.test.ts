@@ -7,7 +7,7 @@ describe('floating public entry', () => {
     const panel = { id: 'legend', meta: { floating: true }, natural: { w: 10, h: 10 } };
     const state = s.initialState([panel], {});
     const r = s.layout({ items: [panel], container: { w: 100, h: 100 }, state, options: {} });
-    expect(r.placements.get('legend')).toEqual({ x: 12, y: 78, w: 10, h: 10 });
+    expect(r.placements.get('legend')).toEqual({ x: 12, y: 78, z: 0, w: 10, h: 10 });
   });
 
   it('exports the corner vocabulary a consumer needs to configure it', () => {

@@ -39,7 +39,7 @@ export function useFlowGeometry(
       published.current.push(child.id);
       registry.rects.set(child.id, {
         x: originX + child.rect.x,
-        y: originY + child.rect.y,
+        y: originY + child.rect.y, z: 0,
         w: child.rect.width,
         h: child.rect.height,
       });

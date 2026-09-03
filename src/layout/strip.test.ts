@@ -19,8 +19,8 @@ describe('stripStrategy', () => {
       state: undefined as void,
       options: { axis: 'x', gap: 4, padding: 8 },
     });
-    expect(result.placements.get('a')).toEqual({ x: 8, y: 8, w: 60, h: 24 });
-    expect(result.placements.get('b')).toEqual({ x: 72, y: 8, w: 40, h: 24 });
+    expect(result.placements.get('a')).toEqual({ x: 8, y: 8, z: 0, w: 60, h: 24 });
+    expect(result.placements.get('b')).toEqual({ x: 72, y: 8, z: 0, w: 40, h: 24 });
   });
 
   it('fill=true distributes leftover main-axis space to hintless items', () => {
@@ -30,9 +30,9 @@ describe('stripStrategy', () => {
       state: undefined as void,
       options: { axis: 'x', fill: true },
     });
-    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, w: 100, h: 50 });
-    expect(result.placements.get('b')).toEqual({ x: 100, y: 0, w: 100, h: 50 });
-    expect(result.placements.get('c')).toEqual({ x: 200, y: 0, w: 100, h: 50 });
+    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, z: 0, w: 100, h: 50 });
+    expect(result.placements.get('b')).toEqual({ x: 100, y: 0, z: 0, w: 100, h: 50 });
+    expect(result.placements.get('c')).toEqual({ x: 200, y: 0, z: 0, w: 100, h: 50 });
   });
 
   it('fill=false (default) leaves hintless items at w=0', () => {
@@ -65,8 +65,8 @@ describe('stripStrategy', () => {
       state: undefined as void,
       options: { axis: 'y', gap: 0, padding: 0 },
     });
-    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, w: 50, h: 20 });
-    expect(result.placements.get('b')).toEqual({ x: 0, y: 20, w: 50, h: 30 });
+    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, z: 0, w: 50, h: 20 });
+    expect(result.placements.get('b')).toEqual({ x: 0, y: 20, z: 0, w: 50, h: 30 });
   });
 });
 
@@ -158,7 +158,7 @@ describe('stripStrategy — placement.size', () => {
       affordance: {
         id: 'resize-x-a',
         kind: 'resize-x',
-        rect: { x: 0, y: 0, w: 4, h: 50 },
+        rect: { x: 0, y: 0, z: 0, w: 4, h: 50 },
         childId: 'a',
       },
       store: fakeStore as never,
@@ -183,7 +183,7 @@ describe('stripStrategy — placement.size', () => {
       affordance: {
         id: 'resize-x-a',
         kind: 'resize-x',
-        rect: { x: 0, y: 0, w: 4, h: 50 },
+        rect: { x: 0, y: 0, z: 0, w: 4, h: 50 },
         childId: 'a',
       },
       store: fakeStore as never,
@@ -330,7 +330,7 @@ describe('stripStrategy capacity', () => {
       affordance: {
         id: 'resize-y-i0',
         kind: 'resize-y',
-        rect: { x: 0, y: 0, w: 0, h: 0 },
+        rect: { x: 0, y: 0, z: 0, w: 0, h: 0 },
         childId: 'i0',
       },
       store: fakeStore as never,
@@ -356,7 +356,7 @@ describe('stripStrategy capacity', () => {
       affordance: {
         id: 'resize-x-i0',
         kind: 'resize-x',
-        rect: { x: 0, y: 0, w: 0, h: 0 },
+        rect: { x: 0, y: 0, z: 0, w: 0, h: 0 },
         childId: 'i0',
       },
       store: fakeStore as never,
@@ -381,8 +381,8 @@ describe('stripStrategy — axis y (from stack)', () => {
       state: undefined as void,
       options: { axis: 'y', fill: true, gap: 5, padding: 10 },
     });
-    expect(result.placements.get('a')).toEqual({ x: 10, y: 10, w: 180, h: 50 });
-    expect(result.placements.get('b')).toEqual({ x: 10, y: 65, w: 180, h: 30 });
+    expect(result.placements.get('a')).toEqual({ x: 10, y: 10, z: 0, w: 180, h: 50 });
+    expect(result.placements.get('b')).toEqual({ x: 10, y: 65, z: 0, w: 180, h: 30 });
   });
 
   it('falls back to equal heights when no preferredSize', () => {
@@ -405,9 +405,9 @@ describe('stripStrategy — axis y (from stack)', () => {
       state: undefined as void,
       options: { axis: 'y', fill: true },
     });
-    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, w: 100, h: 80 });
-    expect(result.placements.get('b')).toEqual({ x: 0, y: 80, w: 100, h: 60 });
-    expect(result.placements.get('c')).toEqual({ x: 0, y: 140, w: 100, h: 60 });
+    expect(result.placements.get('a')).toEqual({ x: 0, y: 0, z: 0, w: 100, h: 80 });
+    expect(result.placements.get('b')).toEqual({ x: 0, y: 80, z: 0, w: 100, h: 60 });
+    expect(result.placements.get('c')).toEqual({ x: 0, y: 140, z: 0, w: 100, h: 60 });
   });
 
   it('fill=false keeps hintless items at height 0', () => {
@@ -666,7 +666,7 @@ describe('stripStrategy — axis y placement.size (from stack)', () => {
       affordance: {
         id: 'resize-y-a',
         kind: 'resize-y',
-        rect: { x: 0, y: 0, w: 100, h: 4 },
+        rect: { x: 0, y: 0, z: 0, w: 100, h: 4 },
         childId: 'a',
       },
       store: fakeStore as never,

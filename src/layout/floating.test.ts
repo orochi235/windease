@@ -15,7 +15,7 @@ import { stackStrategy } from './stack.js';
 const container = { w: 400, h: 300 };
 const size = { w: 100, h: 80 };
 const whole = containerTarget(container);
-const only = (target: { rect: { x: number; y: number; w: number; h: number } }) => [
+const only = (target: { rect: Rect }) => [
   { id: null, rect: target.rect },
 ];
 
@@ -28,7 +28,7 @@ describe('cornerOrigin', () => {
   });
 
   it('insets from a pane corner in container coordinates', () => {
-    const pane = { x: 200, y: 150, w: 200, h: 150 };
+    const pane = { x: 200, y: 150, z: 0, w: 200, h: 150 };
     expect(cornerOrigin('top-left', size, pane, 12)).toEqual({ x: 212, y: 162 });
     expect(cornerOrigin('bottom-right', size, pane, 12)).toEqual({ x: 288, y: 208 });
   });
@@ -67,7 +67,7 @@ describe('snapCorner', () => {
   });
 
   it('names the pane it captured, and prefers the nearer of pane and container', () => {
-    const pane = { id: 'p1', rect: { x: 200, y: 150, w: 200, h: 150 } };
+    const pane = { id: 'p1', rect: { x: 200, y: 150, z: 0, w: 200, h: 150 } };
     // The pane's bottom-right origin coincides with the container's, so a hit
     // there is ambiguous — this one sits on the pane's top-left instead.
     expect(snapCorner({ x: 212, y: 162 }, size, [whole, pane], 12, 12, FLOATING_CORNERS)).toEqual({
@@ -112,13 +112,13 @@ describe('rectOf', () => {
 
   it('resolves an anchored item against the corner, ignoring stored coordinates', () => {
     const rect = rectOf(item, { x: 999, y: 999, anchor: 'bottom-right' }, container, 12);
-    expect(rect).toEqual({ x: 288, y: 208, w: 100, h: 80 });
+    expect(rect).toEqual({ x: 288, y: 208, z: 0, w: 100, h: 80 });
   });
 
   it('clamps a free item inside the container', () => {
     expect(rectOf(item, { x: -50, y: 999, anchor: null }, container, 12)).toEqual({
       x: 0,
-      y: 220,
+      y: 220, z: 0,
       w: 100,
       h: 80,
     });
@@ -142,7 +142,7 @@ describe('floatingStrategy.layout', () => {
     const s = floatingStrategy();
     const state = s.initialState([panel], {});
     const r = s.layout({ items: [panel], container, state, options: {} });
-    expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, w: 100, h: 80 });
+    expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, z: 0, w: 100, h: 80 });
   });
 
   it('honors defaultAnchor when seeding state', () => {
@@ -154,14 +154,14 @@ describe('floatingStrategy.layout', () => {
       state,
       options: { defaultAnchor: 'top-right' },
     });
-    expect(r.placements.get('legend')).toEqual({ x: 288, y: 12, w: 100, h: 80 });
+    expect(r.placements.get('legend')).toEqual({ x: 288, y: 12, z: 0, w: 100, h: 80 });
   });
 
   it('gives the inner strategy the full container, unreduced by the panel', () => {
     const s = floatingStrategy(stackStrategy);
     const state = s.initialState([panel, pane], {});
     const r = s.layout({ items: [panel, pane], container, state, options: { activeId: 'main' } });
-    expect(r.placements.get('main')).toEqual({ x: 0, y: 0, w: 400, h: 300 });
+    expect(r.placements.get('main')).toEqual({ x: 0, y: 0, z: 0, w: 400, h: 300 });
   });
 
   it('never shows a floating item to the inner strategy', () => {
@@ -197,7 +197,7 @@ describe('floatingStrategy.layout', () => {
       kind: 'drag-xy',
       childId: 'legend',
       cursor: 'grab',
-      rect: { x: 12, y: 208, w: 100, h: 80 },
+      rect: { x: 12, y: 208, z: 0, w: 100, h: 80 },
     });
   });
 
@@ -209,7 +209,7 @@ describe('floatingStrategy.layout', () => {
       state: s.initialState([panel], {}),
       options: { handleSize: 20 },
     });
-    expect(r.affordances[0]?.rect).toEqual({ x: 12, y: 208, w: 100, h: 20 });
+    expect(r.affordances[0]?.rect).toEqual({ x: 12, y: 208, z: 0, w: 100, h: 20 });
   });
 
   it('withholds an item nothing has sized yet rather than placing it at 0x0', () => {
@@ -260,7 +260,7 @@ describe('floatingStrategy.layout', () => {
       state: { at: {}, inner: undefined },
       options: {},
     });
-    expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, w: 100, h: 80 });
+    expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, z: 0, w: 100, h: 80 });
   });
 
   it('declares every config key it reads', () => {

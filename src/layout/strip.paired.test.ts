@@ -22,7 +22,7 @@ const drag = (
     affordance: {
       id: `resize-x-${childId}`,
       kind: 'resize-x',
-      rect: { x: 0, y: 0, w: 4, h: 50 },
+      rect: { x: 0, y: 0, z: 0, w: 4, h: 50 },
       childId,
     },
     store: store as never,

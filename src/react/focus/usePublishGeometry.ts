@@ -57,7 +57,7 @@ export function usePublishGeometry(
     const r = el.getBoundingClientRect();
     const next = {
       x: r.x + window.scrollX,
-      y: r.y + window.scrollY,
+      y: r.y + window.scrollY, z: 0,
       w: r.width,
       h: r.height,
     };
@@ -134,7 +134,7 @@ export function usePublishGeometry(
     for (const [cid, r] of placements) {
       registry.rects.set(String(cid), {
         x: originX + r.x,
-        y: originY + r.y,
+        y: originY + r.y, z: 0,
         w: r.w,
         h: r.h,
       });

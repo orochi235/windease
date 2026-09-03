@@ -32,7 +32,7 @@ export function splitPreviewPlacements(
   for (const id of [first, second]) {
     const rect = result.placements.get(id);
     if (!rect) continue;
-    out.set(id, { x: slot.x + rect.x, y: slot.y + rect.y, w: rect.w, h: rect.h });
+    out.set(id, { x: slot.x + rect.x, y: slot.y + rect.y, z: 0, w: rect.w, h: rect.h });
   }
   return out.size > 0 ? out : null;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { edgeScrollDelta } from './edgeScroll.js';
 
-const BOX = { x: 0, y: 0, w: 400, h: 300 };
+const BOX = { x: 0, y: 0, z: 0, w: 400, h: 300 };
 const opts = { margin: 50, maxRate: 10 };
 
 describe('edgeScrollDelta', () => {
@@ -36,7 +36,7 @@ describe('edgeScrollDelta', () => {
   });
 
   it('picks the nearer edge in a box narrower than two margins', () => {
-    const narrow = { x: 0, y: 0, w: 60, h: 300 };
+    const narrow = { x: 0, y: 0, z: 0, w: 60, h: 300 };
     expect(edgeScrollDelta(narrow, { x: 45, y: 150 }, opts).x).toBeGreaterThan(0);
     expect(edgeScrollDelta(narrow, { x: 15, y: 150 }, opts).x).toBeLessThan(0);
   });

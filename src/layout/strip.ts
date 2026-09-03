@@ -368,13 +368,13 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
         const w = sizes[i]!;
-        placements.set(item.id, { x, y, w, h });
+        placements.set(item.id, { x, y, z: 0, w, h });
         if (resizable && i < placedItems.length - 1) {
           const join = joinFor(cfg, item, placedItems[i + 1]);
           affordances.push({
             id: `resize-x-${item.id}`,
             kind: 'resize-x',
-            rect: { x: x + w - 2, y, w: 4, h },
+            rect: { x: x + w - 2, y, z: 0, w: 4, h },
             cursor: 'ew-resize',
             childId: item.id,
             affects:
@@ -403,13 +403,13 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
         const h = sizes[i]!;
-        placements.set(item.id, { x, y, w, h });
+        placements.set(item.id, { x, y, z: 0, w, h });
         if (resizable && i < placedItems.length - 1) {
           const join = joinFor(cfg, item, placedItems[i + 1]);
           affordances.push({
             id: `resize-y-${item.id}`,
             kind: 'resize-y',
-            rect: { x, y: y + h - 2, w, h: 4 },
+            rect: { x, y: y + h - 2, z: 0, w, h: 4 },
             cursor: 'ns-resize',
             childId: item.id,
             affects:

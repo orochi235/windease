@@ -98,11 +98,11 @@ function stubBox(el: Element, r: Rect): void {
 
 function stubRects(container: HTMLElement): void {
   const box = container.querySelector('[data-node-container]');
-  if (box) stubBox(box, { x: 0, y: 0, w: 200, h: 100 });
+  if (box) stubBox(box, { x: 0, y: 0, z: 0, w: 200, h: 100 });
   const kids = Array.from(container.querySelectorAll('[data-node]'));
   kids.forEach((el, i) => {
     const w = 200 / Math.max(1, kids.length);
-    stubBox(el, { x: i * w, y: 0, w, h: 100 });
+    stubBox(el, { x: i * w, y: 0, z: 0, w, h: 100 });
   });
 }
 
@@ -246,7 +246,7 @@ function mountScrolling(edgeScroll?: EdgeScrollOptions) {
   );
   const scroller = getByTestId('scroller');
   stubRects(container);
-  stubBox(scroller, { x: 0, y: 0, w: 200, h: 100 });
+  stubBox(scroller, { x: 0, y: 0, z: 0, w: 200, h: 100 });
   return { container, controller: () => controller, read: recordScrollLeft(scroller) };
 }
 
@@ -317,11 +317,11 @@ function zoneTree(
 
 function stubZoneRects(container: HTMLElement): void {
   const rects: Record<string, Rect> = {
-    z: { x: 0, y: 0, w: 200, h: 100 },
-    a: { x: 0, y: 0, w: 100, h: 100 },
-    b: { x: 100, y: 0, w: 100, h: 100 },
-    other: { x: 0, y: 200, w: 200, h: 100 },
-    p: { x: 0, y: 200, w: 200, h: 100 },
+    z: { x: 0, y: 0, z: 0, w: 200, h: 100 },
+    a: { x: 0, y: 0, z: 0, w: 100, h: 100 },
+    b: { x: 100, y: 0, z: 0, w: 100, h: 100 },
+    other: { x: 0, y: 200, z: 0, w: 200, h: 100 },
+    p: { x: 0, y: 200, z: 0, w: 200, h: 100 },
   };
   for (const el of Array.from(container.querySelectorAll('[data-node]'))) {
     const id = el.getAttribute('data-node');

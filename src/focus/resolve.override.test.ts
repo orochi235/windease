@@ -5,6 +5,7 @@ import { asNodeId, type NodeId } from '../node.js';
 import { Store } from '../store.js';
 import { resolveNavigation } from './resolve.js';
 import type { GeometrySource } from './types.js';
+import type { Rect } from '../layout-types.js';
 
 function id(s: string): NodeId {
   return asNodeId(s);
@@ -20,9 +21,9 @@ function scene(navigate: NonNullable<LayoutStrategy['navigate']>) {
     store.registerNode(createNode({ kind: 'panel', focus: true, id: id(c), parentId: id('z') }));
     store.showNode(id(c));
   }
-  const map: Record<string, { x: number; y: number; w: number; h: number }> = {
-    a: { x: 0, y: 0, w: 100, h: 100 },
-    b: { x: 110, y: 0, w: 100, h: 100 },
+  const map: Record<string, Rect> = {
+    a: { x: 0, y: 0, z: 0, w: 100, h: 100 },
+    b: { x: 110, y: 0, z: 0, w: 100, h: 100 },
   };
   const geometry: GeometrySource = { rectOf: (nid) => map[nid] ?? null };
   const strategy: LayoutStrategy = {

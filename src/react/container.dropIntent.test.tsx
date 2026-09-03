@@ -80,8 +80,8 @@ function tree({ store, capture, splitOnDrop, stackOnDrop, splitPreview, dropInte
  */
 function stubRects(container: HTMLElement): void {
   const rects: Record<string, Rect> = {
-    a: { x: 0, y: 0, w: 100, h: 100 },
-    b: { x: 100, y: 0, w: 100, h: 100 },
+    a: { x: 0, y: 0, z: 0, w: 100, h: 100 },
+    b: { x: 100, y: 0, z: 0, w: 100, h: 100 },
   };
   for (const el of Array.from(container.querySelectorAll('[data-node]'))) {
     const id = el.getAttribute('data-node');
@@ -125,8 +125,8 @@ function stubRects(container: HTMLElement): void {
  */
 function stubPreviewedRects(container: HTMLElement): void {
   const rects: Record<string, Rect> = {
-    a: { x: 0, y: 0, w: 200, h: 50 },
-    b: { x: 0, y: 50, w: 200, h: 50 },
+    a: { x: 0, y: 0, z: 0, w: 200, h: 50 },
+    b: { x: 0, y: 50, z: 0, w: 200, h: 50 },
   };
   for (const el of Array.from(container.querySelectorAll('[data-node]'))) {
     const id = el.getAttribute('data-node');

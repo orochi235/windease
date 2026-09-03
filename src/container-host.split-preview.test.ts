@@ -49,8 +49,8 @@ describe('ContainerHost split preview', () => {
     const { placements, isPreview } = h.layout();
     // `a` leaves the parent on drop, so `b`'s slot is the whole container —
     // halved on the split axis, source first because the edge is 'start'.
-    expect(placements.get(A)).toEqual({ x: 0, y: 0, w: 200, h: 50 });
-    expect(placements.get(B)).toEqual({ x: 0, y: 50, w: 200, h: 50 });
+    expect(placements.get(A)).toEqual({ x: 0, y: 0, z: 0, w: 200, h: 50 });
+    expect(placements.get(B)).toEqual({ x: 0, y: 50, z: 0, w: 200, h: 50 });
     expect(isPreview).toBe(true);
   });
 
@@ -63,15 +63,15 @@ describe('ContainerHost split preview', () => {
     h.setPreview(splitOntoB);
     const { placements } = h.layout();
     // Parent lays out `b` and `c` at 100 each; the split subdivides `b`'s.
-    expect(placements.get(C)).toEqual({ x: 100, y: 0, w: 100, h: 100 });
-    expect(placements.get(B)).toEqual({ x: 0, y: 50, w: 100, h: 50 });
-    expect(placements.get(A)).toEqual({ x: 0, y: 0, w: 100, h: 50 });
+    expect(placements.get(C)).toEqual({ x: 100, y: 0, z: 0, w: 100, h: 100 });
+    expect(placements.get(B)).toEqual({ x: 0, y: 50, z: 0, w: 100, h: 50 });
+    expect(placements.get(A)).toEqual({ x: 0, y: 0, z: 0, w: 100, h: 50 });
   });
 
   it('honors the prospective group config', () => {
     const h = host(build());
     h.setPreview({ ...splitOntoB, split: { ...splitOntoB.split!, config: { gap: 10 } } });
-    expect(h.layout().placements.get(A)).toEqual({ x: 0, y: 0, w: 200, h: 45 });
+    expect(h.layout().placements.get(A)).toEqual({ x: 0, y: 0, z: 0, w: 200, h: 45 });
   });
 
   it('shows the un-split layout when no split strategy is registered', () => {
@@ -83,7 +83,7 @@ describe('ContainerHost split preview', () => {
     );
     h.setPreview(splitOntoB);
     const { placements, isPreview } = h.layout();
-    expect(placements.get(B)).toEqual({ x: 0, y: 0, w: 200, h: 100 });
+    expect(placements.get(B)).toEqual({ x: 0, y: 0, z: 0, w: 200, h: 100 });
     expect(placements.has(A)).toBe(false);
     expect(isPreview).toBe(false);
   });
@@ -92,7 +92,7 @@ describe('ContainerHost split preview', () => {
     const h = host(build());
     h.setPreview({ ...splitOntoB, split: { ...splitOntoB.split!, ontoId: 'nope' } });
     const { placements, isPreview } = h.layout();
-    expect(placements.get(B)).toEqual({ x: 0, y: 0, w: 200, h: 100 });
+    expect(placements.get(B)).toEqual({ x: 0, y: 0, z: 0, w: 200, h: 100 });
     expect(placements.has(A)).toBe(false);
     expect(isPreview).toBe(false);
   });
@@ -132,6 +132,6 @@ describe('ContainerHost split preview', () => {
     const h = host(build());
     h.setPreview({ insertId: 'd', insertIndex: 0, cursor: { x: 0, y: 0 } });
     const { placements } = h.layout();
-    expect(placements.get(asNodeId('d'))).toEqual({ x: 0, y: 0, w: 66.66666666666667, h: 100 });
+    expect(placements.get(asNodeId('d'))).toEqual({ x: 0, y: 0, z: 0, w: 66.66666666666667, h: 100 });
   });
 });

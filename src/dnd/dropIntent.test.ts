@@ -3,9 +3,9 @@ import { resolveDropIntent } from './dropIntent.js';
 import { insertionIndexByMidpoint } from './insertionIndex.js';
 
 const row = [
-  { id: 'a', rect: { x: 0, y: 0, w: 100, h: 100 } },
-  { id: 'b', rect: { x: 100, y: 0, w: 100, h: 100 } },
-  { id: 'c', rect: { x: 200, y: 0, w: 100, h: 100 } },
+  { id: 'a', rect: { x: 0, y: 0, z: 0, w: 100, h: 100 } },
+  { id: 'b', rect: { x: 100, y: 0, z: 0, w: 100, h: 100 } },
+  { id: 'c', rect: { x: 200, y: 0, z: 0, w: 100, h: 100 } },
 ];
 
 describe('resolveDropIntent', () => {
@@ -58,7 +58,7 @@ describe('resolveDropIntent', () => {
   });
 
   it('clamps a band that would swallow the centre', () => {
-    const narrow = [{ id: 'n', rect: { x: 0, y: 0, w: 10, h: 100 } }];
+    const narrow = [{ id: 'n', rect: { x: 0, y: 0, z: 0, w: 10, h: 100 } }];
     // band 0.9 unclamped puts x=5 inside the leading band; the clamp has to
     // leave a centre or a pane becomes impossible to stack onto.
     expect(resolveDropIntent(narrow, { x: 5, y: 50 }, 'x', { stack: true, band: 0.9 })).toEqual({
@@ -83,8 +83,8 @@ describe('resolveDropIntent', () => {
 
   it('resolves the same bands on a vertical stack', () => {
     const col = [
-      { id: 'a', rect: { x: 0, y: 0, w: 100, h: 100 } },
-      { id: 'b', rect: { x: 0, y: 100, w: 100, h: 100 } },
+      { id: 'a', rect: { x: 0, y: 0, z: 0, w: 100, h: 100 } },
+      { id: 'b', rect: { x: 0, y: 100, z: 0, w: 100, h: 100 } },
     ];
     expect(resolveDropIntent(col, { x: 50, y: 150 }, 'y', { stack: true })).toEqual({
       kind: 'stack',
@@ -103,8 +103,8 @@ describe('resolveDropIntent', () => {
 
   it('splits with the cross axis of a vertical container', () => {
     const column = [
-      { id: 'a', rect: { x: 0, y: 0, w: 100, h: 100 } },
-      { id: 'b', rect: { x: 0, y: 100, w: 100, h: 100 } },
+      { id: 'a', rect: { x: 0, y: 0, z: 0, w: 100, h: 100 } },
+      { id: 'b', rect: { x: 0, y: 100, z: 0, w: 100, h: 100 } },
     ];
     const intent = resolveDropIntent(column, { x: 95, y: 150 }, 'y', { split: true });
     expect(intent).toEqual({ kind: 'split', ontoId: 'b', edge: 'end', axis: 'x' });
