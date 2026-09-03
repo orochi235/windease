@@ -266,6 +266,14 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
 
 ## Loose ends
 
+- **`store.subscribe` cannot be passed detached.** It is a prototype method
+  reading `this.subscribers`, so the idiomatic
+  `useSyncExternalStore(store.subscribe, ...)` throws
+  `Cannot read properties of undefined (reading 'subscribers')` — and that is
+  the first thing a consumer wiring the store into React writes. Every shipped
+  hook goes through the provider and never hits it. Making it an arrow property
+  fixes it without changing the signature.
+
 - Strip strategy returns zero width/height when a panel has no
   `preferredSize` — intentional for fixed-size toolbars but worth a doc
   comment.
