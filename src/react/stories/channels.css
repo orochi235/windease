@@ -1,0 +1,31 @@
+.channels-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+.channels-demo__controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.channels-demo__card {
+  height: 100%;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  border: 1px solid #4a5568;
+  background: #2d3748;
+  color: #f7fafc;
+  /* The whole point: a value the core carried but never read. */
+  opacity: var(--channel-opacity, 1);
+}
+
+.channels-demo__readout {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: #4a5568;
+}

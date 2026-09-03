@@ -18,6 +18,11 @@ section below.
   knowing what any key means. `ContainerHost` republishes it unchanged and
   leaves the field absent when a strategy emits none.
 
+- **`useChannelsForSelf(id)`** reads this node's channels from the enclosing
+  container's last pass — the counterpart to `useLayoutForSelf`. `LayoutInfo`
+  carries `channels` beside `placements`, so `<Zone>` and `<Panel>` publish them
+  to their subtree.
+
 - **`store.moveNodes(ids, toParentId, at?)`** moves a set of nodes into one
   parent as a single operation. The set is validated in full before the first
   mutation — a `moveNode` loop that meets a locked node halfway throws with the

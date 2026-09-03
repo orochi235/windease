@@ -325,6 +325,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
     registerPlacementControl: layout.registerPlacementControl,
     observeNatural: layout.observeNatural,
   };
+  if (layout.channels) layoutInfo.channels = layout.channels;
 
   const panelStyle: CSSProperties = {
     position: 'relative',
@@ -519,6 +520,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
     registerPlacementControl: layout.registerPlacementControl,
     observeNatural: layout.observeNatural,
   };
+  if (layout.channels) layoutInfo.channels = layout.channels;
 
   // When this Zone is itself absolute-positioned by a parent strategy, our
   // wrapper div is the absolute box and PresetShell's div needs to fill it

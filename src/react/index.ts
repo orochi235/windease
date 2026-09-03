@@ -60,6 +60,7 @@ export {
   type Rect,
   useIsUnplaced,
   useLayoutContext,
+  useChannelsForSelf,
   useLayoutForSelf,
 } from './LayoutContext.js';
 export {

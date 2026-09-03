@@ -1,18 +1,15 @@
 import { createContext, type ReactNode, useContext } from 'react';
-import type { NodeId, PlacementCommit } from '../index.js';
+import type { NodeId, PlacementCommit, Rect } from '../index.js';
 
-/** A child's placement in its parent's coordinate space. */
-export interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
+export type { Rect };
 
 /** What a container publishes to its children: their placements, which of
  *  them went unplaced, and the settle duration for moves between them. */
 export interface LayoutInfo {
   placements: ReadonlyMap<NodeId, Rect>;
+  /** Per-placement values the strategy attached and the core never read; see
+   *  `LayoutResult.channels`. Absent unless the strategy emitted some. */
+  channels?: ReadonlyMap<NodeId, Record<string, number>>;
   /** Children a strategy ran and deliberately withheld. Empty whenever no
    *  strategy ran — flow mode, and a zone whose strategy isn't registered —
    *  which is what lets membership here mean "render nothing" rather than
@@ -55,6 +52,16 @@ export function LayoutScope({ value, children }: { value: LayoutInfo; children: 
  */
 export function useLayoutForSelf(id: NodeId): Rect | undefined {
   return useContext(LayoutContext).placements.get(id);
+}
+
+/**
+ * This node's channels from the enclosing container's last layout pass, or
+ * `undefined` when the strategy emitted none. The core never reads these — a
+ * host decides what `opacity` or `lod` means.
+ * @group Hooks
+ */
+export function useChannelsForSelf(id: NodeId): Record<string, number> | undefined {
+  return useContext(LayoutContext).channels?.get(id);
 }
 
 /** Whether the parent's strategy ran and withheld this child. False when no

@@ -1177,6 +1177,10 @@ the absent case onto every reader forever to save one field in a fixture.
 A strategy is free to emit a non-zero `z`, which is what a depth-aware host
 renders. The shipped strategies are all planar and emit `0`.
 
+`windease/react` exported its own four-field `Rect`, shadowing this one. It now
+re-exports the core type, so a rect from `useLayoutForSelf` carries the depth its
+value always had.
+
 ### Unreleased — `overflowMode: 'unplace'` renamed to `'unplaced'`
 
 Breaking, on `stripStrategy` and `gridStrategy`. Rename the config value:
