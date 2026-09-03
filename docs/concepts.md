@@ -83,7 +83,7 @@ Two paths for free-form data on a node; lifetimes differ:
 | Where                  | Lifetime                                       | Use for                                                 |
 | ---------------------- | ---------------------------------------------- | ------------------------------------------------------- |
 | `node.meta`            | Intrinsic; survives `moveNode`                 | Window-intrinsic consumer data (title, URL, etc.)       |
-| `node.membership.placement`  | Per-membership; cleared on detach              | State that exists *because of this placement* — the held pin index, placement-specific UI state |
+| `node.membership.placement`  | Per-membership, but carried across `moveNode`  | State that exists *because of this placement* — the held pin index, placement-specific UI state |
 | `node.container.config` | Container-strategy options                    | Strategy options (`cols`, `gap`, etc.)                  |
 | `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `sizing`, `order` |
 

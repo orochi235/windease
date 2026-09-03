@@ -112,9 +112,10 @@ export interface ContainerCap {
 
 /**
  * The "do I have a parent?" capability, holding that parent's id and this
- * node's `placement` within it. Per-membership and therefore transient:
- * `moveNode` clears `placement`, so anything that must survive a move belongs
- * in `node.meta` instead.
+ * node's `placement` within it. `placement` describes this node *in this
+ * parent* — but it is carried across a move rather than cleared, so a key that
+ * only means something under the old parent arrives stale. Put anything
+ * node-intrinsic in `node.meta`, which is scoped to say so.
  */
 export interface MembershipCap {
   parentId: NodeId;
@@ -162,7 +163,7 @@ export interface Node {
   membership?: MembershipCap;
   focus?: FocusCap;
 
-  /** Permissions restricting what may be done to this node. Node-intrinsic:
-   *  survives `moveNode`, unlike `membership.placement`. */
+  /** Permissions restricting what may be done to this node. Node-intrinsic,
+   *  so a move never changes what is permitted. */
   lock?: LockSet;
 }

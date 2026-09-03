@@ -23,13 +23,19 @@ Common naming-trap rules:
   have a parent?" (holds `parentId` + my `placement` in that parent). A
   zone is a container with no membership — it has children and no parent.
   A panel is the childless one.
-- **`meta` is overloaded by scope.** `node.meta` is node-intrinsic and
-  survives `moveNode`; `membership.placement` is per-membership and is
-  cleared on detach. Pick the one whose lifetime matches the data.
-- **`pinned` ≠ `locked`.** Pinned means "sorted to the prefix of the
-  parent's `childOrder`." Locked means "pinned, AND the React layer
-  refuses to drag or destroy it." Don't conflate; both are reserved keys
-  on `membership.placement`.
+- **`meta` is overloaded by scope.** `node.meta` is node-intrinsic;
+  `membership.placement` describes a node *in one parent*. Both survive
+  `moveNode` — placement is carried, not cleared — so the scope is a
+  statement of intent, not a lifetime the store enforces. Every reserved
+  placement key is parent-relative (`pinned` is an index into that parent's
+  `childOrder`, `size` a pixel extent on its main axis, `span` a cell count
+  only `grid` reads), so a moved node arrives holding keys the new parent may
+  read differently or not at all.
+- **`pinned` ≠ `locked`, and they are not the same kind of thing.** Pinned is
+  `placement.pinned`, the index a node holds in its parent's `childOrder`.
+  Locked is `node.lock`, a per-axis permission set, node-intrinsic like `meta`.
+  `placement.locked` is a v3 key with no live readers — `snapshot.ts` folds it
+  into `node.lock` on hydrate and drops it.
 - **`canAccept(items, options)` is a hot path.** It runs on every drag
   pointermove. Keep it O(items.length) or smaller; defer expensive checks
   to drop time.

@@ -232,6 +232,16 @@ describe('Store — moveNode', () => {
     expect(s.getNode(id('p1'))?.membership?.parentId).toBe('z2');
   });
 
+  it('carries placement into the new parent', () => {
+    const s = buildTwoZones();
+    s.patchPlacement(id('p1'), { size: { w: 300 }, mine: 'kept' });
+    s.moveNode(id('p1'), id('z2'));
+    expect(s.getNode(id('p1'))?.membership?.placement).toEqual({
+      size: { w: 300 },
+      mine: 'kept',
+    });
+  });
+
   it('emits node.moved with from/to parents and indices', () => {
     const s = buildTwoZones();
     const cb = vi.fn();

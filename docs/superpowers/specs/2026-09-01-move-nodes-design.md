@@ -167,16 +167,21 @@ or geometry in hand. It belongs beside the mutation methods, not in
 the precedent for `chooseSuccessor`, `resolveNavigation` and `acceptPolicy` is
 that a built-in shipped first and became replaceable when one did.
 
-**Placement is carried, not cleared — and the docs disagree.** `moveNode`
-replaces `parentId` on the membership and touches nothing else
-(`src/store.ts:478`), so `size`, `pinned` and any host key arrive intact at the
-new parent. Three places say the opposite: the `Membership.placement` docstring
-(`src/node.ts:116`, "`moveNode` clears `placement`"), `docs/concepts.md:86`
-("cleared on detach") and the naming-trap section of `CLAUDE.md`. `moveNodes`
-matches the code — carrying is the non-breaking answer and clearing would
-silently unlock a `locked` pane by moving it — but which of the two is the
-contract is an open decision, and it is `moveNode`'s to settle, not this
-primitive's.
+**Placement is carried, not cleared.** `moveNode` replaces `parentId` on the
+membership and touches nothing else (`src/store.ts`), so `size`, `pinned`,
+`span` and any host key arrive intact at the new parent. Three places used to
+say the opposite — the `MembershipCap` docstring, `docs/concepts.md` and
+`CLAUDE.md` — and all three were describing a contract the code never had; they
+now say what happens. `moveNodes` matches `moveNode`.
+
+Clearing on reparent was considered and dropped. Every reserved key is
+parent-relative, so clearing is defensible on the merits, but `moveNode` has
+seven internal callers — `unsplit` lifting children into the grandparent,
+`stackNodes` building a stack around two panes, the drag engine's drop — and
+under clearing every auto-unsplit would silently wipe the sizes off the
+surviving panes. Doing it properly means splitting "someone moved this pane"
+from "the library re-plumbed the tree around it", which is a breaking change
+and its own piece of work. Not this one.
 
 ## What this deliberately does not do
 
