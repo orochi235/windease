@@ -155,7 +155,7 @@ export {
   type NodeKind,
   type TransitCap,
 } from './node.js';
-export { type PinnedIndexOf, placeRespectingPins } from './pinning.js';
+export { type PinnedIndexOf, placeRespectingPins, placeRunRespectingPins } from './pinning.js';
 export { observePixelRatio } from './pixel-ratio.js';
 export {
   type ObservedChild,

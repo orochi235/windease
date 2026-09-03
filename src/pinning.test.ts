@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { asNodeId, type NodeId } from './node.js';
-import { placeRespectingPins } from './pinning.js';
+import { placeRespectingPins, placeRunRespectingPins } from './pinning.js';
 
 const ids = (...s: string[]) => s.map(asNodeId);
 const pins = (m: Record<string, number>) => (id: NodeId) => m[id] ?? null;
@@ -75,5 +75,39 @@ describe('placeRespectingPins', () => {
     const out = placeRespectingPins(ids('a', 'b', 'c'), asNodeId('c'), 2, pins({ b: -3 }));
     expect(out[0]).toBe('b');
     expect(new Set(out)).toEqual(new Set(['a', 'b', 'c']));
+  });
+});
+
+describe('placeRunRespectingPins', () => {
+  const none = () => null;
+  const pinnedAt = (map: Record<string, number>) => (id: NodeId) => map[id as string] ?? null;
+
+  it('lands the run on consecutive slots at the requested index', () => {
+    const order = ['x', 'y', 'a', 'b'].map(asNodeId);
+    expect(placeRunRespectingPins(order, ['a', 'b'].map(asNodeId), 1, none)).toEqual(
+      ['x', 'a', 'b', 'y'].map(asNodeId),
+    );
+  });
+
+  it('keeps the run contiguous when a pin holds the requested slot', () => {
+    const order = ['x', 'y', 'a', 'b'].map(asNodeId);
+    expect(placeRunRespectingPins(order, ['a', 'b'].map(asNodeId), 0, pinnedAt({ x: 0 }))).toEqual(
+      ['x', 'a', 'b', 'y'].map(asNodeId),
+    );
+  });
+
+  it('backs the run off the end when it will not fit after the index', () => {
+    const order = ['x', 'y', 'a', 'b'].map(asNodeId);
+    expect(placeRunRespectingPins(order, ['a', 'b'].map(asNodeId), 9, none)).toEqual(
+      ['x', 'y', 'a', 'b'].map(asNodeId),
+    );
+  });
+
+  it('places one node exactly as placeRespectingPins does', () => {
+    const order = ['x', 'y', 'a'].map(asNodeId);
+    const pins = pinnedAt({ y: 0 });
+    expect(placeRunRespectingPins(order, [asNodeId('a')], 1, pins)).toEqual(
+      placeRespectingPins(order, asNodeId('a'), 1, pins),
+    );
   });
 });

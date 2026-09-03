@@ -104,12 +104,10 @@ length as it stands *before* the batch, splice the whole run in at that point,
 then apply `placeRespectingPins` to the result. A run inserted next to a pin
 moves as a run.
 
-**Coalescing is suspended until the end.** Collect the distinct source parents,
-run every removal, then call `coalesceParent` once per source parent. A parent
-that ends up empty or singular is judged on the state after the whole batch,
-which is the only judgment that does not depend on iteration order. The existing
-`coalescing` re-entrancy guard (`src/store.ts:540`) already exists for
-`unsplit`; this is the batch-scoped version of the same idea.
+**Settling is suspended until the end.** Every per-node repair `moveNode` runs
+inline — coalesce the source, clamp pins on both parents, repair focus memory —
+is deferred to one pass after the last node lands. See **The settle pass** below.
+It is the substance of this primitive: without it a batch is a loop.
 
 **Same-parent members are a reorder, not a move.** A node already under
 `toParentId` keeps its membership: no transit cycle, no `node.moved`. It is
@@ -124,6 +122,61 @@ step (the convention `unsplit` and `stackNodes` already follow). Notify once.
 
 **Tracing.** One `store` trace naming the batch —
 `moveNodes: 3 → dock@2 (from main, sidebar)` — rather than *n* move lines.
+
+## The settle pass
+
+Four repairs have to run after a structural change, and today each operation
+hand-rolls its own order inline: `moveNode` coalesces the source, clamps pins on
+both parents and repairs focus memory (`src/store.ts:511-521`); `unregisterNode`
+succeeds focus and clamps the old parent's pins; `unsplit` and `stackNodes` each
+do their own subset. Run per node, in a batch, they interfere — the source
+dissolving on node three invalidates the parent node four was going to be
+removed from.
+
+Factor them into one ordered pass the store runs **once**, at the end of any
+structural operation, over the set of parents that operation touched:
+
+1. **Coalesce.** For each distinct touched parent, dissolve it if it is an
+   `autoUnsplit` container now holding exactly one child. Judged on the state
+   after the whole batch, which is the only judgment that does not depend on
+   iteration order. The existing `coalescing` re-entrancy guard
+   (`src/store.ts:540`) is the single-operation version of this idea.
+2. **Clamp pins.** For each touched parent that survived step 1, reconcile every
+   `placement.pinned` against the index the child actually holds.
+3. **Repair focus memory.** Drop a stale `container.lastFocusedId` from every
+   ancestor that no longer contains the node it names, and re-remember the
+   focused node up its new chain.
+Then one notify, for the whole pass.
+
+No fourth step for focus succession: nothing a move can do loses focus without
+`unregisterNode` already succeeding it, so `succeedFocus`'s `'moved'` reason
+(`src/store.ts`) still has no caller. Leave it uncalled rather than inventing
+one.
+
+`moveNodes` is the first caller. `unregisterNode`, `unsplit`, `stackNodes` and a
+future batch destroy are the others already writing their own version, and each
+should be moved onto it rather than keeping a private copy.
+
+**Not a strategy.** "Strategy" in this codebase means a pure function of
+`{ items, container, state, options }` returning a `LayoutResult`. Settling is
+structural — tree shape, pins, focus — and runs on the store with no container
+or geometry in hand. It belongs beside the mutation methods, not in
+`src/layout/`.
+
+**Built in, not replaceable.** No consumer has asked for a different settle, and
+the precedent for `chooseSuccessor`, `resolveNavigation` and `acceptPolicy` is
+that a built-in shipped first and became replaceable when one did.
+
+**Placement is carried, not cleared — and the docs disagree.** `moveNode`
+replaces `parentId` on the membership and touches nothing else
+(`src/store.ts:478`), so `size`, `pinned` and any host key arrive intact at the
+new parent. Three places say the opposite: the `Membership.placement` docstring
+(`src/node.ts:116`, "`moveNode` clears `placement`"), `docs/concepts.md:86`
+("cleared on detach") and the naming-trap section of `CLAUDE.md`. `moveNodes`
+matches the code — carrying is the non-breaking answer and clearing would
+silently unlock a `locked` pane by moving it — but which of the two is the
+contract is an open decision, and it is `moveNode`'s to settle, not this
+primitive's.
 
 ## What this deliberately does not do
 

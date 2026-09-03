@@ -146,3 +146,25 @@
   border-color: #2563eb;
   color: #2563eb;
 }
+
+.pol-pane--picked {
+  outline: 2px solid #4f8cff;
+  outline-offset: -2px;
+}
+
+.mv-zone {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  border: 1px dashed #8a8f98;
+  border-radius: 6px;
+}
+
+.mv-zone__title {
+  padding: 2px 6px;
+  font:
+    600 11px / 1.6 ui-monospace,
+    monospace;
+  color: #6b7280;
+}

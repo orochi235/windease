@@ -17,18 +17,43 @@ export function placeRespectingPins(
   desired: number,
   pinnedIndexOf: PinnedIndexOf,
 ): NodeId[] {
-  const n = order.length;
   if (!order.includes(movingId)) {
     throw new InvariantViolationError(
       'pin-nonmember',
-      `cannot place ${movingId}: not a member of order (length ${n})`,
-      { movingId, length: n },
+      `cannot place ${movingId}: not a member of order (length ${order.length})`,
+      { movingId, length: order.length },
     );
+  }
+  return placeRunRespectingPins(order, [movingId], desired, pinnedIndexOf);
+}
+
+/**
+ * The `placeRespectingPins` rule for a whole run: `movingIds` land on
+ * consecutive free slots starting at or after `desired`, in the order given,
+ * so a batch inserted next to a pin moves as a run rather than being
+ * interleaved with it. Every id must already be a member of `order`.
+ */
+export function placeRunRespectingPins(
+  order: readonly NodeId[],
+  movingIds: readonly NodeId[],
+  desired: number,
+  pinnedIndexOf: PinnedIndexOf,
+): NodeId[] {
+  const n = order.length;
+  const moving = new Set(movingIds);
+  for (const id of moving) {
+    if (!order.includes(id)) {
+      throw new InvariantViolationError(
+        'pin-nonmember',
+        `cannot place ${id}: not a member of order (length ${n})`,
+        { movingId: id, length: n },
+      );
+    }
   }
 
   const held = new Map<number, NodeId>();
   for (const cid of order) {
-    if (cid === movingId) continue;
+    if (moving.has(cid)) continue;
     const pin = pinnedIndexOf(cid);
     if (pin === null) continue;
     const slot = Math.min(Math.max(pin, 0), n - 1);
@@ -39,13 +64,17 @@ export function placeRespectingPins(
   const free: number[] = [];
   for (let i = 0; i < n; i++) if (!held.has(i)) free.push(i);
 
-  const target = Math.min(Math.max(desired, 0), n - 1);
-  const slot = free.find((i) => i >= target) ?? free[free.length - 1];
+  const run = movingIds.filter((id, i) => movingIds.indexOf(id) === i);
+  const target = Math.min(Math.max(desired, 0), Math.max(n - 1, 0));
+  let start = free.findIndex((i) => i >= target);
+  if (start < 0) start = free.length - run.length;
+  start = Math.max(0, Math.min(start, free.length - run.length));
+  const runSlots = free.slice(start, start + run.length);
 
-  const rest = order.filter((c) => c !== movingId && !heldIds.has(c));
+  const rest = order.filter((c) => !moving.has(c) && !heldIds.has(c));
   const result = new Array<NodeId | undefined>(n);
   for (const [i, cid] of held) result[i] = cid;
-  if (slot !== undefined) result[slot] = movingId;
+  for (const [k, slot] of runSlots.entries()) result[slot] = run[k];
 
   let r = 0;
   for (let i = 0; i < n; i++) {

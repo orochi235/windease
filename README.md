@@ -236,6 +236,39 @@ Two things to know:
   and `store.moveNode` called directly still commit; that is you acting on your
   own store, not a user gesture to approve.
 
+## Moving several panes at once
+
+`store.moveNodes(ids, toParentId, at?)` moves a set of nodes into one parent as
+a single operation — a multi-select, a "send these to the dock" command,
+anything with more than one pane in hand.
+
+```ts
+store.moveNodes(selection, dockId, 0);
+```
+
+A `moveNode` loop is not the same thing, and the differences only surface on
+trees that already carry pins, locks or `autoUnsplit`:
+
+- **One insertion point.** `at` is resolved once and the set lands as a run in
+  source order. A loop passing the same `at` inserts each node ahead of the
+  last and reverses the run; incrementing `at` by hand breaks as soon as the
+  destination holds a pin.
+- **Nothing moves until everything validates.** Every `move`, `accept` and
+  `dragOut` lock is checked before the first mutation. A loop that meets a
+  locked node halfway throws with the earlier nodes already moved —
+  `store.transact` brackets events, it does not roll back.
+- **The source settles once, at the end.** An `autoUnsplit` container is judged
+  on the state after the whole batch, so it cannot dissolve out from under the
+  rest of the run.
+- **One undo step.** The batch is bracketed in a `transaction.begin` /
+  `transaction.end` pair labeled `moveNodes`, and notifies once.
+
+Repeated ids are dropped, and a node whose ancestor is also in the set is
+dropped with it — moving the ancestor takes it along. A node already under
+`toParentId` is repositioned into the run and reports `node.reordered` rather
+than `node.moved`. Everything else emits per node exactly as `moveNode` does,
+and `placement` carries across the move.
+
 ## Sizing a pane to its contents
 
 Declare it per axis and the library measures for you:

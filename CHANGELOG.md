@@ -10,6 +10,21 @@ section below.
 
 ### Added
 
+- **`store.moveNodes(ids, toParentId, at?)`** moves a set of nodes into one
+  parent as a single operation. The set is validated in full before the first
+  mutation — a `moveNode` loop that meets a locked node halfway throws with the
+  earlier nodes already moved, and `transact` does not roll back. `at` resolves
+  once so the run lands in source order rather than reversed, and the source
+  container is judged for `autoUnsplit` on the state after the whole batch, so
+  it cannot dissolve out from under the rest of the run. See
+  [Moving several panes at once](README.md#moving-several-panes-at-once).
+
+- **`placeRunRespectingPins(order, movingIds, desired, pinnedIndexOf)`** is the
+  existing `placeRespectingPins` rule for a whole run: the moving ids take
+  consecutive free slots at or after `desired`, so a batch inserted next to a
+  pin stays contiguous instead of being interleaved with it.
+  `placeRespectingPins` is now the single-node case of it.
+
 - **`DropIntentContext` is exported from `windease/react`.** It is the argument
   type of the public `<Container dropIntent>` / `<Zone dropIntent>` prop, and
   had no importable name — a consumer writing the callback anywhere but inline

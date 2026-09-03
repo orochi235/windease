@@ -13,7 +13,7 @@ import type { NavigationPolicy } from './focus/resolve.js';
 import { chooseSuccessor, isFocusable, type SuccessorPolicy } from './focus/successor.js';
 import { destroyBlockedBy, type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeHints, NodeId } from './node.js';
-import { placeRespectingPins } from './pinning.js';
+import { placeRespectingPins, placeRunRespectingPins } from './pinning.js';
 import { sameConfig } from './same-config.js';
 import { splitNode, unsplitNode } from './split.js';
 import type { SplitInput } from './split-types.js';
@@ -509,17 +509,211 @@ export class Store {
       to: transit.state,
     });
 
-    if (this.focusedIdValue) {
-      this.forgetFocus(fromParentId, this.focusedIdValue);
-      if (this.focusedIdValue === id || this.isDescendantOf(this.focusedIdValue, id)) {
-        this.rememberFocus(this.focusedIdValue);
-      }
+    this.settle({ removedFrom: [fromParentId], addedTo: [newParentId], moved: [id] });
+  }
+
+  /**
+   * Move a set of nodes into one parent as a single operation.
+   *
+   * The whole set is validated before anything mutates: `transact` does not
+   * roll back, so a lock found halfway down the list would otherwise leave the
+   * earlier nodes moved. Repeated ids are dropped, and a node whose ancestor is
+   * also in the set is dropped with it — moving the ancestor takes it along.
+   *
+   * The run arrives together, on consecutive slots at `at`, in source order
+   * when every node comes from one parent and in the order given otherwise.
+   * A node already under `toParentId` is repositioned into the run rather than
+   * moved: it emits `node.reordered`, not `node.moved`, and runs no transit
+   * cycle. Coalescing, pin clamping and focus bookkeeping happen once, after
+   * the last node lands, so a source that dissolves cannot strand the rest.
+   *
+   * `placement` carries across the move, exactly as `moveNode` leaves it.
+   */
+  moveNodes(ids: readonly NodeId[], toParentId: NodeId, at?: number, opts?: MutateOptions): void {
+    const target = this.requireNode(toParentId);
+    if (!target.container) {
+      throw new InvariantViolationError(
+        'parent-not-container',
+        `target ${toParentId} has no container capability`,
+        { newParentId: toParentId },
+      );
     }
 
-    this.clampPins(fromParentId);
-    this.clampPins(newParentId);
+    const unique: NodeId[] = [];
+    const seen = new Set<NodeId>();
+    for (const id of ids) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      unique.push(id);
+    }
+    const run = unique.filter((id) => !unique.some((o) => o !== id && this.isDescendantOf(id, o)));
+    if (run.length === 0) return;
+
+    const sourceOf = new Map<NodeId, NodeId>();
+    for (const id of run) {
+      const node = this.requireNode(id);
+      if (!node.membership) {
+        throw new InvariantViolationError('move-unparented', `cannot move unparented node ${id}`, {
+          id,
+        });
+      }
+      if (id === toParentId || this.isDescendantOf(toParentId, id)) {
+        throw new CycleError(id, toParentId);
+      }
+      const fromParentId = node.membership.parentId;
+      if (!this.nodesMap.get(fromParentId)?.container) {
+        throw new InvariantViolationError(
+          'orphan-source',
+          `node ${id} reports parent ${fromParentId} which is not a container`,
+          { id, fromParentId },
+        );
+      }
+      sourceOf.set(id, fromParentId);
+    }
+    this.assertUnlocked(toParentId, 'accept', 'moveNodes', opts);
+    for (const id of run) {
+      this.assertUnlocked(id, 'move', 'moveNodes', opts);
+      this.assertUnlocked(sourceOf.get(id) as NodeId, 'dragOut', 'moveNodes', opts);
+    }
+
+    const sources = new Set(sourceOf.values());
+    let ordered = run;
+    if (sources.size === 1) {
+      const [only] = sources;
+      const order = this.nodesMap.get(only as NodeId)?.container?.childOrder ?? [];
+      ordered = [...run].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    }
+    const moving = new Set(ordered);
+    const crossing = ordered.filter((id) => sourceOf.get(id) !== toParentId);
+    const insertAt = clampIndex(at, target.container.childOrder.length);
+    const fromIndexOf = new Map<NodeId, number>();
+    for (const id of ordered) {
+      const from = sourceOf.get(id) as NodeId;
+      fromIndexOf.set(id, this.nodesMap.get(from)?.container?.childOrder.indexOf(id) ?? -1);
+    }
+
+    this.transact(() => {
+      for (const id of crossing) {
+        const transit = this.nodesMap.get(id)?.membership?.transit;
+        if (!transit) continue;
+        const prev = transit.state;
+        transit.send('beginRelease');
+        this.replaceNode(id);
+        this.events.emit('node.transitioned', {
+          id,
+          machine: 'transit',
+          from: prev,
+          to: transit.state,
+        });
+      }
+
+      for (const p of new Set([...sources, toParentId])) {
+        this.replaceContainer(p, (c) => ({
+          ...c,
+          childOrder: c.childOrder.filter((cid) => !moving.has(cid)),
+        }));
+      }
+
+      for (const id of crossing) {
+        const transit = this.nodesMap.get(id)?.membership?.transit;
+        if (transit) {
+          transit.send('settle');
+          transit.send('beginClaim');
+          this.replaceNode(id);
+          this.events.emit('node.transitioned', {
+            id,
+            machine: 'transit',
+            from: 'releasing',
+            to: 'claiming',
+          });
+        }
+        this.replaceMembership(id, (m) => ({ ...m, parentId: toParentId }));
+      }
+
+      this.replaceContainer(toParentId, (c) => {
+        const spliced = [...c.childOrder];
+        const desired = Math.min(insertAt, spliced.length);
+        spliced.splice(desired, 0, ...ordered);
+        return {
+          ...c,
+          childOrder: placeRunRespectingPins(spliced, ordered, desired, this.pinnedIndexOf),
+        };
+      });
+
+      const landed = this.nodesMap.get(toParentId)?.container?.childOrder ?? [];
+      for (const id of ordered) {
+        const from = sourceOf.get(id) as NodeId;
+        const fromIndex = fromIndexOf.get(id) ?? -1;
+        const toIndex = landed.indexOf(id);
+        if (from === toParentId) {
+          this.events.emit('node.reordered', { parentId: toParentId, id, fromIndex, toIndex });
+        } else {
+          this.events.emit('node.moved', {
+            id,
+            fromParentId: from,
+            toParentId,
+            fromIndex,
+            toIndex,
+          });
+        }
+      }
+
+      for (const id of crossing) {
+        const transit = this.nodesMap.get(id)?.membership?.transit;
+        if (!transit) continue;
+        transit.send('settle');
+        this.replaceNode(id);
+        this.publisher.markDirty(id, { machine: 'transit', bypass: true });
+        this.events.emit('node.transitioned', {
+          id,
+          machine: 'transit',
+          from: 'claiming',
+          to: transit.state,
+        });
+      }
+
+      const from = [...sources].filter((p) => p !== toParentId);
+      trace(
+        'store',
+        `moveNodes: ${ordered.length} → ${toParentId}@${insertAt} (from ${from.join(', ') || 'itself'})`,
+      );
+      this.settle({ removedFrom: from, addedTo: [toParentId], moved: crossing });
+    }, 'moveNodes');
+  }
+
+  /**
+   * Repair what a structural change disturbed, once, after the last node has
+   * landed. Run per node inside a batch these interfere: the source dissolving
+   * on node three invalidates the parent node four was about to leave.
+   *
+   * Only a parent something was *removed* from can coalesce — a destination
+   * that just gained a child holding one child is a group mid-construction,
+   * which `split` builds and must not have dissolved underneath it.
+   */
+  private settle(scope: {
+    removedFrom: readonly NodeId[];
+    addedTo: readonly NodeId[];
+    moved: readonly NodeId[];
+  }): void {
+    const sources = [...new Set(scope.removedFrom)];
+    // A dissolved parent hands its survivor up, so the grandparent's pins move too.
+    const clampable = new Set([...sources, ...scope.addedTo]);
+    for (const p of sources) {
+      const up = this.nodesMap.get(p)?.membership?.parentId;
+      if (up) clampable.add(up);
+    }
+
+    for (const p of sources) this.coalesceParent(p);
+    for (const p of clampable) if (this.nodesMap.has(p)) this.clampPins(p);
+
+    const focused = this.focusedIdValue;
+    if (focused) {
+      for (const p of sources) this.forgetFocus(p, focused);
+      if (scope.moved.some((id) => id === focused || this.isDescendantOf(focused, id))) {
+        this.rememberFocus(focused);
+      }
+    }
     this.scheduleNotify();
-    this.coalesceParent(fromParentId);
   }
 
   /**
