@@ -38,6 +38,11 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   change. `--workers=2` does not rescue it, and re-running one spec alone
   always passes, so isolation proves nothing either way.
 
+  `scripts/flake-census.mjs` measures this rather than reasoning about it:
+  it repeat-runs the suite in an `idle` and a `loaded` arm and ranks every
+  test by failure rate and mode. The ordering above is a heuristic until a
+  census replaces it.
+
   Three distinct modes, and only the first is bounded by anything:
 
   - **Story-load margin.** `openStory` waits for the first placed node; against

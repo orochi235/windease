@@ -16,3 +16,5 @@ docs-api
 test-results/
 playwright-report/
 blob-report/
+flake-census.json
+flake-census.log
