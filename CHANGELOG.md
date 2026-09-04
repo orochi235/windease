@@ -204,6 +204,19 @@ section below.
   are both traced on `workspace` and answered by the geometric search instead —
   the same contract `resolveNavigation` already held a replacement policy to.
 
+- **A nested container preset was never placed by its parent's strategy.**
+  `<Zone>` inside a `<Zone>`, and a `<Panel container={…}>` inside one, both
+  published their own `LayoutScope` around themselves and so looked up their own
+  rect in their children's placements instead of their parent's. Finding none,
+  they rendered in flow at full size, stacking on top of each other rather than
+  tiling — only the leaf `<Panel>`s were ever positioned. The scope now wraps a
+  preset's content, not the preset.
+
+  A nested container preset also keeps its placement box across the pass that
+  first places it. Gaining one mid-flight remounted the subtree, and a remounted
+  descendant re-registered under a fresh owner token while the store still held
+  the old one — `node "x" is already mounted by another panel`.
+
 - **Two nodes reported `focused` after a focus succession.** When the focused
   node was destroyed or hidden, the departing node was never sent `blur` — it
   kept `node.focus.state === 'focused'` alongside its successor, and emitted no

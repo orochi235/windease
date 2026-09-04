@@ -366,40 +366,39 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   };
 
   return (
-    <LayoutScope value={layoutInfo}>
-      <PresetShell
-        kind="panel"
-        id={props.id}
-        className={props.className}
-        style={panelStyle}
-        title={props.title}
-        testId={props['data-testid']}
-        innerRef={ref}
-        acceptsDrops={props.acceptsDrops}
-        drop={dropBag(props, true)}
-        measure={props.measure}
-        joinArmedId={joinArmedId}
-        preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
-      >
-        {props.draggable ? (
-          <DragHandle nodeId={props.id}>{props.children}</DragHandle>
-        ) : (
-          props.children
-        )}
-        <SplitPreview placements={layout.placements} state={dropPreview} />
-        <AffordanceLayer
-          render={props.affordances ?? false}
-          affordances={layout.affordances}
-          dispatch={layout.dispatchAffordance}
-          store={store}
-          hitPad={props.affordanceHitPad ?? 4}
-          keyStep={props.affordanceKeyStep ?? 8}
-          tabStop={props.affordanceTabStops ?? true}
-          onActiveChange={setDraggingAffordanceId}
-          onJoinArmChange={setJoinArmedId}
-        />
-      </PresetShell>
-    </LayoutScope>
+    <PresetShell
+      provide={layoutInfo}
+      kind="panel"
+      id={props.id}
+      className={props.className}
+      style={panelStyle}
+      title={props.title}
+      testId={props['data-testid']}
+      innerRef={ref}
+      acceptsDrops={props.acceptsDrops}
+      drop={dropBag(props, true)}
+      measure={props.measure}
+      joinArmedId={joinArmedId}
+      preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
+    >
+      {props.draggable ? (
+        <DragHandle nodeId={props.id}>{props.children}</DragHandle>
+      ) : (
+        props.children
+      )}
+      <SplitPreview placements={layout.placements} state={dropPreview} />
+      <AffordanceLayer
+        render={props.affordances ?? false}
+        affordances={layout.affordances}
+        dispatch={layout.dispatchAffordance}
+        store={store}
+        hitPad={props.affordanceHitPad ?? 4}
+        keyStep={props.affordanceKeyStep ?? 8}
+        tabStop={props.affordanceTabStops ?? true}
+        onActiveChange={setDraggingAffordanceId}
+        onJoinArmChange={setJoinArmedId}
+      />
+    </PresetShell>
   );
 }
 
@@ -594,38 +593,37 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   }, [renderImperative, allChildren, layout.placements, props.id]);
 
   return (
-    <LayoutScope value={layoutInfo}>
-      <PresetShell
-        kind={props.kind ?? 'zone'}
-        id={props.id}
-        className={props.className}
-        style={zoneStyle}
-        title={props.title}
-        testId={props['data-testid']}
-        sort={props.sort}
-        innerRef={ref}
-        acceptsDrops={props.acceptsDrops}
-        drop={dropBag(props, true)}
-        measure={props.measure}
-        joinArmedId={joinArmedId}
-        preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
-      >
-        {props.children}
-        {imperativeRenders}
-        <SplitPreview placements={layout.placements} state={dropPreview} />
-        <AffordanceLayer
-          render={props.affordances ?? false}
-          affordances={layout.affordances}
-          dispatch={layout.dispatchAffordance}
-          store={store}
-          hitPad={props.affordanceHitPad ?? 4}
-          keyStep={props.affordanceKeyStep ?? 8}
-          tabStop={props.affordanceTabStops ?? true}
-          onActiveChange={setDraggingAffordanceId}
-          onJoinArmChange={setJoinArmedId}
-        />
-      </PresetShell>
-    </LayoutScope>
+    <PresetShell
+      provide={layoutInfo}
+      kind={props.kind ?? 'zone'}
+      id={props.id}
+      className={props.className}
+      style={zoneStyle}
+      title={props.title}
+      testId={props['data-testid']}
+      sort={props.sort}
+      innerRef={ref}
+      acceptsDrops={props.acceptsDrops}
+      drop={dropBag(props, true)}
+      measure={props.measure}
+      joinArmedId={joinArmedId}
+      preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
+    >
+      {props.children}
+      {imperativeRenders}
+      <SplitPreview placements={layout.placements} state={dropPreview} />
+      <AffordanceLayer
+        render={props.affordances ?? false}
+        affordances={layout.affordances}
+        dispatch={layout.dispatchAffordance}
+        store={store}
+        hitPad={props.affordanceHitPad ?? 4}
+        keyStep={props.affordanceKeyStep ?? 8}
+        tabStop={props.affordanceTabStops ?? true}
+        onActiveChange={setDraggingAffordanceId}
+        onJoinArmChange={setJoinArmedId}
+      />
+    </PresetShell>
   );
 }
 
@@ -696,6 +694,13 @@ interface PresetShellProps {
    *  preview split a child's slot. The second is read back off the DOM by the
    *  hit-test, which resolves against the un-displaced row while it is set. */
   preview?: { active: boolean; split: boolean } | undefined;
+  /**
+   * This shell's own layout, published to its descendants. Applied *inside*
+   * the wrapper so the shell keeps reading the parent's scope: a container
+   * preset that provided its own around itself would look up its rect in its
+   * children's map, find nothing, and render unplaced.
+   */
+  provide?: LayoutInfo | undefined;
 }
 
 /** Wrapper div + ChildRegistry host + ParentContext + sibling-order reconciliation. */
@@ -714,6 +719,7 @@ function PresetShell({
   measure,
   joinArmedId,
   preview,
+  provide,
 }: PresetShellProps) {
   // We need a single ref on the wrapper div that serves both layout
   // measurement (innerRef, when provided) and drop-target registration.
@@ -803,12 +809,13 @@ function PresetShell({
       {children}
     </>
   );
-  const content =
+  const armed =
     joinArmedId === undefined ? (
       body
     ) : (
       <JoinArmContext.Provider value={joinArmedId}>{body}</JoinArmContext.Provider>
     );
+  const content = provide ? <LayoutScope value={provide}>{armed}</LayoutScope> : armed;
 
   const shell = (
     <ChildRegistryContext.Provider value={registry}>
@@ -844,18 +851,19 @@ function PresetShell({
     </ChildRegistryContext.Provider>
   );
 
-  // A missing rect means nobody is placing us — flow mode, or a zone whose
-  // strategy isn't registered — and we render where the consumer's JSX put us.
-  // Being in `unplaced` is the opposite: a strategy ran and withheld us.
+  // A strategy ran and withheld us.
   if (withheld) return null;
-  if (!selfRect) return shell;
+
+  // A nested container preset keeps its placement box on every render, empty
+  // or not: appearing on the pass that first places it would change the tree
+  // shape and remount the subtree, and a remounted descendant preset
+  // re-registers under a fresh `useId` owner token while the store still holds
+  // the old one. A leaf owns no descendants, and a root is never placed.
+  const parentId = store.getNode(id)?.membership?.parentId;
+  if (!selfRect && !(provide && parentId)) return shell;
 
   return (
-    <AbsoluteWrapper
-      rect={selfRect}
-      parentId={store.getNode(id)?.membership?.parentId}
-      previewSource={isPreviewSource}
-    >
+    <AbsoluteWrapper rect={selfRect} parentId={parentId} previewSource={isPreviewSource}>
       {shell}
     </AbsoluteWrapper>
   );
@@ -877,7 +885,8 @@ function SplitPreview({
 
 /** Absolute-positioned box that places its child at the strategy-computed
  *  rect. Reads `settleMs` from `LayoutContext` so all siblings animate
- *  consistently. */
+ *  consistently. Without a rect it collapses to `display: contents` and stamps
+ *  no attributes, leaving the child exactly where the JSX put it. */
 function AbsoluteWrapper({
   rect,
   parentId,
@@ -885,7 +894,7 @@ function AbsoluteWrapper({
   previewSource,
   children,
 }: {
-  rect: Rect;
+  rect?: Rect | undefined;
   parentId?: NodeId | undefined;
   /** Set when this box is the child's only chrome — an imperative render,
    *  which stamps no `data-node` of its own and would be invisible to every
@@ -898,6 +907,10 @@ function AbsoluteWrapper({
   children: ReactNode;
 }) {
   const { settleMs } = useLayoutContext();
+  // `display: contents` rather than a class: the box exists only to hold the
+  // tree shape stable, and must vanish from layout even for a consumer who
+  // never loaded the stylesheet.
+  if (!rect) return <div style={{ display: 'contents' }}>{children}</div>;
   const style: CSSProperties = {
     position: 'absolute',
     left: rect.x,
