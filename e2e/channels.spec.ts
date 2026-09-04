@@ -22,9 +22,7 @@ test.describe('channels', () => {
   test('republishes when config changes the values', async ({ page }) => {
     await openStory(page, STORY);
     await page.getByRole('button', { name: /fade from/ }).click();
-    await expect
-      .poll(() => opacities(page))
-      .toEqual(['0.20', '0.40', '0.60', '0.80', '1.00']);
+    await expect.poll(() => opacities(page)).toEqual(['0.20', '0.40', '0.60', '0.80', '1.00']);
   });
 
   test('recomputes every channel when the child set changes', async ({ page }) => {

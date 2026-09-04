@@ -11,7 +11,8 @@ describe('stackStrategy', () => {
   it('gives the active child the container less the header and padding', () => {
     expect(run({ activeId: 'b', headerSize: 30, padding: 4 }).placements.get('b')).toEqual({
       x: 4,
-      y: 34, z: 0,
+      y: 34,
+      z: 0,
       w: 392,
       h: 262,
     });

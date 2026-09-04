@@ -11,13 +11,7 @@ import {
   type Rect,
   Store,
 } from '../../index.js';
-import {
-  Panel,
-  Provider,
-  StrategyRegistryProvider,
-  useChannelsForSelf,
-  Zone,
-} from '../index.js';
+import { Panel, Provider, StrategyRegistryProvider, useChannelsForSelf, Zone } from '../index.js';
 import './channels.css';
 import './windease.css';
 
@@ -105,9 +99,9 @@ export const RecedingRow: Story = () => {
       </Provider>
 
       <p className="channels-demo__readout">
-        Each card prints the `opacity` its strategy put in `channels`. Flip the
-        fade or change the count and the values move — windease recomputed and
-        republished them without ever reading one.
+        Each card prints the `opacity` its strategy put in `channels`. Flip the fade or change the
+        count and the values move — windease recomputed and republished them without ever reading
+        one.
       </p>
     </div>
   );

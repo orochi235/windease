@@ -58,9 +58,9 @@ export {
   type LayoutInfo,
   LayoutScope,
   type Rect,
+  useChannelsForSelf,
   useIsUnplaced,
   useLayoutContext,
-  useChannelsForSelf,
   useLayoutForSelf,
 } from './LayoutContext.js';
 export {

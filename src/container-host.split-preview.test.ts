@@ -132,6 +132,12 @@ describe('ContainerHost split preview', () => {
     const h = host(build());
     h.setPreview({ insertId: 'd', insertIndex: 0, cursor: { x: 0, y: 0 } });
     const { placements } = h.layout();
-    expect(placements.get(asNodeId('d'))).toEqual({ x: 0, y: 0, z: 0, w: 66.66666666666667, h: 100 });
+    expect(placements.get(asNodeId('d'))).toEqual({
+      x: 0,
+      y: 0,
+      z: 0,
+      w: 66.66666666666667,
+      h: 100,
+    });
   });
 });

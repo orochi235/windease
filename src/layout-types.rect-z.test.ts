@@ -14,8 +14,21 @@ function rectsOf(result: LayoutResult<string>): Rect[] {
 
 describe('every shipped strategy emits z', () => {
   const cases: [string, () => LayoutResult<string>][] = [
-    ['grid', () => gridStrategy.layout({ items, container, state: undefined, options: { resizable: true } })],
-    ['strip', () => stripStrategy.layout({ items, container, state: undefined as never, options: { axis: 'x', resizable: true } })],
+    [
+      'grid',
+      () =>
+        gridStrategy.layout({ items, container, state: undefined, options: { resizable: true } }),
+    ],
+    [
+      'strip',
+      () =>
+        stripStrategy.layout({
+          items,
+          container,
+          state: undefined as never,
+          options: { axis: 'x', resizable: true },
+        }),
+    ],
     ['stack', () => stackStrategy.layout({ items, container, state: undefined, options: {} })],
   ];
 

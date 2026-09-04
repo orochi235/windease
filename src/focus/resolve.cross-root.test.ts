@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createNode } from '../constructors.js';
+import type { Rect } from '../layout-types.js';
 import { asNodeId, type NodeId } from '../node.js';
 import { Store } from '../store.js';
 import { resolveNavigation } from './resolve.js';
 import type { GeometrySource } from './types.js';
-import type { Rect } from '../layout-types.js';
 
 function id(s: string): NodeId {
   return asNodeId(s);

@@ -15,9 +15,7 @@ import { stackStrategy } from './stack.js';
 const container = { w: 400, h: 300 };
 const size = { w: 100, h: 80 };
 const whole = containerTarget(container);
-const only = (target: { rect: Rect }) => [
-  { id: null, rect: target.rect },
-];
+const only = (target: { rect: Rect }) => [{ id: null, rect: target.rect }];
 
 describe('cornerOrigin', () => {
   it('insets from the named corner', () => {
@@ -118,7 +116,8 @@ describe('rectOf', () => {
   it('clamps a free item inside the container', () => {
     expect(rectOf(item, { x: -50, y: 999, anchor: null }, container, 12)).toEqual({
       x: 0,
-      y: 220, z: 0,
+      y: 220,
+      z: 0,
       w: 100,
       h: 80,
     });
