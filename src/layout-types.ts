@@ -373,6 +373,9 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
    * Optional override for directional keyboard navigation within this
    * container. Return an item id to win, `undefined` to fall through to
    * geometric resolution, or `null` to declare the direction dead here.
+   *
+   * A winning id must name a focusable, visible node. An id that doesn't, and
+   * a call that throws, are traced and answered by geometry instead.
    */
   navigate?(input: {
     items: LayoutItem[];

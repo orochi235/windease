@@ -1004,7 +1004,9 @@ sibling index. A layout with more than a couple of panes should set titles.
 
 Directional moves compare pane rectangles. A strategy that knows better can
 say so by implementing `navigate?` — return an id to win, `undefined` to fall
-through to the geometric search, `null` to declare that direction dead.
+through to the geometric search, `null` to declare that direction dead. The id
+it wins with must name a focusable, visible node; an id that doesn't, and a
+`navigate?` that throws, are traced and the geometric search answers instead.
 
 A consumer wanting a rule no strategy owns replaces the resolution outright with
 `new Store({ resolveNavigation })`, which is asked first — ahead of `navigate?`

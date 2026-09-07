@@ -20,6 +20,8 @@ function scene(navigate: NonNullable<LayoutStrategy['navigate']>) {
     store.registerNode(createNode({ kind: 'panel', focus: true, id: id(c), parentId: id('z') }));
     store.showNode(id(c));
   }
+  store.registerNode(createNode({ kind: 'panel', id: id('nofocus'), parentId: id('z') }));
+  store.showNode(id('nofocus'));
   const map: Record<string, Rect> = {
     a: { x: 0, y: 0, z: 0, w: 100, h: 100 },
     b: { x: 110, y: 0, z: 0, w: 100, h: 100 },
@@ -54,5 +56,28 @@ describe('resolveNavigation — strategy override', () => {
     expect(
       resolveNavigation({ store, from: id('a'), intent: 'right', geometry, strategies }),
     ).toBeNull();
+  });
+
+  it('a node with no focus capability falls through to geometry', () => {
+    const { store, geometry, strategies } = scene(() => 'nofocus');
+    expect(resolveNavigation({ store, from: id('a'), intent: 'right', geometry, strategies })).toBe(
+      id('b'),
+    );
+  });
+
+  it('an id naming no node falls through to geometry', () => {
+    const { store, geometry, strategies } = scene(() => 'ghost');
+    expect(resolveNavigation({ store, from: id('a'), intent: 'right', geometry, strategies })).toBe(
+      id('b'),
+    );
+  });
+
+  it('a strategy that throws falls through to geometry', () => {
+    const { store, geometry, strategies } = scene(() => {
+      throw new Error('navigate exploded');
+    });
+    expect(resolveNavigation({ store, from: id('a'), intent: 'right', geometry, strategies })).toBe(
+      id('b'),
+    );
   });
 });

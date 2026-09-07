@@ -187,13 +187,10 @@ Still open:
 
 ## Focus bookkeeping
 
-- **`strategy.navigate`'s answer is never validated [MED].**
-  `src/focus/resolve.ts:102` casts it `as NodeId` and returns it, so a custom
-  strategy can name a node with no focus capability — and `FocusProvider` calls
-  `store.focusNode(to)` from a raw `keydown` listener with no try/catch
-  (`src/react/focus/FocusProvider.tsx:225`), so the `CapabilityMissingError`
-  takes out the keypress. `resolveNavigation` validates a *policy's* answer with
-  `isFocusable`; the strategy path beside it does not.
+Nothing open. `strategy.navigate`'s answer is validated now — an id naming a
+node with no `focus` capability, and a `navigate` that throws, are traced on
+`workspace` and answered by the geometric search, the same contract a
+replacement `resolveNavigation` policy already had (`src/focus/resolve.ts`).
 
 ## Groups
 

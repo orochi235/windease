@@ -181,6 +181,13 @@ section below.
   thing a consumer wiring the store into React writes. It is an arrow property
   now; the signature is unchanged.
 
+- **A strategy's `navigate` answer is now validated.** The id came back cast,
+  so a strategy naming a node with no `focus` capability reached
+  `store.focusNode` and threw `CapabilityMissingError` out of the keydown
+  listener, killing the keypress. An unusable id and a `navigate` that throws
+  are both traced on `workspace` and answered by the geometric search instead —
+  the same contract `resolveNavigation` already held a replacement policy to.
+
 - **Two nodes reported `focused` after a focus succession.** When the focused
   node was destroyed or hidden, the departing node was never sent `blur` — it
   kept `node.focus.state === 'focused'` alongside its successor, and emitted no

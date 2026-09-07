@@ -94,13 +94,26 @@ function builtinResolve({
       const strategy = parent?.container ? strategies?.get(parent.container.strategyId) : undefined;
       if (strategy?.navigate && parentId) {
         const items: LayoutItem[] = store.getChildren(parentId).map((c) => nodeToLayoutItem(c));
-        const chosen = strategy.navigate({
-          items,
-          from,
-          direction: intent,
-          options: (parent?.container?.config ?? {}) as Record<string, unknown>,
-        });
-        if (chosen !== undefined) return chosen === null ? null : (chosen as NodeId);
+        let chosen: string | null | undefined;
+        try {
+          chosen = strategy.navigate({
+            items,
+            from,
+            direction: intent,
+            options: (parent?.container?.config ?? {}) as Record<string, unknown>,
+          });
+        } catch (err) {
+          trace('workspace', `${strategy.name}.navigate threw, using geometry: ${err}`);
+          chosen = undefined;
+        }
+        if (chosen === null) return null;
+        if (chosen !== undefined) {
+          if (isFocusable(store, chosen as NodeId)) return chosen as NodeId;
+          trace(
+            'workspace',
+            `${strategy.name}.navigate returned unusable ${chosen}, using geometry`,
+          );
+        }
       }
       return directional(store, from, intent, geometry);
     }
@@ -152,9 +165,9 @@ let consultingPolicy = false;
  * when the intent is dead. Consults the store's `resolveNavigation` policy
  * when one is set, then the target container's strategy, then geometry.
  *
- * A policy that throws, or returns something that isn't a node id, is traced
- * and ignored in favor of the built-in result — navigation degrades rather
- * than breaking.
+ * A policy or a `strategy.navigate` that throws, or answers with something
+ * that isn't a focusable node, is traced and ignored in favor of the next
+ * resolution down — navigation degrades rather than breaking.
  */
 export function resolveNavigation(input: ResolveInput): NodeId | null {
   if (consultingPolicy) return builtinResolve(input);
