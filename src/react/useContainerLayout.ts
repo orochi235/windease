@@ -116,6 +116,22 @@ export function useContainerLayout(
 }
 
 /**
+ * Report `scrollRef`'s offset to the container that laid these children out,
+ * so a pane's visible position is what keyboard navigation compares. A ref
+ * rather than an element: `.current` is null on the first render.
+ */
+export function useScrollOffset(
+  scrollRef: RefObject<Element | null> | undefined,
+  observeScroll: (el: Element) => () => void,
+): void {
+  useEffect(() => {
+    const el = scrollRef?.current;
+    if (!el) return;
+    return observeScroll(el);
+  }, [scrollRef, observeScroll]);
+}
+
+/**
  * The box size a layout needs to hold content that exceeds its viewport, for
  * `overflowMode: 'scroll'`. Undefined when nothing overflows, so the common
  * case adds no style at all.

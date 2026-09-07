@@ -12,6 +12,7 @@ import {
 } from 'react';
 import type { ChildSort } from '../child-sort.js';
 import type { AcceptContext } from '../dnd/DragEngine.js';
+import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
 import type { DropIntent, Node, NodeHints, NodeId, PlacementCommit, Store } from '../index.js';
 import {
   accessibleName,
@@ -49,7 +50,7 @@ import { MeasuredContent } from './measure.js';
 import { ChildRegistryContext, ParentScope, useChildRegistry } from './ParentContext.js';
 import { useStore } from './Provider.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
-import { scrollExtentStyle, useContainerLayout } from './useContainerLayout.js';
+import { scrollExtentStyle, useContainerLayout, useScrollOffset } from './useContainerLayout.js';
 import { JSX_OWNER_META_KEY, useNodeBinding } from './useNodeBinding.js';
 
 interface CommonBindingProps {
@@ -84,6 +85,15 @@ interface CommonBindingProps {
    * there is no geometry to shrink or shade.
    */
   splitPreview?: SplitPreviewMode;
+  /**
+   * The element that scrolls this preset's content — the wrapper carrying
+   * `overflow: auto`, not the preset's own box. Reports its offset so a pane's
+   * visible position is what keyboard navigation compares, and gives a drag
+   * held near that wrapper's edge something to scroll.
+   */
+  scrollRef?: RefObject<Element | null>;
+  /** Ramp shape for that edge scrolling. Inert without `scrollRef`. */
+  edgeScroll?: EdgeScrollOptions;
   /** Replace the built-in drop hit-test — the callback `<Container dropIntent>`
    *  takes, on the preset that hosts the layout. */
   dropIntent?: (ctx: DropIntentContext) => DropIntent | undefined;
@@ -135,6 +145,8 @@ function dropBag(props: CommonBindingProps, hostsLayout?: boolean): PresetShellP
     splitOnDrop: props.splitOnDrop,
     dropIntent: props.dropIntent,
     acceptPolicy: props.acceptPolicy,
+    scrollRef: props.scrollRef,
+    edgeScroll: props.edgeScroll,
     hostsLayout,
   });
 }
@@ -331,6 +343,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   const dropPreview = useDropPreview(props.id, props.splitPreview ?? 'layout');
   const layout = useContainerLayout(props.id, ref, undefined, dropPreview.preview);
   usePublishGeometry(props.id, ref, layout);
+  useScrollOffset(props.scrollRef, layout.observeScroll);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
   const settleMs = DEFAULT_SETTLE_MS;
@@ -530,6 +543,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   const dropPreview = useDropPreview(props.id, props.splitPreview ?? 'layout');
   const layout = useContainerLayout(props.id, ref, props.viewport, dropPreview.preview);
   usePublishGeometry(props.id, ref, layout);
+  useScrollOffset(props.scrollRef, layout.observeScroll);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
   const settleMs = props.settleMs ?? DEFAULT_SETTLE_MS;
@@ -662,6 +676,8 @@ interface PresetShellProps {
         splitOnDrop?: boolean | undefined;
         dropIntent?: ((ctx: DropIntentContext) => DropIntent | undefined) | undefined;
         acceptPolicy?: ((ctx: AcceptContext) => boolean | undefined) | undefined;
+        scrollRef?: RefObject<Element | null> | undefined;
+        edgeScroll?: EdgeScrollOptions | undefined;
         /** A strategy places these children. Without one, CSS does, and the
          *  axis is read off the arrangement rather than the config. */
         hostsLayout?: boolean | undefined;
@@ -717,6 +733,8 @@ function PresetShell({
     ...(drop?.splitOnDrop ? { splitOnDrop: drop.splitOnDrop } : {}),
     ...(drop?.dropIntent ? { dropIntent: drop.dropIntent } : {}),
     ...(drop?.acceptPolicy ? { acceptPolicy: drop.acceptPolicy } : {}),
+    ...(drop?.scrollRef ? { scrollRef: drop.scrollRef } : {}),
+    ...(drop?.edgeScroll ? { edgeScroll: drop.edgeScroll } : {}),
   });
   const registry = useChildRegistry();
   // Reset at the top of every render so we capture only the current JSX

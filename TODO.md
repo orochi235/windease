@@ -145,11 +145,12 @@ Still open:
   `acceptPolicy` now inherits it. The fix is a prospective list that knows the
   intent, with its own tests.
 
-- **The presets cannot edge-scroll [MED].** `scrollRef` is a `<Container>` prop
-  (`src/react/Container.tsx:103`), so a preset's `scrollEl` is always null and
-  `DragController` never registers the scroll bag for it. That is why
-  `edgeScroll` ships on `<Container>` alone — the presets would need a
-  `scrollRef` of their own before the ramp meant anything there.
+- **The presets edge-scroll — shipped.** `scrollRef` and `edgeScroll` are
+  preset props, so a `<Zone>` reports its wrapper's offset to the geometry
+  registry and registers the scroll bag `DragController` ramps against.
+  `presets.scroll.test.tsx` covers both halves; the
+  **Scrolling / Preset drag to the edge to scroll** story is what
+  `e2e/capabilities.spec.ts` drives.
 
 - **`insertionIndexByMidpoint` and `axisFromRects` stay unreplaceable,
   deliberately.** `dropIntent` subsumes both, because replacing the resolver

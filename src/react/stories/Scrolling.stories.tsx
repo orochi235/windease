@@ -12,8 +12,10 @@ import {
   type EdgeScrollOptions,
   FocusProvider,
   GeometryProvider,
+  Panel,
   Provider,
   StrategyRegistryProvider,
+  Zone,
 } from '../index.js';
 import '../styles.css';
 import './capabilities.css';
@@ -21,6 +23,7 @@ import './capabilities.css';
 const STRATEGIES = { strip: stripStrategy as never, grid: gridStrategy as never };
 const DOCK = asNodeId('dock');
 const GRID = asNodeId('grid');
+const PANE_IDS = Array.from({ length: 8 }, (_, i) => `pane-${i + 1}`);
 
 /** Eight panes with a 90px floor in a 360px box: the dock has to overflow. */
 function makeDock(): Store {
@@ -197,6 +200,79 @@ export const DragToTheEdgeToScroll: Story = () => {
               <code>{'{ margin: 200, maxRate: 24 }'}</code>: the margin swallows most of the box, so
               a cursor held well short of the edge already scrolls, and faster. <code>off</code> is{' '}
               <code>{'{ maxRate: 0 }'}</code>: hold anywhere inside the box and nothing moves.
+            </p>
+          </DragProvider>
+        </GeometryProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+/** The same dock built from presets rather than `<Container>`: a `<Zone>` of
+ *  `<Panel>`s inside the consumer's own scrolling wrapper. */
+export const PresetDragToTheEdgeToScroll: Story = () => {
+  const store = useMemo(() => new Store(), []);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [ramp, setRamp] = useState<(typeof RAMP_NAMES)[number]>('default');
+  const edgeScroll = RAMPS[ramp];
+
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <GeometryProvider>
+          <DragProvider dragOverlay={defaultDragOverlay}>
+            <div className="cap-bar">
+              <code>edgeScroll:</code>
+              {RAMP_NAMES.map((name) => (
+                <label key={name}>
+                  <input
+                    type="radio"
+                    name="preset-edge-scroll-ramp"
+                    checked={ramp === name}
+                    data-testid={`ramp-${name}`}
+                    onChange={() => setRamp(name)}
+                  />{' '}
+                  <code>{name}</code>
+                </label>
+              ))}
+            </div>
+            <div className="cap-scroller" ref={scrollRef}>
+              <Zone
+                id={DOCK}
+                strategyId="strip"
+                config={{ axis: 'y', fill: true, gap: 8, padding: 8, overflowMode: 'scroll' }}
+                viewport={{ w: 284, h: 344 }}
+                className="windease-zone"
+                acceptsDrops
+                scrollRef={scrollRef}
+                {...(edgeScroll ? { edgeScroll } : {})}
+              >
+                {PANE_IDS.map((id, i) => (
+                  <Panel
+                    key={id}
+                    id={asNodeId(id)}
+                    className="cap-pane"
+                    hints={{ minSize: { w: 0, h: 90 } }}
+                    meta={{ title: `Pane ${i + 1}` }}
+                    draggable
+                  >
+                    <header className="cap-pane__title">
+                      Pane {i + 1}
+                      <span className="cap-grip" aria-hidden="true">
+                        ⋮⋮
+                      </span>
+                    </header>
+                    <div className="cap-pane__body">{id}</div>
+                  </Panel>
+                ))}
+              </Zone>
+            </div>
+            <p className="cap-hint">
+              The same gesture on a preset tree: pick a pane up and hold the cursor near the top or
+              bottom edge. <code>scrollRef</code> and <code>edgeScroll</code> are{' '}
+              <code>&lt;Zone&gt;</code> props here, so the ramp behaves exactly as it does on a{' '}
+              <code>&lt;Container&gt;</code> — and the row opens a gap at the seam the drop would
+              land on while it scrolls.
             </p>
           </DragProvider>
         </GeometryProvider>

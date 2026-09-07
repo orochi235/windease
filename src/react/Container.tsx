@@ -29,6 +29,7 @@ import {
   type ContainerLayout,
   scrollExtentStyle,
   useContainerLayout,
+  useScrollOffset,
 } from './useContainerLayout.js';
 
 /** Live layout snapshot passed to function-form `overlay` callbacks. */
@@ -255,12 +256,7 @@ function StoreContainer({
   const childKey = children.map((c) => String(c.id)).join('|');
   useFlowGeometry(parentId, ref, isFlow, childKey);
 
-  const observeScroll = layout.observeScroll;
-  useEffect(() => {
-    const el = scrollRef?.current;
-    if (!el) return;
-    return observeScroll(el);
-  }, [scrollRef, observeScroll]);
+  useScrollOffset(scrollRef, layout.observeScroll);
 
   useEffect(() => {
     if (!dragController || !onChildOrderChange) return;

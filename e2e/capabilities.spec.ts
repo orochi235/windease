@@ -172,6 +172,24 @@ test.describe('scrolling containers', () => {
     await page.mouse.up();
   });
 
+  test('a preset zone scrolls at its edge on the same ramp', async ({ page }) => {
+    await openStory(page, 'scrolling--preset-drag-to-the-edge-to-scroll');
+    await holdAbove(page, 36);
+    await expect.poll(() => scrollTop(page)).toBeGreaterThan(20);
+    await page.mouse.up();
+  });
+
+  test('a preset zone honors maxRate 0', async ({ page }) => {
+    await openStory(page, 'scrolling--preset-drag-to-the-edge-to-scroll');
+    await page.locator('[data-testid="ramp-off"]').check();
+
+    await holdAbove(page, 36);
+    await page.waitForTimeout(1000);
+
+    expect(await scrollTop(page)).toBe(0);
+    await page.mouse.up();
+  });
+
   test('a scrolled pane reports where it is, not where it was placed', async ({ page }) => {
     await openStory(page, 'scrolling--scroll-aware-navigation');
     const pane = page.locator('[data-node="pane-1"]');

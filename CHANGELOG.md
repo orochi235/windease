@@ -10,6 +10,12 @@ section below.
 
 ### Added
 
+- **`scrollRef` and `edgeScroll` on the container presets.** `<Zone>` and
+  `<Panel container={…}>` take the pair `<Container>` has: the wrapper's offset
+  reaches the geometry a keyboard navigation compares, and a drag held near that
+  wrapper's edge scrolls it on the same ramp. A preset dock was the one place
+  neither reached.
+
 - **The container presets preview a drop.** `<Zone>` and `<Panel container={…}>`
   now lay their children out as if the drop had happened while one is hovering:
   the row opens the gap an insert would leave, and on a split the hovered pane

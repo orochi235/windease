@@ -476,8 +476,9 @@ holds there past it so overshooting a target does not fight you. Nothing to
 turn on — a container with no `scrollRef` never auto-scrolls.
 
 `<Container edgeScroll={{ margin, maxRate }}>` reshapes that ramp — the two
-numbers above are its defaults. The presets take no `scrollRef`, so neither
-auto-scroll nor `edgeScroll` reaches them.
+numbers above are its defaults. `<Zone>` and `<Panel container={…}>` take both
+props and behave the same way: point `scrollRef` at your wrapper and the ramp
+reaches a preset dock too.
 
 `edgeScrollDelta(bounds, point, options)` is the arithmetic on its own, pure
 and exported, for a host driving its own drag loop. `DropTargetOptions` takes
@@ -743,7 +744,8 @@ centre of a pane still inserts — edges split, everything else inserts — whic
 what a consumer without tabs wants.
 
 `<Zone>` and `<Panel container={…}>` take the same two props, plus
-`splitPreview`, `dropIntent` and `acceptPolicy`, gated by `acceptsDrops` — the
+`splitPreview`, `dropIntent`, `acceptPolicy`, `scrollRef` and `edgeScroll`,
+gated by `acceptsDrops` — the
 presets run the same hit-test `<Container>` does and preview the same way. A
 preset places its children, so the row also opens the gap an insert would leave,
 and the pane in flight renders transparent while the drag ghost stands in for
