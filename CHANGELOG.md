@@ -174,6 +174,13 @@ section below.
   whose parent is missing now waits for it, and the parent restores its waiting
   children in their original order.
 
+- **`store.subscribe` can now be passed detached.** It was a prototype method
+  reading `this.subscribers`, so the idiomatic
+  `useSyncExternalStore(store.subscribe, …)` threw
+  `Cannot read properties of undefined (reading 'subscribers')` — the first
+  thing a consumer wiring the store into React writes. It is an arrow property
+  now; the signature is unchanged.
+
 - **Two nodes reported `focused` after a focus succession.** When the focused
   node was destroyed or hidden, the departing node was never sent `blur` — it
   kept `node.focus.state === 'focused'` alongside its successor, and emitted no

@@ -852,6 +852,34 @@ describe('Store — subscribe', () => {
     await Promise.resolve();
     expect(cb).toHaveBeenCalled();
   });
+
+  it('works detached from the store, as useSyncExternalStore passes it', async () => {
+    const s = fresh();
+    const cb = vi.fn();
+    const { subscribe } = s;
+    const unsubscribe = subscribe(cb);
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z'),
+      }),
+    );
+    await Promise.resolve();
+    expect(cb).toHaveBeenCalled();
+
+    cb.mockClear();
+    unsubscribe();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'grid', config: {} },
+        id: id('z2'),
+      }),
+    );
+    await Promise.resolve();
+    expect(cb).not.toHaveBeenCalled();
+  });
 });
 
 describe('Store — activity', () => {

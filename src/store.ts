@@ -1439,12 +1439,14 @@ export class Store {
 
   // ===== Subscribe =====
 
-  subscribe(fn: () => void): () => void {
+  /** An arrow property, not a method: `useSyncExternalStore(store.subscribe, …)`
+   *  passes it detached, and a prototype method loses `this` there. */
+  subscribe = (fn: () => void): (() => void) => {
     this.subscribers.add(fn);
     return () => {
       this.subscribers.delete(fn);
     };
-  }
+  };
 
   private scheduleNotify(): void {
     this.publisher.schedule();
