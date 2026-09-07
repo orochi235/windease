@@ -126,13 +126,14 @@ Still open:
 - **Inter-zone resize** — dragging the gutter *between* zones is a
   workspace-level concern; see "Strategy for partitioning workspace".
 
-- **A preset drop draws no split preview [MED].** `<Zone>` and `<Panel>` now
-  resolve a `split` intent, but `splitPreview` is a `<Container>` render, so a
-  preset split is aimed blind. The same is true of the insertion preview, which
-  `<Container>` feeds through `host.setPreview`. What a preset would need is
-  already built — `LayoutPreview.split` and `ContainerHost`'s overlay are where
-  the work lives, and both are preset-agnostic; the presets just never build the
-  bag ([design](docs/superpowers/specs/2026-08-26-split-layout-preview-design.md)).
+- **A preset drop draws a split preview — shipped.** `<Zone>` and
+  `<Panel container>` build the same `LayoutPreview` `<Container>` does from the
+  intent their own hit-test resolved, so both the insertion gap and the split
+  halves show under the cursor. `splitPreview` is a preset prop now, with the
+  same three modes. `useDropPreview` (`src/react/dnd/useDropPreview.ts`) is the
+  one place the bag is built; `presets.split-preview.test.tsx` and the preview
+  block in `e2e/declarative-drop.spec.ts` cover it, driving the
+  **Declarative / Drop intent** story's `splitPreview` toggle.
 
 - **A wrap drop is asked about the wrong child list [MED].**
   `DragEngine.checkAccept` (`src/dnd/DragEngine.ts:349`) gates on `checkIntent`

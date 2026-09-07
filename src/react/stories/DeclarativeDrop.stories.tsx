@@ -1,7 +1,7 @@
 export default { title: 'Declarative' };
 
 import type { Story } from '@ladle/react';
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   asNodeId,
   createNode,
@@ -127,13 +127,18 @@ function Readout() {
   );
 }
 
+const PREVIEW_MODES = ['layout', 'element', 'none'] as const;
+type PreviewMode = (typeof PREVIEW_MODES)[number];
+
 interface ShelfProps {
   panes?: Pane[];
   /** Replaces the built-in hit-test on the shelf and on every nested group. */
   intent?: (ctx: DropIntentContext) => Intent | undefined;
+  /** What a prospective split draws, on the preset shelf and inside its groups. */
+  preview?: PreviewMode;
 }
 
-function Shelf({ panes = PANES, intent }: ShelfProps = {}) {
+function Shelf({ panes = PANES, intent, preview = 'layout' }: ShelfProps = {}) {
   const store = useStore();
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -177,6 +182,7 @@ function Shelf({ panes = PANES, intent }: ShelfProps = {}) {
             chrome={chrome}
             stackOnDrop
             splitOnDrop
+            splitPreview={preview}
             affordances
             className="windease-zone dd-nested__zone"
             {...(intent ? { dropIntent: intent } : {})}
@@ -184,7 +190,7 @@ function Shelf({ panes = PANES, intent }: ShelfProps = {}) {
         </div>
       );
     },
-    [chrome, intent],
+    [chrome, intent, preview],
   );
 
   return (
@@ -198,6 +204,7 @@ function Shelf({ panes = PANES, intent }: ShelfProps = {}) {
       acceptsDrops
       stackOnDrop
       splitOnDrop
+      splitPreview={preview}
       affordances
       renderImperative={renderNested}
       {...(intent ? { dropIntent: intent } : {})}
@@ -207,13 +214,30 @@ function Shelf({ panes = PANES, intent }: ShelfProps = {}) {
 
 export const DropIntent: Story = () => {
   const store = useMemo(() => new Store(), []);
+  const [preview, setPreview] = useState<PreviewMode>('layout');
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <DragProvider splitConfig={SPLIT_CONFIG} stackConfig={STACK_CONFIG}>
           <div className="dd-frame">
-            <Shelf />
+            <Shelf preview={preview} />
           </div>
+          <fieldset className="dd-modes">
+            <legend>splitPreview</legend>
+            {PREVIEW_MODES.map((m) => (
+              <label key={m} className="dd-modes__option">
+                <input
+                  type="radio"
+                  name="splitPreview"
+                  value={m}
+                  checked={preview === m}
+                  onChange={() => setPreview(m)}
+                  data-testid={`mode-${m}`}
+                />
+                {m}
+              </label>
+            ))}
+          </fieldset>
           <Readout />
           <div className="dd-prose">
             <p>
@@ -221,6 +245,13 @@ export const DropIntent: Story = () => {
               <code>&lt;Container&gt;</code> at the top. Drag a pane by its header onto a{' '}
               <b>left or right seam</b> to insert it there, onto a pane's <b>middle</b> to stack the
               two into tabs, or onto its <b>top or bottom edge</b> to split that slot.
+            </p>
+            <p>
+              Hold the drag rather than releasing it and the shelf shows what the drop would do: the
+              row opens a gap at the seam you are over, and on an edge the hovered pane shrinks to
+              the half it will actually get, with the shaded band on the half the dragged pane
+              takes. <code>element</code> shades without shrinking; <code>none</code> leaves the
+              drawing to you.
             </p>
           </div>
         </DragProvider>

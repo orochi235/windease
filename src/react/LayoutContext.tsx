@@ -24,6 +24,10 @@ export interface LayoutInfo {
   /** Lets a child offer an element as its measured content extent, for
    *  `hints.sizing`. Absent for the same reason. */
   observeNatural?: (id: NodeId, el: Element) => () => void;
+  /** The node in flight whose prospective rect these placements hold, while a
+   *  drop is being previewed. That node renders hidden — the drag ghost is what
+   *  the user follows — so two copies of one pane are never on screen at once. */
+  previewSourceId?: NodeId;
 }
 
 const EMPTY_LAYOUT: LayoutInfo = { placements: new Map(), unplaced: [], settleMs: 0 };

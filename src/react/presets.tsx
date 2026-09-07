@@ -27,6 +27,12 @@ import type { LockSet } from '../lock.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragHandle } from './dnd/DragHandle.js';
 import { type DropIntentContext, useDropIntentTarget } from './dnd/useDropIntentTarget.js';
+import {
+  type DropPreviewState,
+  type SplitPreviewMode,
+  splitPreviewStyle,
+  useDropPreview,
+} from './dnd/useDropPreview.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useFlowGeometry } from './focus/useFlowGeometry.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
@@ -67,6 +73,17 @@ interface CommonBindingProps {
   /** Let a drop in a cross-axis band of a child split that child's slot into a
    *  two-pane strip. Off by default. Requires `acceptsDrops`. */
   splitOnDrop?: boolean;
+  /**
+   * What a prospective split draws, on a preset that hosts a layout — the
+   * `<Container splitPreview>` contract. `'layout'`, the default, shrinks the
+   * onto-pane to the half it will actually get and puts the dragged node in
+   * the other; `'element'` shades that half over the un-shrunk pane; `'none'`
+   * draws nothing.
+   *
+   * Inert on a preset placing nothing itself: with CSS arranging the children
+   * there is no geometry to shrink or shade.
+   */
+  splitPreview?: SplitPreviewMode;
   /** Replace the built-in drop hit-test — the callback `<Container dropIntent>`
    *  takes, on the preset that hosts the layout. */
   dropIntent?: (ctx: DropIntentContext) => DropIntent | undefined;
@@ -311,7 +328,8 @@ interface PanelWithLayoutProps extends PanelProps {
  */
 function PanelWithLayout(props: PanelWithLayoutProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const layout = useContainerLayout(props.id, ref);
+  const dropPreview = useDropPreview(props.id, props.splitPreview ?? 'layout');
+  const layout = useContainerLayout(props.id, ref, undefined, dropPreview.preview);
   usePublishGeometry(props.id, ref, layout);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
@@ -326,6 +344,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
     observeNatural: layout.observeNatural,
   };
   if (layout.channels) layoutInfo.channels = layout.channels;
+  if (layout.isPreview && dropPreview.sourceId) layoutInfo.previewSourceId = dropPreview.sourceId;
 
   const panelStyle: CSSProperties = {
     position: 'relative',
@@ -347,12 +366,14 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         drop={dropBag(props, true)}
         measure={props.measure}
         joinArmedId={joinArmedId}
+        preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
       >
         {props.draggable ? (
           <DragHandle nodeId={props.id}>{props.children}</DragHandle>
         ) : (
           props.children
         )}
+        <SplitPreview placements={layout.placements} state={dropPreview} />
         <AffordanceLayer
           render={props.affordances ?? false}
           affordances={layout.affordances}
@@ -506,7 +527,8 @@ interface ZoneWithLayoutProps extends ZoneProps {
  */
 function ZoneWithLayout(props: ZoneWithLayoutProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const layout = useContainerLayout(props.id, ref, props.viewport);
+  const dropPreview = useDropPreview(props.id, props.splitPreview ?? 'layout');
+  const layout = useContainerLayout(props.id, ref, props.viewport, dropPreview.preview);
   usePublishGeometry(props.id, ref, layout);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
@@ -521,6 +543,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
     observeNatural: layout.observeNatural,
   };
   if (layout.channels) layoutInfo.channels = layout.channels;
+  if (layout.isPreview && dropPreview.sourceId) layoutInfo.previewSourceId = dropPreview.sourceId;
 
   // When this Zone is itself absolute-positioned by a parent strategy, our
   // wrapper div is the absolute box and PresetShell's div needs to fill it
@@ -571,9 +594,11 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         drop={dropBag(props, true)}
         measure={props.measure}
         joinArmedId={joinArmedId}
+        preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
       >
         {props.children}
         {imperativeRenders}
+        <SplitPreview placements={layout.placements} state={dropPreview} />
         <AffordanceLayer
           render={props.affordances ?? false}
           affordances={layout.affordances}
@@ -651,6 +676,10 @@ interface PresetShellProps {
    *  affordance layer. Published to descendants, never read for this shell —
    *  a seam names one of its own container's children. */
   joinArmedId?: NodeId | null | undefined;
+  /** Whether these placements came from a live drop preview, and whether that
+   *  preview split a child's slot. The second is read back off the DOM by the
+   *  hit-test, which resolves against the un-displaced row while it is set. */
+  preview?: { active: boolean; split: boolean } | undefined;
 }
 
 /** Wrapper div + ChildRegistry host + ParentContext + sibling-order reconciliation. */
@@ -668,6 +697,7 @@ function PresetShell({
   drop,
   measure,
   joinArmedId,
+  preview,
 }: PresetShellProps) {
   // We need a single ref on the wrapper div that serves both layout
   // measurement (innerRef, when provided) and drop-target registration.
@@ -721,6 +751,7 @@ function PresetShell({
   // DOM in an absolute-positioned box so we render at the right place.
   const selfRect = useLayoutForSelf(id);
   const withheld = useIsUnplaced(id);
+  const isPreviewSource = useLayoutContext().previewSourceId === id;
   const armedByParent = useContext(JoinArmContext);
 
   // After children render and self-report, reconcile sibling order.
@@ -772,6 +803,8 @@ function PresetShell({
           data-testid={testId}
           data-node={id}
           data-node-container={id}
+          data-preview={preview?.active ? 'true' : undefined}
+          data-split-preview={preview?.split ? 'true' : undefined}
           data-join-armed={armedByParent === id ? 'true' : undefined}
           tabIndex={focusable ? (rovingId === id ? 0 : -1) : undefined}
           role={focusable ? 'group' : undefined}
@@ -800,10 +833,28 @@ function PresetShell({
   if (!selfRect) return shell;
 
   return (
-    <AbsoluteWrapper rect={selfRect} parentId={store.getNode(id)?.membership?.parentId}>
+    <AbsoluteWrapper
+      rect={selfRect}
+      parentId={store.getNode(id)?.membership?.parentId}
+      previewSource={isPreviewSource}
+    >
       {shell}
     </AbsoluteWrapper>
   );
+}
+
+/** The shaded half a prospective split would hand the dragged node. Draws
+ *  nothing for an insert hover or under `splitPreview: 'none'`. */
+function SplitPreview({
+  placements,
+  state,
+}: {
+  placements: ReadonlyMap<NodeId, Rect>;
+  state: DropPreviewState;
+}) {
+  const style = splitPreviewStyle(placements, state);
+  if (!style) return null;
+  return <div className="windease-split-preview" style={style} aria-hidden="true" />;
 }
 
 /** Absolute-positioned box that places its child at the strategy-computed
@@ -813,6 +864,7 @@ function AbsoluteWrapper({
   rect,
   parentId,
   nodeId,
+  previewSource,
   children,
 }: {
   rect: Rect;
@@ -821,6 +873,10 @@ function AbsoluteWrapper({
    *  which stamps no `data-node` of its own and would be invisible to every
    *  DOM harvest, the drop hit-test included. */
   nodeId?: NodeId | undefined;
+  /** This node is the one in flight, sitting in the rect the drop would give
+   *  it. Rendered transparent rather than unmounted: a removed subtree drops
+   *  the pointer capture the drag is running on. */
+  previewSource?: boolean | undefined;
   children: ReactNode;
 }) {
   const { settleMs } = useLayoutContext();
@@ -834,8 +890,14 @@ function AbsoluteWrapper({
   if (settleMs > 0) {
     style.transition = `left ${settleMs}ms ease, top ${settleMs}ms ease, width ${settleMs}ms ease, height ${settleMs}ms ease`;
   }
+  if (previewSource) style.opacity = 0;
   return (
-    <div style={style} data-node={nodeId} data-node-container={parentId}>
+    <div
+      style={style}
+      data-node={nodeId}
+      data-node-container={parentId}
+      data-preview-source={previewSource ? 'true' : undefined}
+    >
       {children}
     </div>
   );

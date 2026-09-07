@@ -742,11 +742,14 @@ kept for a consumer whose panes are too expensive to lay out on every hover.
 centre of a pane still inserts — edges split, everything else inserts — which is
 what a consumer without tabs wants.
 
-`<Zone>` and `<Panel container={…}>` take the same two props, plus `dropIntent`
-and `acceptPolicy`, gated by `acceptsDrops` — the presets run the same hit-test
-`<Container>` does. What they do not draw is the split preview; that is a
-`<Container>` render, so a preset drop resolves the same intent with nothing to
-aim at.
+`<Zone>` and `<Panel container={…}>` take the same two props, plus
+`splitPreview`, `dropIntent` and `acceptPolicy`, gated by `acceptsDrops` — the
+presets run the same hit-test `<Container>` does and preview the same way. A
+preset places its children, so the row also opens the gap an insert would leave,
+and the pane in flight renders transparent while the drag ghost stands in for
+it. A preset with no layout of its own — a flow zone, or one whose strategy is
+not registered — draws neither: with CSS arranging the children there is no
+geometry to displace.
 
 A pane a preset declares in JSX cannot be re-parented by a drop: JSX owns the
 node's lifetime, and a preset can only host a node it created itself. The store

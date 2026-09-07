@@ -2,12 +2,10 @@ import {
   type CSSProperties,
   type ReactNode,
   type RefObject,
-  useCallback,
   useContext,
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
 } from 'react';
 import type { AcceptContext } from '../dnd/DragEngine.js';
 import type { DropIntent } from '../dnd/dropIntent.js';
@@ -19,6 +17,7 @@ export type { DropIntentContext } from './dnd/useDropIntentTarget.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { type DropIntentContext, useDropIntentTarget } from './dnd/useDropIntentTarget.js';
+import { splitPreviewStyle, useDropPreview } from './dnd/useDropPreview.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useFlowGeometry } from './focus/useFlowGeometry.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
@@ -244,40 +243,11 @@ function StoreContainer({
   const focusBinding = useFocusBinding();
   const rovingId = useFocusedNode()?.id ?? focusBinding?.entryId ?? null;
   const dragController = useContext(DragContext);
-  const dragState = useSyncExternalStore(
-    useCallback(
-      (cb) => (dragController ? dragController.subscribe(cb) : () => {}),
-      [dragController],
-    ),
-    useCallback(() => (dragController ? dragController.state() : null), [dragController]),
-    useCallback(() => null, []),
-  );
+  // Only when this container is the hover target AND the hover is accepted;
+  // otherwise the container lays out what the store says.
+  const dropPreview = useDropPreview(parentId, splitPreview);
 
-  // Compute preview from current drag state. Only when this container is
-  // the hover target AND the hover is accepted; otherwise preview is omitted.
-  const hover =
-    dragState?.hover?.targetId === parentId && dragState.hover.accepted ? dragState.hover : null;
-  const splitIntent = hover?.intent?.kind === 'split' ? hover.intent : null;
-  const previewSplit =
-    splitPreview === 'layout' && splitIntent
-      ? {
-          ontoId: splitIntent.ontoId,
-          edge: splitIntent.edge,
-          axis: splitIntent.axis,
-          ...(dragController?.splitConfig ? { config: dragController.splitConfig } : {}),
-        }
-      : undefined;
-  const preview =
-    hover && dragState
-      ? {
-          insertId: dragState.draggingId,
-          ...(hover.insertIndex !== undefined ? { insertIndex: hover.insertIndex } : {}),
-          cursor: dragState.cursor,
-          ...(previewSplit ? { split: previewSplit } : {}),
-        }
-      : undefined;
-
-  const layout = useContainerLayout(parentId, ref, viewport, preview);
+  const layout = useContainerLayout(parentId, ref, viewport, dropPreview.preview);
 
   usePublishGeometry(parentId, ref, layout);
 
@@ -369,7 +339,7 @@ function StoreContainer({
   // ghost). For same-parent previews, the source is in `children`; for
   // cross-parent previews, it's not — but its rect is in `layout.placements`
   // (we skip rendering chrome for it either way because the ghost handles it).
-  const previewSourceId = layout.isPreview ? dragState?.draggingId : undefined;
+  const previewSourceId = layout.isPreview ? dropPreview.sourceId : undefined;
 
   // Build the render list = real children ∪ ghost (if cross-parent). For
   // same-parent the ghost id is already a child; for cross-parent we synthesize
@@ -384,44 +354,7 @@ function StoreContainer({
     renderEntries.set(previewSourceId, { isReal: false });
   }
 
-  // The half a prospective split would hand the dragged node. Geometry comes
-  // from placements, the space the children above are positioned in — no second
-  // measurement per pointermove. Which placement differs by mode: under
-  // 'layout' the source already holds the interior half, while under 'element'
-  // the onto-child still holds the whole slot and the half has to be derived.
-  const drawSplit = splitPreview !== 'none' && splitIntent ? splitIntent : null;
-  const splitHalf =
-    drawSplit && splitPreview === 'layout' && dragState
-      ? layout.placements.get(dragState.draggingId)
-      : undefined;
-  const splitOnto = drawSplit ? layout.placements.get(drawSplit.ontoId as NodeId) : undefined;
-  let splitStyle: CSSProperties | null = null;
-  if (splitHalf) {
-    splitStyle = {
-      ...CHILD_BASE,
-      left: splitHalf.x,
-      top: splitHalf.y,
-      width: splitHalf.w,
-      height: splitHalf.h,
-    };
-  } else if (drawSplit && splitOnto) {
-    splitStyle =
-      drawSplit.axis === 'y'
-        ? {
-            ...CHILD_BASE,
-            left: splitOnto.x,
-            width: splitOnto.w,
-            height: splitOnto.h / 2,
-            top: drawSplit.edge === 'start' ? splitOnto.y : splitOnto.y + splitOnto.h / 2,
-          }
-        : {
-            ...CHILD_BASE,
-            top: splitOnto.y,
-            height: splitOnto.h,
-            width: splitOnto.w / 2,
-            left: drawSplit.edge === 'start' ? splitOnto.x : splitOnto.x + splitOnto.w / 2,
-          };
-  }
+  const splitStyle = splitPreviewStyle(layout.placements, dropPreview);
 
   return (
     <div
@@ -430,7 +363,7 @@ function StoreContainer({
       style={containerStyle}
       data-node-container={parentId}
       data-preview={layout.isPreview ? 'true' : undefined}
-      data-split-preview={previewSplit && layout.isPreview ? 'true' : undefined}
+      data-split-preview={dropPreview.laidOut && layout.isPreview ? 'true' : undefined}
     >
       {Array.from(renderEntries.entries()).map(([id, { isReal }]) => {
         const rect = layout.placements.get(id);

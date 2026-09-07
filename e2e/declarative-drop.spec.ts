@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { boxOf, openStory } from './fixtures.js';
+import { expect, type Page, test } from '@playwright/test';
+import { boxOf, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'declarative--drop-intent';
 
@@ -81,5 +81,97 @@ test.describe('a custom dropIntent replaces the hit-test', () => {
 
     await expect(page.getByTestId('dd-readout')).toHaveText(/^shelf:[a-z,]+$/);
     await expect(page.getByTestId('dd-readout')).toHaveText(/alpha/);
+  });
+});
+
+/**
+ * The shelf is a `<Zone>`, so its preview is the preset path: the same
+ * `LayoutPreview` a `<Container>` builds, aimed by the preset that resolved the
+ * intent. jsdom has no layout to displace, so the displacement only means
+ * anything here.
+ */
+test.describe('a preset shows the drop before it commits', () => {
+  const pane = (page: Page, id: string) => page.locator(`[data-node="${id}"]`);
+  const near = (a: number, b: number) => Math.abs(a - b) <= 2;
+
+  /** Press on a pane's header and hold the cursor inside `ontoId`, without
+   *  releasing. */
+  async function dragOver(
+    page: Page,
+    sourceId: string,
+    ontoId: string,
+    fx: number,
+    fy: number,
+  ): Promise<void> {
+    const grip = await boxOf(page.getByTestId(`grip-${sourceId}`));
+    const box = await boxOf(pane(page, ontoId));
+    const to = { x: box.x + box.w * fx, y: box.y + box.h * fy };
+    await page.mouse.move(grip.x + grip.w / 2, grip.y + grip.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 12 });
+    await page.mouse.move(to.x, to.y, { steps: 2 });
+  }
+
+  test('the pane a split would take shrinks to the half it will get', async ({ page }) => {
+    await openStory(page, STORY);
+    const before = await settledBox(pane(page, 'alpha'));
+    await dragOver(page, 'charlie', 'alpha', 0.5, 0.08);
+
+    await expect(page.locator('.windease-split-preview')).toBeVisible();
+    const during = await settledBox(pane(page, 'alpha'));
+    expect(during.h).toBeLessThan(before.h * 0.6);
+    // Bottom half, because the drop lands on the start edge.
+    expect(during.y).toBeGreaterThan(before.y + before.h * 0.4);
+    await page.mouse.up();
+  });
+
+  test('what the preview showed is what the drop produces', async ({ page }) => {
+    await openStory(page, STORY);
+    await dragOver(page, 'charlie', 'alpha', 0.5, 0.08);
+    const previewed = await settledBox(pane(page, 'alpha'));
+    await page.mouse.up();
+    await expect(page.getByTestId('dd-readout')).toContainText(/split-\d+:charlie,alpha/);
+
+    const committed = await settledBox(pane(page, 'alpha'));
+    expect(near(committed.x, previewed.x)).toBe(true);
+    expect(near(committed.y, previewed.y)).toBe(true);
+    expect(near(committed.w, previewed.w)).toBe(true);
+    expect(near(committed.h, previewed.h)).toBe(true);
+  });
+
+  test('the row opens the gap an insert would leave', async ({ page }) => {
+    await openStory(page, STORY);
+    const before = await settledBox(pane(page, 'alpha'));
+    // The leading seam of the leftmost pane: charlie would head the row.
+    await dragOver(page, 'charlie', 'alpha', 0.03, 0.5);
+
+    const during = await settledBox(pane(page, 'alpha'));
+    expect(during.x).toBeGreaterThan(before.x + 20);
+    await page.mouse.up();
+  });
+
+  test("'element' shades the half without shrinking the pane", async ({ page }) => {
+    await openStory(page, STORY);
+    await page.getByTestId('mode-element').check();
+    const before = await settledBox(pane(page, 'alpha'));
+    await dragOver(page, 'charlie', 'alpha', 0.5, 0.08);
+
+    await expect(page.locator('.windease-split-preview')).toBeVisible();
+    expect(near((await settledBox(pane(page, 'alpha'))).h, before.h)).toBe(true);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  });
+
+  test("'none' draws nothing, and the drop still splits", async ({ page }) => {
+    await openStory(page, STORY);
+    await page.getByTestId('mode-none').check();
+    const before = await settledBox(pane(page, 'alpha'));
+    await dragOver(page, 'charlie', 'alpha', 0.5, 0.08);
+
+    await expect(page.locator('.windease-split-preview')).toHaveCount(0);
+    expect(near((await settledBox(pane(page, 'alpha'))).h, before.h)).toBe(true);
+    // The mode suppresses the drawing, not the drop.
+    await page.mouse.up();
+    await expect(page.getByTestId('dd-readout')).toContainText(/split-\d+:charlie,alpha/);
   });
 });

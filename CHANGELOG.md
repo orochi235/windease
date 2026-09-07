@@ -10,6 +10,16 @@ section below.
 
 ### Added
 
+- **The container presets preview a drop.** `<Zone>` and `<Panel container={…}>`
+  now lay their children out as if the drop had happened while one is hovering:
+  the row opens the gap an insert would leave, and on a split the hovered pane
+  shrinks to the half it will actually get with `div.windease-split-preview`
+  over the other. Both take the same `splitPreview` prop `<Container>` has —
+  `'layout'` (default), `'element'`, `'none'` — and both build the preview from
+  the intent their own hit-test already resolved. The pane in flight renders
+  transparent, published to its own shell through `LayoutInfo.previewSourceId`,
+  so the drag ghost is the only copy the user follows.
+
 - **`LayoutResult.channels`** carries per-placement numbers the core never
   reads — an opacity, a rotation, an LOD tier — from a strategy to its host.
   Deliberately untyped (`Map<id, Record<string, number>>`): the library commits
