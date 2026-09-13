@@ -131,8 +131,21 @@ export function reconcileChildOrder(
   if (!view) return;
   const currentIds = view.childOrder;
   const currentSet = new Set(currentIds);
-  const entries = observed.filter((e) => currentSet.has(e.id));
-  const observedIds = new Set(entries.map((e) => e.id));
+  // A binding can report one child twice — StrictMode double-renders, and a
+  // child re-renders without its parent. Map.set keeps the first position and
+  // takes the latest order.
+  const latest = new Map<NodeId, ObservedChild>();
+  let reported = 0;
+  for (const e of observed) {
+    if (!currentSet.has(e.id)) continue;
+    latest.set(e.id, e);
+    reported++;
+  }
+  if (latest.size < reported) {
+    trace('layout', `${parentId}: collapsed ${reported} child reports to ${latest.size} ids`);
+  }
+  const entries = [...latest.values()];
+  const observedIds = new Set(latest.keys());
   const imperativeIds = currentIds.filter((cid) => !observedIds.has(cid));
   const pinnedIds = new Set(currentIds.filter((cid) => store.getPinnedIndex(cid) !== null));
 

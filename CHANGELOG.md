@@ -161,6 +161,12 @@ section below.
 
 ### Fixed
 
+- **`reconcileChildOrder` no longer throws when a child is reported twice.**
+  A container preset rendered twice under `<StrictMode>` collected each child's
+  report twice, and the duplicates reached `setChildOrder` as a list that was
+  not a permutation. Each id now counts once, in the position of its first
+  report, with the `order` of its latest.
+
 - **Two nodes reported `focused` after a focus succession.** When the focused
   node was destroyed or hidden, the departing node was never sent `blur` — it
   kept `node.focus.state === 'focused'` alongside its successor, and emitted no

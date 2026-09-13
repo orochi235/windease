@@ -97,6 +97,22 @@ describe('reconcile decisions, with no binding present', () => {
       reconcileChildOrder(s, Z, seen(['c']));
       expect(order(s)).toEqual(['c', 'a', 'b']);
     });
+
+    it('counts a child reported twice once, as a double render reports it', () => {
+      const s = build();
+      s.reorderInParent(asNodeId('c'), 0);
+      reconcileChildOrder(s, Z, seen(['a', 'a', 'b', 'b', 'c', 'c']));
+      expect(order(s)).toEqual(['a', 'b', 'c']);
+    });
+
+    it("takes a repeated child's latest order but keeps its first position", () => {
+      const s = build();
+      const at = (id: string, o: number) => ({ id: asNodeId(id), order: o });
+      reconcileChildOrder(s, Z, [at('a', 0), at('b', 1), at('c', 2), at('a', 9)]);
+      expect(order(s)).toEqual(['b', 'c', 'a']);
+      reconcileChildOrder(s, Z, [...seen(['c', 'b', 'a']), ...seen(['c'])]);
+      expect(order(s)).toEqual(['c', 'b', 'a']);
+    });
   });
 
   describe('pinned — skips under the *parent* arrange lock', () => {
