@@ -26,6 +26,13 @@ section below.
   transparent, published to its own shell through `LayoutInfo.previewSourceId`,
   so the drag ghost is the only copy the user follows.
 
+- **`shelfStrategy`, `columnStrategy` and `skylineStrategy`** pack boxes of
+  varied fixed sizes: in rows, in masonry columns, and bottom-left into the
+  lowest free spot. Each item keeps its own size, the container's width is the
+  only bound, and height past `container.h` comes back as `overflow`. Config:
+  `gap`, plus `columnWidth` on `columnStrategy`. See
+  [Packing boxes of fixed sizes](README.md#packing-boxes-of-fixed-sizes).
+
 - **`LayoutResult.channels`** carries per-placement numbers the core never
   reads — an opacity, a rotation, an LOD tier — from a strategy to its host.
   Deliberately untyped (`Map<id, Record<string, number>>`): the library commits

@@ -70,6 +70,7 @@ export {
 export type { FocusAdapter, GeometrySource, NavDirection, NavIntent } from './focus/types.js';
 export { Machine, type MachineDef, type MachineSubscriber } from './fsm.js';
 export { HistoryController, type HistoryControllerOptions } from './history.js';
+export { columnStrategy } from './layout/column.js';
 export {
   type ConfigConflict,
   type ConfigFieldSpec,
@@ -95,6 +96,8 @@ export {
   type TrackJoinInput,
   trackJoin,
 } from './layout/seam-join.js';
+export { shelfStrategy } from './layout/shelf.js';
+export { skylineStrategy } from './layout/skyline.js';
 export { stackStrategy } from './layout/stack.js';
 export { stripStrategy } from './layout/strip.js';
 export {

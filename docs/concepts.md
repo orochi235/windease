@@ -338,6 +338,11 @@ Built-ins:
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
   `handleSize`, `snapToPanes`. Called with no argument, everything floats.
+- **`shelfStrategy`**, **`columnStrategy`**, **`skylineStrategy`** — pack items
+  at their own size (`natural`, else `hints.preferredSize`) into the container's
+  width, in rows, masonry columns, or the lowest free spot. They grow downward;
+  `container.h` only decides `overflow`. Config: `gap`, plus `columnWidth` on
+  `column`. Items with no size go to `unplaced`.
 
 ## React layer
 

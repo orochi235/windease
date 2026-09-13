@@ -40,11 +40,12 @@ See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
   reference; React's `useSyncExternalStore` invalidates correctly by
   default.
 - **JSON-safe snapshots** via `serialize(store)` / `deserialize(snap)`.
-- **Layout strategies** are pure functions. Four built-ins: `stripStrategy`
+- **Layout strategies** are pure functions. The built-ins: `stripStrategy`
   (children share one axis, with capacity handling), `gridStrategy`,
-  `stackStrategy` (one child visible, you draw the tab strip) and
+  `stackStrategy` (one child visible, you draw the tab strip),
   `floatingStrategy(inner?)`, which wraps another strategy so items marked
-  `floating` sit free over what it tiles. Strategies work unchanged on
+  `floating` sit free over what it tiles, and three packers — `shelfStrategy`,
+  `columnStrategy`, `skylineStrategy` — for boxes of fixed, varied sizes. Strategies work unchanged on
   recursive trees via the `LayoutNode` adapter. `store.split(id, input)` builds
   nested `stripStrategy` trees without a dedicated strategy of its own.
 
@@ -483,6 +484,36 @@ reaches a preset dock too.
 `edgeScrollDelta(bounds, point, options)` is the arithmetic on its own, pure
 and exported, for a host driving its own drag loop. `DropTargetOptions` takes
 the same `edgeScroll` bag.
+
+## Packing boxes of fixed sizes
+
+The strategies above divide a container among their children. `shelfStrategy`,
+`columnStrategy` and `skylineStrategy` do the opposite: each item keeps its own
+size — `natural` if measured, else `hints.preferredSize` — and the container's
+width is the only bound. They pack downward as far as the content goes and
+report the height past `container.h` as `overflow`. An item wider than the
+container still goes in, at the left edge, and reports width `overflow`. An
+item with no size goes to `unplaced`.
+
+- **`shelf`** — rows, left to right, each new row starting below the tallest
+  item in the last.
+- **`column`** — masonry. Equal columns `columnWidth` wide (default: the widest
+  item); each item goes on the shortest run of columns its width spans.
+- **`skyline`** — each item takes the lowest free spot along what is already
+  packed, so a short item drops in beside a tall one where `shelf` would leave
+  a hole.
+
+All three take `gap`, place items in the order given, and never sort — ordering
+is the caller's. They run headless like any strategy:
+
+```ts
+const { placements, overflow } = skylineStrategy.layout({
+  items,
+  container: { w: 1200, h: 800 },
+  state: undefined,
+  options: { gap: 8 },
+});
+```
 
 ## Letting CSS do the layout
 
