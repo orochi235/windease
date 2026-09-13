@@ -17,8 +17,8 @@ registry, so a new strategy, dataset or metric is one entry.
 
 - **Dataset** — `{ id, label, domain, items: LayoutItem[], hint?: { columnWidth?, aspect? } }`.
   `hint` carries what the source used, so a run can reproduce it.
-- **Packer** — `{ id, strategy: LayoutStrategy, options }`. Its controls come from
-  `strategy.configSpec`, so a strategy's config keys need no lab-side declaration.
+- **Packer** — `{ id, strategy: LayoutStrategy }`. A run passes it only the option keys its
+  `strategy.configSpec` declares, so one set of lab controls serves every packer.
 - **Fit** — how wide the container is:
   - `{ kind: 'width', w }` — a fixed width; the pack grows downward and reports overflow, the
     shape of a vertically scrolling container.
@@ -35,16 +35,17 @@ registry, so a new strategy, dataset or metric is one entry.
 
 Two React components, each taking runs and nothing else:
 
-- **`PackView`** — draws one run on a labkit canvas layer: boxes, the bounds, and the fit's
-  width as a guide line.
+- **`PackView`** — draws one run on its own `<canvas>`: boxes, and the width the packer was
+  given as a guide line. Not a labkit canvas layer, which is one stack per trial; Compare and
+  Matrix draw several runs in one trial.
 - **`RunTable`** — runs as rows, metrics as columns, digits in `tabular-nums` with decimal
   places fixed per metric.
 
 ## Instruments
 
-An instrument is a config schema, a function from config to runs, and an arrangement of the
-two views. A helper, `defineComparison({ name, config, runs, arrange })`, builds the labkit
-instrument from those three, so a new comparison is a new call rather than a new component.
+An instrument is a config schema, a function from config to runs, and how many canvases sit
+in a row. A helper, `defineComparison({ name, config, specs, columns })`, builds the labkit
+instrument from those, so a new comparison is a new call rather than a new component.
 
 | Instrument | Config | Runs | Arrangement |
 | --- | --- | --- | --- |
@@ -68,6 +69,7 @@ the lab has no runtime dependency on it.
   "source": "astv",
   "commit": "abc1234",
   "captured": "2026-09-13",
+  "gap": 1,
   "plates": [
     { "id": "dir:src/layout", "columnWidth": 8, "aspect": 1.6, "boxes": [[8, 3.2]] }
   ]
