@@ -38,10 +38,23 @@ describe('columnStrategy', () => {
     expect(r.placements.get('d')).toMatchObject({ x: 0, y: 10 });
   });
 
-  it('defaults the column width to the widest item', () => {
+  it('defaults the column width to the narrowest item', () => {
     const items = [sized('a', 120, 10), sized('b', 80, 10)];
     const r = runPack(columnStrategy, items, { w: 400, h: 500 });
-    expect(r.placements.get('b')).toMatchObject({ x: 120, y: 0 });
+    // Columns of 80: `a` spans the first two, so `b` starts the third.
+    expect(r.placements.get('b')).toMatchObject({ x: 160, y: 0 });
+  });
+
+  it('keeps its columns when one item is wider than the container', () => {
+    const items = [
+      sized('a', 100, 50),
+      sized('b', 100, 50),
+      sized('c', 100, 50),
+      sized('wide', 500, 40),
+    ];
+    const r = runPack(columnStrategy, items, { w: 400, h: 500 });
+    expect(['a', 'b', 'c'].map((id) => r.placements.get(id)?.x)).toEqual([0, 100, 200]);
+    expect(r.placements.get('wide')).toMatchObject({ x: 0, y: 50 });
   });
 
   it('declares its config keys so a typo is reported, not silently defaulted', () => {

@@ -497,8 +497,10 @@ item with no size goes to `unplaced`.
 
 - **`shelf`** — rows, left to right, each new row starting below the tallest
   item in the last.
-- **`column`** — masonry. Equal columns `columnWidth` wide (default: the widest
-  item); each item goes on the shortest run of columns its width spans.
+- **`column`** — masonry. Equal columns `columnWidth` wide (default: the
+  narrowest item); each item goes on the shortest run of columns its width
+  spans. One item much narrower than the rest shrinks every column to its
+  width; set `columnWidth` when the mix has one.
 - **`skyline`** — each item takes the lowest free spot along what is already
   packed, so a short item drops in beside a tall one where `shelf` would leave
   a hole.

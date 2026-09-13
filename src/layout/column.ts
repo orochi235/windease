@@ -4,7 +4,8 @@ import { packGap, packResult, packSize } from './pack.js';
 
 interface ColumnConfig {
   gap?: number;
-  /** Width of one column. Defaults to the widest item's width. */
+  /** Width of one column. Defaults to the narrowest item's width, so a wider
+   *  item spans columns rather than widening every one. */
   columnWidth?: number;
 }
 
@@ -28,12 +29,14 @@ export const columnStrategy: LayoutStrategy<void, string> = {
     const gap = packGap(options);
     const sizes = items.map((item) => packSize(item));
 
-    let widest = 0;
-    for (const size of sizes) if (size) widest = Math.max(widest, size.w);
+    let narrowest = Number.POSITIVE_INFINITY;
+    for (const size of sizes) if (size) narrowest = Math.min(narrowest, size.w);
     const columnWidth =
       typeof cfg.columnWidth === 'number' && Number.isFinite(cfg.columnWidth) && cfg.columnWidth > 0
         ? cfg.columnWidth
-        : widest;
+        : Number.isFinite(narrowest)
+          ? narrowest
+          : 0;
     const pitch = columnWidth + gap;
     const count = pitch > 0 ? Math.max(1, Math.floor((container.w + gap) / pitch)) : 1;
     const heights = new Array<number>(count).fill(0);
