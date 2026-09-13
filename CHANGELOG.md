@@ -167,6 +167,13 @@ section below.
   not a permutation. Each id now counts once, in the position of its first
   report, with the `order` of its latest.
 
+- **A `<Zone>` with JSX children no longer throws `NodeNotFoundError` on mount
+  under `<StrictMode>`.** StrictMode's simulated unmount removes the zone, and
+  its panels with it; React then replays mount effects child-first, so each
+  panel re-registered under a zone that was not back in the store yet. A child
+  whose parent is missing now waits for it, and the parent restores its waiting
+  children in their original order.
+
 - **Two nodes reported `focused` after a focus succession.** When the focused
   node was destroyed or hidden, the departing node was never sent `blur` — it
   kept `node.focus.state === 'focused'` alongside its successor, and emitted no

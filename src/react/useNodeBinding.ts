@@ -1,7 +1,37 @@
 import { useEffect, useId, useRef } from 'react';
-import type { Node, NodeId, Store } from '../index.js';
+import { type Node, type NodeId, type Store, trace } from '../index.js';
 import { useChildRegistryFromContext, useParentId } from './ParentContext.js';
 import { useStore } from './Provider.js';
+
+/** Re-registrations waiting on a parent that is not in the store, per store and
+ *  parent id, in the order the children asked. */
+const waitingByStore = new WeakMap<Store, Map<NodeId, Set<() => void>>>();
+
+function waitForParent(store: Store, parentId: NodeId, restore: () => void): () => void {
+  let byParent = waitingByStore.get(store);
+  if (!byParent) {
+    byParent = new Map();
+    waitingByStore.set(store, byParent);
+  }
+  let waiting = byParent.get(parentId);
+  if (!waiting) {
+    waiting = new Set();
+    byParent.set(parentId, waiting);
+  }
+  waiting.add(restore);
+  const set = waiting;
+  return () => {
+    set.delete(restore);
+  };
+}
+
+function restoreWaitingChildren(store: Store, parentId: NodeId): void {
+  const byParent = waitingByStore.get(store);
+  const waiting = byParent?.get(parentId);
+  if (!waiting) return;
+  byParent?.delete(parentId);
+  for (const restore of waiting) restore();
+}
 
 export interface NodeBindingOptions {
   /** Explicit id from props. If absent, a stable auto-id is minted. */
@@ -126,16 +156,32 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   // Unregister on unmount. In StrictMode the effect runs mount → cleanup →
   // mount, so on the second mount we re-register if the cleanup wiped us out
   // (the render-time guard above stays `true` across the replay because the
-  // component instance — and its refs — is preserved). Deps are deliberately
-  // just `[id]`; the effect reads latestRef for current factory/reconcile.
+  // component instance — and its refs — is preserved). A parent's cleanup
+  // cascades to its children, and the replay runs child-first, so a child whose
+  // parent is gone waits for the parent's own effect to restore it. Deps are
+  // deliberately just `[id]`; the effect reads latestRef for current values.
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional [id]-only deps; latest values read via latestRef.
   useEffect(() => {
-    if (!store.getNode(id)) {
+    let cancelWait: (() => void) | undefined;
+    const restore = () => {
+      cancelWait = undefined;
+      if (store.getNode(id)) return;
       const { factory, reconcile, parentId } = latestRef.current;
       registerWithOwner(factory, parentId);
       if (reconcile) reconcile(store, id);
+      restoreWaitingChildren(store, id);
+    };
+    if (!store.getNode(id)) {
+      const { parentId } = latestRef.current;
+      if (parentId !== null && !store.getNode(parentId)) {
+        trace('store', `re-register: ${id} waits for missing parent ${parentId}`);
+        cancelWait = waitForParent(store, parentId, restore);
+      } else {
+        restore();
+      }
     }
     return () => {
+      cancelWait?.();
       // force:true — a node cannot outlive the JSX that owns it; lock.destroy
       // stops user/host destroy calls, not React unmount.
       if (store.getNode(id)) {
