@@ -41,9 +41,12 @@ describe('fitPacking', () => {
 
   it('sizes the search the way the strategies size items: an unsized item and a negative gap change nothing', () => {
     const baseline = fitPacking(packerById('shelf'), six, { kind: 'aspect', ratio: 1.5 }, {});
+    // Zero height is unusable, same as no size at all — the strategies skip it, so the search
+    // must too. Its width alone (500 ≫ the six 10×10 boxes) would shift the search if counted.
+    const flat = { id: 'flat', hints: { preferredSize: { w: 500, h: 0 } } };
     const withExtra = fitPacking(
       packerById('shelf'),
-      [...six, { id: 'bare' }],
+      [...six, flat],
       { kind: 'aspect', ratio: 1.5 },
       { gap: -5 },
     );

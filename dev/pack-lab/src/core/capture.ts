@@ -26,17 +26,18 @@ function hintNumber(
 }
 
 /**
- * One dataset per plate in a capture file. Throws on the first malformed plate or box, naming
- * it: a capture that loads with a plate missing would compare against the wrong boxes silently.
+ * One dataset per plate in a capture file, `file` its stem (`astv` for `datasets/astv.json`).
+ * Ids key on the file, not the commit, so a recapture keeps a saved trial's dataset choice; the
+ * commit that produced it still shows in `domain`. Throws on the first malformed plate or box,
+ * naming it: a capture that loads with a plate missing would compare against the wrong boxes
+ * silently.
  */
-export function datasetsFromCapture(raw: unknown): Dataset[] {
-  if (
-    !isRecord(raw) ||
-    typeof raw.source !== 'string' ||
-    typeof raw.commit !== 'string' ||
-    !Array.isArray(raw.plates)
-  ) {
+export function datasetsFromCapture(raw: unknown, file: string): Dataset[] {
+  if (!isRecord(raw) || typeof raw.source !== 'string' || !Array.isArray(raw.plates)) {
     throw new Error('pack lab: a capture needs a `source` and a `plates` array');
+  }
+  if (typeof raw.commit !== 'string') {
+    throw new Error(`pack lab: ${raw.source} capture needs a \`commit\``);
   }
   const source = raw.source;
   const commit = raw.commit;
@@ -68,6 +69,12 @@ export function datasetsFromCapture(raw: unknown): Dataset[] {
     if (columnWidth !== undefined) hint.columnWidth = columnWidth;
     const aspect = hintNumber(plate.aspect, 'aspect', `${source} plate ${plateId}`, false);
     if (aspect !== undefined) hint.aspect = aspect;
-    return { id: `${source}@${commit}:${plateId}`, label: plateId, domain: source, items, hint };
+    return {
+      id: `${file}:${plateId}`,
+      label: plateId,
+      domain: `${source}@${commit}`,
+      items,
+      hint,
+    };
   });
 }

@@ -2,8 +2,8 @@ import type { LayoutItem, Size } from '#windease/layout-types.js';
 import type { Fit, Packer, Packing } from './types.js';
 
 /**
- * Widths an aspect fit tries past the widest box — astv's aspect search, kept identical.
- * Its 1-unit minimum step is astv's too, so the search assumes pixel- or astv-scale boxes.
+ * Widths an aspect fit tries past the widest box — astv's aspect search, without its float
+ * drift. Its 1-unit minimum step is astv's too, so the search assumes pixel- or astv-scale boxes.
  */
 const ASPECT_STEPS = 24;
 
