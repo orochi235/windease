@@ -98,6 +98,10 @@ The capture script lives in astv.
 - The lab imports windease through a path alias to `src/` (`#windease/*`), and only its public
   entry and types — never the bare `windease` specifier. labkit depends on `windease@^1.3.0`
   from npm, and that copy predates the packers.
+- The page is the `PackLab` component, saving trials to `localStorage`. The Ladle story
+  **Pack lab / Lab** (`dev/pack-lab/src/PackLab.stories.tsx`, picked up by `.ladle/config.mjs`)
+  renders the same component unsaved, so every load starts fresh, and `e2e/pack-lab.spec.ts`
+  drives it: turning a packer off, and switching to an astv plate.
 - Core tests run in the existing `node` vitest project; `typecheck` adds the lab's tsconfig.
   Biome skips `dev/pack-lab/datasets/`, since a recapture rewrites it.
 
