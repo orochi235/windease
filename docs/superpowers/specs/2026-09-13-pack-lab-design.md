@@ -1,6 +1,6 @@
 # Pack lab
 
-**Status: designed 2026-09-13, not built.** Nothing below exists in the tree yet.
+**Status: built.** Run it with `npm run dev:pack-lab`.
 
 A dev-only page for trying windease's packing strategies (`shelf`, `column`, `skyline`) against
 real box sets and comparing the results. For whoever tunes or adds a packer. It never ships:
