@@ -1,18 +1,12 @@
 import { f } from '@weasel-js/labkit';
-import { PACKERS, packerById } from '../core/packers.js';
+import { PACKERS } from '../core/packers.js';
 import { specFor } from '../core/run.js';
-import { STORY_BOXES } from '../core/sample.js';
-import { DATASETS, datasetById } from '../datasets.js';
+import { datasetById } from '../datasets.js';
 import { defineComparison } from './defineComparison.js';
-import { settingsFields } from './settings.js';
+import { datasetField, settingsFields } from './settings.js';
 
 const config = f.schema({
-  dataset: f
-    .enum<string>(
-      STORY_BOXES.id,
-      DATASETS.map((d) => d.id),
-    )
-    .label('Dataset'),
+  dataset: datasetField(),
   packer: f
     .enum<string>(
       'skyline',
@@ -25,6 +19,10 @@ const config = f.schema({
 export const single = defineComparison({
   name: 'Single',
   config,
-  specs: (c) => [specFor(datasetById(c.dataset), packerById(c.packer), c)],
+  specs: (c) => {
+    // A stored trial can name a packer since removed; it falls back to the first.
+    const packer = PACKERS.find((p) => p.id === c.packer) ?? PACKERS[0];
+    return packer ? [specFor(datasetById(c.dataset), packer, c)] : [];
+  },
   columns: () => 1,
 });

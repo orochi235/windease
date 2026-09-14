@@ -15,10 +15,19 @@ export const DATASETS: readonly Dataset[] = [
     .flatMap((path) => datasetsFromCapture(captures[path], stemOf(path))),
 ];
 
+/** A dataset's id as a config key. labkit splits config paths on `.`, and plate ids hold dots. */
+export const datasetKey = (dataset: Dataset): string => dataset.id.replaceAll('.', '~');
+
 const ids = new Set<string>();
+const keys = new Set<string>();
 for (const dataset of DATASETS) {
   if (ids.has(dataset.id)) throw new Error(`pack lab: two datasets share the id ${dataset.id}`);
   ids.add(dataset.id);
+  const key = datasetKey(dataset);
+  if (keys.has(key)) {
+    throw new Error(`pack lab: dataset ${dataset.id} collides with another at config key ${key}`);
+  }
+  keys.add(key);
 }
 
 /** A stored trial can name a dataset a recapture dropped; it falls back to the sample. */

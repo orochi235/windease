@@ -1,3 +1,10 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
 .pl-comparison {
   display: flex;
   flex-direction: column;
@@ -47,6 +54,7 @@
   margin-top: 4px;
   font-size: 12px;
   opacity: 0.75;
+  overflow-wrap: anywhere;
 }
 
 .pl-table {
@@ -59,6 +67,12 @@
 .pl-table td {
   padding: 2px 8px;
   border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  text-align: left;
+}
+
+.pl-table__caption {
+  padding-bottom: 4px;
+  font-weight: 600;
   text-align: left;
 }
 
