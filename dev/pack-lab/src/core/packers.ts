@@ -11,6 +11,5 @@ export function packerById(id: string): Packer {
   return packer;
 }
 
-/** The option keys a packer accepts: exactly what its strategy's `configSpec` declares. */
 export const optionKeys = (packer: Packer): string[] =>
   Object.keys(packer.strategy.configSpec ?? {});

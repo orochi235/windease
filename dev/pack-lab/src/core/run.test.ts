@@ -53,5 +53,10 @@ describe('run', () => {
     expect(b.placements).toEqual(a.placements);
     expect({ ...b.metrics, ms: 0 }).toEqual({ ...a.metrics, ms: 0 });
     expect(Object.keys(a.metrics)).toEqual(['width', 'height', 'fill', 'aspect', 'unplaced', 'ms']);
+    expect(a.placements.size).toBe(12);
+    expect(a.metrics.width).toBe(a.bounds.w);
+    expect(a.metrics.height).toBe(a.bounds.h);
+    expect(a.metrics.unplaced).toBe(0);
+    expect(a.metrics.fill).toBeGreaterThan(0);
   });
 });

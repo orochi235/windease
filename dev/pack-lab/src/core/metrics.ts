@@ -4,12 +4,10 @@ import type { Packing, RunSpec } from './types.js';
 export interface Metric {
   id: string;
   label: string;
-  /** Decimal places the table prints, the same for every row. */
   digits: number;
   value: (packing: Packing, spec: RunSpec, ms: number) => number;
 }
 
-/** Placed box area as a percentage of the bounds' area. */
 export function fillPercent(packing: Packing): number {
   const { w, h } = packing.bounds;
   if (w <= 0 || h <= 0) return 0;
@@ -37,6 +35,5 @@ export const METRICS: readonly Metric[] = [
   { id: 'ms', label: 'ms', digits: 2, value: (_p, _spec, ms) => ms },
 ];
 
-/** A metric's value as the table prints it. */
 export const formatMetric = (metric: Metric, value: number): string =>
   Number.isFinite(value) ? value.toFixed(metric.digits) : '—';

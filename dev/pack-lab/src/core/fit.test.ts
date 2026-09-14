@@ -32,6 +32,29 @@ describe('fitPacking', () => {
     const p = fitPacking(packerById('shelf'), six, { kind: 'aspect', ratio: 1.5 }, {});
     expect(p.bounds).toEqual({ w: 30, h: 20 });
   });
+
+  it('reaches the single-row width at the end of the search, at gap 0', () => {
+    // Six 10×10 boxes, no gap: one row is 60×10, and a ratio of 6 favors it outright.
+    const p = fitPacking(packerById('shelf'), six, { kind: 'aspect', ratio: 6 }, { gap: 0 });
+    expect(p.bounds).toEqual({ w: 60, h: 10 });
+  });
+
+  it('sizes the search the way the strategies size items: an unsized item and a negative gap change nothing', () => {
+    const baseline = fitPacking(packerById('shelf'), six, { kind: 'aspect', ratio: 1.5 }, {});
+    const withExtra = fitPacking(
+      packerById('shelf'),
+      [...six, { id: 'bare' }],
+      { kind: 'aspect', ratio: 1.5 },
+      { gap: -5 },
+    );
+    expect(withExtra.bounds).toEqual(baseline.bounds);
+  });
+
+  it('returns an empty packing for empty input', () => {
+    const p = fitPacking(packerById('shelf'), [], { kind: 'aspect', ratio: 1.5 }, {});
+    expect(p.bounds).toEqual({ w: 0, h: 0 });
+    expect(p.placements.size).toBe(0);
+  });
 });
 
 describe('aspectScore', () => {
