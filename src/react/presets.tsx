@@ -918,6 +918,7 @@ function AbsoluteWrapper({
     width: rect.w,
     height: rect.h,
   };
+  if (rect.z !== 0) style.zIndex = Math.round(rect.z);
   if (settleMs > 0) {
     style.transition = `left ${settleMs}ms ease, top ${settleMs}ms ease, width ${settleMs}ms ease, height ${settleMs}ms ease`;
   }

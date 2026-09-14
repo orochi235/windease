@@ -78,6 +78,15 @@ export {
   checkStrategyConfig,
 } from './layout/config-check.js';
 export {
+  DEFAULT_CASCADE,
+  DEFAULT_ICON_SIZE,
+  DEFAULT_SHADE_HEIGHT,
+  DESKTOP_MINIMIZE,
+  type DesktopConfig,
+  type DesktopState,
+  desktopStrategy,
+} from './layout/desktop.js';
+export {
   type Corner,
   DEFAULT_ANCHOR,
   DEFAULT_INSET,

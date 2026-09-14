@@ -10,6 +10,16 @@ section below.
 
 ### Added
 
+- **`desktopStrategy(inner?)`** lays out overlapping windows at the `x` / `y`
+  their placement carries, stacked by child order: each window's `z` is its rank
+  plus one, and items marked `icon` are tiled beneath at `z` 0 by `inner`. A
+  `minimized` window shades in place, or becomes an icon under
+  `minimize: 'icon'`. See [Desktop windows](README.md#desktop-windows).
+
+- **`<Container>` and the presets set `z-index` from a placement's `z`** when it
+  is nonzero. No shipped strategy emitted one before `desktopStrategy`; a custom
+  strategy that did now gets a `z-index` too.
+
 - **`scrollRef` and `edgeScroll` on the container presets.** `<Zone>` and
   `<Panel container={…}>` take the pair `<Container>` has: the wrapper's offset
   reaches the geometry a keyboard navigation compares, and a drag held near that

@@ -338,6 +338,12 @@ Built-ins:
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
   `handleSize`, `snapToPanes`. Called with no argument, everything floats.
+- **`desktopStrategy(inner?)`** — windows at placement `x` / `y`, overlapping,
+  stacked by item order with `z` counting up from 1. Placement `minimized` shades
+  a window, or with `minimize: 'icon'` hands it to `inner` beside the items
+  marked `icon`, which sit at `z` 0. Config: `minimize`, `shadeHeight`,
+  `iconWidth`, `iconHeight`, `cascade`. Keeps no state of its own and emits no
+  affordances.
 - **`shelfStrategy`**, **`columnStrategy`**, **`skylineStrategy`** — pack items
   at their own size (`natural`, else `hints.preferredSize`) into the container's
   width, in rows, masonry columns, or the lowest free spot. They grow downward;

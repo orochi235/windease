@@ -44,7 +44,8 @@ See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
   (children share one axis, with capacity handling), `gridStrategy`,
   `stackStrategy` (one child visible, you draw the tab strip),
   `floatingStrategy(inner?)`, which wraps another strategy so items marked
-  `floating` sit free over what it tiles, and three packers — `shelfStrategy`,
+  `floating` sit free over what it tiles, `desktopStrategy(inner?)` for
+  overlapping, stacked, minimizable windows over an icon layer, and three packers — `shelfStrategy`,
   `columnStrategy`, `skylineStrategy` — for boxes of fixed, varied sizes. Strategies work unchanged on
   recursive trees via the `LayoutNode` adapter. `store.split(id, input)` builds
   nested `stripStrategy` trees without a dedicated strategy of its own.
@@ -853,9 +854,54 @@ Two limits. An item with neither a measured `natural` size nor
 `hints.preferredSize` is withheld into `unplaced` rather than placed at zero
 size. And `LayoutResult` carries no stacking order, so a floating item renders
 above a tiled one only if the host renders it later — register it last, or give
-it a higher `z-index` yourself.
+it a higher `z-index` yourself. [`desktopStrategy`](#desktop-windows) does emit
+one.
 
 See the **Floating** story for both handle modes.
+
+## Desktop windows
+
+`desktopStrategy(inner?)` places each window where its placement says, lets
+windows overlap, and stacks them in child order: later is on top. Items marked
+`icon` are tiled underneath by `inner`.
+
+```ts
+import { desktopStrategy, shelfStrategy } from 'windease';
+
+const strategies = { desktop: desktopStrategy(shelfStrategy) };
+
+store.patchPlacement(windowId, { x: 120, y: 40 });
+store.patchPlacement(iconId, { icon: true });
+store.patchPlacement(windowId, { minimized: true });
+```
+
+A window's size is `placement.size`, else `natural`, else `hints.preferredSize`;
+one with none is unplaced. A window with no `x` / `y` cascades from the top left.
+Positions are not clamped: a window past the edge comes back as `overflow`.
+
+**Stacking is `z`.** The window at rank `r` gets `z = r + 1`; icons sit at `0`.
+`<Container>` and the presets turn a nonzero `z` into `z-index`, and a 3D host
+reads it as depth. To raise a window, move it to the end of its parent:
+
+```ts
+store.reorderInParent(windowId, store.getNode(desktopId)!.container!.childOrder.length - 1);
+```
+
+Nothing raises on focus for you — each raise is a store mutation, so an undo
+step. The **Desktop** story does it from `useFocusedNode`. Raise on `click`, not
+`pointerdown`: `<Container>` renders children in child order, so a raise moves
+the pressed element in the DOM and the browser drops the click it was for.
+
+| Config | Default | Meaning |
+| --- | --- | --- |
+| `minimize` | `'shade'` | `'shade'` rolls a minimized window up in place; `'icon'` hands it to the icon layer |
+| `shadeHeight` | `28` | height of a shaded window |
+| `iconWidth`, `iconHeight` | `64` | size a minimized window takes in the icon layer |
+| `cascade` | `24` | offset between successive windows with no position |
+
+With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`
+shades instead, with a `layout` trace. Windows carry no drag or resize handles —
+the host writes every position.
 
 ## Resize
 

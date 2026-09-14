@@ -371,6 +371,7 @@ function StoreContainer({
           width: rect.w,
           height: rect.h,
         };
+        if (rect.z !== 0) childStyle.zIndex = Math.round(rect.z);
         if (effectiveSettleMs > 0) {
           childStyle.transition = `left ${effectiveSettleMs}ms ease, top ${effectiveSettleMs}ms ease, width ${effectiveSettleMs}ms ease, height ${effectiveSettleMs}ms ease`;
         }
