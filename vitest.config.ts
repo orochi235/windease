@@ -1,6 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import { defaultExclude, defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: { '#windease': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   test: {
     globals: false,
     setupFiles: ['./vitest.setup.ts'],

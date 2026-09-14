@@ -76,12 +76,16 @@
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^4.1.10",
+    "@weasel-js/core": "^1.4.4",
+    "@weasel-js/labkit": "^1.4.4",
     "jsdom": "^30.0.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "typedoc": "^0.28.20",
     "typescript": "^6.0.3",
+    "vite": "^7.3.6",
     "vitest": "^4.1.10"
   }
 }
