@@ -1,5 +1,4 @@
-import { packGap, packSize } from '#windease/layout/pack.js';
-import type { LayoutItem } from '#windease/layout-types.js';
+import type { LayoutItem, Size } from '#windease/layout-types.js';
 import type { Fit, Packer, Packing } from './types.js';
 
 /**
@@ -7,6 +6,20 @@ import type { Fit, Packer, Packing } from './types.js';
  * Its 1-unit minimum step is astv's too, so the search assumes pixel- or astv-scale boxes.
  */
 const ASPECT_STEPS = 24;
+
+const usable = (n: number): boolean => Number.isFinite(n) && n > 0;
+
+/** An item's size the way the strategies size it: `natural`, else `hints.preferredSize`. */
+function itemSize(item: LayoutItem): Size | null {
+  const size = item.natural ?? item.hints?.preferredSize;
+  return size && usable(size.w) && usable(size.h) ? size : null;
+}
+
+/** An options bag's `gap` the way the strategies read it: a positive finite number, else 0. */
+function optionsGap(options: Record<string, unknown>): number {
+  const gap = options.gap;
+  return typeof gap === 'number' && usable(gap) ? gap : 0;
+}
 
 export function packAt(
   packer: Packer,
@@ -47,11 +60,11 @@ export function fitPacking(
   options: Record<string, unknown>,
 ): Packing {
   if (fit.kind === 'width') return packAt(packer, items, fit.width, options);
-  const gap = packGap(options);
+  const gap = optionsGap(options);
   let widest = 1;
   let total = 0;
   for (const item of items) {
-    const size = packSize(item);
+    const size = itemSize(item);
     if (!size) continue;
     widest = Math.max(widest, size.w);
     total += size.w + gap;
