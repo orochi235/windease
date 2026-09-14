@@ -7,7 +7,7 @@ real box sets and comparing the results. For whoever tunes or adds a packer. It 
 it lives in `dev/pack-lab/`, and the package publishes only `dist`.
 
 It answers "which packer, with which options, does best on boxes shaped like this domain's" —
-first for astv's directory plates, which already pack with these strategies.
+first for directory plates as astv lays them out, captured from windease's own tree.
 
 ## Pieces
 
@@ -67,7 +67,7 @@ pointing at the same plate; its domain names the source and commit. Matrix keys 
 id with dots escaped, since labkit config paths split on dots. A malformed capture, or two
 datasets sharing an id, throws while the page loads and names the file, plate and key.
 
-`dev/pack-lab/datasets/astv.json`:
+`dev/pack-lab/datasets/windease.json`:
 
 ```json
 {
@@ -82,10 +82,9 @@ datasets sharing an id, throws while the page loads and names the file, plate an
 }
 ```
 
-`commit` is the astv code that ran the capture and `fixture` the checked-in astv tree it read.
-Each plate's boxes are in the order astv packs them, tallest first.
-
-The capture script lives in astv.
+`commit` is the astv code that ran the capture and `fixture` the windease commit it read.
+Each plate's boxes are in the order astv packs them, tallest first. The capture script lives in
+astv, a private repo, so only captures of public trees belong here.
 
 ## Tooling
 
@@ -101,7 +100,7 @@ The capture script lives in astv.
 - The page is the `PackLab` component, saving trials to `localStorage`. The Ladle story
   **Pack lab / Lab** (`dev/pack-lab/src/PackLab.stories.tsx`, picked up by `.ladle/config.mjs`)
   renders the same component unsaved, so every load starts fresh, and `e2e/pack-lab.spec.ts`
-  drives it: turning a packer off, and switching to an astv plate.
+  drives it: turning a packer off, and switching to a captured plate.
 - Core tests run in the existing `node` vitest project; `typecheck` adds the lab's tsconfig.
   Biome skips `dev/pack-lab/datasets/`, since a recapture rewrites it.
 

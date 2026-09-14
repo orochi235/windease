@@ -29,7 +29,7 @@ test.describe('the pack lab compares packers on a dataset', () => {
     await openLab(page);
     const plate = 'dir:docs/superpowers/plans';
     await page.getByRole('combobox', { name: 'Dataset' }).selectOption({ label: plate });
-    await expect(page.getByRole('combobox', { name: 'Dataset' })).toHaveValue(`astv:${plate}`);
+    await expect(page.getByRole('combobox', { name: 'Dataset' })).toHaveValue(`windease:${plate}`);
     const tiles = page.getByRole('img', { name: new RegExp(`^${plate} packed by `) });
     await expect(tiles).toHaveCount(3);
 
