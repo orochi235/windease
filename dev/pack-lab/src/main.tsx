@@ -1,3 +1,4 @@
+import { localStorageAdapter } from '@weasel-js/labkit';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PackLab } from './PackLab.js';
@@ -8,6 +9,6 @@ if (!root) throw new Error('pack lab: the page has no #root');
 
 createRoot(root).render(
   <StrictMode>
-    <PackLab storageKey="windease-pack-lab" />
+    <PackLab storage={localStorageAdapter} storageKey="windease-pack-lab" />
   </StrictMode>,
 );
