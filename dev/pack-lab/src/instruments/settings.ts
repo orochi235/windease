@@ -9,16 +9,23 @@ export const settingsFields = () => ({
     .range(0.25, 4)
     .step(0.05)
     .label('Aspect')
+    .section('Container')
     .showIf((c) => c.fit === 'aspect'),
   width: f
     .number(480)
     .range(40, 2400)
     .step(10)
     .label('Width')
+    .section('Container')
     .showIf((c) => c.fit === 'width'),
   useHints: f.boolean(true).label("Use the dataset's settings").section('Packer options'),
-  gap: f.number(8).range(0, 64).step(1).label('Gap'),
-  columnWidth: f.number(0).range(0, 400).step(1).label('Column width (0: narrowest item)'),
+  gap: f.number(8).range(0, 64).step(1).label('Gap').section('Packer options'),
+  columnWidth: f
+    .number(0)
+    .range(0, 400)
+    .step(1)
+    .label('Column width (0: narrowest item)')
+    .section('Packer options'),
 });
 
 /** One on/off per registered packer, keyed by packer id. */

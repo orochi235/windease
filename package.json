@@ -62,6 +62,7 @@
     "lint:fix": "biome check --write .",
     "ladle": "ladle serve",
     "ladle:build": "ladle build",
+    "dev:pack-lab": "vite dev/pack-lab",
     "docs:api": "typedoc",
     "prepublishOnly": "npm run build",
     "postversion": "git push --follow-tags",
