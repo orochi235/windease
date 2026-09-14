@@ -68,6 +68,7 @@ body,
   padding: 2px 8px;
   border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
   text-align: left;
+  white-space: nowrap;
 }
 
 .pl-table__caption {

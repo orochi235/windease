@@ -3,7 +3,6 @@ import { PACKERS } from '../core/packers.js';
 import { STORY_BOXES } from '../core/sample.js';
 import { DATASETS } from '../datasets.js';
 
-/** A choice of one dataset, listed by label and stored by id. */
 export const datasetField = () =>
   f
     .enum<string>(

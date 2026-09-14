@@ -15,7 +15,7 @@ export const DATASETS: readonly Dataset[] = [
     .flatMap((path) => datasetsFromCapture(captures[path], stemOf(path))),
 ];
 
-/** A dataset's id as a config key. labkit splits config paths on `.`, and plate ids hold dots. */
+/** A dataset's id as a config key. labkit splits config paths on `.`, and plate ids can hold dots. */
 export const datasetKey = (dataset: Dataset): string => dataset.id.replaceAll('.', '~');
 
 const ids = new Set<string>();

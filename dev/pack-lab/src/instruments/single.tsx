@@ -20,7 +20,7 @@ export const single = defineComparison({
   name: 'Single',
   config,
   specs: (c) => {
-    // A stored trial can name a packer since removed; it falls back to the first.
+    // A stored trial can name a packer since removed.
     const packer = PACKERS.find((p) => p.id === c.packer) ?? PACKERS[0];
     return packer ? [specFor(datasetById(c.dataset), packer, c)] : [];
   },

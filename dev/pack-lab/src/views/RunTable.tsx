@@ -17,7 +17,15 @@ const SETTINGS: readonly { id: string; label: string; cell: (run: Run) => string
       fit.kind === 'aspect' ? `ratio ${fit.ratio.toFixed(2)}` : `width ${fit.width.toFixed(1)}`,
   },
   { id: 'gap', label: 'gap', cell: (run) => optionCell(run, 'gap') },
-  { id: 'columnWidth', label: 'column width', cell: (run) => optionCell(run, 'columnWidth') },
+  {
+    id: 'columnWidth',
+    label: 'column width',
+    cell: ({ options }) => {
+      const value = options.columnWidth;
+      if (typeof value !== 'number') return '—';
+      return value <= 0 ? 'narrowest' : value.toFixed(1);
+    },
+  },
 ];
 
 export function RunTable({ runs }: { runs: readonly Run[] }) {
