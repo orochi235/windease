@@ -21,7 +21,9 @@ export function Comparison({ runs, columns }: { runs: readonly Run[]; columns: n
   const extents = useMemo(() => extentsByDataset(runs), [runs]);
   if (runs.length === 0) {
     return (
-      <p className="pl-empty">Nothing to pack: turn on at least one dataset and one packer.</p>
+      <p className="pl-empty">
+        Nothing to pack: turn on at least one packer, and in Matrix at least one dataset.
+      </p>
     );
   }
   return (

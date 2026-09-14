@@ -22,11 +22,12 @@ export function specFor(dataset: Dataset, packer: Packer, settings: Settings): R
   };
   const accepted = new Set(optionKeys(packer));
   const options = Object.fromEntries(Object.entries(all).filter(([key]) => accepted.has(key)));
+  const aspectTarget = hint.aspect ?? settings.aspect;
   const fit: Fit =
     settings.fit === 'width'
       ? { kind: 'width', width: settings.width }
-      : { kind: 'aspect', ratio: hint.aspect ?? settings.aspect };
-  return { dataset, packer, fit, options };
+      : { kind: 'aspect', ratio: aspectTarget };
+  return { dataset, packer, fit, options, aspectTarget };
 }
 
 export function run(spec: RunSpec): Run {

@@ -2,17 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { packAt } from './fit.js';
 import { fillPercent, formatMetric, METRICS, targetRatio } from './metrics.js';
 import { packerById } from './packers.js';
-import type { Dataset, RunSpec } from './types.js';
+import { type Settings, specFor } from './run.js';
+import type { Dataset } from './types.js';
 
 const tens = (...ids: string[]) =>
   ids.map((id) => ({ id, hints: { preferredSize: { w: 10, h: 10 } } }));
 const dataset: Dataset = { id: 'd', label: 'd', domain: 'test', items: [], hint: { aspect: 2 } };
-const spec = (fit: RunSpec['fit']): RunSpec => ({
-  dataset,
-  packer: packerById('shelf'),
-  fit,
-  options: {},
-});
+const settings: Settings = {
+  fit: 'width',
+  width: 100,
+  aspect: 5,
+  gap: 0,
+  columnWidth: 0,
+  useHints: true,
+};
 
 describe('fillPercent', () => {
   it('is 100 when the boxes tile their bounds', () => {
@@ -26,9 +29,14 @@ describe('fillPercent', () => {
 });
 
 describe('targetRatio', () => {
-  it("is the fit's ratio for an aspect fit, else the dataset's", () => {
-    expect(targetRatio(spec({ kind: 'aspect', ratio: 3 }))).toBe(3);
-    expect(targetRatio(spec({ kind: 'width', width: 100 }))).toBe(2);
+  it('judges a width fit against the dataset when hints are on', () => {
+    const spec = specFor(dataset, packerById('shelf'), settings);
+    expect(targetRatio(spec)).toBe(2);
+  });
+
+  it("judges a width fit against the settings' aspect when hints are off", () => {
+    const spec = specFor(dataset, packerById('shelf'), { ...settings, useHints: false });
+    expect(targetRatio(spec)).toBe(5);
   });
 });
 

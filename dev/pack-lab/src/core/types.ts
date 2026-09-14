@@ -37,6 +37,8 @@ export interface RunSpec {
   packer: Packer;
   fit: Fit;
   options: Record<string, unknown>;
+  /** The aspect ratio the run is judged against — `specFor`'s call, not read back off the dataset. */
+  aspectTarget: number;
 }
 
 export interface Run extends RunSpec, Packing {

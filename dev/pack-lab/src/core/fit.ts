@@ -7,6 +7,7 @@ import type { Fit, Packer, Packing } from './types.js';
  */
 const ASPECT_STEPS = 24;
 
+// Mirrors packSize and packGap in src/layout/pack.ts, which windease does not export.
 const usable = (n: number): boolean => Number.isFinite(n) && n > 0;
 
 /** An item's size the way the strategies size it: `natural`, else `hints.preferredSize`. */

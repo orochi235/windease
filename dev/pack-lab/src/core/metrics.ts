@@ -16,9 +16,12 @@ export function fillPercent(packing: Packing): number {
   return (area / (w * h)) * 100;
 }
 
-/** The ratio a run is judged against: its fit's, else its dataset's, else square. */
+/**
+ * The ratio a run is judged against, as `specFor` recorded it — reading the dataset's hint here
+ * directly would ignore the "use hints" toggle for a width fit.
+ */
 export function targetRatio(spec: RunSpec): number {
-  return spec.fit.kind === 'aspect' ? spec.fit.ratio : (spec.dataset.hint?.aspect ?? 1);
+  return spec.aspectTarget;
 }
 
 export const METRICS: readonly Metric[] = [
