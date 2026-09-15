@@ -66,11 +66,6 @@ export interface DropTarget {
   /** Innermost-wins tiebreak between overlapping targets: the largest depth
    *  claims the hover. Absent counts as 0. */
   depth?(): number;
-  /**
-   * @deprecated Removed at 2.0.0. Use `acceptPolicy`, which can widen a
-   * strategy's answer as well as narrow it.
-   */
-  canAccept?(sourceId: NodeId): boolean;
   /** Replaces `strategy.canAccept` for this target. `true` accepts even where
    *  the strategy would refuse, `false` refuses, `undefined` defers to it. */
   acceptPolicy?(ctx: AcceptContext): boolean | undefined;
@@ -413,10 +408,6 @@ export class DragEngine {
       }
     }
 
-    if (target?.canAccept && !target.canAccept(draggingId)) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (consumer canAccept said no)`);
-      return false;
-    }
     return true;
   }
 

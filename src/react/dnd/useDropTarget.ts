@@ -5,14 +5,6 @@ import { DragContext } from './DragProvider.js';
 
 /** Options for {@link useDropTarget}. */
 export interface UseDropTargetOptions {
-  /**
-   * Predicate to reject specific sources (e.g. forbid drops from outside a
-   * particular sub-tree).
-   *
-   * @deprecated Removed at 2.0.0. Use `acceptPolicy`, which can widen a
-   * strategy's answer as well as narrow it.
-   */
-  canAccept?: (sourceId: NodeId) => boolean;
   /** Whether this target takes the drop, from the prospective post-drop child
    *  list. `true` accepts even where the strategy would refuse, `false`
    *  refuses, `undefined` defers to it. */
@@ -35,22 +27,14 @@ export interface UseDropTargetOptions {
  * Register `nodeId`'s element as a drop target. On drop within the element's
  * bounding rect, the controller invokes `store.moveNode(source, nodeId)`.
  *
- * The third argument accepts either a legacy `canAccept` callback or an
- * options object `{ canAccept, enabled }`. Both forms are supported for
- * backward compatibility.
- *
  * @group Hooks
  */
 export function useDropTarget(
   nodeId: NodeId,
   ref: RefObject<Element | null>,
-  canAcceptOrOptions?: ((sourceId: NodeId) => boolean) | UseDropTargetOptions,
+  options: UseDropTargetOptions = {},
 ): void {
-  const opts: UseDropTargetOptions =
-    typeof canAcceptOrOptions === 'function'
-      ? { canAccept: canAcceptOrOptions }
-      : (canAcceptOrOptions ?? {});
-  const { acceptPolicy, canAccept, enabled, getDropIntent, getInsertionIndex } = opts;
+  const { acceptPolicy, enabled, getDropIntent, getInsertionIndex } = options;
   // Always read the controller via useContext (not useDragController) so that
   // trees without a <DragProvider> can still call this hook with
   // `enabled: false` (e.g. PresetShell's unconditional call). When enabled
@@ -68,7 +52,6 @@ export function useDropTarget(
     return controller.registerDropTarget(
       nodeId,
       el,
-      canAccept,
       acceptPolicy || getInsertionIndex || getDropIntent
         ? {
             ...(acceptPolicy ? { acceptPolicy } : {}),
@@ -77,5 +60,5 @@ export function useDropTarget(
           }
         : undefined,
     );
-  }, [controller, nodeId, ref, enabled, acceptPolicy, canAccept, getInsertionIndex, getDropIntent]);
+  }, [controller, nodeId, ref, enabled, acceptPolicy, getInsertionIndex, getDropIntent]);
 }

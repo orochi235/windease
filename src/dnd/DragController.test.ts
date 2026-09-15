@@ -300,7 +300,6 @@ describe('DragController — rAF throttle + cursor', () => {
     controller.registerDropTarget(
       asNodeId('tgt'),
       makeRectEl({ left: 0, top: 0, right: 100, bottom: 100 }),
-      undefined,
       { getInsertionIndex: () => 1 },
     );
     controller.tryBegin(asNodeId('src'));

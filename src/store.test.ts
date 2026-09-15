@@ -826,14 +826,6 @@ describe('Store — selectors', () => {
     s.focusNode(id('p'));
     expect(s.canFocus(id('p'))).toBe(true);
   });
-
-  it('hasFocus still delegates to canFocus while deprecated', () => {
-    const s = fresh();
-    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('p') }));
-    s.registerNode(createNode({ kind: 'panel', id: id('q') }));
-    expect(s.hasFocus(id('p'))).toBe(s.canFocus(id('p')));
-    expect(s.hasFocus(id('q'))).toBe(s.canFocus(id('q')));
-  });
 });
 
 describe('Store — subscribe', () => {

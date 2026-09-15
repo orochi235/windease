@@ -6,7 +6,26 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
-## Unreleased
+## 2.0.0
+
+### Removed
+
+- **`store.hasFocus(id)`**, deprecated in 1.2.0. Use `canFocus(id)`, which it
+  delegated to.
+
+- **`canAccept(sourceId)` on a drop target**, deprecated in the version below.
+  Use `acceptPolicy`, which also sees the prospective child list and the
+  container's config. All three forms are gone: the `useDropTarget` option, its
+  bare-callback third argument, and the `DropTarget` field a host driving
+  `DragEngine` supplies. `DragController.registerDropTarget(id, el, options)`
+  loses its third positional parameter with them.
+
+- **`BuiltinAffordanceKind`'s `'keypress'` and `LayoutEvent`'s `kind: 'key'`**,
+  neither ever emitted, dispatched, or handled — a keyboard resize reaches a
+  strategy as a synthesized `'drag'`. `LayoutEvent['payload']`'s `key` field
+  goes with them.
+
+  See [Breaking changes](README.md#breaking-changes) for all three.
 
 ### Added
 
@@ -257,12 +276,11 @@ section below.
   strategies are planar and emit `0`. See
   [Breaking changes](README.md#breaking-changes).
 
-- **`DropTarget.canAccept(sourceId)` is deprecated**, removed at 2.0.0. Use
-  `acceptPolicy`, which sees the prospective child list and the container's
-  config, and can widen a strategy's answer as well as narrow it. The old
-  callback still runs, as a trailing veto after `acceptPolicy` and the strategy
-  have both agreed. A target registered by hand moves over with
-  `useDropTarget(id, ref, { acceptPolicy })`, which forwards the new bag.
+- **`DropTarget.canAccept(sourceId)` is replaced by `acceptPolicy`**, which sees
+  the prospective child list and the container's config, and can widen a
+  strategy's answer as well as narrow it. A target registered by hand moves over
+  with `useDropTarget(id, ref, { acceptPolicy })`, which forwards the new bag.
+  See **Removed** above.
 
 - **A prospective split now previews as a layout, not a shade.** Hovering a pane's cross-axis
   edge with `splitOnDrop` lays the destination out as if the drop had happened: the pane under

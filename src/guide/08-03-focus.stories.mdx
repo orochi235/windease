@@ -34,8 +34,8 @@ allows exactly one focused node and blurs the previous one for you.
 `store.focusedId` is the answer; `canFocus(id)` asks whether a node could take
 it.
 
-`hasFocus(id)` is deprecated and reads as "does this node have a focus machine",
-which is almost never the question. Compare `store.focusedId` instead.
+`hasFocus(id)` was the old name for `canFocus`, removed in 2.0.0. It read as
+"does this node have a focus machine", which is almost never the question.
 
 ## Focus survives what removes its holder
 

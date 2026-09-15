@@ -46,7 +46,7 @@ async function dropOnto(
   insertIndex?: number,
 ): Promise<void> {
   c.tryBegin(asNodeId(sourceId));
-  c.registerDropTarget(targetId, makeFakeElement(0, 0, 100, 100), undefined, {
+  c.registerDropTarget(targetId, makeFakeElement(0, 0, 100, 100), {
     getInsertionIndex: () => insertIndex,
   });
   c.updateHoverByPoint(50, 50);

@@ -112,7 +112,7 @@ describe('DragEngine', () => {
   it('rejects a hover the consumer refuses', () => {
     const s = buildStore();
     const e = new DragEngine(s);
-    e.addDropTarget(asNodeId('z2'), at(SQUARE, { canAccept: () => false }));
+    e.addDropTarget(asNodeId('z2'), at(SQUARE, { acceptPolicy: () => false }));
     e.tryBegin(asNodeId('p'));
     e.updateHoverByPoint(50, 50);
     expect(e.state()?.hover?.accepted).toBe(false);

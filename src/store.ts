@@ -280,15 +280,6 @@ export class Store {
     return !!this.nodesMap.get(id)?.focus;
   }
 
-  /**
-   * @deprecated Renamed to {@link Store.canFocus}; removed at 2.0.0. The name
-   * read as a state check one method away from `focusedId`, and was misread
-   * that way in practice.
-   */
-  hasFocus(id: NodeId): boolean {
-    return this.canFocus(id);
-  }
-
   getContainerView(id: NodeId): {
     childOrder: readonly NodeId[];
     config: unknown;

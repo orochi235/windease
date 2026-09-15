@@ -38,7 +38,6 @@ export interface DropIntentTargetOptions {
    *  an element: `.current` is null on the first render and the effect must
    *  read it when it runs. */
   scrollRef?: RefObject<Element | null> | undefined;
-  canAccept?: ((sourceId: NodeId) => boolean) | undefined;
   acceptPolicy?: ((ctx: AcceptContext) => boolean | undefined) | undefined;
   /** Ramp shape for edge scrolling. Inert without `scrollRef`. */
   edgeScroll?: EdgeScrollOptions | undefined;
@@ -72,7 +71,6 @@ export function useDropIntentTarget(
     splitOnDrop,
     dropIntent,
     scrollRef,
-    canAccept,
     acceptPolicy,
     edgeScroll,
   } = opts;
@@ -90,7 +88,7 @@ export function useDropIntentTarget(
     if (!controller) return;
     const el = ref.current;
     if (!el) return;
-    return controller.registerDropTarget(parentId, el, canAccept, {
+    return controller.registerDropTarget(parentId, el, {
       scrollEl: scrollRef?.current ?? null,
       ...(acceptPolicy ? { acceptPolicy } : {}),
       ...(edgeScroll ? { edgeScroll } : {}),
@@ -122,7 +120,6 @@ export function useDropIntentTarget(
     parentId,
     ref,
     enabled,
-    canAccept,
     declaredAxis,
     strategyId,
     isFlow,

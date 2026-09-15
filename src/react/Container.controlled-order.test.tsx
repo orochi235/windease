@@ -85,7 +85,7 @@ function fakeElement(x: number, y: number, w: number, h: number): Element {
 
 async function dropAt(c: DragController, sourceId: string, at: number) {
   c.tryBegin(asNodeId(sourceId));
-  c.registerDropTarget(Z, fakeElement(0, 0, 100, 100), undefined, {
+  c.registerDropTarget(Z, fakeElement(0, 0, 100, 100), {
     getInsertionIndex: () => at,
   });
   c.updateHoverByPoint(50, 50);

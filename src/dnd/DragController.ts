@@ -140,17 +140,11 @@ export class DragController {
     return this.engine.subscribe(fn);
   }
 
-  registerDropTarget(
-    id: NodeId,
-    el: Element,
-    canAccept?: (sourceId: NodeId) => boolean,
-    options?: DropTargetOptions,
-  ): () => void {
+  registerDropTarget(id: NodeId, el: Element, options?: DropTargetOptions): () => void {
     this.elements.set(id, el);
     const off = this.engine.addDropTarget(id, {
       bounds: () => rectOf(el),
       depth: () => ancestorDepth(el),
-      ...(canAccept ? { canAccept } : {}),
       ...(options?.acceptPolicy ? { acceptPolicy: options.acceptPolicy } : {}),
       ...(options?.getInsertionIndex ? { getInsertionIndex: options.getInsertionIndex } : {}),
       ...(options?.getDropIntent ? { getDropIntent: options.getDropIntent } : {}),

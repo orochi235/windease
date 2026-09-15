@@ -114,12 +114,7 @@ describe('DragEngine — acceptPolicy', () => {
     expect(e.state()?.hover?.accepted).toBe(false);
   });
 
-  it('the deprecated canAccept still vetoes after the policy accepted', () => {
-    const e = engineWith(openStore(), { acceptPolicy: () => true, canAccept: () => false });
-    expect(e.state()?.hover?.accepted).toBe(false);
-  });
-
-  it('accepts the same drop once the deprecated canAccept is gone', () => {
+  it('accepts a drop the policy allows', () => {
     const e = engineWith(openStore(), { acceptPolicy: () => true });
     expect(e.state()?.hover?.accepted).toBe(true);
   });

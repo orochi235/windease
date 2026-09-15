@@ -1,7 +1,6 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { useEffect, useRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { NodeId } from '../../index.js';
 import { asNodeId, createNode, Store } from '../../index.js';
 import { Provider } from '../Provider.js';
 import { DragProvider, useDragController } from './DragProvider.js';
@@ -9,9 +8,9 @@ import { useDropTarget } from './useDropTarget.js';
 
 afterEach(cleanup);
 
-function TgtBox({ nodeId, canAccept }: { nodeId: string; canAccept?: (s: NodeId) => boolean }) {
+function TgtBox({ nodeId, acceptPolicy }: { nodeId: string; acceptPolicy?: () => boolean }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  useDropTarget(asNodeId(nodeId), ref, canAccept);
+  useDropTarget(asNodeId(nodeId), ref, acceptPolicy ? { acceptPolicy } : {});
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -127,7 +126,7 @@ describe('DragProvider overlay', () => {
               controller = c;
             }}
           />
-          <TgtBox nodeId="tgt" canAccept={() => false} />
+          <TgtBox nodeId="tgt" acceptPolicy={() => false} />
         </DragProvider>
       </Provider>,
     );

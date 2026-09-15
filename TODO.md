@@ -275,14 +275,6 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   comment.
 - TypeScript is held at 6.x because typedoc 0.28's peer range stops at
   `6.0.x`. Revisit TS 7 (the Go port) once typedoc ships support.
-- **Two dead affordance hooks are deprecated, not yet removed.**
-  `BuiltinAffordanceKind`'s `'keypress'` member and `LayoutEvent`'s `kind: 'key'`
-  are never emitted, dispatched, or handled; keyboard resize reaches a strategy
-  as a synthesized `'drag'` instead. Both are `@deprecated` and removed at 2.0.0.
-  Deprecated rather than deleted because both types are exported from the entry
-  point, so narrowing either breaks a consumer who annotated against it — the
-  `| string` on `Affordance.kind` protects assignment into that field, not a
-  direct use of the exported union.
 - **Every `REJECT` trace in `DragEngine.checkAccept` fires per pointermove
   sample**, not per hover transition — the per-frame chatter the tracing tenet
   in `CLAUDE.md` warns against. Left as is: those lines are the whole record of

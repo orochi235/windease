@@ -615,8 +615,6 @@ the tree under `<DragProvider>`. The drag controller honors:
 - The destination strategy's `canAccept(prospective-items, options)` — e.g.
   a strategy with a `maxItems` config refusing a drop that would overflow it.
 - `acceptPolicy` on the container itself, which overrides that answer.
-- An optional consumer-supplied `canAccept(sourceId)` on the drop target,
-  deprecated in favor of `acceptPolicy` and removed at 2.0.0.
 
 `<Container acceptPolicy>` — and the same prop on `<Zone>` and `<Panel>` — is how
 one container disagrees with its strategy. It sees the child list the strategy
@@ -1245,7 +1243,35 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
-### Unreleased — `Rect` carries a required `z`
+### 2.0.0 — four deprecated APIs removed
+
+Each has had a replacement since the version that deprecated it, and the
+replacement is unchanged:
+
+```diff
+- store.hasFocus(id)
++ store.canFocus(id)
+
+- useDropTarget(zoneId, ref, (sourceId) => sourceId !== forbidden)
++ useDropTarget(zoneId, ref, { acceptPolicy: ({ sourceId }) => sourceId !== forbidden })
+```
+
+`canAccept(sourceId)` on a drop target is gone in all three of its forms: the
+option, the bare-callback third argument to `useDropTarget`, and the
+`DropTarget` field a host driving `DragEngine` by hand supplies.
+`acceptPolicy` sees the prospective child list and the container's config as
+well as the source, so it can widen a strategy's answer where `canAccept` could
+only narrow it. `registerDropTarget(id, el, options)` accordingly loses its
+third positional parameter, which means a call passing `undefined` there drops
+that argument.
+
+The other two were type members nothing ever emitted or handled:
+`BuiltinAffordanceKind`'s `'keypress'` and `LayoutEvent`'s `kind: 'key'`, with
+the `key` field of `LayoutEvent['payload']` that only `'key'` could have
+carried. A keyboard resize has always reached a strategy as a synthesized
+`'drag'`. Breaking only for code that named either member in an annotation.
+
+### 2.0.0 — `Rect` carries a required `z`
 
 Breaking for anything that builds a `Rect` by hand — a test fixture, a
 `GeometrySource`, a custom strategy's placements:
@@ -1267,7 +1293,7 @@ renders. The shipped strategies are all planar and emit `0`.
 re-exports the core type, so a rect from `useLayoutForSelf` carries the depth its
 value always had.
 
-### Unreleased — `overflowMode: 'unplace'` renamed to `'unplaced'`
+### 2.0.0 — `overflowMode: 'unplace'` renamed to `'unplaced'`
 
 Breaking, on `stripStrategy` and `gridStrategy`. Rename the config value:
 
@@ -1280,7 +1306,7 @@ The mode fills `LayoutResult.unplaced`, so the value now matches the field it
 produces. `configSpec` rejects the old spelling, which surfaces as a `layout`
 trace rather than a silent fallback to `'squeeze'`.
 
-### Unreleased — a split drop previews as a layout
+### 2.0.0 — a split drop previews as a layout
 
 `<Container splitPreview>` defaulted to `'element'`, which drew a translucent
 band over a pane that stayed its full size. It now defaults to `'layout'`: the
@@ -1366,8 +1392,7 @@ assert on an exact `LockSet`, update the expectation.
 
 ### 1.2.0 — `hasFocus` deprecated in favor of `canFocus`
 
-Not breaking yet: `store.hasFocus(id)` still works and delegates. It is
-removed at 2.0.0, so rename your call sites.
+`store.hasFocus(id)` delegated to `canFocus` from here until 2.0.0 removed it.
 
 The method answers "does this node have a focus machine", the same shape as
 `isContainer` / `isMember`. But it sat one method away from `focusedId`, and
