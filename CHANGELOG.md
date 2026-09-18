@@ -31,6 +31,12 @@ section below.
   `overflow: 'clip'` reports no overflow at all; `'scroll'`, the default, is
   the old behavior plus the two new edges.
 
+- **`minimizable` on `desktopStrategy`.** Each window gets a `click` affordance at
+  the right of its title band that flips `placement.minimized`, and an iconified
+  window gets one over its icon to restore it. The built-in affordance layer now
+  renders `click` affordances, as a named `<button>`; it rendered them as inert
+  drag handles before.
+
 - **An affordance handle stacks at its rect's `z`**, so a window's title band sits
   above that window and below the ones in front of it. `Affordance.label` names
   what a gesture does (`'move'`), and the handle's accessible name uses it in

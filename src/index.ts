@@ -86,6 +86,7 @@ export {
   DESKTOP_DRAG,
   DESKTOP_DRAG_PREFIX,
   DESKTOP_MINIMIZE,
+  DESKTOP_MINIMIZE_PREFIX,
   DESKTOP_OVERFLOW,
   type DesktopConfig,
   type DesktopState,

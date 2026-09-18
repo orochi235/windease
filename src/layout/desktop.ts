@@ -3,6 +3,7 @@ import type {
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
+  Rect,
   Size,
   StatefulLayoutStrategy,
 } from '../layout-types.js';
@@ -42,6 +43,9 @@ export interface DesktopConfig {
   /** `'scroll'` (the default) reports windows past any edge as `overflow`, so a
    *  host can scroll to them; `'clip'` reports none. */
   overflow?: (typeof DESKTOP_OVERFLOW)[number];
+  /** Put a click box at the right of each title band that flips the window's
+   *  `minimized`, and one over each iconified window that restores it. */
+  minimizable?: boolean;
 }
 
 /** {@link desktopStrategy}'s state: only whatever the wrapped strategy keeps. */
@@ -56,6 +60,7 @@ export const DEFAULT_HANDLE_SIZE = 22;
 
 /** Affordance id prefixes, so dispatch can route without knowing the inner strategy. */
 export const DESKTOP_DRAG_PREFIX = 'desktop:drag:';
+export const DESKTOP_MINIMIZE_PREFIX = 'desktop:minimize:';
 
 const DRAG_KIND = { xy: 'drag-xy', x: 'drag-x', y: 'drag-y' } as const;
 
@@ -87,7 +92,18 @@ function clampWindow(
 }
 
 function isOwnAffordance(id: string): boolean {
-  return id.startsWith(DESKTOP_DRAG_PREFIX);
+  return id.startsWith(DESKTOP_DRAG_PREFIX) || id.startsWith(DESKTOP_MINIMIZE_PREFIX);
+}
+
+function minimizeToggle(id: string, rect: Rect, minimized: boolean): Affordance {
+  return {
+    id: `${DESKTOP_MINIMIZE_PREFIX}${id}`,
+    kind: 'click',
+    rect,
+    cursor: 'pointer',
+    label: minimized ? 'restore' : 'minimize',
+    childId: id,
+  };
 }
 
 interface Layers {
@@ -155,6 +171,7 @@ export function desktopStrategy<TInner>(
       handleSize: 'number',
       clamp: DESKTOP_CLAMP,
       overflow: DESKTOP_OVERFLOW,
+      minimizable: 'boolean',
     },
 
     initialState(items, options) {
@@ -177,6 +194,13 @@ export function desktopStrategy<TInner>(
       const affordances: Affordance[] = [...result.affordances];
       const unplaced = [...(result.unplaced ?? [])];
       if (!inner) for (const icon of icons) unplaced.push(icon.id);
+      if (cfg.minimizable) {
+        for (const icon of icons) {
+          if (icon.meta?.icon === true || icon.meta?.minimized !== true) continue;
+          const rect = placements.get(icon.id);
+          if (rect) affordances.push(minimizeToggle(icon.id, rect, true));
+        }
+      }
 
       let overW = result.overflow?.w ?? 0;
       let overH = result.overflow?.h ?? 0;
@@ -231,6 +255,11 @@ export function desktopStrategy<TInner>(
             childId: item.id,
           });
         }
+        if (cfg.minimizable) {
+          const side = Math.min(handleSize, h, size.w);
+          const box = { x: at.x + size.w - side, y: at.y, z: rank, w: side, h: side };
+          affordances.push(minimizeToggle(item.id, box, minimized));
+        }
         overW = Math.max(overW, at.x + size.w - container.w);
         overH = Math.max(overH, at.y + h - container.h);
         overLeft = Math.max(overLeft, -at.x);
@@ -261,6 +290,14 @@ export function desktopStrategy<TInner>(
         if (!inner?.dispatchAffordance) return;
         const items = layers(ctx.items, ctx.options, hasInner).icons;
         inner.dispatchAffordance({ ...ctx, items });
+        return;
+      }
+      if (event.affordanceId.startsWith(DESKTOP_MINIMIZE_PREFIX)) {
+        if (event.kind !== 'click') return;
+        const id = asNodeId(event.affordanceId.slice(DESKTOP_MINIMIZE_PREFIX.length));
+        const minimized = store.getNode(id)?.membership?.placement.minimized === true;
+        trace('layout', `desktop: ${id} ${minimized ? 'restored' : 'minimized'} by its toggle`);
+        store.patchPlacement(id, { minimized: !minimized });
         return;
       }
       if (event.kind !== 'drag') return;

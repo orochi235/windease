@@ -11,7 +11,10 @@ const ZONE = asNodeId('z');
 const CHROME: ChromeMap = { window: ({ node }) => <div>{String(node.id)}</div> };
 const STRATEGIES = { desktop: desktopStrategy() as never };
 
-function renderDesktop(config: Record<string, unknown>) {
+function renderDesktop(
+  config: Record<string, unknown>,
+  props: { affordanceTabStops?: boolean } = {},
+) {
   const store = new Store();
   store.registerNode(
     createNode({ kind: 'zone', id: ZONE, container: { strategyId: 'desktop', config } }),
@@ -35,7 +38,13 @@ function renderDesktop(config: Record<string, unknown>) {
   const view = render(
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
-        <Container parentId={ZONE} chrome={CHROME} viewport={{ w: 200, h: 100 }} affordances />
+        <Container
+          parentId={ZONE}
+          chrome={CHROME}
+          viewport={{ w: 200, h: 100 }}
+          affordances
+          {...props}
+        />
       </StrategyRegistryProvider>
     </Provider>,
   );
@@ -61,5 +70,20 @@ describe('desktop affordances in <Container>', () => {
     fireEvent.pointerMove(band, { clientX: 25, clientY: 18, pointerId: 1 });
     fireEvent.pointerUp(band, { clientX: 25, clientY: 18, pointerId: 1 });
     expect(placementOf(store, 'b')).toMatchObject({ x: 35, y: 8 });
+  });
+
+  it('renders the minimize toggle as a named button that a click flips', () => {
+    const { store, hit } = renderDesktop({ minimizable: true });
+    const box = hit('desktop:minimize:a');
+    expect(box.tagName).toBe('BUTTON');
+    expect(box.getAttribute('aria-label')).toBe('minimize a');
+    fireEvent.click(box);
+    expect(placementOf(store, 'a').minimized).toBe(true);
+    expect(hit('desktop:minimize:a').getAttribute('aria-label')).toBe('restore a');
+  });
+
+  it('keeps the toggle out of the tab order when affordance tab stops are off', () => {
+    const { hit } = renderDesktop({ minimizable: true }, { affordanceTabStops: false });
+    expect(hit('desktop:minimize:a').tabIndex).toBe(-1);
   });
 });

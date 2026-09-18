@@ -96,3 +96,17 @@
 .desktop-surface {
   background: #f4f4f7;
 }
+
+.desktop-window__glyph {
+  width: 18px;
+  text-align: center;
+}
+
+.desktop-scroller [data-affordance-kind="click"]:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.desktop-scroller--no-toggle .desktop-window__glyph {
+  visibility: hidden;
+}

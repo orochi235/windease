@@ -909,6 +909,7 @@ the pressed element in the DOM and the browser drops the click it was for.
 | `drag` | off | `true` moves a window by its title band, `'x'` or `'y'` on one axis only |
 | `handleSize` | `22` | height of the title band `drag` grabs |
 | `clamp` | off | `'bar'` keeps each title band inside the desktop; `'all'` keeps whole windows inside where they fit |
+| `minimizable` | off | adds a click box at the right of each title band that flips `minimized`, and one over each iconified window |
 | `overflow` | `'scroll'` | `'scroll'` reports windows past any edge as `overflow`, left and top included; `'clip'` reports none |
 
 With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`
@@ -927,6 +928,13 @@ dragged, so a layout saved on a larger screen comes back reachable; the stored
 kept inside horizontally and its top within `[0, h - handleSize]`, so the body
 may hang off the bottom. An axis a window cannot fit on pins it to the left or
 top edge.
+
+**Minimize toggle.** With `minimizable: true`, each window gets a `click`
+affordance, a `handleSize` square at the right end of its title band, and pressing
+it flips the window's `placement.minimized`. A window iconified under
+`minimize: 'icon'` gets one over its icon, so pressing the icon restores it. The
+built-in renderer draws it as an empty `<button>` named "minimize …" or
+"restore …", and the chrome draws the glyph beneath.
 
 **Overflow.** Under the default `overflow: 'scroll'`, a window at `x = -1800` is
 reported as `overflow.left`, so a scrolling wrapper can reach it (see

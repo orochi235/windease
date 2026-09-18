@@ -182,6 +182,7 @@ interface BehaviorArgs {
   drag: 'true' | 'x' | 'y' | 'false';
   clamp: 'none' | 'bar' | 'all';
   overflow: 'scroll' | 'clip';
+  minimizable: boolean;
 }
 
 const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number }[] = [
@@ -200,6 +201,7 @@ function behaviorConfig(args: BehaviorArgs): Record<string, unknown> {
     drag,
     clamp: args.clamp === 'none' ? undefined : args.clamp,
     overflow: args.overflow,
+    minimizable: args.minimizable,
   };
 }
 
@@ -235,11 +237,15 @@ function useBehaviorStore(args: BehaviorArgs): Store {
   return store;
 }
 
+/** Draws the bar and a glyph under the toggle; the desktop's affordances do the rest. */
 const BEHAVIOR_CHROME: ChromeMap = {
   window: ({ node }) => (
     <div className="desktop-window">
       <header className="desktop-window__bar">
         <span>{String(node.meta?.title ?? node.id)}</span>
+        <span className="desktop-window__glyph" aria-hidden="true">
+          {node.membership?.placement.minimized === true ? '▢' : '–'}
+        </span>
       </header>
       <div className="desktop-window__body">{String(node.id)}</div>
     </div>
@@ -262,7 +268,7 @@ function BehaviorZone(args: BehaviorArgs) {
         <RaiseOnFocus />
         <div
           ref={scrollRef}
-          className={`desktop-scroller desktop-scroller--${args.overflow}`}
+          className={`desktop-scroller desktop-scroller--${args.overflow}${args.minimizable ? '' : ' desktop-scroller--no-toggle'}`}
           data-testid="desktop-scroller"
           onClickCapture={(e) => raiseFromBand(store, e.target)}
         >
@@ -277,7 +283,8 @@ function BehaviorZone(args: BehaviorArgs) {
         </div>
         <p className="desktop-hint">
           Drag a window by its title bar. <code>drag: 'y'</code> moves it up and down only;{' '}
-          <code>clamp</code> keeps its title bar, or all of it, on the desktop. win-3 was left on a
+          <code>clamp</code> keeps its title bar, or all of it, on the desktop;{' '}
+          <code>minimizable</code> makes the box at its right roll it up. win-3 was left on a
           monitor that is gone: scroll left to reach it, or clamp to bring it back.
         </p>
       </StrategyRegistryProvider>
@@ -287,7 +294,7 @@ function BehaviorZone(args: BehaviorArgs) {
 
 /** Every gesture here is a `desktopStrategy` config key; the story wires no pointer code. */
 export const Behavior: Story<BehaviorArgs> = (args) => <BehaviorZone {...args} />;
-Behavior.args = { drag: 'true', clamp: 'none', overflow: 'scroll' };
+Behavior.args = { drag: 'true', clamp: 'none', overflow: 'scroll', minimizable: true };
 Behavior.argTypes = {
   drag: { options: ['true', 'x', 'y', 'false'], control: { type: 'radio' } },
   clamp: { options: ['none', 'bar', 'all'], control: { type: 'radio' } },

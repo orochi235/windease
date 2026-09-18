@@ -7,6 +7,7 @@ import { asNodeId } from '../node.js';
 import { Store } from '../store.js';
 import { captureTrace } from '../test-utils/capture-trace.js';
 import { desktopStrategy } from './desktop.js';
+import { shelfStrategy } from './shelf.js';
 
 const Z = asNodeId('z');
 const CONTAINER = { w: 400, h: 300 };
@@ -277,5 +278,73 @@ describe('desktop overflow', () => {
 
   it('declares overflow in its config spec', () => {
     expect(strategy.configSpec).toMatchObject({ overflow: ['clip', 'scroll'] });
+  });
+});
+
+describe('desktop minimize toggle', () => {
+  const click = (s: Store, id: string) =>
+    dispatch(s, `desktop:minimize:${id}`, { kind: 'click', payload: {} });
+
+  it('emits no toggle unless minimizable', () => {
+    const s = desktop({ drag: true }, [{ id: 'a' }]);
+    expect(layoutOf(s).affordances.map((a) => a.kind)).toEqual(['drag-xy']);
+  });
+
+  it('puts a square click box at the right of the title band, above the drag band', () => {
+    const s = desktop({ drag: true, minimizable: true }, [
+      { id: 'a', placement: { x: 10, y: 20 } },
+    ]);
+    const affs = layoutOf(s).affordances;
+    expect(affs.map((a) => a.id)).toEqual(['desktop:drag:a', 'desktop:minimize:a']);
+    expect(affs[1]).toMatchObject({
+      kind: 'click',
+      rect: { x: 88, y: 20, z: 1, w: 22, h: 22 },
+      label: 'minimize',
+      childId: 'a',
+    });
+  });
+
+  it('sizes the box by handleSize', () => {
+    const s = desktop({ minimizable: true, handleSize: 30 }, [
+      { id: 'a', placement: { x: 0, y: 0 } },
+    ]);
+    expect(affordance(s, 'desktop:minimize:a').rect).toMatchObject({ x: 70, w: 30, h: 30 });
+  });
+
+  it('flips placement.minimized, and labels the box for what the next click does', () => {
+    const s = desktop({ minimizable: true }, [{ id: 'a', placement: { x: 0, y: 0 } }]);
+    click(s, 'a');
+    expect(placementOf(s, 'a').minimized).toBe(true);
+    expect(layoutOf(s).placements.get('a')?.h).toBe(28);
+    expect(affordance(s, 'desktop:minimize:a').label).toBe('restore');
+    click(s, 'a');
+    expect(placementOf(s, 'a').minimized).toBe(false);
+  });
+
+  it('puts the toggle over an iconified window, so the icon restores it', () => {
+    const inner = desktopStrategy(shelfStrategy);
+    const s = desktop({ minimizable: true, minimize: 'icon' }, [
+      { id: 'a', placement: { x: 0, y: 0, minimized: true } },
+    ]);
+    const options = s.getNode(Z)?.container?.config as Record<string, unknown>;
+    const items = itemsOf(s);
+    const r = inner.layout({
+      items,
+      container: CONTAINER,
+      state: inner.initialState(items, options),
+      options,
+    });
+    const aff = r.affordances.find((a) => a.id === 'desktop:minimize:a');
+    expect(aff).toMatchObject({ kind: 'click', label: 'restore', rect: r.placements.get('a') });
+  });
+
+  it('ignores a drag event on the toggle', () => {
+    const s = desktop({ minimizable: true }, [{ id: 'a', placement: { x: 0, y: 0 } }]);
+    dispatch(s, 'desktop:minimize:a', { kind: 'drag', payload: { dx: 5 } });
+    expect(placementOf(s, 'a').minimized).toBeUndefined();
+  });
+
+  it('declares minimizable in its config spec', () => {
+    expect(strategy.configSpec).toMatchObject({ minimizable: 'boolean' });
   });
 });

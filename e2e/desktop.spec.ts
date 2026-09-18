@@ -166,6 +166,22 @@ test.describe('desktop behavior keys', () => {
     expect(extent).toEqual({ over: 0, left: 0 });
   });
 
+  test('the minimize box rolls a window up and back down', async ({ page }) => {
+    await openStory(page, BEHAVIOR);
+    const before = await boxOf(node(page, 'win-1'));
+    const toggle = page.getByRole('button', { name: 'minimize win-1' });
+    await toggle.click();
+    expect(await settledBox(node(page, 'win-1'))).toMatchObject({ ...before, h: 28 });
+
+    await page.getByRole('button', { name: 'restore win-1' }).press('Enter');
+    expect(await settledBox(node(page, 'win-1'))).toEqual(before);
+  });
+
+  test('there is no minimize box unless minimizable is set', async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-minimizable=false`);
+    await expect(page.getByRole('button', { name: 'minimize win-1' })).toHaveCount(0);
+  });
+
   test("clamp brings back a window left on a monitor that's gone", async ({ page }) => {
     await openStory(page, `${BEHAVIOR}&arg-clamp=all`);
     const desk = await deskOf(page);
