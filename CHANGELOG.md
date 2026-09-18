@@ -6,6 +6,16 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
+## Unreleased
+
+### Fixed
+
+- **`shelfStrategy`, `skylineStrategy` and `columnStrategy` no longer wrap a row
+  that fills the width exactly.** Six tiles of width `100 / 6` sum to
+  `100.00000000000001`, so the sixth started a new row and masonry lost a column.
+  Width comparisons now allow for float drift, and a sub-pixel excess no longer
+  reports `overflow`.
+
 ## 2.0.0
 
 ### Removed

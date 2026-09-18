@@ -85,6 +85,14 @@ export function describePackContract(strategy: LayoutStrategy<void, string>): vo
       }
     });
 
+    it('keeps a row that fills the width exactly on one row despite float drift', () => {
+      // Six sixths of 100 sum to 100.00000000000001.
+      const items = Array.from({ length: 6 }, (_, i) => sized(`t${i}`, 100 / 6, 10));
+      const result = runPack(strategy, items, { w: 100, h: 10 });
+      expect(new Set([...result.placements.values()].map((r) => r.y))).toEqual(new Set([0]));
+      expect(result.overflow).toBeUndefined();
+    });
+
     it('returns the same layout on every call', () => {
       const first = runPack(strategy, boxes, container, { gap: 6 });
       const second = runPack(strategy, boxes, container, { gap: 6 });

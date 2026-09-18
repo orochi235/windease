@@ -127,8 +127,9 @@ describe.each(ALL_PRESETS.map((p) => [p.id, p] as const))('%s', (_id, p) => {
 
     it('reports overflow as the far edges past the container, and nothing when none', () => {
       const { right, bottom } = extent(result.placements);
-      const w = Math.max(0, right - W);
-      const h = Math.max(0, bottom - scenario.container.h);
+      const past = (edge: number, limit: number) => (edge > limit + EPS ? edge - limit : 0);
+      const w = past(right, W);
+      const h = past(bottom, scenario.container.h);
       if (w > 0 || h > 0) expect(result.overflow).toEqual({ w, h });
       else expect(result.overflow).toBeUndefined();
     });
@@ -469,6 +470,7 @@ describe('float drift at the width boundary', () => {
       for (const gap of [0, 3, 10]) {
         for (let n = 2; n <= 24; n++) {
           const w = (W - (n - 1) * gap) / n;
+          if (w <= 0) continue;
           const items = Array.from({ length: n }, (_, i) => ({
             id: `t${i}`,
             hints: { preferredSize: { w, h: 10 } },
@@ -485,13 +487,11 @@ describe('float drift at the width boundary', () => {
     return bad;
   }
 
-  // Defect: shelf compares `x + w > container.w` with no tolerance, so six 100/6 tiles sum to 100.00000000000001 and wrap.
-  it.fails('shelf keeps six tiles of width 100/6 on one row', () => {
+  it('shelf keeps six tiles of width 100/6 on one row', () => {
     expect(rows(run(preset('equal-sixths'), 'shelf').result)).toHaveLength(1);
   });
 
-  // Defect: skyline's `candidate + size.w > container.w` has the same missing tolerance.
-  it.fails('skyline keeps six tiles of width 100/6 on one row', () => {
+  it('skyline keeps six tiles of width 100/6 on one row', () => {
     expect(rows(run(preset('equal-sixths'), 'skyline').result)).toHaveLength(1);
   });
 
@@ -499,8 +499,7 @@ describe('float drift at the width boundary', () => {
     expect(rows(run(preset('equal-sixths'), 'column').result)).toHaveLength(1);
   });
 
-  // Defect: shelf and skyline wrap on float drift (above); masonry's `floor((w + gap) / pitch)` loses a column the same way.
-  it.fails.each(PACKERS)(
+  it.each(PACKERS)(
     '%s keeps n tiles of (W − (n−1)·gap)/n on one row for every W, gap and n',
     (packer) => {
       expect(wrapsAnExactRow(packer)).toEqual([]);
