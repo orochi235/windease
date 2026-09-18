@@ -547,7 +547,8 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
   const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
-  const resizing = draggingAffordanceId !== null || useContext(ResizeGestureContext);
+  const ancestorResizing = useContext(ResizeGestureContext);
+  const resizing = draggingAffordanceId !== null || ancestorResizing;
   const settleMs = resizing ? 0 : (props.settleMs ?? DEFAULT_SETTLE_MS);
   const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
   const layoutInfo: LayoutInfo = {

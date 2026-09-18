@@ -284,7 +284,8 @@ function StoreContainer({
   const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
   const reducedMotion =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const resizing = draggingAffordanceId !== null || useContext(ResizeGestureContext);
+  const ancestorResizing = useContext(ResizeGestureContext);
+  const resizing = draggingAffordanceId !== null || ancestorResizing;
   const effectiveSettleMs = resizing || reducedMotion ? 0 : settleMs;
 
   const containerStyle: CSSProperties = viewport
