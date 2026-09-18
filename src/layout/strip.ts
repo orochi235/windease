@@ -7,6 +7,7 @@ import type {
   Rect,
   Size,
 } from '../layout-types.js';
+import { trace } from '../trace.js';
 import { selectByCapacity } from './capacity.js';
 import { clampExplicitSizes } from './resize.js';
 import { DEFAULT_JOIN_THRESHOLD } from './seam-join.js';
@@ -78,11 +79,19 @@ interface StripConfig {
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
 }
 
+/** A size input as the row may use it: finite and non-negative. Anything else
+ *  (a corrupt persisted size, a NaN from a consumer's arithmetic) is treated
+ *  as absent rather than rendered, and traced so it can be found. */
+function sane(v: unknown, item: LayoutItem, field: string): number | undefined {
+  if (typeof v !== 'number') return undefined;
+  if (Number.isFinite(v) && v >= 0) return v;
+  trace('layout', `strip: ignoring ${field} ${v} on ${item.id}`);
+  return undefined;
+}
+
 function explicitAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
-  const size = (item as unknown as { placement?: { size?: { w?: number; h?: number } } }).placement
-    ?.size;
-  const v = axis === 'x' ? size?.w : size?.h;
-  return typeof v === 'number' ? v : undefined;
+  const size = item.placement?.size;
+  return sane(axis === 'x' ? size?.w : size?.h, item, `placement.size.${axis === 'x' ? 'w' : 'h'}`);
 }
 
 /** A measured content extent, honored only on an axis the item asked to be
@@ -96,8 +105,8 @@ function explicitAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
 function naturalAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
   const asked = axis === 'x' ? item.hints?.sizing?.w : item.hints?.sizing?.h;
   if (asked !== 'content') return undefined;
-  const v = axis === 'x' ? item.natural?.w : item.natural?.h;
-  return typeof v === 'number' ? Math.max(v, effectiveMinAxis(item, axis)) : undefined;
+  const v = sane(axis === 'x' ? item.natural?.w : item.natural?.h, item, 'natural');
+  return v !== undefined ? Math.max(v, effectiveMinAxis(item, axis)) : undefined;
 }
 
 /** The extent this item is asking for, whatever it asked with. A measurement
@@ -109,16 +118,12 @@ function requestedAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
 
 function effectiveMinAxis(item: LayoutItem, axis: 'x' | 'y'): number {
   const m = item.hints?.minSize;
-  if (!m) return 0;
-  return axis === 'x' ? m.w : m.h;
+  return sane(axis === 'x' ? m?.w : m?.h, item, 'minSize') ?? 0;
 }
 
 function effectiveMaxAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
-  const m = (item as unknown as { hints?: { maxSize?: { w?: number; h?: number } } }).hints
-    ?.maxSize;
-  if (!m) return undefined;
-  const v = axis === 'x' ? m.w : m.h;
-  return typeof v === 'number' ? v : undefined;
+  const m = item.hints?.maxSize;
+  return sane(axis === 'x' ? m?.w : m?.h, item, 'maxSize');
 }
 
 /** Effective reach of a resize affordance on `item`, given what siblings'
@@ -141,21 +146,14 @@ function boundsFor(
   const own = effectiveMinAxis(item, axis);
   const max = effectiveMaxAxis(item, axis);
 
-  let valueMax: number;
   if (pair) {
-    const total = valueNow + pair.extent;
-    valueMax = total - effectiveMinAxis(pair.item, axis);
-    const pairMax = effectiveMaxAxis(pair.item, axis);
-    if (pairMax !== undefined && total - pairMax > own) {
-      // The neighbor's own ceiling stops this pane shrinking any further.
-      return finishBounds(axis, valueNow, Math.max(own, total - pairMax), valueMax, max);
-    }
-  } else {
-    const otherMinSum = placedItems
-      .filter((it) => it.id !== item.id)
-      .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
-    valueMax = usableMain - otherMinSum;
+    const { lo, hi } = neighborRange(item, valueNow, pair.item, pair.extent, axis);
+    return finishBounds(axis, valueNow, valueNow + lo, valueNow + hi);
   }
+  const otherMinSum = placedItems
+    .filter((it) => it.id !== item.id)
+    .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
+  let valueMax = usableMain - otherMinSum;
   if (max !== undefined && max < valueMax) valueMax = max;
   if (valueMax < own) valueMax = own;
   // A pane sized under its own min (a collapsed palette) would otherwise
@@ -185,6 +183,30 @@ function finishBounds(
   };
 }
 
+/** How far a neighbor seam may move from where it sits: `lo <= 0 <= hi`, in
+ *  main-axis pixels added to `a` and taken from `b`. A pane already past one of
+ *  its limits (a sliver stored under its min) may not move further past it, but
+ *  is never pushed back inside it either, so a drag can stall and never reverse. */
+function neighborRange(
+  a: LayoutItem,
+  baseA: number,
+  b: LayoutItem,
+  baseB: number,
+  axis: 'x' | 'y',
+): { lo: number; hi: number } {
+  const maxA = effectiveMaxAxis(a, axis);
+  const maxB = effectiveMaxAxis(b, axis);
+  const lo = Math.max(
+    Math.min(0, effectiveMinAxis(a, axis) - baseA),
+    maxB === undefined ? Number.NEGATIVE_INFINITY : Math.min(0, baseB - maxB),
+  );
+  const hi = Math.min(
+    maxA === undefined ? Number.POSITIVE_INFINITY : Math.max(0, maxA - baseA),
+    Math.max(0, baseB - effectiveMinAxis(b, axis)),
+  );
+  return { lo, hi };
+}
+
 /** The main-axis extent every placed item receives. `layout` writes these into
  *  the rects and `dispatchAffordance` resizes from them; computing the row
  *  twice is how a seam came to advertise a base its pane never rendered at. */
@@ -198,39 +220,49 @@ function mainSizes(
   // what it has, so nothing scales and the excess is reported instead. A
   // measured pane holds at its measurement for the same reason an explicit
   // one does: it is what the pane asked for.
-  const intrinsicMain = placedItems.reduce((sum, it) => sum + intrinsicAxis(it, axis), 0);
-  const budget = cfg.overflowMode === 'scroll' ? Math.max(usableMain, intrinsicMain) : usableMain;
-
-  // If any child has explicit placement.size on the main axis, use the clamp
-  // helper for the whole row. Otherwise take the preferredSize/fill path.
-  if (placedItems.some((it) => requestedAxis(it, axis) !== undefined)) {
-    const clamp = clampExplicitSizes({
-      available: budget,
-      items: placedItems.map((it) => ({
-        id: it.id,
-        explicit: requestedAxis(it, axis),
-        min: effectiveMinAxis(it, axis),
-        max: effectiveMaxAxis(it, axis),
-      })),
-    });
-    return placedItems.map((it) => clamp.get(it.id) ?? 0);
-  }
-
-  const fill = cfg.fill ?? false;
-  const preferred = placedItems.map((item) =>
-    axis === 'x' ? (item.hints?.preferredSize?.w ?? 0) : (item.hints?.preferredSize?.h ?? 0),
+  const hinted = sizedByHints(placedItems, axis);
+  const intrinsicMain = placedItems.reduce(
+    (sum, it) => sum + intrinsicAxis(it, axis, cfg, hinted),
+    0,
   );
-  const totalPreferred = preferred.reduce((sum, v) => sum + v, 0);
-  const flexCount = preferred.filter((v) => v === 0).length;
-  const flexMain =
-    fill && flexCount > 0 ? Math.max(0, (usableMain - totalPreferred) / flexCount) : 0;
-  const fallbackMain = fill ? flexMain : (cfg.defaultItemSize ?? 0);
-  // Floor at min here too: without it `minSize` is honored only when some
-  // sibling happens to carry an explicit size, and ignored otherwise.
-  return placedItems.map((item, i) => {
-    const v = preferred[i] ?? 0;
-    return Math.max(v > 0 ? v : fallbackMain, effectiveMinAxis(item, axis));
+  // A hint-sized row has never scaled preferredSize under `squeeze` either,
+  // despite that mode's docstring; which one is right is an open question.
+  const budget =
+    cfg.overflowMode === 'scroll' || hinted ? Math.max(usableMain, intrinsicMain) : usableMain;
+
+  // Once any child states a size, every child without one shares the rest and
+  // preferredSize is not consulted; otherwise preferredSize (or, under
+  // `fill: false`, defaultItemSize) is what each child states.
+  const clamp = clampExplicitSizes({
+    available: budget,
+    items: placedItems.map((it) => ({
+      id: it.id,
+      explicit: hinted ? hintedAxis(it, axis, cfg) : requestedAxis(it, axis),
+      min: effectiveMinAxis(it, axis),
+      max: effectiveMaxAxis(it, axis),
+    })),
   });
+  return placedItems.map((it) => clamp.get(it.id) ?? 0);
+}
+
+/** Whether the row is sized by hints, because no child states a size. */
+function sizedByHints(items: LayoutItem[], axis: 'x' | 'y'): boolean {
+  return !items.some((it) => requestedAxis(it, axis) !== undefined);
+}
+
+function preferredAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
+  const p = item.hints?.preferredSize;
+  const v = sane(axis === 'x' ? p?.w : p?.h, item, 'preferredSize');
+  return v !== undefined && v > 0 ? v : undefined;
+}
+
+/** What a child of a hint-sized row asks for: its preferredSize, else the
+ *  row's defaultItemSize under `fill: false`, floored at its min. Undefined for
+ *  a child that shares whatever the others leave. */
+function hintedAxis(item: LayoutItem, axis: 'x' | 'y', cfg: StripConfig): number | undefined {
+  const fallback = (cfg.fill ?? false) ? undefined : (cfg.defaultItemSize ?? 0);
+  const v = preferredAxis(item, axis) ?? fallback;
+  return v === undefined ? undefined : Math.max(v, effectiveMinAxis(item, axis));
 }
 
 /** The join a seam between `item` and `next` declares, or undefined when this
@@ -261,9 +293,33 @@ function writeSize(store: unknown, id: string, axis: 'x' | 'y', value: number): 
   });
 }
 
+/** `items` as they will read once `writes` land in `placement.size`. */
+function withSizes(
+  items: LayoutItem[],
+  writes: ReadonlyMap<string, number>,
+  axis: 'x' | 'y',
+): LayoutItem[] {
+  return items.map((it) => {
+    const v = writes.get(it.id);
+    if (v === undefined) return it;
+    const size = { ...it.placement?.size, [axis === 'x' ? 'w' : 'h']: v };
+    return { ...it, placement: { ...it.placement, size } };
+  });
+}
+
 /** What this item asks to occupy on the main axis when nothing compresses it. */
-function intrinsicAxis(item: LayoutItem, axis: 'x' | 'y'): number {
-  return requestedAxis(item, axis) ?? effectiveMinAxis(item, axis);
+function intrinsicAxis(
+  item: LayoutItem,
+  axis: 'x' | 'y',
+  cfg: StripConfig,
+  hinted: boolean,
+): number {
+  const v =
+    requestedAxis(item, axis) ??
+    (hinted ? hintedAxis(item, axis, cfg) : undefined) ??
+    effectiveMinAxis(item, axis);
+  const max = effectiveMaxAxis(item, axis);
+  return max !== undefined && v > max ? max : v;
 }
 
 /** Capacity-selected subset both `layout` and `dispatchAffordance` must agree
@@ -284,9 +340,10 @@ function placedOf(
   const padding = cfg.padding ?? 0;
   const placed: LayoutItem[] = [];
   const unplaced = [...byCount.unplaced];
+  const hinted = sizedByHints(byCount.placed, axis);
   let used = 2 * padding;
   for (const item of byCount.placed) {
-    const need = intrinsicAxis(item, axis) + (placed.length > 0 ? gap : 0);
+    const need = intrinsicAxis(item, axis, cfg, hinted) + (placed.length > 0 ? gap : 0);
     // The first pane is placed whatever its extent: an empty container hides
     // the overflow instead of showing it.
     if (placed.length > 0 && used + need > main) {
@@ -363,7 +420,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
 
     if (axis === 'x') {
       const y = padding;
-      const h = container.h - 2 * padding;
+      const h = Math.max(0, container.h - 2 * padding);
       let x = padding;
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
@@ -398,7 +455,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       }
     } else {
       const x = padding;
-      const w = container.w - 2 * padding;
+      const w = Math.max(0, container.w - 2 * padding);
       let y = padding;
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
@@ -474,20 +531,29 @@ export const stripStrategy: LayoutStrategy<void, string> = {
 
       const baseA = sizes[index] ?? 0;
       const baseB = sizes[index + 1] ?? 0;
-      const minA = effectiveMinAxis(item, axis);
-      const maxA = effectiveMaxAxis(item, axis);
-      const minB = effectiveMinAxis(next, axis);
-      const maxB = effectiveMaxAxis(next, axis);
-
-      let d = delta;
-      if (baseA + d < minA) d = minA - baseA;
-      if (maxA !== undefined && baseA + d > maxA) d = maxA - baseA;
-      if (baseB - d < minB) d = baseB - minB;
-      if (maxB !== undefined && baseB - d > maxB) d = baseB - maxB;
+      const { lo, hi } = neighborRange(item, baseA, next, baseB, axis);
+      const d = Math.min(hi, Math.max(lo, delta));
       if (d === 0) return;
 
-      writeSize(store, childId as string, axis, baseA + d);
-      writeSize(store, next.id, axis, baseB - d);
+      // Two new sizes can move the rest of the row: a squeezed row rescales
+      // against the new stored sum, and a row sized by preferredSize leaves that
+      // path for the stored-size one. Pin whatever would move where it renders.
+      const writes = new Map<string, number>([
+        [item.id, baseA + d],
+        [next.id, baseB - d],
+      ]);
+      for (let pass = 0; pass < placedItems.length; pass++) {
+        const after = mainSizes(withSizes(placedItems, writes, axis), cfg, axis, usableMain);
+        const pinned = writes.size;
+        placedItems.forEach((it, i) => {
+          const now = sizes[i] ?? 0;
+          if (!writes.has(it.id) && Math.abs((after[i] ?? 0) - now) > 1e-6) writes.set(it.id, now);
+        });
+        if (writes.size === pinned) break;
+      }
+      if (writes.size > 2)
+        trace('layout', `strip: pinned ${writes.size - 2} panes beside ${childId}`);
+      for (const [id, v] of writes) writeSize(store, id, axis, v);
       return;
     }
 
@@ -505,6 +571,9 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     if (next > ceiling) next = ceiling;
     if (next < min) next = min;
     if (max !== undefined && next > max) next = max;
+    // A pane stored under its floor (a minimized group) sits outside the range
+    // above; clamping into it would move the seam against the pointer.
+    if ((next - base) * delta < 0) return;
 
     writeSize(store, childId as string, axis, next);
   },

@@ -44,6 +44,49 @@ section below.
   over a second; a grid with no row cap now skips the repack, since every span
   fits there, and a capped one repacks only the items after the one resized.
 
+- **`stripStrategy` ignores a size it cannot render.** A NaN, infinite or
+  negative `placement.size`, `minSize`, `maxSize` or measurement is treated as
+  absent, with a `layout` trace naming the pane and the value. A NaN stored
+  size used to render as written and spread into the next sibling's position,
+  and a negative `maxSize` gave a negative width.
+
+- **`hints.maxSize` caps a strip pane with no stored size.** It was honored
+  only on a pane with a `placement.size`, so an auto pane beside stored-size
+  sidebars (Obsidian's note under a 700px readable-line cap) rendered at
+  whatever was left over, and a `preferredSize` above the cap rendered as
+  asked.
+
+- **`overflowMode: 'unplaced'` counts `preferredSize` when deciding what
+  fits.** A row sized by `preferredSize` counted each pane at its `minSize`,
+  so it placed every pane and overflowed instead of unplacing the ones that
+  did not fit.
+
+- **Strip panes that share the leftover no longer overflow a row that fits.**
+  The leftover was split equally and each share floored at its pane's
+  `minSize` afterward, so two panes with 400px and 380px minimums overflowed
+  780px by 10. A pane whose floor or cap binds now takes it, and its siblings
+  share the rest.
+
+- **A `resizeMode: 'neighbor'` seam drag moves only the two panes beside it.**
+  In a squeezed row — stored sizes that add up to more than the container —
+  the drag wrote squeezed sizes for its pair while the other panes kept their
+  larger stored ones, so the row rescaled: a 16px drag of Xcode's navigator
+  moved the inspector from 260 to 334. And the first drag on a row sized by
+  `preferredSize` moved it onto the stored-size path, where untouched panes
+  shared the leftover equally. The drag now also writes the rendered size of
+  any other pane that would otherwise move.
+
+- **A strip seam drag never moves against the pointer.** Beside a pane stored
+  under its `minSize` — an acme window shrunk to a 2px sliver, a minimized
+  Photoshop group — a `'neighbor'` drag could flip direction and write a
+  negative size, and a `'redistribute'` drag jumped the pane up to its minimum.
+  A pane past one of its limits now stays put when pushed further past it, and
+  the seam's `bounds` advertise the same range the drag reaches.
+
+- **A strip's cross axis no longer goes negative.** Padding larger than the
+  container, as a host hidden with `display: none` measures, now gives panes a
+  cross extent of 0 rather than a negative one, as `stackStrategy` already did.
+
 ## 2.0.0
 
 ### Removed

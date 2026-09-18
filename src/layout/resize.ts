@@ -35,7 +35,9 @@ export interface ClampInput {
  *     nothing collapses to zero under pressure. Space a cap frees up flows
  *     into the leftover pool rather than being lost.
  *  3. Leftover after explicit items is distributed equally among
- *     unconstrained items (their min is honored as a floor).
+ *     unconstrained items, within each one's `[min, max]`: an item whose
+ *     bound binds takes it, and the others share the rest. So a larger floor
+ *     is paid for by its siblings rather than overflowing a row that fits.
  */
 export function clampExplicitSizes(input: ClampInput): Map<string, number> {
   const out = new Map<string, number>();
@@ -43,7 +45,7 @@ export function clampExplicitSizes(input: ClampInput): Map<string, number> {
 
   const explicits = input.items.filter((it) => it.explicit !== undefined);
   const unconstrained = input.items.filter((it) => it.explicit === undefined);
-  const unconstrainedMinSum = unconstrained.reduce((s, it) => s + it.min, 0);
+  const unconstrainedMinSum = unconstrained.reduce((s, it) => s + autoFloor(it), 0);
 
   const requested = new Map<string, number>();
   for (const it of explicits) {
@@ -84,12 +86,58 @@ export function clampExplicitSizes(input: ClampInput): Map<string, number> {
   for (const it of explicits) usedByExplicit += out.get(it.id) ?? 0;
 
   const leftover = Math.max(0, input.available - usedByExplicit);
-  if (unconstrained.length > 0) {
-    const per = leftover / unconstrained.length;
-    for (const it of unconstrained) {
-      out.set(it.id, Math.max(it.min, per));
-    }
-  }
+  const shares = shareLeftover(
+    unconstrained.map((it) => ({ lo: autoFloor(it), hi: it.max ?? Number.POSITIVE_INFINITY })),
+    leftover,
+  );
+  unconstrained.forEach((it, i) => {
+    out.set(it.id, shares[i] ?? 0);
+  });
 
   return out;
+}
+
+/** An unconstrained item's floor: its min, unless a max sits under it. */
+function autoFloor(it: ClampItem): number {
+  return it.max !== undefined && it.max < it.min ? it.max : it.min;
+}
+
+/**
+ * Splits `total` equally across items bounded by `[lo, hi]`, so an item whose
+ * bound binds takes that bound and the rest share what it leaves. Sums to
+ * `total` whenever the bounds allow it; otherwise every item sits at the bound
+ * that stopped it.
+ */
+export function shareLeftover(
+  items: readonly { lo: number; hi: number }[],
+  total: number,
+): number[] {
+  if (items.length === 0) return [];
+  const clamp = (it: { lo: number; hi: number }, s: number) => Math.min(it.hi, Math.max(it.lo, s));
+  const per = total / items.length;
+  if (items.every((it) => it.lo <= per && per <= it.hi)) return items.map(() => per);
+
+  // The sum at a common level `s` is piecewise linear in `s`, bending at each
+  // bound; find the segment where it crosses `total` and solve inside it.
+  const at = (s: number) => items.reduce((sum, it) => sum + clamp(it, s), 0);
+  const points = [...new Set(items.flatMap((it) => [it.lo, it.hi]))]
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  let level = points[0] ?? 0;
+  if (at(level) < total) {
+    // Binary search for the first bend at or past `total`; `at` is monotone.
+    let lo = 0;
+    let hi = points.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (at(points[mid]!) >= total) hi = mid;
+      else lo = mid + 1;
+    }
+    const next = points[lo];
+    const from = points[lo - 1]!;
+    const slope = items.filter((it) => it.lo <= from && it.hi > from).length;
+    level = slope > 0 ? from + (total - at(from)) / slope : from;
+    if (next !== undefined && level > next) level = next;
+  }
+  return items.map((it) => clamp(it, level));
 }

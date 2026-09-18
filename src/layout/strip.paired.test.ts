@@ -81,3 +81,51 @@ describe('stripStrategy resizeMode', () => {
     expect(written.b + written.c).toBe(400);
   });
 });
+
+describe("stripStrategy resizeMode 'neighbor' leaves the rest of the row in place", () => {
+  /** Drags `childId`'s seam, applies what it wrote, and lays the row out again. */
+  function dragAndRelayout(rows: LayoutItem[], childId: string, dx: number, options: object) {
+    const layout = (list: LayoutItem[]) =>
+      stripStrategy.layout({
+        items: list,
+        container: { w: 600, h: 50 },
+        state: undefined as void,
+        options: { ...options },
+      });
+    const widths = (list: LayoutItem[]) =>
+      Object.fromEntries([...layout(list).placements].map(([id, r]) => [id, r.w]));
+    const store = fakeStore({});
+    drag(store, rows, childId, dx, { ...options });
+    const written = new Map(
+      store.patchPlacement.mock.calls.map((c) => [c[0], (c[1] as { size: { w: number } }).size.w]),
+    );
+    const after = rows.map((it): LayoutItem => {
+      const w = written.get(it.id);
+      return w === undefined ? it : { ...it, placement: { size: { w } } };
+    });
+    return { before: widths(rows), after: widths(after) };
+  }
+
+  it('in a squeezed row, where the stored sizes scale on the way in', () => {
+    // 400 × 3 stored in 600 renders at 200 each. Writing 220/180 for the pair
+    // alone would leave c's stored 400 to rescale the row.
+    const rows = ['a', 'b', 'c'].map((id) => ({ id, placement: { size: { w: 400 } } }));
+    const { before, after } = dragAndRelayout(rows, 'a', 20, { resizeMode: 'neighbor' });
+    expect(after.a).toBeCloseTo(before.a! + 20, 9);
+    expect(after.b).toBeCloseTo(before.b! - 20, 9);
+    expect(after.c).toBeCloseTo(before.c!, 9);
+  });
+
+  it('in a row sized by preferredSize, which the first stored size would switch away from', () => {
+    const pref = (id: string, w: number) => ({ id, hints: { preferredSize: { w, h: 0 } } });
+    const rows = [pref('a', 50), { id: 'b' }, pref('c', 100), pref('d', 250)];
+    const { before, after } = dragAndRelayout(rows, 'a', 20, {
+      resizeMode: 'neighbor',
+      fill: true,
+    });
+    expect(after.a).toBeCloseTo(70, 9);
+    expect(after.b).toBeCloseTo(before.b! - 20, 9);
+    expect(after.c).toBeCloseTo(100, 9);
+    expect(after.d).toBeCloseTo(250, 9);
+  });
+});

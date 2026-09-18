@@ -36,7 +36,8 @@ const startOf = (r: Rect, axis: 'x' | 'y') => (axis === 'x' ? r.x : r.y);
 
 const explicitOf = (it: LayoutItem, axis: 'x' | 'y') => {
   const v = axis === 'x' ? it.placement?.size?.w : it.placement?.size?.h;
-  return typeof v === 'number' ? v : undefined;
+  // A non-finite or negative stored size is treated as absent.
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined;
 };
 const naturalOf = (it: LayoutItem, axis: 'x' | 'y') => {
   const asked = axis === 'x' ? it.hints?.sizing?.w : it.hints?.sizing?.h;
@@ -265,47 +266,11 @@ function layoutTree(preset: Preset, store: Store = presetToStore(preset)): Laid[
  * Defects these fixtures expose, keyed `scenario id » invariant`. Each entry
  * runs as `it.fails` and names the defect, so a fix turns it red here first.
  */
-const MAX_IGNORED = 'maxSize is not applied to a pane with no stored size';
-const BELOW_FLOOR_REVERSES =
-  'a drag beside a pane stored under its floor clamps across zero and reverses';
-const SQUEEZED_DRAG =
-  'a neighbor drag writes squeezed sizes for two panes, so the whole row rescales';
-const PREFERRED_DROPPED =
-  'the first drag moves the row to the stored-size path, which ignores preferredSize';
-const EQUAL_SHARE = 'leftover is split equally, so a larger floor overflows a row that fits';
-const PREFERRED_UNSQUEEZED =
-  'squeeze never scales preferredSize, so floors do not bind before overflow';
-
 const KNOWN: Record<string, string> = {
-  'obsidian-readable-line » ceilings are honored': MAX_IGNORED,
-  'obsidian-readable-line » seam bounds contain the rendered extent': MAX_IGNORED,
-  'obsidian-readable-line » a drag never moves its seam backward': MAX_IGNORED,
-  'min-above-max-unconstrained » ceilings are honored': MAX_IGNORED,
-  'min-above-max-unconstrained » seam bounds contain the rendered extent': MAX_IGNORED,
-  'max-below-preferred » ceilings are honored': MAX_IGNORED,
-  'max-below-preferred » seam bounds contain the rendered extent': MAX_IGNORED,
-  'slack-thread-open » squeeze overflows only once every pane is at its floor': EQUAL_SHARE,
-  'slack-thread-open » a neighbor drag moves only the two panes beside its seam': SQUEEZED_DRAG,
-  'xcode-restored-on-laptop » a neighbor drag moves only the two panes beside its seam':
-    SQUEEZED_DRAG,
-  'acme-column » a drag never moves its seam backward': BELOW_FLOOR_REVERSES,
-  'acme-column » a drag lands inside the range its seam advertised': BELOW_FLOOR_REVERSES,
-  'acme-column » a drag writes finite, non-negative sizes': BELOW_FLOOR_REVERSES,
-  'acme-column » a neighbor drag moves only the two panes beside its seam': BELOW_FLOOR_REVERSES,
-  'photoshop-minimized-group » a drag never moves its seam backward': BELOW_FLOOR_REVERSES,
-  'vscode-hinted-sidebars » a drag never moves its seam backward': PREFERRED_DROPPED,
-  'vscode-hinted-sidebars » a neighbor drag moves only the two panes beside its seam':
-    PREFERRED_DROPPED,
-  'vscode-hinted-sidebars@400-unplaced » unplaced mode never overflows':
-    'the unplaced budget counts stored and measured sizes but not preferredSize',
+  // Open question rather than a settled defect: `squeeze`'s docstring says it
+  // scales panes down, but strip.test.ts pins preferredSize as unscaled.
   'vscode-hinted-sidebars@400-squeeze » squeeze overflows only once every pane is at its floor':
-    PREFERRED_UNSQUEEZED,
-  'zero-viewport-padded » rects are well-formed': 'the cross axis is not floored at zero',
-  'zero-viewport-padded » panes span the cross axis, never below zero':
-    'the cross axis is not floored at zero',
-  'negative-explicit » rects are well-formed': 'a negative stored size is rendered as written',
-  'negative-explicit » stays in bounds unless overflow is reported':
-    'a negative stored size is rendered as written',
+    'squeeze never scales preferredSize, so floors do not bind before overflow',
 };
 
 describe('strip on real-software layouts', () => {
@@ -427,8 +392,8 @@ function gestureInvariants(preset: Preset): Record<string, Violations> {
         }
 
         for (const it of project(store, containerId, size).items) {
-          const v = explicitOf(it, axis);
-          if (v !== undefined && (!Number.isFinite(v) || v < 0)) {
+          const v = axis === 'x' ? it.placement?.size?.w : it.placement?.size?.h;
+          if (typeof v === 'number' && (!Number.isFinite(v) || v < 0)) {
             out['a drag writes finite, non-negative sizes']!.push(`${tag} wrote ${it.id}=${v}`);
           }
         }

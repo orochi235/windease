@@ -152,18 +152,6 @@ const CLEAN = { threw: null, malformed: [], dropped: [] };
  */
 const KNOWN: { match: RegExp; defect: string }[] = [
   {
-    match: /^strip( fill| y padded)?\/placement\.size\/(NaN|Infinity|-Infinity|negative)$/,
-    defect: 'strip renders a non-finite or negative explicit placement.size as written',
-  },
-  {
-    match: /^strip unplaced\/placement\.size\/(NaN|-Infinity|negative)$/,
-    defect: 'strip renders a non-finite or negative explicit placement.size as written',
-  },
-  {
-    match: /^strip[^/]*\/maxSize\/(-Infinity|negative)$/,
-    defect: 'strip caps an explicit size at a negative maxSize, yielding a negative extent',
-  },
-  {
     match: /^floating[^/]*\/(preferredSize|natural)\/(NaN|Infinity)$/,
     defect: 'floating withholds a 0-size item but places a NaN or infinite one',
   },
@@ -212,14 +200,8 @@ describe('pathological containers and counts', () => {
     describe(entry.name, () => {
       for (const [cname, c] of Object.entries(containers)) {
         for (const n of [0, 1, 10_000]) {
-          const defect =
-            n > 0 && entry.name === 'strip y padded' && c.w < 16
-              ? 'strip sizes the cross axis as container minus padding, unclamped, so it goes negative'
-              : undefined;
-          const name = `${n} items in ${cname}`;
-          const body = () => expect(breakage(entry, items(n, entry.allFloat), c)).toEqual(CLEAN);
-          if (defect) it.fails(`${name} — known: ${defect}`, body);
-          else it(name, body);
+          it(`${n} items in ${cname}`, () =>
+            expect(breakage(entry, items(n, entry.allFloat), c)).toEqual(CLEAN));
         }
       }
       it('duplicate ids never throw, and each id is placed or unplaced', () => {
