@@ -89,3 +89,33 @@ test.describe('exotic trees', () => {
     expect(pane.w).toBeGreaterThan(chat.w - 4);
   });
 });
+
+test.describe('a seam drag resizing a group of nested panes', () => {
+  test('moves the panes inside with the group, not eased behind it', async ({ page }) => {
+    await page.goto('/?story=exotic--trees--presets&mode=preview');
+    await expect(page.locator('[data-node]').first()).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId('preset-picker').selectOption('emacs-side-windows');
+    const seam = page.locator('[data-affordance-hit="resize-x-init-el"]');
+    const from = centerOf(await boxOf(seam));
+
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x - 90, from.y, { steps: 6 });
+
+    // Mid-drag: nothing inside the resized group animates, and its panes
+    // already fill it.
+    const durations = await page.evaluate(() =>
+      ['help', 'messages'].flatMap((id) =>
+        getComputedStyle(document.querySelector(`[data-node="${id}"]`) as Element)
+          .transitionDuration.split(',')
+          .map((s) => Number.parseFloat(s)),
+      ),
+    );
+    expect(durations.every((d) => d === 0)).toBe(true);
+    const outer = await boxOf(node(page, 'main-right'));
+    const inner = await boxOf(node(page, 'help'));
+    expect(Math.abs(outer.w - inner.w)).toBeLessThanOrEqual(4);
+
+    await page.mouse.up();
+  });
+});

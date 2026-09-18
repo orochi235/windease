@@ -25,6 +25,7 @@ import { useChildren, useFocusedNode, useNode } from './hooks.js';
 import { MeasuredContent } from './measure.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
 import { useStore } from './Provider.js';
+import { ResizeGestureContext } from './resize-gesture.js';
 import {
   type ContainerLayout,
   scrollExtentStyle,
@@ -283,7 +284,8 @@ function StoreContainer({
   const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
   const reducedMotion =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const effectiveSettleMs = draggingAffordanceId !== null || reducedMotion ? 0 : settleMs;
+  const resizing = draggingAffordanceId !== null || useContext(ResizeGestureContext);
+  const effectiveSettleMs = resizing || reducedMotion ? 0 : settleMs;
 
   const containerStyle: CSSProperties = viewport
     ? {
@@ -311,23 +313,25 @@ function StoreContainer({
   // and no `sizing` measurement — all three need the strategy pass.
   if (isFlow) {
     return (
-      <div ref={ref} className={className} style={containerStyle} data-node-container={parentId}>
-        {children
-          .filter((c) => c.lifecycle.state === 'visible')
-          .map((c) => (
-            // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
-            <div
-              key={c.id}
-              data-node={c.id}
-              tabIndex={rovingId === c.id ? 0 : -1}
-              role="group"
-              aria-label={accessibleName(store, c.id)}
-            >
-              <NodeRenderer id={c.id} chrome={chrome} />
-            </div>
-          ))}
-        {renderedOverlay}
-      </div>
+      <ResizeGestureContext.Provider value={resizing}>
+        <div ref={ref} className={className} style={containerStyle} data-node-container={parentId}>
+          {children
+            .filter((c) => c.lifecycle.state === 'visible')
+            .map((c) => (
+              // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
+              <div
+                key={c.id}
+                data-node={c.id}
+                tabIndex={rovingId === c.id ? 0 : -1}
+                role="group"
+                aria-label={accessibleName(store, c.id)}
+              >
+                <NodeRenderer id={c.id} chrome={chrome} />
+              </div>
+            ))}
+          {renderedOverlay}
+        </div>
+      </ResizeGestureContext.Provider>
     );
   }
 
@@ -353,96 +357,98 @@ function StoreContainer({
   const splitStyle = splitPreviewStyle(layout.placements, dropPreview);
 
   return (
-    <div
-      ref={ref}
-      className={className}
-      style={containerStyle}
-      data-node-container={parentId}
-      data-preview={layout.isPreview ? 'true' : undefined}
-      data-split-preview={dropPreview.laidOut && layout.isPreview ? 'true' : undefined}
-    >
-      {Array.from(renderEntries.entries()).map(([id, { isReal }]) => {
-        const rect = layout.placements.get(id);
-        if (!rect) return null;
-        const childStyle: CSSProperties = {
-          ...CHILD_BASE,
-          left: rect.x,
-          top: rect.y,
-          width: rect.w,
-          height: rect.h,
-        };
-        if (rect.z !== 0) childStyle.zIndex = Math.round(rect.z);
-        if (effectiveSettleMs > 0) {
-          childStyle.transition = `left ${effectiveSettleMs}ms ease, top ${effectiveSettleMs}ms ease, width ${effectiveSettleMs}ms ease, height ${effectiveSettleMs}ms ease`;
-        }
-        // Source during preview: render the chrome with visibility:hidden so
-        // it occupies its prospective rect (siblings reflow around it) and
-        // the ghost overlay is what the user sees — but the DOM stays alive
-        // so the DragHandle's pointer capture isn't broken mid-drag.
-        // (Cross-parent previews fall through to the !isReal branch below
-        // because the source isn't yet a real child of this container.)
-        if (id === previewSourceId && isReal) {
-          // Source during preview: render the chrome with opacity:0 so the
-          // ghost overlay is what the user "sees" — but the DOM and pointer
-          // event flow stay alive (visibility:hidden disables pointer events
-          // even on captured elements in some browsers, which freezes the drag).
-          return (
-            <div
-              key={id}
-              style={{ ...childStyle, opacity: 0 }}
-              data-node={id}
-              data-preview-source="true"
-            >
-              <NodeRenderer id={id} chrome={chrome} />
-            </div>
-          );
-        }
-        if (id === previewSourceId) {
-          // Cross-parent preview placeholder — source isn't here yet, just
-          // reserve the slot.
-          return <div key={id} style={childStyle} data-node={id} data-preview-source="true" />;
-        }
-        if (!isReal) return null;
-        return (
-          // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
-          <div
-            key={id}
-            style={childStyle}
-            data-node={id}
-            data-join-armed={joinArmedId === id ? 'true' : undefined}
-            tabIndex={rovingId === id ? 0 : -1}
-            role="group"
-            aria-label={accessibleName(store, id)}
-          >
-            {store.getNode(id)?.hints?.sizing ? (
-              <MeasuredContent
-                id={id}
-                widthByContent={store.getNode(id)?.hints?.sizing?.w === 'content'}
-                observe={layout.observeNatural}
+    <ResizeGestureContext.Provider value={resizing}>
+      <div
+        ref={ref}
+        className={className}
+        style={containerStyle}
+        data-node-container={parentId}
+        data-preview={layout.isPreview ? 'true' : undefined}
+        data-split-preview={dropPreview.laidOut && layout.isPreview ? 'true' : undefined}
+      >
+        {Array.from(renderEntries.entries()).map(([id, { isReal }]) => {
+          const rect = layout.placements.get(id);
+          if (!rect) return null;
+          const childStyle: CSSProperties = {
+            ...CHILD_BASE,
+            left: rect.x,
+            top: rect.y,
+            width: rect.w,
+            height: rect.h,
+          };
+          if (rect.z !== 0) childStyle.zIndex = Math.round(rect.z);
+          if (effectiveSettleMs > 0) {
+            childStyle.transition = `left ${effectiveSettleMs}ms ease, top ${effectiveSettleMs}ms ease, width ${effectiveSettleMs}ms ease, height ${effectiveSettleMs}ms ease`;
+          }
+          // Source during preview: render the chrome with visibility:hidden so
+          // it occupies its prospective rect (siblings reflow around it) and
+          // the ghost overlay is what the user sees — but the DOM stays alive
+          // so the DragHandle's pointer capture isn't broken mid-drag.
+          // (Cross-parent previews fall through to the !isReal branch below
+          // because the source isn't yet a real child of this container.)
+          if (id === previewSourceId && isReal) {
+            // Source during preview: render the chrome with opacity:0 so the
+            // ghost overlay is what the user "sees" — but the DOM and pointer
+            // event flow stay alive (visibility:hidden disables pointer events
+            // even on captured elements in some browsers, which freezes the drag).
+            return (
+              <div
+                key={id}
+                style={{ ...childStyle, opacity: 0 }}
+                data-node={id}
+                data-preview-source="true"
               >
                 <NodeRenderer id={id} chrome={chrome} />
-              </MeasuredContent>
-            ) : (
-              <NodeRenderer id={id} chrome={chrome} />
-            )}
-          </div>
-        );
-      })}
-      <AffordanceLayer
-        render={affordances}
-        affordances={layout.affordances}
-        dispatch={layout.dispatchAffordance}
-        store={store}
-        hitPad={affordanceHitPad}
-        keyStep={affordanceKeyStep}
-        tabStop={affordanceTabStops}
-        onActiveChange={setDraggingAffordanceId}
-        onJoinArmChange={setJoinArmedId}
-      />
-      {splitStyle ? (
-        <div className="windease-split-preview" style={splitStyle} aria-hidden="true" />
-      ) : null}
-      {renderedOverlay}
-    </div>
+              </div>
+            );
+          }
+          if (id === previewSourceId) {
+            // Cross-parent preview placeholder — source isn't here yet, just
+            // reserve the slot.
+            return <div key={id} style={childStyle} data-node={id} data-preview-source="true" />;
+          }
+          if (!isReal) return null;
+          return (
+            // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
+            <div
+              key={id}
+              style={childStyle}
+              data-node={id}
+              data-join-armed={joinArmedId === id ? 'true' : undefined}
+              tabIndex={rovingId === id ? 0 : -1}
+              role="group"
+              aria-label={accessibleName(store, id)}
+            >
+              {store.getNode(id)?.hints?.sizing ? (
+                <MeasuredContent
+                  id={id}
+                  widthByContent={store.getNode(id)?.hints?.sizing?.w === 'content'}
+                  observe={layout.observeNatural}
+                >
+                  <NodeRenderer id={id} chrome={chrome} />
+                </MeasuredContent>
+              ) : (
+                <NodeRenderer id={id} chrome={chrome} />
+              )}
+            </div>
+          );
+        })}
+        <AffordanceLayer
+          render={affordances}
+          affordances={layout.affordances}
+          dispatch={layout.dispatchAffordance}
+          store={store}
+          hitPad={affordanceHitPad}
+          keyStep={affordanceKeyStep}
+          tabStop={affordanceTabStops}
+          onActiveChange={setDraggingAffordanceId}
+          onJoinArmChange={setJoinArmedId}
+        />
+        {splitStyle ? (
+          <div className="windease-split-preview" style={splitStyle} aria-hidden="true" />
+        ) : null}
+        {renderedOverlay}
+      </div>
+    </ResizeGestureContext.Provider>
   );
 }

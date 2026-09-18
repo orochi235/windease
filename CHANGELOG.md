@@ -10,6 +10,13 @@ section below.
 
 ### Fixed
 
+- **Panes inside a group move with it while a seam drag resizes the group.**
+  A seam drag switched off the settle transition only in the container that
+  owns the seam, so a container nested in a resized pane kept easing its own
+  children over `settleMs`: they trailed the group's box and grew in from its
+  left edge. The drag now switches it off for every container inside the one
+  being resized, and a `<Zone>` honors its own seam drags, which it ignored.
+
 - **`checkStrategyConfig` reports a number config that is `NaN` or infinite.**
   It checked only the type, so `cols: NaN` passed as a number.
 

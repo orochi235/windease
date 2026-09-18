@@ -49,6 +49,7 @@ import {
 import { MeasuredContent } from './measure.js';
 import { ChildRegistryContext, ParentScope, useChildRegistry } from './ParentContext.js';
 import { useStore } from './Provider.js';
+import { ResizeGestureContext } from './resize-gesture.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
 import { scrollExtentStyle, useContainerLayout, useScrollOffset } from './useContainerLayout.js';
 import { JSX_OWNER_META_KEY, useNodeBinding } from './useNodeBinding.js';
@@ -545,8 +546,9 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   useScrollOffset(props.scrollRef, layout.observeScroll);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
-  const settleMs = props.settleMs ?? DEFAULT_SETTLE_MS;
-  const [, setDraggingAffordanceId] = useState<string | null>(null);
+  const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
+  const resizing = draggingAffordanceId !== null || useContext(ResizeGestureContext);
+  const settleMs = resizing ? 0 : (props.settleMs ?? DEFAULT_SETTLE_MS);
   const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
   const layoutInfo: LayoutInfo = {
     placements: layout.placements,
@@ -593,37 +595,39 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   }, [renderImperative, allChildren, layout.placements, props.id]);
 
   return (
-    <PresetShell
-      provide={layoutInfo}
-      kind={props.kind ?? 'zone'}
-      id={props.id}
-      className={props.className}
-      style={zoneStyle}
-      title={props.title}
-      testId={props['data-testid']}
-      sort={props.sort}
-      innerRef={ref}
-      acceptsDrops={props.acceptsDrops}
-      drop={dropBag(props, true)}
-      measure={props.measure}
-      joinArmedId={joinArmedId}
-      preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
-    >
-      {props.children}
-      {imperativeRenders}
-      <SplitPreview placements={layout.placements} state={dropPreview} />
-      <AffordanceLayer
-        render={props.affordances ?? false}
-        affordances={layout.affordances}
-        dispatch={layout.dispatchAffordance}
-        store={store}
-        hitPad={props.affordanceHitPad ?? 4}
-        keyStep={props.affordanceKeyStep ?? 8}
-        tabStop={props.affordanceTabStops ?? true}
-        onActiveChange={setDraggingAffordanceId}
-        onJoinArmChange={setJoinArmedId}
-      />
-    </PresetShell>
+    <ResizeGestureContext.Provider value={resizing}>
+      <PresetShell
+        provide={layoutInfo}
+        kind={props.kind ?? 'zone'}
+        id={props.id}
+        className={props.className}
+        style={zoneStyle}
+        title={props.title}
+        testId={props['data-testid']}
+        sort={props.sort}
+        innerRef={ref}
+        acceptsDrops={props.acceptsDrops}
+        drop={dropBag(props, true)}
+        measure={props.measure}
+        joinArmedId={joinArmedId}
+        preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
+      >
+        {props.children}
+        {imperativeRenders}
+        <SplitPreview placements={layout.placements} state={dropPreview} />
+        <AffordanceLayer
+          render={props.affordances ?? false}
+          affordances={layout.affordances}
+          dispatch={layout.dispatchAffordance}
+          store={store}
+          hitPad={props.affordanceHitPad ?? 4}
+          keyStep={props.affordanceKeyStep ?? 8}
+          tabStop={props.affordanceTabStops ?? true}
+          onActiveChange={setDraggingAffordanceId}
+          onJoinArmChange={setJoinArmedId}
+        />
+      </PresetShell>
+    </ResizeGestureContext.Provider>
   );
 }
 
