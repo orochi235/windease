@@ -236,4 +236,12 @@ describe('DragEngine — the items canAccept sees', () => {
       ['p', { cols: 1, rows: 2 }],
     ]);
   });
+
+  it('leaves out hidden children, as layout does', () => {
+    const s = spannedStore();
+    s.showNode(asNodeId('b'));
+    s.hideNode(asNodeId('b'));
+    const [items] = probe(s, 'p');
+    expect(items?.map((i) => i.id)).toEqual(['a', 'p']);
+  });
 });

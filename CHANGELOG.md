@@ -17,6 +17,11 @@ section below.
   source, the way layout does, `placement` included. `acceptPolicy` sees the
   same items.
 
+- **Hidden children no longer count against a drop.** Layout skips a hidden
+  child, but the drop check counted it, so a `maxItems: 2` grid showing one
+  tile and hiding another refused a second visible one. The check now sees the
+  children layout lays out.
+
 ## 2.0.0
 
 ### Removed

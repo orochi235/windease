@@ -529,7 +529,7 @@ describe('DragEngine feeding grid.canAccept', () => {
     expect(verdict(preset, 'sheet', 'cell-B1')).toBe(true);
   });
 
-  it.fails('a hidden child does not count toward maxItems — DragEngine filters only destroyed children, layout skips hidden ones too', () => {
+  it('a hidden child does not count toward maxItems', () => {
     const preset: Preset = {
       id: 'hidden-slot',
       source: 'a two-slot quick-settings row with one tile hidden by the user',

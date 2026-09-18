@@ -414,8 +414,9 @@ export class DragEngine {
     const items: AcceptItem[] = [];
     let alreadyChild = false;
     for (const child of this.store.getChildren(targetId)) {
-      if (child.lifecycle.state === 'destroyed') continue;
       if (child.id === draggingId) alreadyChild = true;
+      const state = child.lifecycle.state;
+      if (state === 'hidden' || state === 'destroyed') continue;
       items.push(nodeToLayoutItem(child) as AcceptItem);
     }
     if (!alreadyChild) {
