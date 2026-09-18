@@ -77,6 +77,13 @@ interface StripConfig {
    * `unplaced`. Composes with `maxItems`, which caps by count instead.
    */
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
+  /**
+   * Where main-axis space the panes leave goes: `'start'` (default) packs them
+   * at the leading edge, `'center'` and `'end'` shift the row, and `'between'`
+   * spreads the space into the gaps, leaving a lone pane at the start. Nothing
+   * moves when the panes fill or overflow the row.
+   */
+  justify?: 'start' | 'center' | 'end' | 'between';
 }
 
 /** A size input as the row may use it: finite and non-negative. Anything else
@@ -460,6 +467,27 @@ function intrinsicAxis(
   return max !== undefined && v > max ? max : v;
 }
 
+/** The offset of the first pane and the step between panes once `justify`
+ *  has placed `free` pixels of unused main axis. */
+function justified(
+  cfg: StripConfig,
+  free: number,
+  gap: number,
+  count: number,
+): { lead: number; spacing: number } {
+  if (!(free > 0)) return { lead: 0, spacing: gap };
+  switch (cfg.justify) {
+    case 'center':
+      return { lead: free / 2, spacing: gap };
+    case 'end':
+      return { lead: free, spacing: gap };
+    case 'between':
+      return { lead: 0, spacing: count > 1 ? gap + free / (count - 1) : gap };
+    default:
+      return { lead: 0, spacing: gap };
+  }
+}
+
 /** Capacity-selected subset both `layout` and `dispatchAffordance` must agree
  *  on — the two drifting apart is the whole class of bug this closes. So the
  *  size budget under `overflowMode: 'unplaced'` is resolved here too, not at
@@ -518,6 +546,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     joinThreshold: 'number',
     maxItems: 'number',
     overflowMode: ['squeeze', 'scroll', 'unplaced'],
+    justify: ['start', 'center', 'end', 'between'],
   },
   canAccept(items, options): boolean {
     const cap = (options as StripConfig).maxItems;
@@ -555,11 +584,17 @@ export const stripStrategy: LayoutStrategy<void, string> = {
 
     const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
     const sizes = mainSizes(placedItems, cfg, axis, usableMain);
+    const { lead, spacing } = justified(
+      cfg,
+      usableMain - sizes.reduce((s, v) => s + v, 0),
+      gap,
+      placedItems.length,
+    );
 
     if (axis === 'x') {
       const y = padding;
       const h = Math.max(0, container.h - 2 * padding);
-      let x = padding;
+      let x = padding + lead;
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
         const w = sizes[i]!;
@@ -589,12 +624,12 @@ export const stripStrategy: LayoutStrategy<void, string> = {
             ...(join ? { join } : {}),
           });
         }
-        x += w + gap;
+        x += w + spacing;
       }
     } else {
       const x = padding;
       const w = Math.max(0, container.w - 2 * padding);
-      let y = padding;
+      let y = padding + lead;
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
         const h = sizes[i]!;
@@ -624,7 +659,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
             ...(join ? { join } : {}),
           });
         }
-        y += h + gap;
+        y += h + spacing;
       }
     }
     const result: LayoutResult<string> = { placements, affordances };

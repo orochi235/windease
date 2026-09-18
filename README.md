@@ -396,6 +396,20 @@ Removals are now bracketed in a transaction so the collapse is one undo step
 with the removal that caused it. If you bracket history on `transaction.begin`
 / `transaction.end`, every `unregisterNode` emits that pair, collapse or not.
 
+## When panes leave room
+
+Panes held at a `hints.maxSize` cap, or sized by `preferredSize` under
+`fill: false`, can leave part of a strip empty — three browser tabs at their
+225px cap, say. `justify` on the zone's config says where that space goes:
+
+```tsx
+<Zone id={tabsId} strategyId="strip" config={{ axis: 'x', fill: true, justify: 'center' }} />
+```
+
+`'start'` (default) packs the panes at the leading edge. `'center'` and `'end'`
+move the whole row. `'between'` widens the gaps, leaving a lone pane at the
+start. It does nothing when the panes fill or overflow the row.
+
 ## When panes don't fit
 
 A strip whose panes ask for more than the container has resolves it three ways,
@@ -975,7 +989,8 @@ One row can mix all three kinds of pane:
 3. Panes with neither split the rest equally, as they always have.
 
 `hints.minSize` and `hints.maxSize` bound a shared pane like any other. Space a
-capped share gives up goes to the panes with neither, or is left empty. A `size` on the main axis outranks a `share` on the same pane. A
+capped share gives up goes to the panes with neither, or is left empty (see
+[`justify`](#when-panes-leave-room)). A `size` on the main axis outranks a `share` on the same pane. A
 share that is not a positive, finite number is ignored and traced under
 `layout`.
 

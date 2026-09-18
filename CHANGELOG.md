@@ -18,6 +18,11 @@ section below.
   holding any share writes shares back, so the row stays proportional. See
   [Sizing panes by share](README.md#sizing-panes-by-share).
 
+- **`justify` on `stripStrategy` places the space panes leave.** When capped or
+  hint-sized panes don't fill the row, `'center'` and `'end'` move them and
+  `'between'` spreads the space into the gaps. The default `'start'` is today's
+  layout. See [When panes leave room](README.md#when-panes-leave-room).
+
 ### Fixed
 
 - **A preset's own render error is no longer reported as an id collision.**

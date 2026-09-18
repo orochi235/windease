@@ -330,7 +330,8 @@ Built-ins:
   `maxItems`, `gap`, `padding`. `maxItems` mutually exclusive with
   `maxCols`/`maxRows`.
 - **`stripStrategy`** — children share one axis: `axis` ('x' or 'y'), `fill`,
-  `defaultItemSize`, `gap`, `padding`, `maxItems`. Strip covers both axes, so
+  `defaultItemSize`, `gap`, `padding`, `maxItems`, and `justify` for where
+  space the panes leave goes. Strip covers both axes, so
   `{ axis: 'y', fill: true }` replaces the axis-stacking strategy removed in
   0.9.0 — not today's `stackStrategy`, which is unrelated. Honors child
   `hints.minSize` as a pixel floor and `hints.maxSize` as a ceiling, plus

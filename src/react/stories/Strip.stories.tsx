@@ -190,3 +190,75 @@ export const Shares: Story = () => {
     </Provider>
   );
 };
+
+const JUSTIFY_ZONE = asNodeId('strip-justify');
+type Justify = 'start' | 'center' | 'end' | 'between';
+
+function makeJustifyStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: {
+        strategyId: 'strip',
+        config: { axis: 'x', gap: 6, padding: 6, fill: true, resizable: false },
+      },
+      id: JUSTIFY_ZONE,
+    }),
+  );
+  for (const name of ['inbox', 'docs', 'music']) {
+    const id = asNodeId(`tab-${name}`);
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id,
+        parentId: JUSTIFY_ZONE,
+        hints: { maxSize: { w: 160, h: 0 } },
+        meta: { title: name },
+      }),
+    );
+    s.showNode(id);
+  }
+  return s;
+}
+
+/**
+ * Three tabs held at a 160px cap leave most of the row empty; `justify` says
+ * where that space goes.
+ */
+export const Justify: Story = () => {
+  const store = useMemo(makeJustifyStore, []);
+  const [justify, setJustify] = useState<Justify>('start');
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <div className="strip-controls">
+          <label>
+            justify{' '}
+            <select
+              value={justify}
+              data-testid="justify"
+              onChange={(e) => {
+                const next = e.target.value as Justify;
+                setJustify(next);
+                store.updateContainerConfig(JUSTIFY_ZONE, { justify: next });
+              }}
+            >
+              <option value="start">start</option>
+              <option value="center">center</option>
+              <option value="end">end</option>
+              <option value="between">between</option>
+            </select>
+          </label>
+        </div>
+        <Container
+          parentId={JUSTIFY_ZONE}
+          chrome={chrome}
+          viewport={{ w: 800, h: 60 }}
+          className="windease-zone"
+        />
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
