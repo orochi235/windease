@@ -1,0 +1,31 @@
+.strip-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 12px;
+  font:
+    13px system-ui,
+    sans-serif;
+}
+
+.strip-hint {
+  max-width: 640px;
+  font:
+    13px / 1.5 system-ui,
+    sans-serif;
+  color: #444;
+}
+
+.strip-stage [data-affordance-kind="resize-x"] {
+  background: #94a3b8;
+  border-radius: 2px;
+}
+
+.strip-stage .windease-affordance-hit:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.strip-readout {
+  font-variant-numeric: tabular-nums;
+}

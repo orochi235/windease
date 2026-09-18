@@ -73,6 +73,16 @@ describe('Store.splitInto', () => {
     expect(s.getNode(b)?.membership?.placement?.size).toBeUndefined();
   });
 
+  it('clears a stale share from both children', () => {
+    const { s, a, b } = seeded();
+    s.patchPlacement(b, { share: 0.6 });
+    s.patchPlacement(a, { share: 0.4 });
+    s.splitInto(a, b, { id: id('g1'), axis: 'y', edge: 'start' });
+    expect(s.getNode(id('g1'))?.membership?.placement).toMatchObject({ share: 0.6 });
+    expect(s.getNode(a)?.membership?.placement?.share).toBeUndefined();
+    expect(s.getNode(b)?.membership?.placement?.share).toBeUndefined();
+  });
+
   it('moves a pin from the onto-child to the group', () => {
     const { s, a, b } = seeded();
     s.setPinned(b, 0);
