@@ -20,6 +20,24 @@ section below.
   instead of placing it there, the same way it treats a window with no position.
   The bad coordinate also no longer turns `overflow` into `NaN`.
 
+- **`floatingStrategy()` with no inner strategy floats every item,** as its
+  documentation says. An item without `floating` was neither placed nor
+  reported in `unplaced`; it is now placed and dragged like any other.
+
+- **A floating item anchored to a corner stays inside its container.** An item
+  taller or wider than the container rested past its top or left edge, taking
+  its drag band out of reach; it is now clamped the way a free item is.
+
+- **A floating item whose size is `NaN` or infinite is withheld** into
+  `unplaced`, as a zero size already was, instead of rendering a `NaN` rect.
+
+- **A floating drag delta of `NaN` is ignored on its axis** rather than saved,
+  which left the item's position `NaN` for good.
+
+- **A floating item dragged after its container shrank moves from where it
+  shows.** Its saved position may lie outside the smaller container, and the
+  first drag was spent walking that position back to the edge.
+
 ## 2.0.0
 
 ### Removed

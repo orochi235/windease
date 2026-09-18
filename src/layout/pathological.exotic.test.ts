@@ -173,10 +173,6 @@ const KNOWN: { match: RegExp; defect: string }[] = [
     match: /^strip[^/]*\/maxSize\/(-Infinity|negative)$/,
     defect: 'strip caps an explicit size at a negative maxSize, yielding a negative extent',
   },
-  {
-    match: /^floating[^/]*\/(preferredSize|natural)\/(NaN|Infinity)$/,
-    defect: 'floating withholds a 0-size item but places a NaN or infinite one',
-  },
 ];
 
 function knownDefect(key: string): string | undefined {
@@ -245,8 +241,7 @@ describe('pathological containers and counts', () => {
 });
 
 describe('defects the sweep cannot phrase', () => {
-  // Defect: floatingStrategy() with no inner neither places nor reports an item lacking meta.floating.
-  it.fails('floatingStrategy() accounts for an item that is not marked floating', () => {
+  it('floatingStrategy() accounts for an item that is not marked floating', () => {
     const entry = ENTRIES.find((e) => e.name === 'floating')!;
     expect(breakage(entry, [item(0), item(1)], { w: 800, h: 600 })).toEqual(CLEAN);
   });

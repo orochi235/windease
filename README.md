@@ -801,6 +801,7 @@ stories.
 `floatingStrategy(inner?)` places items marked `floating` free over the
 container, and hands everything else to the strategy it wraps. The inner
 strategy gets the **full** container — a floating panel reserves no space.
+With nothing to wrap, every item floats, marked or not.
 
 ```ts
 import { floatingStrategy, gridStrategy } from 'windease';

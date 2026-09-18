@@ -108,6 +108,11 @@ export function sizeOf(item: LayoutItem): Size {
   return item.natural ?? item.hints?.preferredSize ?? { w: 0, h: 0 };
 }
 
+function usableSize(size: Size): boolean {
+  const usable = (n: number) => Number.isFinite(n) && n > 0;
+  return usable(size.w) && usable(size.h);
+}
+
 export function clampToContainer(at: Point, size: Size, container: Size): Point {
   return {
     x: Math.max(0, Math.min(at.x, container.w - size.w)),
@@ -118,7 +123,8 @@ export function clampToContainer(at: Point, size: Size, container: Size): Point 
 /**
  * Where an item rests right now: its anchor's corner when it has one that still
  * resolves, and its free position otherwise. A pane anchor stops resolving when
- * the pane is gone, which drops the item back to where it last was.
+ * the pane is gone, which drops the item back to where it last was. Either way
+ * the result is clamped into the container, top-left edge first.
  */
 export function resolveOrigin(
   place: FloatingPlacement,
@@ -131,7 +137,7 @@ export function resolveOrigin(
   const within =
     place.anchorTo === undefined ? containerTarget(container).rect : panes?.get(place.anchorTo);
   if (!within) return clampToContainer(place, size, container);
-  return cornerOrigin(place.anchor, size, within, inset);
+  return clampToContainer(cornerOrigin(place.anchor, size, within, inset), size, container);
 }
 
 export function rectOf(
@@ -186,7 +192,7 @@ function seed(options: Record<string, unknown> | undefined): FloatingPlacement {
 /**
  * Wraps another strategy so items marked `meta.floating` are dragged freely
  * and corner-snapped, while the rest are tiled by `inner` as usual. Called
- * with no argument, everything floats.
+ * with no argument, every item floats, marked or not.
  *
  * Anchors are sticky: a snapped item keeps its corner across container
  * resizes rather than holding the pixel position it happened to land on.
@@ -195,6 +201,7 @@ function seed(options: Record<string, unknown> | undefined): FloatingPlacement {
 export function floatingStrategy<TInner>(
   inner?: LayoutStrategy<TInner, string, unknown>,
 ): StatefulLayoutStrategy<FloatingState<TInner | undefined>, string> {
+  const floats = inner ? isFloating : () => true;
   return {
     name: inner ? `floating(${inner.name})` : 'floating',
 
@@ -209,8 +216,8 @@ export function floatingStrategy<TInner>(
 
     initialState(items, options) {
       const at: Record<string, FloatingPlacement> = {};
-      for (const item of items) if (isFloating(item)) at[item.id] = seed(options);
-      const tiled = items.filter((i) => !isFloating(i));
+      for (const item of items) if (floats(item)) at[item.id] = seed(options);
+      const tiled = items.filter((i) => !floats(i));
       return { at, inner: inner?.initialState?.(tiled, options) };
     },
 
@@ -218,8 +225,8 @@ export function floatingStrategy<TInner>(
       const cfg = options as FloatingConfig;
       const inset = cfg.inset ?? DEFAULT_INSET;
       const handleSize = cfg.handleSize ?? 0;
-      const floating = items.filter(isFloating);
-      const tiled = items.filter((i) => !isFloating(i));
+      const floating = items.filter(floats);
+      const tiled = items.filter((i) => !floats(i));
 
       const innerInput = { items: tiled, container, state: state.inner as TInner, options };
       const result: LayoutResult<string> = inner
@@ -236,8 +243,11 @@ export function floatingStrategy<TInner>(
         const size = sizeOf(item);
         // A 0x0 rect renders as a panel that vanished. `natural` arrives only
         // after a measurement, so withhold it until one does.
-        if (size.w <= 0 || size.h <= 0) {
-          trace('layout', `floating: ${item.id} has no size yet, withheld`);
+        if (!usableSize(size)) {
+          trace(
+            'layout',
+            `floating: ${item.id} has no usable size (${size.w}x${size.h}), withheld`,
+          );
           unplaced.push(item.id);
           continue;
         }
@@ -267,8 +277,12 @@ export function floatingStrategy<TInner>(
 
       const id = event.affordanceId.slice(FLOATING_DRAG_PREFIX.length);
       const item = context.items.find((i) => i.id === id);
-      const dx = event.payload.dx ?? 0;
-      const dy = event.payload.dy ?? 0;
+      const { dx: rawX, dy: rawY } = event.payload;
+      if (Number.isNaN(rawX) || Number.isNaN(rawY)) {
+        trace('layout', `floating: ${id} drag delta (${rawX}, ${rawY}) is NaN, axis ignored`);
+      }
+      const dx = rawX === undefined || Number.isNaN(rawX) ? 0 : rawX;
+      const dy = rawY === undefined || Number.isNaN(rawY) ? 0 : rawY;
       if (!item || (dx === 0 && dy === 0)) return state;
 
       const cfg = context.options as FloatingConfig;
@@ -296,12 +310,14 @@ export function floatingStrategy<TInner>(
       // them teleports the panel on the first move. Re-base on where it rests
       // when the two disagree; a drag-set anchor always agrees, which is what
       // lets a slow drag accumulate past the corner and escape.
-      const anchored =
-        place.anchor === null ? null : resolveOrigin(place, size, context.container, inset, panes);
+      // A free item always drags from where it shows, which differs from its saved
+      // spot only when the container has shrunk since.
+      const shown = resolveOrigin(place, size, context.container, inset, panes);
       const stale =
-        anchored !== null &&
-        (Math.abs(anchored.x - place.x) > threshold || Math.abs(anchored.y - place.y) > threshold);
-      const base = stale && anchored ? anchored : place;
+        place.anchor === null ||
+        Math.abs(shown.x - place.x) > threshold ||
+        Math.abs(shown.y - place.y) > threshold;
+      const base = stale ? shown : place;
 
       const next = clampToContainer({ x: base.x + dx, y: base.y + dy }, size, context.container);
       const hit = snapCorner(next, size, targets, inset, threshold, eligibleCorners(item));
