@@ -237,6 +237,27 @@ describe('DragEngine — the items canAccept sees', () => {
     ]);
   });
 
+  it('lets a parent already over capacity reorder its own children', () => {
+    const s = fullStore();
+    s.registerNode(
+      createNode({ kind: 'panel', focus: true, id: asNodeId('c'), parentId: asNodeId('z2') }),
+    );
+    const e = new DragEngine(s, { getStrategy: () => exactlyTwoStrategy });
+    e.addDropTarget(asNodeId('z2'), at(SQUARE));
+    e.tryBegin(asNodeId('a'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(true);
+  });
+
+  it('still lets acceptPolicy refuse a reorder', () => {
+    const s = fullStore();
+    const e = new DragEngine(s, { getStrategy: () => exactlyTwoStrategy });
+    e.addDropTarget(asNodeId('z2'), at(SQUARE, { acceptPolicy: () => false }));
+    e.tryBegin(asNodeId('a'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(false);
+  });
+
   it('leaves out hidden children, as layout does', () => {
     const s = spannedStore();
     s.showNode(asNodeId('b'));

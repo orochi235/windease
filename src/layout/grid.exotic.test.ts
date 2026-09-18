@@ -524,7 +524,7 @@ describe('DragEngine feeding grid.canAccept', () => {
     return engine.state()?.hover?.accepted;
   }
 
-  it.fails('an over-capacity sheet accepts a reorder of its own cells — canAccept is asked about the unchanged, already-too-long child list', () => {
+  it('an over-capacity sheet accepts a reorder of its own cells', () => {
     const preset = PRESETS.find((p) => p.id === 'excel-frozen-panes') as Preset;
     expect(verdict(preset, 'sheet', 'cell-B1')).toBe(true);
   });

@@ -393,7 +393,15 @@ export class DragEngine {
         trace('dnd', `checkAccept ${targetId}: REJECT (acceptPolicy said no)`);
         return false;
       }
-      if (verdict !== true && strategy?.canAccept && !strategy.canAccept(items, options)) {
+      // A drop within the source's own parent never adds a child, so it cannot
+      // make a list the strategy already holds any worse, even one over capacity.
+      const withinParent = this.store.getNode(draggingId)?.membership?.parentId === targetId;
+      if (
+        verdict !== true &&
+        !withinParent &&
+        strategy?.canAccept &&
+        !strategy.canAccept(items, options)
+      ) {
         trace(
           'dnd',
           `checkAccept ${targetId}: REJECT (strategy ${strategy.name}.canAccept said no for ${items.length} items)`,

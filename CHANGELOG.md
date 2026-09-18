@@ -22,6 +22,12 @@ section below.
   tile and hiding another refused a second visible one. The check now sees the
   children layout lays out.
 
+- **A container over capacity can reorder its own children.** A drag within
+  one parent asked `canAccept` about the list it already held, so a grid
+  holding more children than it has cells, with the rest in `unplaced`, refused
+  every reorder. A drop within the source's own parent adds no child and now
+  skips `canAccept`; `acceptPolicy` is still asked, and can still refuse.
+
 ## 2.0.0
 
 ### Removed

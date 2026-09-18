@@ -131,6 +131,17 @@ test.describe('macOS Launchpad (7×5 pages)', () => {
     await expect.poll(async () => (await order(page, 'lp-page')).length).toBe(30);
   });
 
+  test('a page over capacity still reorders its own apps', async ({ page }) => {
+    await pick(page, 'launchpad-overflow', 'lp-app-1');
+
+    await dragOnto(page, 'lp-app-1', { node: 'lp-app-10' }, 'lp-page', 'accept');
+
+    await expect
+      .poll(async () => (await order(page, 'lp-page')).indexOf('lp-app-1'))
+      .toBeGreaterThan(0);
+    await expect.poll(async () => (await order(page, 'lp-page')).length).toBe(40);
+  });
+
   test('a page holding 30 of 35 takes an app from the Dock', async ({ page }) => {
     test.fail(); // canAccept ignores fill: false and caps 31 apps at ceil(sqrt(31)) = 6 columns
     await pick(page, 'launchpad-thirty', 'lp-app-1');
