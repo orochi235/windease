@@ -220,39 +220,49 @@ function mainSizes(
   // what it has, so nothing scales and the excess is reported instead. A
   // measured pane holds at its measurement for the same reason an explicit
   // one does: it is what the pane asked for.
-  const intrinsicMain = placedItems.reduce((sum, it) => sum + intrinsicAxis(it, axis), 0);
-  const budget = cfg.overflowMode === 'scroll' ? Math.max(usableMain, intrinsicMain) : usableMain;
-
-  // If any child has explicit placement.size on the main axis, use the clamp
-  // helper for the whole row. Otherwise take the preferredSize/fill path.
-  if (placedItems.some((it) => requestedAxis(it, axis) !== undefined)) {
-    const clamp = clampExplicitSizes({
-      available: budget,
-      items: placedItems.map((it) => ({
-        id: it.id,
-        explicit: requestedAxis(it, axis),
-        min: effectiveMinAxis(it, axis),
-        max: effectiveMaxAxis(it, axis),
-      })),
-    });
-    return placedItems.map((it) => clamp.get(it.id) ?? 0);
-  }
-
-  const fill = cfg.fill ?? false;
-  const preferred = placedItems.map((item) =>
-    axis === 'x' ? (item.hints?.preferredSize?.w ?? 0) : (item.hints?.preferredSize?.h ?? 0),
+  const hinted = sizedByHints(placedItems, axis);
+  const intrinsicMain = placedItems.reduce(
+    (sum, it) => sum + intrinsicAxis(it, axis, cfg, hinted),
+    0,
   );
-  const totalPreferred = preferred.reduce((sum, v) => sum + v, 0);
-  const flexCount = preferred.filter((v) => v === 0).length;
-  const flexMain =
-    fill && flexCount > 0 ? Math.max(0, (usableMain - totalPreferred) / flexCount) : 0;
-  const fallbackMain = fill ? flexMain : (cfg.defaultItemSize ?? 0);
-  // Floor at min here too: without it `minSize` is honored only when some
-  // sibling happens to carry an explicit size, and ignored otherwise.
-  return placedItems.map((item, i) => {
-    const v = preferred[i] ?? 0;
-    return Math.max(v > 0 ? v : fallbackMain, effectiveMinAxis(item, axis));
+  // A hint-sized row has never scaled preferredSize under `squeeze` either,
+  // despite that mode's docstring; which one is right is an open question.
+  const budget =
+    cfg.overflowMode === 'scroll' || hinted ? Math.max(usableMain, intrinsicMain) : usableMain;
+
+  // Once any child states a size, every child without one shares the rest and
+  // preferredSize is not consulted; otherwise preferredSize (or, under
+  // `fill: false`, defaultItemSize) is what each child states.
+  const clamp = clampExplicitSizes({
+    available: budget,
+    items: placedItems.map((it) => ({
+      id: it.id,
+      explicit: hinted ? hintedAxis(it, axis, cfg) : requestedAxis(it, axis),
+      min: effectiveMinAxis(it, axis),
+      max: effectiveMaxAxis(it, axis),
+    })),
   });
+  return placedItems.map((it) => clamp.get(it.id) ?? 0);
+}
+
+/** Whether the row is sized by hints, because no child states a size. */
+function sizedByHints(items: LayoutItem[], axis: 'x' | 'y'): boolean {
+  return !items.some((it) => requestedAxis(it, axis) !== undefined);
+}
+
+function preferredAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
+  const p = item.hints?.preferredSize;
+  const v = sane(axis === 'x' ? p?.w : p?.h, item, 'preferredSize');
+  return v !== undefined && v > 0 ? v : undefined;
+}
+
+/** What a child of a hint-sized row asks for: its preferredSize, else the
+ *  row's defaultItemSize under `fill: false`, floored at its min. Undefined for
+ *  a child that shares whatever the others leave. */
+function hintedAxis(item: LayoutItem, axis: 'x' | 'y', cfg: StripConfig): number | undefined {
+  const fallback = (cfg.fill ?? false) ? undefined : (cfg.defaultItemSize ?? 0);
+  const v = preferredAxis(item, axis) ?? fallback;
+  return v === undefined ? undefined : Math.max(v, effectiveMinAxis(item, axis));
 }
 
 /** The join a seam between `item` and `next` declares, or undefined when this
@@ -284,8 +294,18 @@ function writeSize(store: unknown, id: string, axis: 'x' | 'y', value: number): 
 }
 
 /** What this item asks to occupy on the main axis when nothing compresses it. */
-function intrinsicAxis(item: LayoutItem, axis: 'x' | 'y'): number {
-  return requestedAxis(item, axis) ?? effectiveMinAxis(item, axis);
+function intrinsicAxis(
+  item: LayoutItem,
+  axis: 'x' | 'y',
+  cfg: StripConfig,
+  hinted: boolean,
+): number {
+  const v =
+    requestedAxis(item, axis) ??
+    (hinted ? hintedAxis(item, axis, cfg) : undefined) ??
+    effectiveMinAxis(item, axis);
+  const max = effectiveMaxAxis(item, axis);
+  return max !== undefined && v > max ? max : v;
 }
 
 /** Capacity-selected subset both `layout` and `dispatchAffordance` must agree
@@ -306,9 +326,10 @@ function placedOf(
   const padding = cfg.padding ?? 0;
   const placed: LayoutItem[] = [];
   const unplaced = [...byCount.unplaced];
+  const hinted = sizedByHints(byCount.placed, axis);
   let used = 2 * padding;
   for (const item of byCount.placed) {
-    const need = intrinsicAxis(item, axis) + (placed.length > 0 ? gap : 0);
+    const need = intrinsicAxis(item, axis, cfg, hinted) + (placed.length > 0 ? gap : 0);
     // The first pane is placed whatever its extent: an empty container hides
     // the overflow instead of showing it.
     if (placed.length > 0 && used + need > main) {

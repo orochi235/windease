@@ -19,7 +19,13 @@ section below.
 - **`hints.maxSize` caps a strip pane with no stored size.** It was honored
   only on a pane with a `placement.size`, so an auto pane beside stored-size
   sidebars (Obsidian's note under a 700px readable-line cap) rendered at
-  whatever was left over.
+  whatever was left over, and a `preferredSize` above the cap rendered as
+  asked.
+
+- **`overflowMode: 'unplaced'` counts `preferredSize` when deciding what
+  fits.** A row sized by `preferredSize` counted each pane at its `minSize`,
+  so it placed every pane and overflowed instead of unplacing the ones that
+  did not fit.
 
 - **Strip panes that share the leftover no longer overflow a row that fits.**
   The leftover was split equally and each share floored at its pane's

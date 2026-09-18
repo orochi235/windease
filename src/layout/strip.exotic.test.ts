@@ -266,22 +266,17 @@ function layoutTree(preset: Preset, store: Store = presetToStore(preset)): Laid[
  * Defects these fixtures expose, keyed `scenario id » invariant`. Each entry
  * runs as `it.fails` and names the defect, so a fix turns it red here first.
  */
-const MAX_IGNORED = 'maxSize is not applied to a pane with no stored size';
 const SQUEEZED_DRAG =
   'a neighbor drag writes squeezed sizes for two panes, so the whole row rescales';
-const PREFERRED_UNSQUEEZED =
-  'squeeze never scales preferredSize, so floors do not bind before overflow';
 
 const KNOWN: Record<string, string> = {
-  'max-below-preferred » ceilings are honored': MAX_IGNORED,
-  'max-below-preferred » seam bounds contain the rendered extent': MAX_IGNORED,
   'slack-thread-open » a neighbor drag moves only the two panes beside its seam': SQUEEZED_DRAG,
   'xcode-restored-on-laptop » a neighbor drag moves only the two panes beside its seam':
     SQUEEZED_DRAG,
-  'vscode-hinted-sidebars@400-unplaced » unplaced mode never overflows':
-    'the unplaced budget counts stored and measured sizes but not preferredSize',
+  // Open question rather than a settled defect: `squeeze`'s docstring says it
+  // scales panes down, but strip.test.ts pins preferredSize as unscaled.
   'vscode-hinted-sidebars@400-squeeze » squeeze overflows only once every pane is at its floor':
-    PREFERRED_UNSQUEEZED,
+    'squeeze never scales preferredSize, so floors do not bind before overflow',
 };
 
 describe('strip on real-software layouts', () => {
