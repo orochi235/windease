@@ -361,15 +361,13 @@ describe('desktop pathology', () => {
     expect(r.overflow).toEqual({ w: 300, h: 200 });
   });
 
-  // Defect: `typeof NaN === 'number'`, so a NaN/Infinity x or y is used as a position instead of cascading.
-  it.fails('treats a non-finite position as no position, and cascades it', () => {
+  it('treats a non-finite position as no position, and cascades it', () => {
     const r = run(byId['desktop-nan-position']!, 'desktop');
     expect(malformedRects(r.placements)).toEqual([]);
     expect(r.placements.get('nan')).toMatchObject({ x: 0, y: 0 });
   });
 
-  // Defect: the same unguarded NaN position leaks into overflow.
-  it.fails('never reports a NaN overflow, even for a NaN position', () => {
+  it('never reports a NaN overflow, even for a NaN position', () => {
     const r = run(byId['desktop-nan-position']!, 'desktop');
     for (const v of Object.values(r.overflow ?? {})) expect(Number.isNaN(v)).toBe(false);
   });

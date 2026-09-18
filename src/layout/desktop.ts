@@ -126,8 +126,12 @@ export function desktopStrategy<TInner>(
         }
         const { x, y } = item.meta ?? {};
         let at: { x: number; y: number };
-        if (typeof x === 'number' && typeof y === 'number') at = { x, y };
+        if (Number.isFinite(x) && Number.isFinite(y)) at = { x: x as number, y: y as number };
         else {
+          const bad = (n: unknown) => typeof n === 'number' && !Number.isFinite(n);
+          if (bad(x) || bad(y)) {
+            trace('layout', `desktop: ${item.id} at non-finite (${x}, ${y}), cascaded`);
+          }
           at = { x: slot * cascade, y: slot * cascade };
           slot++;
         }

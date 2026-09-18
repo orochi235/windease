@@ -16,6 +16,10 @@ section below.
   Width comparisons now allow for float drift, and a sub-pixel excess no longer
   reports `overflow`.
 
+- **`desktopStrategy` cascades a window whose `x` or `y` is `NaN` or infinite**
+  instead of placing it there, the same way it treats a window with no position.
+  The bad coordinate also no longer turns `overflow` into `NaN`.
+
 ## 2.0.0
 
 ### Removed

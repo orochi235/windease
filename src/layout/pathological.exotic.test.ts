@@ -177,10 +177,6 @@ const KNOWN: { match: RegExp; defect: string }[] = [
     match: /^floating[^/]*\/(preferredSize|natural)\/(NaN|Infinity)$/,
     defect: 'floating withholds a 0-size item but places a NaN or infinite one',
   },
-  {
-    match: /^desktop[^/]*\/meta x\/y\/(NaN|Infinity|-Infinity)$/,
-    defect: 'desktop checks that a window size is finite but not its x/y',
-  },
 ];
 
 function knownDefect(key: string): string | undefined {
