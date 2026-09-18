@@ -73,3 +73,28 @@ test.describe('desktop minimize', () => {
     expect(await settledBox(node(page, 'win-2'))).toEqual(before);
   });
 });
+
+test.describe('desktop raise policy', () => {
+  const RAISE = 'desktop--raise-policy';
+
+  for (const mode of ['click', 'focus'] as const) {
+    test(`raise: '${mode}' brings a pressed window to the top`, async ({ page }) => {
+      await openStory(page, `${RAISE}&arg-raise=${mode}`);
+      const one = await boxOf(node(page, 'win-1'));
+      const p = overlapCenter(one, await boxOf(node(page, 'win-2')));
+      expect(await hitAt(page, p)).toBe('win-2');
+      await page.mouse.click(one.x + 12, one.y + one.h / 2);
+      await expect.poll(() => hitAt(page, p)).toBe('win-1');
+    });
+  }
+
+  test("raise: 'click' still delivers the press that raised the window", async ({ page }) => {
+    await openStory(page, `${RAISE}&arg-raise=click`);
+    // win-2 sits under win-3, but its title bar is clear of every other window.
+    await expect(node(page, 'win-2')).toHaveCSS('z-index', '2');
+    const press = page.getByTestId('press-win-2');
+    await press.click();
+    await expect(node(page, 'win-2')).toHaveCSS('z-index', '3');
+    await expect(press).toHaveText('1');
+  });
+});

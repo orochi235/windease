@@ -8,6 +8,17 @@ section below.
 
 ## Unreleased
 
+### Added
+
+- **Container config `raise: 'focus' | 'click'` brings a window to the top
+  without host code.** When a child of the container, or anything inside it,
+  takes focus, the store moves that child last in `childOrder`, where desktop
+  and floating draw it on top. `'click'` also raises on a click that moves no
+  focus, through `<Container>`. A pinned child keeps its slot, other pins are
+  routed around, a container locked against `arrange` is left alone, and the
+  focus change and the raise are one transaction. `store.raise(id)` does the
+  same on demand.
+
 ### Fixed
 
 - **A preset's own render error is no longer reported as an id collision.**

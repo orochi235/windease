@@ -230,6 +230,10 @@ methods:
 - `showNode` / `hideNode` — lifecycle transitions. Hidden children are
   excluded from layout.
 - `focusNode` / `blurAll` — single-focus invariant enforced.
+- `raise(id)` — move a child last in its parent's `childOrder`, around pins;
+  gated by the parent's `arrange`. A container whose config sets
+  `raise: 'focus' | 'click'` has `focusNode` do this for the focused node's
+  ancestor in it, in the same transaction.
 
 Selectors: `getNode`, `getChildren`, `getParent`, `getAncestors`,
 `isContainer`, `isMember`, `canFocus`, `getContainerView`. All three

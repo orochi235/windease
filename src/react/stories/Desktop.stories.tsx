@@ -1,7 +1,7 @@
 export default { title: 'Desktop' };
 
 import type { Story } from '@ladle/react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   asNodeId,
   createNode,
@@ -13,6 +13,7 @@ import {
 import {
   type ChromeMap,
   Container,
+  FocusProvider,
   Provider,
   StrategyRegistryProvider,
   useFocusedNode,
@@ -175,3 +176,90 @@ Shade.argTypes = { minimize: { options: ['shade', 'icon'], control: { type: 'rad
 export const IconMinimize: Story<Args> = (args) => <DesktopZone {...args} />;
 IconMinimize.args = { minimize: 'icon' };
 IconMinimize.argTypes = Shade.argTypes;
+
+const RAISE_ZONE = asNodeId('raise-desktop');
+
+function useRaiseStore(raise: 'click' | 'focus'): Store {
+  return useMemo(() => {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        id: RAISE_ZONE,
+        container: { strategyId: 'desktop', config: { raise } },
+      }),
+    );
+    for (const { id, x, y, w, h } of WINDOWS) {
+      s.registerNode(
+        createNode({
+          kind: 'window',
+          focus: true,
+          id: asNodeId(id),
+          parentId: RAISE_ZONE,
+          placement: { x, y },
+          hints: { preferredSize: { w, h } },
+          meta: { title: id },
+        }),
+      );
+      s.showNode(asNodeId(id));
+    }
+    return s;
+  }, [raise]);
+}
+
+function RaiseWindow({ id, title }: { id: NodeId; title: string }) {
+  const [presses, setPresses] = useState(0);
+  return (
+    <div className="desktop-window">
+      <header className="desktop-window__bar">
+        <span>{title}</span>
+        <button
+          type="button"
+          className="desktop-window__button"
+          data-testid={`press-${id}`}
+          onClick={() => setPresses((n) => n + 1)}
+        >
+          {presses}
+        </button>
+      </header>
+      <div className="desktop-window__body">{String(id)}</div>
+    </div>
+  );
+}
+
+const RAISE_CHROME: ChromeMap = {
+  window: ({ node }) => <RaiseWindow id={node.id} title={String(node.meta?.title ?? node.id)} />,
+};
+
+function RaiseDesktop({ raise }: { raise: 'click' | 'focus' }) {
+  const store = useRaiseStore(raise);
+  const desktop = (
+    <div className="desktop-demo">
+      <Container
+        parentId={RAISE_ZONE}
+        chrome={RAISE_CHROME}
+        viewport={{ w: 480, h: 360 }}
+        className="windease-zone"
+      />
+    </div>
+  );
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        {raise === 'focus' ? <FocusProvider>{desktop}</FocusProvider> : desktop}
+        <p className="desktop-hint">
+          {raise === 'click'
+            ? "Click a window to raise it; nothing here moves focus. A window's counter counts the presses that reached its button."
+            : 'Focus a window, by pointer or Tab, to raise it.'}
+        </p>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+}
+
+/** No host code raises these windows: the zone's `raise` config does, on focus or on click. */
+export const RaisePolicy: Story<{ raise: 'click' | 'focus' }> = (args) => (
+  <RaiseDesktop {...args} />
+);
+RaisePolicy.args = { raise: 'click' };
+RaisePolicy.argTypes = { raise: { options: ['click', 'focus'], control: { type: 'radio' } } };

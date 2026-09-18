@@ -5,6 +5,7 @@ import type {
   Size,
   StatefulLayoutStrategy,
 } from '../layout-types.js';
+import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
 
 /** The values `container.config.minimize` accepts. */
@@ -92,6 +93,7 @@ export function desktopStrategy<TInner>(
       iconWidth: 'number',
       iconHeight: 'number',
       cascade: 'number',
+      raise: RAISE_MODES,
     },
 
     initialState(items, options) {
