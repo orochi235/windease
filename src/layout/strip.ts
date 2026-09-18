@@ -146,21 +146,14 @@ function boundsFor(
   const own = effectiveMinAxis(item, axis);
   const max = effectiveMaxAxis(item, axis);
 
-  let valueMax: number;
   if (pair) {
-    const total = valueNow + pair.extent;
-    valueMax = total - effectiveMinAxis(pair.item, axis);
-    const pairMax = effectiveMaxAxis(pair.item, axis);
-    if (pairMax !== undefined && total - pairMax > own) {
-      // The neighbor's own ceiling stops this pane shrinking any further.
-      return finishBounds(axis, valueNow, Math.max(own, total - pairMax), valueMax, max);
-    }
-  } else {
-    const otherMinSum = placedItems
-      .filter((it) => it.id !== item.id)
-      .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
-    valueMax = usableMain - otherMinSum;
+    const { lo, hi } = neighborRange(item, valueNow, pair.item, pair.extent, axis);
+    return finishBounds(axis, valueNow, valueNow + lo, valueNow + hi);
   }
+  const otherMinSum = placedItems
+    .filter((it) => it.id !== item.id)
+    .reduce((s, it) => s + effectiveMinAxis(it, axis), 0);
+  let valueMax = usableMain - otherMinSum;
   if (max !== undefined && max < valueMax) valueMax = max;
   if (valueMax < own) valueMax = own;
   // A pane sized under its own min (a collapsed palette) would otherwise
@@ -188,6 +181,30 @@ function finishBounds(
     atMin: valueNow <= valueMin,
     atMax: valueNow >= hi,
   };
+}
+
+/** How far a neighbor seam may move from where it sits: `lo <= 0 <= hi`, in
+ *  main-axis pixels added to `a` and taken from `b`. A pane already past one of
+ *  its limits (a sliver stored under its min) may not move further past it, but
+ *  is never pushed back inside it either, so a drag can stall and never reverse. */
+function neighborRange(
+  a: LayoutItem,
+  baseA: number,
+  b: LayoutItem,
+  baseB: number,
+  axis: 'x' | 'y',
+): { lo: number; hi: number } {
+  const maxA = effectiveMaxAxis(a, axis);
+  const maxB = effectiveMaxAxis(b, axis);
+  const lo = Math.max(
+    Math.min(0, effectiveMinAxis(a, axis) - baseA),
+    maxB === undefined ? Number.NEGATIVE_INFINITY : Math.min(0, baseB - maxB),
+  );
+  const hi = Math.min(
+    maxA === undefined ? Number.POSITIVE_INFINITY : Math.max(0, maxA - baseA),
+    Math.max(0, baseB - effectiveMinAxis(b, axis)),
+  );
+  return { lo, hi };
 }
 
 /** The main-axis extent every placed item receives. `layout` writes these into
@@ -479,16 +496,8 @@ export const stripStrategy: LayoutStrategy<void, string> = {
 
       const baseA = sizes[index] ?? 0;
       const baseB = sizes[index + 1] ?? 0;
-      const minA = effectiveMinAxis(item, axis);
-      const maxA = effectiveMaxAxis(item, axis);
-      const minB = effectiveMinAxis(next, axis);
-      const maxB = effectiveMaxAxis(next, axis);
-
-      let d = delta;
-      if (baseA + d < minA) d = minA - baseA;
-      if (maxA !== undefined && baseA + d > maxA) d = maxA - baseA;
-      if (baseB - d < minB) d = baseB - minB;
-      if (maxB !== undefined && baseB - d > maxB) d = baseB - maxB;
+      const { lo, hi } = neighborRange(item, baseA, next, baseB, axis);
+      const d = Math.min(hi, Math.max(lo, delta));
       if (d === 0) return;
 
       writeSize(store, childId as string, axis, baseA + d);
@@ -510,6 +519,9 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     if (next > ceiling) next = ceiling;
     if (next < min) next = min;
     if (max !== undefined && next > max) next = max;
+    // A pane stored under its floor (a minimized group) sits outside the range
+    // above; clamping into it would move the seam against the pointer.
+    if ((next - base) * delta < 0) return;
 
     writeSize(store, childId as string, axis, next);
   },

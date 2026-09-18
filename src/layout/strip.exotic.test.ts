@@ -267,8 +267,6 @@ function layoutTree(preset: Preset, store: Store = presetToStore(preset)): Laid[
  * runs as `it.fails` and names the defect, so a fix turns it red here first.
  */
 const MAX_IGNORED = 'maxSize is not applied to a pane with no stored size';
-const BELOW_FLOOR_REVERSES =
-  'a drag beside a pane stored under its floor clamps across zero and reverses';
 const SQUEEZED_DRAG =
   'a neighbor drag writes squeezed sizes for two panes, so the whole row rescales';
 const PREFERRED_DROPPED =
@@ -279,8 +277,6 @@ const PREFERRED_UNSQUEEZED =
 
 const KNOWN: Record<string, string> = {
   'obsidian-readable-line » ceilings are honored': MAX_IGNORED,
-  'obsidian-readable-line » seam bounds contain the rendered extent': MAX_IGNORED,
-  'obsidian-readable-line » a drag never moves its seam backward': MAX_IGNORED,
   'min-above-max-unconstrained » ceilings are honored': MAX_IGNORED,
   'min-above-max-unconstrained » seam bounds contain the rendered extent': MAX_IGNORED,
   'max-below-preferred » ceilings are honored': MAX_IGNORED,
@@ -289,11 +285,6 @@ const KNOWN: Record<string, string> = {
   'slack-thread-open » a neighbor drag moves only the two panes beside its seam': SQUEEZED_DRAG,
   'xcode-restored-on-laptop » a neighbor drag moves only the two panes beside its seam':
     SQUEEZED_DRAG,
-  'acme-column » a drag never moves its seam backward': BELOW_FLOOR_REVERSES,
-  'acme-column » a drag lands inside the range its seam advertised': BELOW_FLOOR_REVERSES,
-  'acme-column » a drag writes finite, non-negative sizes': BELOW_FLOOR_REVERSES,
-  'acme-column » a neighbor drag moves only the two panes beside its seam': BELOW_FLOOR_REVERSES,
-  'photoshop-minimized-group » a drag never moves its seam backward': BELOW_FLOOR_REVERSES,
   'vscode-hinted-sidebars » a drag never moves its seam backward': PREFERRED_DROPPED,
   'vscode-hinted-sidebars » a neighbor drag moves only the two panes beside its seam':
     PREFERRED_DROPPED,

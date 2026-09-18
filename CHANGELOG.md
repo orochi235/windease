@@ -16,6 +16,13 @@ section below.
   size used to render as written and spread into the next sibling's position,
   and a negative `maxSize` gave a negative width.
 
+- **A strip seam drag never moves against the pointer.** Beside a pane stored
+  under its `minSize` — an acme window shrunk to a 2px sliver, a minimized
+  Photoshop group — a `'neighbor'` drag could flip direction and write a
+  negative size, and a `'redistribute'` drag jumped the pane up to its minimum.
+  A pane past one of its limits now stays put when pushed further past it, and
+  the seam's `bounds` advertise the same range the drag reaches.
+
 - **A strip's cross axis no longer goes negative.** Padding larger than the
   container, as a host hidden with `display: none` measures, now gives panes a
   cross extent of 0 rather than a negative one, as `stackStrategy` already did.

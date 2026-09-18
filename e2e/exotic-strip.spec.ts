@@ -199,7 +199,7 @@ test.describe('firefox with 100 tabs', () => {
 test.describe('known defects, asserted as the correct behavior', () => {
   // Defect: a neighbor drag beside a pane stored under its floor clamps across
   // zero and moves the seam the other way.
-  test.fail('acme: dragging down from a tag-line window never shrinks it', async ({ page }) => {
+  test('acme: dragging down from a tag-line window never shrinks it', async ({ page }) => {
     await openPreset(page, 'acme-column');
     const before = await boxOf(pane(page, 'mkfile'));
     // dat.h and fns.h are 2px slivers, so their seams' hit areas cover the lower
@@ -240,7 +240,7 @@ test.describe('known defects, asserted as the correct behavior', () => {
   );
 
   // Defect: a redistribute drag on a pane stored under its floor jumps it to the floor.
-  test.fail('photoshop: dragging a minimized group smaller never grows it', async ({ page }) => {
+  test('photoshop: dragging a minimized group smaller never grows it', async ({ page }) => {
     await openPreset(page, 'photoshop-minimized-group');
     const before = await boxOf(pane(page, 'ps-properties'));
     await dragSeam(page, 'resize-y-ps-properties', -16, 'y');
