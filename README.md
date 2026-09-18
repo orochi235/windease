@@ -952,6 +952,42 @@ stop moving because its *neighbor* hit a limit while it is nowhere near its
 own. `aria-valuenow` reflects where it actually landed; the value itself is
 never narrated to a live region.
 
+### Sizing panes by share
+
+`placement.size` is pixels, so a layout saved on a big screen is squeezed on a
+small one, and a pane without a stored size gets whatever is left — often
+nothing. `placement.share` stores a fraction of the row instead, the way i3,
+Golden Layout and Emacs do, and keeps its proportions at any width:
+
+```ts
+store.patchPlacement(nav, { share: 0.2 });
+store.patchPlacement(editor, { share: 0.5 });
+store.patchPlacement(inspector, { share: 0.3 });
+```
+
+One row can mix all three kinds of pane:
+
+1. Panes with a pixel `size` (or a measurement) take theirs first.
+2. Shared panes split what that leaves, in proportion. Beside panes with
+   neither, a share is a fraction of it — `0.25` is a quarter — and shares
+   summing past 1 are scaled down to fit. With no such pane, the shares are
+   scaled to fill it, so `1` and `3` read as a quarter and three quarters.
+3. Panes with neither split the rest equally, as they always have.
+
+`hints.minSize` and `hints.maxSize` bound a shared pane like any other. Space a
+capped share gives up goes to the panes with neither, or is left empty. A `size` on the main axis outranks a `share` on the same pane. A
+share that is not a positive, finite number is ignored and traced under
+`layout`.
+
+A seam drag on a row holding any share writes shares back: each pane it resizes
+stores its new extent as a fraction of what the pixel panes leave, so the row
+stays proportional and the seam still moves by exactly the drag. A pane that
+already asks for pixels keeps getting `size`. A pane dragged to nothing has its
+share cleared rather than set to 0.
+
+Like `size`, a share is relative to the parent: `store.split` clears it from the
+panes it moves into a new group, and the group inherits the slot's share.
+
 ### Seam join
 
 A neighbor seam can end in a destroy rather than a clamp. With

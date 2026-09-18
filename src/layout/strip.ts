@@ -116,6 +116,18 @@ function requestedAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
   return explicitAxis(item, axis) ?? naturalAxis(item, axis);
 }
 
+/** The fraction of the row this item asks for, when it states one and no
+ *  pixel size outranks it. Zero is refused with the rest: a pane that shares
+ *  nothing is the fill pane it would otherwise be. */
+function shareAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
+  if (requestedAxis(item, axis) !== undefined) return undefined;
+  const v = item.placement?.share;
+  if (typeof v !== 'number') return undefined;
+  if (Number.isFinite(v) && v > 0) return v;
+  trace('layout', `strip: ignoring placement.share ${v} on ${item.id}`);
+  return undefined;
+}
+
 function effectiveMinAxis(item: LayoutItem, axis: 'x' | 'y'): number {
   const m = item.hints?.minSize;
   return sane(axis === 'x' ? m?.w : m?.h, item, 'minSize') ?? 0;
@@ -216,6 +228,17 @@ function mainSizes(
   axis: 'x' | 'y',
   usableMain: number,
 ): number[] {
+  return resolveRow(placedItems, cfg, axis, usableMain).sizes;
+}
+
+/** `mainSizes`, plus the extent the pixel-sized panes leave, which is what a
+ *  share is a fraction of. */
+function resolveRow(
+  placedItems: LayoutItem[],
+  cfg: StripConfig,
+  axis: 'x' | 'y',
+  usableMain: number,
+): { sizes: number[]; shareSpace: number } {
   // Under `scroll` the row is laid out against what it asked for rather than
   // what it has, so nothing scales and the excess is reported instead. A
   // measured pane holds at its measurement for the same reason an explicit
@@ -238,16 +261,24 @@ function mainSizes(
     items: placedItems.map((it) => ({
       id: it.id,
       explicit: hinted ? hintedAxis(it, axis, cfg) : requestedAxis(it, axis),
+      share: hinted ? undefined : shareAxis(it, axis),
       min: effectiveMinAxis(it, axis),
       max: effectiveMaxAxis(it, axis),
     })),
   });
-  return placedItems.map((it) => clamp.get(it.id) ?? 0);
+  const sizes = placedItems.map((it) => clamp.get(it.id) ?? 0);
+  const pixels = placedItems.reduce(
+    (sum, it, i) => sum + (requestedAxis(it, axis) !== undefined ? (sizes[i] ?? 0) : 0),
+    0,
+  );
+  return { sizes, shareSpace: Math.max(0, budget - pixels) };
 }
 
 /** Whether the row is sized by hints, because no child states a size. */
 function sizedByHints(items: LayoutItem[], axis: 'x' | 'y'): boolean {
-  return !items.some((it) => requestedAxis(it, axis) !== undefined);
+  return !items.some(
+    (it) => requestedAxis(it, axis) !== undefined || shareAxis(it, axis) !== undefined,
+  );
 }
 
 function preferredAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
@@ -282,29 +313,87 @@ function joinFor(
   };
 }
 
-function writeSize(store: unknown, id: string, axis: 'x' | 'y', value: number): void {
+/** What a drag stores for one pane: a pixel size, or a share of the row. */
+type Stored = { size: number } | { share: number | undefined };
+
+function writeStored(store: unknown, id: string, axis: 'x' | 'y', value: Stored): void {
   const s = store as {
     getNode: (id: string) => { membership?: { placement?: Record<string, unknown> } } | undefined;
     patchPlacement: (id: string, patch: Record<string, unknown>) => void;
   };
+  if ('share' in value) {
+    s.patchPlacement(id, { share: value.share });
+    return;
+  }
   const existing = (s.getNode(id)?.membership?.placement?.size ?? {}) as { w?: number; h?: number };
   s.patchPlacement(id, {
-    size: axis === 'x' ? { ...existing, w: value } : { ...existing, h: value },
+    size: axis === 'x' ? { ...existing, w: value.size } : { ...existing, h: value.size },
   });
 }
 
-/** `items` as they will read once `writes` land in `placement.size`. */
-function withSizes(
+/**
+ * What each pane in `writes` stores to render at its new extent. A row holding
+ * any share stays proportional: every pane written that does not already ask
+ * for pixels (an explicit size or a measurement) stores a share of the extent
+ * the pixel panes leave once their own writes land. A share of nothing is
+ * cleared rather than stored as zero.
+ */
+function toStored(
   items: LayoutItem[],
   writes: ReadonlyMap<string, number>,
+  cfg: StripConfig,
+  axis: 'x' | 'y',
+  usableMain: number,
+): Map<string, Stored> {
+  const out = new Map<string, Stored>();
+  const proportional = items.some((it) => shareAxis(it, axis) !== undefined);
+  const byPixels = (it: LayoutItem) => !proportional || requestedAxis(it, axis) !== undefined;
+  const pixelWrites = new Map<string, number>();
+  for (const it of items) {
+    const v = writes.get(it.id);
+    if (v !== undefined && byPixels(it)) pixelWrites.set(it.id, v);
+  }
+  for (const [id, v] of pixelWrites) out.set(id, { size: v });
+  if (pixelWrites.size === writes.size) return out;
+
+  const { shareSpace } = resolveRow(applyStored(items, out, axis), cfg, axis, usableMain);
+  for (const it of items) {
+    const v = writes.get(it.id);
+    if (v === undefined || byPixels(it)) continue;
+    // With nothing to be a fraction of, pixels are the only faithful record.
+    if (shareSpace <= 0) out.set(it.id, { size: v });
+    else out.set(it.id, { share: v > 0 ? v / shareSpace : undefined });
+  }
+  return out;
+}
+
+/** `items` as they will read once `stored` lands in their placement. */
+function applyStored(
+  items: LayoutItem[],
+  stored: ReadonlyMap<string, Stored>,
   axis: 'x' | 'y',
 ): LayoutItem[] {
   return items.map((it) => {
-    const v = writes.get(it.id);
+    const v = stored.get(it.id);
     if (v === undefined) return it;
-    const size = { ...it.placement?.size, [axis === 'x' ? 'w' : 'h']: v };
+    if ('share' in v) {
+      const { share: _, ...rest } = it.placement ?? {};
+      return { ...it, placement: v.share === undefined ? rest : { ...rest, share: v.share } };
+    }
+    const size = { ...it.placement?.size, [axis === 'x' ? 'w' : 'h']: v.size };
     return { ...it, placement: { ...it.placement, size } };
   });
+}
+
+/** `items` as they will read once `writes`, in main-axis pixels, are stored. */
+function withWrites(
+  items: LayoutItem[],
+  writes: ReadonlyMap<string, number>,
+  cfg: StripConfig,
+  axis: 'x' | 'y',
+  usableMain: number,
+): LayoutItem[] {
+  return applyStored(items, toStored(items, writes, cfg, axis, usableMain), axis);
 }
 
 /**
@@ -410,9 +499,9 @@ function placedOf(
  * cross axis. `{ axis: 'y' }` is what used to be called "stack". Config takes
  * `axis`, `gap` and `padding`.
  *
- * Honors `placement.size` on the main axis for fixed-px panes, and emits a
- * gutter between each pair — dragging one clears both panes' stored size.
- * `store.split` builds nested strips, which is how binary splits are made.
+ * Honors `placement.size` on the main axis for fixed-px panes and
+ * `placement.share` for proportional ones, and emits a gutter between each
+ * pair. `store.split` builds nested strips, which is how binary splits are made.
  * @group Strategies
  */
 export const stripStrategy: LayoutStrategy<void, string> = {
@@ -592,7 +681,12 @@ export const stripStrategy: LayoutStrategy<void, string> = {
         [next.id, baseB - d],
       ]);
       for (let pass = 0; pass < placedItems.length; pass++) {
-        const after = mainSizes(withSizes(placedItems, writes, axis), cfg, axis, usableMain);
+        const after = mainSizes(
+          withWrites(placedItems, writes, cfg, axis, usableMain),
+          cfg,
+          axis,
+          usableMain,
+        );
         const pinned = writes.size;
         placedItems.forEach((it, i) => {
           const now = sizes[i] ?? 0;
@@ -602,7 +696,8 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       }
       if (writes.size > 2)
         trace('layout', `strip: pinned ${writes.size - 2} panes beside ${childId}`);
-      for (const [id, v] of writes) writeSize(store, id, axis, v);
+      for (const [id, v] of toStored(placedItems, writes, cfg, axis, usableMain))
+        writeStored(store, id, axis, v);
       return;
     }
 
@@ -625,7 +720,12 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     if ((next - base) * delta < 0) return;
 
     const writes = new Map<string, number>([[childId as string, next]]);
-    const after = mainSizes(withSizes(placedItems, writes, axis), cfg, axis, usableMain);
+    const after = mainSizes(
+      withWrites(placedItems, writes, cfg, axis, usableMain),
+      cfg,
+      axis,
+      usableMain,
+    );
     if (Math.abs((after[index] ?? 0) - next) > 1e-6) {
       // Nothing absorbs the change — every other pane holds a stored size, or
       // the row was squeezed — so the new size alone would rescale the row and
@@ -636,6 +736,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       }
       trace('layout', `strip: ${childId} took ${next - base} from ${writes.size - 1} panes`);
     }
-    for (const [id, v] of writes) writeSize(store, id, axis, v);
+    for (const [id, v] of toStored(placedItems, writes, cfg, axis, usableMain))
+      writeStored(store, id, axis, v);
   },
 };

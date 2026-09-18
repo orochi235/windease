@@ -8,6 +8,16 @@ section below.
 
 ## Unreleased
 
+### Added
+
+- **`placement.share` sizes a strip pane as a fraction of its row.** Unlike a
+  pixel `placement.size`, it survives a container resize: a row saved at 3840px
+  and shown at 960px keeps its proportions, where pixel sizes were squeezed and
+  left a pane without one nothing. Pixel sizes are taken out first, shares split
+  what they leave, and panes with neither share the rest. A seam drag on a row
+  holding any share writes shares back, so the row stays proportional. See
+  [Sizing panes by share](README.md#sizing-panes-by-share).
+
 ### Fixed
 
 - **A preset's own render error is no longer reported as an id collision.**

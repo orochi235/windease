@@ -108,6 +108,14 @@ Two paths for free-form data on a node; lifetimes differ:
   — it reaches a strategy as `LayoutItem.natural`, is never stored on the node,
   and never enters a snapshot. `size` outranks it, so a gutter drag pins the
   pane.
+- `share: number` — a **fraction** of the main-axis extent a strip's
+  pixel-sized panes leave, honored by strip only; it keeps its proportion when
+  the container resizes. Panes with neither `size` nor `share` take what the
+  shares leave; with none, shares are normalized to fill the row. `size` on the
+  main axis outranks it. A seam drag on a row holding any share writes shares,
+  except to a pane that already asks for pixels. A share that is not a positive
+  finite number is ignored, with a `layout` trace. `split` clears it with
+  `size`.
 - `span: { cols?, rows? }` — fixed **cell-count** extent honored by `grid`
   only. Kept separate from `size` (pixels) rather than reusing it, so the
   same key doesn't mean two different units depending on which strategy the
@@ -142,7 +150,7 @@ first.
 | Axis      | Requires     | Guards                                                     |
 | --------- | ------------ | ----------------------------------------------------------- |
 | `move`    | `membership` | `moveNode` (as source), `reorderInParent`                   |
-| `resize`  | `membership` | `patchPlacement`, reserved `size` key only                  |
+| `resize`  | `membership` | `patchPlacement`, reserved `size` / `span` / `share` keys only |
 | `destroy` | —            | `unregisterNode`                                             |
 | `accept`  | `container`  | `moveNode` (as target)                                       |
 | `dragOut` | `container`  | `moveNode` where the source's parent is this node             |
@@ -326,7 +334,8 @@ Built-ins:
   `{ axis: 'y', fill: true }` replaces the axis-stacking strategy removed in
   0.9.0 — not today's `stackStrategy`, which is unrelated. Honors child
   `hints.minSize` as a pixel floor and `hints.maxSize` as a ceiling, plus
-  `placement.size` for a fixed-px pane.
+  `placement.size` for a fixed-px pane and `placement.share` for a
+  proportional one.
   `store.split(id, input)` (see Store API) builds nested strip trees —
   workspace-level splits with draggable gutters — without a dedicated
   strategy of its own.

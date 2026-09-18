@@ -877,8 +877,9 @@ export class Store {
     if (!node.membership) {
       throw new CapabilityMissingError(id, 'membership', 'patchPlacement');
     }
-    // `span` is grid's cell-count analog of `size`; both are the resize axis.
-    if ('size' in patch || 'span' in patch) {
+    // `span` (grid cells) and `share` (a fraction of a strip) are `size` in
+    // other units; all three are the resize axis.
+    if ('size' in patch || 'span' in patch || 'share' in patch) {
       this.assertUnlocked(id, 'resize', 'patchPlacement', opts);
     }
     // Unlike `size`, a direct `pinned` write can't be lock-gated and allowed through:
@@ -1696,8 +1697,8 @@ export class Store {
       // Both sizes were measured against the old parent's axis and mean nothing
       // against this one; the group carries the outer slot's size. A pin index
       // is likewise an index into the old parent's childOrder.
-      this.patchPlacement(sourceId, { size: undefined });
-      this.patchPlacement(ontoId, { size: undefined });
+      this.patchPlacement(sourceId, { size: undefined, share: undefined });
+      this.patchPlacement(ontoId, { size: undefined, share: undefined });
       this.unpin(sourceId);
       this.unpin(ontoId);
       if (pinned !== null) this.setPinned(opts.id, pinned);

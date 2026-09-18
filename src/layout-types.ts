@@ -49,10 +49,15 @@ export interface LayoutItem {
    *
    * `span` is grid's cell-count analog of `size` — `cols`/`rows` are counts,
    * not pixels. Only `gridStrategy` reads it.
+   *
+   * `share` is a fraction of the main-axis extent the pixel-sized panes leave,
+   * so it keeps its proportion when the container resizes. `stripStrategy`
+   * reads it; `size` on the main axis outranks it.
    */
   placement?: {
     size?: { w?: number; h?: number };
     span?: { cols?: number; rows?: number };
+    share?: number;
   };
   /**
    * The node's whole `membership.placement` bag, projected by

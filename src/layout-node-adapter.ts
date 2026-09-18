@@ -34,16 +34,19 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
   const placement = node.membership?.placement;
   if (placement && Object.keys(placement).length > 0) {
     item.meta = { ...placement };
-    // Surface `size`/`span` as the typed, public placement intent strategies
-    // read (the `meta` projection above still carries flags like `pinned`).
-    const { size, span } = placement as {
+    // Surface `size`/`span`/`share` as the typed, public placement intent
+    // strategies read (the `meta` projection above still carries flags like
+    // `pinned`).
+    const { size, span, share } = placement as {
       size?: { w?: number; h?: number };
       span?: { cols?: number; rows?: number };
+      share?: number;
     };
-    if (size || span) {
+    if (size || span || share !== undefined) {
       item.placement = {};
       if (size) item.placement.size = size;
       if (span) item.placement.span = span;
+      if (share !== undefined) item.placement.share = share;
     }
   }
   return item;

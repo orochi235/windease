@@ -189,7 +189,7 @@ function buildColumns(
     for (let row = 0; row < rows; row += 1) {
       if (col === 0 && row === 0) {
         store.moveNode(id, columnId, 0);
-        store.patchPlacement(id, { size: undefined });
+        store.patchPlacement(id, { size: undefined, share: undefined });
         store.unpin(id);
         continue;
       }
@@ -350,7 +350,7 @@ function applyWrap(store: Store, id: NodeId, input: SplitInput): void {
     );
   } else {
     store.moveNode(id, groupId, 0);
-    store.patchPlacement(id, { size: undefined });
+    store.patchPlacement(id, { size: undefined, share: undefined });
     store.unpin(id);
     for (const newId of input.newIds) {
       store.registerNode(

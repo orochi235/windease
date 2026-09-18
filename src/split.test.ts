@@ -251,6 +251,20 @@ describe('Store.split — wrap mode', () => {
     expect(store.getPlacement(asNodeId('p1')).size).toBeUndefined();
   });
 
+  it('transfers a share to the group and clears it from the target', () => {
+    const store = seeded();
+    store.patchPlacement(asNodeId('p1'), { share: 0.4 });
+
+    store.split(asNodeId('p1'), {
+      direction: 'y',
+      groupId: asNodeId('g'),
+      newIds: [asNodeId('p2')],
+    });
+
+    expect(store.getPlacement(asNodeId('g'))).toMatchObject({ share: 0.4 });
+    expect(store.getPlacement(asNodeId('p1')).share).toBeUndefined();
+  });
+
   it('transfers a pinned index to the group', () => {
     const store = new Store();
     store.registerNode(
