@@ -6,6 +6,44 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
+## Unreleased
+
+### Fixed
+
+- **`checkStrategyConfig` reports a number config that is `NaN` or infinite.**
+  It checked only the type, so `cols: NaN` passed as a number.
+
+- **`gridStrategy` no longer hangs on a `NaN` or infinite number.** `cols: NaN`,
+  or a `NaN` or infinite `placement.span` in a grid with no row cap, looped
+  forever looking for a cell. A non-finite `cols`, `rows`, `maxCols`, `maxRows`
+  or `maxItems` is now ignored, as if unset, and a fractional one rounds down.
+
+- **A `NaN` span in `gridStrategy` takes one cell.** One `NaN` `span.rows` made
+  every rect in the grid `NaN`, and under a row cap a `NaN` span sent its item to
+  `unplaced`. An infinite span fills the grid on a capped axis and takes one cell
+  otherwise; `cols: Infinity` no longer produces `NaN` rects.
+
+- **`gridStrategy` auto-balance fills `maxCols` × `maxRows`.** It chose columns
+  from the square root of the item count, then applied `maxRows` as a hard cap,
+  so a 4×1 dock placed two of three items and a 7×5 page placed 30 of 35. Columns
+  now grow until the rows hold everything, up to `maxCols`; a lone `maxRows`
+  grows columns without limit.
+
+- **`gridStrategy.canAccept` counts capacity as `maxCols` × `maxRows`.** It used
+  the same square-root column count and ignored `fill: false`, so a 7×5 page
+  holding 30 items refused a 31st.
+
+- **A fixed `rows` grid grows sideways for spanned items.** Columns came from the
+  item count alone, so wide and large tiles went to `unplaced` though nothing
+  capped the columns. They are now counted by the cells they cover.
+
+- **Large and resizable `gridStrategy` grids lay out in milliseconds.** Each item's
+  search for a free cell started over from the first cell, so 10,000 items took
+  about 7s; it now starts from the first free one. Under `resizable: true`, each
+  seam's reach repacked the whole grid for every candidate span, so 64 tiles took
+  over a second; a grid with no row cap now skips the repack, since every span
+  fits there, and a capped one repacks only the items after the one resized.
+
 ## 2.0.0
 
 ### Removed

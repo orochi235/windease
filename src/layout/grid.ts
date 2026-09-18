@@ -6,6 +6,7 @@ import type {
   Rect,
   Size,
 } from '../layout-types.js';
+import { trace } from '../trace.js';
 
 interface GridConfig {
   cols?: number;
@@ -68,34 +69,55 @@ interface GridConfig {
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
 }
 
-/** cols/rowCap resolution shared by `canAccept`/`getDropPreview`. Unlike
- *  `layout()`'s own resolution, this ignores `fill` — capacity doesn't care
- *  how underfull cells are drawn, only how many exist. */
-function resolveCapacityDims(
-  cfg: GridConfig,
-  itemCount: number,
-): { cols: number; rowCap: number | undefined } {
-  const maxCols = cfg.maxCols !== undefined ? Math.max(1, cfg.maxCols) : undefined;
-  const maxRows = cfg.maxRows !== undefined ? Math.max(1, cfg.maxRows) : undefined;
-  let cols: number;
-  let rowCap: number | undefined;
-  if (cfg.cols !== undefined) {
-    cols = Math.max(1, cfg.cols);
-    rowCap = maxRows;
-  } else if (cfg.rows !== undefined) {
-    const fixedRows = Math.max(1, cfg.rows);
-    const needed = Math.ceil(Math.max(1, itemCount) / fixedRows);
-    cols = maxCols !== undefined ? Math.min(maxCols, needed) : needed;
-    cols = Math.max(1, cols);
-    rowCap = fixedRows;
-  } else {
-    const root = Math.sqrt(Math.max(1, itemCount));
-    const ideal = (cfg.orientation ?? 'wide') === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
-    cols = maxCols !== undefined ? Math.min(maxCols, ideal) : ideal;
-    cols = Math.max(1, cols);
-    rowCap = maxRows;
+/** The numeric keys grid reads, each a whole count of at least 1 — or
+ *  undefined when absent or not finite, so a NaN or Infinity reads as unset. */
+interface GridDims {
+  cols: number | undefined;
+  rows: number | undefined;
+  maxCols: number | undefined;
+  maxRows: number | undefined;
+  maxItems: number | undefined;
+}
+
+function readDims(cfg: GridConfig): GridDims {
+  const read = (key: keyof GridDims): number | undefined => {
+    const v = cfg[key];
+    if (v === undefined) return undefined;
+    if (typeof v === 'number' && !Number.isFinite(v)) {
+      trace('layout', `grid: config ${key} is ${v}, ignored`);
+      return undefined;
+    }
+    return Math.max(1, Math.floor(v));
+  };
+  const dims: GridDims = {
+    cols: read('cols'),
+    rows: read('rows'),
+    maxCols: read('maxCols'),
+    maxRows: read('maxRows'),
+    maxItems: read('maxItems'),
+  };
+  if (dims.maxItems !== undefined && (dims.maxCols !== undefined || dims.maxRows !== undefined)) {
+    throw new Error('gridStrategy: maxItems is mutually exclusive with maxCols/maxRows');
   }
-  return { cols, rowCap };
+  return dims;
+}
+
+/** One span axis as a whole cell count: at least 1, at most `limit`. An
+ *  infinite span fills a bounded axis; any other non-finite value reads as 1. */
+function wholeSpan(
+  v: number | undefined,
+  limit: number | undefined,
+  id: string,
+  axis: 'cols' | 'rows',
+): number {
+  if (v === undefined) return 1;
+  if (!Number.isFinite(v)) {
+    const clamped = v === Number.POSITIVE_INFINITY && limit !== undefined ? limit : 1;
+    trace('layout', `grid: ${id} span.${axis} is ${v}, clamped to ${clamped}`);
+    return clamped;
+  }
+  const n = Math.max(1, Math.floor(v));
+  return limit !== undefined ? Math.min(n, limit) : n;
 }
 
 /** An item's span clamped so it never exceeds the grid's own dimensions. */
@@ -105,34 +127,69 @@ function clampSpan(
   rowCap: number | undefined,
 ): { cols: number; rows: number } {
   const span = item.placement?.span;
-  const c = Math.max(1, Math.min(Math.floor(span?.cols ?? 1), cols));
-  const rawRows = Math.max(1, Math.floor(span?.rows ?? 1));
-  const r = rowCap !== undefined ? Math.min(rawRows, rowCap) : rawRows;
-  return { cols: c, rows: r };
+  return {
+    cols: wholeSpan(span?.cols, cols, item.id, 'cols'),
+    rows: wholeSpan(span?.rows, rowCap, item.id, 'rows'),
+  };
 }
 
-function totalCellsRequested(items: LayoutItem[], cols: number, rowCap: number): number {
+/** Cells `items` ask for, with spans clamped to whichever bounds are known. */
+function requestedArea(
+  items: LayoutItem[],
+  colLimit: number | undefined,
+  rowCap: number | undefined,
+): number {
   let sum = 0;
   for (const item of items) {
-    const span = clampSpan(item, cols, rowCap);
-    sum += span.cols * span.rows;
+    const span = item.placement?.span;
+    sum +=
+      wholeSpan(span?.cols, colLimit, item.id, 'cols') *
+      wholeSpan(span?.rows, rowCap, item.id, 'rows');
   }
   return sum;
 }
 
-function fitsCapacity(cfg: GridConfig, items: LayoutItem[]): boolean {
-  const hasGridCap = cfg.maxCols !== undefined || cfg.maxRows !== undefined;
-  if (cfg.maxItems !== undefined && hasGridCap) {
-    throw new Error('gridStrategy: maxItems is mutually exclusive with maxCols/maxRows');
+/**
+ * The column count a layout starts from, the most it may grow to, and the row
+ * cap. `colLimit` is Infinity when nothing caps the columns — a fixed `rows`
+ * or a lone `maxRows` — so a grid whose rows are full grows sideways instead
+ * of dropping items.
+ */
+function resolveDims(
+  items: LayoutItem[],
+  dims: GridDims,
+  fill: boolean,
+  orientation: 'wide' | 'tall',
+): { cols: number; rowCap: number | undefined; colLimit: number } {
+  if (dims.cols !== undefined) {
+    return { cols: dims.cols, rowCap: dims.maxRows, colLimit: dims.cols };
   }
-  if (cfg.maxItems !== undefined) return items.length <= Math.max(1, cfg.maxItems);
-  const { cols, rowCap } = resolveCapacityDims(cfg, items.length);
-  if (rowCap === undefined) return true;
+  const rowCap = dims.rows ?? dims.maxRows;
+  const colLimit = dims.maxCols ?? Number.POSITIVE_INFINITY;
+  // fill=false with max dimensions: lock to the full max grid.
+  if (!fill && dims.maxCols !== undefined) return { cols: dims.maxCols, rowCap, colLimit };
+  let cols = 1;
+  if (dims.rows === undefined) {
+    const root = Math.sqrt(items.length);
+    cols = orientation === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
+  }
+  if (rowCap !== undefined) {
+    cols = Math.max(cols, Math.ceil(requestedArea(items, dims.maxCols, rowCap) / rowCap));
+  }
+  return { cols: Math.max(1, Math.min(colLimit, cols)), rowCap, colLimit };
+}
+
+function fitsCapacity(cfg: GridConfig, items: LayoutItem[]): boolean {
+  const dims = readDims(cfg);
+  if (dims.maxItems !== undefined) return items.length <= dims.maxItems;
+  const colLimit = dims.cols ?? dims.maxCols;
+  const rowCap = dims.cols !== undefined ? dims.maxRows : (dims.rows ?? dims.maxRows);
+  if (colLimit === undefined || rowCap === undefined) return true;
   // O(n) approximation: sums requested cells against total grid capacity,
   // ignoring row-wrap fragmentation. `canAccept` runs on every drag
   // pointermove and can't afford a full reservation pack; `layout()` still
   // pushes anything that doesn't actually fit to `unplaced`.
-  return totalCellsRequested(items, cols, rowCap) <= cols * rowCap;
+  return requestedArea(items, colLimit, rowCap) <= colLimit * rowCap;
 }
 
 interface ReservedCell {
@@ -156,9 +213,67 @@ function byCapacityPriority(items: LayoutItem[]): LayoutItem[] {
 }
 
 /**
- * Row-major cell reservation: walks `order`, and for each item finds the
- * first free cell block its (clamped) span fits, reserving it. Items beyond
- * `itemCap`, or whose span can't fit before `rowCap` runs out, are omitted.
+ * Row-major first-fit over a `cols`-wide lattice. Every cell before `cursor`
+ * is taken, so no block can start there and each search begins at it.
+ */
+class CellPacker {
+  readonly cols: number;
+  readonly rowCap: number | undefined;
+  private readonly taken = new Set<number>();
+  private cursor = 0;
+
+  constructor(cols: number, rowCap: number | undefined) {
+    this.cols = cols;
+    this.rowCap = rowCap;
+  }
+
+  clone(): CellPacker {
+    const copy = new CellPacker(this.cols, this.rowCap);
+    for (const cell of this.taken) copy.taken.add(cell);
+    copy.cursor = this.cursor;
+    return copy;
+  }
+
+  /** Reserves the first block a `cSpan × rSpan` item fits, if any. */
+  place(cSpan: number, rSpan: number): { col: number; row: number } | undefined {
+    const { cols, rowCap, taken } = this;
+    let col = this.cursor % cols;
+    for (
+      let row = Math.floor(this.cursor / cols);
+      rowCap === undefined || row + rSpan <= rowCap;
+      row++
+    ) {
+      while (col + cSpan <= cols) {
+        const blocked = this.blockedAt(col, row, cSpan, rSpan);
+        if (blocked < 0) {
+          for (let dr = 0; dr < rSpan; dr++) {
+            for (let dc = 0; dc < cSpan; dc++) taken.add((row + dr) * cols + col + dc);
+          }
+          while (taken.has(this.cursor)) this.cursor++;
+          return { col, row };
+        }
+        // Every start from `col` through `blocked` covers the taken cell.
+        col = blocked + 1;
+      }
+      col = 0;
+    }
+    return undefined;
+  }
+
+  /** The column of a taken cell inside the block, or -1 when it is free. */
+  private blockedAt(col: number, row: number, cSpan: number, rSpan: number): number {
+    for (let dr = 0; dr < rSpan; dr++) {
+      const base = (row + dr) * this.cols + col;
+      for (let dc = cSpan - 1; dc >= 0; dc--) if (this.taken.has(base + dc)) return col + dc;
+    }
+    return -1;
+  }
+}
+
+/**
+ * Walks `order`, reserving the first free cell block each item's (clamped)
+ * span fits. Items beyond `itemCap`, or whose span can't fit before `rowCap`
+ * runs out, are omitted.
  */
 function reserveCells(
   order: LayoutItem[],
@@ -166,34 +281,13 @@ function reserveCells(
   rowCap: number | undefined,
   itemCap: number,
 ): Map<string, ReservedCell> {
-  const occupied = new Set<string>();
+  const packer = new CellPacker(cols, rowCap);
   const placed = new Map<string, ReservedCell>();
-  const fits = (col: number, row: number, cSpan: number, rSpan: number): boolean => {
-    for (let dr = 0; dr < rSpan; dr++) {
-      for (let dc = 0; dc < cSpan; dc++) {
-        if (occupied.has(`${col + dc},${row + dr}`)) return false;
-      }
-    }
-    return true;
-  };
   for (const item of order) {
-    if (placed.size >= itemCap) continue;
-    const { cols: cSpan, rows: rSpan } = clampSpan(item, cols, rowCap);
-    let at: { col: number; row: number } | undefined;
-    for (let row = 0; rowCap === undefined || row + rSpan <= rowCap; row++) {
-      for (let col = 0; col + cSpan <= cols; col++) {
-        if (fits(col, row, cSpan, rSpan)) {
-          at = { col, row };
-          break;
-        }
-      }
-      if (at) break;
-    }
-    if (!at) continue;
-    for (let dr = 0; dr < rSpan; dr++) {
-      for (let dc = 0; dc < cSpan; dc++) occupied.add(`${at.col + dc},${at.row + dr}`);
-    }
-    placed.set(item.id, { col: at.col, row: at.row, cols: cSpan, rows: rSpan });
+    if (placed.size >= itemCap) break;
+    const span = clampSpan(item, cols, rowCap);
+    const at = packer.place(span.cols, span.rows);
+    if (at) placed.set(item.id, { ...at, ...span });
   }
   return placed;
 }
@@ -215,47 +309,45 @@ function resolveTiling(
   itemCap: number;
   cells: Map<string, ReservedCell>;
 } {
-  const maxCols = cfg.maxCols !== undefined ? Math.max(1, cfg.maxCols) : undefined;
-  const maxRows = cfg.maxRows !== undefined ? Math.max(1, cfg.maxRows) : undefined;
+  const dims = readDims(cfg);
   const fill = cfg.fill ?? true;
-
-  if (cfg.maxItems !== undefined && (maxCols !== undefined || maxRows !== undefined)) {
-    throw new Error('gridStrategy: maxItems is mutually exclusive with maxCols/maxRows');
-  }
-
-  let cols: number;
-  let rowCap: number | undefined;
-  if (cfg.cols !== undefined) {
-    cols = Math.max(1, cfg.cols);
-    rowCap = maxRows;
-  } else if (cfg.rows !== undefined) {
-    const fixedRows = Math.max(1, cfg.rows);
-    if (fill) {
-      const needed = Math.ceil(items.length / fixedRows);
-      cols = maxCols !== undefined ? Math.min(maxCols, needed) : needed;
-    } else {
-      cols = maxCols ?? Math.max(1, Math.ceil(items.length / fixedRows));
-    }
-    cols = Math.max(1, cols);
-    rowCap = fixedRows;
-  } else if (!fill && maxCols !== undefined) {
-    // fill=false with max dimensions: lock to the full max grid.
-    cols = maxCols;
-    rowCap = maxRows;
-  } else {
-    const root = Math.sqrt(items.length);
-    const ideal = (cfg.orientation ?? 'wide') === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
-    cols = maxCols !== undefined ? Math.min(maxCols, ideal) : ideal;
-    cols = Math.max(1, cols);
-    rowCap = maxRows;
-  }
-
-  const itemCap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
+  const resolved = resolveDims(items, dims, fill, cfg.orientation ?? 'wide');
+  const { rowCap, colLimit } = resolved;
+  let cols = resolved.cols;
+  const itemCap = dims.maxItems ?? Number.POSITIVE_INFINITY;
 
   // Two passes: the first (priority order — pins win the capacity race)
   // decides *which* items survive; the second (childOrder) assigns actual
   // cells, so position among the survivors never depends on pin status.
-  const priorityPlaced = reserveCells(byCapacityPriority(items), cols, rowCap, itemCap);
+  const order = byCapacityPriority(items);
+  let priorityPlaced = reserveCells(order, cols, rowCap, itemCap);
+
+  // Area set the starting width; fragmentation can need more. Past the summed
+  // span widths every item fits in row 0, so growing further cannot help.
+  const want = Math.min(items.length, itemCap);
+  if (rowCap !== undefined && priorityPlaced.size < want && cols < colLimit) {
+    const widths = requestedArea(items, dims.maxCols, 1);
+    const ceiling = Math.min(colLimit, Math.max(cols, widths));
+    const from = cols;
+    while (priorityPlaced.size < want && cols < ceiling) {
+      let short = want - priorityPlaced.size;
+      let missing = 0;
+      for (const item of order) {
+        if (short === 0) break;
+        if (priorityPlaced.has(item.id)) continue;
+        const span = clampSpan(item, cols, rowCap);
+        missing += span.cols * span.rows;
+        short--;
+      }
+      cols = Math.min(ceiling, cols + Math.max(1, Math.ceil(missing / rowCap)));
+      priorityPlaced = reserveCells(order, cols, rowCap, itemCap);
+    }
+    trace(
+      'layout',
+      `grid: grew ${from} → ${cols} cols to place ${priorityPlaced.size}/${want} in ${rowCap} rows`,
+    );
+  }
+
   const survivors = items.filter((it) => priorityPlaced.has(it.id));
   const cells = reserveCells(survivors, cols, rowCap, survivors.length);
 
@@ -333,39 +425,41 @@ function spanReach(
   rowCap: number | undefined,
   itemCap: number,
 ): { cols: number; rows: number } {
-  // An unbounded grid grows a row rather than dropping anyone, so fitting is
-  // tested against the *cap*, not against however many rows happen to be in
-  // use. Capping at the current count would report a ceiling of 1 for every
-  // item in a full auto-balanced grid, which can always grow.
-  const fitRows = rowCap ?? Number.POSITIVE_INFINITY;
+  // An unbounded grid grows a row rather than dropping anyone, so every span
+  // fits: the ceiling is the grid's width, and — since nothing can usefully
+  // span more rows than there are items — the item count.
+  if (rowCap === undefined) return { cols, rows: items.length };
+
+  // Items before `id` pack the same whatever span it takes, so the prefix is
+  // packed once and each probe repacks only `id` and what follows it.
+  const at = items.findIndex((it) => it.id === id);
+  if (at < 0) return { cols: 1, rows: 1 };
+  const prefix = new CellPacker(cols, rowCap);
+  let before = 0;
+  for (let i = 0; i < at && before < itemCap; i++) {
+    const span = clampSpan(items[i] as LayoutItem, cols, rowCap);
+    if (prefix.place(span.cols, span.rows)) before++;
+  }
+  const baseline = reserveCells(items, cols, rowCap, itemCap).size;
+  const own = clampSpan(items[at] as LayoutItem, cols, rowCap);
+
   const fits = (axis: 'cols' | 'rows', value: number): boolean => {
-    const probe = items.map((it) =>
-      it.id === id
-        ? {
-            ...it,
-            placement: {
-              ...it.placement,
-              span: { ...it.placement?.span, [axis]: value },
-            },
-          }
-        : it,
-    );
-    return (
-      reserveCells(probe, cols, fitRows, itemCap).size ===
-      reserveCells(items, cols, fitRows, itemCap).size
-    );
+    const packer = prefix.clone();
+    let placed = before;
+    for (let i = at; i < items.length && placed < itemCap; i++) {
+      const span =
+        i === at ? { ...own, [axis]: value } : clampSpan(items[i] as LayoutItem, cols, rowCap);
+      if (packer.place(span.cols, span.rows)) placed++;
+      else if (placed + items.length - 1 - i < baseline) return false;
+    }
+    return placed >= baseline;
   };
   const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
     let best = 1;
     for (let v = 1; v <= cap; v++) if (fits(axis, v)) best = v;
     return best;
   };
-  return {
-    cols: reachOn('cols', cols),
-    // Unbounded rows still need a finite probe: nothing can usefully span more
-    // rows than there are items.
-    rows: reachOn('rows', rowCap ?? items.length),
-  };
+  return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap) };
 }
 
 /**

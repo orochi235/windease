@@ -17,10 +17,6 @@ interface Entry {
   name: string;
   strategy: AnyStrategy;
   options: Record<string, unknown>;
-  /** Tiles through grid with no row cap, where a non-finite span never terminates. */
-  unboundedGrid?: boolean;
-  /** The big item count to sweep. Grid reserves cells in O(n²), so 10k costs it seconds. */
-  large?: number;
   /** Which of the three items the value sweep poisons. */
   poisonAt?: number;
   /** Marks every item floating, for a floating strategy with no inner layer. */
@@ -43,25 +39,21 @@ const ENTRIES: Entry[] = [
     strategy: as(stripStrategy),
     options: { maxItems: 3, overflowMode: 'unplaced' },
   },
-  { name: 'grid', strategy: as(gridStrategy), options: {}, unboundedGrid: true, large: 1000 },
+  { name: 'grid', strategy: as(gridStrategy), options: {} },
   {
     name: 'grid padded',
     strategy: as(gridStrategy),
     options: { cols: 3, gap: 4, padding: 8 },
-    unboundedGrid: true,
-    large: 1000,
   },
   {
     name: 'grid capped',
     strategy: as(gridStrategy),
     options: { maxCols: 3, maxRows: 3 },
-    large: 1000,
   },
   {
     name: 'grid resizable',
     strategy: as(gridStrategy),
     options: { cols: 3, maxRows: 4, resizable: true },
-    large: 12,
   },
   { name: 'stack', strategy: as(stackStrategy), options: { headerSize: 24, padding: 4 } },
   { name: 'floating', strategy: as(floatingStrategy()), options: {}, allFloat: true },
@@ -70,8 +62,6 @@ const ENTRIES: Entry[] = [
     strategy: as(floatingStrategy(gridStrategy)),
     options: {},
     poisonAt: 0,
-    unboundedGrid: true,
-    large: 1000,
   },
   { name: 'desktop', strategy: as(desktopStrategy()), options: {} },
   {
@@ -199,14 +189,6 @@ describe('pathological item values', () => {
     describe(entry.name, () => {
       for (const [field, poison] of Object.entries(FIELDS)) {
         for (const [label, v] of Object.entries(POISONS)) {
-          // A non-finite span never terminates on an unbounded grid; see the isolated test below.
-          if (
-            entry.unboundedGrid &&
-            field === 'placement.span' &&
-            (Number.isNaN(v) || v === Number.POSITIVE_INFINITY)
-          ) {
-            continue;
-          }
           const key = `${entry.name}/${field}/${label}`;
           sweep(key, `${field} = ${label}`, () => {
             const list = items(3, entry.allFloat);
@@ -229,7 +211,7 @@ describe('pathological containers and counts', () => {
   for (const entry of ENTRIES) {
     describe(entry.name, () => {
       for (const [cname, c] of Object.entries(containers)) {
-        for (const n of [0, 1, entry.large ?? 10_000]) {
+        for (const n of [0, 1, 10_000]) {
           const defect =
             n > 0 && entry.name === 'strip y padded' && c.w < 16
               ? 'strip sizes the cross axis as container minus padding, unclamped, so it goes negative'
@@ -255,8 +237,7 @@ describe('defects the sweep cannot phrase', () => {
     expect(breakage(entry, [item(0), item(1)], { w: 800, h: 600 })).toEqual(CLEAN);
   });
 
-  // Defect: a NaN span.rows makes usedRows NaN, so every item's row height is NaN.
-  it.fails('grid keeps finite rects when one span.rows is NaN', () => {
+  it('grid keeps finite rects when one span.rows is NaN', () => {
     const entry = ENTRIES.find((e) => e.name === 'grid')!;
     const list = items(3);
     list[1] = { ...list[1]!, placement: { span: { cols: 1, rows: Number.NaN } } };
@@ -315,13 +296,11 @@ describe('layout cost at scale', () => {
     }
   });
 
-  // Defect: reserveCells rescans every row from 0 for each item, so a pass is O(n²) — ~1.2s at 4000.
-  it.fails('grid lays out 4000 items within 250ms', () => {
+  it('grid lays out 4000 items within 250ms', () => {
     expect(timed(grid, 4000)).toBeLessThan(250);
   });
 
-  // Defect: spanReach re-packs the whole grid per candidate span per item; ~0.5s at 50 items, ~6.6s at 100.
-  it.fails('a resizable grid with no row cap lays out 60 items within 250ms', () => {
+  it('a resizable grid with no row cap lays out 60 items within 250ms', () => {
     expect(timed(resizable, 60)).toBeLessThan(250);
   });
 });

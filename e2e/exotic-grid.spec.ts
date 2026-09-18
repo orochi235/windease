@@ -87,14 +87,12 @@ test.describe('Android home screen (Pixel Launcher 4×5)', () => {
 
 test.describe('iPhone dock (maxCols 4 × maxRows 1)', () => {
   test('shows all three docked apps', async ({ page }) => {
-    test.fail(); // auto-balance picks ceil(sqrt(3)) = 2 columns and ignores maxRows: 1
     await pick(page, 'ios-dock', 'ios-app-1');
     await expect(unplaced(page, 'ios-dock')).toHaveText('(none)');
     await expect(node(page, 'ios-dock-app-3')).toBeVisible();
   });
 
   test('takes a fourth app dragged down from the home screen', async ({ page }) => {
-    test.fail(); // canAccept caps a 4-slot dock at ceil(sqrt(4)) = 2 columns × 1 row
     await pick(page, 'ios-dock', 'ios-app-1');
 
     await dragOnto(page, 'ios-app-1', { frame: 'ios-dock' }, 'ios-dock', 'accept');
@@ -105,7 +103,6 @@ test.describe('iPhone dock (maxCols 4 × maxRows 1)', () => {
 
 test.describe('macOS Launchpad (7×5 pages)', () => {
   test('a page of exactly 35 apps shows them all', async ({ page }) => {
-    test.fail(); // auto-balance picks 6 columns for 26–36 apps, so a full page holds 30
     await pick(page, 'launchpad-full', 'lp-app-1');
     await expect(unplaced(page, 'lp-page')).toHaveText('(none)');
   });
@@ -136,7 +133,6 @@ test.describe('macOS Launchpad (7×5 pages)', () => {
   });
 
   test('a page holding 30 of 35 takes an app from the Dock', async ({ page }) => {
-    test.fail(); // canAccept ignores fill: false and caps 31 apps at ceil(sqrt(31)) = 6 columns
     await pick(page, 'launchpad-thirty', 'lp-app-1');
 
     await dragOnto(page, 'dock-app-1', { frame: 'lp-page' }, 'lp-page', 'accept');
@@ -170,7 +166,6 @@ test.describe('Windows 10 Start tiles', () => {
 
 test.describe('Windows 8.1 Start screen (fixed rows)', () => {
   test('places every tile, growing sideways', async ({ page }) => {
-    test.fail(); // cols = ceil(n / rows) ignores spans, so six tiles land in `unplaced`
     await pick(page, 'win8-start-screen', 'desktop');
     await expect(unplaced(page, 'start8')).toHaveText('(none)');
   });
