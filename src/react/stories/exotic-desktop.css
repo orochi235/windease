@@ -1,17 +1,3 @@
-.xd-controls {
-  font:
-    13px / 1.5 system-ui,
-    -apple-system,
-    sans-serif;
-  color: #334155;
-  margin-bottom: 12px;
-}
-
-.xd-controls__label select {
-  font: inherit;
-  margin-left: 6px;
-}
-
 /* Presets are sized for the screens they reproduce, often larger than the page. */
 .xd-frame {
   max-width: 100%;

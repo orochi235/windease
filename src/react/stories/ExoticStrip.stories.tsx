@@ -9,6 +9,7 @@ import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '.
 import '../styles.css';
 import './exotic-strip.css';
 import { PresetInfo } from './PresetInfo.js';
+import { PresetPicker, usePresetPick } from './PresetPicker.js';
 import { PresetCode } from './presetCode.js';
 
 const STRATEGIES = { strip: stripStrategy as never };
@@ -31,11 +32,12 @@ interface Args {
 /** Each pick is one real-software layout from `strip-scenarios.ts`, built into
  *  a store and rendered with draggable seams. */
 export const Presets: Story<Args> = ({ preset: presetId }) => {
-  const preset = PRESETS.find((p) => p.id === presetId) ?? PRESETS[0]!;
+  const [preset, pick] = usePresetPick(PRESETS, presetId);
   const store = useMemo(() => presetToStore(preset), [preset]);
   return (
     <Provider key={preset.id} store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
+        <PresetPicker presets={PRESETS} value={preset} onChange={pick} />
         <PresetInfo preset={preset} />
         <div className="xs-frame">
           <Container

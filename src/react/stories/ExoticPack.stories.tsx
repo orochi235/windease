@@ -17,6 +17,7 @@ import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '.
 import './exotic-pack.css';
 import './windease.css';
 import { PresetInfo } from './PresetInfo.js';
+import { PresetPicker, usePresetPick } from './PresetPicker.js';
 import { PresetCode } from './presetCode.js';
 
 const PACK: Record<PackerId, LayoutStrategy<void, string>> = {
@@ -49,7 +50,7 @@ const chrome: ChromeMap = {
 };
 
 export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
-  const preset = STORY_PRESETS.find((p) => p.id === scenario) ?? STORY_PRESETS[0]!;
+  const [preset, pick] = usePresetPick(STORY_PRESETS, scenario);
   const vw = width > 0 ? width : preset.viewport.w;
   const vh = preset.viewport.h;
   const store = useMemo(() => presetToStore(withStrategy(preset, strategy)), [preset, strategy]);
@@ -76,6 +77,7 @@ export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <section className="exotic-pack" aria-label="Exotic pack scenario">
+          <PresetPicker presets={STORY_PRESETS} value={preset} onChange={pick} />
           <PresetInfo preset={preset}>
             <p className="preset-info__live">
               <strong>Packed:</strong>{' '}

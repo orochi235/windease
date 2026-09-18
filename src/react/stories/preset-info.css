@@ -72,3 +72,23 @@
     monospace;
   border-radius: 0 4px 4px 4px;
 }
+
+.preset-picker {
+  display: block;
+  margin-bottom: 8px;
+  font:
+    13px / 1.5 system-ui,
+    -apple-system,
+    sans-serif;
+  color: #334155;
+}
+
+.preset-picker select {
+  font: inherit;
+  max-width: 60ch;
+}
+
+.preset-picker__count {
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}

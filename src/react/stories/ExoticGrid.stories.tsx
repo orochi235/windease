@@ -1,7 +1,7 @@
 export default { title: 'Exotic / Grid' };
 
 import type { Story } from '@ladle/react';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import {
   asNodeId,
   gridStrategy,
@@ -26,6 +26,7 @@ import {
 import '../styles.css';
 import './exotic-grid.css';
 import { PresetInfo } from './PresetInfo.js';
+import { PresetPicker, usePresetPick } from './PresetPicker.js';
 import { PresetCode } from './presetCode.js';
 
 const STRATEGIES = { grid: gridStrategy as never, strip: stripStrategy as never };
@@ -152,25 +153,10 @@ function PresetView({ preset }: { preset: Preset }) {
  * the drop verdict before you release.
  */
 export const Presets: Story = () => {
-  const [presetId, setPresetId] = useState(PRESETS[0]?.id ?? '');
-  const preset = PRESETS.find((p) => p.id === presetId) ?? PRESETS[0];
-  if (!preset) return null;
+  const [preset, pick] = usePresetPick(PRESETS);
   return (
     <div className="xg-story">
-      <label className="xg-picker">
-        Preset{' '}
-        <select
-          data-testid="preset-picker"
-          value={preset.id}
-          onChange={(e) => setPresetId(e.target.value)}
-        >
-          {PRESETS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.id}
-            </option>
-          ))}
-        </select>
-      </label>
+      <PresetPicker presets={PRESETS} value={preset} onChange={pick} />
       <PresetView key={preset.id} preset={preset} />
     </div>
   );

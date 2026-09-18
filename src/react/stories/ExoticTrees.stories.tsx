@@ -7,6 +7,7 @@ import { type Preset, presetToStore } from '../../test-utils/exotic/preset.js';
 import {
   GOLDEN_PRESET,
   I3_PRESET,
+  PRESETS,
   TREE_STRATEGIES,
 } from '../../test-utils/exotic/tree-scenarios.js';
 import {
@@ -21,6 +22,7 @@ import {
 import '../styles.css';
 import './exotic-trees.css';
 import { PresetInfo } from './PresetInfo.js';
+import { PresetPicker, usePresetPick } from './PresetPicker.js';
 import { PresetCode } from './presetCode.js';
 
 /** Both trees were saved for a bigger screen; every pixel size squeezes in proportion. */
@@ -140,3 +142,14 @@ export const SwayWorkspace: Story = () => <Tree preset={I3_PRESET} />;
 
 /** The Golden Layout IDE config, rows and columns of stacks with percentage sizes. */
 export const GoldenLayout: Story = () => <Tree preset={GOLDEN_PRESET} />;
+
+/** Every tree preset, from i3 and Golden Layout to Emacs side windows and the trading desk. */
+export const Presets: Story = () => {
+  const [preset, pick] = usePresetPick(PRESETS);
+  return (
+    <>
+      <PresetPicker presets={PRESETS} value={preset} onChange={pick} />
+      <Tree key={preset.id} preset={preset} />
+    </>
+  );
+};
