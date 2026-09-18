@@ -108,7 +108,12 @@ export interface ContainerProps {
   /**
    * Decide whether this container accepts a drop, overriding the strategy's
    * own `canAccept`. `true` accepts where the strategy would refuse, `false`
-   * refuses, `undefined` defers to it. A `lock.accept` refuses regardless.
+   * refuses, `undefined` defers to it.
+   *
+   * Order: `lock.accept`, then the container's `config.accepts`, then this, then
+   * `strategy.canAccept`. The first two only refuse, and `true` here cannot
+   * override either — for a declarative `false | { kinds, max }` rule, set
+   * `accepts` in config instead of writing a callback.
    *
    * Runs on every drag `pointermove` — keep it O(items.length) or smaller.
    */

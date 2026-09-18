@@ -1,3 +1,4 @@
+import type { AcceptsConfig } from '../container-config.js';
 import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { LayoutItem, LayoutStrategy, Rect } from '../layout-types.js';
 import type { NodeId } from '../node.js';
@@ -70,7 +71,11 @@ export interface DropTarget {
    *  claims the hover. Absent counts as 0. */
   depth?(): number;
   /** Replaces `strategy.canAccept` for this target. `true` accepts even where
-   *  the strategy would refuse, `false` refuses, `undefined` defers to it. */
+   *  the strategy would refuse, `false` refuses, `undefined` defers to it.
+   *
+   *  Checks run in order `lock.accept`, `config.accepts`, this, then
+   *  `strategy.canAccept`. The first two only refuse, so `true` here cannot
+   *  override them. */
   acceptPolicy?(ctx: AcceptContext): boolean | undefined;
   getInsertionIndex?(point: Point): number | undefined;
   /** What kind of drop the cursor is asking for. Takes precedence over
@@ -372,14 +377,29 @@ export class DragEngine {
 
     const target = this.dropTargets.get(targetId);
     const container = targetNode?.container;
+    const options = (container?.config ?? {}) as Record<string, unknown>;
+    // A drop within the source's own parent never adds a child, so it cannot
+    // make a list the container already holds any worse, even one over capacity.
+    const withinParent = this.store.getNode(draggingId)?.membership?.parentId === targetId;
+    // Building the prospective child list is O(children) on the pointermove
+    // path, so only pay for it when something will actually read it, and once.
+    let items: AcceptItem[] | undefined;
+    const prospective = (): AcceptItem[] => {
+      items ??= this.prospectiveItems(targetId, draggingId);
+      return items;
+    };
+
+    if (
+      !this.checkAcceptsConfig(targetId, draggingId, options.accepts, withinParent, prospective)
+    ) {
+      return false;
+    }
+
     const strategy =
       container && this.getStrategy ? this.getStrategy(container.strategyId) : undefined;
 
-    // Building the prospective child list is O(children) on the pointermove
-    // path, so only pay for it when something will actually read it.
     if (target?.acceptPolicy || strategy?.canAccept) {
-      const items = this.prospectiveItems(targetId, draggingId);
-      const options = (container?.config ?? {}) as Record<string, unknown>;
+      const items = prospective();
 
       let verdict: boolean | undefined;
       try {
@@ -393,9 +413,6 @@ export class DragEngine {
         trace('dnd', `checkAccept ${targetId}: REJECT (acceptPolicy said no)`);
         return false;
       }
-      // A drop within the source's own parent never adds a child, so it cannot
-      // make a list the strategy already holds any worse, even one over capacity.
-      const withinParent = this.store.getNode(draggingId)?.membership?.parentId === targetId;
       if (
         verdict !== true &&
         !withinParent &&
@@ -413,6 +430,42 @@ export class DragEngine {
       }
     }
 
+    return true;
+  }
+
+  /** Whether the target's `config.accepts` admits this drop. `max` counts the
+   *  same list `canAccept` sees, so a stack or split drop counts as a new child. */
+  private checkAcceptsConfig(
+    targetId: NodeId,
+    draggingId: NodeId,
+    accepts: unknown,
+    withinParent: boolean,
+    prospective: () => AcceptItem[],
+  ): boolean {
+    if (accepts === undefined || accepts === null) return true;
+    if (accepts === false) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (accepts: false)`);
+      return false;
+    }
+    if (typeof accepts !== 'object') return true;
+    const { kinds, max } = accepts as Exclude<AcceptsConfig, false>;
+    if (Array.isArray(kinds)) {
+      const kind = this.store.getNode(draggingId)?.kind;
+      if (kind === undefined || !kinds.includes(kind)) {
+        trace(
+          'dnd',
+          `checkAccept ${targetId}: REJECT (accepts.kinds [${kinds.join(', ')}] has no '${kind ?? '(none)'}' for ${draggingId})`,
+        );
+        return false;
+      }
+    }
+    if (typeof max === 'number' && !withinParent) {
+      const count = prospective().length;
+      if (count > max) {
+        trace('dnd', `checkAccept ${targetId}: REJECT (accepts.max: ${count} > ${max})`);
+        return false;
+      }
+    }
     return true;
   }
 

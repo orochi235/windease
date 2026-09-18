@@ -182,6 +182,15 @@ prop) registers the element as a drop target at all. `lock.accept` rejects
 drops that arrive at one that's already registered. Setting the wrong one
 produces silence — the drop target exists but nothing lands, or vice versa.
 
+`container.config.accepts` is the third, and only the drag reads it:
+`false` refuses every drop, `{ kinds, max }` refuses by the dragged node's
+`kind` or by the visible child count after the drop. `lock.accept` is a
+permission the store enforces, so it also stops `moveNode`, `stackNodes`,
+`splitInto` and `graft` from host code; `accepts` stops only the user's drag.
+A drag checks `lock.accept`, then `accepts`, then `acceptPolicy`, then the
+strategy's `canAccept`. The first two only refuse, so `acceptPolicy`
+returning `true` overrides only the strategy.
+
 ## Store API
 
 `Store` exposes one map (`nodes: Map<NodeId, Node>`) and
@@ -383,8 +392,8 @@ DnD scaffolding: `<DragProvider>`, `useDragHandle(id)`, `<DragHandle>`,
 `useDropTarget(id, ref, canAccept?)`, `useDragState()`. Drop targets register
 element rects; the controller's innermost-wins hit-test runs on pointermove
 and calls `store.moveNode` on drop. The controller honors `lock.accept`
-(target), `lock.dragOut` (source's parent), `lock.move` (source), and the
-destination strategy's `canAccept`.
+(target), `lock.dragOut` (source's parent), `lock.move` (source), the
+target's `config.accepts`, and the destination strategy's `canAccept`.
 
 Pass `affordances` to `<Container>`, `<Zone>` or a `<Panel>` promoted to a
 container to render the strategy's interactive gutters; all three share one

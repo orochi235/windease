@@ -94,3 +94,37 @@ test.describe('acceptPolicy', () => {
     await expect.poll(() => childIds(page, 'zone-strict')).toEqual(['strict-1', 'strict-2']);
   });
 });
+
+test.describe('config.accepts', () => {
+  const RULES = 'policies--accept--rules-in-config';
+
+  test('kinds takes a listed kind and refuses another', async ({ page }) => {
+    await openStory(page, RULES);
+
+    await dragInto(page, 'source-2', 'zone-kinds', 'reject');
+    await expect.poll(() => childIds(page, 'zone-kinds')).toEqual(['kinds-1']);
+
+    await dragInto(page, 'source-1', 'zone-kinds', 'accept');
+    await expect.poll(() => childIds(page, 'zone-kinds')).toEqual(['kinds-1', 'source-1']);
+    await expect.poll(() => childIds(page, 'zone-source')).toEqual(['source-2']);
+  });
+
+  test('max refuses a drop from outside but lets the zone reorder', async ({ page }) => {
+    await openStory(page, RULES);
+
+    await dragInto(page, 'source-1', 'zone-capped', 'reject');
+    await expect.poll(() => childIds(page, 'zone-capped')).toEqual(['capped-1', 'capped-2']);
+    await expect.poll(() => childIds(page, 'zone-source')).toEqual(['source-1', 'source-2']);
+
+    await dragInto(page, 'capped-1', 'zone-capped', 'accept');
+    await expect.poll(() => childIds(page, 'zone-capped')).toEqual(['capped-1', 'capped-2']);
+  });
+
+  test('false refuses every drop', async ({ page }) => {
+    await openStory(page, RULES);
+
+    await dragInto(page, 'source-1', 'zone-closed', 'reject');
+    await expect.poll(() => childIds(page, 'zone-closed')).toEqual(['closed-1']);
+    await expect.poll(() => childIds(page, 'zone-source')).toEqual(['source-1', 'source-2']);
+  });
+});
