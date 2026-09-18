@@ -137,6 +137,20 @@ describe('gridStrategy', () => {
       expect(result.unplaced).toBeUndefined();
     });
 
+    it('maxRows alone grows columns rather than dropping items', () => {
+      // 9 items: ideal ceil(sqrt(9)) = 3 cols would need 3 rows; 2 rows need 5 cols
+      const items = Array.from({ length: 9 }, (_, i) => mkItem(`p${i}`));
+      const result = gridStrategy.layout({
+        items,
+        container: { w: 500, h: 200 },
+        state: undefined as void,
+        options: { maxRows: 2 },
+      });
+      expect(result.unplaced).toBeUndefined();
+      expect(result.placements.get('p8')).toEqual({ x: 300, y: 100, z: 0, w: 100, h: 100 });
+      expect(gridStrategy.canAccept?.([...items, mkItem('p9')], { maxRows: 2 })).toBe(true);
+    });
+
     it('overflows to unplaced when both maxCols and maxRows are set', () => {
       // capacity = 2 × 2 = 4; 6 items → 4 placed, 2 unplaced
       const result = gridStrategy.layout({

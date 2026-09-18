@@ -23,6 +23,20 @@ section below.
   `unplaced`. An infinite span fills the grid on a capped axis and takes one cell
   otherwise; `cols: Infinity` no longer produces `NaN` rects.
 
+- **`gridStrategy` auto-balance fills `maxCols` × `maxRows`.** It chose columns
+  from the square root of the item count, then applied `maxRows` as a hard cap,
+  so a 4×1 dock placed two of three items and a 7×5 page placed 30 of 35. Columns
+  now grow until the rows hold everything, up to `maxCols`; a lone `maxRows`
+  grows columns without limit.
+
+- **`gridStrategy.canAccept` counts capacity as `maxCols` × `maxRows`.** It used
+  the same square-root column count and ignored `fill: false`, so a 7×5 page
+  holding 30 items refused a 31st.
+
+- **A fixed `rows` grid grows sideways for spanned items.** Columns came from the
+  item count alone, so wide and large tiles went to `unplaced` though nothing
+  capped the columns. They are now counted by the cells they cover.
+
 ## 2.0.0
 
 ### Removed

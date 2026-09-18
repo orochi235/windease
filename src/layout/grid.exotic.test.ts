@@ -34,11 +34,7 @@ type Check =
   | 'acceptOneMore';
 
 /** Checks a scenario is known to fail, each with the defect it exposes. */
-const KNOWN: Record<string, Partial<Record<Check, string>>> = {
-  'launchpad-thirty/lp-page': {
-    acceptOneMore: 'canAccept ignores fill: false and caps a 7×5 page at ceil(sqrt(31)) = 6 cols',
-  },
-};
+const KNOWN: Record<string, Partial<Record<Check, string>>> = {};
 
 const SCENARIOS: Scenario[] = [...presetGridScenarios(), ...PATHOLOGICAL];
 const run = (s: Pick<Scenario, 'items' | 'container' | 'options'>) => runScenario(gridStrategy, s);
@@ -167,13 +163,13 @@ describe.each(SCENARIOS)('$id + one more 1×1', (s) => {
 });
 
 describe('capacity under maxCols × maxRows', () => {
-  it.fails('an iPhone dock (4×1) holds three apps — auto-balance picks 2 cols and ignores maxRows: 1', () => {
+  it('an iPhone dock (4×1) holds three apps in one row', () => {
     const r = run(scenario('ios-dock', 'ios-dock'));
     expect(r.unplaced).toBeUndefined();
     expect(r.placements.size).toBe(3);
   });
 
-  it.fails('a full 7×5 Launchpad page places all 35 — auto-balance caps it at 6×5 = 30', () => {
+  it('a full 7×5 Launchpad page places all 35', () => {
     const r = run(scenario('launchpad-full', 'lp-page'));
     expect(r.placements.size).toBe(35);
   });
@@ -184,7 +180,7 @@ describe('capacity under maxCols × maxRows', () => {
     expect(r.unplaced).toEqual(['lp-app-36', 'lp-app-37', 'lp-app-38', 'lp-app-39', 'lp-app-40']);
   });
 
-  it.fails('a fixed 7×5 page holding 30 accepts a 31st — canAccept sizes capacity from sqrt(n), not maxCols', () => {
+  it('a fixed 7×5 page holding 30 accepts a 31st', () => {
     const s = scenario('launchpad-thirty', 'lp-page');
     const grown = [...s.items, { id: 'dock-app-1' }];
     expect(run({ ...s, items: grown }).placements.size).toBe(31);
@@ -206,7 +202,7 @@ describe('capacity under maxCols × maxRows', () => {
 });
 
 describe('fixed rows (Windows 8 Start screen)', () => {
-  it.fails('grows columns for wide and large tiles instead of unplacing them — cols is ceil(n / rows), blind to spans', () => {
+  it('grows columns for wide and large tiles instead of unplacing them', () => {
     const s = scenario('win8-start-screen', 'start8');
     const r = run(s);
     expect(r.unplaced).toBeUndefined();

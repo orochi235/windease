@@ -133,55 +133,63 @@ function clampSpan(
   };
 }
 
-/** cols/rowCap resolution shared by `canAccept`/`getDropPreview`. Unlike
- *  `layout()`'s own resolution, this ignores `fill` — capacity doesn't care
- *  how underfull cells are drawn, only how many exist. */
-function resolveCapacityDims(
-  dims: GridDims,
-  orientation: 'wide' | 'tall',
-  itemCount: number,
-): { cols: number; rowCap: number | undefined } {
-  const { maxCols, maxRows } = dims;
-  let cols: number;
-  let rowCap: number | undefined;
-  if (dims.cols !== undefined) {
-    cols = dims.cols;
-    rowCap = maxRows;
-  } else if (dims.rows !== undefined) {
-    const fixedRows = dims.rows;
-    const needed = Math.ceil(Math.max(1, itemCount) / fixedRows);
-    cols = maxCols !== undefined ? Math.min(maxCols, needed) : needed;
-    cols = Math.max(1, cols);
-    rowCap = fixedRows;
-  } else {
-    const root = Math.sqrt(Math.max(1, itemCount));
-    const ideal = orientation === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
-    cols = maxCols !== undefined ? Math.min(maxCols, ideal) : ideal;
-    cols = Math.max(1, cols);
-    rowCap = maxRows;
-  }
-  return { cols, rowCap };
-}
-
-function totalCellsRequested(items: LayoutItem[], cols: number, rowCap: number): number {
+/** Cells `items` ask for, with spans clamped to whichever bounds are known. */
+function requestedArea(
+  items: LayoutItem[],
+  colLimit: number | undefined,
+  rowCap: number | undefined,
+): number {
   let sum = 0;
   for (const item of items) {
-    const span = clampSpan(item, cols, rowCap);
-    sum += span.cols * span.rows;
+    const span = item.placement?.span;
+    sum +=
+      wholeSpan(span?.cols, colLimit, item.id, 'cols') *
+      wholeSpan(span?.rows, rowCap, item.id, 'rows');
   }
   return sum;
+}
+
+/**
+ * The column count a layout starts from, the most it may grow to, and the row
+ * cap. `colLimit` is Infinity when nothing caps the columns — a fixed `rows`
+ * or a lone `maxRows` — so a grid whose rows are full grows sideways instead
+ * of dropping items.
+ */
+function resolveDims(
+  items: LayoutItem[],
+  dims: GridDims,
+  fill: boolean,
+  orientation: 'wide' | 'tall',
+): { cols: number; rowCap: number | undefined; colLimit: number } {
+  if (dims.cols !== undefined) {
+    return { cols: dims.cols, rowCap: dims.maxRows, colLimit: dims.cols };
+  }
+  const rowCap = dims.rows ?? dims.maxRows;
+  const colLimit = dims.maxCols ?? Number.POSITIVE_INFINITY;
+  // fill=false with max dimensions: lock to the full max grid.
+  if (!fill && dims.maxCols !== undefined) return { cols: dims.maxCols, rowCap, colLimit };
+  let cols = 1;
+  if (dims.rows === undefined) {
+    const root = Math.sqrt(items.length);
+    cols = orientation === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
+  }
+  if (rowCap !== undefined) {
+    cols = Math.max(cols, Math.ceil(requestedArea(items, dims.maxCols, rowCap) / rowCap));
+  }
+  return { cols: Math.max(1, Math.min(colLimit, cols)), rowCap, colLimit };
 }
 
 function fitsCapacity(cfg: GridConfig, items: LayoutItem[]): boolean {
   const dims = readDims(cfg);
   if (dims.maxItems !== undefined) return items.length <= dims.maxItems;
-  const { cols, rowCap } = resolveCapacityDims(dims, cfg.orientation ?? 'wide', items.length);
-  if (rowCap === undefined) return true;
+  const colLimit = dims.cols ?? dims.maxCols;
+  const rowCap = dims.cols !== undefined ? dims.maxRows : (dims.rows ?? dims.maxRows);
+  if (colLimit === undefined || rowCap === undefined) return true;
   // O(n) approximation: sums requested cells against total grid capacity,
   // ignoring row-wrap fragmentation. `canAccept` runs on every drag
   // pointermove and can't afford a full reservation pack; `layout()` still
   // pushes anything that doesn't actually fit to `unplaced`.
-  return totalCellsRequested(items, cols, rowCap) <= cols * rowCap;
+  return requestedArea(items, colLimit, rowCap) <= colLimit * rowCap;
 }
 
 interface ReservedCell {
@@ -265,42 +273,44 @@ function resolveTiling(
   cells: Map<string, ReservedCell>;
 } {
   const dims = readDims(cfg);
-  const { maxCols, maxRows } = dims;
   const fill = cfg.fill ?? true;
-
-  let cols: number;
-  let rowCap: number | undefined;
-  if (dims.cols !== undefined) {
-    cols = dims.cols;
-    rowCap = maxRows;
-  } else if (dims.rows !== undefined) {
-    const fixedRows = dims.rows;
-    if (fill) {
-      const needed = Math.ceil(items.length / fixedRows);
-      cols = maxCols !== undefined ? Math.min(maxCols, needed) : needed;
-    } else {
-      cols = maxCols ?? Math.max(1, Math.ceil(items.length / fixedRows));
-    }
-    cols = Math.max(1, cols);
-    rowCap = fixedRows;
-  } else if (!fill && maxCols !== undefined) {
-    // fill=false with max dimensions: lock to the full max grid.
-    cols = maxCols;
-    rowCap = maxRows;
-  } else {
-    const root = Math.sqrt(items.length);
-    const ideal = (cfg.orientation ?? 'wide') === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
-    cols = maxCols !== undefined ? Math.min(maxCols, ideal) : ideal;
-    cols = Math.max(1, cols);
-    rowCap = maxRows;
-  }
-
+  const resolved = resolveDims(items, dims, fill, cfg.orientation ?? 'wide');
+  const { rowCap, colLimit } = resolved;
+  let cols = resolved.cols;
   const itemCap = dims.maxItems ?? Number.POSITIVE_INFINITY;
 
   // Two passes: the first (priority order — pins win the capacity race)
   // decides *which* items survive; the second (childOrder) assigns actual
   // cells, so position among the survivors never depends on pin status.
-  const priorityPlaced = reserveCells(byCapacityPriority(items), cols, rowCap, itemCap);
+  const order = byCapacityPriority(items);
+  let priorityPlaced = reserveCells(order, cols, rowCap, itemCap);
+
+  // Area set the starting width; fragmentation can need more. Past the summed
+  // span widths every item fits in row 0, so growing further cannot help.
+  const want = Math.min(items.length, itemCap);
+  if (rowCap !== undefined && priorityPlaced.size < want && cols < colLimit) {
+    const widths = requestedArea(items, dims.maxCols, 1);
+    const ceiling = Math.min(colLimit, Math.max(cols, widths));
+    const from = cols;
+    while (priorityPlaced.size < want && cols < ceiling) {
+      let short = want - priorityPlaced.size;
+      let missing = 0;
+      for (const item of order) {
+        if (short === 0) break;
+        if (priorityPlaced.has(item.id)) continue;
+        const span = clampSpan(item, cols, rowCap);
+        missing += span.cols * span.rows;
+        short--;
+      }
+      cols = Math.min(ceiling, cols + Math.max(1, Math.ceil(missing / rowCap)));
+      priorityPlaced = reserveCells(order, cols, rowCap, itemCap);
+    }
+    trace(
+      'layout',
+      `grid: grew ${from} → ${cols} cols to place ${priorityPlaced.size}/${want} in ${rowCap} rows`,
+    );
+  }
+
   const survivors = items.filter((it) => priorityPlaced.has(it.id));
   const cells = reserveCells(survivors, cols, rowCap, survivors.length);
 
