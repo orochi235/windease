@@ -1,7 +1,7 @@
 export default { title: 'Desktop' };
 
 import type { Story } from '@ladle/react';
-import { useEffect, useLayoutEffect, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   asNodeId,
   createNode,
@@ -181,11 +181,14 @@ const BAR_HEIGHT = 26;
 interface BehaviorArgs {
   drag: 'true' | 'x' | 'y' | 'false';
   clamp: 'none' | 'bar' | 'all';
+  overflow: 'scroll' | 'clip';
 }
 
 const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number }[] = [
   { id: 'win-1', x: 24, y: 24, w: 200, h: 140 },
   { id: 'win-2', x: 180, y: 120, w: 220, h: 150 },
+  // Saved on a monitor to the left that is no longer plugged in.
+  { id: 'win-3', x: -300, y: 190, w: 200, h: 120 },
 ];
 
 const BEHAVIOR_STRATEGIES = { desktop: desktopStrategy() as never };
@@ -196,6 +199,7 @@ function behaviorConfig(args: BehaviorArgs): Record<string, unknown> {
     handleSize: BAR_HEIGHT,
     drag,
     clamp: args.clamp === 'none' ? undefined : args.clamp,
+    overflow: args.overflow,
   };
 }
 
@@ -251,26 +255,30 @@ function raiseFromBand(store: Store, target: EventTarget | null) {
 
 function BehaviorZone(args: BehaviorArgs) {
   const store = useBehaviorStore(args);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={BEHAVIOR_STRATEGIES}>
         <RaiseOnFocus />
         <div
-          className="desktop-demo"
-          data-testid="desktop-behavior"
+          ref={scrollRef}
+          className={`desktop-scroller desktop-scroller--${args.overflow}`}
+          data-testid="desktop-scroller"
           onClickCapture={(e) => raiseFromBand(store, e.target)}
         >
           <Container
             parentId={ZONE_ID}
             chrome={BEHAVIOR_CHROME}
             viewport={{ w: 480, h: 360 }}
-            className="windease-zone"
+            className="desktop-surface"
+            scrollRef={scrollRef}
             affordances
           />
         </div>
         <p className="desktop-hint">
           Drag a window by its title bar. <code>drag: 'y'</code> moves it up and down only;{' '}
-          <code>clamp</code> keeps its title bar, or all of it, on the desktop.
+          <code>clamp</code> keeps its title bar, or all of it, on the desktop. win-3 was left on a
+          monitor that is gone: scroll left to reach it, or clamp to bring it back.
         </p>
       </StrategyRegistryProvider>
     </Provider>
@@ -279,8 +287,9 @@ function BehaviorZone(args: BehaviorArgs) {
 
 /** Every gesture here is a `desktopStrategy` config key; the story wires no pointer code. */
 export const Behavior: Story<BehaviorArgs> = (args) => <BehaviorZone {...args} />;
-Behavior.args = { drag: 'true', clamp: 'none' };
+Behavior.args = { drag: 'true', clamp: 'none', overflow: 'scroll' };
 Behavior.argTypes = {
   drag: { options: ['true', 'x', 'y', 'false'], control: { type: 'radio' } },
   clamp: { options: ['none', 'bar', 'all'], control: { type: 'radio' } },
+  overflow: { options: ['scroll', 'clip'], control: { type: 'radio' } },
 };

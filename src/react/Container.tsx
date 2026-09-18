@@ -30,6 +30,7 @@ import {
   type ContainerLayout,
   scrollExtentStyle,
   useContainerLayout,
+  useOverflowOrigin,
   useScrollOffset,
 } from './useContainerLayout.js';
 
@@ -258,6 +259,7 @@ function StoreContainer({
   useFlowGeometry(parentId, ref, isFlow, childKey);
 
   useScrollOffset(scrollRef, layout.observeScroll);
+  useOverflowOrigin(scrollRef, layout.overflow);
 
   useEffect(() => {
     if (!dragController || !onChildOrderChange) return;

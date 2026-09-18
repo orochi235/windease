@@ -51,7 +51,12 @@ import { ChildRegistryContext, ParentScope, useChildRegistry } from './ParentCon
 import { useStore } from './Provider.js';
 import { ResizeGestureContext } from './resize-gesture.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
-import { scrollExtentStyle, useContainerLayout, useScrollOffset } from './useContainerLayout.js';
+import {
+  scrollExtentStyle,
+  useContainerLayout,
+  useOverflowOrigin,
+  useScrollOffset,
+} from './useContainerLayout.js';
 import { JSX_OWNER_META_KEY, useNodeBinding } from './useNodeBinding.js';
 
 interface CommonBindingProps {
@@ -345,6 +350,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   const layout = useContainerLayout(props.id, ref, undefined, dropPreview.preview);
   usePublishGeometry(props.id, ref, layout);
   useScrollOffset(props.scrollRef, layout.observeScroll);
+  useOverflowOrigin(props.scrollRef, layout.overflow);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
   const settleMs = DEFAULT_SETTLE_MS;
@@ -544,6 +550,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   const layout = useContainerLayout(props.id, ref, props.viewport, dropPreview.preview);
   usePublishGeometry(props.id, ref, layout);
   useScrollOffset(props.scrollRef, layout.observeScroll);
+  useOverflowOrigin(props.scrollRef, layout.overflow);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
   const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);

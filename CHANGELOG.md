@@ -23,6 +23,14 @@ section below.
   It applies on layout as well as on drag, so a window restored from a layout
   saved on a larger screen is pulled back into view, with a `layout` trace.
 
+- **`overflow` on `desktopStrategy`, and overflow past the left and top edges.**
+  `LayoutResult.overflow` gains optional `left` and `top` for content at negative
+  coordinates, and the desktop now reports them: a window at `x = -1800` used to
+  be unreachable. `<Container>` and the presets put a matching margin before the
+  box, and scroll `scrollRef` by it so the origin stays put on screen.
+  `overflow: 'clip'` reports no overflow at all; `'scroll'`, the default, is
+  the old behavior plus the two new edges.
+
 - **An affordance handle stacks at its rect's `z`**, so a window's title band sits
   above that window and below the ones in front of it. `Affordance.label` names
   what a gesture does (`'move'`), and the handle's accessible name uses it in

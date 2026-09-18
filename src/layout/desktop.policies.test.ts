@@ -247,3 +247,35 @@ describe('desktop clamp', () => {
     expect(strategy.configSpec).toMatchObject({ clamp: ['bar', 'all'] });
   });
 });
+
+describe('desktop overflow', () => {
+  it('counts a window past the left and top edges under the default scroll', () => {
+    const s = desktop({}, [{ id: 'a', placement: { x: -1800, y: -30 } }]);
+    expect(layoutOf(s).overflow).toEqual({ w: 0, h: 0, left: 1800, top: 30 });
+  });
+
+  it('reports the far side of each axis alongside the near one', () => {
+    const s = desktop({ overflow: 'scroll' }, [
+      { id: 'a', placement: { x: -50, y: 10 } },
+      { id: 'b', placement: { x: 350, y: 250 } },
+    ]);
+    expect(layoutOf(s).overflow).toEqual({ w: 50, h: 30, left: 50 });
+  });
+
+  it("reports no overflow at all under overflow: 'clip'", () => {
+    const s = desktop({ overflow: 'clip' }, [
+      { id: 'a', placement: { x: -50, y: -10 } },
+      { id: 'b', placement: { x: 350, y: 250 } },
+    ]);
+    expect(layoutOf(s).overflow).toBeUndefined();
+  });
+
+  it('has nothing past the left edge once a clamp pulls the window back', () => {
+    const s = desktop({ clamp: 'all' }, [{ id: 'a', placement: { x: -1800, y: 0 } }]);
+    expect(layoutOf(s).overflow).toBeUndefined();
+  });
+
+  it('declares overflow in its config spec', () => {
+    expect(strategy.configSpec).toMatchObject({ overflow: ['clip', 'scroll'] });
+  });
+});

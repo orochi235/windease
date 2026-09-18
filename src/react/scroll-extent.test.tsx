@@ -1,6 +1,7 @@
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
+import { useRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { asNodeId, createNode, Store, stripStrategy } from '../index.js';
+import { asNodeId, createNode, desktopStrategy, Store, stripStrategy } from '../index.js';
 import { Container } from './Container.js';
 import { Provider } from './Provider.js';
 import { Panel, Zone } from './presets.js';
@@ -102,5 +103,64 @@ describe('scroll-mode extent', () => {
       </Provider>,
     );
     expect(box(c).style.height).toBe('600px');
+  });
+});
+
+describe('scroll extent past the left and top edges', () => {
+  const W = asNodeId('w');
+
+  function desktopAt(x: number, y: number): Store {
+    const s = new Store();
+    s.registerNode(
+      createNode({ kind: 'zone', id: Z, container: { strategyId: 'desktop', config: {} } }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'window',
+        id: W,
+        parentId: Z,
+        placement: { x, y },
+        hints: { preferredSize: { w: 50, h: 50 } },
+      }),
+    );
+    s.showNode(W);
+    return s;
+  }
+
+  function Scrolled() {
+    const scrollRef = useRef<HTMLDivElement | null>(null);
+    return (
+      <div ref={scrollRef} data-testid="scroller">
+        <Container parentId={Z} chrome={{}} viewport={{ w: 200, h: 100 }} scrollRef={scrollRef} />
+      </div>
+    );
+  }
+
+  function mount(store: Store) {
+    return render(
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={{ desktop: desktopStrategy() as never }}>
+          <Scrolled />
+        </StrategyRegistryProvider>
+      </Provider>,
+    );
+  }
+
+  it('puts a margin before the box for content at negative coordinates', () => {
+    const { getByTestId } = mount(desktopAt(-100, -30));
+    const el = getByTestId('scroller').firstElementChild as HTMLElement;
+    expect(el.style.marginLeft).toBe('100px');
+    expect(el.style.marginTop).toBe('30px');
+  });
+
+  it('scrolls to the origin on mount, and keeps it still as the margin changes', () => {
+    const store = desktopAt(-100, 0);
+    const { getByTestId } = mount(store);
+    const scroller = getByTestId('scroller');
+    expect(scroller.scrollLeft).toBe(100);
+    act(() => store.patchPlacement(W, { x: -160 }));
+    expect(scroller.scrollLeft).toBe(160);
+    act(() => store.patchPlacement(W, { x: 10 }));
+    expect(scroller.scrollLeft).toBe(0);
   });
 });

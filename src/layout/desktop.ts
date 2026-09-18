@@ -15,6 +15,9 @@ export const DESKTOP_MINIMIZE = ['shade', 'icon'] as const;
 /** The values `container.config.clamp` accepts. */
 export const DESKTOP_CLAMP = ['bar', 'all'] as const;
 
+/** The values `container.config.overflow` accepts. */
+export const DESKTOP_OVERFLOW = ['clip', 'scroll'] as const;
+
 /** The values `drag` accepts, in config or in a window's placement. */
 export const DESKTOP_DRAG = [true, false, 'x', 'y'] as const;
 
@@ -36,6 +39,9 @@ export interface DesktopConfig {
   /** Keep windows reachable, on layout and after a drag: `'bar'` keeps the title
    *  band inside the container, `'all'` the whole window where it fits. */
   clamp?: (typeof DESKTOP_CLAMP)[number];
+  /** `'scroll'` (the default) reports windows past any edge as `overflow`, so a
+   *  host can scroll to them; `'clip'` reports none. */
+  overflow?: (typeof DESKTOP_OVERFLOW)[number];
 }
 
 /** {@link desktopStrategy}'s state: only whatever the wrapped strategy keeps. */
@@ -148,6 +154,7 @@ export function desktopStrategy<TInner>(
       drag: DESKTOP_DRAG,
       handleSize: 'number',
       clamp: DESKTOP_CLAMP,
+      overflow: DESKTOP_OVERFLOW,
     },
 
     initialState(items, options) {
@@ -173,6 +180,8 @@ export function desktopStrategy<TInner>(
 
       let overW = result.overflow?.w ?? 0;
       let overH = result.overflow?.h ?? 0;
+      let overLeft = result.overflow?.left ?? 0;
+      let overTop = result.overflow?.top ?? 0;
       let rank = 0;
       let slot = 0;
       for (const item of windows) {
@@ -224,6 +233,8 @@ export function desktopStrategy<TInner>(
         }
         overW = Math.max(overW, at.x + size.w - container.w);
         overH = Math.max(overH, at.y + h - container.h);
+        overLeft = Math.max(overLeft, -at.x);
+        overTop = Math.max(overTop, -at.y);
       }
 
       trace(
@@ -234,7 +245,13 @@ export function desktopStrategy<TInner>(
       delete out.unplaced;
       delete out.overflow;
       if (unplaced.length > 0) out.unplaced = unplaced;
-      if (overW > 0 || overH > 0) out.overflow = { w: Math.max(0, overW), h: Math.max(0, overH) };
+      const over =
+        cfg.overflow !== 'clip' && (overW > 0 || overH > 0 || overLeft > 0 || overTop > 0);
+      if (over) {
+        out.overflow = { w: Math.max(0, overW), h: Math.max(0, overH) };
+        if (overLeft > 0) out.overflow.left = overLeft;
+        if (overTop > 0) out.overflow.top = overTop;
+      }
       return out;
     },
 

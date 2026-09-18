@@ -220,6 +220,18 @@ export interface LayoutPreview {
 }
 
 /**
+ * How far placed content passes the container's edges. `w` and `h` are the
+ * right and bottom edges; `left` and `top`, absent when zero, are content at
+ * negative coordinates, which a host can reach only by moving the origin.
+ */
+export interface Overflow {
+  w: number;
+  h: number;
+  left?: number;
+  top?: number;
+}
+
+/**
  * What a strategy returns: where each child goes, what the user can grab, and
  * what didn't fit. An item absent from `placements` is not rendered, so a
  * strategy that drops an item should also report it in `unplaced`.
@@ -241,7 +253,7 @@ export interface LayoutResult<TId extends string = string, TMeta = unknown> {
    * Distinct from `unplaced`, which is capacity by *count*. A row can overflow
    * with everything placed.
    */
-  overflow?: { w: number; h: number };
+  overflow?: Overflow;
   /**
    * Per-placement values the core carries to the host and never reads —
    * opacity, a rotation, an LOD tier. Untyped on purpose: the library commits

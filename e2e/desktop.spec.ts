@@ -127,4 +127,48 @@ test.describe('desktop behavior keys', () => {
     // The story lays out against a 360px viewport, which its border-box does not shrink.
     expect(after.y).toBeCloseTo(desk.y + 360 - 26, 0);
   });
+
+  test('a window past the left edge opens scrolled out of view and scrolls into it', async ({
+    page,
+  }) => {
+    await openStory(page, BEHAVIOR);
+    const scroller = page.getByTestId('desktop-scroller');
+    const view = await boxOf(scroller);
+    // The desktop's origin stays at the scroller's left edge.
+    expect((await deskOf(page)).x).toBeCloseTo(view.x + 1, 0);
+    expect((await boxOf(node(page, 'win-3'))).x).toBeLessThan(view.x);
+
+    await scroller.evaluate((el) => {
+      el.scrollLeft = 0;
+    });
+    const shown = await settledBox(node(page, 'win-3'));
+    expect(shown.x).toBeCloseTo(view.x + 1, 0);
+  });
+
+  test('dragging a window past the left edge leaves the others where they are', async ({
+    page,
+  }) => {
+    await openStory(page, BEHAVIOR);
+    const two = await boxOf(node(page, 'win-2'));
+    const { at } = await barOf(page, 'win-1');
+    await dragMouse(page, at, { x: at.x - 150, y: at.y });
+    await settledBox(node(page, 'win-1'));
+    expect(await settledBox(node(page, 'win-2'))).toEqual(two);
+  });
+
+  test("overflow: 'clip' leaves nothing to scroll to", async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-overflow=clip`);
+    const scroller = page.getByTestId('desktop-scroller');
+    const extent = await scroller.evaluate((el) => ({
+      over: el.scrollWidth - el.clientWidth,
+      left: el.scrollLeft,
+    }));
+    expect(extent).toEqual({ over: 0, left: 0 });
+  });
+
+  test("clamp brings back a window left on a monitor that's gone", async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-clamp=all`);
+    const desk = await deskOf(page);
+    expect((await settledBox(node(page, 'win-3'))).x).toBeCloseTo(desk.x, 0);
+  });
 });

@@ -441,6 +441,14 @@ rows cannot widen a cell.
 `overflow` is reported per axis and absent when the content fits, so a consumer
 that wants to drive its own policy can read it and ignore all three.
 
+`w` and `h` measure the right and bottom edges. A strategy that places content at
+negative coordinates — `desktopStrategy` is the one that does — adds `left` and
+`top`. A scroller cannot reach anything before its own origin, so the box gets a
+matching `margin-left` / `margin-top`, and a `scrollRef` is scrolled by the same
+amount whenever the margin changes, which keeps the origin still on screen: the
+content past the edge opens scrolled out of view, one scroll away. The margin
+sits outside the box, so the box itself must not clip — the wrapper does.
+
 ### Telling windease where the scroll got to
 
 The wrapper is yours, so the scroll offset is something windease has to be
@@ -901,6 +909,7 @@ the pressed element in the DOM and the browser drops the click it was for.
 | `drag` | off | `true` moves a window by its title band, `'x'` or `'y'` on one axis only |
 | `handleSize` | `22` | height of the title band `drag` grabs |
 | `clamp` | off | `'bar'` keeps each title band inside the desktop; `'all'` keeps whole windows inside where they fit |
+| `overflow` | `'scroll'` | `'scroll'` reports windows past any edge as `overflow`, left and top included; `'clip'` reports none |
 
 With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`
 shades instead, with a `layout` trace.
@@ -918,6 +927,11 @@ dragged, so a layout saved on a larger screen comes back reachable; the stored
 kept inside horizontally and its top within `[0, h - handleSize]`, so the body
 may hang off the bottom. An axis a window cannot fit on pins it to the left or
 top edge.
+
+**Overflow.** Under the default `overflow: 'scroll'`, a window at `x = -1800` is
+reported as `overflow.left`, so a scrolling wrapper can reach it (see
+[When panes don't fit](#when-panes-dont-fit) for how the box makes room). `'clip'` reports nothing and
+leaves clipping to the host's CSS.
 
 ## Resize
 

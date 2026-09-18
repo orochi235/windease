@@ -342,7 +342,7 @@ Built-ins:
   stacked by item order with `z` counting up from 1. Placement `minimized` shades
   a window, or with `minimize: 'icon'` hands it to `inner` beside the items
   marked `icon`, which sit at `z` 0. Config: `minimize`, `shadeHeight`,
-  `iconWidth`, `iconHeight`, `cascade`, `drag`, `handleSize`, `clamp`. Keeps no state of
+  `iconWidth`, `iconHeight`, `cascade`, `drag`, `handleSize`, `clamp`, `overflow`. Keeps no state of
   its own; with `drag` set it emits a title-band drag affordance per window that
   writes placement `x` / `y`.
 - **`shelfStrategy`**, **`columnStrategy`**, **`skylineStrategy`** — pack items
