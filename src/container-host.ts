@@ -7,6 +7,7 @@ import type {
   LayoutPreview,
   LayoutResult,
   LayoutStrategy,
+  Overflow,
   Rect,
   StrategyRegistry,
 } from './layout-types.js';
@@ -30,9 +31,10 @@ export interface ContainerLayout {
   /**
    * How far the placed content exceeds the viewport per axis, absent when it
    * fits. A binding sizes its inner box to `viewport + overflow` so a
-   * scrolling wrapper has something to scroll.
+   * scrolling wrapper has something to scroll, and offsets it by `left` / `top`
+   * so content at negative coordinates lands inside that wrapper too.
    */
-  overflow?: { w: number; h: number };
+  overflow?: Overflow;
   /**
    * `'placed'` when these came from a strategy run, `'flow'` when the container
    * declared `hints.render: 'flow'` and the browser arranges its children. A

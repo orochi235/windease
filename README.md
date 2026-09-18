@@ -455,6 +455,14 @@ rows cannot widen a cell.
 `overflow` is reported per axis and absent when the content fits, so a consumer
 that wants to drive its own policy can read it and ignore all three.
 
+`w` and `h` measure the right and bottom edges. A strategy that places content at
+negative coordinates — `desktopStrategy` is the one that does — adds `left` and
+`top`. A scroller cannot reach anything before its own origin, so the box gets a
+matching `margin-left` / `margin-top`, and a `scrollRef` is scrolled by the same
+amount whenever the margin changes, which keeps the origin still on screen: the
+content past the edge opens scrolled out of view, one scroll away. The margin
+sits outside the box, so the box itself must not clip — the wrapper does.
+
 ### Telling windease where the scroll got to
 
 The wrapper is yours, so the scroll offset is something windease has to be
@@ -909,7 +917,8 @@ store.patchPlacement(windowId, { minimized: true });
 
 A window's size is `placement.size`, else `natural`, else `hints.preferredSize`;
 one with none is unplaced. A window with no `x` / `y` cascades from the top left.
-Positions are not clamped: a window past the edge comes back as `overflow`.
+Positions are not clamped unless `clamp` says so: a window past the edge comes back
+as `overflow`.
 
 **Stacking is `z`.** The window at rank `r` gets `z = r + 1`; icons sit at `0`.
 `<Container>` and the presets turn a nonzero `z` into `z-index`, and a 3D host
@@ -930,10 +939,40 @@ the pressed element in the DOM and the browser drops the click it was for.
 | `shadeHeight` | `28` | height of a shaded window |
 | `iconWidth`, `iconHeight` | `64` | size a minimized window takes in the icon layer |
 | `cascade` | `24` | offset between successive windows with no position |
+| `drag` | off | `true` moves a window by its title band, `'x'` or `'y'` on one axis only |
+| `handleSize` | `22` | height of the title band `drag` grabs |
+| `clamp` | off | `'bar'` keeps each title band inside the desktop; `'all'` keeps whole windows inside where they fit |
+| `minimizable` | off | adds a click box at the right of each title band that flips `minimized`, and one over each iconified window |
+| `overflow` | `'scroll'` | `'scroll'` reports windows past any edge as `overflow`, left and top included; `'clip'` reports none |
 
 With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`
-shades instead, with a `layout` trace. Windows carry no drag or resize handles —
-the host writes every position.
+shades instead, with a `layout` trace.
+
+**Dragging.** With `drag` set, each window gets a `drag-xy` affordance (`drag-x`,
+`drag-y`) over its top `handleSize` pixels, and dragging it writes `x` / `y` into
+the window's placement. A window's own `placement.drag` overrides the config, so
+`drag: false` there pins one window. A window with `lock.move` does not move. Pass
+`affordances` to the container to render the bands; the chrome draws the title
+bar under them.
+
+**Clamping.** `clamp` applies when a window is placed, not only when it is
+dragged, so a layout saved on a larger screen comes back reachable; the stored
+`x` / `y` change only when the window is next dragged. Under `'bar'` the band is
+kept inside horizontally and its top within `[0, h - handleSize]`, so the body
+may hang off the bottom. An axis a window cannot fit on pins it to the left or
+top edge.
+
+**Minimize toggle.** With `minimizable: true`, each window gets a `click`
+affordance, a `handleSize` square at the right end of its title band, and pressing
+it flips the window's `placement.minimized`. A window iconified under
+`minimize: 'icon'` gets one over its icon, so pressing the icon restores it. The
+built-in renderer draws it as an empty `<button>` named "minimize …" or
+"restore …", and the chrome draws the glyph beneath.
+
+**Overflow.** Under the default `overflow: 'scroll'`, a window at `x = -1800` is
+reported as `overflow.left`, so a scrolling wrapper can reach it (see
+[When panes don't fit](#when-panes-dont-fit) for how the box makes room). `'clip'` reports nothing and
+leaves clipping to the host's CSS.
 
 ## Resize
 

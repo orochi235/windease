@@ -54,7 +54,7 @@ function affordanceLabel(store: Store, aff: Affordance): string | undefined {
   const ids = aff.affects ?? (aff.childId ? [aff.childId] : []);
   if (ids.length === 0) return undefined;
   const names = ids.map((id) => accessibleName(store, id as NodeId));
-  return `resize ${names.join(' and ')}`;
+  return `${aff.label ?? 'resize'} ${names.join(' and ')}`;
 }
 
 const noJoinArmChange = () => {};
@@ -96,6 +96,14 @@ export function AffordanceLayer({
       {affordances.map((aff) =>
         typeof render === 'function' ? (
           <Fragment key={aff.id}>{render({ affordance: aff, dispatch, hitPad })}</Fragment>
+        ) : aff.kind === 'click' ? (
+          <ClickAffordance
+            key={aff.id}
+            affordance={aff}
+            dispatch={dispatch}
+            tabStop={tabStop}
+            label={affordanceLabel(store, aff)}
+          />
         ) : (
           <AffordanceHandle
             key={aff.id}
@@ -112,6 +120,55 @@ export function AffordanceLayer({
         ),
       )}
     </>
+  );
+}
+
+interface ClickAffordanceProps {
+  affordance: Affordance;
+  dispatch: ContainerLayout['dispatchAffordance'];
+  tabStop: boolean;
+  label: string | undefined;
+}
+
+const CLICK_RESET: CSSProperties = {
+  padding: 0,
+  border: 0,
+  background: 'transparent',
+  font: 'inherit',
+  color: 'inherit',
+};
+
+/** A `click` affordance: an empty native button, which sends one `'click'` event
+ *  per press from the pointer, Enter or Space. The chrome beneath draws it. */
+function ClickAffordance({ affordance, dispatch, tabStop, label }: ClickAffordanceProps) {
+  const press = useCallback(() => {
+    dispatch({ affordanceId: affordance.id, kind: 'click', payload: {} });
+  }, [dispatch, affordance.id]);
+  const { rect } = affordance;
+  const style: CSSProperties = {
+    ...AFFORDANCE_BASE,
+    ...CLICK_RESET,
+    left: rect.x,
+    top: rect.y,
+    width: rect.w,
+    height: rect.h,
+  };
+  if (rect.z > 1) style.zIndex = Math.round(rect.z);
+  if (affordance.cursor) style.cursor = affordance.cursor;
+  return (
+    <button
+      type="button"
+      className="windease-affordance-hit"
+      style={style}
+      tabIndex={tabStop ? 0 : -1}
+      aria-label={label}
+      data-affordance-hit={affordance.id}
+      data-affordance={affordance.id}
+      data-affordance-kind={affordance.kind}
+      onClick={press}
+      draggable={false}
+      onDragStart={preventNativeDrag}
+    />
   );
 }
 
@@ -356,6 +413,9 @@ function AffordanceHandle({
     height: affordance.rect.h + 2 * padY,
   };
   if (affordance.cursor) outerStyle.cursor = affordance.cursor;
+  // A handle over a stacked child sits at that child's depth; later in the DOM,
+  // it wins over its own child and loses to the ones above.
+  if (affordance.rect.z > 1) outerStyle.zIndex = Math.round(affordance.rect.z);
   const innerStyle: CSSProperties = {
     position: 'absolute',
     left: padX,

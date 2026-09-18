@@ -84,9 +84,15 @@ export {
 } from './layout/config-check.js';
 export {
   DEFAULT_CASCADE,
+  DEFAULT_HANDLE_SIZE,
   DEFAULT_ICON_SIZE,
   DEFAULT_SHADE_HEIGHT,
+  DESKTOP_CLAMP,
+  DESKTOP_DRAG,
+  DESKTOP_DRAG_PREFIX,
   DESKTOP_MINIMIZE,
+  DESKTOP_MINIMIZE_PREFIX,
+  DESKTOP_OVERFLOW,
   type DesktopConfig,
   type DesktopState,
   desktopStrategy,
@@ -131,6 +137,7 @@ export type {
   LayoutPreview,
   LayoutResult,
   LayoutStrategy,
+  Overflow,
   Rect,
   Size,
   StatefulLayoutStrategy,

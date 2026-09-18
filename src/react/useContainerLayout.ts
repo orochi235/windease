@@ -1,6 +1,14 @@
 import type { CSSProperties } from 'react';
-import { type RefObject, useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
-import type { LayoutEvent, LayoutPreview, NodeId, PlacementCommit } from '../index.js';
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from 'react';
+import type { LayoutEvent, LayoutPreview, NodeId, Overflow, PlacementCommit } from '../index.js';
 import { ContainerHost, type ContainerLayout as HostLayout } from '../index.js';
 import { useStore } from './Provider.js';
 import { useStrategyRegistry } from './strategies.js';
@@ -137,13 +145,44 @@ export function useScrollOffset(
  * case adds no style at all.
  *
  * The consumer puts `overflow: auto` on a wrapper around this box; without the
- * grown extent there is nothing for that wrapper to scroll.
+ * grown extent there is nothing for that wrapper to scroll. Content at negative
+ * coordinates (`overflow.left` / `top`) gets a margin before the box, since a
+ * scroller cannot reach anything left of or above its own origin.
  */
-export function scrollExtentStyle(layout: ContainerLayout): CSSProperties | undefined {
+export function scrollExtentStyle(
+  layout: Pick<ContainerLayout, 'overflow' | 'viewport'>,
+): CSSProperties | undefined {
   const { overflow, viewport } = layout;
   if (!overflow || !viewport) return undefined;
   const out: CSSProperties = {};
   if (overflow.w > 0) out.width = viewport.w + overflow.w;
   if (overflow.h > 0) out.height = viewport.h + overflow.h;
+  if (overflow.left) out.marginLeft = overflow.left;
+  if (overflow.top) out.marginTop = overflow.top;
   return out;
+}
+
+/**
+ * Hold the container's origin still on screen while the margin
+ * {@link scrollExtentStyle} adds for `overflow.left` / `top` changes, by scrolling
+ * `scrollRef` by the same amount. Without it, dragging a window past the left
+ * edge would push every other window right. Starts from no margin, so a layout
+ * that opens with one scrolls to its origin.
+ */
+export function useOverflowOrigin(
+  scrollRef: RefObject<Element | null> | undefined,
+  overflow: Overflow | undefined,
+): void {
+  const left = overflow?.left ?? 0;
+  const top = overflow?.top ?? 0;
+  const applied = useRef({ left: 0, top: 0 });
+  useLayoutEffect(() => {
+    const el = scrollRef?.current;
+    if (!el) return;
+    const dx = left - applied.current.left;
+    const dy = top - applied.current.top;
+    applied.current = { left, top };
+    if (dx !== 0) el.scrollLeft += dx;
+    if (dy !== 0) el.scrollTop += dy;
+  }, [scrollRef, left, top]);
 }

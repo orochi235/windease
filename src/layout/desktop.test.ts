@@ -69,10 +69,10 @@ describe('desktopStrategy windows', () => {
     expect(r.placements.get('c')?.z).toBe(2);
   });
 
-  it('does not clamp a window past the edge, and reports the overflow', () => {
+  it('does not clamp a window past the edge, and reports the overflow on every side', () => {
     const r = run([win('a', { x: 350, y: -20 }), win('b', { x: 0, y: 260 })]);
     expect(r.placements.get('a')).toMatchObject({ x: 350, y: -20 });
-    expect(r.overflow).toEqual({ w: 50, h: 40 });
+    expect(r.overflow).toEqual({ w: 50, h: 40, top: 20 });
   });
 
   it('reports no overflow when every window fits', () => {

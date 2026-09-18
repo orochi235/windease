@@ -97,18 +97,27 @@ describe('desktop presets: generic invariants', () => {
   );
 
   it.each(DESKTOP_PRESETS.map((p) => [p.id, p] as const))(
-    '%s: overflow covers every window that passes the right or bottom edge',
+    '%s: overflow covers every window that passes any edge',
     (_, preset) => {
       const scenario = scenarioOf(preset);
       const r = runPreset(preset);
       let w = 0;
       let h = 0;
+      let left = 0;
+      let top = 0;
       for (const rect of r.placements.values()) {
         w = Math.max(w, rect.x + rect.w - scenario.container.w);
         h = Math.max(h, rect.y + rect.h - scenario.container.h);
+        left = Math.max(left, -rect.x);
+        top = Math.max(top, -rect.y);
       }
-      if (w <= 0 && h <= 0) expect(r.overflow).toBeUndefined();
-      else expect(r.overflow).toEqual({ w: Math.max(0, w), h: Math.max(0, h) });
+      if (w <= 0 && h <= 0 && left <= 0 && top <= 0) expect(r.overflow).toBeUndefined();
+      else {
+        const want: Record<string, number> = { w: Math.max(0, w), h: Math.max(0, h) };
+        if (left > 0) want.left = left;
+        if (top > 0) want.top = top;
+        expect(r.overflow).toEqual(want);
+      }
     },
   );
 });
@@ -290,8 +299,9 @@ describe('Figma canvas: negative and far-off coordinates', () => {
     expect(r.placements.get('figma-archive')).toMatchObject({ x: 18000, y: 12000 });
   });
 
-  it('reports overflow only past the right and bottom edges', () => {
-    expect(r.overflow).toEqual({ w: 18000 + 2400 - 1440, h: 12000 + 1600 - 900 });
+  it('reports overflow past every edge, negative coordinates included', () => {
+    expect(r.overflow).toMatchObject({ w: 18000 + 2400 - 1440, h: 12000 + 1600 - 900 });
+    expect(r.overflow?.left).toBeGreaterThan(0);
   });
 
   it('lists the frames outside the viewport, which the host must pan to', () => {
@@ -310,9 +320,8 @@ describe('unplugged second monitor', () => {
     expect(r.placements.get('mon-xcode')).toMatchObject({ x: -1800, y: 40 });
   });
 
-  it('reports the right-hand window in overflow, but not the one wholly off the left edge', () => {
-    // Overflow is right/bottom extent only, so a window at x=-1800 is unreachable and unreported.
-    expect(r.overflow).toEqual({ w: 1920 + 1000 - 1280, h: 40 + 1000 - 800 });
+  it('reports both the right-hand window and the one wholly off the left edge', () => {
+    expect(r.overflow).toEqual({ w: 1920 + 1000 - 1280, h: 40 + 1000 - 800, left: 1800 });
     const xcode = r.placements.get('mon-xcode')!;
     expect(xcode.x + xcode.w).toBeLessThan(0);
   });

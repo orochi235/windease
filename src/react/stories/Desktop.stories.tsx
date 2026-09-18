@@ -1,7 +1,7 @@
 export default { title: 'Desktop' };
 
 import type { Story } from '@ladle/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   asNodeId,
   createNode,
@@ -176,6 +176,131 @@ Shade.argTypes = { minimize: { options: ['shade', 'icon'], control: { type: 'rad
 export const IconMinimize: Story<Args> = (args) => <DesktopZone {...args} />;
 IconMinimize.args = { minimize: 'icon' };
 IconMinimize.argTypes = Shade.argTypes;
+
+const BAR_HEIGHT = 26;
+
+interface BehaviorArgs {
+  drag: 'true' | 'x' | 'y' | 'false';
+  clamp: 'none' | 'bar' | 'all';
+  overflow: 'scroll' | 'clip';
+  minimizable: boolean;
+}
+
+const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number }[] = [
+  { id: 'win-1', x: 24, y: 24, w: 200, h: 140 },
+  { id: 'win-2', x: 180, y: 120, w: 220, h: 150 },
+  // Saved on a monitor to the left that is no longer plugged in.
+  { id: 'win-3', x: -300, y: 190, w: 200, h: 120 },
+];
+
+const BEHAVIOR_STRATEGIES = { desktop: desktopStrategy() as never };
+
+function behaviorConfig(args: BehaviorArgs): Record<string, unknown> {
+  const drag = args.drag === 'true' ? true : args.drag === 'false' ? false : args.drag;
+  return {
+    handleSize: BAR_HEIGHT,
+    drag,
+    clamp: args.clamp === 'none' ? undefined : args.clamp,
+    overflow: args.overflow,
+    minimizable: args.minimizable,
+  };
+}
+
+function useBehaviorStore(args: BehaviorArgs): Store {
+  const store = useMemo(() => {
+    const s = new Store();
+    s.registerNode(
+      createNode({ kind: 'zone', id: ZONE_ID, container: { strategyId: 'desktop', config: {} } }),
+    );
+    for (const { id, x, y, w, h } of BEHAVIOR_WINDOWS) {
+      s.registerNode(
+        createNode({
+          kind: 'window',
+          focus: true,
+          id: asNodeId(id),
+          parentId: ZONE_ID,
+          placement: { x, y },
+          hints: { preferredSize: { w, h } },
+          meta: { title: id },
+        }),
+      );
+      s.showNode(asNodeId(id));
+    }
+    return s;
+  }, []);
+  // A patch, so an arg set back to 'none' has to arrive as undefined to delete its key.
+  const patch = behaviorConfig(args);
+  const patchKey = JSON.stringify(patch);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: patchKey is patch's value identity.
+  useLayoutEffect(() => {
+    store.updateContainerConfig(ZONE_ID, patch);
+  }, [store, patchKey]);
+  return store;
+}
+
+/** Draws the bar and a glyph under the toggle; the desktop's affordances do the rest. */
+const BEHAVIOR_CHROME: ChromeMap = {
+  window: ({ node }) => (
+    <div className="desktop-window">
+      <header className="desktop-window__bar">
+        <span>{String(node.meta?.title ?? node.id)}</span>
+        <span className="desktop-window__glyph" aria-hidden="true">
+          {node.membership?.placement.minimized === true ? '▢' : '–'}
+        </span>
+      </header>
+      <div className="desktop-window__body">{String(node.id)}</div>
+    </div>
+  ),
+};
+
+/** Raising is not a desktop key yet, so a click on a window's title band raises it here. */
+function raiseFromBand(store: Store, target: EventTarget | null) {
+  const hit = (target as Element | null)?.closest('[data-affordance-hit]');
+  const id = hit?.getAttribute('data-affordance-hit')?.match(/^desktop:drag:(.+)$/)?.[1];
+  if (id && store.getNode(asNodeId(id))) store.focusNode(asNodeId(id));
+}
+
+function BehaviorZone(args: BehaviorArgs) {
+  const store = useBehaviorStore(args);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={BEHAVIOR_STRATEGIES}>
+        <RaiseOnFocus />
+        <div
+          ref={scrollRef}
+          className={`desktop-scroller desktop-scroller--${args.overflow}${args.minimizable ? '' : ' desktop-scroller--no-toggle'}`}
+          data-testid="desktop-scroller"
+          onClickCapture={(e) => raiseFromBand(store, e.target)}
+        >
+          <Container
+            parentId={ZONE_ID}
+            chrome={BEHAVIOR_CHROME}
+            viewport={{ w: 480, h: 360 }}
+            className="desktop-surface"
+            scrollRef={scrollRef}
+            affordances
+          />
+        </div>
+        <p className="desktop-hint">
+          Drag a window by its title bar. <code>drag: 'y'</code> moves it up and down only;{' '}
+          <code>clamp</code> keeps its title bar, or all of it, on the desktop;{' '}
+          <code>minimizable</code> makes the box at its right roll it up. win-3 was left on a
+          monitor that is gone: scroll left to reach it, or clamp to bring it back.
+        </p>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+}
+
+/** Every gesture here is a `desktopStrategy` config key; the story wires no pointer code. */
+export const Behavior: Story<BehaviorArgs> = (args) => <BehaviorZone {...args} />;
+Behavior.args = { drag: 'true', clamp: 'none', overflow: 'scroll', minimizable: true };
+Behavior.argTypes = {
+  drag: { options: ['true', 'x', 'y', 'false'], control: { type: 'radio' } },
+  clamp: { options: ['none', 'bar', 'all'], control: { type: 'radio' } },
+  overflow: { options: ['scroll', 'clip'], control: { type: 'radio' } },
+};
 
 const RAISE_ZONE = asNodeId('raise-desktop');
 
