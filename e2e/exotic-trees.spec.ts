@@ -119,3 +119,26 @@ test.describe('a seam drag resizing a group of nested panes', () => {
     await page.mouse.up();
   });
 });
+
+test.describe('a squeezed layout, saved bigger than the screen it is shown on', () => {
+  for (const seamId of ['resize-x-group-1', 'resize-x-branch-0.1', 'resize-y-group-2']) {
+    test(`Dockview's ${seamId} follows the pointer`, async ({ page }) => {
+      await page.goto('/?story=exotic--trees--presets&mode=preview');
+      await expect(page.locator('[data-node]').first()).toBeVisible({ timeout: 30_000 });
+      await page.getByTestId('preset-picker').selectOption('dockview-vscode');
+      const seam = page.locator(`[data-affordance-hit="${seamId}"]`);
+      const start = await settledBox(seam);
+      const from = centerOf(start);
+      const vertical = start.h > start.w;
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(vertical ? from.x + 40 : from.x, vertical ? from.y : from.y + 40, {
+        steps: 8,
+      });
+      await page.mouse.up();
+      const end = await settledBox(seam);
+      const moved = vertical ? end.x - start.x : end.y - start.y;
+      expect(Math.abs(moved - 40)).toBeLessThanOrEqual(1);
+    });
+  }
+});

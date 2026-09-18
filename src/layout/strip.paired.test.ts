@@ -39,11 +39,13 @@ const items = () => [
 ];
 
 describe('stripStrategy resizeMode', () => {
-  it('writes only the dragged child by default', () => {
+  it('by default takes the delta from the rest of the row when nothing else absorbs it', () => {
     const store = fakeStore({ a: 200, b: 200, c: 200 });
     drag(store, items(), 'a', 40, { axis: 'x' });
-    expect(store.patchPlacement).toHaveBeenCalledTimes(1);
+    expect(store.patchPlacement).toHaveBeenCalledTimes(3);
     expect(store.patchPlacement).toHaveBeenCalledWith('a', { size: { w: 240 } });
+    expect(store.patchPlacement).toHaveBeenCalledWith('b', { size: { w: 180 } });
+    expect(store.patchPlacement).toHaveBeenCalledWith('c', { size: { w: 180 } });
   });
 
   it("writes both neighbors under resizeMode 'neighbor'", () => {
@@ -82,30 +84,32 @@ describe('stripStrategy resizeMode', () => {
   });
 });
 
-describe("stripStrategy resizeMode 'neighbor' leaves the rest of the row in place", () => {
-  /** Drags `childId`'s seam, applies what it wrote, and lays the row out again. */
-  function dragAndRelayout(rows: LayoutItem[], childId: string, dx: number, options: object) {
-    const layout = (list: LayoutItem[]) =>
-      stripStrategy.layout({
-        items: list,
-        container: { w: 600, h: 50 },
-        state: undefined as void,
-        options: { ...options },
-      });
-    const widths = (list: LayoutItem[]) =>
-      Object.fromEntries([...layout(list).placements].map(([id, r]) => [id, r.w]));
-    const store = fakeStore({});
-    drag(store, rows, childId, dx, { ...options });
-    const written = new Map(
-      store.patchPlacement.mock.calls.map((c) => [c[0], (c[1] as { size: { w: number } }).size.w]),
-    );
-    const after = rows.map((it): LayoutItem => {
-      const w = written.get(it.id);
-      return w === undefined ? it : { ...it, placement: { size: { w } } };
+/** Drags `childId`'s seam, applies what it wrote, and lays the row out again. */
+function dragAndRelayout(rows: LayoutItem[], childId: string, dx: number, options: object) {
+  const layout = (list: LayoutItem[]) =>
+    stripStrategy.layout({
+      items: list,
+      container: { w: 600, h: 50 },
+      state: undefined as void,
+      options: { ...options },
     });
-    return { before: widths(rows), after: widths(after) };
-  }
+  const widths = (list: LayoutItem[]) =>
+    Object.fromEntries([...layout(list).placements].map(([id, r]) => [id, r.w]));
+  const lefts = (list: LayoutItem[]) =>
+    Object.fromEntries([...layout(list).placements].map(([id, r]) => [id, r.x]));
+  const store = fakeStore({});
+  drag(store, rows, childId, dx, { ...options });
+  const written = new Map(
+    store.patchPlacement.mock.calls.map((c) => [c[0], (c[1] as { size: { w: number } }).size.w]),
+  );
+  const after = rows.map((it): LayoutItem => {
+    const w = written.get(it.id);
+    return w === undefined ? it : { ...it, placement: { size: { w } } };
+  });
+  return { before: widths(rows), after: widths(after), afterX: lefts(after) };
+}
 
+describe("stripStrategy resizeMode 'neighbor' leaves the rest of the row in place", () => {
   it('in a squeezed row, where the stored sizes scale on the way in', () => {
     // 400 × 3 stored in 600 renders at 200 each. Writing 220/180 for the pair
     // alone would leave c's stored 400 to rescale the row.
@@ -127,5 +131,52 @@ describe("stripStrategy resizeMode 'neighbor' leaves the rest of the row in plac
     expect(after.b).toBeCloseTo(before.b! - 20, 9);
     expect(after.c).toBeCloseTo(100, 9);
     expect(after.d).toBeCloseTo(250, 9);
+  });
+});
+
+describe('stripStrategy default resizeMode moves its seam by the drag', () => {
+  const stored = (id: string, w: number, min?: number): LayoutItem => ({
+    id,
+    placement: { size: { w } },
+    ...(min === undefined ? {} : { hints: { minSize: { w: min, h: 0 } } }),
+  });
+
+  it('in a row whose stored sizes fill it exactly, the rest of the row gives up the delta', () => {
+    const rows = [stored('a', 200), stored('b', 200), stored('c', 200)];
+    const { before, after } = dragAndRelayout(rows, 'a', 40, {});
+    expect(after.a).toBeCloseTo(before.a! + 40, 9);
+    expect(after.b! + after.c!).toBeCloseTo(before.b! + before.c! - 40, 9);
+  });
+
+  it('in a squeezed row, where growing from the rendered size must not shrink the stored one', () => {
+    // Saved at 1600 wide, shown at 600: 500/1000/500 renders at 150/300/150.
+    // Writing 150 + 40 for a alone would cut its stored 500 to 190.
+    const rows = [stored('a', 500), stored('b', 1000), stored('c', 500)];
+    const { before, after } = dragAndRelayout(rows, 'a', 40, {});
+    expect(after.a).toBeCloseTo(before.a! + 40, 9);
+    expect(after.b! + after.c!).toBeCloseTo(before.b! + before.c! - 40, 9);
+  });
+
+  it('takes the delta from the panes after the seam, so the panes before it stay put', () => {
+    // Dockview's root row, saved at 1600 and shown at 600.
+    const rows = [stored('a', 280), stored('b', 1000), stored('c', 320)];
+    const { before, after, afterX } = dragAndRelayout(rows, 'b', 40, {});
+    expect(after.a).toBeCloseTo(before.a!, 9);
+    expect(afterX.b! + after.b!).toBeCloseTo(before.a! + before.b! + 40, 9);
+  });
+
+  it('takes the delta from the others in proportion, and never below a floor', () => {
+    const rows = [stored('a', 200), stored('b', 300, 290), stored('c', 100)];
+    const { after } = dragAndRelayout(rows, 'a', 60, {});
+    expect(after.a).toBeCloseTo(260, 9);
+    expect(after.b).toBeGreaterThanOrEqual(290 - 1e-9);
+    expect(after.a! + after.b! + after.c!).toBeCloseTo(600, 9);
+  });
+
+  it('leaves the others alone when a pane without a stored size absorbs the change', () => {
+    const rows = [stored('a', 200), { id: 'b' }, stored('c', 200)];
+    const { before, after } = dragAndRelayout(rows, 'a', 40, { fill: true });
+    expect(after.a).toBeCloseTo(before.a! + 40, 9);
+    expect(after.c).toBeCloseTo(before.c!, 9);
   });
 });

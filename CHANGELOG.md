@@ -10,6 +10,15 @@ section below.
 
 ### Fixed
 
+- **A default-mode strip seam moves by exactly the drag.** When every pane
+  holds a stored size, or the row is squeezed — a layout saved on a bigger
+  screen — the drag wrote only the dragged pane's size, so the row rescaled
+  around it and the seam moved some other amount, often backward: in a Dockview
+  layout saved at 1600px and shown at 960px, a 40px drag moved seams 90–150px
+  the wrong way. The panes after the seam now give up the delta, in proportion
+  to their size and never past a floor; the panes before it move only when
+  those cannot.
+
 - **Panes inside a group move with it while a seam drag resizes the group.**
   A seam drag switched off the settle transition only in the container that
   owns the seam, so a container nested in a resized pane kept easing its own

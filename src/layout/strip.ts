@@ -307,6 +307,55 @@ function withSizes(
   });
 }
 
+/**
+ * New sizes for every pane but `index` that together give up `delta` — take it
+ * when positive, absorb it when negative. The panes after the seam go first, so
+ * the seam follows the pointer and the panes before it stay put; those reach
+ * in only for what the rest cannot give. Each pane moves in proportion to its
+ * rendered `sizes`, none past its own floor or cap, or past where it already was.
+ */
+function shareOut(
+  items: LayoutItem[],
+  sizes: number[],
+  index: number,
+  delta: number,
+  axis: 'x' | 'y',
+): Map<string, number> {
+  const out = new Map<string, number>();
+  items.forEach((it, i) => {
+    if (i !== index) out.set(it.id, sizes[i] ?? 0);
+  });
+  const spread = (indices: number[], amount: number): number => {
+    let open = indices;
+    let remaining = amount;
+    for (let pass = 0; pass < items.length && Math.abs(remaining) > 1e-9 && open.length; pass++) {
+      const total = open.reduce((s, i) => s + (out.get(items[i]!.id) ?? 0), 0);
+      if (total <= 0) break;
+      const still: number[] = [];
+      let moved = 0;
+      for (const i of open) {
+        const it = items[i]!;
+        const now = out.get(it.id) ?? 0;
+        const floor = Math.min(effectiveMinAxis(it, axis), now);
+        const cap = Math.max(effectiveMaxAxis(it, axis) ?? Number.POSITIVE_INFINITY, now);
+        let want = now - (remaining * now) / total;
+        if (want < floor) want = floor;
+        else if (want > cap) want = cap;
+        else still.push(i);
+        moved += now - want;
+        out.set(it.id, want);
+      }
+      remaining -= moved;
+      open = still;
+    }
+    return remaining;
+  };
+  const after = items.map((_, i) => i).filter((i) => i > index);
+  const before = items.map((_, i) => i).filter((i) => i < index);
+  spread(before, spread(after, delta));
+  return out;
+}
+
 /** What this item asks to occupy on the main axis when nothing compresses it. */
 function intrinsicAxis(
   item: LayoutItem,
@@ -575,6 +624,18 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     // above; clamping into it would move the seam against the pointer.
     if ((next - base) * delta < 0) return;
 
-    writeSize(store, childId as string, axis, next);
+    const writes = new Map<string, number>([[childId as string, next]]);
+    const after = mainSizes(withSizes(placedItems, writes, axis), cfg, axis, usableMain);
+    if (Math.abs((after[index] ?? 0) - next) > 1e-6) {
+      // Nothing absorbs the change — every other pane holds a stored size, or
+      // the row was squeezed — so the new size alone would rescale the row and
+      // move the seam by some other amount, even backward. The others give up
+      // the delta instead, in proportion to where they render.
+      for (const [id, size] of shareOut(placedItems, sizes, index, next - base, axis)) {
+        writes.set(id, size);
+      }
+      trace('layout', `strip: ${childId} took ${next - base} from ${writes.size - 1} panes`);
+    }
+    for (const [id, v] of writes) writeSize(store, id, axis, v);
   },
 };
