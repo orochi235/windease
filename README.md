@@ -876,7 +876,8 @@ store.patchPlacement(windowId, { minimized: true });
 
 A window's size is `placement.size`, else `natural`, else `hints.preferredSize`;
 one with none is unplaced. A window with no `x` / `y` cascades from the top left.
-Positions are not clamped: a window past the edge comes back as `overflow`.
+Positions are not clamped unless `clamp` says so: a window past the edge comes back
+as `overflow`.
 
 **Stacking is `z`.** The window at rank `r` gets `z = r + 1`; icons sit at `0`.
 `<Container>` and the presets turn a nonzero `z` into `z-index`, and a 3D host
@@ -899,6 +900,7 @@ the pressed element in the DOM and the browser drops the click it was for.
 | `cascade` | `24` | offset between successive windows with no position |
 | `drag` | off | `true` moves a window by its title band, `'x'` or `'y'` on one axis only |
 | `handleSize` | `22` | height of the title band `drag` grabs |
+| `clamp` | off | `'bar'` keeps each title band inside the desktop; `'all'` keeps whole windows inside where they fit |
 
 With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`
 shades instead, with a `layout` trace.
@@ -909,6 +911,13 @@ the window's placement. A window's own `placement.drag` overrides the config, so
 `drag: false` there pins one window. A window with `lock.move` does not move. Pass
 `affordances` to the container to render the bands; the chrome draws the title
 bar under them.
+
+**Clamping.** `clamp` applies when a window is placed, not only when it is
+dragged, so a layout saved on a larger screen comes back reachable; the stored
+`x` / `y` change only when the window is next dragged. Under `'bar'` the band is
+kept inside horizontally and its top within `[0, h - handleSize]`, so the body
+may hang off the bottom. An axis a window cannot fit on pins it to the left or
+top edge.
 
 ## Resize
 

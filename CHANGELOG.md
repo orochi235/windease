@@ -18,6 +18,11 @@ section below.
   `dispatchAffordance`, which it dropped before. See
   [Desktop windows](README.md#desktop-windows).
 
+- **`clamp` on `desktopStrategy`** keeps windows reachable. `'bar'` keeps each
+  window's title band inside the desktop, `'all'` the whole window where it fits.
+  It applies on layout as well as on drag, so a window restored from a layout
+  saved on a larger screen is pulled back into view, with a `layout` trace.
+
 - **An affordance handle stacks at its rect's `z`**, so a window's title band sits
   above that window and below the ones in front of it. `Affordance.label` names
   what a gesture does (`'move'`), and the handle's accessible name uses it in

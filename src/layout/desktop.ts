@@ -12,6 +12,9 @@ import { trace } from '../trace.js';
 /** The values `container.config.minimize` accepts. */
 export const DESKTOP_MINIMIZE = ['shade', 'icon'] as const;
 
+/** The values `container.config.clamp` accepts. */
+export const DESKTOP_CLAMP = ['bar', 'all'] as const;
+
 /** The values `drag` accepts, in config or in a window's placement. */
 export const DESKTOP_DRAG = [true, false, 'x', 'y'] as const;
 
@@ -30,6 +33,9 @@ export interface DesktopConfig {
   drag?: (typeof DESKTOP_DRAG)[number];
   /** Height of the title band a window is dragged by. */
   handleSize?: number;
+  /** Keep windows reachable, on layout and after a drag: `'bar'` keeps the title
+   *  band inside the container, `'all'` the whole window where it fits. */
+  clamp?: (typeof DESKTOP_CLAMP)[number];
 }
 
 /** {@link desktopStrategy}'s state: only whatever the wrapped strategy keeps. */
@@ -52,6 +58,26 @@ function dragAxes(item: LayoutItem, cfg: DesktopConfig): keyof typeof DRAG_KIND 
   const drag = own === undefined ? cfg.drag : own;
   if (drag === true) return 'xy';
   return drag === 'x' || drag === 'y' ? drag : null;
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+/** Top-left edge first on an axis the window cannot fit. */
+function clampWindow(
+  at: Point,
+  size: Size,
+  container: Size,
+  mode: DesktopConfig['clamp'],
+  band: number,
+): Point {
+  const h = mode === 'all' ? size.h : Math.min(band, size.h);
+  return {
+    x: Math.max(0, Math.min(at.x, container.w - size.w)),
+    y: Math.max(0, Math.min(at.y, container.h - h)),
+  };
 }
 
 function isOwnAffordance(id: string): boolean {
@@ -121,6 +147,7 @@ export function desktopStrategy<TInner>(
       cascade: 'number',
       drag: DESKTOP_DRAG,
       handleSize: 'number',
+      clamp: DESKTOP_CLAMP,
     },
 
     initialState(items, options) {
@@ -171,6 +198,16 @@ export function desktopStrategy<TInner>(
           trace('layout', `desktop: ${item.id} minimized to an icon with no icon layer, shaded`);
         }
         const h = minimized ? shadeHeight : size.h;
+        if (cfg.clamp) {
+          const kept = clampWindow(at, { w: size.w, h }, container, cfg.clamp, handleSize);
+          if (kept.x !== at.x || kept.y !== at.y) {
+            trace(
+              'layout',
+              `desktop: ${item.id} clamped (${at.x}, ${at.y}) → (${kept.x}, ${kept.y})`,
+            );
+            at = kept;
+          }
+        }
         rank++;
         const rect = { x: at.x, y: at.y, z: rank, w: size.w, h };
         placements.set(item.id, rect);
@@ -220,7 +257,16 @@ export function desktopStrategy<TInner>(
       const dy = affordance.kind === 'drag-x' || !Number.isFinite(rawY) ? 0 : (rawY as number);
       if (dx === 0 && dy === 0) return;
       // From where it shows, not the stored value: a cascaded window has none.
-      const next = { x: affordance.rect.x + dx, y: affordance.rect.y + dy };
+      let next = { x: affordance.rect.x + dx, y: affordance.rect.y + dy };
+      const cfg = ctx.options as DesktopConfig;
+      const item = ctx.items.find((i) => i.id === id);
+      const size = item && windowSize(item);
+      if (cfg.clamp && size) {
+        const h =
+          item.meta?.minimized === true ? (cfg.shadeHeight ?? DEFAULT_SHADE_HEIGHT) : size.h;
+        const band = cfg.handleSize ?? DEFAULT_HANDLE_SIZE;
+        next = clampWindow(next, { w: size.w, h }, ctx.container, cfg.clamp, band);
+      }
       trace('layout', `desktop: ${id} dragged to ${next.x},${next.y}`);
       store.patchPlacement(id, next);
     },

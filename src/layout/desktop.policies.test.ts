@@ -5,6 +5,7 @@ import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { Affordance, LayoutEvent, LayoutItem } from '../layout-types.js';
 import { asNodeId } from '../node.js';
 import { Store } from '../store.js';
+import { captureTrace } from '../test-utils/capture-trace.js';
 import { desktopStrategy } from './desktop.js';
 
 const Z = asNodeId('z');
@@ -188,5 +189,61 @@ describe('desktop drag', () => {
       drag: [true, false, 'x', 'y'],
       handleSize: 'number',
     });
+  });
+});
+
+describe('desktop clamp', () => {
+  it('does not clamp by default', () => {
+    const s = desktop({}, [{ id: 'a', placement: { x: -1800, y: 500 } }]);
+    expect(layoutOf(s).placements.get('a')).toMatchObject({ x: -1800, y: 500 });
+  });
+
+  it("clamp: 'all' pulls a restored window back inside where it fits", () => {
+    const s = desktop({ clamp: 'all' }, [{ id: 'a', placement: { x: -1800, y: 500 } }]);
+    expect(layoutOf(s).placements.get('a')).toMatchObject({ x: 0, y: 220 });
+  });
+
+  it("clamp: 'all' pins an oversized window to the top-left edge on that axis", () => {
+    const s = desktop({ clamp: 'all' }, [{ id: 'a', placement: { x: 50, y: 50 }, w: 600 }]);
+    expect(layoutOf(s).placements.get('a')).toMatchObject({ x: 0, y: 50 });
+  });
+
+  it("clamp: 'bar' keeps the title band inside, and lets the body hang below", () => {
+    const s = desktop({ clamp: 'bar' }, [
+      { id: 'a', placement: { x: 390, y: 290 } },
+      { id: 'b', placement: { x: -40, y: -10 } },
+    ]);
+    const r = layoutOf(s);
+    expect(r.placements.get('a')).toMatchObject({ x: 300, y: 278 });
+    expect(r.placements.get('b')).toMatchObject({ x: 0, y: 0 });
+  });
+
+  it("clamp: 'bar' measures the band with handleSize", () => {
+    const s = desktop({ clamp: 'bar', handleSize: 40 }, [{ id: 'a', placement: { x: 0, y: 290 } }]);
+    expect(layoutOf(s).placements.get('a')).toMatchObject({ y: 260 });
+  });
+
+  it('clamps a drag, writing the clamped position', () => {
+    const s = desktop({ drag: true, clamp: 'all' }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
+    drag(s, 'a', -50, 1000);
+    expect(placementOf(s, 'a')).toMatchObject({ x: 0, y: 220 });
+    drag(s, 'a', 30, -10);
+    expect(placementOf(s, 'a')).toMatchObject({ x: 30, y: 210 });
+  });
+
+  it('traces a window the clamp moved, and not one it left alone', () => {
+    const traces = captureTrace('layout');
+    layoutOf(
+      desktop({ clamp: 'all' }, [
+        { id: 'a', placement: { x: -5, y: 0 } },
+        { id: 'b', placement: { x: 5, y: 5 } },
+      ]),
+    );
+    expect(traces.matching(/desktop: a clamped/)).toHaveLength(1);
+    expect(traces.matching(/desktop: b clamped/)).toHaveLength(0);
+  });
+
+  it('declares clamp in its config spec', () => {
+    expect(strategy.configSpec).toMatchObject({ clamp: ['bar', 'all'] });
   });
 });

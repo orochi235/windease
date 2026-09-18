@@ -75,6 +75,14 @@ test.describe('desktop minimize', () => {
   });
 });
 
+/** Where placement `(0, 0)` lands: inside the desktop's border. */
+function deskOf(page: Page): Promise<{ x: number; y: number }> {
+  return page.locator('[data-node-container="desktop"]').evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { x: r.x + el.clientLeft, y: r.y + el.clientTop };
+  });
+}
+
 /** A point on `id`'s title bar, clear of its right-hand corner. */
 async function barOf(page: Page, id: string) {
   const b = await boxOf(node(page, id));
@@ -98,5 +106,25 @@ test.describe('desktop behavior keys', () => {
     const after = await settledBox(node(page, 'win-1'));
     expect(after.x).toBeCloseTo(box.x, 0);
     expect(after.y - box.y).toBeCloseTo(40, 0);
+  });
+
+  test("clamp: 'all' stops a dragged window at the desktop's edge", async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-clamp=all`);
+    const desk = await deskOf(page);
+    const { at } = await barOf(page, 'win-1');
+    await dragMouse(page, at, { x: at.x - 200, y: at.y - 100 });
+    const after = await settledBox(node(page, 'win-1'));
+    expect(after.x).toBeCloseTo(desk.x, 0);
+    expect(after.y).toBeCloseTo(desk.y, 0);
+  });
+
+  test("clamp: 'bar' keeps the title bar on the desktop, body hanging below", async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-clamp=bar`);
+    const desk = await deskOf(page);
+    const { at } = await barOf(page, 'win-2');
+    await dragMouse(page, at, { x: at.x, y: at.y + 400 });
+    const after = await settledBox(node(page, 'win-2'));
+    // The story lays out against a 360px viewport, which its border-box does not shrink.
+    expect(after.y).toBeCloseTo(desk.y + 360 - 26, 0);
   });
 });

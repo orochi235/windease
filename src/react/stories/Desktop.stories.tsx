@@ -180,6 +180,7 @@ const BAR_HEIGHT = 26;
 
 interface BehaviorArgs {
   drag: 'true' | 'x' | 'y' | 'false';
+  clamp: 'none' | 'bar' | 'all';
 }
 
 const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number }[] = [
@@ -191,7 +192,11 @@ const BEHAVIOR_STRATEGIES = { desktop: desktopStrategy() as never };
 
 function behaviorConfig(args: BehaviorArgs): Record<string, unknown> {
   const drag = args.drag === 'true' ? true : args.drag === 'false' ? false : args.drag;
-  return { handleSize: BAR_HEIGHT, drag };
+  return {
+    handleSize: BAR_HEIGHT,
+    drag,
+    clamp: args.clamp === 'none' ? undefined : args.clamp,
+  };
 }
 
 function useBehaviorStore(args: BehaviorArgs): Store {
@@ -216,10 +221,13 @@ function useBehaviorStore(args: BehaviorArgs): Store {
     }
     return s;
   }, []);
-  const cfgKey = JSON.stringify(behaviorConfig(args));
+  // A patch, so an arg set back to 'none' has to arrive as undefined to delete its key.
+  const patch = behaviorConfig(args);
+  const patchKey = JSON.stringify(patch);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: patchKey is patch's value identity.
   useLayoutEffect(() => {
-    store.updateContainerConfig(ZONE_ID, JSON.parse(cfgKey));
-  }, [store, cfgKey]);
+    store.updateContainerConfig(ZONE_ID, patch);
+  }, [store, patchKey]);
   return store;
 }
 
@@ -261,7 +269,8 @@ function BehaviorZone(args: BehaviorArgs) {
           />
         </div>
         <p className="desktop-hint">
-          Drag a window by its title bar. <code>drag: 'y'</code> moves it up and down only.
+          Drag a window by its title bar. <code>drag: 'y'</code> moves it up and down only;{' '}
+          <code>clamp</code> keeps its title bar, or all of it, on the desktop.
         </p>
       </StrategyRegistryProvider>
     </Provider>
@@ -270,7 +279,8 @@ function BehaviorZone(args: BehaviorArgs) {
 
 /** Every gesture here is a `desktopStrategy` config key; the story wires no pointer code. */
 export const Behavior: Story<BehaviorArgs> = (args) => <BehaviorZone {...args} />;
-Behavior.args = { drag: 'true' };
+Behavior.args = { drag: 'true', clamp: 'none' };
 Behavior.argTypes = {
   drag: { options: ['true', 'x', 'y', 'false'], control: { type: 'radio' } },
+  clamp: { options: ['none', 'bar', 'all'], control: { type: 'radio' } },
 };
