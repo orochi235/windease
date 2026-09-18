@@ -120,6 +120,24 @@ section below.
   already does for the children it has. The carried pin used to survive, and
   later inserts into that container routed around it.
 
+- **A drop's `canAccept` check sees spans.** The drag engine handed the strategy
+  `{ id }` for each child, so a grid counting cells read every tile as one cell:
+  a 4×2 widget dragged onto a page full by cells was accepted, and `layout()`
+  then sent it to `unplaced`. The engine now builds each child, and the dragged
+  source, the way layout does, `placement` included. `acceptPolicy` sees the
+  same items.
+
+- **Hidden children no longer count against a drop.** Layout skips a hidden
+  child, but the drop check counted it, so a `maxItems: 2` grid showing one
+  tile and hiding another refused a second visible one. The check now sees the
+  children layout lays out.
+
+- **A container over capacity can reorder its own children.** A drag within
+  one parent asked `canAccept` about the list it already held, so a grid
+  holding more children than it has cells, with the rest in `unplaced`, refused
+  every reorder. A drop within the source's own parent adds no child and now
+  skips `canAccept`; `acceptPolicy` is still asked, and can still refuse.
+
 ## 2.0.0
 
 ### Removed

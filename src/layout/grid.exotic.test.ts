@@ -264,11 +264,11 @@ describe('Android home screen: cells, not items', () => {
     return engine.state()?.hover?.accepted;
   }
 
-  it.fails('dragging the 4×2 widget onto the full page is refused — DragEngine hands canAccept `{ id }` only, dropping spans', () => {
+  it('dragging the 4×2 widget onto the full page is refused', () => {
     expect(hoverVerdict('widget-weather')).toBe(false);
   });
 
-  it.fails('dragging a 1×1 app onto a page full by cells is refused — same span-blind item list', () => {
+  it('dragging a 1×1 app onto a page full by cells is refused', () => {
     expect(hoverVerdict('new-app')).toBe(false);
   });
 });
@@ -527,12 +527,12 @@ describe('DragEngine feeding grid.canAccept', () => {
     return engine.state()?.hover?.accepted;
   }
 
-  it.fails('an over-capacity sheet accepts a reorder of its own cells — canAccept is asked about the unchanged, already-too-long child list', () => {
+  it('an over-capacity sheet accepts a reorder of its own cells', () => {
     const preset = PRESETS.find((p) => p.id === 'excel-frozen-panes') as Preset;
     expect(verdict(preset, 'sheet', 'cell-B1')).toBe(true);
   });
 
-  it.fails('a hidden child does not count toward maxItems — DragEngine filters only destroyed children, layout skips hidden ones too', () => {
+  it('a hidden child does not count toward maxItems', () => {
     const preset: Preset = {
       id: 'hidden-slot',
       source: 'a two-slot quick-settings row with one tile hidden by the user',

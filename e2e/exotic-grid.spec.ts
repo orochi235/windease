@@ -64,9 +64,6 @@ test.describe('Android home screen (Pixel Launcher 4×5)', () => {
   });
 
   test('a 4×2 widget dropped on a page full by cells is refused', async ({ page }) => {
-    // DragEngine hands canAccept `{ id }` items only, so the 20 cells the page's
-    // spans fill read as 14 one-cell children and the widget as one more.
-    test.fail();
     await pick(page, 'android-full-by-cells', 'glance');
 
     await dragOnto(page, 'widget-weather', { frame: 'page' }, 'page', 'reject');
@@ -76,7 +73,6 @@ test.describe('Android home screen (Pixel Launcher 4×5)', () => {
   });
 
   test('an icon dropped on a page full by cells is refused', async ({ page }) => {
-    test.fail(); // same span-blind item list as above
     await pick(page, 'android-full-by-cells', 'glance');
 
     await dragOnto(page, 'new-app', { frame: 'page' }, 'page', 'reject');
@@ -130,6 +126,17 @@ test.describe('macOS Launchpad (7×5 pages)', () => {
       .poll(async () => (await order(page, 'lp-page')).indexOf('lp-app-1'))
       .toBeGreaterThan(0);
     await expect.poll(async () => (await order(page, 'lp-page')).length).toBe(30);
+  });
+
+  test('a page over capacity still reorders its own apps', async ({ page }) => {
+    await pick(page, 'launchpad-overflow', 'lp-app-1');
+
+    await dragOnto(page, 'lp-app-1', { node: 'lp-app-10' }, 'lp-page', 'accept');
+
+    await expect
+      .poll(async () => (await order(page, 'lp-page')).indexOf('lp-app-1'))
+      .toBeGreaterThan(0);
+    await expect.poll(async () => (await order(page, 'lp-page')).length).toBe(40);
   });
 
   test('a page holding 30 of 35 takes an app from the Dock', async ({ page }) => {
