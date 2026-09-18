@@ -327,6 +327,7 @@ export class Store {
     }
     this.events.emit('node.registered', { id: node.id });
     trace('store', `register: ${node.id} (kind=${node.kind})`);
+    if (node.membership) this.#showArrival(node.membership.parentId, node.id);
     this.scheduleNotify();
   }
 
@@ -360,8 +361,12 @@ export class Store {
 
     if (this.focusedIdValue === id) this.succeedFocus(id, 'destroyed');
     const parentId = node.membership?.parentId;
+    const siblings = parentId ? this.nodesMap.get(parentId)?.container?.childOrder : undefined;
     this.detachAndRemove(id);
-    if (parentId) this.clampPins(parentId);
+    if (parentId) {
+      this.clampPins(parentId);
+      this.#fallback(parentId, id, siblings ?? [], 'unregistered');
+    }
     this.events.emit('node.unregistered', { id });
     trace('store', `unregister: ${id}`);
     this.scheduleNotify();
@@ -500,7 +505,52 @@ export class Store {
       to: transit.state,
     });
 
+    if (fromParentId !== newParentId) {
+      this.#fallback(fromParentId, id, fromContainer.childOrder, 'moved');
+    }
     this.settle({ removedFrom: [fromParentId], addedTo: [newParentId], moved: [id] });
+    if (fromParentId !== newParentId) this.#showArrival(newParentId, id);
+  }
+
+  /**
+   * Container config `fallback`: when the stack's active child `id` leaves or
+   * is hidden, activate its nearest visible neighbor in `siblings` (the order
+   * before it left) — after it for `'next'`, before it for `'prev'`, falling to
+   * the other side at an end. `'first'` clears `activeId`, which a stack reads
+   * as its first child. Without the key the stale id stays.
+   */
+  #fallback(
+    parentId: NodeId,
+    id: NodeId,
+    siblings: readonly NodeId[],
+    reason: 'unregistered' | 'hidden' | 'moved',
+  ): void {
+    const container = this.nodesMap.get(parentId)?.container;
+    if (!container || configKey(container.config, 'activeId') !== id) return;
+    const mode = configKey(container.config, 'fallback');
+    // Opt-in, cleanup included: `stack.exotic.test.ts` pins the stale id as today's contract.
+    if (mode !== 'next' && mode !== 'prev' && mode !== 'first') return;
+    const present = new Set(container.childOrder);
+    const eligible = (cid: NodeId) =>
+      cid !== id && present.has(cid) && this.nodesMap.get(cid)?.lifecycle.state === 'visible';
+    const at = siblings.indexOf(id);
+    const after = siblings.slice(at + 1).filter(eligible);
+    const before = siblings.slice(0, Math.max(at, 0)).filter(eligible).reverse();
+    let to: NodeId | undefined;
+    if (mode === 'next') to = after[0] ?? before[0];
+    else if (mode === 'prev') to = before[0] ?? after[0];
+    this.updateContainerConfig(parentId, { activeId: to }, { force: true });
+    trace('store', `fallback: ${id} → ${to ?? '(first)'} in ${parentId} (${mode}, ${reason})`);
+  }
+
+  /** Container config `show: 'dropped'`: a child arriving by move or
+   *  registration becomes the stack's active child. */
+  #showArrival(parentId: NodeId, id: NodeId): void {
+    const container = this.nodesMap.get(parentId)?.container;
+    if (!container || configKey(container.config, 'show') !== 'dropped') return;
+    if (!container.childOrder.includes(id)) return;
+    this.updateContainerConfig(parentId, { activeId: id }, { force: true });
+    trace('store', `show: ${id} in ${parentId} (dropped)`);
   }
 
   /**
@@ -577,6 +627,8 @@ export class Store {
     const moving = new Set(ordered);
     const crossing = ordered.filter((id) => sourceOf.get(id) !== toParentId);
     const insertAt = clampIndex(at, target.container.childOrder.length);
+    const sourceOrders = new Map<NodeId, readonly NodeId[]>();
+    for (const p of sources) sourceOrders.set(p, this.nodesMap.get(p)?.container?.childOrder ?? []);
     const fromIndexOf = new Map<NodeId, number>();
     for (const id of ordered) {
       const from = sourceOf.get(id) as NodeId;
@@ -668,7 +720,15 @@ export class Store {
         'store',
         `moveNodes: ${ordered.length} → ${toParentId}@${insertAt} (from ${from.join(', ') || 'itself'})`,
       );
+      for (const p of from) {
+        const active = configKey(this.nodesMap.get(p)?.container?.config, 'activeId');
+        if (moving.has(active as NodeId)) {
+          this.#fallback(p, active as NodeId, sourceOrders.get(p) ?? [], 'moved');
+        }
+      }
       this.settle({ removedFrom: from, addedTo: [toParentId], moved: crossing });
+      const [first] = crossing;
+      if (first !== undefined) this.#showArrival(toParentId, first);
     }, 'moveNodes');
   }
 
@@ -1332,6 +1392,11 @@ export class Store {
       from: prev,
       to: node.lifecycle.state,
     });
+    const parentId = node.membership?.parentId;
+    if (parentId) {
+      const siblings = this.nodesMap.get(parentId)?.container?.childOrder ?? [];
+      this.#fallback(parentId, id, siblings, 'hidden');
+    }
     if (this.focusedIdValue === id) this.succeedFocus(id, 'hidden');
     this.scheduleNotify();
   }
@@ -1390,6 +1455,77 @@ export class Store {
       throw new CapabilityMissingError(id, 'focus', 'focusNode');
     }
     if (target.focus.state === 'focused') return;
+    const raises = this.#pendingRaises(id);
+    if (raises.length === 0) {
+      this.#focusInner(id, target);
+      return;
+    }
+    this.transact(() => {
+      this.#focusInner(id, target);
+      for (const [parentId, childId] of raises) this.#raiseIn(parentId, childId);
+    }, 'raise');
+  }
+
+  /** Every `(container, child)` pair on `id`'s ancestor path whose container
+   *  sets `raise` and would actually reorder, innermost first. */
+  #pendingRaises(id: NodeId): [NodeId, NodeId][] {
+    const out: [NodeId, NodeId][] = [];
+    let child = this.nodesMap.get(id);
+    while (child?.membership) {
+      const parentId = child.membership.parentId;
+      const container = this.nodesMap.get(parentId)?.container;
+      if (!container) break;
+      const raise = configKey(container.config, 'raise');
+      if (
+        (raise === 'click' || raise === 'focus') &&
+        !this.isLocked(parentId, 'arrange') &&
+        this.#raisedOrder(container.childOrder, child.id) !== null
+      ) {
+        out.push([parentId, child.id]);
+      }
+      child = this.nodesMap.get(parentId);
+    }
+    return out;
+  }
+
+  /** `order` with `id` moved last, routed around other pins; null when a pin
+   *  holds `id` or it is already as high as it can go. */
+  #raisedOrder(order: readonly NodeId[], id: NodeId): NodeId[] | null {
+    if (this.getPinnedIndex(id) !== null) return null;
+    const next = placeRespectingPins(order, id, order.length - 1, this.pinnedIndexOf);
+    return next.indexOf(id) === order.indexOf(id) ? null : next;
+  }
+
+  /**
+   * Move `id` last in its parent's `childOrder`, where a strategy that stacks
+   * by order (desktop, floating) draws it on top. A pinned child keeps its
+   * slot, and other pins are routed around. Gated by the parent's `arrange`.
+   * Container config `raise` does this on focus; call it to raise without
+   * focusing.
+   */
+  raise(id: NodeId, opts?: MutateOptions): void {
+    const parentId = this.requireNode(id).membership?.parentId;
+    if (!parentId) return;
+    this.assertUnlocked(parentId, 'arrange', 'raise', opts);
+    this.#raiseIn(parentId, id);
+  }
+
+  #raiseIn(parentId: NodeId, id: NodeId): void {
+    const order = this.nodesMap.get(parentId)?.container?.childOrder;
+    if (!order) return;
+    const next = this.#raisedOrder(order, id);
+    if (next === null) return;
+    const fromIndex = order.indexOf(id);
+    const toIndex = next.indexOf(id);
+    this.replaceContainer(parentId, (c) => ({ ...c, childOrder: next }));
+    this.publisher.markDirty(parentId, { bypass: true });
+    this.events.emit('node.reordered', { parentId, id, fromIndex, toIndex });
+    trace('store', `raise: ${id} in ${parentId} ${fromIndex} → ${toIndex}`);
+    this.scheduleNotify();
+  }
+
+  #focusInner(id: NodeId, target: Node): void {
+    if (!target.focus) return;
     if (this.focusedIdValue && this.focusedIdValue !== id) {
       const prev = this.nodesMap.get(this.focusedIdValue);
       if (prev?.focus) {
@@ -1767,6 +1903,13 @@ function clampIndex(at: number | undefined, length: number): number {
 export interface MutateOptions {
   /** Bypass lock guards for this call. */
   force?: boolean;
+}
+
+/** A key from a container's config, when the config is an object. */
+function configKey(config: unknown, key: string): unknown {
+  return typeof config === 'object' && config !== null
+    ? (config as Record<string, unknown>)[key]
+    : undefined;
 }
 
 function sameLock(a: LockSet, b: LockSet): boolean {

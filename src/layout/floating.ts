@@ -7,6 +7,7 @@ import type {
   Size,
   StatefulLayoutStrategy,
 } from '../layout-types.js';
+import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
 
 /** The four corners a floating item can anchor to. */
@@ -212,6 +213,7 @@ export function floatingStrategy<TInner>(
       handleSize: 'number',
       snapToPanes: 'boolean',
       defaultAnchor: FLOATING_CORNERS,
+      raise: RAISE_MODES,
     },
 
     initialState(items, options) {

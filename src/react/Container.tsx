@@ -273,8 +273,16 @@ function StoreContainer({
     return dragController.registerOrderControl(parentId, onChildOrderChange);
   }, [dragController, parentId, onChildOrderChange]);
 
-  const containerCfg = (parent?.container?.config ?? {}) as { axis?: 'x' | 'y' };
+  const containerCfg = (parent?.container?.config ?? {}) as { axis?: 'x' | 'y'; raise?: string };
   const dropCfg = readDropConfig(containerCfg);
+  // On click, not pointerdown: raising moves the child in the DOM, and a move
+  // mid-press drops the click the press was for.
+  const raiseOnClick =
+    containerCfg.raise === 'click'
+      ? (id: NodeId) => () => {
+          if (!store.isLocked(parentId, 'arrange')) store.raise(id);
+        }
+      : undefined;
   useDropIntentTarget(parentId, ref, {
     ...(containerCfg.axis ? { axis: containerCfg.axis } : {}),
     ...(parent?.container?.strategyId ? { strategyId: parent.container.strategyId } : {}),
@@ -330,8 +338,10 @@ function StoreContainer({
             .filter((c) => c.lifecycle.state === 'visible')
             .map((c) => (
               // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
+              // biome-ignore lint/a11y/useKeyWithClickEvents: a click-raise is the pointer path; the keyboard path raises on focus.
               <div
                 key={c.id}
+                onClick={raiseOnClick?.(c.id)}
                 data-node={c.id}
                 tabIndex={rovingId === c.id ? 0 : -1}
                 role="group"
@@ -421,9 +431,11 @@ function StoreContainer({
           if (!isReal) return null;
           return (
             // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
+            // biome-ignore lint/a11y/useKeyWithClickEvents: a click-raise is the pointer path; the keyboard path raises on focus.
             <div
               key={id}
               style={childStyle}
+              onClick={raiseOnClick?.(id)}
               data-node={id}
               data-join-armed={joinArmedId === id ? 'true' : undefined}
               tabIndex={rovingId === id ? 0 : -1}

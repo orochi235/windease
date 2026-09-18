@@ -123,3 +123,9 @@
   padding: 2px 4px;
   color: #dfe4ef;
 }
+
+.ts-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 0;
+}

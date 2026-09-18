@@ -239,6 +239,10 @@ methods:
 - `showNode` / `hideNode` — lifecycle transitions. Hidden children are
   excluded from layout.
 - `focusNode` / `blurAll` — single-focus invariant enforced.
+- `raise(id)` — move a child last in its parent's `childOrder`, around pins;
+  gated by the parent's `arrange`. A container whose config sets
+  `raise: 'focus' | 'click'` has `focusNode` do this for the focused node's
+  ancestor in it, in the same transaction.
 
 Selectors: `getNode`, `getChildren`, `getParent`, `getAncestors`,
 `isContainer`, `isMember`, `canFocus`, `getContainerView`. All three
@@ -343,6 +347,10 @@ Built-ins:
   `activeId` picks it (falling back to the first child), `headerSize` reserves
   the band your tab strip renders in, plus `padding`. The core never measures
   the strip and never draws it; `useStack(containerId)` gives you the model.
+  Two keys the store reads rather than the strategy: `show: 'dropped'` writes
+  `activeId` for a child that arrives by move or registration, and
+  `fallback: 'next' | 'prev' | 'first'` rewrites it when the active child is
+  unregistered, hidden or moved out.
 - **`floatingStrategy(inner?)`** — wraps another strategy. Items whose
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,

@@ -1,4 +1,5 @@
 import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
+import { STACK_FALLBACK, STACK_SHOW } from '../policies.js';
 import { trace } from '../trace.js';
 
 interface StackConfig {
@@ -22,6 +23,8 @@ export const stackStrategy: LayoutStrategy<void, string> = {
     activeId: 'string',
     headerSize: 'number',
     padding: 'number',
+    show: STACK_SHOW,
+    fallback: STACK_FALLBACK,
   },
   layout({
     items,

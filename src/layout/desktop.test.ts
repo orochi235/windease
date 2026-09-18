@@ -178,6 +178,7 @@ describe('desktopStrategy config', () => {
       iconWidth: 'number',
       iconHeight: 'number',
       cascade: 'number',
+      raise: ['click', 'focus'],
       gap: 'number',
     });
   });

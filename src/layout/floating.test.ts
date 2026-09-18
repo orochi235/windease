@@ -280,6 +280,7 @@ describe('floatingStrategy.layout', () => {
       'defaultAnchor',
       'handleSize',
       'inset',
+      'raise',
       'snapThreshold',
       'snapToPanes',
     ]);

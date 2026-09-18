@@ -30,6 +30,30 @@ section below.
   would otherwise trace an unknown key. A near miss such as `accept` still
   traces, now suggesting `accepts`.
 
+- **Container config `raise: 'focus' | 'click'` brings a window to the top
+  without host code.** When a child of the container, or anything inside it,
+  takes focus, the store moves that child last in `childOrder`, where desktop
+  and floating draw it on top. `'click'` also raises on a click that moves no
+  focus, through `<Container>`. A pinned child keeps its slot, other pins are
+  routed around, a container locked against `arrange` is left alone, and the
+  focus change and the raise are one transaction. `store.raise(id)` does the
+  same on demand.
+
+- **Stack config `show: 'dropped'` makes an arriving child the active tab.** A
+  child moved in by `moveNode` or `moveNodes` (the first of the batch), or
+  registered into the stack, is written to `activeId`, so a drop shows what
+  was dropped without a `node.moved` listener. A reorder inside the stack
+  activates nothing. Set it after registering a stack's initial children, or
+  the last one registered becomes active.
+
+- **Stack config `fallback: 'next' | 'prev' | 'first'` picks the tab that shows
+  when the active one goes.** When the active child is unregistered, hidden or
+  moved out, `'next'` activates the visible tab after it and `'prev'` the one
+  before, each taking the other side at an end; `'first'` clears `activeId`.
+  Without the key nothing changes: the departed id stays in config and the
+  stack shows its first child. The write is part of the same `unregisterNode`
+  or `moveNodes` transaction.
+
 ### Fixed
 
 - **A preset's own render error is no longer reported as an id collision.**

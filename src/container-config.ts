@@ -1,3 +1,5 @@
+import type { RaiseMode } from './policies.js';
+
 /**
  * Keys any container's `config` may carry whatever strategy it runs. The
  * strategy never reads them, so a strategy's `configSpec` does not list them.
@@ -42,12 +44,15 @@ export interface DropConfig {
 export interface ContainerConfigKeys {
   accepts?: AcceptsConfig;
   drop?: DropConfig;
+  /** Brings a focused (or clicked) child to the top of the stacking order. Read by the store. */
+  raise?: RaiseMode;
 }
 
 /** Keys every strategy's config check accepts without declaring them. */
 export const CONTAINER_CONFIG_KEYS: ReadonlySet<string> = new Set<keyof ContainerConfigKeys>([
   'accepts',
   'drop',
+  'raise',
 ]);
 
 /** `config.drop`, or an empty rule when it is absent or not an object. */
