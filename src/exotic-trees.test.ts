@@ -188,8 +188,7 @@ describe('i3 / sway trees', () => {
     expect(laidOut(I3_PRESET, store).problems).toEqual([]);
   });
 
-  // Defect: moveNode (via clampPins) keeps a carried `pinned` in a parent with allowsPinning: false.
-  it.fails('drops a carried pin in a tab container that opts out of pinning', () => {
+  it('drops a carried pin in a tab container that opts out of pinning', () => {
     const store = presetToStore(I3_PRESET);
     store.setAllowsPinning(id('tabbed-0-2'), false);
     store.setPinned(id('shell'), 1);

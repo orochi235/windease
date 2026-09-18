@@ -38,6 +38,11 @@ section below.
   shows.** Its saved position may lie outside the smaller container, and the
   first drag was spent walking that position back to the edge.
 
+- **Moving a pinned node into a container with `allowsPinning: false` drops
+  its pin,** with a `node.pinnedChanged` event, as `setAllowsPinning(id, false)`
+  already does for the children it has. The carried pin used to survive, and
+  later inserts into that container routed around it.
+
 ## 2.0.0
 
 ### Removed

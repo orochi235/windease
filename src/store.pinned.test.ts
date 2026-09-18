@@ -208,6 +208,25 @@ describe('Store — setPinned/unpin and allowsPinning', () => {
     expect(() => s.setPinned(id('p1'))).toThrow(InvariantViolationError);
   });
 
+  it('moveNode drops a carried pin in a parent with allowsPinning: false, and later inserts ignore it', () => {
+    const { s, z } = stripNoPinning(2);
+    s.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('src') }),
+    );
+    s.registerNode(createNode({ kind: 'panel', id: id('m'), parentId: id('src') }));
+    s.setPinned(id('m'));
+    const changed = vi.fn();
+    s.events.on('node.pinnedChanged', changed);
+
+    s.moveNode(id('m'), z, 0);
+    expect(s.getPinnedIndex(id('m'))).toBeNull();
+    expect(changed).toHaveBeenCalledWith({ id: id('m'), from: 0, to: null });
+
+    s.registerNode(createNode({ kind: 'panel', id: id('n'), parentId: id('src') }));
+    s.moveNode(id('n'), z, 0);
+    expect(order(s, z)).toEqual(['n', 'm', 'p0', 'p1']);
+  });
+
   it('unpin still works when the parent has allowsPinning: false', () => {
     const { s, z } = strip(4);
     s.setPinned(id('p1'));
