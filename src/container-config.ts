@@ -44,6 +44,12 @@ export interface ContainerConfigKeys {
   drop?: DropConfig;
 }
 
+/** Keys every strategy's config check accepts without declaring them. */
+export const CONTAINER_CONFIG_KEYS: ReadonlySet<string> = new Set<keyof ContainerConfigKeys>([
+  'accepts',
+  'drop',
+]);
+
 /** `config.drop`, or an empty rule when it is absent or not an object. */
 export function readDropConfig(config: unknown): DropConfig {
   const drop = (config as { drop?: unknown } | null | undefined)?.drop;

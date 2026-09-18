@@ -25,6 +25,11 @@ section below.
   `<Panel>`, so a snapshot or preset carries it. A prop that is set, `false`
   included, wins over the config.
 
+- **`checkStrategyConfig` accepts `accepts` and `drop` on every strategy.** They
+  are container keys no strategy's `configSpec` declares, so setting either
+  would otherwise trace an unknown key. A near miss such as `accept` still
+  traces, now suggesting `accepts`.
+
 ### Fixed
 
 - **A preset's own render error is no longer reported as an id collision.**

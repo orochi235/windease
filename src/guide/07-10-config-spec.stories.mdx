@@ -26,6 +26,9 @@ it is ignoring a setting for no reason.
 
 `checkStrategyConfig` is the check, run by `ContainerHost` on every layout.
 
+Leave `accepts` and `drop` out of the spec. They belong to the container, not the
+strategy — the drag reads them — so every check accepts them already.
+
 ## `configConflicts` — keys that cancel each other
 
 `configSpec` cannot express this, because each key is individually valid.
