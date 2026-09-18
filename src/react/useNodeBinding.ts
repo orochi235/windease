@@ -1,7 +1,40 @@
 import { useEffect, useId, useRef } from 'react';
 import { type Node, type NodeId, type Store, trace } from '../index.js';
 import { useChildRegistryFromContext, useParentId } from './ParentContext.js';
-import { useStore } from './Provider.js';
+import { renderPassOf, useStore } from './Provider.js';
+
+/** Ids whose JSX registration has committed, per store. */
+const committedByStore = new WeakMap<Store, Set<NodeId>>();
+/** The render pass each uncommitted JSX registration was made in, per store. */
+const passOfRegistration = new WeakMap<Store, Map<NodeId, number>>();
+
+function committedIn(store: Store): Set<NodeId> {
+  let ids = committedByStore.get(store);
+  if (!ids) {
+    ids = new Set();
+    committedByStore.set(store, ids);
+  }
+  return ids;
+}
+
+function registrationPasses(store: Store): Map<NodeId, number> {
+  let passes = passOfRegistration.get(store);
+  if (!passes) {
+    passes = new Map();
+    passOfRegistration.set(store, passes);
+  }
+  return passes;
+}
+
+/** Registered by a render React threw away — one that never committed and was
+ *  made in an earlier pass than the one now rendering. A descendant threw and
+ *  React retried; the retry takes the node over rather than report a collision
+ *  that would hide the descendant's error. */
+function abandoned(store: Store, id: NodeId): boolean {
+  if (committedIn(store).has(id)) return false;
+  const pass = registrationPasses(store).get(id);
+  return pass !== undefined && pass !== renderPassOf(store);
+}
 
 /** Re-registrations waiting on a parent that is not in the store, per store and
  *  parent id, in the order the children asked. */
@@ -55,11 +88,9 @@ export interface NodeBindingResult {
 /**
  * Marker stored on `node.meta[JSX_OWNER_META_KEY]` so collisions with
  * imperative registrations can be detected. The value is a string token
- * derived from React's `useId()` — stable for a given JSX position even
- * across React 19 render-retry cycles (which reset refs but reuse the same
- * fiber id). This stability is what keeps a child's render-time error from
- * masking itself as a phantom "already mounted by another preset" collision
- * on the parent's retry pass.
+ * derived from React's `useId()`. A client render's ids come from a counter,
+ * so a retry after a descendant throws mints new ones; `abandoned` is what
+ * keeps that retry from reporting a phantom collision.
  */
 export const JSX_OWNER_META_KEY = '__windease_jsxOwner';
 
@@ -97,11 +128,6 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   }
   lastIdRef.current = id;
 
-  // Ownership token. Uses `useId()` so the token is deterministic for a given
-  // JSX position — survives React 19's render-retry cycle (which resets refs
-  // but reuses the same fiber id). A per-mount Symbol would mint a fresh value
-  // on retry, causing the collision check below to misreport a descendant's
-  // real error as "already mounted by another preset".
   const ownerToken = `jsx:${reactId}`;
 
   // Keep latest opts/parentId reachable from the unmount-recovery effect,
@@ -117,6 +143,7 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
     const existingMeta = (node.meta ?? {}) as Record<string, unknown>;
     const mergedMeta = { ...existingMeta, [JSX_OWNER_META_KEY]: ownerToken };
     store.registerNode({ ...node, meta: mergedMeta });
+    registrationPasses(store).set(id, renderPassOf(store));
   }
 
   // Render-time registration, guarded so re-renders don't re-register.
@@ -131,7 +158,11 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
             `registerNode call or change the ${opts.kindHintForAutoId ?? 'preset'}'s id.`,
         );
       }
-      if (owner !== ownerToken) {
+      if (owner !== ownerToken && abandoned(store, id)) {
+        trace('store', `register: ${id} taken over from an abandoned render`);
+        store.setMeta(id, { [JSX_OWNER_META_KEY]: ownerToken });
+        registrationPasses(store).set(id, renderPassOf(store));
+      } else if (owner !== ownerToken) {
         throw new Error(
           `windease: node "${id}" is already mounted by another ${opts.kindHintForAutoId ?? 'preset'}; ids must be unique within a Provider.`,
         );
@@ -180,7 +211,10 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
         restore();
       }
     }
+    committedIn(store).add(id);
+    registrationPasses(store).delete(id);
     return () => {
+      committedIn(store).delete(id);
       cancelWait?.();
       // force:true — a node cannot outlive the JSX that owns it; lock.destroy
       // stops user/host destroy calls, not React unmount.

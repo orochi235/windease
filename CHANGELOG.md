@@ -10,6 +10,14 @@ section below.
 
 ### Fixed
 
+- **A preset's own render error is no longer reported as an id collision.**
+  When a `<Panel>` or `<Zone>` threw while rendering — `pinned` passed inside
+  `placement`, say — React retried the tree, and the retry found the parent
+  already registered by the abandoned attempt and threw `node "…" is already
+  mounted by another zone`, naming the parent and hiding the real error. The
+  retry now takes over a registration that never committed, so the error that
+  surfaces is the one that happened.
+
 - **A default-mode strip seam moves by exactly the drag.** When every pane
   holds a stored size, or the row is squeezed — a layout saved on a bigger
   screen — the drag wrote only the dragged pane's size, so the row rescaled

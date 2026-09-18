@@ -7,6 +7,15 @@ import { Store } from '../index.js';
  */
 export const Context = createContext<Store | null>(null);
 
+let passes = 0;
+const passByStore = new WeakMap<Store, number>();
+
+/** The render pass a `Provider` last started over `store`. Internal: lets a
+ *  JSX registration tell a render React threw away from the one under way. */
+export function renderPassOf(store: Store): number {
+  return passByStore.get(store) ?? 0;
+}
+
 export interface ProviderProps {
   /** Optional. If omitted, Provider creates and owns a Store. Subsequent
    *  renders ignore changes to this prop — pick one mode per Provider
@@ -29,6 +38,7 @@ export function Provider({ store: storeProp, children }: ProviderProps) {
   // is provided on the first render, we capture it; if it changes later we
   // ignore it (documented above).
   const [store] = useState<Store>(() => storeProp ?? new Store());
+  passByStore.set(store, ++passes);
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }
 
