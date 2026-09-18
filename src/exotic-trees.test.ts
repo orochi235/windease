@@ -359,8 +359,7 @@ describe('trading desk saved at 3840x2160, restored at 1366x768', () => {
     { w: 0, h: 0 },
     { w: 1, h: 1 },
   ]) {
-    // Defect: strip sizes its cross axis as container minus 2×padding, unclamped, so it goes negative.
-    it.fails(`survives a ${viewport.w}x${viewport.h} viewport`, () => {
+    it(`survives a ${viewport.w}x${viewport.h} viewport`, () => {
       const { passes } = laidOut(TRADING_DESK_PRESET, restored(), viewport);
       for (const pass of passes) expect(malformedRects(pass.result.placements)).toEqual([]);
     });
