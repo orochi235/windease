@@ -1,0 +1,145 @@
+.xg-story {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font:
+    13px / 1.35 system-ui,
+    sans-serif;
+  color: #1e293b;
+}
+
+.xg-picker {
+  font-weight: 600;
+}
+
+.xg-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  max-width: 72ch;
+}
+
+.xg-meta span {
+  color: #64748b;
+}
+
+.xg-frame {
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.xg-frame--accept {
+  border-color: #10b981;
+  border-style: solid;
+  background: #ecfdf5;
+}
+
+.xg-frame--reject {
+  border-color: #ef4444;
+  border-style: solid;
+  background: #fef2f2;
+}
+
+.xg-root {
+  width: fit-content;
+  background: #f1f5f9;
+}
+
+.xg-group {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #e2e8f0;
+}
+
+.xg-group__title {
+  flex: none;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.xg-group__body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.xg-tile {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3px 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 11px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.xg-tile:active {
+  cursor: grabbing;
+}
+
+.xg-tile__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xg-tile__span {
+  align-self: flex-end;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.xg-spacer {
+  width: 100%;
+  height: 100%;
+}
+
+.xg-readout {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.xg-readout__row {
+  display: grid;
+  grid-template-columns: 16ch 1fr;
+  gap: 8px;
+}
+
+.xg-readout__row dt {
+  font-weight: 600;
+}
+
+.xg-readout__row dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.xg-readout__order {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.xg-story [data-affordance] {
+  background: rgba(15, 23, 42, 0.25);
+}

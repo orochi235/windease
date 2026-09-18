@@ -1,0 +1,268 @@
+.xd-controls {
+  font:
+    13px / 1.5 system-ui,
+    -apple-system,
+    sans-serif;
+  color: #334155;
+  margin-bottom: 12px;
+}
+
+.xd-controls__label select {
+  font: inherit;
+  margin-left: 6px;
+}
+
+.xd-controls__stress {
+  margin: 6px 0 0;
+  color: #64748b;
+}
+
+/* Presets are sized for the screens they reproduce, often larger than the page. */
+.xd-frame {
+  max-width: 100%;
+  max-height: 80vh;
+  overflow: auto;
+  border: 1px solid #94a3b8;
+  background: #5a7a9a;
+  display: inline-block;
+}
+
+.xd-root {
+  background: #5a7a9a;
+}
+
+.xd-window {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #1e293b;
+  background: #f8fafc;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 30%);
+  font:
+    12px system-ui,
+    -apple-system,
+    sans-serif;
+  color: #1e293b;
+  overflow: hidden;
+}
+
+.xd-window__bar {
+  flex: none;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 2px 0 6px;
+  background: repeating-linear-gradient(#cbd5e1 0 1px, #e2e8f0 1px 3px);
+  border-bottom: 1px solid #94a3b8;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.xd-window__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.xd-window__button {
+  flex: none;
+  font: inherit;
+  width: 18px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid #64748b;
+  background: #f1f5f9;
+  cursor: pointer;
+}
+
+.xd-window__body {
+  flex: 1;
+  padding: 8px;
+  color: #64748b;
+}
+
+.xd-icon {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 2px 2px 4px;
+  border: 0;
+  background: rgb(241 245 249 / 35%);
+  font:
+    11px system-ui,
+    -apple-system,
+    sans-serif;
+  color: #0f172a;
+  text-align: center;
+  overflow: hidden;
+}
+
+.xd-icon--window {
+  border: 1px dashed #1d4ed8;
+  cursor: pointer;
+}
+
+.xd-palette {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #0f172a;
+  background: #334155;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 40%);
+  font:
+    12px system-ui,
+    -apple-system,
+    sans-serif;
+  color: #e2e8f0;
+  overflow: hidden;
+}
+
+.xd-palette__bar {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  background: #1e293b;
+}
+
+.xd-palette__body {
+  flex: 1;
+  padding: 8px;
+}
+
+.xd-palette__button {
+  font: inherit;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+/* The floating drag band, painted so the strategy's own hit area is visible. */
+.xd-frame [data-affordance-kind="drag-xy"] {
+  background: rgb(59 130 246 / 20%);
+}
+
+.xd-stack {
+  position: relative;
+  height: 100%;
+  background: #1e293b;
+  overflow: hidden;
+}
+
+/* The stack body is a full-box Container under this band; raise the strip or it eats the clicks. */
+.xd-tabs {
+  z-index: 1;
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: flex;
+  gap: 1px;
+  overflow-x: auto;
+  background: #0f172a;
+}
+
+.xd-tabs--tall {
+  height: 34px;
+}
+
+.xd-tabs--short {
+  height: 26px;
+}
+
+.xd-tab {
+  flex: 1 1 0;
+  min-width: 28px;
+  max-width: 200px;
+  display: flex;
+  background: #1e293b;
+}
+
+.xd-tab__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  font:
+    11px system-ui,
+    -apple-system,
+    sans-serif;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.xd-tab__label[aria-selected="true"] {
+  color: #f8fafc;
+  box-shadow: inset 0 -2px #60a5fa;
+}
+
+.xd-tab__action {
+  flex: none;
+  width: 16px;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+}
+
+.xd-page,
+.xd-canvas,
+.xd-snap-zone {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  font:
+    12px system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+.xd-page {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.xd-canvas {
+  background: #e5e7eb;
+  color: #475569;
+}
+
+.xd-snap-zone {
+  border: 2px dashed rgb(248 250 252 / 60%);
+  color: #f8fafc;
+}
+
+.xd-dock {
+  background: #0f172a;
+}
+
+.xd-readout {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 12px 0 0;
+  font:
+    12px / 1.5 ui-monospace,
+    Menlo,
+    monospace;
+  color: #475569;
+}
+
+.xd-readout dd {
+  margin: 0;
+  color: #0f172a;
+}

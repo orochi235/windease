@@ -1,0 +1,150 @@
+.xt-caption {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 0 0 12px;
+  max-width: 960px;
+  font:
+    12px / 1.4 system-ui,
+    sans-serif;
+  color: #475569;
+}
+
+.xt-caption dt {
+  font-weight: 600;
+}
+
+.xt-caption dd {
+  margin: 0;
+}
+
+.xt-frame {
+  display: inline-block;
+  padding: 8px;
+  background: #0f1219;
+  border-radius: 8px;
+}
+
+.xt-zone {
+  background: #0b0d12;
+}
+
+.xt-fill {
+  width: 100%;
+  height: 100%;
+}
+
+.xt-split {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  border: 1px dashed #2c3547;
+}
+
+.xt-split--y {
+  border-color: #3a3150;
+}
+
+.xt-stack {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  background: #131827;
+  border: 1px solid #33405c;
+  overflow: hidden;
+}
+
+/* The stack body is a full-box Container under this band, so the strip is
+   raised or its clicks land on the container instead. */
+.xt-tabs {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 1;
+  display: flex;
+  height: 20px;
+  background: #0d1120;
+  border-bottom: 1px solid #33405c;
+  overflow: hidden;
+}
+
+.xt-tabs--stacked {
+  flex-direction: column;
+  height: auto;
+}
+
+.xt-tab {
+  appearance: none;
+  flex: 0 0 auto;
+  height: 20px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: #8d97ad;
+  font:
+    500 11px / 20px system-ui,
+    sans-serif;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.xt-tab[aria-selected="true"] {
+  color: #e6ebf5;
+  background: #1f2a44;
+}
+
+.xt-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  background: #1b2030;
+  border: 1px solid #2b3346;
+  color: #dfe4ef;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.xt-pane:active {
+  cursor: grabbing;
+}
+
+.xt-pane__title {
+  padding: 6px 8px;
+  font:
+    600 12px / 1.2 system-ui,
+    sans-serif;
+  border-bottom: 1px solid #2b3346;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.xt-pane__size {
+  margin: 0;
+  padding: 6px 8px;
+  font:
+    11px / 1.4 ui-monospace,
+    Menlo,
+    monospace;
+  color: #8d97ad;
+}
+
+.xt-readout {
+  margin: 12px 0 0;
+  font:
+    12px / 1.5 ui-monospace,
+    Menlo,
+    monospace;
+  color: #475569;
+}
+
+.xt-prose {
+  max-width: 62ch;
+  font:
+    13px / 1.6 system-ui,
+    sans-serif;
+  color: #475569;
+}

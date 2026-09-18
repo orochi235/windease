@@ -1,0 +1,61 @@
+export default { title: 'Exotic / Strip' };
+
+import type { Story } from '@ladle/react';
+import { useMemo } from 'react';
+import { asNodeId, stripStrategy } from '../../index.js';
+import { presetToStore } from '../../test-utils/exotic/preset.js';
+import { PRESETS } from '../../test-utils/exotic/strip-scenarios.js';
+import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
+import '../styles.css';
+import './exotic-strip.css';
+
+const STRATEGIES = { strip: stripStrategy as never };
+
+const chrome: ChromeMap = {
+  group: ({ node }) => (
+    <Container parentId={node.id} chrome={chrome} affordances className="xs-group" />
+  ),
+  panel: ({ node }) => (
+    <div className="xs-pane" data-testid={`xs-pane-${node.id}`}>
+      <header className="xs-pane__title">{String(node.meta?.title ?? node.id)}</header>
+    </div>
+  ),
+};
+
+interface Args {
+  preset: string;
+}
+
+/** Each pick is one real-software layout from `strip-scenarios.ts`, built into
+ *  a store and rendered with draggable seams. */
+export const Presets: Story<Args> = ({ preset: presetId }) => {
+  const preset = PRESETS.find((p) => p.id === presetId) ?? PRESETS[0]!;
+  const store = useMemo(() => presetToStore(preset), [preset]);
+  return (
+    <Provider key={preset.id} store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <dl className="xs-caption">
+          <dt>Source</dt>
+          <dd data-testid="xs-source">{preset.source}</dd>
+          <dt>Stresses</dt>
+          <dd>{preset.stress}</dd>
+        </dl>
+        <div className="xs-frame">
+          <Container
+            parentId={asNodeId(preset.root.id)}
+            chrome={chrome}
+            viewport={preset.viewport}
+            affordances
+            className="windease-zone xs-zone"
+          />
+        </div>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+Presets.args = { preset: PRESETS[0]!.id };
+
+Presets.argTypes = {
+  preset: { options: PRESETS.map((p) => p.id), control: { type: 'select' } },
+};
