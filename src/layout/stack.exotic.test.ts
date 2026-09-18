@@ -47,9 +47,10 @@ describe('Chrome with 150 tabs', () => {
   it('closing the active last tab jumps back to the first tab, not its neighbor', () => {
     const store = presetToStore(CHROME_150_TABS);
     store.unregisterNode(asNodeId('chrome-tab-150'));
+    const tabs = CHROME_150_TABS.data!.children!['chrome-window']!;
     const after = presetScenario({
       ...CHROME_150_TABS,
-      root: { ...CHROME_150_TABS.root, children: CHROME_150_TABS.root.children!.slice(0, 149) },
+      data: { children: { 'chrome-window': tabs.slice(0, 149) } },
     });
     expect(store.getNode(asNodeId('chrome-window'))?.container?.config).toMatchObject({
       activeId: 'chrome-tab-150',

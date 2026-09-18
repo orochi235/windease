@@ -27,7 +27,7 @@ import {
 } from '../test-utils/exotic/overlap-scenarios.js';
 import { type Preset, presetScenario, presetToStore } from '../test-utils/exotic/preset.js';
 
-const DESKTOP_PRESETS = PRESETS.filter((p) => p.root.strategy?.startsWith('desktop'));
+const DESKTOP_PRESETS = PRESETS.filter((p) => p.mechanics.strategy?.startsWith('desktop'));
 
 function scenarioOf(preset: Preset): Scenario {
   return presetScenario(preset);
@@ -39,7 +39,7 @@ function run(scenario: Pick<Scenario, 'items' | 'container' | 'options'>, strate
   return runScenario(strategy, scenario);
 }
 
-const runPreset = (preset: Preset) => run(scenarioOf(preset), preset.root.strategy!);
+const runPreset = (preset: Preset) => run(scenarioOf(preset), preset.mechanics.strategy!);
 
 /** The placed id a pointer at `p` would land on: highest z whose rect holds it. */
 function topmostAt(result: LayoutResult<string>, p: { x: number; y: number }): string | null {

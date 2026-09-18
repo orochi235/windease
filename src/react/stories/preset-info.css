@@ -67,7 +67,8 @@
 }
 
 .preset-code__panel--jsx,
-.preset-code__panel--preset {
+.preset-code__panel--mechanics,
+.preset-code__panel--data {
   background: #0f172a;
   color: #e2e8f0;
 }
@@ -79,6 +80,17 @@
     SFMono-Regular,
     Menlo,
     monospace;
+}
+
+.preset-code__listing + .preset-code__css {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #334155;
+}
+
+.preset-code__empty {
+  margin: 0;
+  font-style: italic;
 }
 
 .preset-code__properties {

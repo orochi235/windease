@@ -6,7 +6,7 @@ import { stackStrategy } from '../../layout/stack.js';
 import { stripStrategy } from '../../layout/strip.js';
 import type { LayoutItem, LayoutStrategy } from '../../layout-types.js';
 import type { Scenario } from './invariants.js';
-import type { Preset, PresetNode } from './preset.js';
+import { type Preset, type PresetNode, titles } from './preset.js';
 
 /** Every `strategy` id the presets below name, for a store host or a test. */
 export const OVERLAP_STRATEGIES: Record<string, LayoutStrategy<unknown, string, unknown>> = {
@@ -58,6 +58,9 @@ const palette = (
 
 const tab = (id: string, title: string): PresetNode => ({ id, kind: 'tab', meta: { title } });
 
+/** A tab of the product's own panels, whose title is data. */
+const panelTab = (id: string): PresetNode => ({ id, kind: 'tab' });
+
 export const MACOS9_WINDOWSHADE: Preset = {
   id: 'macos9-windowshade',
   source: 'Mac OS 9.2 Platinum desktop with WindowShade',
@@ -65,25 +68,33 @@ export const MACOS9_WINDOWSHADE: Preset = {
   description:
     'The Mac OS 9 desktop shows disk and Trash icons down the right side and overlapping windows, which the user drags by the title bar and resizes from the bottom-right corner. WindowShade, a double-click on the title bar or a click on its collapse box, rolls a window up so only its title bar stays where it was, and doing it again rolls it back down. Small floating palettes, such as the Application Switcher torn off the application menu, sit over the windows.',
   viewport: { w: 640, h: 480 },
-  root: {
+  mechanics: {
     id: 'mac-desktop',
     kind: 'zone',
     strategy: 'desktop-shelf',
     config: { minimize: 'shade', shadeHeight: 20, gap: 12, padding: 12 },
-    children: [
-      icon('mac-hd', 'Macintosh HD'),
-      icon('mac-trash', 'Trash'),
-      win('mac-finder', 'Macintosh HD', 360, 240, { x: 40, y: 40 }),
-      win('mac-simpletext', 'Read Me — SimpleText', 300, 260, { x: 180, y: 110, minimized: true }),
-      win('mac-calculator', 'Calculator', 120, 150, { x: 480, y: 60 }),
-      // The Application Switcher tear-off is a 16px strip, under the 20px bar.
-      win('mac-app-switcher', 'Application Switcher', 180, 16, {
-        x: 420,
-        y: 440,
-        minimized: true,
-      }),
-      win('mac-notepad', 'Note Pad', 220, 200, { x: 100, y: 200 }),
-    ],
+  },
+  data: {
+    children: {
+      'mac-desktop': [
+        icon('mac-hd', 'Macintosh HD'),
+        icon('mac-trash', 'Trash'),
+        win('mac-finder', 'Macintosh HD', 360, 240, { x: 40, y: 40 }),
+        win('mac-simpletext', 'Read Me — SimpleText', 300, 260, {
+          x: 180,
+          y: 110,
+          minimized: true,
+        }),
+        win('mac-calculator', 'Calculator', 120, 150, { x: 480, y: 60 }),
+        // The Application Switcher tear-off is a 16px strip, under the 20px bar.
+        win('mac-app-switcher', 'Application Switcher', 180, 16, {
+          x: 420,
+          y: 440,
+          minimized: true,
+        }),
+        win('mac-notepad', 'Note Pad', 220, 200, { x: 100, y: 200 }),
+      ],
+    },
   },
 };
 
@@ -112,23 +123,27 @@ export const WIN31_ICONS: Preset = {
   description:
     'Windows 3.1 runs programs in overlapping windows over the Program Manager, whose program groups hold the icons that start them. Minimizing a window turns it into a labeled icon along the bottom of the screen, and further icons line up beside it. Double-clicking an icon restores the window where it was.',
   viewport: { w: 640, h: 480 },
-  root: {
+  mechanics: {
     id: 'win31-desktop',
     kind: 'zone',
     strategy: 'desktop-shelf',
     config: { minimize: 'icon', iconWidth: 72, iconHeight: 56, gap: 4, padding: 4 },
-    children: [
-      icon('win31-recycle', 'Main', 72, 56),
-      win('win31-progman', 'Program Manager', 460, 320, { x: 20, y: 140 }),
-      win('win31-filemgr', 'File Manager', 420, 300, { x: 140, y: 170 }),
-      ...WIN31_MINIMIZED.map((title, i) =>
-        win(`win31-app-${i + 1}`, title, 300, 200, {
-          x: 60 + i * 8,
-          y: 60 + i * 8,
-          minimized: true,
-        }),
-      ),
-    ],
+  },
+  data: {
+    children: {
+      'win31-desktop': [
+        icon('win31-recycle', 'Main', 72, 56),
+        win('win31-progman', 'Program Manager', 460, 320, { x: 20, y: 140 }),
+        win('win31-filemgr', 'File Manager', 420, 300, { x: 140, y: 170 }),
+        ...WIN31_MINIMIZED.map((title, i) =>
+          win(`win31-app-${i + 1}`, title, 300, 200, {
+            x: 60 + i * 8,
+            y: 60 + i * 8,
+            minimized: true,
+          }),
+        ),
+      ],
+    },
   },
 };
 
@@ -139,18 +154,22 @@ export const GIMP_MULTIWINDOW: Preset = {
   description:
     'GIMP 2.8 in multi-window mode, its default, opens every image in its own window and keeps the Toolbox and the docked dialogs, such as Layers, Channels and Paths, in separate utility windows. GIMP asks the window manager to keep those utility windows above the image windows, so clicking an image brings it forward but not over the Toolbox.',
   viewport: { w: 800, h: 600 },
-  root: {
+  mechanics: {
     id: 'gimp-desktop',
     kind: 'zone',
     strategy: 'desktop',
     config: {},
-    children: [
-      win('gimp-img-1', 'wilber.xcf', 440, 340, { x: 170, y: 30 }),
-      win('gimp-img-2', 'photo.jpg', 480, 380, { x: 220, y: 90 }),
-      win('gimp-img-3', 'untitled-1', 360, 300, { x: 280, y: 180 }),
-      win('gimp-toolbox', 'Toolbox', 150, 520, { x: 8, y: 20 }),
-      win('gimp-layers', 'Layers, Channels, Paths', 190, 520, { x: 600, y: 20 }),
-    ],
+  },
+  data: {
+    children: {
+      'gimp-desktop': [
+        win('gimp-img-1', 'wilber.xcf', 440, 340, { x: 170, y: 30 }),
+        win('gimp-img-2', 'photo.jpg', 480, 380, { x: 220, y: 90 }),
+        win('gimp-img-3', 'untitled-1', 360, 300, { x: 280, y: 180 }),
+        win('gimp-toolbox', 'Toolbox', 150, 520, { x: 8, y: 20 }),
+        win('gimp-layers', 'Layers, Channels, Paths', 190, 520, { x: 600, y: 20 }),
+      ],
+    },
   },
 };
 
@@ -161,16 +180,20 @@ export const AMIGA_SCREENS: Preset = {
   description:
     "AmigaOS gives each full-screen program its own screen, a whole display with its own resolution and colors, and stacks the screens one in front of another. Dragging a screen's title bar downward slides the whole screen down to reveal the ones behind it, and a button at the right of the title bar sends a screen to the back or brings it to the front.",
   viewport: { w: 640, h: 256 },
-  root: {
+  mechanics: {
     id: 'amiga-display',
     kind: 'zone',
     strategy: 'desktop',
     config: {},
-    children: [
-      win('amiga-workbench', 'Workbench Screen', 640, 256, { x: 0, y: 0 }),
-      win('amiga-dpaint', 'Deluxe Paint IV', 640, 256, { x: 0, y: 70 }),
-      win('amiga-term', 'NComm', 640, 256, { x: 0, y: 180 }),
-    ],
+  },
+  data: {
+    children: {
+      'amiga-display': [
+        win('amiga-workbench', 'Workbench Screen', 640, 256, { x: 0, y: 0 }),
+        win('amiga-dpaint', 'Deluxe Paint IV', 640, 256, { x: 0, y: 70 }),
+        win('amiga-term', 'NComm', 640, 256, { x: 0, y: 180 }),
+      ],
+    },
   },
 };
 
@@ -181,18 +204,22 @@ export const FIGMA_CANVAS: Preset = {
   description:
     'Figma and Miro present an infinite canvas: frames (screens, diagrams, boards) sit anywhere around a starting point, including far above and to the left of it. Users pan and zoom across the canvas and drag frames anywhere, so most of a file lies well outside what is on screen at any moment.',
   viewport: { w: 1440, h: 900 },
-  root: {
+  mechanics: {
     id: 'figma-canvas',
     kind: 'zone',
     strategy: 'desktop',
     config: {},
-    children: [
-      win('figma-cover', 'Cover', 1440, 960, { x: -4200, y: -2600 }),
-      win('figma-flows', 'User flows', 3200, 1800, { x: -1600, y: -400 }),
-      win('figma-mobile', 'iPhone 15 — Home', 393, 852, { x: 120, y: 40 }),
-      win('figma-desktop', 'Desktop — Home', 1440, 1024, { x: 640, y: 40 }),
-      win('figma-archive', 'Archive', 2400, 1600, { x: 18000, y: 12000 }),
-    ],
+  },
+  data: {
+    children: {
+      'figma-canvas': [
+        win('figma-cover', 'Cover', 1440, 960, { x: -4200, y: -2600 }),
+        win('figma-flows', 'User flows', 3200, 1800, { x: -1600, y: -400 }),
+        win('figma-mobile', 'iPhone 15 — Home', 393, 852, { x: 120, y: 40 }),
+        win('figma-desktop', 'Desktop — Home', 1440, 1024, { x: 640, y: 40 }),
+        win('figma-archive', 'Archive', 2400, 1600, { x: 18000, y: 12000 }),
+      ],
+    },
   },
 };
 
@@ -203,17 +230,21 @@ export const UNPLUGGED_MONITOR: Preset = {
   description:
     "A MacBook that was used with external monitors, now unplugged, running apps that remember where their windows last were. Windows saved on the missing screens have positions far to the left or right of the laptop's own display. macOS normally moves such windows onto a remaining screen, but an app that restores its own saved positions can put them where the user cannot reach them.",
   viewport: { w: 1280, h: 800 },
-  root: {
+  mechanics: {
     id: 'laptop-display',
     kind: 'zone',
     strategy: 'desktop',
     config: {},
-    children: [
-      win('mon-mail', 'Mail', 900, 600, { x: 120, y: 80 }),
-      win('mon-slack', 'Slack', 1000, 700, { x: 1920, y: 60 }),
-      win('mon-xcode', 'Xcode', 1600, 1000, { x: -1800, y: 40 }),
-      win('mon-terminal', 'Terminal', 700, 440, { x: 1100, y: 500 }),
-    ],
+  },
+  data: {
+    children: {
+      'laptop-display': [
+        win('mon-mail', 'Mail', 900, 600, { x: 120, y: 80 }),
+        win('mon-slack', 'Slack', 1000, 700, { x: 1920, y: 60 }),
+        win('mon-xcode', 'Xcode', 1600, 1000, { x: -1800, y: 40 }),
+        win('mon-terminal', 'Terminal', 700, 440, { x: 1100, y: 500 }),
+      ],
+    },
   },
 };
 
@@ -224,14 +255,18 @@ export const CASCADE_200: Preset = {
   description:
     'Windows XP places each new window a little below and to the right of the previous one, a cascade that keeps every title bar visible. Choosing New Window from an Explorer window 200 times asks for far more steps than fit on a 1024×768 screen.',
   viewport: { w: 1024, h: 768 },
-  root: {
+  mechanics: {
     id: 'cascade-desktop',
     kind: 'zone',
     strategy: 'desktop',
     config: { cascade: 24 },
-    children: Array.from({ length: 200 }, (_, i) =>
-      win(`cascade-${i + 1}`, `My Computer (${i + 1})`, 480, 360),
-    ),
+  },
+  data: {
+    children: {
+      'cascade-desktop': Array.from({ length: 200 }, (_, i) =>
+        win(`cascade-${i + 1}`, `My Computer (${i + 1})`, 480, 360),
+      ),
+    },
   },
 };
 
@@ -242,12 +277,18 @@ export const CHROME_150_TABS: Preset = {
   description:
     "Chrome keeps a window's tabs in a strip across the top and shows only the active tab's page below it. With 150 tabs open, each tab shrinks to a sliver. Closing the active tab makes a neighboring tab active.",
   viewport: { w: 1024, h: 640 },
-  root: {
+  mechanics: {
     id: 'chrome-window',
     kind: 'tabs',
     strategy: 'stack',
     config: { headerSize: 34, activeId: 'chrome-tab-150' },
-    children: Array.from({ length: 150 }, (_, i) => tab(`chrome-tab-${i + 1}`, `Tab ${i + 1}`)),
+  },
+  data: {
+    children: {
+      'chrome-window': Array.from({ length: 150 }, (_, i) =>
+        tab(`chrome-tab-${i + 1}`, `Tab ${i + 1}`),
+      ),
+    },
   },
 };
 
@@ -258,13 +299,13 @@ export const PHOTOSHOP_PANELS: Preset = {
   description:
     'Photoshop docks its panels to the right of the document in groups, each showing one panel at a time behind a row of tabs, such as Layers, Channels and Paths. Users click a tab to switch panels, drag a tab to another group, or drag it out of the dock to make a floating panel, here the Color panel, that hovers over the document.',
   viewport: { w: 800, h: 520 },
-  root: {
+  mechanics: {
     id: 'ps-workspace',
     kind: 'zone',
     strategy: 'floating-strip',
     config: { axis: 'x', fill: true, handleSize: 22, defaultAnchor: 'top-left' },
     children: [
-      { id: 'ps-canvas', kind: 'canvas', meta: { title: 'Untitled-1 @ 66.7%' } },
+      { id: 'ps-canvas', kind: 'canvas' },
       {
         id: 'ps-dock',
         kind: 'dock',
@@ -277,23 +318,35 @@ export const PHOTOSHOP_PANELS: Preset = {
             kind: 'tabs',
             strategy: 'stack',
             config: { headerSize: 26, activeId: 'ps-layers' },
-            children: [
-              tab('ps-layers', 'Layers'),
-              tab('ps-channels', 'Channels'),
-              tab('ps-paths', 'Paths'),
-            ],
+            children: [panelTab('ps-layers'), panelTab('ps-channels'), panelTab('ps-paths')],
           },
           {
             id: 'ps-group-props',
             kind: 'tabs',
             strategy: 'stack',
             config: { headerSize: 26, activeId: 'ps-properties' },
-            children: [tab('ps-properties', 'Properties'), tab('ps-adjustments', 'Adjustments')],
+            children: [panelTab('ps-properties'), panelTab('ps-adjustments')],
           },
         ],
       },
-      palette('ps-color', 'Color', 240, 180),
+      {
+        id: 'ps-color',
+        kind: 'palette',
+        hints: { preferredSize: { w: 240, h: 180 } },
+        placement: { floating: true },
+      },
     ],
+  },
+  data: {
+    nodes: titles({
+      'ps-canvas': 'Untitled-1 @ 66.7%',
+      'ps-layers': 'Layers',
+      'ps-channels': 'Channels',
+      'ps-paths': 'Paths',
+      'ps-properties': 'Properties',
+      'ps-adjustments': 'Adjustments',
+      'ps-color': 'Color',
+    }),
   },
 };
 
@@ -304,18 +357,25 @@ export const FANCYZONES: Preset = {
   description:
     'PowerToys FancyZones, Microsoft\'s free window-arranging utility for Windows, divides the screen into zones; its "priority grid" template makes three columns. Holding Shift while dragging a window shows the zones, and releasing over one snaps the window to fill it. Windows 11\'s Snap Layouts offer similar arrangements built in.',
   viewport: { w: 960, h: 560 },
-  root: {
+  mechanics: {
     id: 'fz-desktop',
     kind: 'zone',
     strategy: 'floating-grid',
     config: { cols: 3, gap: 8, padding: 8, snapToPanes: true, snapThreshold: 24, handleSize: 24 },
     children: [
-      { id: 'fz-zone-left', kind: 'snap-zone', meta: { title: 'Left' } },
-      { id: 'fz-zone-center', kind: 'snap-zone', meta: { title: 'Center' } },
-      { id: 'fz-zone-right', kind: 'snap-zone', meta: { title: 'Right' } },
-      palette('fz-edge', 'Edge', 300, 220),
-      palette('fz-code', 'VS Code', 280, 200, { snapCorners: ['top-left', 'top-right'] }),
+      { id: 'fz-zone-left', kind: 'snap-zone' },
+      { id: 'fz-zone-center', kind: 'snap-zone' },
+      { id: 'fz-zone-right', kind: 'snap-zone' },
     ],
+  },
+  data: {
+    nodes: titles({ 'fz-zone-left': 'Left', 'fz-zone-center': 'Center', 'fz-zone-right': 'Right' }),
+    children: {
+      'fz-desktop': [
+        palette('fz-edge', 'Edge', 300, 220),
+        palette('fz-code', 'VS Code', 280, 200, { snapCorners: ['top-left', 'top-right'] }),
+      ],
+    },
   },
 };
 
@@ -326,22 +386,26 @@ export const TWM_ICON_MANAGER: Preset = {
   description:
     'twm is the classic minimal window manager for the X Window System. It can show an icon manager, a small window listing each application window as one line of text; with it, iconified windows can leave the desktop entirely and come back with a click on their line. Small programs like xclock and xload stay open in a corner of the screen.',
   viewport: { w: 1024, h: 768 },
-  root: {
+  mechanics: {
     id: 'twm-root',
     kind: 'zone',
     strategy: 'desktop-shelf',
     config: { minimize: 'icon', iconWidth: 160, iconHeight: 20, gap: 0, padding: 0 },
-    children: [
-      win('twm-xclock', 'xclock', 164, 164, { x: 850, y: 10 }),
-      win('twm-xload', 'xload', 164, 100, { x: 850, y: 190 }),
-      ...Array.from({ length: 12 }, (_, i) =>
-        win(`twm-xterm-${i + 1}`, `xterm ${i + 1}`, 484, 316, {
-          x: 40 + i * 30,
-          y: 40 + i * 20,
-          minimized: i % 3 !== 0,
-        }),
-      ),
-    ],
+  },
+  data: {
+    children: {
+      'twm-root': [
+        win('twm-xclock', 'xclock', 164, 164, { x: 850, y: 10 }),
+        win('twm-xload', 'xload', 164, 100, { x: 850, y: 190 }),
+        ...Array.from({ length: 12 }, (_, i) =>
+          win(`twm-xterm-${i + 1}`, `xterm ${i + 1}`, 484, 316, {
+            x: 40 + i * 30,
+            y: 40 + i * 20,
+            minimized: i % 3 !== 0,
+          }),
+        ),
+      ],
+    },
   },
 };
 

@@ -118,7 +118,7 @@ function PresetView({ preset }: { preset: Preset }) {
   const grids = presetNodes(preset)
     .map(({ node }) => node)
     .filter((n) => n.strategy === 'grid');
-  const rootId = asNodeId(preset.root.id);
+  const rootId = asNodeId(preset.mechanics.id);
 
   return (
     <Provider store={store}>
@@ -131,7 +131,7 @@ function PresetView({ preset }: { preset: Preset }) {
               chrome={chrome}
               viewport={preset.viewport}
               affordances
-              {...(preset.root.strategy === 'grid' ? {} : { acceptPolicy: refuseAtShell })}
+              {...(preset.mechanics.strategy === 'grid' ? {} : { acceptPolicy: refuseAtShell })}
             />
           </RootFrame>
           <dl className="xg-readout">

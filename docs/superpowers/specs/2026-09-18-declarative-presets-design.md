@@ -40,6 +40,12 @@ how many apps are on a page, colors. Blender's 26px header floor is mechanics; t
 "Outliner" is data. Pinterest's `column` strategy and gap are mechanics; each pin's height is data.
 Generated corpora (200 windows, 10,000 thumbnails) are data built by a function.
 
+**Children that are content carry no mechanics.** Where a container's children are the user's
+(tmux's panes, a desktop's windows, Grafana's panels), a mechanics container declares an
+`item` template: the mechanics every content child gets (floors, spans, `drag`). A data child then
+holds only what the content decides: its id, its title, a measured size, where the user left it.
+Without the template, a data child is a whole node and its floors ride along as data.
+
 `presetTree(preset)` merges the two into the node tree `presetToStore` and `presetScenario`
 already take, so every consumer of a tree keeps working. The story tabs become
 **Properties | JSX | Mechanics | Data**; the JSX listing shows the merged tree.
@@ -104,7 +110,7 @@ These are config or placement keys on one strategy each.
 
 | Phase | Contents | Status |
 |---|---|---|
-| 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts` and `drop` config (built); `placement.share`; grid `cell`, fixed cells, `justify` | in progress |
+| 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `drop` config; `placement.share`; grid `cell`, fixed cells, `justify`; child templates | in progress: the split, tabs, `accepts` and `drop` config are built, the rest is not |
 | 2 | `tear`, `zoom`, `view` (pan/zoom, desktop fit), `sticky`, `step`, `overshoot`, `layer`, `resize` | unbuilt |
 | 3 | Grid tracks, `compact`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | unbuilt |
 | 4 | Packer `rotate`/`sort`/height bound; `hints.aspect`; `justified` strategy; product-look CSS for every preset | unbuilt |

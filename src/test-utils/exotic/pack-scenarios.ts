@@ -44,13 +44,19 @@ function packPreset({
     stress,
     description,
     viewport,
-    root: { id: `${id}:root`, kind: 'zone', strategy, config: config ?? {}, children },
+    mechanics: { id: `${id}:root`, kind: 'zone', strategy, config: config ?? {} },
+    data: { children: { [`${id}:root`]: children } },
   };
 }
 
 /** `preset` with its root packed by `strategy` instead — how one preset is run through every packer. */
 export function withStrategy(preset: Preset, strategy: PackerId): Preset {
-  return { ...preset, root: { ...preset.root, strategy } };
+  return { ...preset, mechanics: { ...preset.mechanics, strategy } };
+}
+
+/** How many items the content packs into `preset`'s root. */
+export function packItemCount(preset: Preset): number {
+  return preset.data?.children?.[preset.mechanics.id]?.length ?? 0;
 }
 
 /** stb_rect_pack's `rect_height_compare`: tallest first, then widest. */
@@ -599,5 +605,5 @@ export function packScenario(preset: Preset, packer: PackerId): Scenario {
 
 /** Presets small enough to render through the React layer. */
 export const STORY_PRESETS: Preset[] = [...PRESETS, ...PATHOLOGY_PRESETS].filter(
-  (p) => (p.root.children?.length ?? 0) <= 1500,
+  (p) => packItemCount(p) <= 1500,
 );

@@ -1,7 +1,13 @@
 import { createElement, type ReactElement, useState } from 'react';
 import type { Size } from '../../layout-types.js';
 import { asNodeId } from '../../node.js';
-import { type Preset, type PresetNode, presetProperties } from '../../test-utils/exotic/preset.js';
+import {
+  type Preset,
+  type PresetData,
+  type PresetNode,
+  presetProperties,
+  presetTree,
+} from '../../test-utils/exotic/preset.js';
 import { Panel, Zone } from '../index.js';
 import { StrategyMap } from './StrategyMap.js';
 
@@ -34,8 +40,8 @@ function nodeProps(node: PresetNode, parentId: string | undefined, preset: Prese
 }
 
 /**
- * The preset as declarative windease JSX — the same tree {@link presetJsx}
- * prints, so the listing is exactly what renders.
+ * The preset as declarative windease JSX, mechanics and data merged — the
+ * same tree {@link presetJsx} prints, so the listing is exactly what renders.
  */
 export function presetElement(preset: Preset): ReactElement {
   const build = (node: PresetNode, parentId?: string): ReactElement => {
@@ -53,7 +59,7 @@ export function presetElement(preset: Preset): ReactElement {
       ...(node.children ?? []).map((c) => build(c, node.id)),
     );
   };
-  return build(preset.root);
+  return build(presetTree(preset));
 }
 
 /** Source text for {@link presetElement}, eliding long child lists. */
@@ -85,13 +91,22 @@ export function presetJsx(preset: Preset, shown = SHOWN_CHILDREN): string {
     }
     lines.push(`${pad}</${tag}>`);
   };
-  emit(preset.root, 0);
+  emit(presetTree(preset), 0);
   return lines.join('\n');
 }
 
-/** The preset object as a JS literal, eliding long child lists. */
-export function presetLiteral(preset: Preset, shown = SHOWN_CHILDREN): string {
-  return literal(preset, 0, shown);
+/** `value` (a preset, its mechanics, its data) as a JS literal, eliding long child lists. */
+export function presetLiteral(value: unknown, shown = SHOWN_CHILDREN): string {
+  return literal(value, 0, shown);
+}
+
+/** `data` without its `css`, or undefined when it holds nothing to show. */
+function dataShown(data: PresetData | undefined): Omit<PresetData, 'css'> | undefined {
+  const { css: _css, ...rest } = data ?? {};
+  const shown = Object.fromEntries(
+    Object.entries(rest).filter(([, v]) => v !== undefined && Object.keys(v).length > 0),
+  );
+  return Object.keys(shown).length > 0 ? shown : undefined;
 }
 
 const IDENT = /^[A-Za-z_$][\w$]*$/;
@@ -132,13 +147,15 @@ const ELIDED = Symbol('elided');
 const TABS = [
   ['properties', 'Properties'],
   ['jsx', 'JSX'],
-  ['preset', 'Preset'],
+  ['mechanics', 'Mechanics'],
+  ['data', 'Data'],
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
 /**
  * Tabs under an Exotic story: what the preset exercises, derived from its
- * tree; the JSX that builds it; and the preset itself.
+ * tree; the JSX that builds it; and its two halves, the product's layout
+ * mechanics and the sample content laid out with them.
  */
 export function PresetCode({ preset, viewport }: { preset: Preset; viewport?: Size }) {
   const [tab, setTab] = useState<Tab>('properties');
@@ -169,7 +186,7 @@ export function PresetCode({ preset, viewport }: { preset: Preset; viewport?: Si
       >
         {tab === 'properties' ? (
           <>
-            <StrategyMap rootId={preset.root.id} viewport={viewport ?? preset.viewport} />
+            <StrategyMap rootId={preset.mechanics.id} viewport={viewport ?? preset.viewport} />
             <table className="preset-code__properties">
               <tbody>
                 {presetProperties(preset).map(({ label, value }) => (
@@ -181,12 +198,33 @@ export function PresetCode({ preset, viewport }: { preset: Preset; viewport?: Si
               </tbody>
             </table>
           </>
+        ) : tab === 'data' ? (
+          <PresetDataListing data={preset.data} />
         ) : (
           <pre className="preset-code__listing">
-            <code>{tab === 'jsx' ? presetJsx(preset) : presetLiteral(preset)}</code>
+            <code>{tab === 'jsx' ? presetJsx(preset) : presetLiteral(preset.mechanics)}</code>
           </pre>
         )}
       </div>
     </section>
+  );
+}
+
+function PresetDataListing({ data }: { data: PresetData | undefined }) {
+  const shown = dataShown(data);
+  if (!shown && !data?.css) return <p className="preset-code__empty">No sample data</p>;
+  return (
+    <>
+      {shown && (
+        <pre className="preset-code__listing">
+          <code>{presetLiteral(shown)}</code>
+        </pre>
+      )}
+      {data?.css && (
+        <pre className="preset-code__listing preset-code__css">
+          <code>{data.css}</code>
+        </pre>
+      )}
+    </>
   );
 }

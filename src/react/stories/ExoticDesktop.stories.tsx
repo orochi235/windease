@@ -281,7 +281,7 @@ function RootFrame({ rootId, children }: { rootId: NodeId; children: ReactNode }
 
 function PresetView({ preset }: { preset: Preset }) {
   const store = useMemo(() => presetToStore(preset), [preset]);
-  const rootId = asNodeId(preset.root.id);
+  const rootId = asNodeId(preset.mechanics.id);
   const chrome = useMemo(() => makeChrome(rootId), [rootId]);
   return (
     <Provider store={store}>

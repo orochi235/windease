@@ -111,7 +111,7 @@ function Tree({ preset }: { preset: Preset }) {
           <PresetInfo preset={preset} />
           <div className="xt-frame">
             <Container
-              parentId={asNodeId(preset.root.id)}
+              parentId={asNodeId(preset.mechanics.id)}
               chrome={chrome}
               viewport={VIEWPORT}
               affordances

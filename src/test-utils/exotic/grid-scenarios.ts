@@ -1,11 +1,26 @@
 import type { LayoutItem } from '../../layout-types.js';
 import type { Scenario } from './invariants.js';
-import { type Preset, type PresetNode, presetNodes, presetScenario } from './preset.js';
+import {
+  type Preset,
+  type PresetData,
+  type PresetNode,
+  presetNodes,
+  presetScenario,
+  titles,
+} from './preset.js';
 
-/** A child covering `cols × rows` cells. */
-const tile = (id: string, cols = 1, rows = 1, title = id): PresetNode => ({
+/** The two halves of a preset a builder returns, spread into the preset literal. */
+type Halves = Pick<Preset, 'mechanics' | 'data'>;
+
+/** A cell covering `cols × rows` cells, untitled. */
+const span = (id: string, cols = 1, rows = 1): PresetNode => ({
   id,
   placement: cols === 1 && rows === 1 ? {} : { span: { cols, rows } },
+});
+
+/** A titled child covering `cols × rows` cells. */
+const tile = (id: string, cols = 1, rows = 1, title = id): PresetNode => ({
+  ...span(id, cols, rows),
   meta: { title },
 });
 
@@ -28,39 +43,44 @@ const large = (id: string, title = id) => tile(id, 4, 4, title);
 
 const WIN10_TILE_GAP = 4;
 
-function win10Start(groupCols: 6 | 8): PresetNode {
-  const group = (id: string, title: string, children: PresetNode[]): PresetNode => ({
+/** The Start menu's two groups are mechanics; the tiles pinned in them are the user's. */
+function win10Start(groupCols: 6 | 8): Halves {
+  const group = (id: string): PresetNode => ({
     id,
     kind: 'group',
     strategy: 'grid',
     config: { cols: groupCols, gap: WIN10_TILE_GAP, resizable: true },
-    meta: { title },
-    children,
   });
   return {
-    id: 'start',
-    strategy: 'strip',
-    config: { axis: 'x', fill: true, gap: 24, padding: 12 },
-    children: [
-      group('productivity', 'Productivity', [
-        large('news', 'News'),
-        medium('calendar', 'Calendar'),
-        wide('mail', 'Mail'),
-        medium('weather', 'Weather'),
-        medium('xbox', 'Xbox Console Companion'),
-        wide('store', 'Microsoft Store'),
-        small('calc', 'Calculator'),
-        small('alarms', 'Alarms & Clock'),
-        small('maps', 'Maps'),
-        small('camera', 'Camera'),
-      ]),
-      group('explore', 'Explore', [
-        wide('edge', 'Microsoft Edge'),
-        wide('photos', 'Photos'),
-        wide('movies', 'Movies & TV'),
-        small('groove', 'Groove Music'),
-      ]),
-    ],
+    mechanics: {
+      id: 'start',
+      strategy: 'strip',
+      config: { axis: 'x', fill: true, gap: 24, padding: 12 },
+      children: [group('productivity'), group('explore')],
+    },
+    data: {
+      nodes: titles({ productivity: 'Productivity', explore: 'Explore' }),
+      children: {
+        productivity: [
+          large('news', 'News'),
+          medium('calendar', 'Calendar'),
+          wide('mail', 'Mail'),
+          medium('weather', 'Weather'),
+          medium('xbox', 'Xbox Console Companion'),
+          wide('store', 'Microsoft Store'),
+          small('calc', 'Calculator'),
+          small('alarms', 'Alarms & Clock'),
+          small('maps', 'Maps'),
+          small('camera', 'Camera'),
+        ],
+        explore: [
+          wide('edge', 'Microsoft Edge'),
+          wide('photos', 'Photos'),
+          wide('movies', 'Movies & TV'),
+          small('groove', 'Groove Music'),
+        ],
+      },
+    },
   };
 }
 
@@ -88,69 +108,83 @@ const PIXEL_APPS = [
   'Podcasts',
 ] as const;
 
-function pixelHome(page: PresetNode[]): PresetNode {
+/** The launcher's page, hotseat and picker are mechanics; the icons and widgets on them are the user's. */
+function pixelHome(page: PresetNode[]): Halves {
   return {
-    id: 'launcher',
-    strategy: 'strip',
-    config: { axis: 'y', fill: true, gap: 8, padding: 8 },
-    children: [
-      {
-        id: 'page',
-        kind: 'group',
-        strategy: 'grid',
-        config: { cols: 4, maxRows: 5, gap: 8 },
-        meta: { title: 'Home screen' },
-        children: page,
+    mechanics: {
+      id: 'launcher',
+      strategy: 'strip',
+      config: { axis: 'y', fill: true, gap: 8, padding: 8 },
+      children: [
+        {
+          id: 'page',
+          kind: 'group',
+          strategy: 'grid',
+          config: { cols: 4, maxRows: 5, gap: 8 },
+        },
+        {
+          id: 'hotseat',
+          kind: 'group',
+          strategy: 'grid',
+          config: { cols: 4, maxRows: 1, gap: 8 },
+          placement: { size: { h: 72 } },
+        },
+        {
+          id: 'picker',
+          kind: 'group',
+          strategy: 'grid',
+          config: { cols: 4, gap: 8 },
+          placement: { size: { h: 96 } },
+        },
+      ],
+    },
+    data: {
+      nodes: titles({
+        page: 'Home screen',
+        hotseat: 'Hotseat',
+        picker: 'Widgets and apps to drag in',
+      }),
+      children: {
+        page,
+        hotseat: icons('dock', 4, ['Phone', 'Messages', 'Chrome', 'Camera']),
+        picker: [tile('widget-weather', 4, 2, 'Weather 4×2'), tile('new-app', 1, 1, 'Recorder')],
       },
-      {
-        id: 'hotseat',
-        kind: 'group',
-        strategy: 'grid',
-        config: { cols: 4, maxRows: 1, gap: 8 },
-        placement: { size: { h: 72 } },
-        meta: { title: 'Hotseat' },
-        children: icons('dock', 4, ['Phone', 'Messages', 'Chrome', 'Camera']),
-      },
-      {
-        id: 'picker',
-        kind: 'group',
-        strategy: 'grid',
-        config: { cols: 4, gap: 8 },
-        placement: { size: { h: 96 } },
-        meta: { title: 'Widgets and apps to drag in' },
-        children: [tile('widget-weather', 4, 2, 'Weather 4×2'), tile('new-app', 1, 1, 'Recorder')],
-      },
-    ],
+    },
   };
 }
 
 const MAC_APPS = Array.from({ length: 40 }, (_, i) => `App ${i + 1}`);
 
-/** One Launchpad page above a Dock to drag apps in from. */
-function launchpad(n: number, fill: boolean): PresetNode {
+/** One Launchpad page above a Dock to drag apps in from; the apps are the user's. */
+function launchpad(n: number, fill: boolean): Halves {
   return {
-    id: 'launchpad-root',
-    strategy: 'strip',
-    config: { axis: 'y', fill: true, gap: 12, padding: 12 },
-    children: [
-      {
-        id: 'lp-page',
-        kind: 'group',
-        strategy: 'grid',
-        config: { maxCols: 7, maxRows: 5, gap: 16, padding: 24, fill },
-        meta: { title: `Launchpad page, ${n} apps` },
-        children: icons('lp-app', n, MAC_APPS),
+    mechanics: {
+      id: 'launchpad-root',
+      strategy: 'strip',
+      config: { axis: 'y', fill: true, gap: 12, padding: 12 },
+      children: [
+        {
+          id: 'lp-page',
+          kind: 'group',
+          strategy: 'grid',
+          config: { maxCols: 7, maxRows: 5, gap: 16, padding: 24, fill },
+        },
+        {
+          id: 'mac-dock',
+          kind: 'group',
+          strategy: 'grid',
+          config: { cols: 6, maxRows: 1, gap: 8 },
+          placement: { size: { h: 80 } },
+        },
+      ],
+    },
+    data: {
+      nodes: titles({ 'lp-page': `Launchpad page, ${n} apps`, 'mac-dock': 'Dock' }),
+      children: {
+        'lp-page': icons('lp-app', n, MAC_APPS),
+        'mac-dock': icons('dock-app', 3, ['Finder', 'Safari', 'Mail']),
       },
-      {
-        id: 'mac-dock',
-        kind: 'group',
-        strategy: 'grid',
-        config: { cols: 6, maxRows: 1, gap: 8 },
-        placement: { size: { h: 80 } },
-        meta: { title: 'Dock' },
-        children: icons('dock-app', 3, ['Finder', 'Safari', 'Mail']),
-      },
-    ],
+    },
   };
 }
 
@@ -161,12 +195,13 @@ const ELEMENTS = (
   'Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf ' +
   'Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og'
 ).split(' ');
-const el = (sym: string): PresetNode => ({ id: `el-${sym}`, meta: { title: sym } });
+const el = (sym: string): PresetNode => ({ id: `el-${sym}` });
 const els = (from: string, to: string) =>
   ELEMENTS.slice(ELEMENTS.indexOf(from), ELEMENTS.indexOf(to) + 1).map(el);
 
-function periodicTable(): PresetNode {
-  return {
+/** The table's cells and holes are its fixed structure; the symbols on them are data. */
+function periodicTable(): Halves {
+  const mechanics: PresetNode = {
     id: 'periodic',
     strategy: 'strip',
     config: { axis: 'y', fill: true, gap: 16, padding: 8 },
@@ -176,7 +211,6 @@ function periodicTable(): PresetNode {
         kind: 'group',
         strategy: 'grid',
         config: { cols: 18, gap: 2 },
-        meta: { title: 'Periods 1–7' },
         children: [
           el('H'),
           spacer('gap-p1', 16),
@@ -190,10 +224,10 @@ function periodicTable(): PresetNode {
           ...els('K', 'Kr'),
           ...els('Rb', 'Xe'),
           ...els('Cs', 'Ba'),
-          { id: 'lanthanides-ref', meta: { title: '57–71' } },
+          { id: 'lanthanides-ref' },
           ...els('Hf', 'Rn'),
           ...els('Fr', 'Ra'),
-          { id: 'actinides-ref', meta: { title: '89–103' } },
+          { id: 'actinides-ref' },
           ...els('Rf', 'Og'),
         ],
       },
@@ -203,7 +237,6 @@ function periodicTable(): PresetNode {
         strategy: 'grid',
         config: { cols: 18, gap: 2 },
         placement: { size: { h: 96 } },
-        meta: { title: 'f-block' },
         children: [
           spacer('f-lead-1', 2),
           ...els('La', 'Lu'),
@@ -215,17 +248,26 @@ function periodicTable(): PresetNode {
       },
     ],
   };
+  return {
+    mechanics,
+    data: {
+      nodes: titles({
+        'main-table': 'Periods 1–7',
+        'f-block': 'f-block',
+        'lanthanides-ref': '57–71',
+        'actinides-ref': '89–103',
+        ...Object.fromEntries(ELEMENTS.map((sym) => [`el-${sym}`, sym])),
+      }),
+    },
+  };
 }
 
-/** One key, `u` wide in quarter units (1u = 4 cells). */
-const key = (id: string, quarters = 4, title = id): PresetNode => ({
-  id: `key-${id}`,
-  placement: { span: { cols: quarters } },
-  meta: { title },
-});
+/** One key: its id, its width in quarter units (1u = 4 cells), and its legend. */
+type Key = readonly [id: string, quarters: number, legend: string];
+const key = (id: string, quarters = 4, legend = id): Key => [id, quarters, legend];
 const letterKeys = (s: string) => [...s].map((c) => key(c, 4, c.toUpperCase()));
 
-const ANSI_60_ROWS: PresetNode[][] = [
+const ANSI_60_ROWS: Key[][] = [
   [
     key('grave', 4, '`'),
     ...letterKeys('1234567890'),
@@ -267,23 +309,40 @@ const ANSI_60_ROWS: PresetNode[][] = [
   ],
 ];
 
-/** The same board in whole units, spans written as the keycap's own `u` size. */
-const fractionalKey = (n: PresetNode): PresetNode => {
-  const quarters = (n.placement as { span: { cols: number } }).span.cols;
-  return { ...n, placement: { span: { cols: quarters / 4 } } };
-};
+/** The board's keys, spans in cells of `quartersPerCell` quarter units. The legends are data. */
+const keyboard = (id: string, cols: number, quartersPerCell: number, title: string): Halves => ({
+  mechanics: {
+    id,
+    kind: 'group',
+    strategy: 'grid',
+    config: { cols, gap: 2, padding: 6 },
+    children: ANSI_60_ROWS.flat().map(([k, quarters]) => ({
+      id: `key-${k}`,
+      placement: { span: { cols: quarters / quartersPerCell } },
+    })),
+  },
+  data: {
+    nodes: titles({
+      [id]: title,
+      ...Object.fromEntries(ANSI_60_ROWS.flat().map(([k, , legend]) => [`key-${k}`, legend])),
+    }),
+  },
+});
 
 const cell = (ref: string, pinnedAt?: number): PresetNode => ({
   id: `cell-${ref}`,
   placement: pinnedAt === undefined ? {} : { pinned: pinnedAt },
-  meta: { title: ref },
 });
 
-/** Excel with row 1 and column A frozen: every header cell pinned to its own index. */
-function frozenSheet(): PresetNode {
+/**
+ * Excel with row 1 and column A frozen: every header cell pinned to its own
+ * index. The cells are the sheet's structure; their references are data.
+ */
+function frozenSheet(): Halves {
   const COLS = 6;
   const ROWS = 9;
   const children: PresetNode[] = [];
+  const nodes: NonNullable<PresetData['nodes']> = { sheet: { meta: { title: 'Book1 — Sheet1' } } };
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const index = r * COLS + c;
@@ -296,15 +355,18 @@ function frozenSheet(): PresetNode {
             ? `row${r}`
             : `${String.fromCharCode(64 + c)}${r}`;
       children.push(cell(ref, r === 0 || c === 0 ? index : undefined));
+      nodes[`cell-${ref}`] = { meta: { title: ref } };
     }
   }
   return {
-    id: 'sheet',
-    kind: 'group',
-    strategy: 'grid',
-    config: { cols: COLS, maxRows: 6, gap: 1 },
-    meta: { title: 'Book1 — Sheet1' },
-    children,
+    mechanics: {
+      id: 'sheet',
+      kind: 'group',
+      strategy: 'grid',
+      config: { cols: COLS, maxRows: 6, gap: 1 },
+      children,
+    },
+    data: { nodes },
   };
 }
 
@@ -321,7 +383,7 @@ export const PRESETS: Preset[] = [
     description:
       'The Windows 10 Start menu shows app tiles in named groups beside the list of installed apps. Each tile comes in one of four sizes, small, medium, wide or large, picked from its right-click menu, and users drag tiles to rearrange them or to start a new group. By default each group is three medium tiles wide.',
     viewport: { w: 760, h: 560 },
-    root: win10Start(6),
+    ...win10Start(6),
   },
   {
     id: 'win10-start-8',
@@ -330,7 +392,7 @@ export const PRESETS: Preset[] = [
     description:
       'The same Windows 10 Start menu with the "Show more tiles" setting on, which widens each group from three medium tiles to four. The same small, medium, wide and large tiles reflow into the wider groups.',
     viewport: { w: 960, h: 560 },
-    root: win10Start(8),
+    ...win10Start(8),
   },
   {
     id: 'win8-start-screen',
@@ -340,22 +402,26 @@ export const PRESETS: Preset[] = [
     description:
       "The Windows 8.1 Start screen fills the whole display with app tiles arranged in columns that run left to right, and the user scrolls sideways to see more. Tiles come in small, medium, wide and large sizes; users drag them to rearrange and resize them from a menu. The number of tile rows is set by the screen's height, so more tiles make the screen longer, never taller.",
     viewport: { w: 1366, h: 768 },
-    root: {
+    mechanics: {
       id: 'start8',
       kind: 'group',
       strategy: 'grid',
       config: { rows: 4, gap: 8, padding: 40 },
-      meta: { title: 'Start' },
-      children: [
-        wide('desktop', 'Desktop'),
-        medium('ie', 'Internet Explorer'),
-        medium('store8', 'Store'),
-        large('people', 'People'),
-        wide('weather8', 'Weather'),
-        medium('skydrive', 'SkyDrive'),
-        small('mail8', 'Mail'),
-        small('calendar8', 'Calendar'),
-      ],
+    },
+    data: {
+      nodes: titles({ start8: 'Start' }),
+      children: {
+        start8: [
+          wide('desktop', 'Desktop'),
+          medium('ie', 'Internet Explorer'),
+          medium('store8', 'Store'),
+          large('people', 'People'),
+          wide('weather8', 'Weather'),
+          medium('skydrive', 'SkyDrive'),
+          small('mail8', 'Mail'),
+          small('calendar8', 'Calendar'),
+        ],
+      },
     },
   },
   {
@@ -366,33 +432,37 @@ export const PRESETS: Preset[] = [
     description:
       'Grafana dashboards arrange monitoring panels (graphs, gauges, single numbers) on a grid 24 columns wide. "Node Exporter Full" is a widely used community dashboard for a Linux server\'s CPU, memory, disk and network, with its panels grouped under full-width row headers that collapse. Users drag a panel by its title to move it and drag its corner to resize it, and the panels below move down to make room.',
     viewport: { w: 1440, h: 900 },
-    root: {
+    mechanics: {
       id: 'dashboard',
       kind: 'group',
       strategy: 'grid',
       config: { cols: 24, gap: 4, padding: 8, resizable: true },
-      meta: { title: 'Node Exporter Full' },
-      children: [
-        tile('row-quick', 24, 1, 'Quick CPU / Mem / Disk'),
-        tile('pressure', 3, 4, 'Pressure'),
-        tile('cpu-busy', 3, 4, 'CPU Busy'),
-        tile('sys-load', 3, 4, 'Sys Load'),
-        tile('ram-used', 3, 4, 'RAM Used'),
-        tile('swap-used', 3, 4, 'SWAP Used'),
-        tile('root-fs', 3, 4, 'Root FS Used'),
-        tile('cpu-cores', 2, 2, 'CPU Cores'),
-        tile('uptime', 4, 2, 'Uptime'),
-        tile('rootfs-total', 2, 2, 'RootFS Total'),
-        tile('ram-total', 2, 2, 'RAM Total'),
-        tile('swap-total', 2, 2, 'SWAP Total'),
-        tile('row-basic', 24, 1, 'Basic CPU / Mem / Net / Disk'),
-        tile('cpu-basic', 12, 7, 'CPU Basic'),
-        tile('mem-basic', 12, 7, 'Memory Basic'),
-        tile('net-basic', 12, 7, 'Network Traffic Basic'),
-        tile('disk-basic', 8, 7, 'Disk Space Used Basic'),
-        tile('edge-panel', 4, 7, 'Right-edge panel'),
-        tile('imported-w30', 30, 3, 'Imported panel with w: 30'),
-      ],
+    },
+    data: {
+      nodes: titles({ dashboard: 'Node Exporter Full' }),
+      children: {
+        dashboard: [
+          tile('row-quick', 24, 1, 'Quick CPU / Mem / Disk'),
+          tile('pressure', 3, 4, 'Pressure'),
+          tile('cpu-busy', 3, 4, 'CPU Busy'),
+          tile('sys-load', 3, 4, 'Sys Load'),
+          tile('ram-used', 3, 4, 'RAM Used'),
+          tile('swap-used', 3, 4, 'SWAP Used'),
+          tile('root-fs', 3, 4, 'Root FS Used'),
+          tile('cpu-cores', 2, 2, 'CPU Cores'),
+          tile('uptime', 4, 2, 'Uptime'),
+          tile('rootfs-total', 2, 2, 'RootFS Total'),
+          tile('ram-total', 2, 2, 'RAM Total'),
+          tile('swap-total', 2, 2, 'SWAP Total'),
+          tile('row-basic', 24, 1, 'Basic CPU / Mem / Net / Disk'),
+          tile('cpu-basic', 12, 7, 'CPU Basic'),
+          tile('mem-basic', 12, 7, 'Memory Basic'),
+          tile('net-basic', 12, 7, 'Network Traffic Basic'),
+          tile('disk-basic', 8, 7, 'Disk Space Used Basic'),
+          tile('edge-panel', 4, 7, 'Right-edge panel'),
+          tile('imported-w30', 30, 3, 'Imported panel with w: 30'),
+        ],
+      },
     },
   },
   {
@@ -403,7 +473,7 @@ export const PRESETS: Preset[] = [
     description:
       'The Pixel Launcher home screen on Android is a grid four columns wide and five rows tall. App icons take one cell each, while widgets span several: here the At a Glance date-and-weather strip across the top row and a 2×2 weather widget. Below the page sits the hotseat, a row of four favorite apps that stays the same on every page. Users long-press an icon or widget to drag it, and add widgets by dragging them in from a widget picker.',
     viewport: { w: 412, h: 915 },
-    root: pixelHome([
+    ...pixelHome([
       tile('glance', 4, 1, 'At a Glance'),
       tile('weather-2x2', 2, 2, 'Weather'),
       ...icons('app', 12, PIXEL_APPS.slice(4)),
@@ -416,7 +486,7 @@ export const PRESETS: Preset[] = [
     description:
       'A Pixel Launcher home screen, four columns by five rows, with an app icon in every one of its 20 cells and the four-app hotseat below. Users long-press an icon to drag it around, and dropping one icon on another makes a folder.',
     viewport: { w: 412, h: 915 },
-    root: pixelHome(icons('app', 20, PIXEL_APPS)),
+    ...pixelHome(icons('app', 20, PIXEL_APPS)),
   },
   {
     id: 'android-fragmented',
@@ -426,7 +496,7 @@ export const PRESETS: Preset[] = [
     description:
       'A Pixel Launcher home screen, four columns by five rows, with three app icons along the top row and a clock widget two rows tall across the full width beneath them. A new widget needs an empty rectangle of cells in its own shape, not just enough empty cells, and widgets can be resized after they are placed.',
     viewport: { w: 412, h: 915 },
-    root: pixelHome([...icons('app', 3, PIXEL_APPS), tile('clock-4x2', 4, 2, 'Clock')]),
+    ...pixelHome([...icons('app', 3, PIXEL_APPS), tile('clock-4x2', 4, 2, 'Clock')]),
   },
   {
     id: 'ios-dock',
@@ -436,7 +506,7 @@ export const PRESETS: Preset[] = [
     description:
       'The iPhone home screen shows pages of app icons, four columns by six rows, above the Dock, a single row of up to four apps that stays in place as the user swipes between pages. Users press and hold an icon to start editing, then drag it around the page or into or out of the Dock. With three apps in the Dock, iOS spaces them evenly across its width.',
     viewport: { w: 390, h: 844 },
-    root: {
+    mechanics: {
       id: 'springboard',
       strategy: 'strip',
       config: { axis: 'y', fill: true, gap: 8, padding: 8 },
@@ -446,17 +516,6 @@ export const PRESETS: Preset[] = [
           kind: 'group',
           strategy: 'grid',
           config: { cols: 4, maxRows: 6, gap: 12 },
-          meta: { title: 'Home Screen' },
-          children: icons('ios-app', 8, [
-            'Mail',
-            'Notes',
-            'Maps',
-            'Photos',
-            'Clock',
-            'Weather',
-            'Music',
-            'Podcasts',
-          ]),
         },
         {
           id: 'ios-dock',
@@ -464,10 +523,24 @@ export const PRESETS: Preset[] = [
           strategy: 'grid',
           config: { maxCols: 4, maxRows: 1, gap: 12, padding: 12 },
           placement: { size: { h: 96 } },
-          meta: { title: 'Dock' },
-          children: icons('ios-dock-app', 3, ['Phone', 'Safari', 'Messages']),
         },
       ],
+    },
+    data: {
+      nodes: titles({ 'ios-page': 'Home Screen', 'ios-dock': 'Dock' }),
+      children: {
+        'ios-page': icons('ios-app', 8, [
+          'Mail',
+          'Notes',
+          'Maps',
+          'Photos',
+          'Clock',
+          'Weather',
+          'Music',
+          'Podcasts',
+        ]),
+        'ios-dock': icons('ios-dock-app', 3, ['Phone', 'Safari', 'Messages']),
+      },
     },
   },
   {
@@ -478,7 +551,7 @@ export const PRESETS: Preset[] = [
     description:
       'macOS Launchpad shows every installed app as a full-screen grid of icons, seven across and five down, in pages the user swipes between. Users drag an icon to rearrange it, drop it on another to make a folder, or drag it to the edge of the screen to move it to the next page. This page holds exactly 35 apps, so every cell is full.',
     viewport: { w: 1440, h: 900 },
-    root: launchpad(35, true),
+    ...launchpad(35, true),
   },
   {
     id: 'launchpad-overflow',
@@ -487,7 +560,7 @@ export const PRESETS: Preset[] = [
     description:
       'macOS Launchpad with 40 apps, more than one seven-by-five page holds. Launchpad fills the first page and puts the rest on a second page, shown by the dots at the bottom of the screen.',
     viewport: { w: 1440, h: 900 },
-    root: launchpad(40, false),
+    ...launchpad(40, false),
   },
   {
     id: 'launchpad-thirty',
@@ -496,7 +569,7 @@ export const PRESETS: Preset[] = [
     description:
       'A macOS Launchpad page holding 30 apps, so five of its 35 cells are still empty and a newly installed app lands on this page rather than starting a new one. The Dock sits below the page.',
     viewport: { w: 1440, h: 900 },
-    root: launchpad(30, false),
+    ...launchpad(30, false),
   },
   {
     id: 'excel-frozen-panes',
@@ -506,7 +579,7 @@ export const PRESETS: Preset[] = [
     description:
       'An Excel spreadsheet with Freeze Panes set so that row 1 (the column headings) and column A (the row labels) stay on screen while the rest of the sheet scrolls. Users set it from View > Freeze Panes and then scroll as usual; only as many rows as fit in the window are shown.',
     viewport: { w: 720, h: 180 },
-    root: frozenSheet(),
+    ...frozenSheet(),
   },
   {
     id: 'periodic-table',
@@ -517,7 +590,7 @@ export const PRESETS: Preset[] = [
     description:
       'The standard periodic table lays out the 118 chemical elements in 18 columns (groups) and 7 rows (periods), leaving gaps at the top where the first three rows hold fewer elements. The lanthanides and actinides, which belong in rows 6 and 7, are pulled out into two separate rows beneath the main table so that it does not become 32 columns wide.',
     viewport: { w: 1080, h: 600 },
-    root: periodicTable(),
+    ...periodicTable(),
   },
   {
     id: 'keyboard-ansi-60',
@@ -528,14 +601,7 @@ export const PRESETS: Preset[] = [
     description:
       'A 60% keyboard is a compact US (ANSI) layout with no function row, arrow keys or number pad: five rows of keys, each row 15 standard key widths long. Most keys are one unit (1u) wide, while Tab, Caps Lock, Shift, Enter, Backspace, the bottom-row modifiers and the space bar are wider, in quarter-unit steps such as 1.25u, 1.5u, 2.25u and 6.25u.',
     viewport: { w: 900, h: 300 },
-    root: {
-      id: 'keyboard',
-      kind: 'group',
-      strategy: 'grid',
-      config: { cols: 60, gap: 2, padding: 6 },
-      meta: { title: 'ANSI 60%' },
-      children: ANSI_60_ROWS.flat(),
-    },
+    ...keyboard('keyboard', 60, 1, 'ANSI 60%'),
   },
   {
     id: 'keyboard-ansi-60-units',
@@ -546,14 +612,7 @@ export const PRESETS: Preset[] = [
     description:
       "The same 60% ANSI keyboard, with each key's width written as its keycap size in key units, 1.5 for Tab, 2.25 for Enter and 6.25 for the space bar, the way keycap sizes are usually quoted.",
     viewport: { w: 900, h: 300 },
-    root: {
-      id: 'keyboard-u',
-      kind: 'group',
-      strategy: 'grid',
-      config: { cols: 15, gap: 2, padding: 6 },
-      meta: { title: 'ANSI 60%, u spans' },
-      children: ANSI_60_ROWS.flat().map(fractionalKey),
-    },
+    ...keyboard('keyboard-u', 15, 4, 'ANSI 60%, u spans'),
   },
   {
     id: 'win11-snap-left-tall',
@@ -562,17 +621,20 @@ export const PRESETS: Preset[] = [
     description:
       "Windows 11 Snap Layouts appear when the user hovers over a window's maximize button and offer a few ways to divide the screen; this one puts one tall window on the left and two stacked on the right. Clicking a zone snaps the current window into it, and Windows then offers the other open windows to fill the remaining zones. The layout has exactly three places for windows.",
     viewport: { w: 1280, h: 720 },
-    root: {
+    mechanics: {
       id: 'snap',
       kind: 'group',
       strategy: 'grid',
       config: { maxCols: 2, maxRows: 2 },
-      meta: { title: 'Snap layout' },
-      children: [
-        tile('snap-left', 1, 2, 'Edge'),
-        tile('snap-tr', 1, 1, 'Terminal'),
-        tile('snap-br', 1, 1, 'Explorer'),
-      ],
+      children: [span('snap-left', 1, 2), span('snap-tr', 1, 1), span('snap-br', 1, 1)],
+    },
+    data: {
+      nodes: titles({
+        snap: 'Snap layout',
+        'snap-left': 'Edge',
+        'snap-tr': 'Terminal',
+        'snap-br': 'Explorer',
+      }),
     },
   },
 ];

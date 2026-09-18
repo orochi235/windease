@@ -47,17 +47,85 @@ export interface Preset {
    */
   description: string;
   viewport: Size;
-  root: PresetNode;
+  /** What the product's layout engine decides, whatever the content: strategies, config, floors, pins, spans, locks, state. */
+  mechanics: PresetNode;
+  /** What the content decides: titles, content-driven sizes, and the children a content container holds. */
+  data?: PresetData;
 }
 
-/** Every node in `preset`, parents before children. */
+/** The content half of a {@link Preset}, merged onto its mechanics by {@link presetTree}. */
+export interface PresetData {
+  /** Per node: what the content contributes. `className` lands in `meta.className`. */
+  nodes?: Record<
+    string,
+    { meta?: Record<string, unknown>; hints?: { preferredSize?: Size }; className?: string }
+  >;
+  /** Children the content supplies to a container the mechanics declare, appended after its own. */
+  children?: Record<string, PresetNode[]>;
+  /** Styles scoped under the preset's root class, to look like the product. */
+  css?: string;
+}
+
+/** `data.nodes` that give each id a display title. */
+export function titles(map: Record<string, string>): NonNullable<PresetData['nodes']> {
+  return Object.fromEntries(Object.entries(map).map(([id, title]) => [id, { meta: { title } }]));
+}
+
+/**
+ * The preset's full node tree: its mechanics with `data.nodes` merged onto the
+ * matching nodes and `data.children` appended to the matching containers.
+ * Throws when a data key names no node, or `data.children` names a non-container.
+ */
+export function presetTree(preset: Preset): PresetNode {
+  const nodes = preset.data?.nodes ?? {};
+  const extra = preset.data?.children ?? {};
+  const seen = new Set<string>();
+  const build = (node: PresetNode): PresetNode => {
+    seen.add(node.id);
+    const out: PresetNode = { ...node };
+    const d = Object.hasOwn(nodes, node.id) ? nodes[node.id] : undefined;
+    if (d?.meta !== undefined || d?.className !== undefined) {
+      out.meta = {
+        ...node.meta,
+        ...d.meta,
+        ...(d.className === undefined ? {} : { className: d.className }),
+      };
+    }
+    if (d?.hints?.preferredSize !== undefined) {
+      out.hints = { ...node.hints, preferredSize: d.hints.preferredSize };
+    }
+    const added = Object.hasOwn(extra, node.id) ? extra[node.id] : undefined;
+    if (added !== undefined && !node.strategy) {
+      throw new Error(
+        `preset ${preset.id}: data.children names ${node.id}, which is not a container`,
+      );
+    }
+    if (node.children !== undefined || added !== undefined) {
+      out.children = [...(node.children ?? []), ...(added ?? [])].map(build);
+    }
+    return out;
+  };
+  const tree = build(preset.mechanics);
+  for (const [key, record] of [
+    ['nodes', nodes],
+    ['children', extra],
+  ] as const) {
+    for (const id of Object.keys(record)) {
+      if (!seen.has(id))
+        throw new Error(`preset ${preset.id}: data.${key} names unknown node ${id}`);
+    }
+  }
+  return tree;
+}
+
+/** Every node in `preset`'s merged tree, parents before children. */
 export function presetNodes(preset: Preset): { node: PresetNode; parentId?: string }[] {
   const out: { node: PresetNode; parentId?: string }[] = [];
   const walk = (node: PresetNode, parentId?: string) => {
     out.push(parentId === undefined ? { node } : { node, parentId });
     for (const child of node.children ?? []) walk(child, node.id);
   };
-  walk(preset.root);
+  walk(presetTree(preset));
   return out;
 }
 
@@ -97,7 +165,7 @@ export function presetToStore(preset: Preset, store: Store = new Store()): Store
  */
 export function presetScenario(
   preset: Preset,
-  containerId: string = preset.root.id,
+  containerId: string = preset.mechanics.id,
   container: Size = preset.viewport,
 ): Scenario {
   const store = presetToStore(preset);
@@ -108,7 +176,7 @@ export function presetScenario(
     .filter((n): n is Node => n !== undefined && n.lifecycle.state !== 'hidden')
     .map(nodeToLayoutItem);
   return {
-    id: containerId === preset.root.id ? preset.id : `${preset.id}/${containerId}`,
+    id: containerId === preset.mechanics.id ? preset.id : `${preset.id}/${containerId}`,
     source: preset.source,
     stress: preset.stress,
     container,
@@ -133,15 +201,17 @@ const PLACEMENT_KEYS = ['size', 'span', 'pinned'] as const;
  * are left out.
  */
 export function presetProperties(preset: Preset): PresetProperty[] {
-  const all = presetNodes(preset).map((e) => e.node);
-  const containers = all.filter((n) => n.strategy);
-  const leaves = all.filter((n) => !n.strategy);
+  const tree = presetTree(preset);
+  const all: PresetNode[] = [];
   let depth = 0;
   const measure = (node: PresetNode, d: number) => {
+    all.push(node);
     depth = Math.max(depth, d);
     for (const c of node.children ?? []) measure(c, d + 1);
   };
-  measure(preset.root, 0);
+  measure(tree, 0);
+  const containers = all.filter((n) => n.strategy);
+  const leaves = all.filter((n) => !n.strategy);
 
   const count = (pred: (n: PresetNode) => boolean) => all.filter(pred).length;
   const rows: PresetProperty[] = [
