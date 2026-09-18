@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { asNodeId, createNode, type LayoutStrategy, type Rect, Store } from '../index.js';
+import {
+  asNodeId,
+  createNode,
+  type LayoutItem,
+  type LayoutStrategy,
+  type Rect,
+  Store,
+} from '../index.js';
 import { type AcceptContext, DragEngine, type DropTarget } from './DragEngine.js';
 
 /** Refuses anything past 2 items — stands in for a strip at its maxItems cap. */
@@ -170,5 +177,63 @@ describe('DragEngine — acceptPolicy', () => {
     e.updateHoverByPoint(50, 50);
     expect(e.state()?.hover?.accepted).toBe(true);
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('DragEngine — the items canAccept sees', () => {
+  /** z2 holds `a` (2×1) and `b`; `p` (1×2) waits in z1. */
+  function spannedStore(): Store {
+    const s = new Store();
+    for (const z of ['z1', 'z2']) {
+      s.registerNode(
+        createNode({
+          kind: 'zone',
+          container: { strategyId: 'probe', config: {} },
+          id: asNodeId(z),
+        }),
+      );
+    }
+    for (const [id, parent, span] of [
+      ['p', 'z1', { cols: 1, rows: 2 }],
+      ['a', 'z2', { cols: 2, rows: 1 }],
+      ['b', 'z2', undefined],
+    ] as const) {
+      s.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id: asNodeId(id),
+          parentId: asNodeId(parent),
+          ...(span ? { placement: { span } } : {}),
+        }),
+      );
+    }
+    return s;
+  }
+
+  function probe(s: Store, sourceId: string): LayoutItem[][] {
+    const seen: LayoutItem[][] = [];
+    const strategy: LayoutStrategy<unknown, string, unknown> = {
+      name: 'probe',
+      canAccept: (items) => {
+        seen.push(items);
+        return true;
+      },
+      layout: () => ({ placements: new Map(), affordances: [] }),
+    };
+    const e = new DragEngine(s, { getStrategy: () => strategy });
+    e.addDropTarget(asNodeId('z2'), at(SQUARE));
+    e.tryBegin(asNodeId(sourceId));
+    e.updateHoverByPoint(50, 50);
+    return seen;
+  }
+
+  it('carries each child span and the source span, as layout reads them', () => {
+    const [items] = probe(spannedStore(), 'p');
+    expect(items?.map((i) => [i.id, i.placement?.span])).toEqual([
+      ['a', { cols: 2, rows: 1 }],
+      ['b', undefined],
+      ['p', { cols: 1, rows: 2 }],
+    ]);
   });
 });

@@ -1,10 +1,13 @@
-import type { LayoutStrategy, Rect } from '../layout-types.js';
+import { nodeToLayoutItem } from '../layout-node-adapter.js';
+import type { LayoutItem, LayoutStrategy, Rect } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import { placeRespectingPins } from '../pinning.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
 import type { DropIntent } from './dropIntent.js';
 import { type EdgeScrollOptions, edgeScrollDelta } from './edgeScroll.js';
+
+type AcceptItem = LayoutItem & { id: NodeId };
 
 /** Looks up a strategy by id. The engine uses it to consult
  *  `strategy.canAccept` on the prospective post-drop child list. */
@@ -375,13 +378,7 @@ export class DragEngine {
     // Building the prospective child list is O(children) on the pointermove
     // path, so only pay for it when something will actually read it.
     if (target?.acceptPolicy || strategy?.canAccept) {
-      const current = this.store
-        .getChildren(targetId)
-        .filter((c) => c.lifecycle.state !== 'destroyed');
-      const alreadyChild = current.some((c) => c.id === draggingId);
-      const items = alreadyChild
-        ? current.map((c) => ({ id: c.id }))
-        : [...current.map((c) => ({ id: c.id })), { id: draggingId }];
+      const items = this.prospectiveItems(targetId, draggingId);
       const options = (container?.config ?? {}) as Record<string, unknown>;
 
       let verdict: boolean | undefined;
@@ -409,6 +406,23 @@ export class DragEngine {
     }
 
     return true;
+  }
+
+  /** The children `targetId` would hold after the drop, as layout sees them:
+   *  spans and placement carried, the source appended if it is new here. */
+  private prospectiveItems(targetId: NodeId, draggingId: NodeId): AcceptItem[] {
+    const items: AcceptItem[] = [];
+    let alreadyChild = false;
+    for (const child of this.store.getChildren(targetId)) {
+      if (child.lifecycle.state === 'destroyed') continue;
+      if (child.id === draggingId) alreadyChild = true;
+      items.push(nodeToLayoutItem(child) as AcceptItem);
+    }
+    if (!alreadyChild) {
+      const source = this.store.getNode(draggingId);
+      items.push((source ? nodeToLayoutItem(source) : { id: draggingId }) as AcceptItem);
+    }
+    return items;
   }
 
   /**

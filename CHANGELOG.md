@@ -6,6 +6,17 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
+## Unreleased
+
+### Fixed
+
+- **A drop's `canAccept` check sees spans.** The drag engine handed the strategy
+  `{ id }` for each child, so a grid counting cells read every tile as one cell:
+  a 4×2 widget dragged onto a page full by cells was accepted, and `layout()`
+  then sent it to `unplaced`. The engine now builds each child, and the dragged
+  source, the way layout does, `placement` included. `acceptPolicy` sees the
+  same items.
+
 ## 2.0.0
 
 ### Removed

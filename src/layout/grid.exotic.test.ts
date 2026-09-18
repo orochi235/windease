@@ -271,11 +271,11 @@ describe('Android home screen: cells, not items', () => {
     return engine.state()?.hover?.accepted;
   }
 
-  it.fails('dragging the 4×2 widget onto the full page is refused — DragEngine hands canAccept `{ id }` only, dropping spans', () => {
+  it('dragging the 4×2 widget onto the full page is refused', () => {
     expect(hoverVerdict('widget-weather')).toBe(false);
   });
 
-  it.fails('dragging a 1×1 app onto a page full by cells is refused — same span-blind item list', () => {
+  it('dragging a 1×1 app onto a page full by cells is refused', () => {
     expect(hoverVerdict('new-app')).toBe(false);
   });
 });
