@@ -97,7 +97,7 @@ export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
               className="windease-zone windease-zone--unclipped"
             />
           </div>
-          <PresetCode preset={preset} />
+          <PresetCode preset={preset} viewport={{ w: vw, h: vh }} />
         </section>
       </StrategyRegistryProvider>
     </Provider>

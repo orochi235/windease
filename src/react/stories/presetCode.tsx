@@ -1,7 +1,9 @@
 import { createElement, type ReactElement, useState } from 'react';
+import type { Size } from '../../layout-types.js';
 import { asNodeId } from '../../node.js';
 import { type Preset, type PresetNode, presetProperties } from '../../test-utils/exotic/preset.js';
 import { Panel, Zone } from '../index.js';
+import { StrategyMap } from './StrategyMap.js';
 
 /** Children shown per container before a listing elides the rest. */
 const SHOWN_CHILDREN = 8;
@@ -138,7 +140,7 @@ type Tab = (typeof TABS)[number][0];
  * Tabs under an Exotic story: what the preset exercises, derived from its
  * tree; the JSX that builds it; and the preset itself.
  */
-export function PresetCode({ preset }: { preset: Preset }) {
+export function PresetCode({ preset, viewport }: { preset: Preset; viewport?: Size }) {
   const [tab, setTab] = useState<Tab>('properties');
   return (
     <section className="preset-code" aria-label="Preset details">
@@ -166,16 +168,19 @@ export function PresetCode({ preset }: { preset: Preset }) {
         data-testid="preset-code"
       >
         {tab === 'properties' ? (
-          <table className="preset-code__properties">
-            <tbody>
-              {presetProperties(preset).map(({ label, value }) => (
-                <tr key={label}>
-                  <th scope="row">{label}</th>
-                  <td>{value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <StrategyMap rootId={preset.root.id} viewport={viewport ?? preset.viewport} />
+            <table className="preset-code__properties">
+              <tbody>
+                {presetProperties(preset).map(({ label, value }) => (
+                  <tr key={label}>
+                    <th scope="row">{label}</th>
+                    <td>{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         ) : (
           <pre className="preset-code__listing">
             <code>{tab === 'jsx' ? presetJsx(preset) : presetLiteral(preset)}</code>

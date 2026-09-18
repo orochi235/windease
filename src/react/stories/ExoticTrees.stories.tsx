@@ -121,7 +121,7 @@ function Tree({ preset }: { preset: Preset }) {
           <p className="xt-readout">
             Last move: <code data-testid="xt-last-move">{last}</code>
           </p>
-          <PresetCode preset={preset} />
+          <PresetCode preset={preset} viewport={VIEWPORT} />
           <div className="xt-prose">
             <p>
               Drag a pane into a container of another kind: a horizontal split into a vertical one,
