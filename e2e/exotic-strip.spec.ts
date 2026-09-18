@@ -17,7 +17,7 @@ async function openPreset(page: Page, id: string): Promise<void> {
   // Preview mode drops Ladle's sidebar, which otherwise covers the right third of wide presets.
   await openStory(page, `${STORY}&mode=preview&arg-preset=${id}`);
   // The default pick can paint before the URL arg lands; the caption says which one is up.
-  await expect(page.getByTestId('xs-source')).toHaveText(preset.source);
+  await expect(page.getByTestId('preset-source')).toHaveText(preset.source);
 }
 
 const seam = (page: Page, id: string) => page.locator(`[data-affordance-hit="${id}"]`);

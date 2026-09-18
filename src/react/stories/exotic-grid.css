@@ -12,18 +12,6 @@
   font-weight: 600;
 }
 
-.xg-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  max-width: 72ch;
-}
-
-.xg-meta span {
-  color: #64748b;
-}
-
 .xg-frame {
   border: 2px dashed transparent;
   border-radius: 8px;

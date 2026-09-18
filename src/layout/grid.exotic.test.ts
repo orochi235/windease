@@ -534,6 +534,8 @@ describe('DragEngine feeding grid.canAccept', () => {
       id: 'hidden-slot',
       source: 'a two-slot quick-settings row with one tile hidden by the user',
       stress: 'hidden children in the accept count',
+      description:
+        'A phone quick-settings row with room for two tiles, where the user has hidden one of them.',
       viewport: { w: 400, h: 400 },
       root: {
         id: 'shell',

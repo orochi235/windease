@@ -129,7 +129,7 @@ export const I3_TITLE_BAR = 20;
  */
 export function fromI3Layout(
   root: I3Node,
-  meta: { id: string; source: string; stress: string; viewport: Size },
+  meta: { id: string; source: string; stress: string; description: string; viewport: Size },
 ): Preset {
   const mint = idMint();
   const walk = (
@@ -259,6 +259,8 @@ export const I3_PRESET = fromI3Layout(I3_DEV_WORKSPACE, {
   source: 'i3 4.x / sway append_layout JSON (i3-save-tree), 1920x1080 workspace',
   stress:
     'seven levels of splith/splitv/tabbed/stacked with percent shares resolved to pixel placement.size',
+  description:
+    'i3 and its Wayland counterpart sway are tiling window managers: windows never overlap but divide the screen between them, split side by side or one above the other, and any split can instead hold its windows as tabs or as a stack of title bars. This workspace has monitoring terminals on the left, an editor column with a browser tabbed against a devtools split, and chat apps tabbed on the right. Users resize a split by dragging its border or from the keyboard, and i3-save-tree saves the arrangement as JSON to restore later.',
   viewport: { w: 1920, h: 1080 },
 });
 
@@ -302,7 +304,7 @@ function goldenShare(item: GoldenItem, axis: 'x' | 'y'): number | undefined {
  */
 export function fromGoldenLayout(
   config: GoldenConfig,
-  meta: { id: string; source: string; stress: string; viewport: Size },
+  meta: { id: string; source: string; stress: string; description: string; viewport: Size },
 ): Preset {
   const mint = idMint();
   const header = config.dimensions?.headerHeight ?? 20;
@@ -441,6 +443,8 @@ export const GOLDEN_PRESET = fromGoldenLayout(GOLDEN_IDE_CONFIG, {
   id: 'golden-layout-ide',
   source: 'Golden Layout 2.x LayoutConfig (row/column/stack, size percentages), 1600x900',
   stress: 'percent sizes resolved per level, bare components wrapped in one-tab stacks',
+  description:
+    'Golden Layout is a JavaScript library that gives web apps IDE-style docking: panels arranged in rows and columns and grouped into tabbed stacks. This app has file and outline tabs above a search panel on the left, editor tabs above a terminal and a problems/output stack in the middle, and chat and preview tabs on the right. Users drag a tab into another stack, or to the edge of one to split it, and drag the dividers to resize; the app saves the arrangement to restore later.',
   viewport: { w: 1600, h: 900 },
 });
 
@@ -466,6 +470,8 @@ export const GOLDEN_V1_PRESET = fromGoldenLayout(GOLDEN_V1_CONFIG, {
   id: 'golden-layout-v1',
   source: 'Golden Layout 1.5 config (numeric width/height percentages), 1280x720',
   stress: 'legacy percentage keys and a column nested in a row',
+  description:
+    "A simpler app built on Golden Layout 1.x: a file tree on the left, and an editor above a console on the right. Golden Layout 1.x saved each panel's share of its row or column as a width or height percentage, and apps built on it still have saved layouts in that older format.",
   viewport: { w: 1280, h: 720 },
 });
 
@@ -502,7 +508,7 @@ export const DOCKVIEW_TAB_HEIGHT = 35;
  */
 export function fromDockview(
   layout: DockviewLayout,
-  meta: { id: string; source: string; stress: string },
+  meta: { id: string; source: string; stress: string; description: string },
 ): Preset {
   const flip = (o: 'HORIZONTAL' | 'VERTICAL') => (o === 'HORIZONTAL' ? 'VERTICAL' : 'HORIZONTAL');
   const walk = (
@@ -599,6 +605,8 @@ export const DOCKVIEW_PRESET = fromDockview(DOCKVIEW_LAYOUT, {
   id: 'dockview-vscode',
   source: 'Dockview 4.x api.toJSON() of a VS Code-shaped workbench, 1600x1000',
   stress: 'alternating branch orientation with pixel sizes on the parent axis',
+  description:
+    "Dockview is a JavaScript docking library for web apps; this layout imitates VS Code, with an Explorer on the left, editor tabs in the middle above a terminal and a debug console, and outline and timeline tabs on the right. Each area is a group of tabs: users drag tabs between groups, or to a group's edge to split it, and drag the borders between groups to resize them. The library saves the whole layout, with each area's size in pixels, to restore later.",
 });
 
 // ------------------------------------------------------------------- Emacs
@@ -611,6 +619,9 @@ export interface EmacsSideWindow {
   fraction?: number;
 }
 
+const EMACS_SIDE_WINDOWS =
+  'GNU Emacs can reserve side windows along the edges of its frame for helper buffers, such as a file tree on the left and a compilation log and shell at the bottom, while ordinary editing windows fill the middle. Each side window keeps a numbered slot along its edge, and ordinary window commands like C-x 1 (delete other windows) leave side windows alone.';
+
 /**
  * An Emacs frame with side windows. `window-sides-vertical` nil (the default)
  * lets top and bottom sides span the frame, so left and right sit between
@@ -619,6 +630,8 @@ export interface EmacsSideWindow {
  */
 export function emacsFrame(input: {
   id: string;
+  /** Defaults to a description of Emacs side windows in general. */
+  description?: string;
   viewport: Size;
   left?: EmacsSideWindow[];
   right?: EmacsSideWindow[];
@@ -669,6 +682,7 @@ export function emacsFrame(input: {
     id: input.id,
     source: 'GNU Emacs 29 display-buffer-in-side-window with window-sides-vertical nil',
     stress: 'pinned side slots around a split main area; deleting a slot shifts the pins after it',
+    description: input.description ?? EMACS_SIDE_WINDOWS,
     viewport,
     root: {
       id: 'frame',
@@ -725,6 +739,8 @@ export const TRADING_DESK_PRESET: Preset = {
   id: 'trading-desk-4k',
   source: 'Refinitiv Eikon / TT desktop workspace saved at 3840x2160',
   stress: 'pixel sizes, ladder floors and absolute window positions from a 4K monitor',
+  description:
+    "Trading platforms such as Refinitiv Eikon and Trading Technologies' TT let a trader save a workspace spread across a large monitor: quote boards and news on the left, a grid of price charts, a row of MD Trader price ladders (vertical price columns a trader clicks to place orders) and floating order-ticket windows. The workspace records every window's size and position in pixels, so reopening it on a laptop brings back a layout built for a screen almost three times as wide.",
   viewport: { w: 3840, h: 2160 },
   root: {
     id: 'desk',

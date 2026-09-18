@@ -65,6 +65,8 @@ export const PRESETS: Preset[] = [
     source: 'Blender 4.x Layout workspace on a 1366×768 laptop at 125% scaling',
     stress:
       'alternating-axis nesting at a fractional viewport, 26px header floors, and a timeline seam joined by overshoot',
+    description:
+      "Blender's default Layout workspace fills the window with areas: a top bar of menus and workspace tabs, a large 3D Viewport, the Outliner (the scene's list of objects) above the Properties editor on the right, a Timeline along the bottom and a thin status bar. Users drag the border between two areas to resize both, and drag from an area's corner to split it in two or merge it into a neighbor. Blender will not shrink an area below the height of its header.",
     viewport: DPR_125_LAPTOP,
     root: {
       id: 'blender',
@@ -130,6 +132,8 @@ export const PRESETS: Preset[] = [
     source: 'Blender Split Area applied ten times, alternating direction, at 125% scaling',
     stress:
       'ten levels of alternating-axis halving until the 26px header floor binds and the innermost split overflows',
+    description:
+      "Blender lets a user split any area in two, side by side or one above the other, from the View > Area menu or by dragging from the area's corner, and each half is a full editor that can be split again. Splitting the same corner over and over, alternating direction, halves the space each time. Blender refuses a split that would leave an area below its minimum size, so the deepest areas are little more than a header.",
     viewport: DPR_125_LAPTOP,
     root: blenderSplits(10),
   },
@@ -138,6 +142,8 @@ export const PRESETS: Preset[] = [
     source: 'Bloomberg Terminal classic four-panel screen on a 1280×1024 monitor',
     stress:
       'panel floors sum past the container on both axes, so every seam is pinned at both ends',
+    description:
+      'The Bloomberg Terminal traditionally shows four panels on each screen, two by two, and each panel runs its own function, such as a quote monitor, a news feed or a chart, independently of the others. A user types a function code into a panel to change what it shows. The panels are designed for the large monitors trading desks use, and four of them at a readable size do not fit on a smaller screen.',
     viewport: { w: 1280, h: 1024 },
     root: {
       id: 'bbg',
@@ -160,6 +166,8 @@ export const PRESETS: Preset[] = [
     source: 'Plan 9 acme: one column with a maximized window and the rest shrunk to their tag line',
     stress:
       'explicit sizes that squeeze, tag-line floors, slivers stated below the floor, and a pinned window',
+    description:
+      "Plan 9's acme text editor divides the screen into columns, each holding a vertical stack of windows; every window has a one-line tag, showing its file name and commands, above its text. Clicking the small layout box at the left of a tag grows that window, and acme shrinks the others in the column, down to just their tag lines, to make room. Dragging the same box moves a window elsewhere in its column or to another column.",
     viewport: { w: 683, h: 768 },
     root: {
       id: 'acme',
@@ -184,6 +192,8 @@ export const PRESETS: Preset[] = [
     source:
       'VS Code with activity bar, primary and secondary sidebars and panel open, at its 400px minimum window width',
     stress: 'fixed sidebars whose floors sum past the container around one fill pane',
+    description:
+      "Visual Studio Code's window runs left to right: the activity bar (a column of icons that switch views), the primary sidebar with the file Explorer, the editor with the panel (terminal, problems, output) below it, and a secondary sidebar on the right. Users drag the borders between them to resize, and show or hide each sidebar and the panel from the View menu or with keyboard shortcuts. Here every one of them is open while the window is at the narrowest width VS Code allows.",
     viewport: { w: 400, h: 600 },
     root: {
       id: 'vscode',
@@ -232,6 +242,8 @@ export const PRESETS: Preset[] = [
       'VS Code workbench at 1600×900 with sidebars declared by preferred size rather than stored size',
     stress:
       'the first seam drag moves the row from the preferred-size path onto the explicit-size path',
+    description:
+      'The same Visual Studio Code workbench, with an activity bar, Explorer sidebar, editor and secondary sidebar, on an ordinary 1600×900 screen. A newly opened sidebar takes a default width; once the user drags its border, VS Code remembers that width and uses it from then on.',
     viewport: { w: 1600, h: 900 },
     root: {
       id: 'vscode-hinted',
@@ -261,6 +273,8 @@ export const PRESETS: Preset[] = [
     id: 'xcode-restored-on-laptop',
     source: 'Xcode 15 window state saved on a 5K display and restored on a 1280×800 MacBook Air',
     stress: 'stored widths sum to twice the container, so every pane is squeezed before any drag',
+    description:
+      "Xcode's project window puts the Navigator (files, search results, issues) on the left, the source editor in the middle and the Inspector (settings for whatever is selected) on the right; users drag the dividers to resize and use toolbar buttons to show or hide the side areas. Xcode saves each project's window layout and restores it when the project reopens, so a layout saved on a 5K display comes back on a 13-inch MacBook Air with widths meant for a screen twice as wide.",
     viewport: { w: 1280, h: 800 },
     root: {
       id: 'xcode',
@@ -293,6 +307,8 @@ export const PRESETS: Preset[] = [
     source: 'tmux select-layout even-horizontal after 40 splits, on a 1366px-wide terminal',
     stress:
       'fractional equal shares with 1px borders — do 40 extents and 39 gaps sum to the width exactly',
+    description:
+      'tmux runs several shell sessions inside one terminal window, dividing it into panes separated by one-character borders. The even-horizontal layout (select-layout even-horizontal) lines every pane up side by side at equal width. Users resize panes with resize-pane or, with mouse mode on, by dragging a border; when a split would leave a pane too small, tmux refuses it with "no space for new pane".',
     viewport: { w: 1366, h: 768 },
     root: {
       id: 'tmux',
@@ -310,6 +326,8 @@ export const PRESETS: Preset[] = [
     source:
       'GNU Emacs C-x 3 eighteen times then balance-windows, window-min-width 10 columns at 8px',
     stress: 'equal fill shares whose floors sum past the frame width',
+    description:
+      "GNU Emacs divides its frame (the operating system's window) into windows, each showing a buffer. C-x 3 splits the current window into two side by side, and M-x balance-windows makes them all the same width. Emacs will not make a window narrower than window-min-width columns, and refuses a split that would.",
     viewport: { w: 1366, h: 768 },
     root: {
       id: 'emacs',
@@ -326,6 +344,8 @@ export const PRESETS: Preset[] = [
     id: 'firefox-100-tabs',
     source: 'Firefox tab strip with 3 pinned tabs and 97 tabs at the default 76px minimum width',
     stress: 'floors far past the container under scroll mode, with a per-tab maximum width',
+    description:
+      "Firefox's tab strip runs along the top of the window: pinned tabs, shown as small icon-only tabs, sit at the left, and ordinary tabs follow. Tabs shrink as more open, down to a minimum width; past that the strip scrolls sideways, with arrow buttons at its ends. Users click a tab to switch to it and drag tabs to reorder them.",
     viewport: { w: 1280, h: 40 },
     root: {
       id: 'firefox',
@@ -342,6 +362,8 @@ export const PRESETS: Preset[] = [
     source: 'Firefox tab strip with three tabs on a 1280px window, tabs capped at 225px',
     stress:
       'unconstrained panes with a maxSize and plenty of room: the cap is the only thing holding them',
+    description:
+      'With only a few tabs open, Firefox gives each tab its full width of about 225 pixels and leaves the rest of the tab strip empty rather than stretching tabs to fill it. Tabs start to shrink only once more are open than fit at that width.',
     viewport: { w: 1280, h: 40 },
     root: {
       id: 'firefox-few',
@@ -354,6 +376,8 @@ export const PRESETS: Preset[] = [
     id: 'obsidian-readable-line',
     source: 'Obsidian with both sidebars open and "Readable line length" capping the note at 700px',
     stress: 'an auto pane capped by maxSize between two stored-size sidebars',
+    description:
+      "Obsidian, a note-taking app, shows a file list in the left sidebar, the open note in the middle and a right sidebar for panels such as the note's outline. Users drag a sidebar's edge to resize it and collapse either sidebar with a button. With \"Readable line length\" on, the note's text stops widening at a comfortable reading width and sits centered, leaving empty margins on a wide screen.",
     viewport: { w: 1920, h: 1080 },
     root: {
       id: 'obsidian',
@@ -381,6 +405,8 @@ export const PRESETS: Preset[] = [
     source:
       'Slack desktop at 1100px with a thread open beside the channel (400px and 380px minimums)',
     stress: 'two fill panes with different floors, where an equal share falls under the larger one',
+    description:
+      "Slack's desktop app shows a narrow rail of workspace icons at the far left, a sidebar listing channels and direct messages, and the selected channel's messages. Opening a thread from a message adds a thread pane to the right of the channel, so the channel and the thread share the space beside the sidebar.",
     viewport: { w: 1100, h: 800 },
     root: {
       id: 'slack',
@@ -398,6 +424,8 @@ export const PRESETS: Preset[] = [
     id: 'photoshop-minimized-group',
     source: 'Photoshop panel dock with the Properties group minimized to its tab bar',
     stress: 'a stored size below its own floor under redistribute resizing',
+    description:
+      "Photoshop keeps a narrow Tools panel of icons at the left of the window, the open document in the middle, and a dock of panel groups, such as Color, Properties and Layers, stacked on the right. Users drag the dividers between groups to resize them, drag a panel's tab to move it to another group, and double-click a group's tab to collapse it to just its tab bar.",
     viewport: { w: 1440, h: 900 },
     root: {
       id: 'photoshop',

@@ -318,6 +318,8 @@ export const PRESETS: Preset[] = [
     source: 'Windows 10 Start menu, two live-tile groups at the default 6-small-tile width',
     stress:
       'mixed 1×1/2×2/4×2/4×4 spans; three wide tiles in a 6-wide group leave 2-column holes nothing can fill',
+    description:
+      'The Windows 10 Start menu shows app tiles in named groups beside the list of installed apps. Each tile comes in one of four sizes, small, medium, wide or large, picked from its right-click menu, and users drag tiles to rearrange them or to start a new group. By default each group is three medium tiles wide.',
     viewport: { w: 760, h: 560 },
     root: win10Start(6),
   },
@@ -325,6 +327,8 @@ export const PRESETS: Preset[] = [
     id: 'win10-start-8',
     source: 'Windows 10 Start menu with "Show more tiles" on (8-small-tile groups)',
     stress: 'the same tiles reflowed to 8 columns: wide tiles now pair up and the holes close',
+    description:
+      'The same Windows 10 Start menu with the "Show more tiles" setting on, which widens each group from three medium tiles to four. The same small, medium, wide and large tiles reflow into the wider groups.',
     viewport: { w: 960, h: 560 },
     root: win10Start(8),
   },
@@ -333,6 +337,8 @@ export const PRESETS: Preset[] = [
     source:
       'Windows 8.1 Start screen: tiles flow in columns under a fixed row count and scroll sideways',
     stress: 'fixed `rows` with no column cap, so wide and large tiles must grow the grid sideways',
+    description:
+      "The Windows 8.1 Start screen fills the whole display with app tiles arranged in columns that run left to right, and the user scrolls sideways to see more. Tiles come in small, medium, wide and large sizes; users drag them to rearrange and resize them from a menu. The number of tile rows is set by the screen's height, so more tiles make the screen longer, never taller.",
     viewport: { w: 1366, h: 768 },
     root: {
       id: 'start8',
@@ -357,6 +363,8 @@ export const PRESETS: Preset[] = [
     source: 'Grafana "Node Exporter Full" dashboard (24-column gridPos, 30px row unit)',
     stress:
       'panel w/h spans in a 24-column grid, full-width row headers, a panel at the right edge, and a w:30 panel wider than the grid',
+    description:
+      'Grafana dashboards arrange monitoring panels (graphs, gauges, single numbers) on a grid 24 columns wide. "Node Exporter Full" is a widely used community dashboard for a Linux server\'s CPU, memory, disk and network, with its panels grouped under full-width row headers that collapse. Users drag a panel by its title to move it and drag its corner to resize it, and the panels below move down to make room.',
     viewport: { w: 1440, h: 900 },
     root: {
       id: 'dashboard',
@@ -392,6 +400,8 @@ export const PRESETS: Preset[] = [
     source: 'Pixel Launcher (Android 14) 4×5 home screen with At a Glance and a 2×2 weather widget',
     stress:
       'page full by cells (20/20) but only 14 children; a 4×2 widget arriving must be refused by cell count, not item count',
+    description:
+      'The Pixel Launcher home screen on Android is a grid four columns wide and five rows tall. App icons take one cell each, while widgets span several: here the At a Glance date-and-weather strip across the top row and a 2×2 weather widget. Below the page sits the hotseat, a row of four favorite apps that stays the same on every page. Users long-press an icon or widget to drag it, and add widgets by dragging them in from a widget picker.',
     viewport: { w: 412, h: 915 },
     root: pixelHome([
       tile('glance', 4, 1, 'At a Glance'),
@@ -403,6 +413,8 @@ export const PRESETS: Preset[] = [
     id: 'android-full-by-count',
     source: 'Pixel Launcher (Android 14) 4×5 home screen packed with 20 app icons',
     stress: 'page full by count; any arrival, icon or widget, has nowhere to go',
+    description:
+      'A Pixel Launcher home screen, four columns by five rows, with an app icon in every one of its 20 cells and the four-app hotseat below. Users long-press an icon to drag it around, and dropping one icon on another makes a folder.',
     viewport: { w: 412, h: 915 },
     root: pixelHome(icons('app', 20, PIXEL_APPS)),
   },
@@ -411,6 +423,8 @@ export const PRESETS: Preset[] = [
     source: 'Pixel Launcher 4×5 home screen with three icons above a 4×2 clock widget',
     stress:
       'nine free cells, but no three contiguous rows: a 3×3 widget fits by count and not by shape',
+    description:
+      'A Pixel Launcher home screen, four columns by five rows, with three app icons along the top row and a clock widget two rows tall across the full width beneath them. A new widget needs an empty rectangle of cells in its own shape, not just enough empty cells, and widgets can be resized after they are placed.',
     viewport: { w: 412, h: 915 },
     root: pixelHome([...icons('app', 3, PIXEL_APPS), tile('clock-4x2', 4, 2, 'Clock')]),
   },
@@ -419,6 +433,8 @@ export const PRESETS: Preset[] = [
     source: 'iPhone home screen: a 4×6 page above a one-row, four-slot dock holding three apps',
     stress:
       'maxCols 4 × maxRows 1 underfilled — the auto-balance must not pick a square and drop the third app',
+    description:
+      'The iPhone home screen shows pages of app icons, four columns by six rows, above the Dock, a single row of up to four apps that stays in place as the user swipes between pages. Users press and hold an icon to start editing, then drag it around the page or into or out of the Dock. With three apps in the Dock, iOS spaces them evenly across its width.',
     viewport: { w: 390, h: 844 },
     root: {
       id: 'springboard',
@@ -459,6 +475,8 @@ export const PRESETS: Preset[] = [
     source: 'macOS Launchpad, one 7×5 page holding exactly 35 apps',
     stress:
       'a page full to the cap must place all 35 — the auto-balance picks 6 columns for 26–36 items',
+    description:
+      'macOS Launchpad shows every installed app as a full-screen grid of icons, seven across and five down, in pages the user swipes between. Users drag an icon to rearrange it, drop it on another to make a folder, or drag it to the edge of the screen to move it to the next page. This page holds exactly 35 apps, so every cell is full.',
     viewport: { w: 1440, h: 900 },
     root: launchpad(35, true),
   },
@@ -466,6 +484,8 @@ export const PRESETS: Preset[] = [
     id: 'launchpad-overflow',
     source: 'macOS Launchpad, 40 apps against a fixed 7×5 page',
     stress: 'exactly 35 placed and the other 5 in `unplaced`, the pagination signal',
+    description:
+      'macOS Launchpad with 40 apps, more than one seven-by-five page holds. Launchpad fills the first page and puts the rest on a second page, shown by the dots at the bottom of the screen.',
     viewport: { w: 1440, h: 900 },
     root: launchpad(40, false),
   },
@@ -473,6 +493,8 @@ export const PRESETS: Preset[] = [
     id: 'launchpad-thirty',
     source: 'macOS Launchpad, a fixed 7×5 page holding 30 apps',
     stress: 'five cells free, so an app dragged in from the Dock must be accepted',
+    description:
+      'A macOS Launchpad page holding 30 apps, so five of its 35 cells are still empty and a newly installed app lands on this page rather than starting a new one. The Dock sits below the page.',
     viewport: { w: 1440, h: 900 },
     root: launchpad(30, false),
   },
@@ -481,6 +503,8 @@ export const PRESETS: Preset[] = [
     source: 'Excel with row 1 and column A frozen, scrolled so only 6 rows fit',
     stress:
       'header cells pinned to their childOrder index; capacity trims data rows, and a pin is an index, not a cell',
+    description:
+      'An Excel spreadsheet with Freeze Panes set so that row 1 (the column headings) and column A (the row labels) stay on screen while the rest of the sheet scrolls. Users set it from View > Freeze Panes and then scroll as usual; only as many rows as fit in the window are shown.',
     viewport: { w: 720, h: 180 },
     root: frozenSheet(),
   },
@@ -490,6 +514,8 @@ export const PRESETS: Preset[] = [
       'IUPAC periodic table: 18 groups, the gap over groups 3–12 in periods 1–3, and the detached f-block',
     stress:
       'holes expressed as spacer spans (16, 10, 10), and a second grid aligned to the first by leading spacers',
+    description:
+      'The standard periodic table lays out the 118 chemical elements in 18 columns (groups) and 7 rows (periods), leaving gaps at the top where the first three rows hold fewer elements. The lanthanides and actinides, which belong in rows 6 and 7, are pulled out into two separate rows beneath the main table so that it does not become 32 columns wide.',
     viewport: { w: 1080, h: 600 },
     root: periodicTable(),
   },
@@ -499,6 +525,8 @@ export const PRESETS: Preset[] = [
       'ANSI 60% keyboard (1.25u/1.5u/1.75u/2.25u/2.75u/6.25u keys) at quarter-unit resolution',
     stress:
       'fractional key widths as integer spans of a 60-column grid; every row must sum to exactly 15u',
+    description:
+      'A 60% keyboard is a compact US (ANSI) layout with no function row, arrow keys or number pad: five rows of keys, each row 15 standard key widths long. Most keys are one unit (1u) wide, while Tab, Caps Lock, Shift, Enter, Backspace, the bottom-row modifiers and the space bar are wider, in quarter-unit steps such as 1.25u, 1.5u, 2.25u and 6.25u.',
     viewport: { w: 900, h: 300 },
     root: {
       id: 'keyboard',
@@ -515,6 +543,8 @@ export const PRESETS: Preset[] = [
       'ANSI 60% keyboard written with keycap `u` sizes as spans (Tab 1.5, Enter 2.25, Space 6.25)',
     stress:
       'fractional spans: grid floors them to whole cells, so the rows no longer sum to 15 and keys wrap onto the wrong row',
+    description:
+      "The same 60% ANSI keyboard, with each key's width written as its keycap size in key units, 1.5 for Tab, 2.25 for Enter and 6.25 for the space bar, the way keycap sizes are usually quoted.",
     viewport: { w: 900, h: 300 },
     root: {
       id: 'keyboard-u',
@@ -529,6 +559,8 @@ export const PRESETS: Preset[] = [
     id: 'win11-snap-left-tall',
     source: 'Windows 11 Snap Layouts, "one tall left, two stacked right"',
     stress: 'a 1×2 span in a 2×2 capped grid; a fourth window must be refused',
+    description:
+      "Windows 11 Snap Layouts appear when the user hovers over a window's maximize button and offer a few ways to divide the screen; this one puts one tall window on the left and two stacked on the right. Clicking a zone snaps the current window into it, and Windows then offers the other open windows to fill the remaining zones. The layout has exactly three places for windows.",
     viewport: { w: 1280, h: 720 },
     root: {
       id: 'snap',

@@ -62,6 +62,8 @@ export const MACOS9_WINDOWSHADE: Preset = {
   id: 'macos9-windowshade',
   source: 'Mac OS 9.2 Platinum desktop with WindowShade',
   stress: 'shaded windows keep x, y and w and drop to a title bar; a palette shorter than the bar',
+  description:
+    'The Mac OS 9 desktop shows disk and Trash icons down the right side and overlapping windows, which the user drags by the title bar and resizes from the bottom-right corner. WindowShade, a double-click on the title bar or a click on its collapse box, rolls a window up so only its title bar stays where it was, and doing it again rolls it back down. Small floating palettes, such as the Application Switcher torn off the application menu, sit over the windows.',
   viewport: { w: 640, h: 480 },
   root: {
     id: 'mac-desktop',
@@ -107,6 +109,8 @@ export const WIN31_ICONS: Preset = {
   id: 'win31-minimized-icons',
   source: 'Windows 3.1 Program Manager with a row of minimized application icons',
   stress: 'icon layer fills past one row, and minimized windows join it after the real icons',
+  description:
+    'Windows 3.1 runs programs in overlapping windows over the Program Manager, whose program groups hold the icons that start them. Minimizing a window turns it into a labeled icon along the bottom of the screen, and further icons line up beside it. Double-clicking an icon restores the window where it was.',
   viewport: { w: 640, h: 480 },
   root: {
     id: 'win31-desktop',
@@ -132,6 +136,8 @@ export const GIMP_MULTIWINDOW: Preset = {
   id: 'gimp-2.8-multi-window',
   source: 'GIMP 2.8 multi-window mode: image windows under the Toolbox and dock utility windows',
   stress: 'two window classes — utility windows must stay above every image window',
+  description:
+    'GIMP 2.8 in multi-window mode, its default, opens every image in its own window and keeps the Toolbox and the docked dialogs, such as Layers, Channels and Paths, in separate utility windows. GIMP asks the window manager to keep those utility windows above the image windows, so clicking an image brings it forward but not over the Toolbox.',
   viewport: { w: 800, h: 600 },
   root: {
     id: 'gimp-desktop',
@@ -152,6 +158,8 @@ export const AMIGA_SCREENS: Preset = {
   id: 'amiga-workbench-screens',
   source: 'AmigaOS 3.1: Workbench and two application screens, front screens dragged down',
   stress: 'full-width screens stacked in z, each pulled down to reveal the one behind',
+  description:
+    "AmigaOS gives each full-screen program its own screen, a whole display with its own resolution and colors, and stacks the screens one in front of another. Dragging a screen's title bar downward slides the whole screen down to reveal the ones behind it, and a button at the right of the title bar sends a screen to the back or brings it to the front.",
   viewport: { w: 640, h: 256 },
   root: {
     id: 'amiga-display',
@@ -170,6 +178,8 @@ export const FIGMA_CANVAS: Preset = {
   id: 'figma-canvas',
   source: 'Figma / Miro infinite canvas: frames scattered around the origin',
   stress: 'negative coordinates and frames thousands of pixels outside the viewport',
+  description:
+    'Figma and Miro present an infinite canvas: frames (screens, diagrams, boards) sit anywhere around a starting point, including far above and to the left of it. Users pan and zoom across the canvas and drag frames anywhere, so most of a file lies well outside what is on screen at any moment.',
   viewport: { w: 1440, h: 900 },
   root: {
     id: 'figma-canvas',
@@ -190,6 +200,8 @@ export const UNPLUGGED_MONITOR: Preset = {
   id: 'unplugged-second-monitor',
   source: 'macOS laptop after its external displays unplug: windows saved on the lost screens',
   stress: 'saved positions entirely outside the container, left and right of it',
+  description:
+    "A MacBook that was used with external monitors, now unplugged, running apps that remember where their windows last were. Windows saved on the missing screens have positions far to the left or right of the laptop's own display. macOS normally moves such windows onto a remaining screen, but an app that restores its own saved positions can put them where the user cannot reach them.",
   viewport: { w: 1280, h: 800 },
   root: {
     id: 'laptop-display',
@@ -209,6 +221,8 @@ export const CASCADE_200: Preset = {
   id: 'cascade-200-windows',
   source: 'Windows XP Explorer after 200 "New Window" commands, each cascaded',
   stress: 'the cascade walks off the container; overflow must say how far',
+  description:
+    'Windows XP places each new window a little below and to the right of the previous one, a cascade that keeps every title bar visible. Choosing New Window from an Explorer window 200 times asks for far more steps than fit on a 1024×768 screen.',
   viewport: { w: 1024, h: 768 },
   root: {
     id: 'cascade-desktop',
@@ -225,6 +239,8 @@ export const CHROME_150_TABS: Preset = {
   id: 'chrome-150-tabs',
   source: 'Chrome with 150 tabs in one window, the last tab active',
   stress: 'a long stack, active tab last; closing it falls back rather than leaving nothing',
+  description:
+    "Chrome keeps a window's tabs in a strip across the top and shows only the active tab's page below it. With 150 tabs open, each tab shrinks to a sliver. Closing the active tab makes a neighboring tab active.",
   viewport: { w: 1024, h: 640 },
   root: {
     id: 'chrome-window',
@@ -239,6 +255,8 @@ export const PHOTOSHOP_PANELS: Preset = {
   id: 'photoshop-panel-dock',
   source: 'Photoshop 2024: tabbed panel groups docked right of the canvas, one torn out floating',
   stress: 'stacks nested in a strip, and a tab leaving its stack to float over the workspace',
+  description:
+    'Photoshop docks its panels to the right of the document in groups, each showing one panel at a time behind a row of tabs, such as Layers, Channels and Paths. Users click a tab to switch panels, drag a tab to another group, or drag it out of the dock to make a floating panel, here the Color panel, that hovers over the document.',
   viewport: { w: 800, h: 520 },
   root: {
     id: 'ps-workspace',
@@ -283,6 +301,8 @@ export const FANCYZONES: Preset = {
   id: 'fancyzones-priority-grid',
   source: 'Windows 11 Snap Layouts / PowerToys FancyZones "priority grid"',
   stress: 'snap targets are the tiled zones, not only the container; windows float over them',
+  description:
+    'PowerToys FancyZones, Microsoft\'s free window-arranging utility for Windows, divides the screen into zones; its "priority grid" template makes three columns. Holding Shift while dragging a window shows the zones, and releasing over one snaps the window to fill it. Windows 11\'s Snap Layouts offer similar arrangements built in.',
   viewport: { w: 960, h: 560 },
   root: {
     id: 'fz-desktop',
@@ -303,6 +323,8 @@ export const TWM_ICON_MANAGER: Preset = {
   id: 'twm-icon-manager',
   source: 'X11 twm with an icon manager: iconified xterms listed as one-line entries',
   stress: 'icon size far from the window size; a dozen iconified xterms in the icon box',
+  description:
+    'twm is the classic minimal window manager for the X Window System. It can show an icon manager, a small window listing each application window as one line of text; with it, iconified windows can leave the desktop entirely and come back with a click on their line. Small programs like xclock and xload stay open in a corner of the screen.',
   viewport: { w: 1024, h: 768 },
   root: {
     id: 'twm-root',

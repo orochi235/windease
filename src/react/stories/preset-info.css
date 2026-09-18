@@ -1,0 +1,74 @@
+.preset-info {
+  max-width: 760px;
+  margin-bottom: 12px;
+  font:
+    13px / 1.5 system-ui,
+    -apple-system,
+    sans-serif;
+  color: #334155;
+}
+
+.preset-info__source {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.preset-info__description {
+  margin: 0 0 6px;
+}
+
+.preset-info__stress {
+  margin: 0 0 8px;
+  color: #64748b;
+}
+
+.preset-info__live {
+  margin: 0;
+}
+
+.preset-code {
+  max-width: 960px;
+  margin-top: 16px;
+  font:
+    13px / 1.5 system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+.preset-code__tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.preset-code__tab {
+  font: inherit;
+  padding: 4px 12px;
+  border: 1px solid #cbd5e1;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: #f1f5f9;
+  color: #475569;
+  cursor: pointer;
+}
+
+.preset-code__tab[aria-selected="true"] {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #f8fafc;
+}
+
+.preset-code__panel {
+  margin: 0;
+  max-height: 480px;
+  overflow: auto;
+  padding: 12px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font:
+    12px / 1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  border-radius: 0 4px 4px 4px;
+}

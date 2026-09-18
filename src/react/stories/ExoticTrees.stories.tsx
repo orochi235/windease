@@ -20,6 +20,8 @@ import {
 } from '../index.js';
 import '../styles.css';
 import './exotic-trees.css';
+import { PresetInfo } from './PresetInfo.js';
+import { PresetCode } from './presetCode.js';
 
 /** Both trees were saved for a bigger screen; every pixel size squeezes in proportion. */
 const VIEWPORT = { w: 960, h: 540 };
@@ -104,12 +106,7 @@ function Tree({ preset }: { preset: Preset }) {
     <Provider store={store}>
       <StrategyRegistryProvider strategies={TREE_STRATEGIES}>
         <DragProvider>
-          <dl className="xt-caption">
-            <dt>Source</dt>
-            <dd>{preset.source}</dd>
-            <dt>Stresses</dt>
-            <dd>{preset.stress}</dd>
-          </dl>
+          <PresetInfo preset={preset} />
           <div className="xt-frame">
             <Container
               parentId={asNodeId(preset.root.id)}
@@ -122,6 +119,7 @@ function Tree({ preset }: { preset: Preset }) {
           <p className="xt-readout">
             Last move: <code data-testid="xt-last-move">{last}</code>
           </p>
+          <PresetCode preset={preset} />
           <div className="xt-prose">
             <p>
               Drag a pane into a container of another kind: a horizontal split into a vertical one,

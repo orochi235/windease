@@ -40,6 +40,12 @@ export interface Preset {
   source: string;
   /** What about it stresses the library, in one line. */
   stress: string;
+  /**
+   * What the real layout is and how people use it, for a reader who has never
+   * seen the product: the regions, what a user drags or clicks, and what the
+   * product does when space runs out. Two to four sentences.
+   */
+  description: string;
   viewport: Size;
   root: PresetNode;
 }
@@ -110,4 +116,81 @@ export function presetScenario(
     options: (parent.container.config ?? {}) as Record<string, unknown>,
     ...(parent.container.state === undefined ? {} : { state: parent.container.state }),
   };
+}
+
+/** One row of {@link presetProperties}: a label and the value it reads. */
+export interface PresetProperty {
+  label: string;
+  value: string;
+}
+
+const HINT_KEYS = ['minSize', 'maxSize', 'preferredSize', 'sizing'] as const;
+const PLACEMENT_KEYS = ['size', 'span', 'pinned'] as const;
+
+/**
+ * What a preset exercises, read off its tree rather than written by hand, so
+ * it cannot drift from the preset it describes. Rows with nothing to report
+ * are left out.
+ */
+export function presetProperties(preset: Preset): PresetProperty[] {
+  const all = presetNodes(preset).map((e) => e.node);
+  const containers = all.filter((n) => n.strategy);
+  const leaves = all.filter((n) => !n.strategy);
+  let depth = 0;
+  const measure = (node: PresetNode, d: number) => {
+    depth = Math.max(depth, d);
+    for (const c of node.children ?? []) measure(c, d + 1);
+  };
+  measure(preset.root, 0);
+
+  const count = (pred: (n: PresetNode) => boolean) => all.filter(pred).length;
+  const rows: PresetProperty[] = [
+    { label: 'Viewport', value: `${preset.viewport.w} × ${preset.viewport.h}` },
+    {
+      label: 'Nodes',
+      value: `${all.length} (${containers.length} container${containers.length === 1 ? '' : 's'}, ${leaves.length} pane${leaves.length === 1 ? '' : 's'}), ${depth + 1} level${depth === 0 ? '' : 's'} deep`,
+    },
+  ];
+
+  const byStrategy = new Map<string, PresetNode[]>();
+  for (const c of containers)
+    byStrategy.set(c.strategy!, [...(byStrategy.get(c.strategy!) ?? []), c]);
+  for (const [strategy, nodes] of byStrategy) {
+    const configs = new Map<string, Set<string>>();
+    for (const n of nodes) {
+      for (const [k, v] of Object.entries(n.config ?? {})) {
+        configs.set(k, (configs.get(k) ?? new Set()).add(formatValue(v)));
+      }
+    }
+    const config = [...configs].map(([k, vs]) => `${k} ${[...vs].join(' / ')}`).join(', ');
+    rows.push({
+      label: `Strategy: ${strategy}`,
+      value: `${nodes.length} container${nodes.length === 1 ? '' : 's'}${config ? ` — ${config}` : ''}`,
+    });
+  }
+
+  for (const key of HINT_KEYS) {
+    const n = count((node) => node.hints?.[key] !== undefined);
+    if (n > 0) rows.push({ label: `hints.${key}`, value: `${n} node${n === 1 ? '' : 's'}` });
+  }
+  for (const key of PLACEMENT_KEYS) {
+    const n = count((node) => node.placement?.[key] !== undefined);
+    if (n > 0) rows.push({ label: `placement.${key}`, value: `${n} node${n === 1 ? '' : 's'}` });
+  }
+  const extras: [string, (n: PresetNode) => boolean][] = [
+    ['Locked', (n) => n.lock !== undefined && n.lock !== false],
+    ['Hidden', (n) => n.hidden === true],
+    ['Saved strategy state', (n) => n.state !== undefined],
+  ];
+  for (const [label, pred] of extras) {
+    const n = count(pred);
+    if (n > 0) rows.push({ label, value: `${n} node${n === 1 ? '' : 's'}` });
+  }
+  return rows;
+}
+
+function formatValue(v: unknown): string {
+  if (typeof v === 'number') return Number.isInteger(v) ? String(v) : v.toFixed(2);
+  if (typeof v === 'string' || typeof v === 'boolean') return String(v);
+  return JSON.stringify(v);
 }

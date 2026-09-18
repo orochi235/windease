@@ -25,6 +25,8 @@ import {
 } from '../index.js';
 import '../styles.css';
 import './exotic-grid.css';
+import { PresetInfo } from './PresetInfo.js';
+import { PresetCode } from './presetCode.js';
 
 const STRATEGIES = { grid: gridStrategy as never, strip: stripStrategy as never };
 
@@ -121,10 +123,7 @@ function PresetView({ preset }: { preset: Preset }) {
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <DragProvider>
-          <p className="xg-meta">
-            <strong>{preset.source}</strong>
-            <span>{preset.stress}</span>
-          </p>
+          <PresetInfo preset={preset} />
           <RootFrame id={rootId}>
             <Container
               parentId={rootId}
@@ -139,6 +138,7 @@ function PresetView({ preset }: { preset: Preset }) {
               <Readout key={g.id} id={asNodeId(g.id)} title={String(g.meta?.title ?? g.id)} />
             ))}
           </dl>
+          <PresetCode preset={preset} />
         </DragProvider>
       </StrategyRegistryProvider>
     </Provider>

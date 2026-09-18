@@ -8,6 +8,8 @@ import { PRESETS } from '../../test-utils/exotic/strip-scenarios.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import '../styles.css';
 import './exotic-strip.css';
+import { PresetInfo } from './PresetInfo.js';
+import { PresetCode } from './presetCode.js';
 
 const STRATEGIES = { strip: stripStrategy as never };
 
@@ -34,12 +36,7 @@ export const Presets: Story<Args> = ({ preset: presetId }) => {
   return (
     <Provider key={preset.id} store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
-        <dl className="xs-caption">
-          <dt>Source</dt>
-          <dd data-testid="xs-source">{preset.source}</dd>
-          <dt>Stresses</dt>
-          <dd>{preset.stress}</dd>
-        </dl>
+        <PresetInfo preset={preset} />
         <div className="xs-frame">
           <Container
             parentId={asNodeId(preset.root.id)}
@@ -49,6 +46,7 @@ export const Presets: Story<Args> = ({ preset: presetId }) => {
             className="windease-zone xs-zone"
           />
         </div>
+        <PresetCode preset={preset} />
       </StrategyRegistryProvider>
     </Provider>
   );

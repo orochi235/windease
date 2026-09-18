@@ -16,6 +16,8 @@ import { presetToStore } from '../../test-utils/exotic/preset.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './exotic-pack.css';
 import './windease.css';
+import { PresetInfo } from './PresetInfo.js';
+import { PresetCode } from './presetCode.js';
 
 const PACK: Record<PackerId, LayoutStrategy<void, string>> = {
   shelf: shelfStrategy,
@@ -74,17 +76,15 @@ export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <section className="exotic-pack" aria-label="Exotic pack scenario">
-          <dl className="exotic-pack__facts">
-            <dt>Source</dt>
-            <dd>{preset.source}</dd>
-            <dt>Stress</dt>
-            <dd>{preset.stress}</dd>
-            <dt>Packed</dt>
-            <dd data-testid="exotic-stats">
-              {stats.placed} placed, {stats.unplaced} unplaced, {vw}px wide, fill{' '}
-              <span className="exotic-pack__number">{stats.fill.toFixed(1)}%</span>
-            </dd>
-          </dl>
+          <PresetInfo preset={preset}>
+            <p className="preset-info__live">
+              <strong>Packed:</strong>{' '}
+              <span data-testid="exotic-stats">
+                {stats.placed} placed, {stats.unplaced} unplaced, {vw}px wide, fill{' '}
+                <span className="exotic-pack__number">{stats.fill.toFixed(1)}%</span>
+              </span>
+            </p>
+          </PresetInfo>
           <div className="exotic-pack__viewport">
             <Container
               key={`${preset.id}:${strategy}`}
@@ -95,6 +95,7 @@ export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
               className="windease-zone windease-zone--unclipped"
             />
           </div>
+          <PresetCode preset={preset} />
         </section>
       </StrategyRegistryProvider>
     </Provider>

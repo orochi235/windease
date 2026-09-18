@@ -47,23 +47,3 @@
   background: #e2e8f0;
   border-bottom: 1px solid #cbd5e1;
 }
-
-.xs-caption {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 2px 12px;
-  max-width: 720px;
-  margin: 0 0 12px;
-  font:
-    12px / 1.4 system-ui,
-    sans-serif;
-  color: #334155;
-}
-
-.xs-caption dt {
-  font-weight: 600;
-}
-
-.xs-caption dd {
-  margin: 0;
-}

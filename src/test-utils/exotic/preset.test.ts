@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { asNodeId } from '../../node.js';
-import { type Preset, presetScenario, presetToStore } from './preset.js';
+import { type Preset, presetProperties, presetScenario, presetToStore } from './preset.js';
 
 const PRESET: Preset = {
   id: 'tiny',
   source: 'test',
   stress: 'none',
+  description: 'test',
   viewport: { w: 300, h: 200 },
   root: {
     id: 'root',
@@ -48,6 +49,7 @@ describe('preset state and visibility', () => {
     id: 's',
     source: 'test',
     stress: 'none',
+    description: 'test',
     viewport: { w: 100, h: 100 },
     root: {
       id: 'root',
@@ -66,5 +68,18 @@ describe('preset state and visibility', () => {
 
   it('leaves hidden children out of the scenario', () => {
     expect(presetScenario(withState).items.map((i) => i.id)).toEqual(['a']);
+  });
+});
+
+describe('presetProperties', () => {
+  it('reads the viewport, node counts, strategies with config, and features in use', () => {
+    expect(presetProperties(PRESET)).toEqual([
+      { label: 'Viewport', value: '300 × 200' },
+      { label: 'Nodes', value: '5 (2 containers, 3 panes), 3 levels deep' },
+      { label: 'Strategy: strip', value: '1 container — axis x' },
+      { label: 'Strategy: stack', value: '1 container' },
+      { label: 'placement.size', value: '1 node' },
+      { label: 'Hidden', value: '1 node' },
+    ]);
   });
 });

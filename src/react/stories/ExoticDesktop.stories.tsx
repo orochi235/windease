@@ -26,6 +26,8 @@ import {
 } from '../index.js';
 import '../styles.css';
 import './exotic-desktop.css';
+import { PresetInfo } from './PresetInfo.js';
+import { PresetCode } from './presetCode.js';
 
 const TORN_OUT_SIZE = { w: 240, h: 260 };
 
@@ -304,6 +306,7 @@ function PresetView({ preset }: { preset: Preset }) {
         </RootFrame>
       </div>
       <Readout rootId={rootId} />
+      <PresetCode preset={preset} />
     </Provider>
   );
 }
@@ -325,10 +328,8 @@ export const Presets: Story = () => {
             ))}
           </select>
         </label>
-        <p className="xd-controls__stress" data-testid="xd-stress">
-          {preset.stress}
-        </p>
       </div>
+      <PresetInfo preset={preset} />
       <PresetView key={preset.id} preset={preset} />
     </StrategyRegistryProvider>
   );

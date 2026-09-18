@@ -12,11 +12,6 @@
   margin-left: 6px;
 }
 
-.xd-controls__stress {
-  margin: 6px 0 0;
-  color: #64748b;
-}
-
 /* Presets are sized for the screens they reproduce, often larger than the page. */
 .xd-frame {
   max-width: 100%;
