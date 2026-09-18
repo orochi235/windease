@@ -361,3 +361,122 @@ describe('placement.cell under a ContainerHost drop preview', () => {
     expect(host.layout().placements.get(asNodeId('a'))).toMatchObject({ x: 300, y: 100 });
   });
 });
+
+describe('gridStrategy — fixed cell size (config cell)', () => {
+  const ids = (n: number) => Array.from({ length: n }, (_, i) => flow(`i${i}`));
+  const CELL = { w: 64, h: 48 };
+
+  it('keeps cells their size instead of stretching them to the container', () => {
+    const r = run(ids(3), { cell: CELL, gap: 8 });
+    expect(r.placements.get('i0')).toEqual({ x: 0, y: 0, z: 0, w: 64, h: 48 });
+    expect(r.placements.get('i2')).toEqual({ x: 144, y: 0, z: 0, w: 64, h: 48 });
+    expect(r.overflow).toBeUndefined();
+  });
+
+  it('takes its columns from how many cells fit across, and wraps', () => {
+    // (400 + 8) / (64 + 8) = 5.67 → 5 columns.
+    const r = run(ids(7), { cell: CELL, gap: 8 });
+    expect(r.placements.get('i4')).toMatchObject({ x: 288, y: 0 });
+    expect(r.placements.get('i5')).toMatchObject({ x: 0, y: 56 });
+    expect(gridTiling(ids(7), { cell: CELL, gap: 8 }, { w: 400, h: 400 })).toEqual({
+      cols: 5,
+      rows: 2,
+    });
+  });
+
+  it('fits columns inside the padding', () => {
+    // (320 + 8) / 72 = 4.56 → 4 columns.
+    const r = run(ids(5), { cell: CELL, gap: 8, padding: 40 });
+    expect(r.placements.get('i4')).toMatchObject({ x: 40, y: 96 });
+  });
+
+  it('fits at least one column in a container narrower than a cell', () => {
+    const r = run(ids(2), { cell: CELL }, { w: 30, h: 400 });
+    expect(r.placements.get('i1')).toMatchObject({ x: 0, y: 48, w: 64 });
+    expect(r.overflow).toEqual({ w: 34, h: 0 });
+  });
+
+  it('caps the fitted columns at maxCols', () => {
+    expect(gridTiling(ids(6), { cell: CELL, maxCols: 3 }, { w: 400, h: 400 })).toEqual({
+      cols: 3,
+      rows: 2,
+    });
+  });
+
+  it('lets cols override the fit, reporting the width it overflows by', () => {
+    const r = run(ids(8), { cell: CELL, gap: 8, cols: 8 });
+    expect(r.placements.get('i7')).toMatchObject({ x: 504, y: 0 });
+    expect(r.overflow).toEqual({ w: 168, h: 0 });
+  });
+
+  it('reports rows past the container as overflow, or unplaces them on request', () => {
+    const items = ids(12);
+    const opts = { cell: { w: 100, h: 150 } };
+    expect(run(items, opts).overflow).toEqual({ w: 0, h: 50 });
+    const cut = run(items, { ...opts, overflowMode: 'unplaced' });
+    expect(cut.unplaced).toEqual(['i8', 'i9', 'i10', 'i11']);
+    expect(cut.overflow).toBeUndefined();
+  });
+
+  it('holds one row under maxRows: 1, like a dock', () => {
+    const r = run(ids(7), { cell: CELL, gap: 8, maxRows: 1 });
+    expect(r.unplaced).toEqual(['i5', 'i6']);
+  });
+
+  it('fixes one axis and divides the container on the other', () => {
+    const r = run(ids(4), { cell: { h: 48 }, cols: 2 });
+    expect(r.placements.get('i3')).toEqual({ x: 200, y: 48, z: 0, w: 200, h: 48 });
+  });
+
+  it('ignores an axis that is not a positive, finite number', () => {
+    for (const cell of [
+      { w: 0, h: 0 },
+      { w: Number.NaN },
+      { w: -5, h: Number.POSITIVE_INFINITY },
+    ]) {
+      const r = run(ids(4), { cell, cols: 2 });
+      expect(r.placements.get('i3')).toEqual({ x: 200, y: 200, z: 0, w: 200, h: 200 });
+    }
+  });
+
+  it('ignores minSize floors, since the cell size is stated', () => {
+    const items = ids(2).map((it) => ({ ...it, hints: { minSize: { w: 300, h: 300 } } }));
+    const r = run(items, { cell: CELL, overflowMode: 'scroll' });
+    expect(r.placements.get('i1')).toMatchObject({ x: 64, w: 64, h: 48 });
+  });
+
+  it('spans whole fixed cells plus the gaps between them', () => {
+    const r = run([flow('a', { cols: 2, rows: 2 })], { cell: CELL, gap: 8 });
+    expect(r.placements.get('a')).toEqual({ x: 0, y: 0, z: 0, w: 136, h: 104 });
+  });
+
+  it('auto-balances when gridTiling has no container to fit into', () => {
+    expect(gridTiling(ids(4), { cell: CELL })).toEqual({ cols: 2, rows: 2 });
+  });
+
+  it('resolves a seam drag in fixed-cell steps', () => {
+    const s = new Store();
+    const z = asNodeId('z');
+    const opts = { cell: CELL, gap: 8, resizable: true, maxRows: 2 };
+    s.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'grid', config: opts }, id: z }),
+    );
+    for (const id of ['a', 'b']) {
+      s.registerNode(createNode({ kind: 'panel', id: asNodeId(id), parentId: z }));
+    }
+    const items = [flow('a'), flow('b')];
+    const affordance = run(items, opts).affordances.find((a) => a.id === 'resize-x-a');
+    if (!affordance) throw new Error('no seam');
+    gridStrategy.dispatchAffordance?.({
+      event: { affordanceId: affordance.id, kind: 'drag', payload: { point: { x: 210, y: 10 } } },
+      affordance,
+      store: s,
+      parentId: z,
+      container: { w: 400, h: 400 },
+      options: opts,
+      items,
+    });
+    // 210px from the origin is nearest three 72px strides.
+    expect(s.getPlacement(asNodeId('a')).span).toEqual({ cols: 3 });
+  });
+});

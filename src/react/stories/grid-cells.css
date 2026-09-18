@@ -55,3 +55,33 @@
     sans-serif;
   color: #64748b;
 }
+
+.gc-springboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 480px;
+}
+
+.gc-dock {
+  border-radius: 20px;
+  background: #e2e8f0;
+}
+
+.gc-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border-radius: 14px;
+  background: #3b82f6;
+  color: #fff;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  font:
+    600 10px / 1 system-ui,
+    sans-serif;
+}

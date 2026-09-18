@@ -5,8 +5,9 @@
  * A strategy that declares a `configSpec` gets those reported instead.
  */
 
-/** What one config key accepts: a primitive type, or the set of allowed values. */
-export type ConfigFieldSpec = 'number' | 'boolean' | 'string' | readonly string[];
+/** What one config key accepts: a primitive type, a plain object (whose keys
+ *  the strategy checks itself), or the set of allowed values. */
+export type ConfigFieldSpec = 'number' | 'boolean' | 'string' | 'object' | readonly string[];
 
 /** Every key a strategy understands. Keys absent from the config are fine —
  *  strategy config is optional throughout. */
@@ -66,6 +67,19 @@ function list(keys: readonly string[]): string {
   return `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`;
 }
 
+function kindOf(value: unknown): string {
+  if (value === null) return 'null';
+  return Array.isArray(value) ? 'array' : typeof value;
+}
+
+function article(word: string): string {
+  return word === 'null' ? word : `${/^[aeiou]/.test(word) ? 'an' : 'a'} ${word}`;
+}
+
+function isPlainObject(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function describe(spec: ConfigFieldSpec): string {
   return Array.isArray(spec) ? spec.map((v) => `'${v}'`).join(' | ') : String(spec);
 }
@@ -107,9 +121,9 @@ export function checkStrategyConfig(
       }
       continue;
     }
-    if (typeof value !== field) {
+    if (field === 'object' ? !isPlainObject(value) : typeof value !== field) {
       problems.push(
-        `${strategyName}: config '${key}' is a ${typeof value}, expected a ${String(field)}`,
+        `${strategyName}: config '${key}' is ${article(kindOf(value))}, expected ${article(String(field))}`,
       );
     } else if (typeof value === 'number' && !Number.isFinite(value)) {
       problems.push(`${strategyName}: config '${key}' is ${value}, expected a finite number`);

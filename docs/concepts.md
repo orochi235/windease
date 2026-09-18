@@ -327,7 +327,9 @@ Built-ins:
 
 - **`gridStrategy`** — `cols`, `rows`, `orientation`, `maxCols`, `maxRows`,
   `maxItems`, `gap`, `padding`. `maxItems` mutually exclusive with
-  `maxCols`/`maxRows`.
+  `maxCols`/`maxRows`. `cell: { w?, h? }` fixes the cell size in pixels instead
+  of dividing the container; a fixed `w` with no `cols` fits as many columns as
+  the width holds. Reads child `placement.span` and `placement.cell`.
 - **`stripStrategy`** — children share one axis: `axis` ('x' or 'y'), `fill`,
   `defaultItemSize`, `gap`, `padding`, `maxItems`. Strip covers both axes, so
   `{ axis: 'y', fill: true }` replaces the axis-stacking strategy removed in

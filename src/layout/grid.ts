@@ -67,6 +67,40 @@ interface GridConfig {
    * widen a cell.
    */
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
+  /**
+   * Fixed cell size in pixels, per axis. A fixed axis keeps its cells that size
+   * instead of dividing the container among them, and with a fixed `w` and no
+   * `cols` the column count is however many cells fit across the container.
+   * Rows past the container's height are `overflow`, or `unplaced` under
+   * `overflowMode: 'unplaced'`; `hints.minSize` floors are not read.
+   */
+  cell?: { w?: number; h?: number };
+}
+
+/** The positive, finite axes of `cfg.cell`, which are the ones that are fixed. */
+function fixedCell(cfg: GridConfig): { w: number | undefined; h: number | undefined } {
+  const read = (v: unknown) =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined;
+  return { w: read(cfg.cell?.w), h: read(cfg.cell?.h) };
+}
+
+/**
+ * The column count a fixed cell width fits across the container, capped by
+ * `maxCols`. Undefined when columns are not derived from the width: `cols` is
+ * set, the width isn't fixed, or there is no container to fit into.
+ */
+function fitCols(cfg: GridConfig, dims: GridDims, container: Size | undefined): number | undefined {
+  if (dims.cols !== undefined) return undefined;
+  const w = fixedCell(cfg).w;
+  if (w === undefined) return undefined;
+  if (!container) {
+    trace('layout', 'grid: cell.w without cols needs a container to fit columns; auto-balancing');
+    return undefined;
+  }
+  const gap = cfg.gap ?? 0;
+  const usableW = container.w - 2 * (cfg.padding ?? 0);
+  const fit = Math.max(1, Math.floor((usableW + gap) / (w + gap)));
+  return dims.maxCols !== undefined ? Math.min(fit, dims.maxCols) : fit;
 }
 
 /** An item's `placement.cell`, floored — or undefined when it has none, or
@@ -356,14 +390,16 @@ function explicitReach(items: LayoutItem[]): number {
 
 /**
  * Cols, rows and cell reservations — the whole tiling, which grid derives from
- * the item count, their spans and the config alone. The container never enters
- * here; it only divides the result into cells. `layout`, `gridGeometry` and the
+ * the item count, their spans and the config alone. The container enters only
+ * to count how many fixed-width cells fit across it; otherwise it just divides
+ * the result into cells. `layout`, `gridGeometry` and the
  * public `gridTiling` all resolve dimensions through this, so the three cannot
  * disagree about which item is in which cell.
  */
 function resolveTiling(
   items: LayoutItem[],
   cfg: GridConfig,
+  container?: Size,
 ): {
   cols: number;
   rows: number;
@@ -373,7 +409,11 @@ function resolveTiling(
 } {
   const dims = readDims(cfg);
   const fill = cfg.fill ?? true;
-  const resolved = resolveDims(items, dims, fill, cfg.orientation ?? 'wide');
+  const fit = fitCols(cfg, dims, container);
+  const resolved =
+    fit !== undefined
+      ? { cols: fit, rowCap: dims.rows ?? dims.maxRows, colLimit: fit }
+      : resolveDims(items, dims, fill, cfg.orientation ?? 'wide');
   const { rowCap, colLimit } = resolved;
   let cols = Math.min(colLimit, Math.max(resolved.cols, explicitReach(items)));
   const itemCap = dims.maxItems ?? Number.POSITIVE_INFINITY;
@@ -425,8 +465,10 @@ function resolveTiling(
 }
 
 /**
- * The tiling `options` produces for `items`: how many columns and rows, with
- * no container involved. A host that sizes a grid from its content — rows
+ * The tiling `options` produces for `items`: how many columns and rows. It
+ * needs `container` only for a fixed `cell.w` with no `cols`, whose column
+ * count is however many cells fit across; without one that config
+ * auto-balances instead. A host that sizes a grid from its content — rows
  * times a row height it chooses itself — reads the counts here instead of
  * laying out at a throwaway height and inverting the cell arithmetic to
  * recover them. Grid has no opinion about row height, so it reports counts
@@ -440,9 +482,10 @@ function resolveTiling(
 export function gridTiling(
   items: LayoutItem[],
   options: Record<string, unknown> = {},
+  container?: Size,
 ): { cols: number; rows: number } {
   if (items.length === 0) return { cols: 0, rows: 0 };
-  const { cols, rows } = resolveTiling(items, options as GridConfig);
+  const { cols, rows } = resolveTiling(items, options as GridConfig, container);
   return { cols, rows };
 }
 
@@ -468,13 +511,14 @@ function gridGeometry(
   if (items.length === 0) return null;
   const gap = cfg.gap ?? 0;
   const padding = cfg.padding ?? 0;
-  const tiling = resolveTiling(items, cfg);
+  const tiling = resolveTiling(items, cfg, container);
+  const fixed = fixedCell(cfg);
   const usableW = container.w - 2 * padding;
   const usableH = container.h - 2 * padding;
   return {
     ...tiling,
-    cellW: (usableW - gap * (tiling.cols - 1)) / tiling.cols,
-    cellH: (usableH - gap * (tiling.rows - 1)) / tiling.rows,
+    cellW: fixed.w ?? (usableW - gap * (tiling.cols - 1)) / tiling.cols,
+    cellH: fixed.h ?? (usableH - gap * (tiling.rows - 1)) / tiling.rows,
   };
 }
 
@@ -620,6 +664,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     padding: 'number',
     resizable: 'boolean',
     overflowMode: ['squeeze', 'scroll', 'unplaced'],
+    cell: 'object',
   },
   configConflicts: [
     { kind: 'exclusive', keys: ['maxItems', 'maxCols', 'maxRows'] },
@@ -695,7 +740,8 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       return empty;
     }
 
-    const { cols, rows, rowCap, itemCap, cells } = resolveTiling(items, cfg);
+    const { cols, rows, rowCap, itemCap, cells } = resolveTiling(items, cfg, container);
+    const fixed = fixedCell(cfg);
     const unplaced = items.filter((it) => !cells.has(it.id)).map((it) => it.id);
     traceCells(items, cells, cols, rowCap);
 
@@ -707,7 +753,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     const floorW = floor('w');
     const floorH = floor('h');
 
-    const heightFor = (r: number) => Math.max((usableH - gap * (r - 1)) / r, floorH);
+    const heightFor = (r: number) => fixed.h ?? Math.max((usableH - gap * (r - 1)) / r, floorH);
     let rowsUsed = rows;
     let cellH = heightFor(rowsUsed);
 
@@ -723,7 +769,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       cellH = heightFor(rowsUsed);
     }
 
-    const cellW = Math.max((usableW - gap * (cols - 1)) / cols, floorW);
+    const cellW = fixed.w ?? Math.max((usableW - gap * (cols - 1)) / cols, floorW);
     const excessW = Math.max(0, cellW * cols + gap * (cols - 1) - usableW);
     const excessH = Math.max(0, cellH * rowsUsed + gap * (rowsUsed - 1) - usableH);
 

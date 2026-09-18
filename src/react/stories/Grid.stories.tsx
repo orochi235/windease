@@ -378,3 +378,92 @@ export const PeriodicTable: Story = () => {
     </Provider>
   );
 };
+
+const LIBRARY = asNodeId('app-library');
+const DOCK = asNodeId('dock');
+const ICON = { w: 56, h: 56 };
+const APPS = [
+  'Mail',
+  'Maps',
+  'Music',
+  'Notes',
+  'Photos',
+  'Clock',
+  'News',
+  'Books',
+  'Files',
+  'Home',
+];
+const DOCKED = ['Phone', 'Safari', 'Messages', 'Camera'];
+
+function dockStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'grid', config: { cell: ICON, gap: 12, padding: 12 } },
+      id: LIBRARY,
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: {
+        strategyId: 'grid',
+        config: { cell: ICON, gap: 12, padding: 12, maxItems: 5 },
+      },
+      id: DOCK,
+    }),
+  );
+  for (const [names, parentId] of [
+    [APPS, LIBRARY],
+    [DOCKED, DOCK],
+  ] as const) {
+    for (const name of names) {
+      const id = asNodeId(name.toLowerCase());
+      s.registerNode(
+        createNode({ kind: 'panel', focus: true, id, parentId, meta: { title: name } }),
+      );
+      s.showNode(id);
+    }
+  }
+  return s;
+}
+
+const iconChrome: ChromeMap = {
+  panel: ({ node }) => (
+    <DragHandle nodeId={node.id} className="gc-icon">
+      {String(node.meta?.title ?? node.id)}
+    </DragHandle>
+  ),
+};
+
+/** Both grids set `cell: { w: 56, h: 56 }`, so an icon stays 56px square
+ *  however wide its grid is, and the columns are however many icons fit
+ *  across. Drag icons between the library and the dock; the dock's
+ *  `maxItems: 5` refuses a sixth. */
+export const Dock: Story = () => {
+  const store = useMemo(() => dockStore(), []);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <DragProvider>
+          <div className="gc-springboard">
+            <Container
+              parentId={LIBRARY}
+              chrome={iconChrome}
+              viewport={{ w: 480, h: 220 }}
+              className="windease-zone"
+            />
+            <Container
+              parentId={DOCK}
+              chrome={iconChrome}
+              viewport={{ w: 480, h: 80 }}
+              className="windease-zone gc-dock"
+            />
+          </div>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};

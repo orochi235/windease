@@ -6,6 +6,7 @@ const SPEC: ConfigSpec = {
   gap: 'number',
   fill: 'boolean',
   label: 'string',
+  cell: 'object',
 };
 
 describe('checkStrategyConfig', () => {
@@ -40,6 +41,19 @@ describe('checkStrategyConfig', () => {
     expect(problem).toContain('gap');
     expect(problem).toContain('number');
     expect(problem).toContain('string');
+  });
+
+  it('accepts a plain object where the spec says object, and nothing else', () => {
+    expect(checkStrategyConfig('grid', { cell: { w: 64 } }, SPEC)).toEqual([]);
+    expect(checkStrategyConfig('grid', { cell: 64 }, SPEC)).toEqual([
+      "grid: config 'cell' is a number, expected an object",
+    ]);
+    expect(checkStrategyConfig('grid', { cell: [64, 64] }, SPEC)).toEqual([
+      "grid: config 'cell' is an array, expected an object",
+    ]);
+    expect(checkStrategyConfig('grid', { cell: null }, SPEC)).toEqual([
+      "grid: config 'cell' is null, expected an object",
+    ]);
   });
 
   it('catches a number that is not finite', () => {

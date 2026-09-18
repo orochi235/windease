@@ -543,6 +543,25 @@ cell would override it, so a dragged celled child would otherwise not move at
 all. Dragging one therefore drops it into the flow at the index it lands on.
 `setChildOrder` leaves cells alone, since it arranges every child at once.
 
+### Cells of a fixed size
+
+By default a grid divides its container among its cells. `cell: { w, h }` in
+the config fixes their size instead, the way an iOS dock's icons stay one size
+however wide the dock is. With a fixed `w` and no `cols`, the column count is
+however many cells fit across the container, and the items wrap into rows.
+
+```ts
+{ strategyId: 'grid', config: { cell: { w: 56, h: 56 }, gap: 12, maxItems: 5 } }
+```
+
+Either axis can be fixed alone; the other still divides the container. Rows
+past the container's height are reported as `overflow`, or sent to `unplaced`
+under `overflowMode: 'unplaced'`. `hints.minSize` floors are not read, since
+the size is stated. `canAccept` has no container to fit columns into, so it
+cannot refuse a drop by width: set `maxItems` (or `cols` with `maxRows`) when a
+drop must be refused. `gridTiling(items, config, container)` takes the
+container for the same reason.
+
 ## Letting CSS do the layout
 
 A container that declares `hints.render: 'flow'` runs no strategy. Its children

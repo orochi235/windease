@@ -16,6 +16,14 @@ section below.
   cell that collides or falls outside a capped grid goes to `unplaced`. A move
   or reorder clears `cell`, so dragging a celled child drops it into the flow.
 
+- **Grid cells can keep a fixed size.** `cell: { w, h }` in the grid config
+  stops cells stretching to fill the container; with a fixed width and no
+  `cols`, the grid fits as many columns as the width holds and wraps the rest.
+  `gridTiling` takes an optional container for that fit.
+
+- **`ConfigSpec` accepts `'object'`** for a config key that holds a plain
+  object, such as grid's `cell`.
+
 ### Fixed
 
 - **A grid's drop preview keeps its children's spans.** The fast preview path
