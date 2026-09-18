@@ -5,8 +5,7 @@ import { boxOf, centerOf, openStory, settledBox } from './fixtures.js';
 /**
  * Real-software strip layouts driven by a real pointer. Each preset is one
  * pick of the story's `preset` arg, which Ladle reads from `arg-preset`.
- * Tests marked `test.fail` assert the correct behavior of a known defect;
- * `src/layout/strip.exotic.test.ts` pins the same defects headlessly.
+ * `src/layout/strip.exotic.test.ts` checks the same presets headlessly.
  */
 
 const STORY = 'exotic--strip--presets';
@@ -196,9 +195,7 @@ test.describe('firefox with 100 tabs', () => {
   });
 });
 
-test.describe('known defects, asserted as the correct behavior', () => {
-  // Defect: a neighbor drag beside a pane stored under its floor clamps across
-  // zero and moves the seam the other way.
+test.describe('panes stored below their floor, capped, hinted or squeezed', () => {
   test('acme: dragging down from a tag-line window never shrinks it', async ({ page }) => {
     await openPreset(page, 'acme-column');
     const before = await boxOf(pane(page, 'mkfile'));
@@ -208,15 +205,12 @@ test.describe('known defects, asserted as the correct behavior', () => {
     expect((await settledBox(pane(page, 'mkfile'))).h).toBeGreaterThanOrEqual(before.h - 0.5);
   });
 
-  // Defect: the first drag moves the row onto the stored-size path, which
-  // ignores preferredSize, so untouched panes take an equal share.
   test('vscode: dragging the explorer seam leaves the activity bar at 48px', async ({ page }) => {
     await openPreset(page, 'vscode-hinted-sidebars');
     await dragSeam(page, 'resize-x-vh-sidebar', 16, 'x');
     expect((await settledBox(pane(page, 'vh-activity'))).w).toBeCloseTo(48, 0);
   });
 
-  // Defect: a neighbor drag writes squeezed sizes for two panes, so the whole row rescales.
   test('xcode: dragging the navigator seam leaves the inspector alone', async ({ page }) => {
     await openPreset(page, 'xcode-restored-on-laptop');
     const inspector = await boxOf(pane(page, 'xc-inspector'));
@@ -224,8 +218,7 @@ test.describe('known defects, asserted as the correct behavior', () => {
     expect((await settledBox(pane(page, 'xc-inspector'))).w).toBeCloseTo(inspector.w, 0);
   });
 
-  // Defect: maxSize is not applied to a pane with no stored size.
-  test('obsidian: the note stops at its 700px cap, and its seam follows the pointer', async ({
+  test('obsidian: the note stops at its 700px cap, and pushing into it never jumps the seam', async ({
     page,
   }) => {
     await openPreset(page, 'obsidian-readable-line');
@@ -235,7 +228,6 @@ test.describe('known defects, asserted as the correct behavior', () => {
     expect((await settledBox(pane(page, 'ob-files'))).w).toBeLessThanOrEqual(files.w);
   });
 
-  // Defect: a redistribute drag on a pane stored under its floor jumps it to the floor.
   test('photoshop: dragging a minimized group smaller never grows it', async ({ page }) => {
     await openPreset(page, 'photoshop-minimized-group');
     const before = await boxOf(pane(page, 'ps-properties'));
@@ -243,7 +235,6 @@ test.describe('known defects, asserted as the correct behavior', () => {
     expect((await settledBox(pane(page, 'ps-properties'))).h).toBeLessThanOrEqual(before.h + 0.5);
   });
 
-  // Defect: leftover is split equally, so the thread's larger floor overflows a row that fits.
   test('slack: channel and thread both fit inside the window', async ({ page }) => {
     await openPreset(page, 'slack-thread-open');
     // The zone widens itself by any reported overflow, so measure against the window.
