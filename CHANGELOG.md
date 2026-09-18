@@ -102,7 +102,30 @@ section below.
 - **A config spec can list booleans beside strings**, as `drag: [true, false,
   'x', 'y']` does.
 
+- **A grid child can sit at a given cell.** `placement.cell: { col, row }`
+  puts a child's top-left corner at that zero-based cell, the way a Grafana
+  panel sits at its `gridPos`; the rest flow into the free cells in order. A
+  cell that collides or falls outside a capped grid goes to `unplaced`. A move
+  or reorder clears `cell`, so dragging a celled child drops it into the flow.
+
+- **Grid cells can keep a fixed size.** `cell: { w, h }` in the grid config
+  stops cells stretching to fill the container; with a fixed width and no
+  `cols`, the grid fits as many columns as the width holds and wraps the rest.
+  `gridTiling` takes an optional container for that fit.
+
+- **Grid `justify` places the leftover width.** When the occupied columns don't
+  span the container, `justify: 'start' | 'center' | 'end' | 'between' |
+  'evenly'` puts the leftover before, around or between whole columns, so an
+  iOS-style dock spaces its icons evenly.
+
+- **`ConfigSpec` accepts `'object'`** for a config key that holds a plain
+  object, such as grid's `cell`.
+
 ### Fixed
+
+- **A grid's drop preview keeps its children's spans.** The fast preview path
+  handed the strategy bare ids, so every child previewed as one cell while a
+  drag hovered.
 
 - **A preset's own render error is no longer reported as an id collision.**
   When a `<Panel>` or `<Zone>` threw while rendering — `pinned` passed inside

@@ -53,11 +53,15 @@ export interface LayoutItem {
    * `share` is a fraction of the main-axis extent the pixel-sized panes leave,
    * so it keeps its proportion when the container resizes. `stripStrategy`
    * reads it; `size` on the main axis outranks it.
+   *
+   * `cell` is the zero-based grid cell an item's top-left corner sits in,
+   * instead of wherever the flow puts it. Only `gridStrategy` reads it.
    */
   placement?: {
     size?: { w?: number; h?: number };
     span?: { cols?: number; rows?: number };
     share?: number;
+    cell?: { col: number; row: number };
   };
   /**
    * The node's whole `membership.placement` bag, projected by

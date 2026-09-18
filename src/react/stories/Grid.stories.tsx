@@ -1,11 +1,19 @@
 export default { title: 'Grid' };
 
 import type { Story } from '@ladle/react';
-import { useMemo } from 'react';
-import type { LayoutItem } from '../../index.js';
+import { useMemo, useState } from 'react';
+import type { LayoutItem, NodeId } from '../../index.js';
 import { asNodeId, createNode, gridStrategy, gridTiling, Store } from '../../index.js';
-import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
+import {
+  type ChromeMap,
+  Container,
+  DragHandle,
+  DragProvider,
+  Provider,
+  StrategyRegistryProvider,
+} from '../index.js';
 import './windease.css';
+import './grid-cells.css';
 
 const STRATEGIES = {
   grid: gridStrategy as never,
@@ -227,4 +235,244 @@ ContentSizedGrid.args = {
 ContentSizedGrid.argTypes = {
   tileCount: { control: { type: 'range', min: 0, max: 16, step: 1 } },
   width: { control: { type: 'range', min: 200, max: 900, step: 20 } },
+};
+
+/** Periods 1–3: [symbol, group column, period row], zero-based. */
+const ELEMENTS: readonly [string, number, number][] = [
+  ['H', 0, 0],
+  ['He', 17, 0],
+  ['Li', 0, 1],
+  ['Be', 1, 1],
+  ['B', 12, 1],
+  ['C', 13, 1],
+  ['N', 14, 1],
+  ['O', 15, 1],
+  ['F', 16, 1],
+  ['Ne', 17, 1],
+  ['Na', 0, 2],
+  ['Mg', 1, 2],
+  ['Al', 12, 2],
+  ['Si', 13, 2],
+  ['P', 14, 2],
+  ['S', 15, 2],
+  ['Cl', 16, 2],
+  ['Ar', 17, 2],
+];
+
+const TABLE = asNodeId('periodic-table');
+
+function periodicStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'grid', config: { cols: 18, gap: 4, padding: 8 } },
+      id: TABLE,
+    }),
+  );
+  ELEMENTS.forEach(([symbol, col, row], i) => {
+    const id = asNodeId(symbol.toLowerCase());
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id,
+        parentId: TABLE,
+        meta: { title: symbol, number: i + 1 },
+      }),
+    );
+    s.patchPlacement(id, { cell: { col, row } });
+    s.showNode(id);
+  });
+  return s;
+}
+
+const elementChrome: ChromeMap = {
+  panel: ({ node }) => (
+    <DragHandle nodeId={node.id} className="gc-element">
+      <span className="gc-element__number">{String(node.meta?.number ?? '')}</span>
+      <span className="gc-element__symbol">{String(node.meta?.title ?? node.id)}</span>
+    </DragHandle>
+  ),
+};
+
+/** Every element holds `placement.cell` at its group and period, so the gaps
+ *  in periods 1–3 stay open. Move one with the form: a cell someone already
+ *  holds, or past column 17, sends it to the unplaced list. Drag one, and the
+ *  move clears its cell, so it drops into the first free cell of the flow. */
+export const PeriodicTable: Story = () => {
+  const [generation, setGeneration] = useState(0);
+  const store = useMemo(() => {
+    void generation;
+    return periodicStore();
+  }, [generation]);
+  const [target, setTarget] = useState('ne');
+  const [col, setCol] = useState(17);
+  const [row, setRow] = useState(0);
+
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <DragProvider>
+          <form
+            className="gc-controls"
+            onSubmit={(e) => {
+              e.preventDefault();
+              store.patchPlacement(target as NodeId, { cell: { col, row } });
+            }}
+          >
+            <label>
+              Element{' '}
+              <select
+                data-testid="cell-target"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+              >
+                {ELEMENTS.map(([symbol]) => (
+                  <option key={symbol} value={symbol.toLowerCase()}>
+                    {symbol}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Column{' '}
+              <input
+                data-testid="cell-col"
+                type="number"
+                min={0}
+                value={col}
+                onChange={(e) => setCol(Number(e.target.value))}
+              />
+            </label>
+            <label>
+              Row{' '}
+              <input
+                data-testid="cell-row"
+                type="number"
+                min={0}
+                value={row}
+                onChange={(e) => setRow(Number(e.target.value))}
+              />
+            </label>
+            <button type="submit">Place</button>
+            <button type="button" onClick={() => setGeneration((g) => g + 1)}>
+              Reset
+            </button>
+          </form>
+          <div className="gc-table">
+            <Container
+              parentId={TABLE}
+              chrome={elementChrome}
+              viewport={{ w: 760, h: 150 }}
+              className="windease-zone"
+              overlay={({ unplaced }) => (
+                <p className="gc-unplaced" data-testid="unplaced">
+                  Unplaced: {unplaced.length > 0 ? unplaced.join(', ') : 'none'}
+                </p>
+              )}
+            />
+          </div>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+const LIBRARY = asNodeId('app-library');
+const DOCK = asNodeId('dock');
+const ICON = { w: 56, h: 56 };
+const APPS = [
+  'Mail',
+  'Maps',
+  'Music',
+  'Notes',
+  'Photos',
+  'Clock',
+  'News',
+  'Books',
+  'Files',
+  'Home',
+];
+const DOCKED = ['Phone', 'Safari', 'Messages', 'Camera'];
+
+type Justify = 'start' | 'center' | 'end' | 'between' | 'evenly';
+
+function dockStore(justify: Justify): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'grid', config: { cell: ICON, gap: 12, padding: 12 } },
+      id: LIBRARY,
+    }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: {
+        strategyId: 'grid',
+        config: { cell: ICON, gap: 12, padding: 12, maxItems: 5, justify },
+      },
+      id: DOCK,
+    }),
+  );
+  for (const [names, parentId] of [
+    [APPS, LIBRARY],
+    [DOCKED, DOCK],
+  ] as const) {
+    for (const name of names) {
+      const id = asNodeId(name.toLowerCase());
+      s.registerNode(
+        createNode({ kind: 'panel', focus: true, id, parentId, meta: { title: name } }),
+      );
+      s.showNode(id);
+    }
+  }
+  return s;
+}
+
+const iconChrome: ChromeMap = {
+  panel: ({ node }) => (
+    <DragHandle nodeId={node.id} className="gc-icon">
+      {String(node.meta?.title ?? node.id)}
+    </DragHandle>
+  ),
+};
+
+/** Both grids set `cell: { w: 56, h: 56 }`, so an icon stays 56px square
+ *  however wide its grid is, and the columns are however many icons fit
+ *  across. The dock's `justify` spaces its icons across the leftover width —
+ *  `'evenly'`, as iOS does. Drag icons between the library and the dock; the
+ *  dock's `maxItems: 5` refuses a sixth. */
+export const Dock: Story<{ justify: Justify }> = ({ justify }) => {
+  const store = useMemo(() => dockStore(justify), [justify]);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <DragProvider>
+          <div className="gc-springboard">
+            <Container
+              parentId={LIBRARY}
+              chrome={iconChrome}
+              viewport={{ w: 480, h: 220 }}
+              className="windease-zone"
+            />
+            <Container
+              parentId={DOCK}
+              chrome={iconChrome}
+              viewport={{ w: 480, h: 80 }}
+              className="windease-zone gc-dock"
+            />
+          </div>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+Dock.args = { justify: 'evenly' };
+
+Dock.argTypes = {
+  justify: { options: ['start', 'center', 'end', 'between', 'evenly'], control: { type: 'radio' } },
 };

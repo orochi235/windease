@@ -540,6 +540,69 @@ const { placements, overflow } = skylineStrategy.layout({
 });
 ```
 
+## Putting a grid child at a cell
+
+`gridStrategy` normally flows its children into cells in order. A child whose
+placement holds `cell: { col, row }` sits at that cell instead, the way a
+Grafana panel sits at its `gridPos` or an element at its place in the periodic
+table. The cell is zero-based and names the child's top-left corner; its `span`
+still sets how many cells it covers.
+
+```ts
+store.patchPlacement(heliumId, { cell: { col: 17, row: 0 } });
+```
+
+Celled children reserve their cells first, and the rest flow into the free
+cells in order. A grid with no column cap grows wide enough to reach the
+furthest cell. A cell that overlaps one already taken goes to `unplaced`, and
+so does one outside a capped grid (`cols`, `maxCols`, `rows` or `maxRows`); the
+earlier child in `childOrder` keeps a contested cell. A span that would run
+past a capped edge is cut short at it. Turn on the `layout` trace to see which
+cells were refused and why.
+
+A move or reorder clears `cell`. Both commit a position in `childOrder`, and a
+cell would override it, so a dragged celled child would otherwise not move at
+all. Dragging one therefore drops it into the flow at the index it lands on.
+`setChildOrder` leaves cells alone, since it arranges every child at once.
+
+### Cells of a fixed size
+
+By default a grid divides its container among its cells. `cell: { w, h }` in
+the config fixes their size instead, the way an iOS dock's icons stay one size
+however wide the dock is. With a fixed `w` and no `cols`, the column count is
+however many cells fit across the container, and the items wrap into rows.
+
+```ts
+{ strategyId: 'grid', config: { cell: { w: 56, h: 56 }, gap: 12, maxItems: 5 } }
+```
+
+Either axis can be fixed alone; the other still divides the container. Rows
+past the container's height are reported as `overflow`, or sent to `unplaced`
+under `overflowMode: 'unplaced'`. `hints.minSize` floors are not read, since
+the size is stated. `canAccept` has no container to fit columns into, so it
+cannot refuse a drop by width: set `maxItems` (or `cols` with `maxRows`) when a
+drop must be refused. `gridTiling(items, config, container)` takes the
+container for the same reason.
+
+### Where leftover width goes
+
+When the occupied columns don't span the container — fixed cells narrower
+than it, or trailing columns nothing sits in under `fill: false` or a set
+`cols` — `justify` decides where the leftover width goes:
+
+| `justify`         | Leftover width goes                                   |
+| ----------------- | ----------------------------------------------------- |
+| `'start'` (default) | after the last column                               |
+| `'center'`        | half before the first column, half after the last     |
+| `'end'`           | before the first column                               |
+| `'between'`       | between columns, none at the edges                    |
+| `'evenly'`        | into equal spaces between columns and at both edges   |
+
+An iOS dock is `justify: 'evenly'` over fixed cells. Whole columns move, so a
+short last row stays aligned under the first, and a span widens by the extra
+space between the columns it covers. `justify` is horizontal only, and content
+wider than the container stays at the start.
+
 ## Letting CSS do the layout
 
 A container that declares `hints.render: 'flow'` runs no strategy. Its children

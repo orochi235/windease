@@ -121,6 +121,13 @@ Two paths for free-form data on a node; lifetimes differ:
   same key doesn't mean two different units depending on which strategy the
   parent runs. A span wider than the grid's `cols` (or taller than a fixed
   `rows`/`maxRows`) clamps rather than overflowing the container.
+- `cell: { col, row }` — the zero-based grid **cell** a node's top-left corner
+  sits at, honored by `grid` only; parent-relative like `span`. Celled nodes
+  reserve their cells first and the rest flow around them. A cell that
+  collides with one already taken, or lies outside a capped grid, sends the
+  node to `unplaced`. Unlike the other keys, a move or reorder **clears** it:
+  both commit a `childOrder` index the cell would override, and across parents
+  it names a cell in the old grid. `setChildOrder` leaves it alone.
 
 **Reserved key on `node.meta`:**
 
@@ -341,7 +348,11 @@ Built-ins:
 
 - **`gridStrategy`** — `cols`, `rows`, `orientation`, `maxCols`, `maxRows`,
   `maxItems`, `gap`, `padding`. `maxItems` mutually exclusive with
-  `maxCols`/`maxRows`.
+  `maxCols`/`maxRows`. `cell: { w?, h? }` fixes the cell size in pixels instead
+  of dividing the container; a fixed `w` with no `cols` fits as many columns as
+  the width holds. `justify` (`'start'`, `'center'`, `'end'`, `'between'`,
+  `'evenly'`) places the leftover width when the occupied columns don't span
+  the container. Reads child `placement.span` and `placement.cell`.
 - **`stripStrategy`** — children share one axis: `axis` ('x' or 'y'), `fill`,
   `defaultItemSize`, `gap`, `padding`, `maxItems`, and `justify` for where
   space the panes leave goes. Strip covers both axes, so

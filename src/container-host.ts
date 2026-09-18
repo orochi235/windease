@@ -650,7 +650,7 @@ export class ContainerHost {
         items: this.#store
           .getChildren(this.#parentId)
           .filter((c) => c.lifecycle.state === 'visible')
-          .map((c) => ({ id: c.id })),
+          .map(nodeToLayoutItem),
         container: viewport,
         options: (container.config ?? {}) as Record<string, unknown>,
         insertId: preview.insertId,

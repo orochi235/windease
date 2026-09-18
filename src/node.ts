@@ -131,6 +131,9 @@ export interface MembershipCap {
    *  - `span?: { cols?: number; rows?: number }` — user intent, in **cell
    *     counts**; honored by grid only. Kept separate from `size` so one key
    *     doesn't mean pixels under one strategy and cells under another.
+   *  - `cell?: { col: number; row: number }` — the zero-based grid cell this
+   *     child's top-left corner holds; honored by grid only. A move or reorder
+   *     clears it, since both commit an index the cell would override.
    *  Free-form keys are ignored by core; consumers may add their own.
    */
   placement: Record<string, unknown>;

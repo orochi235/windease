@@ -67,6 +67,93 @@ interface GridConfig {
    * widen a cell.
    */
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
+  /**
+   * Fixed cell size in pixels, per axis. A fixed axis keeps its cells that size
+   * instead of dividing the container among them, and with a fixed `w` and no
+   * `cols` the column count is however many cells fit across the container.
+   * Rows past the container's height are `overflow`, or `unplaced` under
+   * `overflowMode: 'unplaced'`; `hints.minSize` floors are not read.
+   */
+  cell?: { w?: number; h?: number };
+  /**
+   * Where leftover width goes when the occupied columns don't span the
+   * container: fixed cells narrower than it, or trailing columns nothing sits
+   * in (`fill: false`, or a set `cols` with few items). Columns move as whole
+   * tracks, so every row stays aligned. Default `'start'`.
+   */
+  justify?: GridJustify;
+}
+
+type GridJustify = 'start' | 'center' | 'end' | 'between' | 'evenly';
+
+/** The positive, finite axes of `cfg.cell`, which are the ones that are fixed. */
+function fixedCell(cfg: GridConfig): { w: number | undefined; h: number | undefined } {
+  const read = (v: unknown) =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined;
+  return { w: read(cfg.cell?.w), h: read(cfg.cell?.h) };
+}
+
+/**
+ * The column count a fixed cell width fits across the container, capped by
+ * `maxCols`. Undefined when columns are not derived from the width: `cols` is
+ * set, the width isn't fixed, or there is no container to fit into.
+ */
+function fitCols(cfg: GridConfig, dims: GridDims, container: Size | undefined): number | undefined {
+  if (dims.cols !== undefined) return undefined;
+  const w = fixedCell(cfg).w;
+  if (w === undefined) return undefined;
+  if (!container) {
+    trace('layout', 'grid: cell.w without cols needs a container to fit columns; auto-balancing');
+    return undefined;
+  }
+  const gap = cfg.gap ?? 0;
+  const usableW = container.w - 2 * (cfg.padding ?? 0);
+  const fit = Math.max(1, Math.floor((usableW + gap) / (w + gap)));
+  return dims.maxCols !== undefined ? Math.min(fit, dims.maxCols) : fit;
+}
+
+/**
+ * Where the first column starts, past padding, and the extra space between
+ * each pair of columns, for `justify` to hand out `leftover` px across `used`
+ * columns. Overflowing content (`leftover <= 0`) stays at the start.
+ */
+function justifyColumns(
+  justify: GridJustify | undefined,
+  leftover: number,
+  used: number,
+): { offset: number; extra: number } {
+  if (leftover <= 0 || used < 1) return { offset: 0, extra: 0 };
+  switch (justify) {
+    case 'center':
+      return { offset: leftover / 2, extra: 0 };
+    case 'end':
+      return { offset: leftover, extra: 0 };
+    case 'between':
+      return used > 1 ? { offset: 0, extra: leftover / (used - 1) } : { offset: 0, extra: 0 };
+    case 'evenly': {
+      const share = leftover / (used + 1);
+      return { offset: share, extra: share };
+    }
+    default:
+      return { offset: 0, extra: 0 };
+  }
+}
+
+/** One past the rightmost column any placed cell reaches. */
+function usedCols(cells: Map<string, ReservedCell>): number {
+  let used = 0;
+  for (const cell of cells.values()) used = Math.max(used, cell.col + cell.cols);
+  return used;
+}
+
+/** An item's `placement.cell`, floored — or undefined when it has none, or
+ *  one that isn't two finite, non-negative numbers. */
+function explicitCell(item: LayoutItem): { col: number; row: number } | undefined {
+  const cell = item.placement?.cell;
+  if (!cell) return undefined;
+  const { col, row } = cell;
+  if (!Number.isFinite(col) || !Number.isFinite(row) || col < 0 || row < 0) return undefined;
+  return { col: Math.floor(col), row: Math.floor(row) };
 }
 
 /** The numeric keys grid reads, each a whole count of at least 1 — or
@@ -260,6 +347,16 @@ class CellPacker {
     return undefined;
   }
 
+  /** Reserves the block at `col, row` if every cell of it is free. */
+  reserve(col: number, row: number, cSpan: number, rSpan: number): boolean {
+    if (this.blockedAt(col, row, cSpan, rSpan) >= 0) return false;
+    for (let dr = 0; dr < rSpan; dr++) {
+      for (let dc = 0; dc < cSpan; dc++) this.taken.add((row + dr) * this.cols + col + dc);
+    }
+    while (this.taken.has(this.cursor)) this.cursor++;
+    return true;
+  }
+
   /** The column of a taken cell inside the block, or -1 when it is free. */
   private blockedAt(col: number, row: number, cSpan: number, rSpan: number): number {
     for (let dr = 0; dr < rSpan; dr++) {
@@ -271,9 +368,28 @@ class CellPacker {
 }
 
 /**
- * Walks `order`, reserving the first free cell block each item's (clamped)
- * span fits. Items beyond `itemCap`, or whose span can't fit before `rowCap`
- * runs out, are omitted.
+ * Reserves an explicitly celled item's block, its span clamped to the room
+ * past its cell. False when the cell is outside the grid or collides.
+ */
+function reserveExplicit(
+  packer: CellPacker,
+  item: LayoutItem,
+  at: { col: number; row: number },
+  placed: Map<string, ReservedCell>,
+): boolean {
+  const { cols, rowCap } = packer;
+  if (at.col >= cols || (rowCap !== undefined && at.row >= rowCap)) return false;
+  const span = clampSpan(item, cols - at.col, rowCap === undefined ? undefined : rowCap - at.row);
+  if (!packer.reserve(at.col, at.row, span.cols, span.rows)) return false;
+  placed.set(item.id, { ...at, ...span });
+  return true;
+}
+
+/**
+ * Walks `order` twice: first reserving each explicitly celled item's block,
+ * then giving every other item the first free block its (clamped) span fits.
+ * Items beyond `itemCap`, cells that collide or fall outside the grid, and
+ * spans that can't fit before `rowCap` runs out are omitted.
  */
 function reserveCells(
   order: LayoutItem[],
@@ -283,8 +399,17 @@ function reserveCells(
 ): Map<string, ReservedCell> {
   const packer = new CellPacker(cols, rowCap);
   const placed = new Map<string, ReservedCell>();
+  let anyFlow = false;
   for (const item of order) {
     if (placed.size >= itemCap) break;
+    const at = explicitCell(item);
+    if (at) reserveExplicit(packer, item, at, placed);
+    else anyFlow = true;
+  }
+  if (!anyFlow) return placed;
+  for (const item of order) {
+    if (placed.size >= itemCap) break;
+    if (explicitCell(item)) continue;
     const span = clampSpan(item, cols, rowCap);
     const at = packer.place(span.cols, span.rows);
     if (at) placed.set(item.id, { ...at, ...span });
@@ -292,16 +417,32 @@ function reserveCells(
   return placed;
 }
 
+/** One past the rightmost column the explicit cells reach, spans included. */
+function explicitReach(items: LayoutItem[]): number {
+  let reach = 0;
+  for (const item of items) {
+    const at = explicitCell(item);
+    if (at)
+      reach = Math.max(
+        reach,
+        at.col + wholeSpan(item.placement?.span?.cols, undefined, item.id, 'cols'),
+      );
+  }
+  return reach;
+}
+
 /**
  * Cols, rows and cell reservations — the whole tiling, which grid derives from
- * the item count, their spans and the config alone. The container never enters
- * here; it only divides the result into cells. `layout`, `gridGeometry` and the
+ * the item count, their spans and the config alone. The container enters only
+ * to count how many fixed-width cells fit across it; otherwise it just divides
+ * the result into cells. `layout`, `gridGeometry` and the
  * public `gridTiling` all resolve dimensions through this, so the three cannot
  * disagree about which item is in which cell.
  */
 function resolveTiling(
   items: LayoutItem[],
   cfg: GridConfig,
+  container?: Size,
 ): {
   cols: number;
   rows: number;
@@ -311,9 +452,13 @@ function resolveTiling(
 } {
   const dims = readDims(cfg);
   const fill = cfg.fill ?? true;
-  const resolved = resolveDims(items, dims, fill, cfg.orientation ?? 'wide');
+  const fit = fitCols(cfg, dims, container);
+  const resolved =
+    fit !== undefined
+      ? { cols: fit, rowCap: dims.rows ?? dims.maxRows, colLimit: fit }
+      : resolveDims(items, dims, fill, cfg.orientation ?? 'wide');
   const { rowCap, colLimit } = resolved;
-  let cols = resolved.cols;
+  let cols = Math.min(colLimit, Math.max(resolved.cols, explicitReach(items)));
   const itemCap = dims.maxItems ?? Number.POSITIVE_INFINITY;
 
   // Two passes: the first (priority order — pins win the capacity race)
@@ -323,8 +468,12 @@ function resolveTiling(
   let priorityPlaced = reserveCells(order, cols, rowCap, itemCap);
 
   // Area set the starting width; fragmentation can need more. Past the summed
-  // span widths every item fits in row 0, so growing further cannot help.
-  const want = Math.min(items.length, itemCap);
+  // span widths every item fits in row 0, so growing further cannot help. A
+  // cell that is out of bounds or collides stays that way at any width, so it
+  // is not wanted.
+  let lost = 0;
+  for (const item of items) if (!priorityPlaced.has(item.id) && explicitCell(item)) lost++;
+  const want = Math.min(items.length - lost, itemCap);
   if (rowCap !== undefined && priorityPlaced.size < want && cols < colLimit) {
     const widths = requestedArea(items, dims.maxCols, 1);
     const ceiling = Math.min(colLimit, Math.max(cols, widths));
@@ -334,7 +483,7 @@ function resolveTiling(
       let missing = 0;
       for (const item of order) {
         if (short === 0) break;
-        if (priorityPlaced.has(item.id)) continue;
+        if (priorityPlaced.has(item.id) || explicitCell(item)) continue;
         const span = clampSpan(item, cols, rowCap);
         missing += span.cols * span.rows;
         short--;
@@ -359,8 +508,10 @@ function resolveTiling(
 }
 
 /**
- * The tiling `options` produces for `items`: how many columns and rows, with
- * no container involved. A host that sizes a grid from its content — rows
+ * The tiling `options` produces for `items`: how many columns and rows. It
+ * needs `container` only for a fixed `cell.w` with no `cols`, whose column
+ * count is however many cells fit across; without one that config
+ * auto-balances instead. A host that sizes a grid from its content — rows
  * times a row height it chooses itself — reads the counts here instead of
  * laying out at a throwaway height and inverting the cell arithmetic to
  * recover them. Grid has no opinion about row height, so it reports counts
@@ -374,9 +525,10 @@ function resolveTiling(
 export function gridTiling(
   items: LayoutItem[],
   options: Record<string, unknown> = {},
+  container?: Size,
 ): { cols: number; rows: number } {
   if (items.length === 0) return { cols: 0, rows: 0 };
-  const { cols, rows } = resolveTiling(items, options as GridConfig);
+  const { cols, rows } = resolveTiling(items, options as GridConfig, container);
   return { cols, rows };
 }
 
@@ -397,18 +549,28 @@ function gridGeometry(
   itemCap: number;
   cellW: number;
   cellH: number;
+  /** Where column 0 starts past the padding, and the extra space `justify`
+   *  puts between columns. */
+  colOffset: number;
+  colExtra: number;
   cells: Map<string, ReservedCell>;
 } | null {
   if (items.length === 0) return null;
   const gap = cfg.gap ?? 0;
   const padding = cfg.padding ?? 0;
-  const tiling = resolveTiling(items, cfg);
+  const tiling = resolveTiling(items, cfg, container);
+  const fixed = fixedCell(cfg);
   const usableW = container.w - 2 * padding;
   const usableH = container.h - 2 * padding;
+  const cellW = fixed.w ?? (usableW - gap * (tiling.cols - 1)) / tiling.cols;
+  const used = usedCols(tiling.cells);
+  const spread = justifyColumns(cfg.justify, usableW - (used * cellW + (used - 1) * gap), used);
   return {
     ...tiling,
-    cellW: (usableW - gap * (tiling.cols - 1)) / tiling.cols,
-    cellH: (usableH - gap * (tiling.rows - 1)) / tiling.rows,
+    cellW,
+    cellH: fixed.h ?? (usableH - gap * (tiling.rows - 1)) / tiling.rows,
+    colOffset: spread.offset,
+    colExtra: spread.extra,
   };
 }
 
@@ -425,32 +587,69 @@ function spanReach(
   rowCap: number | undefined,
   itemCap: number,
 ): { cols: number; rows: number } {
+  const celled = items.some((it) => explicitCell(it) !== undefined);
   // An unbounded grid grows a row rather than dropping anyone, so every span
   // fits: the ceiling is the grid's width, and — since nothing can usefully
-  // span more rows than there are items — the item count.
-  if (rowCap === undefined) return { cols, rows: items.length };
+  // span more rows than there are items — the item count. Cells break this:
+  // they don't move out of the way.
+  if (rowCap === undefined && !celled) return { cols, rows: items.length };
 
-  // Items before `id` pack the same whatever span it takes, so the prefix is
-  // packed once and each probe repacks only `id` and what follows it.
   const at = items.findIndex((it) => it.id === id);
   if (at < 0) return { cols: 1, rows: 1 };
+  const item = items[at] as LayoutItem;
+  const ownCell = explicitCell(item);
+
+  // What packs the same whatever span `id` takes is packed once, and each
+  // probe repacks only the rest: every other cell, since cells reserve first,
+  // then — unless `id` is itself celled and so reserves ahead of all flow —
+  // the flow items before it.
   const prefix = new CellPacker(cols, rowCap);
-  let before = 0;
-  for (let i = 0; i < at && before < itemCap; i++) {
-    const span = clampSpan(items[i] as LayoutItem, cols, rowCap);
-    if (prefix.place(span.cols, span.rows)) before++;
+  const prefixPlaced = new Map<string, ReservedCell>();
+  if (celled) {
+    for (const other of items) {
+      if (prefixPlaced.size >= itemCap) break;
+      const cell = other.id === id ? undefined : explicitCell(other);
+      if (cell) reserveExplicit(prefix, other, cell, prefixPlaced);
+    }
+  }
+  let before = prefixPlaced.size;
+  const rest: LayoutItem[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const other = items[i] as LayoutItem;
+    if (i === at || (celled && explicitCell(other))) continue;
+    if (ownCell || i > at) {
+      rest.push(other);
+    } else if (before < itemCap) {
+      const span = clampSpan(other, cols, rowCap);
+      if (prefix.place(span.cols, span.rows)) before++;
+    }
   }
   const baseline = reserveCells(items, cols, rowCap, itemCap).size;
-  const own = clampSpan(items[at] as LayoutItem, cols, rowCap);
+  const own = ownCell
+    ? clampSpan(item, cols - ownCell.col, rowCap === undefined ? undefined : rowCap - ownCell.row)
+    : clampSpan(item, cols, rowCap);
 
   const fits = (axis: 'cols' | 'rows', value: number): boolean => {
     const packer = prefix.clone();
     let placed = before;
-    for (let i = at; i < items.length && placed < itemCap; i++) {
-      const span =
-        i === at ? { ...own, [axis]: value } : clampSpan(items[i] as LayoutItem, cols, rowCap);
+    if (placed < itemCap) {
+      const span = { ...own, [axis]: value };
+      if (ownCell) {
+        const inBounds =
+          ownCell.col + span.cols <= cols &&
+          (rowCap === undefined || ownCell.row + span.rows <= rowCap);
+        if (!inBounds || !packer.reserve(ownCell.col, ownCell.row, span.cols, span.rows)) {
+          return false;
+        }
+        placed++;
+      } else if (packer.place(span.cols, span.rows)) {
+        placed++;
+      }
+    }
+    for (let i = 0; i < rest.length && placed < itemCap; i++) {
+      const span = clampSpan(rest[i] as LayoutItem, cols, rowCap);
       if (packer.place(span.cols, span.rows)) placed++;
-      else if (placed + items.length - 1 - i < baseline) return false;
+      else if (placed + rest.length - 1 - i < baseline) return false;
     }
     return placed >= baseline;
   };
@@ -459,7 +658,36 @@ function spanReach(
     for (let v = 1; v <= cap; v++) if (fits(axis, v)) best = v;
     return best;
   };
-  return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap) };
+  return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap ?? items.length) };
+}
+
+/** Says why an explicit cell was ignored or went unplaced. Off the hot path:
+ *  each branch only runs for an item holding a cell. */
+function traceCells(
+  items: LayoutItem[],
+  cells: Map<string, ReservedCell>,
+  cols: number,
+  rowCap: number | undefined,
+): void {
+  for (const item of items) {
+    const raw = item.placement?.cell;
+    if (!raw) continue;
+    const at = explicitCell(item);
+    if (!at) {
+      trace(
+        'layout',
+        `grid: ${item.id} cell ${JSON.stringify(raw)} is not two non-negative numbers, ignored`,
+      );
+      continue;
+    }
+    if (cells.has(item.id)) continue;
+    const where = `grid: ${item.id} cell (${at.col}, ${at.row})`;
+    if (at.col >= cols || (rowCap !== undefined && at.row >= rowCap)) {
+      trace('layout', `${where} is outside the ${cols}×${rowCap ?? '∞'} grid; unplaced`);
+    } else {
+      trace('layout', `${where} collides with a cell already taken, or the grid is full; unplaced`);
+    }
+  }
 }
 
 /**
@@ -467,7 +695,11 @@ function spanReach(
  * takes `cols` / `rows`, `gap` and `padding`; capping either dimension makes
  * the overflow `unplaced` rather than shrinking cells.
  *
- * Reads `placement.span` for children that should cover several cells.
+ * Reads `placement.span` for children that should cover several cells, and
+ * `placement.cell` for children that sit at a given cell rather than where
+ * the flow puts them. Celled children reserve their cells first; the rest
+ * flow into the free cells in order. A cell that collides with one already
+ * taken, or lies outside a capped grid, goes to `unplaced`.
  * @group Strategies
  */
 export const gridStrategy: LayoutStrategy<void, string> = {
@@ -484,6 +716,8 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     padding: 'number',
     resizable: 'boolean',
     overflowMode: ['squeeze', 'scroll', 'unplaced'],
+    cell: 'object',
+    justify: ['start', 'center', 'end', 'between', 'evenly'],
   },
   configConflicts: [
     { kind: 'exclusive', keys: ['maxItems', 'maxCols', 'maxRows'] },
@@ -497,14 +731,26 @@ export const gridStrategy: LayoutStrategy<void, string> = {
   },
   getDropPreview({ items, container, options, insertId, insertIndex, cursor: _cursor }) {
     const cfg = options as GridConfig;
-    // Splice ghost in if not already present.
+    // Splice ghost in if not already present. A celled child dragged within
+    // its own grid is previewed as the reorder will leave it: its cell
+    // cleared, flowing from the new index.
     const ghostAt = items.findIndex((it) => it.id === insertId);
-    const projected: LayoutItem[] =
-      ghostAt >= 0
-        ? items
-        : insertIndex !== undefined && insertIndex >= 0 && insertIndex <= items.length
-          ? [...items.slice(0, insertIndex), { id: insertId }, ...items.slice(insertIndex)]
-          : [...items, { id: insertId }];
+    const ghost = ghostAt >= 0 ? items[ghostAt] : undefined;
+    let projected: LayoutItem[];
+    if (ghost && explicitCell(ghost)) {
+      const { cell: _cell, ...placement } = ghost.placement ?? {};
+      const rest = items.filter((_, i) => i !== ghostAt);
+      const index = Math.max(0, Math.min(insertIndex ?? rest.length, rest.length));
+      rest.splice(index, 0, { ...ghost, placement });
+      projected = rest;
+    } else {
+      projected =
+        ghostAt >= 0
+          ? items
+          : insertIndex !== undefined && insertIndex >= 0 && insertIndex <= items.length
+            ? [...items.slice(0, insertIndex), { id: insertId }, ...items.slice(insertIndex)]
+            : [...items, { id: insertId }];
+    }
     if (!fitsCapacity(cfg, projected)) {
       // Still produce placements (using normal layout) so the host can show
       // the rejection overlay against the current grid.
@@ -547,8 +793,10 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       return empty;
     }
 
-    const { cols, rows, rowCap, itemCap, cells } = resolveTiling(items, cfg);
+    const { cols, rows, rowCap, itemCap, cells } = resolveTiling(items, cfg, container);
+    const fixed = fixedCell(cfg);
     const unplaced = items.filter((it) => !cells.has(it.id)).map((it) => it.id);
+    traceCells(items, cells, cols, rowCap);
 
     const usableW = container.w - 2 * padding;
     const usableH = container.h - 2 * padding;
@@ -558,7 +806,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     const floorW = floor('w');
     const floorH = floor('h');
 
-    const heightFor = (r: number) => Math.max((usableH - gap * (r - 1)) / r, floorH);
+    const heightFor = (r: number) => fixed.h ?? Math.max((usableH - gap * (r - 1)) / r, floorH);
     let rowsUsed = rows;
     let cellH = heightFor(rowsUsed);
 
@@ -574,18 +822,21 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       cellH = heightFor(rowsUsed);
     }
 
-    const cellW = Math.max((usableW - gap * (cols - 1)) / cols, floorW);
+    const cellW = fixed.w ?? Math.max((usableW - gap * (cols - 1)) / cols, floorW);
     const excessW = Math.max(0, cellW * cols + gap * (cols - 1) - usableW);
+    const used = usedCols(cells);
+    const spread = justifyColumns(cfg.justify, usableW - (used * cellW + (used - 1) * gap), used);
+    const colGap = gap + spread.extra;
     const excessH = Math.max(0, cellH * rowsUsed + gap * (rowsUsed - 1) - usableH);
 
     for (const item of items) {
       const cell = cells.get(item.id);
       if (!cell) continue;
       placements.set(item.id, {
-        x: padding + cell.col * (cellW + gap),
+        x: padding + spread.offset + cell.col * (cellW + colGap),
         y: padding + cell.row * (cellH + gap),
         z: 0,
-        w: cell.cols * cellW + (cell.cols - 1) * gap,
+        w: cell.cols * cellW + (cell.cols - 1) * colGap,
         h: cell.rows * cellH + (cell.rows - 1) * gap,
       });
     }
@@ -663,7 +914,8 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     const cell = geom.cells.get(String(childId));
     if (!cell) return;
 
-    const stride = axis === 'cols' ? geom.cellW + gap : geom.cellH + gap;
+    const size = axis === 'cols' ? geom.cellW : geom.cellH;
+    const stride = size + gap + (axis === 'cols' ? geom.colExtra : 0);
     if (stride <= 0) return;
     const current = axis === 'cols' ? cell.cols : cell.rows;
 
@@ -673,9 +925,13 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       // Resolve against the pointer rather than accumulating deltas. A span is
       // quantized, so a few pixels rounds to the span it already has and the
       // drag would never move at all.
-      const origin = axis === 'cols' ? padding + cell.col * stride : padding + cell.row * stride;
+      const origin =
+        axis === 'cols'
+          ? padding + geom.colOffset + cell.col * stride
+          : padding + cell.row * stride;
       const extent = (axis === 'cols' ? point.x : point.y) - origin;
-      want = Math.round((extent + gap) / stride);
+      // A span of n covers n strides less the space after its last cell.
+      want = Math.round((extent + stride - size) / stride);
     } else {
       // No pointer: a synthesized step. `bounds.step` is 1, so the host sends
       // one cell's worth and this reads as ±1.
