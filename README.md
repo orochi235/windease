@@ -562,6 +562,25 @@ cannot refuse a drop by width: set `maxItems` (or `cols` with `maxRows`) when a
 drop must be refused. `gridTiling(items, config, container)` takes the
 container for the same reason.
 
+### Where leftover width goes
+
+When the occupied columns don't span the container — fixed cells narrower
+than it, or trailing columns nothing sits in under `fill: false` or a set
+`cols` — `justify` decides where the leftover width goes:
+
+| `justify`         | Leftover width goes                                   |
+| ----------------- | ----------------------------------------------------- |
+| `'start'` (default) | after the last column                               |
+| `'center'`        | half before the first column, half after the last     |
+| `'end'`           | before the first column                               |
+| `'between'`       | between columns, none at the edges                    |
+| `'evenly'`        | into equal spaces between columns and at both edges   |
+
+An iOS dock is `justify: 'evenly'` over fixed cells. Whole columns move, so a
+short last row stays aligned under the first, and a span widens by the extra
+space between the columns it covers. `justify` is horizontal only, and content
+wider than the container stays at the start.
+
 ## Letting CSS do the layout
 
 A container that declares `hints.render: 'flow'` runs no strategy. Its children

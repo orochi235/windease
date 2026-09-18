@@ -75,7 +75,16 @@ interface GridConfig {
    * `overflowMode: 'unplaced'`; `hints.minSize` floors are not read.
    */
   cell?: { w?: number; h?: number };
+  /**
+   * Where leftover width goes when the occupied columns don't span the
+   * container: fixed cells narrower than it, or trailing columns nothing sits
+   * in (`fill: false`, or a set `cols` with few items). Columns move as whole
+   * tracks, so every row stays aligned. Default `'start'`.
+   */
+  justify?: GridJustify;
 }
+
+type GridJustify = 'start' | 'center' | 'end' | 'between' | 'evenly';
 
 /** The positive, finite axes of `cfg.cell`, which are the ones that are fixed. */
 function fixedCell(cfg: GridConfig): { w: number | undefined; h: number | undefined } {
@@ -101,6 +110,40 @@ function fitCols(cfg: GridConfig, dims: GridDims, container: Size | undefined): 
   const usableW = container.w - 2 * (cfg.padding ?? 0);
   const fit = Math.max(1, Math.floor((usableW + gap) / (w + gap)));
   return dims.maxCols !== undefined ? Math.min(fit, dims.maxCols) : fit;
+}
+
+/**
+ * Where the first column starts, past padding, and the extra space between
+ * each pair of columns, for `justify` to hand out `leftover` px across `used`
+ * columns. Overflowing content (`leftover <= 0`) stays at the start.
+ */
+function justifyColumns(
+  justify: GridJustify | undefined,
+  leftover: number,
+  used: number,
+): { offset: number; extra: number } {
+  if (leftover <= 0 || used < 1) return { offset: 0, extra: 0 };
+  switch (justify) {
+    case 'center':
+      return { offset: leftover / 2, extra: 0 };
+    case 'end':
+      return { offset: leftover, extra: 0 };
+    case 'between':
+      return used > 1 ? { offset: 0, extra: leftover / (used - 1) } : { offset: 0, extra: 0 };
+    case 'evenly': {
+      const share = leftover / (used + 1);
+      return { offset: share, extra: share };
+    }
+    default:
+      return { offset: 0, extra: 0 };
+  }
+}
+
+/** One past the rightmost column any placed cell reaches. */
+function usedCols(cells: Map<string, ReservedCell>): number {
+  let used = 0;
+  for (const cell of cells.values()) used = Math.max(used, cell.col + cell.cols);
+  return used;
 }
 
 /** An item's `placement.cell`, floored — or undefined when it has none, or
@@ -506,6 +549,10 @@ function gridGeometry(
   itemCap: number;
   cellW: number;
   cellH: number;
+  /** Where column 0 starts past the padding, and the extra space `justify`
+   *  puts between columns. */
+  colOffset: number;
+  colExtra: number;
   cells: Map<string, ReservedCell>;
 } | null {
   if (items.length === 0) return null;
@@ -515,10 +562,15 @@ function gridGeometry(
   const fixed = fixedCell(cfg);
   const usableW = container.w - 2 * padding;
   const usableH = container.h - 2 * padding;
+  const cellW = fixed.w ?? (usableW - gap * (tiling.cols - 1)) / tiling.cols;
+  const used = usedCols(tiling.cells);
+  const spread = justifyColumns(cfg.justify, usableW - (used * cellW + (used - 1) * gap), used);
   return {
     ...tiling,
-    cellW: fixed.w ?? (usableW - gap * (tiling.cols - 1)) / tiling.cols,
+    cellW,
     cellH: fixed.h ?? (usableH - gap * (tiling.rows - 1)) / tiling.rows,
+    colOffset: spread.offset,
+    colExtra: spread.extra,
   };
 }
 
@@ -665,6 +717,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     resizable: 'boolean',
     overflowMode: ['squeeze', 'scroll', 'unplaced'],
     cell: 'object',
+    justify: ['start', 'center', 'end', 'between', 'evenly'],
   },
   configConflicts: [
     { kind: 'exclusive', keys: ['maxItems', 'maxCols', 'maxRows'] },
@@ -771,16 +824,19 @@ export const gridStrategy: LayoutStrategy<void, string> = {
 
     const cellW = fixed.w ?? Math.max((usableW - gap * (cols - 1)) / cols, floorW);
     const excessW = Math.max(0, cellW * cols + gap * (cols - 1) - usableW);
+    const used = usedCols(cells);
+    const spread = justifyColumns(cfg.justify, usableW - (used * cellW + (used - 1) * gap), used);
+    const colGap = gap + spread.extra;
     const excessH = Math.max(0, cellH * rowsUsed + gap * (rowsUsed - 1) - usableH);
 
     for (const item of items) {
       const cell = cells.get(item.id);
       if (!cell) continue;
       placements.set(item.id, {
-        x: padding + cell.col * (cellW + gap),
+        x: padding + spread.offset + cell.col * (cellW + colGap),
         y: padding + cell.row * (cellH + gap),
         z: 0,
-        w: cell.cols * cellW + (cell.cols - 1) * gap,
+        w: cell.cols * cellW + (cell.cols - 1) * colGap,
         h: cell.rows * cellH + (cell.rows - 1) * gap,
       });
     }
@@ -858,7 +914,8 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     const cell = geom.cells.get(String(childId));
     if (!cell) return;
 
-    const stride = axis === 'cols' ? geom.cellW + gap : geom.cellH + gap;
+    const size = axis === 'cols' ? geom.cellW : geom.cellH;
+    const stride = size + gap + (axis === 'cols' ? geom.colExtra : 0);
     if (stride <= 0) return;
     const current = axis === 'cols' ? cell.cols : cell.rows;
 
@@ -868,9 +925,13 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       // Resolve against the pointer rather than accumulating deltas. A span is
       // quantized, so a few pixels rounds to the span it already has and the
       // drag would never move at all.
-      const origin = axis === 'cols' ? padding + cell.col * stride : padding + cell.row * stride;
+      const origin =
+        axis === 'cols'
+          ? padding + geom.colOffset + cell.col * stride
+          : padding + cell.row * stride;
       const extent = (axis === 'cols' ? point.x : point.y) - origin;
-      want = Math.round((extent + gap) / stride);
+      // A span of n covers n strides less the space after its last cell.
+      want = Math.round((extent + stride - size) / stride);
     } else {
       // No pointer: a synthesized step. `bounds.step` is 1, so the host sends
       // one cell's worth and this reads as ±1.

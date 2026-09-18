@@ -123,4 +123,46 @@ test.describe('grid fixed cells — dock', () => {
     await page.waitForTimeout(200);
     expect(await zoneOf(page, 'maps')).toBe('app-library');
   });
+
+  test('justify evenly spaces the dock icons, and respaces them after a drop', async ({ page }) => {
+    await openStory(page, DOCK);
+    const spaces = async (ids: string[]) => {
+      const zone = await boxOf(page.locator('[data-node-container="dock"]'));
+      const boxes = (await Promise.all(ids.map((id) => settledBox(element(page, id))))).sort(
+        (a, b) => a.x - b.x,
+      );
+      // Children sit inside the zone's 1px border, in the 480px viewport the
+      // strategy lays out: 12px padding, then 456px.
+      const left = zone.x + 1 + 12;
+      const inner = { left, right: left + 456 };
+      const out = [boxes[0]!.x - inner.left];
+      for (let i = 1; i < boxes.length; i++) {
+        out.push(boxes[i]!.x - (boxes[i - 1]!.x + boxes[i - 1]!.w) - 12);
+      }
+      const last = boxes[boxes.length - 1]!;
+      out.push(inner.right - (last.x + last.w));
+      return out.map((v) => Math.round(v));
+    };
+
+    // 456px inside the padding, 4 × 56 + 3 × 12 occupied: 196 / 5 = 39.2 each.
+    const four = await spaces(['phone', 'safari', 'messages', 'camera']);
+    for (const v of four) expect(Math.abs(v - 39)).toBeLessThanOrEqual(1);
+
+    await dragInto(page, 'mail', 'dock');
+    await expect.poll(() => zoneOf(page, 'mail')).toBe('dock');
+    // 5 × 56 + 4 × 12 occupied: 128 / 6 ≈ 21.3 each.
+    const five = await spaces(['phone', 'safari', 'messages', 'camera', 'mail']);
+    for (const v of five) expect(Math.abs(v - 21)).toBeLessThanOrEqual(1);
+  });
+
+  test('justify start keeps the icons at the left, one gap apart', async ({ page }) => {
+    await page.goto(`/?story=${DOCK}&arg-justify=start`);
+    await expect(element(page, 'phone')).toBeVisible({ timeout: 30_000 });
+    const zone = await boxOf(page.locator('[data-node-container="dock"]'));
+    const phone = await settledBox(element(page, 'phone'));
+    const safari = await settledBox(element(page, 'safari'));
+    // The zone's 1px border, then its 12px padding.
+    expect(Math.round(phone.x - zone.x)).toBe(13);
+    expect(Math.round(safari.x - phone.x)).toBe(68);
+  });
 });

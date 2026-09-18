@@ -329,7 +329,9 @@ Built-ins:
   `maxItems`, `gap`, `padding`. `maxItems` mutually exclusive with
   `maxCols`/`maxRows`. `cell: { w?, h? }` fixes the cell size in pixels instead
   of dividing the container; a fixed `w` with no `cols` fits as many columns as
-  the width holds. Reads child `placement.span` and `placement.cell`.
+  the width holds. `justify` (`'start'`, `'center'`, `'end'`, `'between'`,
+  `'evenly'`) places the leftover width when the occupied columns don't span
+  the container. Reads child `placement.span` and `placement.cell`.
 - **`stripStrategy`** — children share one axis: `axis` ('x' or 'y'), `fill`,
   `defaultItemSize`, `gap`, `padding`, `maxItems`. Strip covers both axes, so
   `{ axis: 'y', fill: true }` replaces the axis-stacking strategy removed in

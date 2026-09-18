@@ -21,6 +21,11 @@ section below.
   `cols`, the grid fits as many columns as the width holds and wraps the rest.
   `gridTiling` takes an optional container for that fit.
 
+- **Grid `justify` places the leftover width.** When the occupied columns don't
+  span the container, `justify: 'start' | 'center' | 'end' | 'between' |
+  'evenly'` puts the leftover before, around or between whole columns, so an
+  iOS-style dock spaces its icons evenly.
+
 - **`ConfigSpec` accepts `'object'`** for a config key that holds a plain
   object, such as grid's `cell`.
 

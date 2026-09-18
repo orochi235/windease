@@ -396,7 +396,9 @@ const APPS = [
 ];
 const DOCKED = ['Phone', 'Safari', 'Messages', 'Camera'];
 
-function dockStore(): Store {
+type Justify = 'start' | 'center' | 'end' | 'between' | 'evenly';
+
+function dockStore(justify: Justify): Store {
   const s = new Store();
   s.registerNode(
     createNode({
@@ -410,7 +412,7 @@ function dockStore(): Store {
       kind: 'zone',
       container: {
         strategyId: 'grid',
-        config: { cell: ICON, gap: 12, padding: 12, maxItems: 5 },
+        config: { cell: ICON, gap: 12, padding: 12, maxItems: 5, justify },
       },
       id: DOCK,
     }),
@@ -440,10 +442,11 @@ const iconChrome: ChromeMap = {
 
 /** Both grids set `cell: { w: 56, h: 56 }`, so an icon stays 56px square
  *  however wide its grid is, and the columns are however many icons fit
- *  across. Drag icons between the library and the dock; the dock's
- *  `maxItems: 5` refuses a sixth. */
-export const Dock: Story = () => {
-  const store = useMemo(() => dockStore(), []);
+ *  across. The dock's `justify` spaces its icons across the leftover width —
+ *  `'evenly'`, as iOS does. Drag icons between the library and the dock; the
+ *  dock's `maxItems: 5` refuses a sixth. */
+export const Dock: Story<{ justify: Justify }> = ({ justify }) => {
+  const store = useMemo(() => dockStore(justify), [justify]);
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
@@ -466,4 +469,10 @@ export const Dock: Story = () => {
       </StrategyRegistryProvider>
     </Provider>
   );
+};
+
+Dock.args = { justify: 'evenly' };
+
+Dock.argTypes = {
+  justify: { options: ['start', 'center', 'end', 'between', 'evenly'], control: { type: 'radio' } },
 };
