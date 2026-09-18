@@ -54,7 +54,7 @@ function affordanceLabel(store: Store, aff: Affordance): string | undefined {
   const ids = aff.affects ?? (aff.childId ? [aff.childId] : []);
   if (ids.length === 0) return undefined;
   const names = ids.map((id) => accessibleName(store, id as NodeId));
-  return `resize ${names.join(' and ')}`;
+  return `${aff.label ?? 'resize'} ${names.join(' and ')}`;
 }
 
 const noJoinArmChange = () => {};
@@ -356,6 +356,9 @@ function AffordanceHandle({
     height: affordance.rect.h + 2 * padY,
   };
   if (affordance.cursor) outerStyle.cursor = affordance.cursor;
+  // A handle over a stacked child sits at that child's depth; later in the DOM,
+  // it wins over its own child and loses to the ones above.
+  if (affordance.rect.z > 1) outerStyle.zIndex = Math.round(affordance.rect.z);
   const innerStyle: CSSProperties = {
     position: 'absolute',
     left: padX,

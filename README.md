@@ -897,10 +897,18 @@ the pressed element in the DOM and the browser drops the click it was for.
 | `shadeHeight` | `28` | height of a shaded window |
 | `iconWidth`, `iconHeight` | `64` | size a minimized window takes in the icon layer |
 | `cascade` | `24` | offset between successive windows with no position |
+| `drag` | off | `true` moves a window by its title band, `'x'` or `'y'` on one axis only |
+| `handleSize` | `22` | height of the title band `drag` grabs |
 
 With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`
-shades instead, with a `layout` trace. Windows carry no drag or resize handles —
-the host writes every position.
+shades instead, with a `layout` trace.
+
+**Dragging.** With `drag` set, each window gets a `drag-xy` affordance (`drag-x`,
+`drag-y`) over its top `handleSize` pixels, and dragging it writes `x` / `y` into
+the window's placement. A window's own `placement.drag` overrides the config, so
+`drag: false` there pins one window. A window with `lock.move` does not move. Pass
+`affordances` to the container to render the bands; the chrome draws the title
+bar under them.
 
 ## Resize
 

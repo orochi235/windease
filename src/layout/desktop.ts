@@ -1,14 +1,19 @@
 import type {
+  Affordance,
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
   Size,
   StatefulLayoutStrategy,
 } from '../layout-types.js';
+import { asNodeId } from '../node.js';
 import { trace } from '../trace.js';
 
 /** The values `container.config.minimize` accepts. */
 export const DESKTOP_MINIMIZE = ['shade', 'icon'] as const;
+
+/** The values `drag` accepts, in config or in a window's placement. */
+export const DESKTOP_DRAG = [true, false, 'x', 'y'] as const;
 
 /** `container.config` keys {@link desktopStrategy} reads. */
 export interface DesktopConfig {
@@ -20,6 +25,11 @@ export interface DesktopConfig {
   iconHeight?: number;
   /** Offset between successive windows that carry no position. */
   cascade?: number;
+  /** Move windows by their title band: `true` on both axes, `'x'` or `'y'` on
+   *  one. A window's own `placement.drag` overrides it. */
+  drag?: (typeof DESKTOP_DRAG)[number];
+  /** Height of the title band a window is dragged by. */
+  handleSize?: number;
 }
 
 /** {@link desktopStrategy}'s state: only whatever the wrapped strategy keeps. */
@@ -30,6 +40,23 @@ export interface DesktopState<TInner = unknown> {
 export const DEFAULT_SHADE_HEIGHT = 28;
 export const DEFAULT_ICON_SIZE = 64;
 export const DEFAULT_CASCADE = 24;
+export const DEFAULT_HANDLE_SIZE = 22;
+
+/** Affordance id prefixes, so dispatch can route without knowing the inner strategy. */
+export const DESKTOP_DRAG_PREFIX = 'desktop:drag:';
+
+const DRAG_KIND = { xy: 'drag-xy', x: 'drag-x', y: 'drag-y' } as const;
+
+function dragAxes(item: LayoutItem, cfg: DesktopConfig): keyof typeof DRAG_KIND | null {
+  const own = item.meta?.drag;
+  const drag = own === undefined ? cfg.drag : own;
+  if (drag === true) return 'xy';
+  return drag === 'x' || drag === 'y' ? drag : null;
+}
+
+function isOwnAffordance(id: string): boolean {
+  return id.startsWith(DESKTOP_DRAG_PREFIX);
+}
 
 interface Layers {
   icons: LayoutItem[];
@@ -92,6 +119,8 @@ export function desktopStrategy<TInner>(
       iconWidth: 'number',
       iconHeight: 'number',
       cascade: 'number',
+      drag: DESKTOP_DRAG,
+      handleSize: 'number',
     },
 
     initialState(items, options) {
@@ -102,6 +131,7 @@ export function desktopStrategy<TInner>(
       const cfg = options as DesktopConfig;
       const shadeHeight = cfg.shadeHeight ?? DEFAULT_SHADE_HEIGHT;
       const cascade = cfg.cascade ?? DEFAULT_CASCADE;
+      const handleSize = cfg.handleSize ?? DEFAULT_HANDLE_SIZE;
       const { icons, windows } = layers(items, options, hasInner);
 
       const innerInput = { items: icons, container, state: state.inner as TInner, options };
@@ -110,6 +140,7 @@ export function desktopStrategy<TInner>(
         : { placements: new Map(), affordances: [] };
 
       const placements = new Map(result.placements);
+      const affordances: Affordance[] = [...result.affordances];
       const unplaced = [...(result.unplaced ?? [])];
       if (!inner) for (const icon of icons) unplaced.push(icon.id);
 
@@ -141,7 +172,19 @@ export function desktopStrategy<TInner>(
         }
         const h = minimized ? shadeHeight : size.h;
         rank++;
-        placements.set(item.id, { x: at.x, y: at.y, z: rank, w: size.w, h });
+        const rect = { x: at.x, y: at.y, z: rank, w: size.w, h };
+        placements.set(item.id, rect);
+        const axes = dragAxes(item, cfg);
+        if (axes) {
+          affordances.push({
+            id: `${DESKTOP_DRAG_PREFIX}${item.id}`,
+            kind: DRAG_KIND[axes],
+            rect: { ...rect, h: Math.min(handleSize, h) },
+            cursor: 'grab',
+            label: 'move',
+            childId: item.id,
+          });
+        }
         overW = Math.max(overW, at.x + size.w - container.w);
         overH = Math.max(overH, at.y + h - container.h);
       }
@@ -150,7 +193,7 @@ export function desktopStrategy<TInner>(
         'layout',
         `desktop: ${rank} windows over ${icons.length} icons in ${inner?.name ?? 'nothing'}`,
       );
-      const out: LayoutResult<string> = { ...result, placements };
+      const out: LayoutResult<string> = { ...result, placements, affordances };
       delete out.unplaced;
       delete out.overflow;
       if (unplaced.length > 0) out.unplaced = unplaced;
@@ -158,8 +201,32 @@ export function desktopStrategy<TInner>(
       return out;
     },
 
+    dispatchAffordance(ctx) {
+      const { event, affordance, store } = ctx;
+      if (!isOwnAffordance(event.affordanceId)) {
+        if (!inner?.dispatchAffordance) return;
+        const items = layers(ctx.items, ctx.options, hasInner).icons;
+        inner.dispatchAffordance({ ...ctx, items });
+        return;
+      }
+      if (event.kind !== 'drag') return;
+      const id = asNodeId(event.affordanceId.slice(DESKTOP_DRAG_PREFIX.length));
+      if (store.isLocked(id, 'move')) {
+        trace('layout', `desktop: ${id} drag refused (lock.move)`);
+        return;
+      }
+      const { dx: rawX, dy: rawY } = event.payload;
+      const dx = affordance.kind === 'drag-y' || !Number.isFinite(rawX) ? 0 : (rawX as number);
+      const dy = affordance.kind === 'drag-x' || !Number.isFinite(rawY) ? 0 : (rawY as number);
+      if (dx === 0 && dy === 0) return;
+      // From where it shows, not the stored value: a cascaded window has none.
+      const next = { x: affordance.rect.x + dx, y: affordance.rect.y + dy };
+      trace('layout', `desktop: ${id} dragged to ${next.x},${next.y}`);
+      store.patchPlacement(id, next);
+    },
+
     reduce(state, event, context) {
-      if (!inner?.reduce) return state;
+      if (!inner?.reduce || isOwnAffordance(event.affordanceId)) return state;
       const items = layers(context.items, context.options, hasInner).icons;
       return { ...state, inner: inner.reduce(state.inner as TInner, event, { ...context, items }) };
     },

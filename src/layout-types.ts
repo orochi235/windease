@@ -127,6 +127,12 @@ export interface Affordance<TMeta = unknown> {
   kind: BuiltinAffordanceKind | string;
   rect: Rect;
   cursor?: string;
+  /**
+   * What the gesture does, as a verb: `'move'`, `'minimize'`. A host composes it
+   * with the names of the panes it acts on into an accessible name. Absent reads
+   * as `'resize'`, which is what every seam does.
+   */
+  label?: string;
   meta?: TMeta;
   /**
    * The single child whose stored `placement.size` this affordance mutates

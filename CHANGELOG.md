@@ -8,6 +8,24 @@ section below.
 
 ## Unreleased
 
+### Added
+
+- **`drag` on `desktopStrategy`.** `drag: true` puts a `drag-xy` affordance over
+  each window's title band, `handleSize` tall (22 by default), and dragging it
+  writes the window's `x` / `y`; `'x'` and `'y'` move on one axis only. A window's
+  own `placement.drag` overrides the config, and `lock.move` refuses the drag. The
+  desktop also hands its inner strategy's affordances to that strategy's
+  `dispatchAffordance`, which it dropped before. See
+  [Desktop windows](README.md#desktop-windows).
+
+- **An affordance handle stacks at its rect's `z`**, so a window's title band sits
+  above that window and below the ones in front of it. `Affordance.label` names
+  what a gesture does (`'move'`), and the handle's accessible name uses it in
+  place of "resize".
+
+- **A config spec can list booleans beside strings**, as `drag: [true, false,
+  'x', 'y']` does.
+
 ### Fixed
 
 - **A preset's own render error is no longer reported as an id collision.**

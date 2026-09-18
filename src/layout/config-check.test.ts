@@ -35,6 +35,14 @@ describe('checkStrategyConfig', () => {
     expect(problem).toContain("'x' | 'y'");
   });
 
+  it('accepts a set that mixes booleans and strings, and names both kinds', () => {
+    const spec: ConfigSpec = { drag: [true, false, 'x', 'y'] };
+    expect(checkStrategyConfig('desktop', { drag: true }, spec)).toEqual([]);
+    expect(checkStrategyConfig('desktop', { drag: 'y' }, spec)).toEqual([]);
+    const [problem] = checkStrategyConfig('desktop', { drag: 'xy' }, spec);
+    expect(problem).toContain("true | false | 'x' | 'y'");
+  });
+
   it('catches a wrong primitive type', () => {
     const [problem] = checkStrategyConfig('strip', { gap: '8' }, SPEC);
     expect(problem).toContain('gap');

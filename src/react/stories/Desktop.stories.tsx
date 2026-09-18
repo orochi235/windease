@@ -1,7 +1,7 @@
 export default { title: 'Desktop' };
 
 import type { Story } from '@ladle/react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
 import {
   asNodeId,
   createNode,
@@ -175,3 +175,102 @@ Shade.argTypes = { minimize: { options: ['shade', 'icon'], control: { type: 'rad
 export const IconMinimize: Story<Args> = (args) => <DesktopZone {...args} />;
 IconMinimize.args = { minimize: 'icon' };
 IconMinimize.argTypes = Shade.argTypes;
+
+const BAR_HEIGHT = 26;
+
+interface BehaviorArgs {
+  drag: 'true' | 'x' | 'y' | 'false';
+}
+
+const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number }[] = [
+  { id: 'win-1', x: 24, y: 24, w: 200, h: 140 },
+  { id: 'win-2', x: 180, y: 120, w: 220, h: 150 },
+];
+
+const BEHAVIOR_STRATEGIES = { desktop: desktopStrategy() as never };
+
+function behaviorConfig(args: BehaviorArgs): Record<string, unknown> {
+  const drag = args.drag === 'true' ? true : args.drag === 'false' ? false : args.drag;
+  return { handleSize: BAR_HEIGHT, drag };
+}
+
+function useBehaviorStore(args: BehaviorArgs): Store {
+  const store = useMemo(() => {
+    const s = new Store();
+    s.registerNode(
+      createNode({ kind: 'zone', id: ZONE_ID, container: { strategyId: 'desktop', config: {} } }),
+    );
+    for (const { id, x, y, w, h } of BEHAVIOR_WINDOWS) {
+      s.registerNode(
+        createNode({
+          kind: 'window',
+          focus: true,
+          id: asNodeId(id),
+          parentId: ZONE_ID,
+          placement: { x, y },
+          hints: { preferredSize: { w, h } },
+          meta: { title: id },
+        }),
+      );
+      s.showNode(asNodeId(id));
+    }
+    return s;
+  }, []);
+  const cfgKey = JSON.stringify(behaviorConfig(args));
+  useLayoutEffect(() => {
+    store.updateContainerConfig(ZONE_ID, JSON.parse(cfgKey));
+  }, [store, cfgKey]);
+  return store;
+}
+
+const BEHAVIOR_CHROME: ChromeMap = {
+  window: ({ node }) => (
+    <div className="desktop-window">
+      <header className="desktop-window__bar">
+        <span>{String(node.meta?.title ?? node.id)}</span>
+      </header>
+      <div className="desktop-window__body">{String(node.id)}</div>
+    </div>
+  ),
+};
+
+/** Raising is not a desktop key yet, so a click on a window's title band raises it here. */
+function raiseFromBand(store: Store, target: EventTarget | null) {
+  const hit = (target as Element | null)?.closest('[data-affordance-hit]');
+  const id = hit?.getAttribute('data-affordance-hit')?.match(/^desktop:drag:(.+)$/)?.[1];
+  if (id && store.getNode(asNodeId(id))) store.focusNode(asNodeId(id));
+}
+
+function BehaviorZone(args: BehaviorArgs) {
+  const store = useBehaviorStore(args);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={BEHAVIOR_STRATEGIES}>
+        <RaiseOnFocus />
+        <div
+          className="desktop-demo"
+          data-testid="desktop-behavior"
+          onClickCapture={(e) => raiseFromBand(store, e.target)}
+        >
+          <Container
+            parentId={ZONE_ID}
+            chrome={BEHAVIOR_CHROME}
+            viewport={{ w: 480, h: 360 }}
+            className="windease-zone"
+            affordances
+          />
+        </div>
+        <p className="desktop-hint">
+          Drag a window by its title bar. <code>drag: 'y'</code> moves it up and down only.
+        </p>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+}
+
+/** Every gesture here is a `desktopStrategy` config key; the story wires no pointer code. */
+export const Behavior: Story<BehaviorArgs> = (args) => <BehaviorZone {...args} />;
+Behavior.args = { drag: 'true' };
+Behavior.argTypes = {
+  drag: { options: ['true', 'x', 'y', 'false'], control: { type: 'radio' } },
+};

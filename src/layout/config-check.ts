@@ -5,8 +5,9 @@
  * A strategy that declares a `configSpec` gets those reported instead.
  */
 
-/** What one config key accepts: a primitive type, or the set of allowed values. */
-export type ConfigFieldSpec = 'number' | 'boolean' | 'string' | readonly string[];
+/** What one config key accepts: a primitive type, or the set of allowed values.
+ *  A set may mix strings and booleans, for a key like `drag: true | 'x' | 'y'`. */
+export type ConfigFieldSpec = 'number' | 'boolean' | 'string' | readonly (string | boolean)[];
 
 /** Every key a strategy understands. Keys absent from the config are fine —
  *  strategy config is optional throughout. */
@@ -67,7 +68,9 @@ function list(keys: readonly string[]): string {
 }
 
 function describe(spec: ConfigFieldSpec): string {
-  return Array.isArray(spec) ? spec.map((v) => `'${v}'`).join(' | ') : String(spec);
+  return Array.isArray(spec)
+    ? spec.map((v) => (typeof v === 'string' ? `'${v}'` : String(v))).join(' | ')
+    : String(spec);
 }
 
 /**
@@ -100,7 +103,7 @@ export function checkStrategyConfig(
       continue;
     }
     if (Array.isArray(field)) {
-      if (!field.includes(value as string)) {
+      if (!field.includes(value as string | boolean)) {
         problems.push(
           `${strategyName}: config '${key}' is ${JSON.stringify(value)}, expected ${describe(field)}`,
         );

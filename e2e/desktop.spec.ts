@@ -1,9 +1,10 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { type Box, boxOf, openStory, settledBox } from './fixtures.js';
+import { type Box, boxOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 const SHADE = 'desktop--shade';
 const ICON = 'desktop--icon-minimize';
+const BEHAVIOR = 'desktop--behavior&mode=preview';
 
 const node = (page: Page, id: string) => page.locator(`[data-node="${id}"]`);
 
@@ -71,5 +72,31 @@ test.describe('desktop minimize', () => {
 
     await page.getByTestId('restore-win-2').click();
     expect(await settledBox(node(page, 'win-2'))).toEqual(before);
+  });
+});
+
+/** A point on `id`'s title bar, clear of its right-hand corner. */
+async function barOf(page: Page, id: string) {
+  const b = await boxOf(node(page, id));
+  return { box: b, at: { x: b.x + 40, y: b.y + 12 } };
+}
+
+test.describe('desktop behavior keys', () => {
+  test('drag moves a window by its title bar', async ({ page }) => {
+    await openStory(page, BEHAVIOR);
+    const { box, at } = await barOf(page, 'win-1');
+    await dragMouse(page, at, { x: at.x + 60, y: at.y + 40 });
+    const after = await settledBox(node(page, 'win-1'));
+    expect(after.x - box.x).toBeCloseTo(60, 0);
+    expect(after.y - box.y).toBeCloseTo(40, 0);
+  });
+
+  test("drag: 'y' moves a window vertically only", async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-drag=y`);
+    const { box, at } = await barOf(page, 'win-1');
+    await dragMouse(page, at, { x: at.x + 60, y: at.y + 40 });
+    const after = await settledBox(node(page, 'win-1'));
+    expect(after.x).toBeCloseTo(box.x, 0);
+    expect(after.y - box.y).toBeCloseTo(40, 0);
   });
 });
