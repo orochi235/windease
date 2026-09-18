@@ -8,6 +8,28 @@ section below.
 
 ## Unreleased
 
+### Added
+
+- **A container can refuse drops from its config.** Set `accepts` in any
+  container's `config`: `false` refuses every drop, `{ kinds: ['panel'] }`
+  refuses a dragged node whose `kind` is not listed, and `{ max: 3 }` refuses a
+  drop that would leave more than three visible children (reordering inside
+  the container still works). It needs no callback, so a snapshot or preset can
+  carry it. The drag checks `lock.accept` first, then `accepts`, then
+  `acceptPolicy`, then the strategy's `canAccept`; `acceptPolicy` returning
+  `true` does not override `accepts`.
+
+- **Stack and split drops can be switched on from container config.**
+  `drop: { stack: true, split: true }` in a container's `config` does what the
+  `stackOnDrop` and `splitOnDrop` props do on `<Container>`, `<Zone>` and
+  `<Panel>`, so a snapshot or preset carries it. A prop that is set, `false`
+  included, wins over the config.
+
+- **`checkStrategyConfig` accepts `accepts` and `drop` on every strategy.** They
+  are container keys no strategy's `configSpec` declares, so setting either
+  would otherwise trace an unknown key. A near miss such as `accept` still
+  traces, now suggesting `accepts`.
+
 ### Fixed
 
 - **A preset's own render error is no longer reported as an id collision.**

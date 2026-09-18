@@ -26,7 +26,9 @@ const REFUSING = asNodeId('zone-refusing');
 const VIEWPORT = { w: 220, h: 300 };
 const CONFIG = { axis: 'y', gap: 8, padding: 8, fill: true, maxItems: 2 };
 
-const PANES: Array<[NodeId, NodeId, string]> = [
+type Seed = [id: NodeId, parentId: NodeId, title: string, kind?: string];
+
+const PANES: Seed[] = [
   [asNodeId('strict-1'), STRICT, 'Alpha'],
   [asNodeId('strict-2'), STRICT, 'Bravo'],
   [asNodeId('lenient-1'), LENIENT, 'Charlie'],
@@ -46,15 +48,15 @@ function refuseEverything(): boolean {
 
 /** The panes are the store's, not the JSX's: a drop re-parents one, and a
  *  preset only renders the children it created itself. */
-function useSeededPanes(store: Store): void {
+function useSeededPanes(store: Store, panes: readonly Seed[]): void {
   useEffect(() => {
-    if (!store.getNode(STRICT) || !store.getNode(LENIENT) || !store.getNode(REFUSING)) return;
-    for (const [id, parentId, title] of PANES) {
+    if (panes.some(([, parentId]) => !store.getNode(parentId))) return;
+    for (const [id, parentId, title, kind = 'panel'] of panes) {
       if (store.getNode(id)) continue;
-      store.registerNode(createNode({ kind: 'panel', focus: true, id, parentId, meta: { title } }));
+      store.registerNode(createNode({ kind, focus: true, id, parentId, meta: { title } }));
       store.showNode(id);
     }
-  }, [store]);
+  }, [store, panes]);
 }
 
 function renderPane(node: Node) {
@@ -105,11 +107,13 @@ function AcceptZone({
   label,
   note,
   acceptPolicy,
+  config = CONFIG,
 }: {
   zoneId: NodeId;
   label: string;
   note: string;
   acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
+  config?: Record<string, unknown>;
 }) {
   const drag = useDragState();
   const hover = drag?.hover ?? null;
@@ -128,7 +132,7 @@ function AcceptZone({
         <Zone
           id={zoneId}
           strategyId="strip"
-          config={CONFIG}
+          config={config}
           viewport={VIEWPORT}
           acceptsDrops
           className="ap-zone"
@@ -148,7 +152,7 @@ function AcceptZone({
 
 function Board() {
   const store = useStore();
-  useSeededPanes(store);
+  useSeededPanes(store, PANES);
   return (
     <div className="ap-row">
       <AcceptZone zoneId={STRICT} label="Strict" note="no acceptPolicy" />
@@ -198,6 +202,79 @@ export const WideningTheCap: Story = () => {
               Acceptance and capacity are separate decisions. A widened zone takes the pane into its{' '}
               <code>childOrder</code>, but <code>strip</code> still places only two and reports the
               rest as unplaced — the banner names them.
+            </p>
+          </div>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+const SOURCE = asNodeId('zone-source');
+const KINDS = asNodeId('zone-kinds');
+const CAPPED = asNodeId('zone-capped');
+const CLOSED = asNodeId('zone-closed');
+
+const RULE_PANES: Seed[] = [
+  [asNodeId('source-1'), SOURCE, 'Alpha'],
+  [asNodeId('source-2'), SOURCE, 'Palette (tool)', 'tool'],
+  [asNodeId('kinds-1'), KINDS, 'Charlie'],
+  [asNodeId('capped-1'), CAPPED, 'Delta'],
+  [asNodeId('capped-2'), CAPPED, 'Echo'],
+  [asNodeId('closed-1'), CLOSED, 'Foxtrot'],
+];
+
+const OPEN = { axis: 'y', gap: 8, padding: 8, fill: true };
+const KINDS_CONFIG = { ...OPEN, accepts: { kinds: ['panel'] } };
+const CAPPED_CONFIG = { ...OPEN, accepts: { max: 2 } };
+const CLOSED_CONFIG = { ...OPEN, accepts: false };
+
+function RuleBoard() {
+  const store = useStore();
+  useSeededPanes(store, RULE_PANES);
+  return (
+    <div className="ap-row">
+      <AcceptZone zoneId={SOURCE} label="Source" note="no rule" config={OPEN} />
+      <AcceptZone
+        zoneId={KINDS}
+        label="Panels only"
+        note="accepts: { kinds: ['panel'] }"
+        config={KINDS_CONFIG}
+      />
+      <AcceptZone
+        zoneId={CAPPED}
+        label="Two at most"
+        note="accepts: { max: 2 }"
+        config={CAPPED_CONFIG}
+      />
+      <AcceptZone zoneId={CLOSED} label="Closed" note="accepts: false" config={CLOSED_CONFIG} />
+    </div>
+  );
+}
+
+export const RulesInConfig: Story = () => {
+  const store = useMemo(() => new Store(), []);
+
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <DragProvider>
+          <RuleBoard />
+          <div className="ap-prose">
+            <p>
+              The same refusals as a callback, stated as data in each zone&apos;s{' '}
+              <code>config.accepts</code>. None of these strips has a <code>maxItems</code>, so the
+              strategy would take every drop here.
+            </p>
+            <p>
+              Panels only takes Alpha but turns Palette red: its <code>kind</code> is{' '}
+              <code>tool</code>, not <code>panel</code>. Two at most is full, so a drop from outside
+              is refused, but dragging Delta below Echo still reorders it — a reorder adds no child.
+              Closed refuses everything, its own pane included.
+            </p>
+            <p>
+              <code>lock.accept</code> is checked first and <code>acceptPolicy</code> after, so a
+              callback can refuse more than the rule does but never less.
             </p>
           </div>
         </DragProvider>

@@ -1,6 +1,6 @@
 import { Meta } from '@ladle/react';
 import { DraftBanner } from './Draft.tsx';
-import { WideningTheCap } from '../react/stories/AcceptPolicy.stories.tsx';
+import { RulesInConfig, WideningTheCap } from '../react/stories/AcceptPolicy.stories.tsx';
 
 <Meta title="Guide/07 Customization/7.05 acceptPolicy" />
 
@@ -45,7 +45,23 @@ so a drop accepted past the cap lands in `unplaced` and renders nothing — the
 zone takes the pane and then withholds it. If you widen acceptance, widen the
 capacity or render `unplaced`.
 
-A `lock.accept` refuses regardless.
+A `lock.accept` refuses regardless, and so does `accepts` below.
+
+## Refusing without a callback
+
+A refusal that fits in data goes in the container's config instead:
+
+```ts
+config: { axis: 'y', accepts: { kinds: ['panel'], max: 4 } }
+```
+
+`false` refuses every drop; `kinds` refuses a dragged node whose `kind` is not
+listed; `max` refuses a drop that would leave more visible children than that,
+except a reorder within the container. A drag checks `lock.accept`, then
+`accepts`, then `acceptPolicy`, then the strategy's `canAccept`. The first two
+only refuse, so a callback can refuse more than the rule but never less.
+
+<RulesInConfig />
 
 ## The one it replaced
 

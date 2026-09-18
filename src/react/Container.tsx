@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { readDropConfig } from '../container-config.js';
 import type { AcceptContext } from '../dnd/DragEngine.js';
 import type { DropIntent } from '../dnd/dropIntent.js';
 import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
@@ -61,6 +62,9 @@ export interface ContainerProps {
    * container rather than inserting beside it. Off by default: the gesture
    * restructures the tree, and a consumer with no tab strip drawn would end up
    * with children it cannot reach.
+   *
+   * Unset, it falls back to the container's `config.drop.stack`; set, `false`
+   * included, it wins. `splitOnDrop` and `config.drop.split` pair the same way.
    */
   stackOnDrop?: boolean;
   /**
@@ -108,7 +112,12 @@ export interface ContainerProps {
   /**
    * Decide whether this container accepts a drop, overriding the strategy's
    * own `canAccept`. `true` accepts where the strategy would refuse, `false`
-   * refuses, `undefined` defers to it. A `lock.accept` refuses regardless.
+   * refuses, `undefined` defers to it.
+   *
+   * Order: `lock.accept`, then the container's `config.accepts`, then this, then
+   * `strategy.canAccept`. The first two only refuse, and `true` here cannot
+   * override either — for a declarative `false | { kinds, max }` rule, set
+   * `accepts` in config instead of writing a callback.
    *
    * Runs on every drag `pointermove` — keep it O(items.length) or smaller.
    */
@@ -231,8 +240,8 @@ function StoreContainer({
   affordanceKeyStep = 8,
   affordanceTabStops = true,
   onChildOrderChange,
-  stackOnDrop = false,
-  splitOnDrop = false,
+  stackOnDrop,
+  splitOnDrop,
   splitPreview = 'layout',
   dropIntent,
   acceptPolicy,
@@ -265,12 +274,13 @@ function StoreContainer({
   }, [dragController, parentId, onChildOrderChange]);
 
   const containerCfg = (parent?.container?.config ?? {}) as { axis?: 'x' | 'y' };
+  const dropCfg = readDropConfig(containerCfg);
   useDropIntentTarget(parentId, ref, {
     ...(containerCfg.axis ? { axis: containerCfg.axis } : {}),
     ...(parent?.container?.strategyId ? { strategyId: parent.container.strategyId } : {}),
     isFlow,
-    stackOnDrop,
-    splitOnDrop,
+    stackOnDrop: stackOnDrop ?? dropCfg.stack === true,
+    splitOnDrop: splitOnDrop ?? dropCfg.split === true,
     ...(dropIntent ? { dropIntent } : {}),
     ...(scrollRef ? { scrollRef } : {}),
     ...(acceptPolicy ? { acceptPolicy } : {}),

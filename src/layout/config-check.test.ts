@@ -62,6 +62,17 @@ describe('checkStrategyConfig', () => {
     expect(checkStrategyConfig('strip', null, SPEC)).toEqual([]);
     expect(checkStrategyConfig('strip', 7, SPEC)).toEqual([]);
   });
+
+  it('accepts the container-level keys no strategy declares', () => {
+    const config = { axis: 'y', accepts: { kinds: ['panel'], max: 2 }, drop: { stack: true } };
+    expect(checkStrategyConfig('strip', config, SPEC)).toEqual([]);
+    expect(checkStrategyConfig('strip', { accepts: false }, SPEC)).toEqual([]);
+  });
+
+  it('suggests a container-level key for a near miss', () => {
+    const [problem] = checkStrategyConfig('strip', { accept: false }, SPEC);
+    expect(problem).toContain("did you mean 'accepts'");
+  });
 });
 
 const CONFLICTS: readonly ConfigConflict[] = [

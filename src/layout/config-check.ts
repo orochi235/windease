@@ -3,7 +3,12 @@
  * is whatever the host registered — and every strategy casts it. A typo therefore
  * type-checks at the call site, casts cleanly, and silently takes the default.
  * A strategy that declares a `configSpec` gets those reported instead.
+ *
+ * The container-level keys (`accepts`, `drop`) belong to no strategy, so every
+ * check accepts them without the spec declaring them.
  */
+
+import { CONTAINER_CONFIG_KEYS } from '../container-config.js';
 
 /** What one config key accepts: a primitive type, or the set of allowed values. */
 export type ConfigFieldSpec = 'number' | 'boolean' | 'string' | readonly string[];
@@ -84,12 +89,13 @@ export function checkStrategyConfig(
   conflicts?: readonly ConfigConflict[],
 ): string[] {
   if (typeof config !== 'object' || config === null || Array.isArray(config)) return [];
-  const known = Object.keys(spec);
+  const known = [...Object.keys(spec), ...CONTAINER_CONFIG_KEYS];
   const problems: string[] = [];
 
   for (const [key, value] of Object.entries(config as Record<string, unknown>)) {
     if (value === undefined) continue;
     const field = spec[key];
+    if (field === undefined && CONTAINER_CONFIG_KEYS.has(key)) continue;
     if (field === undefined) {
       const near = nearestKey(key, known);
       problems.push(

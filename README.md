@@ -612,6 +612,8 @@ the tree under `<DragProvider>`. The drag controller honors:
 - `lock.move` on the source — per-node drag suppression.
 - `lock.dragOut` on the source's parent — zone-level drag suppression.
 - `lock.accept` on the target — zone-level drop refusal.
+- `accepts` in the target's container config — `false`, or `{ kinds, max }` to
+  refuse by the dragged node's `kind` or by the child count after the drop.
 - The destination strategy's `canAccept(prospective-items, options)` — e.g.
   a strategy with a `maxItems` config refusing a drop that would overflow it.
 - `acceptPolicy` on the container itself, which overrides that answer.
@@ -620,7 +622,22 @@ the tree under `<DragProvider>`. The drag controller honors:
 one container disagrees with its strategy. It sees the child list the strategy
 would see, plus who is being dragged; `true` accepts where the strategy would
 refuse, `false` refuses where it would accept, `undefined` defers to it. A
-`lock.accept` refuses regardless.
+`lock.accept` or a config `accepts` refuses regardless: those two are checked
+first and only refuse.
+
+A refusal that fits in data needs no callback:
+
+```ts
+store.registerNode(createNode({
+  kind: 'zone',
+  container: { strategyId: 'strip', config: { axis: 'y', accepts: { kinds: ['panel'], max: 4 } } },
+  id: zoneId,
+}));
+```
+
+`max` exempts a reorder within the container, as `canAccept` does. `accepts:
+false` refuses the drag only; `lock.accept` also refuses `moveNode` from host
+code.
 
 ```tsx
 <Container parentId={zoneId} acceptPolicy={({ items }) => items.length <= 4} />
@@ -675,7 +692,9 @@ A split's `axis` is the axis of the strip it would *create* — the cross axis o
 the container that resolved it, one flip from that container's own.
 
 `<Container>` wires it for you from the rects it already measures: pass
-`stackOnDrop` for the centre band, `splitOnDrop` for the cross-axis ones.
+`stackOnDrop` for the centre band, `splitOnDrop` for the cross-axis ones. The
+same two can live in the container's config as `drop: { stack, split }`, so a
+snapshot or preset carries them; a prop that is set, `false` included, wins.
 
 A target you register yourself takes `getDropIntent` beside the older
 `getInsertionIndex`, which still works and is still honoured when no intent

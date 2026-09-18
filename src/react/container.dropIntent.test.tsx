@@ -20,12 +20,12 @@ const Z = asNodeId('z');
 
 /** Horizontal strip `z` › panels `a`, `b`. `fill` because strip's own default
  *  sizes hintless children to zero, which would place both panes at 0×0. */
-function makeStore(): Store {
+function makeStore(extra: Record<string, unknown> = {}): Store {
   const s = new Store();
   s.registerNode(
     createNode({
       kind: 'zone',
-      container: { strategyId: 'strip', config: { axis: 'x', fill: true } },
+      container: { strategyId: 'strip', config: { axis: 'x', fill: true, ...extra } },
       id: Z,
     }),
   );
@@ -62,8 +62,8 @@ function tree({ store, capture, splitOnDrop, stackOnDrop, splitPreview, dropInte
             parentId={Z}
             chrome={{}}
             viewport={{ w: 200, h: 100 }}
-            {...(splitOnDrop ? { splitOnDrop } : {})}
-            {...(stackOnDrop ? { stackOnDrop } : {})}
+            {...(splitOnDrop !== undefined ? { splitOnDrop } : {})}
+            {...(stackOnDrop !== undefined ? { stackOnDrop } : {})}
             {...(splitPreview ? { splitPreview } : {})}
             {...(dropIntent ? { dropIntent } : {})}
           />
@@ -162,6 +162,37 @@ async function hover(
 }
 
 describe('<Container> drop intent', () => {
+  it('reads config.drop when the props are unset', async () => {
+    let controller!: DragController;
+    const { container } = render(
+      tree({ store: makeStore({ drop: { split: true } }), capture: (c) => (controller = c) }),
+    );
+    await hover(controller, container, { x: 150, y: 5 });
+    expect(controller.state()?.hover?.intent?.kind).toBe('split');
+  });
+
+  it('stacks from config.drop.stack', async () => {
+    let controller!: DragController;
+    const { container } = render(
+      tree({ store: makeStore({ drop: { stack: true } }), capture: (c) => (controller = c) }),
+    );
+    await hover(controller, container, { x: 150, y: 50 });
+    expect(controller.state()?.hover?.intent?.kind).toBe('stack');
+  });
+
+  it('lets an explicit splitOnDrop={false} win over config.drop.split', async () => {
+    let controller!: DragController;
+    const { container } = render(
+      tree({
+        store: makeStore({ drop: { split: true } }),
+        splitOnDrop: false,
+        capture: (c) => (controller = c),
+      }),
+    );
+    await hover(controller, container, { x: 150, y: 5 });
+    expect(controller.state()?.hover?.intent?.kind).toBe('insert');
+  });
+
   it('resolves a split in a cross-axis band when splitOnDrop is set', async () => {
     const store = makeStore();
     let controller!: DragController;
