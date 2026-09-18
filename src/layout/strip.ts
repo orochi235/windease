@@ -293,6 +293,20 @@ function writeSize(store: unknown, id: string, axis: 'x' | 'y', value: number): 
   });
 }
 
+/** `items` as they will read once `writes` land in `placement.size`. */
+function withSizes(
+  items: LayoutItem[],
+  writes: ReadonlyMap<string, number>,
+  axis: 'x' | 'y',
+): LayoutItem[] {
+  return items.map((it) => {
+    const v = writes.get(it.id);
+    if (v === undefined) return it;
+    const size = { ...it.placement?.size, [axis === 'x' ? 'w' : 'h']: v };
+    return { ...it, placement: { ...it.placement, size } };
+  });
+}
+
 /** What this item asks to occupy on the main axis when nothing compresses it. */
 function intrinsicAxis(
   item: LayoutItem,
@@ -521,8 +535,25 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       const d = Math.min(hi, Math.max(lo, delta));
       if (d === 0) return;
 
-      writeSize(store, childId as string, axis, baseA + d);
-      writeSize(store, next.id, axis, baseB - d);
+      // Two new sizes can move the rest of the row: a squeezed row rescales
+      // against the new stored sum, and a row sized by preferredSize leaves that
+      // path for the stored-size one. Pin whatever would move where it renders.
+      const writes = new Map<string, number>([
+        [item.id, baseA + d],
+        [next.id, baseB - d],
+      ]);
+      for (let pass = 0; pass < placedItems.length; pass++) {
+        const after = mainSizes(withSizes(placedItems, writes, axis), cfg, axis, usableMain);
+        const pinned = writes.size;
+        placedItems.forEach((it, i) => {
+          const now = sizes[i] ?? 0;
+          if (!writes.has(it.id) && Math.abs((after[i] ?? 0) - now) > 1e-6) writes.set(it.id, now);
+        });
+        if (writes.size === pinned) break;
+      }
+      if (writes.size > 2)
+        trace('layout', `strip: pinned ${writes.size - 2} panes beside ${childId}`);
+      for (const [id, v] of writes) writeSize(store, id, axis, v);
       return;
     }
 

@@ -33,6 +33,15 @@ section below.
   780px by 10. A pane whose floor or cap binds now takes it, and its siblings
   share the rest.
 
+- **A `resizeMode: 'neighbor'` seam drag moves only the two panes beside it.**
+  In a squeezed row — stored sizes that add up to more than the container —
+  the drag wrote squeezed sizes for its pair while the other panes kept their
+  larger stored ones, so the row rescaled: a 16px drag of Xcode's navigator
+  moved the inspector from 260 to 334. And the first drag on a row sized by
+  `preferredSize` moved it onto the stored-size path, where untouched panes
+  shared the leftover equally. The drag now also writes the rendered size of
+  any other pane that would otherwise move.
+
 - **A strip seam drag never moves against the pointer.** Beside a pane stored
   under its `minSize` — an acme window shrunk to a 2px sliver, a minimized
   Photoshop group — a `'neighbor'` drag could flip direction and write a

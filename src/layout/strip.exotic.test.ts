@@ -266,13 +266,7 @@ function layoutTree(preset: Preset, store: Store = presetToStore(preset)): Laid[
  * Defects these fixtures expose, keyed `scenario id » invariant`. Each entry
  * runs as `it.fails` and names the defect, so a fix turns it red here first.
  */
-const SQUEEZED_DRAG =
-  'a neighbor drag writes squeezed sizes for two panes, so the whole row rescales';
-
 const KNOWN: Record<string, string> = {
-  'slack-thread-open » a neighbor drag moves only the two panes beside its seam': SQUEEZED_DRAG,
-  'xcode-restored-on-laptop » a neighbor drag moves only the two panes beside its seam':
-    SQUEEZED_DRAG,
   // Open question rather than a settled defect: `squeeze`'s docstring says it
   // scales panes down, but strip.test.ts pins preferredSize as unscaled.
   'vscode-hinted-sidebars@400-squeeze » squeeze overflows only once every pane is at its floor':

@@ -217,7 +217,7 @@ test.describe('known defects, asserted as the correct behavior', () => {
   });
 
   // Defect: a neighbor drag writes squeezed sizes for two panes, so the whole row rescales.
-  test.fail('xcode: dragging the navigator seam leaves the inspector alone', async ({ page }) => {
+  test('xcode: dragging the navigator seam leaves the inspector alone', async ({ page }) => {
     await openPreset(page, 'xcode-restored-on-laptop');
     const inspector = await boxOf(pane(page, 'xc-inspector'));
     await dragSeam(page, 'resize-x-xc-navigator', 40, 'x');
