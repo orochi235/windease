@@ -65,6 +65,7 @@ describe('stackStrategy', () => {
   it('declares its config keys so a typo is reported, not silently defaulted', () => {
     expect(Object.keys(stackStrategy.configSpec ?? {}).sort()).toEqual([
       'activeId',
+      'fallback',
       'headerSize',
       'padding',
       'show',

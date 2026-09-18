@@ -26,6 +26,14 @@ section below.
   activates nothing. Set it after registering a stack's initial children, or
   the last one registered becomes active.
 
+- **Stack config `fallback: 'next' | 'prev' | 'first'` picks the tab that shows
+  when the active one goes.** When the active child is unregistered, hidden or
+  moved out, `'next'` activates the visible tab after it and `'prev'` the one
+  before, each taking the other side at an end; `'first'` clears `activeId`.
+  Without the key nothing changes: the departed id stays in config and the
+  stack shows its first child. The write is part of the same `unregisterNode`
+  or `moveNodes` transaction.
+
 ### Fixed
 
 - **A preset's own render error is no longer reported as an id collision.**

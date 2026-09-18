@@ -361,8 +361,12 @@ export class Store {
 
     if (this.focusedIdValue === id) this.succeedFocus(id, 'destroyed');
     const parentId = node.membership?.parentId;
+    const siblings = parentId ? this.nodesMap.get(parentId)?.container?.childOrder : undefined;
     this.detachAndRemove(id);
-    if (parentId) this.clampPins(parentId);
+    if (parentId) {
+      this.clampPins(parentId);
+      this.#fallback(parentId, id, siblings ?? [], 'unregistered');
+    }
     this.events.emit('node.unregistered', { id });
     trace('store', `unregister: ${id}`);
     this.scheduleNotify();
@@ -501,8 +505,42 @@ export class Store {
       to: transit.state,
     });
 
+    if (fromParentId !== newParentId) {
+      this.#fallback(fromParentId, id, fromContainer.childOrder, 'moved');
+    }
     this.settle({ removedFrom: [fromParentId], addedTo: [newParentId], moved: [id] });
     if (fromParentId !== newParentId) this.#showArrival(newParentId, id);
+  }
+
+  /**
+   * Container config `fallback`: when the stack's active child `id` leaves or
+   * is hidden, activate its nearest visible neighbor in `siblings` (the order
+   * before it left) — after it for `'next'`, before it for `'prev'`, falling to
+   * the other side at an end. `'first'` clears `activeId`, which a stack reads
+   * as its first child. Without the key the stale id stays.
+   */
+  #fallback(
+    parentId: NodeId,
+    id: NodeId,
+    siblings: readonly NodeId[],
+    reason: 'unregistered' | 'hidden' | 'moved',
+  ): void {
+    const container = this.nodesMap.get(parentId)?.container;
+    if (!container || configKey(container.config, 'activeId') !== id) return;
+    const mode = configKey(container.config, 'fallback');
+    // Opt-in, cleanup included: `stack.exotic.test.ts` pins the stale id as today's contract.
+    if (mode !== 'next' && mode !== 'prev' && mode !== 'first') return;
+    const present = new Set(container.childOrder);
+    const eligible = (cid: NodeId) =>
+      cid !== id && present.has(cid) && this.nodesMap.get(cid)?.lifecycle.state === 'visible';
+    const at = siblings.indexOf(id);
+    const after = siblings.slice(at + 1).filter(eligible);
+    const before = siblings.slice(0, Math.max(at, 0)).filter(eligible).reverse();
+    let to: NodeId | undefined;
+    if (mode === 'next') to = after[0] ?? before[0];
+    else if (mode === 'prev') to = before[0] ?? after[0];
+    this.updateContainerConfig(parentId, { activeId: to }, { force: true });
+    trace('store', `fallback: ${id} → ${to ?? '(first)'} in ${parentId} (${mode}, ${reason})`);
   }
 
   /** Container config `show: 'dropped'`: a child arriving by move or
@@ -589,6 +627,8 @@ export class Store {
     const moving = new Set(ordered);
     const crossing = ordered.filter((id) => sourceOf.get(id) !== toParentId);
     const insertAt = clampIndex(at, target.container.childOrder.length);
+    const sourceOrders = new Map<NodeId, readonly NodeId[]>();
+    for (const p of sources) sourceOrders.set(p, this.nodesMap.get(p)?.container?.childOrder ?? []);
     const fromIndexOf = new Map<NodeId, number>();
     for (const id of ordered) {
       const from = sourceOf.get(id) as NodeId;
@@ -680,6 +720,12 @@ export class Store {
         'store',
         `moveNodes: ${ordered.length} → ${toParentId}@${insertAt} (from ${from.join(', ') || 'itself'})`,
       );
+      for (const p of from) {
+        const active = configKey(this.nodesMap.get(p)?.container?.config, 'activeId');
+        if (moving.has(active as NodeId)) {
+          this.#fallback(p, active as NodeId, sourceOrders.get(p) ?? [], 'moved');
+        }
+      }
       this.settle({ removedFrom: from, addedTo: [toParentId], moved: crossing });
       const [first] = crossing;
       if (first !== undefined) this.#showArrival(toParentId, first);
@@ -1346,6 +1392,11 @@ export class Store {
       from: prev,
       to: node.lifecycle.state,
     });
+    const parentId = node.membership?.parentId;
+    if (parentId) {
+      const siblings = this.nodesMap.get(parentId)?.container?.childOrder ?? [];
+      this.#fallback(parentId, id, siblings, 'hidden');
+    }
     if (this.focusedIdValue === id) this.succeedFocus(id, 'hidden');
     this.scheduleNotify();
   }

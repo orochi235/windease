@@ -21,6 +21,7 @@ import {
   useChildren,
   useNode,
   useStack,
+  useStore,
 } from '../index.js';
 import '../styles.css';
 import './tab-stack.css';
@@ -177,7 +178,9 @@ export const StackOnDrop: Story = () => {
 
 const DOCS = asNodeId('docs');
 
-function makePolicyStore(): Store {
+type Fallback = 'next' | 'prev' | 'first';
+
+function makePolicyStore(fallback: Fallback): Store {
   const s = new Store();
   s.registerNode(
     createNode({
@@ -193,7 +196,7 @@ function makePolicyStore(): Store {
       parentId: ROOT,
       container: {
         strategyId: 'stack',
-        config: { ...STACK_CONFIG, activeId: 'readme' },
+        config: { ...STACK_CONFIG, fallback, activeId: 'license' },
       },
     }),
   );
@@ -240,9 +243,33 @@ function ActiveReadout({ id }: { id: NodeId }) {
   );
 }
 
-/** Dropping a pane into the stack shows it: `show: 'dropped'` does that, with no host listener. */
-export const ShowDropped: Story = () => {
-  const store = useMemo(() => makePolicyStore(), []);
+/** Acts on the stack's active tab, the way a tab's own close button would. */
+function ActiveActions({ id }: { id: NodeId }) {
+  const store = useStore();
+  const { activeId } = useStack(id);
+  if (!activeId) return null;
+  return (
+    <p className="ts-actions">
+      <button
+        type="button"
+        data-testid="close-active"
+        onClick={() => store.unregisterNode(activeId)}
+      >
+        Close {activeId}
+      </button>
+      <button type="button" data-testid="hide-active" onClick={() => store.hideNode(activeId)}>
+        Hide {activeId}
+      </button>
+    </p>
+  );
+}
+
+/**
+ * A stack whose behavior is config: `show: 'dropped'` shows a pane dropped into it, and
+ * `fallback` picks the tab that shows when the active one closes. No host listener does either.
+ */
+export const ShowAndFallback: Story<{ fallback: Fallback }> = ({ fallback }) => {
+  const store = useMemo(() => makePolicyStore(fallback), [fallback]);
 
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -277,14 +304,27 @@ export const ShowDropped: Story = () => {
             />
           </div>
           <ActiveReadout id={DOCS} />
+          <ActiveActions id={DOCS} />
           <div className="ts-prose">
             <p>
               The stack's config says <code>show: 'dropped'</code>: drag Notes or TODO by its header
               into the stack and it becomes the tab you are looking at.
+            </p>
+            <p>
+              It also says <code>fallback: '{fallback}'</code>: close or hide the active tab and the
+              stack shows{' '}
+              {fallback === 'first'
+                ? 'its first tab'
+                : `the tab ${fallback === 'next' ? 'after' : 'before'} it, or the one on the other side at an end`}
+              .
             </p>
           </div>
         </DragProvider>
       </StrategyRegistryProvider>
     </Provider>
   );
+};
+ShowAndFallback.args = { fallback: 'next' };
+ShowAndFallback.argTypes = {
+  fallback: { options: ['next', 'prev', 'first'], control: { type: 'radio' } },
 };

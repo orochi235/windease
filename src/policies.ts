@@ -10,3 +10,8 @@ export const RAISE_MODES = ['click', 'focus'] as const;
 /** The values a stack's `config.show` accepts. `'dropped'` activates a child
  *  that arrives by `moveNode`, `moveNodes` or `registerNode`. */
 export const STACK_SHOW = ['dropped'] as const;
+
+/** The values a stack's `config.fallback` accepts: which visible child becomes
+ *  active when the active one is unregistered, hidden or moved out. `'next'`
+ *  and `'prev'` fall to the other side at an end; `'first'` clears `activeId`. */
+export const STACK_FALLBACK = ['next', 'prev', 'first'] as const;

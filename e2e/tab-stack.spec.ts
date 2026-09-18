@@ -89,8 +89,8 @@ test.describe('tab stacking', () => {
   });
 });
 
-test.describe("stack config show: 'dropped'", () => {
-  const SHOW = 'tab-stack--show-dropped';
+test.describe('stack config show and fallback', () => {
+  const SHOW = 'tab-stack--show-and-fallback';
   const active = (page: Page) => page.locator('[data-testid="ts-active"]');
 
   /** Drag `sourceId` by its header into the middle of the stack's body. */
@@ -106,7 +106,7 @@ test.describe("stack config show: 'dropped'", () => {
 
   test('a pane dropped into the stack becomes the tab on show', async ({ page }) => {
     await openStory(page, SHOW);
-    await expect(active(page)).toHaveText('readme');
+    await expect(active(page)).toHaveText('license');
 
     await dragIntoStack(page, 'notes');
 
@@ -116,6 +116,36 @@ test.describe("stack config show: 'dropped'", () => {
     );
     await expect(active(page)).toHaveText('notes');
     await expect(pane(page, 'notes')).toBeVisible();
-    await expect(pane(page, 'readme')).toHaveCount(0);
+    await expect(pane(page, 'license')).toHaveCount(0);
+  });
+
+  // license is active, between readme and changelog.
+  for (const [fallback, next] of [
+    ['next', 'changelog'],
+    ['prev', 'readme'],
+    ['first', 'readme'],
+  ] as const) {
+    test(`fallback: '${fallback}' shows ${next} when the active tab closes`, async ({ page }) => {
+      await openStory(page, `${SHOW}&arg-fallback=${fallback}`);
+      await expect(active(page)).toHaveText('license');
+
+      await page.getByTestId('close-active').click();
+
+      await expect(page.locator(`[data-testid="tab-${next}"]`)).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      await expect(pane(page, next)).toBeVisible();
+      await expect(page.getByTestId('ts-configured')).toHaveText(
+        fallback === 'first' ? 'unset' : next,
+      );
+    });
+  }
+
+  test("fallback: 'next' moves off a hidden tab too", async ({ page }) => {
+    await openStory(page, `${SHOW}&arg-fallback=next`);
+    await page.getByTestId('hide-active').click();
+    await expect(active(page)).toHaveText('changelog');
+    await expect(pane(page, 'changelog')).toBeVisible();
   });
 });

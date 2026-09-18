@@ -249,3 +249,114 @@ describe("config show: 'dropped'", () => {
     expect(notified).toBe(1);
   });
 });
+
+const hasActiveKey = (s: Store, stack: NodeId) =>
+  Object.hasOwn((s.getContainerView(stack)?.config as object | undefined) ?? {}, 'activeId');
+
+describe('config fallback', () => {
+  it("'next' activates the tab after the closed one", () => {
+    const s = stackSeeded({ fallback: 'next' });
+    s.unregisterNode(id('a'));
+    expect(activeOf(s, id('st'))).toBe('b');
+  });
+
+  it("'next' takes the tab before when the last one closes", () => {
+    const s = stackSeeded({ fallback: 'next' });
+    s.setActiveChild(id('st'), id('c'));
+    s.unregisterNode(id('c'));
+    expect(activeOf(s, id('st'))).toBe('b');
+  });
+
+  it("'prev' activates the tab before the closed one", () => {
+    const s = stackSeeded({ fallback: 'prev' });
+    s.setActiveChild(id('st'), id('c'));
+    s.unregisterNode(id('c'));
+    expect(activeOf(s, id('st'))).toBe('b');
+  });
+
+  it("'prev' takes the tab after when the first one closes", () => {
+    const s = stackSeeded({ fallback: 'prev' });
+    s.unregisterNode(id('a'));
+    expect(activeOf(s, id('st'))).toBe('b');
+  });
+
+  it('skips a hidden neighbor', () => {
+    const s = stackSeeded({ fallback: 'next' });
+    s.hideNode(id('b'));
+    s.unregisterNode(id('a'));
+    expect(activeOf(s, id('st'))).toBe('c');
+  });
+
+  it('falls back when the active child is hidden', () => {
+    const s = stackSeeded({ fallback: 'next' });
+    s.setActiveChild(id('st'), id('b'));
+    s.hideNode(id('b'));
+    expect(activeOf(s, id('st'))).toBe('c');
+  });
+
+  it('falls back when the active child is moved out', () => {
+    const s = stackSeeded({ fallback: 'prev' });
+    s.setActiveChild(id('st'), id('b'));
+    s.moveNode(id('b'), id('r'));
+    expect(activeOf(s, id('st'))).toBe('a');
+  });
+
+  it('falls back when the active child leaves in a batch, past the others leaving with it', () => {
+    const s = stackSeeded({ fallback: 'next' });
+    s.moveNodes([id('a'), id('b')], id('r'));
+    expect(activeOf(s, id('st'))).toBe('c');
+  });
+
+  it("'first' clears activeId, which shows the first child", () => {
+    const s = stackSeeded({ fallback: 'first' });
+    s.setActiveChild(id('st'), id('b'));
+    s.unregisterNode(id('b'));
+    expect(hasActiveKey(s, id('st'))).toBe(false);
+  });
+
+  it('leaves the stale activeId without the key', () => {
+    const s = stackSeeded({});
+    s.setActiveChild(id('st'), id('b'));
+    s.unregisterNode(id('b'));
+    expect(activeOf(s, id('st'))).toBe('b');
+  });
+
+  it('clears activeId when no visible tab is left to take it', () => {
+    const s = stackSeeded({ fallback: 'next' });
+    s.hideNode(id('b'));
+    s.hideNode(id('c'));
+    s.unregisterNode(id('a'));
+    expect(hasActiveKey(s, id('st'))).toBe(false);
+  });
+
+  it('leaves activeId alone when an inactive child closes', () => {
+    const s = stackSeeded({ fallback: 'next' });
+    s.unregisterNode(id('c'));
+    expect(activeOf(s, id('st'))).toBe('a');
+  });
+
+  it("falls back through a stack locked against 'arrange'", () => {
+    const s = stackSeeded({ fallback: 'next' });
+    s.setLock(id('st'), { arrange: true });
+    s.unregisterNode(id('a'));
+    expect(activeOf(s, id('st'))).toBe('b');
+  });
+
+  it('is part of the unregister transaction, so one undo step', () => {
+    const s = stackSeeded({ fallback: 'next' });
+    const rec = recordEvents(s, 'transaction.begin');
+    const { undo } = bracketedHistory(s);
+    s.unregisterNode(id('a'));
+    expect(rec.of('transaction.begin')).toHaveLength(1);
+    undo();
+    expect(activeOf(s, id('st'))).toBe('a');
+    expect(order(s, id('st'))).toEqual(['a', 'b', 'c']);
+  });
+
+  it('traces the fallback', () => {
+    const s = stackSeeded({ fallback: 'next' });
+    const t = captureTrace('store');
+    s.unregisterNode(id('a'));
+    expect(t.matching(/fallback: a → b in st \(next, unregistered\)/)).toHaveLength(1);
+  });
+});

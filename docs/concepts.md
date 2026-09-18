@@ -338,6 +338,10 @@ Built-ins:
   `activeId` picks it (falling back to the first child), `headerSize` reserves
   the band your tab strip renders in, plus `padding`. The core never measures
   the strip and never draws it; `useStack(containerId)` gives you the model.
+  Two keys the store reads rather than the strategy: `show: 'dropped'` writes
+  `activeId` for a child that arrives by move or registration, and
+  `fallback: 'next' | 'prev' | 'first'` rewrites it when the active child is
+  unregistered, hidden or moved out.
 - **`floatingStrategy(inner?)`** — wraps another strategy. Items whose
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
