@@ -37,6 +37,13 @@ section below.
   item count alone, so wide and large tiles went to `unplaced` though nothing
   capped the columns. They are now counted by the cells they cover.
 
+- **Large and resizable `gridStrategy` grids lay out in milliseconds.** Each item's
+  search for a free cell started over from the first cell, so 10,000 items took
+  about 7s; it now starts from the first free one. Under `resizable: true`, each
+  seam's reach repacked the whole grid for every candidate span, so 64 tiles took
+  over a second; a grid with no row cap now skips the repack, since every span
+  fits there, and a capped one repacks only the items after the one resized.
+
 ## 2.0.0
 
 ### Removed

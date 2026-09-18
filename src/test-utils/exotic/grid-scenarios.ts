@@ -632,7 +632,7 @@ export const PATHOLOGICAL: Scenario[] = [
   },
 ];
 
-/** 10k children, for `canAccept` cost only — a full layout of this many is quadratic. */
+/** 10k children, with a 2×2 every 97th, for cost tests. */
 export const TEN_THOUSAND: LayoutItem[] = Array.from({ length: 10_000 }, (_, i) =>
   i % 97 === 0 ? spanned(`t${i}`, 2, 2) : { id: `t${i}` },
 );

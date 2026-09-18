@@ -323,7 +323,7 @@ describe('Windows 10 Start tiles', () => {
     expect(store.getNode(asNodeId('calc'))?.membership?.placement?.span).toEqual({ cols: 2 });
   });
 
-  it.fails('a 64-tile resizable Start menu lays out in under 100ms — spanReach re-packs the grid per item per span', () => {
+  it('a 64-tile resizable Start menu lays out in under 100ms', () => {
     const items = Array.from({ length: 64 }, (_, i) => ({ id: `t${i}` }));
     const t = performance.now();
     run({ items, container: { w: 800, h: 800 }, options: { resizable: true } });
@@ -506,7 +506,7 @@ describe('cost', () => {
     }
   });
 
-  it.fails('a 3000-item layout finishes in under 150ms — first-fit rescans from cell 0 for every item (quadratic)', () => {
+  it('a 3000-item layout finishes in under 150ms', () => {
     const items = TEN_THOUSAND.slice(0, 3000).map(({ id }) => ({ id }));
     const t = performance.now();
     run({ items, container: { w: 1000, h: 1000 }, options: { cols: 100 } });

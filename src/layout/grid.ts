@@ -213,9 +213,67 @@ function byCapacityPriority(items: LayoutItem[]): LayoutItem[] {
 }
 
 /**
- * Row-major cell reservation: walks `order`, and for each item finds the
- * first free cell block its (clamped) span fits, reserving it. Items beyond
- * `itemCap`, or whose span can't fit before `rowCap` runs out, are omitted.
+ * Row-major first-fit over a `cols`-wide lattice. Every cell before `cursor`
+ * is taken, so no block can start there and each search begins at it.
+ */
+class CellPacker {
+  readonly cols: number;
+  readonly rowCap: number | undefined;
+  private readonly taken = new Set<number>();
+  private cursor = 0;
+
+  constructor(cols: number, rowCap: number | undefined) {
+    this.cols = cols;
+    this.rowCap = rowCap;
+  }
+
+  clone(): CellPacker {
+    const copy = new CellPacker(this.cols, this.rowCap);
+    for (const cell of this.taken) copy.taken.add(cell);
+    copy.cursor = this.cursor;
+    return copy;
+  }
+
+  /** Reserves the first block a `cSpan × rSpan` item fits, if any. */
+  place(cSpan: number, rSpan: number): { col: number; row: number } | undefined {
+    const { cols, rowCap, taken } = this;
+    let col = this.cursor % cols;
+    for (
+      let row = Math.floor(this.cursor / cols);
+      rowCap === undefined || row + rSpan <= rowCap;
+      row++
+    ) {
+      while (col + cSpan <= cols) {
+        const blocked = this.blockedAt(col, row, cSpan, rSpan);
+        if (blocked < 0) {
+          for (let dr = 0; dr < rSpan; dr++) {
+            for (let dc = 0; dc < cSpan; dc++) taken.add((row + dr) * cols + col + dc);
+          }
+          while (taken.has(this.cursor)) this.cursor++;
+          return { col, row };
+        }
+        // Every start from `col` through `blocked` covers the taken cell.
+        col = blocked + 1;
+      }
+      col = 0;
+    }
+    return undefined;
+  }
+
+  /** The column of a taken cell inside the block, or -1 when it is free. */
+  private blockedAt(col: number, row: number, cSpan: number, rSpan: number): number {
+    for (let dr = 0; dr < rSpan; dr++) {
+      const base = (row + dr) * this.cols + col;
+      for (let dc = cSpan - 1; dc >= 0; dc--) if (this.taken.has(base + dc)) return col + dc;
+    }
+    return -1;
+  }
+}
+
+/**
+ * Walks `order`, reserving the first free cell block each item's (clamped)
+ * span fits. Items beyond `itemCap`, or whose span can't fit before `rowCap`
+ * runs out, are omitted.
  */
 function reserveCells(
   order: LayoutItem[],
@@ -223,34 +281,13 @@ function reserveCells(
   rowCap: number | undefined,
   itemCap: number,
 ): Map<string, ReservedCell> {
-  const occupied = new Set<string>();
+  const packer = new CellPacker(cols, rowCap);
   const placed = new Map<string, ReservedCell>();
-  const fits = (col: number, row: number, cSpan: number, rSpan: number): boolean => {
-    for (let dr = 0; dr < rSpan; dr++) {
-      for (let dc = 0; dc < cSpan; dc++) {
-        if (occupied.has(`${col + dc},${row + dr}`)) return false;
-      }
-    }
-    return true;
-  };
   for (const item of order) {
-    if (placed.size >= itemCap) continue;
-    const { cols: cSpan, rows: rSpan } = clampSpan(item, cols, rowCap);
-    let at: { col: number; row: number } | undefined;
-    for (let row = 0; rowCap === undefined || row + rSpan <= rowCap; row++) {
-      for (let col = 0; col + cSpan <= cols; col++) {
-        if (fits(col, row, cSpan, rSpan)) {
-          at = { col, row };
-          break;
-        }
-      }
-      if (at) break;
-    }
-    if (!at) continue;
-    for (let dr = 0; dr < rSpan; dr++) {
-      for (let dc = 0; dc < cSpan; dc++) occupied.add(`${at.col + dc},${at.row + dr}`);
-    }
-    placed.set(item.id, { col: at.col, row: at.row, cols: cSpan, rows: rSpan });
+    if (placed.size >= itemCap) break;
+    const span = clampSpan(item, cols, rowCap);
+    const at = packer.place(span.cols, span.rows);
+    if (at) placed.set(item.id, { ...at, ...span });
   }
   return placed;
 }
@@ -388,38 +425,41 @@ function spanReach(
   rowCap: number | undefined,
   itemCap: number,
 ): { cols: number; rows: number } {
-  // An unbounded grid grows a row rather than dropping anyone, so fitting is
-  // tested against the *cap*, not against however many rows happen to be in
-  // use. Capping at the current count would report a ceiling of 1 for every
-  // item in a full auto-balanced grid, which can always grow.
+  // An unbounded grid grows a row rather than dropping anyone, so every span
+  // fits: the ceiling is the grid's width, and — since nothing can usefully
+  // span more rows than there are items — the item count.
+  if (rowCap === undefined) return { cols, rows: items.length };
+
+  // Items before `id` pack the same whatever span it takes, so the prefix is
+  // packed once and each probe repacks only `id` and what follows it.
+  const at = items.findIndex((it) => it.id === id);
+  if (at < 0) return { cols: 1, rows: 1 };
+  const prefix = new CellPacker(cols, rowCap);
+  let before = 0;
+  for (let i = 0; i < at && before < itemCap; i++) {
+    const span = clampSpan(items[i] as LayoutItem, cols, rowCap);
+    if (prefix.place(span.cols, span.rows)) before++;
+  }
+  const baseline = reserveCells(items, cols, rowCap, itemCap).size;
+  const own = clampSpan(items[at] as LayoutItem, cols, rowCap);
+
   const fits = (axis: 'cols' | 'rows', value: number): boolean => {
-    const probe = items.map((it) =>
-      it.id === id
-        ? {
-            ...it,
-            placement: {
-              ...it.placement,
-              span: { ...it.placement?.span, [axis]: value },
-            },
-          }
-        : it,
-    );
-    return (
-      reserveCells(probe, cols, rowCap, itemCap).size ===
-      reserveCells(items, cols, rowCap, itemCap).size
-    );
+    const packer = prefix.clone();
+    let placed = before;
+    for (let i = at; i < items.length && placed < itemCap; i++) {
+      const span =
+        i === at ? { ...own, [axis]: value } : clampSpan(items[i] as LayoutItem, cols, rowCap);
+      if (packer.place(span.cols, span.rows)) placed++;
+      else if (placed + items.length - 1 - i < baseline) return false;
+    }
+    return placed >= baseline;
   };
   const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
     let best = 1;
     for (let v = 1; v <= cap; v++) if (fits(axis, v)) best = v;
     return best;
   };
-  return {
-    cols: reachOn('cols', cols),
-    // Unbounded rows still need a finite probe: nothing can usefully span more
-    // rows than there are items.
-    rows: reachOn('rows', rowCap ?? items.length),
-  };
+  return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap) };
 }
 
 /**
