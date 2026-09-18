@@ -6,6 +6,13 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
+## Unreleased
+
+### Fixed
+
+- **`checkStrategyConfig` reports a number config that is `NaN` or infinite.**
+  It checked only the type, so `cols: NaN` passed as a number.
+
 ## 2.0.0
 
 ### Removed

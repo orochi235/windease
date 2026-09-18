@@ -42,6 +42,14 @@ describe('checkStrategyConfig', () => {
     expect(problem).toContain('string');
   });
 
+  it('catches a number that is not finite', () => {
+    for (const gap of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const [problem] = checkStrategyConfig('strip', { gap }, SPEC);
+      expect(problem).toContain('gap');
+      expect(problem).toContain('finite');
+    }
+  });
+
   it('treats undefined as absent rather than as a wrong type', () => {
     expect(checkStrategyConfig('strip', { gap: undefined }, SPEC)).toEqual([]);
   });

@@ -111,6 +111,8 @@ export function checkStrategyConfig(
       problems.push(
         `${strategyName}: config '${key}' is a ${typeof value}, expected a ${String(field)}`,
       );
+    } else if (typeof value === 'number' && !Number.isFinite(value)) {
+      problems.push(`${strategyName}: config '${key}' is ${value}, expected a finite number`);
     }
   }
 
