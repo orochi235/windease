@@ -272,9 +272,7 @@ describe('unplugged monitor: saved free positions outside the container', () => 
     expect(r.placements.get('inspector')).toMatchObject({ x: 2300, y: 900 });
   });
 
-  // Defect: a free item re-bases only through the clamp, so the first delta after a clamp is spent
-  // walking the saved spot back to the edge and the palette does not move.
-  it.fails('first drag after the unplug moves from where the palette shows, not the saved spot', () => {
+  it('first drag after the unplug moves from where the palette shows, not the saved spot', () => {
     const next = strategy.reduce!(state, drag('inspector', -10, 0), {
       items: [palette],
       container: laptop,
@@ -287,9 +285,7 @@ describe('unplugged monitor: saved free positions outside the container', () => 
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);
   });
 
-  // Defect: resolveOrigin clamps a free item but not an anchored one, so a bottom anchor in a
-  // container shorter than the item puts its drag band above the top edge, out of reach.
-  it.fails('keeps an anchored palette inside a container shorter than it', () => {
+  it('pins an anchored palette taller than its container to the top edge, drag band in reach', () => {
     const anchored: State = {
       at: { inspector: { x: 0, y: 0, anchor: 'bottom-left' } },
       inner: undefined,
@@ -300,7 +296,9 @@ describe('unplugged monitor: saved free positions outside the container', () => 
       state: anchored,
       options: { handleSize: 24 },
     });
-    expect(outOfBounds(r.placements, { w: 1280, h: 400 })).toEqual([]);
+    expect(r.placements.get('inspector')).toMatchObject({ x: 12, y: 0 });
+    const handles = new Map(r.affordances.map((a) => [a.id, a.rect]));
+    expect(outOfBounds(handles, { w: 1280, h: 400 })).toEqual([]);
   });
 });
 
@@ -315,8 +313,7 @@ describe('floating pathology', () => {
     expect(dropped(byId['floating-unmeasured']!.items, r)).toEqual([]);
   });
 
-  // Defect: the size guard is `<= 0`, which NaN passes, so a failed measurement renders a NaN rect.
-  it.fails('withholds an item whose measured size is NaN', () => {
+  it('withholds an item whose measured size is NaN', () => {
     const r = runScenario(strategy, byId['floating-unmeasured']!);
     expect(malformedRects(r.placements)).toEqual([]);
   });
@@ -337,9 +334,7 @@ describe('floating pathology', () => {
     }
   });
 
-  // Defect: reduce stores `payload.dx` unchecked, so one NaN delta (e.g. 0/0 from a zero zoom) poisons
-  // the saved position and every later layout emits a NaN rect.
-  it.fails('ignores a NaN drag delta rather than saving it', () => {
+  it('ignores a NaN drag delta rather than saving it', () => {
     const items = byId['floating-unmeasured']!.items.filter((i) => i.id === 'ok');
     const container = { w: 800, h: 600 };
     const state = dragged(strategy, items, container, {}, [drag('ok', Number.NaN, 5)]);

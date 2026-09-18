@@ -1,6 +1,6 @@
 import type { LayoutResult, LayoutStrategy, Rect } from '../layout-types.js';
 import { trace } from '../trace.js';
-import { packGap, packResult, packSize } from './pack.js';
+import { fitsWithin, packGap, packResult, packSize } from './pack.js';
 
 /** One flat stretch of the packed outline: `[x, end)` is filled down to `top`. */
 interface Segment {
@@ -65,7 +65,7 @@ export const skylineStrategy: LayoutStrategy<void, string> = {
       let y = Number.POSITIVE_INFINITY;
       for (let i = 0; i < sky.length; i++) {
         const candidate = sky[i]!.x;
-        if (candidate > 0 && candidate + size.w > container.w) break;
+        if (candidate > 0 && !fitsWithin(candidate + size.w, container.w)) break;
         const top = topOver(sky, i, candidate + size.w + gap);
         if (top < y) {
           x = candidate;

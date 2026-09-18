@@ -150,16 +150,7 @@ const CLEAN = { threw: null, malformed: [], dropped: [] };
  * Cases that fail today, each a defect in library source. `it.fails` keeps
  * them visible: when one is fixed its case starts passing and the test flips.
  */
-const KNOWN: { match: RegExp; defect: string }[] = [
-  {
-    match: /^floating[^/]*\/(preferredSize|natural)\/(NaN|Infinity)$/,
-    defect: 'floating withholds a 0-size item but places a NaN or infinite one',
-  },
-  {
-    match: /^desktop[^/]*\/meta x\/y\/(NaN|Infinity|-Infinity)$/,
-    defect: 'desktop checks that a window size is finite but not its x/y',
-  },
-];
+const KNOWN: { match: RegExp; defect: string }[] = [];
 
 function knownDefect(key: string): string | undefined {
   return KNOWN.find((k) => k.match.test(key))?.defect;
@@ -213,8 +204,7 @@ describe('pathological containers and counts', () => {
 });
 
 describe('defects the sweep cannot phrase', () => {
-  // Defect: floatingStrategy() with no inner neither places nor reports an item lacking meta.floating.
-  it.fails('floatingStrategy() accounts for an item that is not marked floating', () => {
+  it('floatingStrategy() accounts for an item that is not marked floating', () => {
     const entry = ENTRIES.find((e) => e.name === 'floating')!;
     expect(breakage(entry, [item(0), item(1)], { w: 800, h: 600 })).toEqual(CLEAN);
   });

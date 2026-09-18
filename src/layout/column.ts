@@ -1,6 +1,6 @@
 import type { LayoutResult, LayoutStrategy, Rect } from '../layout-types.js';
 import { trace } from '../trace.js';
-import { packGap, packResult, packSize } from './pack.js';
+import { PACK_EPSILON, packGap, packResult, packSize } from './pack.js';
 
 interface ColumnConfig {
   gap?: number;
@@ -38,7 +38,8 @@ export const columnStrategy: LayoutStrategy<void, string> = {
           ? narrowest
           : 0;
     const pitch = columnWidth + gap;
-    const count = pitch > 0 ? Math.max(1, Math.floor((container.w + gap) / pitch)) : 1;
+    const count =
+      pitch > 0 ? Math.max(1, Math.floor((container.w + gap + PACK_EPSILON) / pitch)) : 1;
     const heights = new Array<number>(count).fill(0);
 
     const placements = new Map<string, Rect>();
@@ -49,7 +50,7 @@ export const columnStrategy: LayoutStrategy<void, string> = {
         unplaced.push(item.id);
         return;
       }
-      const span = Math.min(count, Math.max(1, Math.ceil((size.w + gap) / pitch)));
+      const span = Math.min(count, Math.max(1, Math.ceil((size.w + gap - PACK_EPSILON) / pitch)));
       let first = 0;
       let top = Number.POSITIVE_INFINITY;
       for (let start = 0; start + span <= count; start++) {

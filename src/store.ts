@@ -835,13 +835,23 @@ export class Store {
 
   /** Realign every child's recorded `pinned` index to its actual position in
    *  `parentId`'s childOrder, after a mutation that may have shifted or
-   *  removed slots out from under it. */
+   *  removed slots out from under it. A parent with `allowsPinning: false`
+   *  holds no pins, so one carried in by a move is dropped. */
   private clampPins(parentId: NodeId): void {
     const parent = this.nodesMap.get(parentId);
     if (!parent?.container) return;
     for (const cid of parent.container.childOrder) {
       const pin = this.getPinnedIndex(cid);
       if (pin === null) continue;
+      if (!parent.container.allowsPinning) {
+        trace(
+          'store',
+          `drop pin: ${cid} carried pin ${pin} into ${parentId}, which disallows pinning`,
+        );
+        this.writePin(cid, null);
+        this.events.emit('node.pinnedChanged', { id: cid, from: pin, to: null });
+        continue;
+      }
       const actual = parent.container.childOrder.indexOf(cid);
       if (pin !== actual) this.writePin(cid, actual);
     }

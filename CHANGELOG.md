@@ -87,6 +87,39 @@ section below.
   container, as a host hidden with `display: none` measures, now gives panes a
   cross extent of 0 rather than a negative one, as `stackStrategy` already did.
 
+- **`shelfStrategy`, `skylineStrategy` and `columnStrategy` no longer wrap a row
+  that fills the width exactly.** Six tiles of width `100 / 6` sum to
+  `100.00000000000001`, so the sixth started a new row and masonry lost a column.
+  Width comparisons now allow for float drift, and a sub-pixel excess no longer
+  reports `overflow`.
+
+- **`desktopStrategy` cascades a window whose `x` or `y` is `NaN` or infinite**
+  instead of placing it there, the same way it treats a window with no position.
+  The bad coordinate also no longer turns `overflow` into `NaN`.
+
+- **`floatingStrategy()` with no inner strategy floats every item,** as its
+  documentation says. An item without `floating` was neither placed nor
+  reported in `unplaced`; it is now placed and dragged like any other.
+
+- **A floating item anchored to a corner stays inside its container.** An item
+  taller or wider than the container rested past its top or left edge, taking
+  its drag band out of reach; it is now clamped the way a free item is.
+
+- **A floating item whose size is `NaN` or infinite is withheld** into
+  `unplaced`, as a zero size already was, instead of rendering a `NaN` rect.
+
+- **A floating drag delta of `NaN` is ignored on its axis** rather than saved,
+  which left the item's position `NaN` for good.
+
+- **A floating item dragged after its container shrank moves from where it
+  shows.** Its saved position may lie outside the smaller container, and the
+  first drag was spent walking that position back to the edge.
+
+- **Moving a pinned node into a container with `allowsPinning: false` drops
+  its pin,** with a `node.pinnedChanged` event, as `setAllowsPinning(id, false)`
+  already does for the children it has. The carried pin used to survive, and
+  later inserts into that container routed around it.
+
 ## 2.0.0
 
 ### Removed

@@ -1,6 +1,6 @@
 import type { LayoutResult, LayoutStrategy, Rect } from '../layout-types.js';
 import { trace } from '../trace.js';
-import { packGap, packResult, packSize } from './pack.js';
+import { fitsWithin, packGap, packResult, packSize } from './pack.js';
 
 /**
  * Packs items at their own size into rows, left to right, starting a new row
@@ -31,7 +31,7 @@ export const shelfStrategy: LayoutStrategy<void, string> = {
         unplaced.push(item.id);
         continue;
       }
-      if (x > 0 && x + size.w > container.w) {
+      if (x > 0 && !fitsWithin(x + size.w, container.w)) {
         y += rowHeight + gap;
         x = 0;
         rowHeight = 0;

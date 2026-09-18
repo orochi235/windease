@@ -144,6 +144,19 @@ describe('floatingStrategy.layout', () => {
     expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, z: 0, w: 100, h: 80 });
   });
 
+  it('floats an unmarked item too when there is no inner strategy', () => {
+    const s = floatingStrategy();
+    const plain: LayoutItem = { id: 'plain', natural: { w: 100, h: 80 } };
+    const r = s.layout({
+      items: [plain],
+      container,
+      state: s.initialState([plain], {}),
+      options: {},
+    });
+    expect(r.placements.get('plain')).toEqual({ x: 12, y: 208, z: 0, w: 100, h: 80 });
+    expect(r.affordances.map((a) => a.id)).toEqual(['floating:drag:plain']);
+  });
+
   it('honors defaultAnchor when seeding state', () => {
     const s = floatingStrategy();
     const state = s.initialState([panel], { defaultAnchor: 'top-right' });
