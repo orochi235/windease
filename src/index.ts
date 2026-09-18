@@ -8,6 +8,7 @@ export { type CreateNodeInput, createNode } from './constructors.js';
 export type {
   AcceptsConfig,
   ContainerConfigKeys,
+  DropConfig,
 } from './container-config.js';
 export {
   ContainerHost,

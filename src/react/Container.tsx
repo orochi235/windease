@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { readDropConfig } from '../container-config.js';
 import type { AcceptContext } from '../dnd/DragEngine.js';
 import type { DropIntent } from '../dnd/dropIntent.js';
 import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
@@ -61,6 +62,9 @@ export interface ContainerProps {
    * container rather than inserting beside it. Off by default: the gesture
    * restructures the tree, and a consumer with no tab strip drawn would end up
    * with children it cannot reach.
+   *
+   * Unset, it falls back to the container's `config.drop.stack`; set, `false`
+   * included, it wins. `splitOnDrop` and `config.drop.split` pair the same way.
    */
   stackOnDrop?: boolean;
   /**
@@ -236,8 +240,8 @@ function StoreContainer({
   affordanceKeyStep = 8,
   affordanceTabStops = true,
   onChildOrderChange,
-  stackOnDrop = false,
-  splitOnDrop = false,
+  stackOnDrop,
+  splitOnDrop,
   splitPreview = 'layout',
   dropIntent,
   acceptPolicy,
@@ -270,12 +274,13 @@ function StoreContainer({
   }, [dragController, parentId, onChildOrderChange]);
 
   const containerCfg = (parent?.container?.config ?? {}) as { axis?: 'x' | 'y' };
+  const dropCfg = readDropConfig(containerCfg);
   useDropIntentTarget(parentId, ref, {
     ...(containerCfg.axis ? { axis: containerCfg.axis } : {}),
     ...(parent?.container?.strategyId ? { strategyId: parent.container.strategyId } : {}),
     isFlow,
-    stackOnDrop,
-    splitOnDrop,
+    stackOnDrop: stackOnDrop ?? dropCfg.stack === true,
+    splitOnDrop: splitOnDrop ?? dropCfg.split === true,
     ...(dropIntent ? { dropIntent } : {}),
     ...(scrollRef ? { scrollRef } : {}),
     ...(acceptPolicy ? { acceptPolicy } : {}),

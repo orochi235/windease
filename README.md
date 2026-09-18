@@ -692,7 +692,9 @@ A split's `axis` is the axis of the strip it would *create* — the cross axis o
 the container that resolved it, one flip from that container's own.
 
 `<Container>` wires it for you from the rects it already measures: pass
-`stackOnDrop` for the centre band, `splitOnDrop` for the cross-axis ones.
+`stackOnDrop` for the centre band, `splitOnDrop` for the cross-axis ones. The
+same two can live in the container's config as `drop: { stack, split }`, so a
+snapshot or preset carries them; a prop that is set, `false` included, wins.
 
 A target you register yourself takes `getDropIntent` beside the older
 `getInsertionIndex`, which still works and is still honoured when no intent

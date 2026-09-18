@@ -79,6 +79,7 @@ function presetTree(
   store: Store,
   capture: (c: DragController) => void,
   extra: { stackOnDrop?: boolean; splitOnDrop?: boolean },
+  drop?: { stack?: boolean; split?: boolean },
 ) {
   return (
     <Provider store={store}>
@@ -88,7 +89,7 @@ function presetTree(
           <Zone
             id={asNodeId('z')}
             strategyId="strip"
-            config={{ axis: 'x', fill: true }}
+            config={{ axis: 'x', fill: true, ...(drop ? { drop } : {}) }}
             viewport={{ w: 200, h: 100 }}
             acceptsDrops
             {...extra}
@@ -198,5 +199,28 @@ describe('a preset resolves a drop intent', () => {
     // The top edge of `b` is the cross axis of a horizontal strip.
     await hoverAt(c, container, { x: 150, y: 4 });
     expect(c.state()?.hover?.intent?.kind).toBe('split');
+  });
+
+  it('stacks on a centre drop when config.drop.stack is on', async () => {
+    let c!: DragController;
+    const { container } = render(presetTree(new Store(), (ctl) => (c = ctl), {}, { stack: true }));
+    await hoverAt(c, container, { x: 150, y: 50 });
+    expect(c.state()?.hover?.intent?.kind).toBe('stack');
+  });
+
+  it('splits on a cross-axis edge drop when config.drop.split is on', async () => {
+    let c!: DragController;
+    const { container } = render(presetTree(new Store(), (ctl) => (c = ctl), {}, { split: true }));
+    await hoverAt(c, container, { x: 150, y: 4 });
+    expect(c.state()?.hover?.intent?.kind).toBe('split');
+  });
+
+  it('lets an explicit stackOnDrop={false} win over config.drop.stack', async () => {
+    let c!: DragController;
+    const { container } = render(
+      presetTree(new Store(), (ctl) => (c = ctl), { stackOnDrop: false }, { stack: true }),
+    );
+    await hoverAt(c, container, { x: 150, y: 50 });
+    expect(c.state()?.hover?.intent?.kind).toBe('insert');
   });
 });

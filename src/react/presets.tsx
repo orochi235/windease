@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 import type { ChildSort } from '../child-sort.js';
+import { readDropConfig } from '../container-config.js';
 import type { AcceptContext } from '../dnd/DragEngine.js';
 import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
 import type { DropIntent, Node, NodeHints, NodeId, PlacementCommit, Store } from '../index.js';
@@ -70,10 +71,12 @@ interface CommonBindingProps {
   acceptsDrops?: boolean;
   /** Let a drop onto the middle of a child stack the two into one tabbed
    *  container. Off by default, like `<Container stackOnDrop>`: the gesture
-   *  restructures the tree. Requires `acceptsDrops`. */
+   *  restructures the tree. Requires `acceptsDrops`. Unset, it falls back to
+   *  `config.drop.stack`. */
   stackOnDrop?: boolean;
   /** Let a drop in a cross-axis band of a child split that child's slot into a
-   *  two-pane strip. Off by default. Requires `acceptsDrops`. */
+   *  two-pane strip. Off by default. Requires `acceptsDrops`. Unset, it falls
+   *  back to `config.drop.split`. */
   splitOnDrop?: boolean;
   /**
    * What a prospective split draws, on a preset that hosts a layout — the
@@ -734,13 +737,14 @@ function PresetShell({
   const store = useStore();
   const ownContainer = store.getNode(id)?.container;
   const ownAxis = (ownContainer?.config as { axis?: 'x' | 'y' } | undefined)?.axis;
+  const dropCfg = readDropConfig(ownContainer?.config);
   useDropIntentTarget(id, wrapperRef, {
     enabled: acceptsDrops === true,
     ...(ownAxis ? { axis: ownAxis } : {}),
     ...(ownContainer?.strategyId ? { strategyId: ownContainer.strategyId } : {}),
     isFlow: !drop?.hostsLayout,
-    ...(drop?.stackOnDrop ? { stackOnDrop: drop.stackOnDrop } : {}),
-    ...(drop?.splitOnDrop ? { splitOnDrop: drop.splitOnDrop } : {}),
+    stackOnDrop: drop?.stackOnDrop ?? dropCfg.stack === true,
+    splitOnDrop: drop?.splitOnDrop ?? dropCfg.split === true,
     ...(drop?.dropIntent ? { dropIntent: drop.dropIntent } : {}),
     ...(drop?.acceptPolicy ? { acceptPolicy: drop.acceptPolicy } : {}),
     ...(drop?.scrollRef ? { scrollRef: drop.scrollRef } : {}),

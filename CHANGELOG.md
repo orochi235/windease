@@ -19,6 +19,12 @@ section below.
   `acceptPolicy`, then the strategy's `canAccept`; `acceptPolicy` returning
   `true` does not override `accepts`.
 
+- **Stack and split drops can be switched on from container config.**
+  `drop: { stack: true, split: true }` in a container's `config` does what the
+  `stackOnDrop` and `splitOnDrop` props do on `<Container>`, `<Zone>` and
+  `<Panel>`, so a snapshot or preset carries it. A prop that is set, `false`
+  included, wins over the config.
+
 ### Fixed
 
 - **A preset's own render error is no longer reported as an id collision.**

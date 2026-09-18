@@ -21,10 +21,31 @@ export type AcceptsConfig =
     };
 
 /**
+ * Which restructuring drops a container resolves — the declarative form of the
+ * React `stackOnDrop` / `splitOnDrop` props. A prop that is set, `false`
+ * included, wins.
+ *
+ * @group Drag and drop
+ */
+export interface DropConfig {
+  /** A drop on the middle of a child stacks the two into a tabbed container. */
+  stack?: boolean;
+  /** A drop on a child's cross-axis edge splits that child's slot in two. */
+  split?: boolean;
+}
+
+/**
  * The container-level keys of `node.container.config`.
  *
  * @group Drag and drop
  */
 export interface ContainerConfigKeys {
   accepts?: AcceptsConfig;
+  drop?: DropConfig;
+}
+
+/** `config.drop`, or an empty rule when it is absent or not an object. */
+export function readDropConfig(config: unknown): DropConfig {
+  const drop = (config as { drop?: unknown } | null | undefined)?.drop;
+  return typeof drop === 'object' && drop !== null ? (drop as DropConfig) : {};
 }
