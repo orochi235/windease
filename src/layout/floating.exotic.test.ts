@@ -34,7 +34,7 @@ type State = FloatingState<unknown>;
 const floatingOver = (inner?: LayoutStrategy<unknown, string, unknown>) =>
   floatingStrategy<unknown>(inner);
 
-const FLOATING_PRESETS = PRESETS.filter((p) => p.root.strategy?.startsWith('floating'));
+const FLOATING_PRESETS = PRESETS.filter((p) => p.mechanics.strategy?.startsWith('floating'));
 
 const drag = (id: string, dx: number, dy: number): LayoutEvent => ({
   affordanceId: `floating:drag:${id}`,
@@ -82,7 +82,7 @@ describe('floating presets: generic invariants', () => {
     '%s: no malformed rects, no silent drops, deterministic, floating items inside',
     (_, preset: Preset) => {
       const s = presetScenario(preset);
-      const strategy = OVERLAP_STRATEGIES[preset.root.strategy!]!;
+      const strategy = OVERLAP_STRATEGIES[preset.mechanics.strategy!]!;
       const r = runScenario(strategy, s);
       expect(malformedRects(r.placements)).toEqual([]);
       expect(dropped(s.items, r)).toEqual([]);

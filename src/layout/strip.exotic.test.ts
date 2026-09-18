@@ -12,7 +12,12 @@ import {
   runScenario,
   type Scenario,
 } from '../test-utils/exotic/invariants.js';
-import { type Preset, type PresetNode, presetToStore } from '../test-utils/exotic/preset.js';
+import {
+  type Preset,
+  type PresetNode,
+  presetToStore,
+  presetTree,
+} from '../test-utils/exotic/preset.js';
 import { PATHOLOGICAL, PRESETS } from '../test-utils/exotic/strip-scenarios.js';
 import { trackJoin } from './seam-join.js';
 import { stripStrategy } from './strip.js';
@@ -245,7 +250,7 @@ function layoutTree(preset: Preset, store: Store = presetToStore(preset)): Laid[
     inherited: boolean,
   ) => {
     const s = project(store, node.id, size);
-    s.id = node.id === preset.root.id ? preset.id : `${preset.id}/${node.id}`;
+    s.id = node.id === preset.mechanics.id ? preset.id : `${preset.id}/${node.id}`;
     s.source = preset.source;
     s.stress = preset.stress;
     const result = runScenario(stripStrategy, s);
@@ -258,7 +263,7 @@ function layoutTree(preset: Preset, store: Store = presetToStore(preset)): Laid[
       }
     }
   };
-  walk(preset.root, preset.viewport, { x: 0, y: 0 }, false);
+  walk(presetTree(preset), preset.viewport, { x: 0, y: 0 }, false);
   return out;
 }
 
@@ -293,7 +298,9 @@ describe('strip on real-software layouts', () => {
 });
 
 describe('nested presets tile their viewport', () => {
-  for (const preset of PRESETS.filter((p) => (p.root.children ?? []).some((c) => c.strategy))) {
+  for (const preset of PRESETS.filter((p) =>
+    (presetTree(p).children ?? []).some((c) => c.strategy),
+  )) {
     it(`${preset.id}: every nested container fits inside its parent's rect`, () => {
       const laid = layoutTree(preset);
       const bad: string[] = [];
@@ -365,7 +372,9 @@ function gestureInvariants(preset: Preset): Record<string, Violations> {
   };
   const neighborKey = 'a neighbor drag moves only the two panes beside its seam';
   for (const l of layoutTree(preset)) {
-    const containerId = l.scenario.id.includes('/') ? l.scenario.id.split('/')[1]! : preset.root.id;
+    const containerId = l.scenario.id.includes('/')
+      ? l.scenario.id.split('/')[1]!
+      : preset.mechanics.id;
     const cfg = cfgOf(l.scenario);
     const axis = cfg.axis ?? 'x';
     if (cfg.resizeMode === 'neighbor') out[neighborKey] ??= [];
@@ -445,7 +454,7 @@ function push(
 ): JoinRun {
   const store = presetToStore(preset);
   const size = layoutTree(preset).find((l) =>
-    containerId === preset.root.id
+    containerId === preset.mechanics.id
       ? l.scenario.id === preset.id
       : l.scenario.id === `${preset.id}/${containerId}`,
   )!.scenario.container;
@@ -534,7 +543,7 @@ describe('strip under the other overflow modes', () => {
   const hinted = PRESETS.find((p) => p.id === 'vscode-hinted-sidebars')!;
   const firefox = PRESETS.find((p) => p.id === 'firefox-100-tabs')!;
   const at = (preset: Preset, options: Record<string, unknown>, container = preset.viewport) => {
-    const s = project(presetToStore(preset), preset.root.id, container);
+    const s = project(presetToStore(preset), preset.mechanics.id, container);
     return { ...s, id: preset.id, options: { ...s.options, ...options } };
   };
 
@@ -574,7 +583,7 @@ describe('strip under the other overflow modes', () => {
   it('firefox: pinned tabs survive a count cap that drops ordinary ones', () => {
     const store = presetToStore(firefox);
     for (const i of [1, 2, 3]) store.setPinned(asNodeId(`pinned-${i}`), i - 1);
-    const s = project(store, firefox.root.id, firefox.viewport);
+    const s = project(store, firefox.mechanics.id, firefox.viewport);
     const r = runScenario(stripStrategy, { ...s, options: { ...s.options, maxItems: 10 } });
     expect([...r.placements.keys()].slice(0, 3)).toEqual(['pinned-1', 'pinned-2', 'pinned-3']);
     expect(r.unplaced).toHaveLength(90);

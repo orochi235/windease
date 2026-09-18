@@ -540,7 +540,7 @@ describe('DragEngine feeding grid.canAccept', () => {
       description:
         'A phone quick-settings row with room for two tiles, where the user has hidden one of them.',
       viewport: { w: 400, h: 400 },
-      root: {
+      mechanics: {
         id: 'shell',
         strategy: 'strip',
         children: [

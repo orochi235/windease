@@ -1,16 +1,16 @@
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Node } from '../../node.js';
 import { Store } from '../../store.js';
 import { PRESETS as GRID } from '../../test-utils/exotic/grid-scenarios.js';
 import { PRESETS as OVERLAP } from '../../test-utils/exotic/overlap-scenarios.js';
-import { PRESETS as PACK } from '../../test-utils/exotic/pack-scenarios.js';
+import { PRESETS as PACK, packItemCount } from '../../test-utils/exotic/pack-scenarios.js';
 import { type Preset, presetNodes, presetToStore } from '../../test-utils/exotic/preset.js';
 import { PRESETS as STRIP } from '../../test-utils/exotic/strip-scenarios.js';
 import { PRESETS as TREES } from '../../test-utils/exotic/tree-scenarios.js';
 import { Provider } from '../Provider.js';
 import { JSX_OWNER_META_KEY } from '../useNodeBinding.js';
-import { presetElement, presetJsx, presetLiteral } from './presetCode.js';
+import { PresetCode, presetElement, presetJsx, presetLiteral } from './presetCode.js';
 
 afterEach(cleanup);
 
@@ -50,21 +50,52 @@ describe('the generated JSX rebuilds its preset', () => {
 });
 
 describe('listings', () => {
-  const big = PACK.find((p) => (p.root.children?.length ?? 0) > 100)!;
+  const big = PACK.find((p) => packItemCount(p) > 100)!;
 
   it('elide a long child list to the first few, a count, and the last', () => {
     const jsx = presetJsx(big);
-    const n = big.root.children!.length;
+    const n = packItemCount(big);
     expect(jsx).toContain(`{/* …${n - 8} more like these */}`);
     expect(jsx.split('\n').length).toBeLessThan(40);
-    expect(presetLiteral(big)).toContain(`/* …${n - 8} more */`);
+    expect(presetLiteral(big.data)).toContain(`/* …${n - 8} more */`);
   });
 
   it('print every prop the element tree receives', () => {
     const preset = STRIP[0]!;
     const jsx = presetJsx(preset);
-    expect(jsx).toMatch(new RegExp(`^<Zone\\s+id="${preset.root.id}"`));
-    expect(jsx).toContain(`strategyId="${preset.root.strategy}"`);
-    expect(presetLiteral(preset)).toContain(`id: '${preset.id}'`);
+    expect(jsx).toMatch(new RegExp(`^<Zone\\s+id="${preset.mechanics.id}"`));
+    expect(jsx).toContain(`strategyId="${preset.mechanics.strategy}"`);
+    expect(jsx).toContain(`meta={{ title: 'Top bar' }}`);
+  });
+});
+
+describe('the Mechanics and Data tabs', () => {
+  const open = (preset: Preset, tab: string) => {
+    render(
+      <Provider store={presetToStore(preset)}>
+        <PresetCode preset={preset} />
+      </Provider>,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: tab }));
+    return screen.getByTestId('preset-code').textContent ?? '';
+  };
+
+  it('show the mechanics without the titles, and the titles as data', () => {
+    const preset = STRIP[0]!;
+    const mechanics = open(preset, 'Mechanics');
+    expect(mechanics).toContain(`id: '${preset.mechanics.id}'`);
+    expect(mechanics).not.toContain('Top bar');
+    cleanup();
+    expect(open(preset, 'Data')).toContain(`title: 'Top bar'`);
+  });
+
+  it('say so when a preset has no data', () => {
+    const { data: _data, ...bare } = STRIP[0]!;
+    expect(open(bare, 'Data')).toBe('No sample data');
+  });
+
+  it('show css beside the data', () => {
+    const styled: Preset = { ...STRIP[0]!, data: { css: '.x { color: red; }' } };
+    expect(open(styled, 'Data')).toBe('.x { color: red; }');
   });
 });

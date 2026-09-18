@@ -90,7 +90,7 @@ export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
           <div className="exotic-pack__viewport">
             <Container
               key={`${preset.id}:${strategy}`}
-              parentId={asNodeId(preset.root.id)}
+              parentId={asNodeId(preset.mechanics.id)}
               chrome={chrome}
               viewport={{ w: vw, h: vh }}
               settleMs={0}

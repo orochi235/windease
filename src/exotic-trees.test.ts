@@ -6,7 +6,12 @@ import { asNodeId, type NodeId } from './node.js';
 import { deserialize, serialize } from './snapshot.js';
 import type { Store } from './store.js';
 import { dropped, EPS, malformedRects } from './test-utils/exotic/invariants.js';
-import { type Preset, type PresetNode, presetToStore } from './test-utils/exotic/preset.js';
+import {
+  type Preset,
+  type PresetNode,
+  presetToStore,
+  presetTree,
+} from './test-utils/exotic/preset.js';
 import {
   type ContainerPass,
   DOCKVIEW_PRESET,
@@ -50,7 +55,7 @@ function treeProblems(store: Store, passes: ContainerPass[]) {
 }
 
 function laidOut(preset: Preset, store = presetToStore(preset), viewport = preset.viewport) {
-  const tree = layoutTree(store, preset.root.id, viewport);
+  const tree = layoutTree(store, preset.mechanics.id, viewport);
   return { store, ...tree, problems: treeProblems(store, tree.passes) };
 }
 
@@ -89,10 +94,10 @@ describe('i3 / sway trees', () => {
   };
 
   it('translates append_layout into six nested containers with pixel shares', () => {
-    expect(depth(I3_PRESET.root)).toBeGreaterThanOrEqual(6);
-    expect(find(I3_PRESET.root, 'splitv-0-0')?.placement).toEqual({ size: { w: 480 } });
-    expect(find(I3_PRESET.root, 'nvim')?.placement).toEqual({ size: { w: 384 } });
-    expect(find(I3_PRESET.root, 'stacked-0-0-1')?.config).toEqual({ headerSize: 60 });
+    expect(depth(presetTree(I3_PRESET))).toBeGreaterThanOrEqual(6);
+    expect(find(presetTree(I3_PRESET), 'splitv-0-0')?.placement).toEqual({ size: { w: 480 } });
+    expect(find(presetTree(I3_PRESET), 'nvim')?.placement).toEqual({ size: { w: 384 } });
+    expect(find(presetTree(I3_PRESET), 'stacked-0-0-1')?.config).toEqual({ headerSize: 60 });
   });
 
   it('lays the whole workspace out clean, down to the deepest split', () => {
@@ -206,7 +211,7 @@ describe('i3 / sway trees', () => {
 
 describe('Golden Layout configs', () => {
   it('wraps a bare component in a one-tab stack, as Golden Layout does on load', () => {
-    const search = find(GOLDEN_PRESET.root, 'stack-search');
+    const search = find(presetTree(GOLDEN_PRESET), 'stack-search');
     expect(search?.strategy).toBe('stack');
     expect(search?.children?.map((c) => c.id)).toEqual(['search']);
     expect(search?.placement).toEqual({ size: { h: 360 } });
@@ -232,7 +237,8 @@ describe('Golden Layout configs', () => {
       },
       GOLDEN_V1_PRESET,
     );
-    expect(v2.root).toEqual(GOLDEN_V1_PRESET.root);
+    expect(v2.mechanics).toEqual(GOLDEN_V1_PRESET.mechanics);
+    expect(v2.data).toEqual(GOLDEN_V1_PRESET.data);
   });
 
   for (const preset of [GOLDEN_PRESET, GOLDEN_V1_PRESET]) {
@@ -241,7 +247,9 @@ describe('Golden Layout configs', () => {
       expect(before.problems).toEqual([]);
       const restored = roundTrip(before.store);
       expect(serialize(restored)).toEqual(serialize(before.store));
-      expect(layoutTree(restored, preset.root.id, preset.viewport).rects).toEqual(before.rects);
+      expect(layoutTree(restored, preset.mechanics.id, preset.viewport).rects).toEqual(
+        before.rects,
+      );
     });
   }
 
@@ -260,9 +268,14 @@ describe('Golden Layout configs', () => {
 
 describe('Dockview layouts', () => {
   it('alternates branch orientation and keeps pixel sizes on the parent axis', () => {
-    expect(DOCKVIEW_PRESET.root.config).toEqual({ axis: 'x', fill: true });
-    expect(find(DOCKVIEW_PRESET.root, 'branch-0.1')?.config).toEqual({ axis: 'y', fill: true });
-    expect(find(DOCKVIEW_PRESET.root, 'branch-0.1.1')?.placement).toEqual({ size: { h: 300 } });
+    expect(DOCKVIEW_PRESET.mechanics.config).toEqual({ axis: 'x', fill: true });
+    expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1')?.config).toEqual({
+      axis: 'y',
+      fill: true,
+    });
+    expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1.1')?.placement).toEqual({
+      size: { h: 300 },
+    });
   });
 
   it('lays out at the saved grid size and restores identically', () => {
@@ -373,7 +386,7 @@ describe('this file’s presets', () => {
         ...(n.strategy ? [n.strategy] : []),
         ...(n.children ?? []).flatMap(walk),
       ];
-      for (const s of walk(preset.root)) expect(TREE_STRATEGIES[s], s).toBeDefined();
+      for (const s of walk(presetTree(preset))) expect(TREE_STRATEGIES[s], s).toBeDefined();
     });
   }
 });
@@ -413,7 +426,7 @@ describe('every exotic preset', async () => {
   for (const { file, preset, strategies } of all) {
     it(`${file}: ${preset.id} builds, lays out every container, and round-trips`, () => {
       const store = presetToStore(preset);
-      const { passes } = layoutTree(store, preset.root.id, preset.viewport, strategies);
+      const { passes } = layoutTree(store, preset.mechanics.id, preset.viewport, strategies);
       const problems: string[] = [];
       for (const { id: cid, result } of passes) {
         for (const bad of malformedRects(result.placements)) problems.push(`${cid}: ${bad}`);
@@ -427,9 +440,9 @@ describe('every exotic preset', async () => {
 
       const restored = roundTrip(store);
       expect(serialize(restored)).toEqual(serialize(store));
-      const again = layoutTree(restored, preset.root.id, preset.viewport, strategies);
+      const again = layoutTree(restored, preset.mechanics.id, preset.viewport, strategies);
       expect(again.rects).toEqual(
-        layoutTree(store, preset.root.id, preset.viewport, strategies).rects,
+        layoutTree(store, preset.mechanics.id, preset.viewport, strategies).rects,
       );
     });
   }

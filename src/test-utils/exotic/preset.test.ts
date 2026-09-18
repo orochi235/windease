@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { asNodeId } from '../../node.js';
-import { type Preset, presetProperties, presetScenario, presetToStore } from './preset.js';
+import {
+  type Preset,
+  presetProperties,
+  presetScenario,
+  presetToStore,
+  presetTree,
+} from './preset.js';
 
 const PRESET: Preset = {
   id: 'tiny',
@@ -8,7 +14,7 @@ const PRESET: Preset = {
   stress: 'none',
   description: 'test',
   viewport: { w: 300, h: 200 },
-  root: {
+  mechanics: {
     id: 'root',
     strategy: 'strip',
     config: { axis: 'x' },
@@ -38,7 +44,7 @@ describe('presets', () => {
   it('rejects a duplicate id', () => {
     const dup: Preset = {
       ...PRESET,
-      root: { id: 'r', strategy: 'strip', children: [{ id: 'x' }, { id: 'x' }] },
+      mechanics: { id: 'r', strategy: 'strip', children: [{ id: 'x' }, { id: 'x' }] },
     };
     expect(() => presetToStore(dup)).toThrow(/duplicate/);
   });
@@ -51,7 +57,7 @@ describe('preset state and visibility', () => {
     stress: 'none',
     description: 'test',
     viewport: { w: 100, h: 100 },
-    root: {
+    mechanics: {
       id: 'root',
       strategy: 'floating',
       state: { positions: { a: { x: 5, y: 6 } } },
@@ -81,5 +87,69 @@ describe('presetProperties', () => {
       { label: 'placement.size', value: '1 node' },
       { label: 'Hidden', value: '1 node' },
     ]);
+  });
+});
+
+describe('presetTree', () => {
+  const split: Preset = {
+    ...PRESET,
+    mechanics: {
+      id: 'root',
+      strategy: 'strip',
+      config: { axis: 'x' },
+      children: [
+        { id: 'a', meta: { spacer: false }, hints: { minSize: { w: 10, h: 0 } } },
+        { id: 'inner', strategy: 'stack', children: [{ id: 'b' }] },
+      ],
+    },
+    data: {
+      nodes: {
+        a: {
+          meta: { title: 'A' },
+          hints: { preferredSize: { w: 50, h: 20 } },
+          className: 'product-a',
+        },
+        c: { meta: { title: 'C' } },
+      },
+      children: { inner: [{ id: 'c' }, { id: 'd' }] },
+    },
+  };
+
+  it('merges meta, preferredSize and className onto the node, keeping what mechanics set', () => {
+    const a = presetTree(split).children?.[0];
+    expect(a?.meta).toEqual({ spacer: false, title: 'A', className: 'product-a' });
+    expect(a?.hints).toEqual({ minSize: { w: 10, h: 0 }, preferredSize: { w: 50, h: 20 } });
+  });
+
+  it('appends data children after the container’s own, and merges data onto them too', () => {
+    const inner = presetTree(split).children?.[1];
+    expect(inner?.children?.map((c) => c.id)).toEqual(['b', 'c', 'd']);
+    expect(inner?.children?.[1]?.meta).toEqual({ title: 'C' });
+    expect(presetToStore(split).getNode(asNodeId('inner'))?.container?.childOrder).toEqual([
+      'b',
+      'c',
+      'd',
+    ]);
+  });
+
+  it('leaves the mechanics untouched', () => {
+    presetTree(split);
+    expect(split.mechanics.children?.[0]?.meta).toEqual({ spacer: false });
+    expect(split.mechanics.children?.[1]?.children).toHaveLength(1);
+  });
+
+  it('throws on a data key naming no node, with the preset and the id', () => {
+    expect(() => presetTree({ ...split, data: { nodes: { ghost: { meta: {} } } } })).toThrow(
+      'preset tiny: data.nodes names unknown node ghost',
+    );
+    expect(() => presetTree({ ...split, data: { children: { ghost: [{ id: 'x' }] } } })).toThrow(
+      'preset tiny: data.children names unknown node ghost',
+    );
+  });
+
+  it('throws when data children target a node that is not a container', () => {
+    expect(() => presetTree({ ...split, data: { children: { a: [{ id: 'x' }] } } })).toThrow(
+      /preset tiny: data.children names a, which is not a container/,
+    );
   });
 });

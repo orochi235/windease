@@ -10,7 +10,9 @@ import { runStrategyForContainer } from '../../layout-node-adapter.js';
 import type { LayoutResult, LayoutStrategy, Rect, Size } from '../../layout-types.js';
 import { asNodeId, type NodeId } from '../../node.js';
 import type { Store } from '../../store.js';
-import type { Preset, PresetNode } from './preset.js';
+import { type Preset, type PresetData, type PresetNode, titles } from './preset.js';
+
+type PresetNodeData = NonNullable<PresetData['nodes']>;
 
 /**
  * Every `strategyId` a preset may name. A wrapper's bare id wraps nothing, and
@@ -132,6 +134,7 @@ export function fromI3Layout(
   meta: { id: string; source: string; stress: string; description: string; viewport: Size },
 ): Preset {
   const mint = idMint();
+  const nodes: PresetNodeData = {};
   const walk = (
     node: I3Node,
     extent: Size,
@@ -152,13 +155,13 @@ export function fromI3Layout(
       const title = node.name ?? node.swallows?.[0]?.class?.replace(/[\^$\\]/g, '') ?? path;
       out.id = mint(title);
       out.kind = 'panel';
-      out.meta = { title };
+      nodes[out.id] = { meta: { title } };
       return out;
     }
     const layout = node.layout ?? 'splith';
     out.id = mint(`${layout}-${path}`);
     out.kind = parent ? 'group' : 'zone';
-    out.meta = { title: `${layout} ${path}`, i3Layout: layout };
+    nodes[out.id] = { meta: { title: `${layout} ${path}`, i3Layout: layout } };
     const n = node.nodes.length;
     if (layout === 'splith' || layout === 'splitv') {
       out.strategy = 'strip';
@@ -179,7 +182,8 @@ export function fromI3Layout(
     );
     return out;
   };
-  return { ...meta, root: walk(root, meta.viewport, undefined, '0') };
+  const mechanics = walk(root, meta.viewport, undefined, '0');
+  return { ...meta, mechanics, data: { nodes } };
 }
 
 /**
@@ -310,15 +314,13 @@ export function fromGoldenLayout(
   const header = config.dimensions?.headerHeight ?? 20;
   const minW = config.dimensions?.minItemWidth ?? 10;
   const minH = config.dimensions?.minItemHeight ?? 10;
+  const nodes: PresetNodeData = {};
 
   const leaf = (item: GoldenItem): PresetNode => {
     const title = item.title ?? item.componentType ?? 'component';
-    return {
-      id: mint(item.id ?? title),
-      kind: 'panel',
-      meta: { title, componentType: item.componentType ?? 'component' },
-      hints: { minSize: { w: minW, h: minH } },
-    };
+    const id = mint(item.id ?? title);
+    nodes[id] = { meta: { title, componentType: item.componentType ?? 'component' } };
+    return { id, kind: 'panel', hints: { minSize: { w: minW, h: minH } } };
   };
 
   const walk = (item: GoldenItem, extent: Size, parentAxis: 'x' | 'y' | undefined): PresetNode => {
@@ -372,7 +374,8 @@ export function fromGoldenLayout(
     });
   };
 
-  return { ...meta, root: walk(config.root, meta.viewport, undefined) };
+  const mechanics = walk(config.root, meta.viewport, undefined);
+  return { ...meta, mechanics, data: { nodes } };
 }
 
 /** An IDE-shaped Golden Layout v2 config, the shape its "saveLayout" round-trips. */
@@ -511,6 +514,7 @@ export function fromDockview(
   meta: { id: string; source: string; stress: string; description: string },
 ): Preset {
   const flip = (o: 'HORIZONTAL' | 'VERTICAL') => (o === 'HORIZONTAL' ? 'VERTICAL' : 'HORIZONTAL');
+  const nodes: PresetNodeData = {};
   const walk = (
     node: DockviewGridNode,
     orientation: 'HORIZONTAL' | 'VERTICAL',
@@ -522,11 +526,10 @@ export function fromDockview(
         ? { size: parentAxis === 'x' ? { w: node.size } : { h: node.size } }
         : undefined;
     if (node.type === 'leaf') {
-      const views = node.data.views.map((v) => ({
-        id: v,
-        kind: 'panel',
-        meta: { title: layout.panels[v]?.title ?? v },
-      }));
+      const views = node.data.views.map((v) => {
+        nodes[v] = { meta: { title: layout.panels[v]?.title ?? v } };
+        return { id: v, kind: 'panel' };
+      });
       const out: PresetNode = {
         id: `group-${node.data.id}`,
         kind: 'group',
@@ -549,10 +552,12 @@ export function fromDockview(
     };
     return placement ? { ...out, placement } : out;
   };
+  const mechanics = walk(layout.grid.root, layout.grid.orientation, undefined, '0');
   return {
     ...meta,
     viewport: { w: layout.grid.width, h: layout.grid.height },
-    root: walk(layout.grid.root, layout.grid.orientation, undefined, '0'),
+    mechanics,
+    data: { nodes },
   };
 }
 
@@ -637,9 +642,13 @@ export function emacsFrame(input: {
   right?: EmacsSideWindow[];
   top?: EmacsSideWindow[];
   bottom?: EmacsSideWindow[];
+  /** The ordinary windows in the middle of the frame. */
   main: PresetNode;
+  /** Buffer names shown in `main`'s windows, by window id. */
+  mainTitles?: Record<string, string>;
 }): Preset {
   const { viewport } = input;
+  const nodes: PresetNodeData = titles(input.mainTitles ?? {});
   const side = (
     name: string,
     windows: EmacsSideWindow[] | undefined,
@@ -648,12 +657,14 @@ export function emacsFrame(input: {
     if (!windows || windows.length === 0) return undefined;
     const sorted = [...windows].sort((a, b) => a.slot - b.slot);
     const fraction = sorted[0]?.fraction ?? 0.2;
+    nodes[`side-${name}`] = { meta: { title: `${name} side`, windowSide: name } };
+    for (const w of sorted)
+      nodes[slug(w.buffer)] = { meta: { title: w.buffer, windowSlot: w.slot } };
     return {
       id: `side-${name}`,
       kind: 'group',
       strategy: 'strip',
       config: { axis, fill: true },
-      meta: { title: `${name} side`, windowSide: name },
       placement:
         axis === 'y'
           ? { size: { w: Math.round(fraction * viewport.w) } }
@@ -661,7 +672,6 @@ export function emacsFrame(input: {
       children: sorted.map((w, i) => ({
         id: slug(w.buffer),
         kind: 'panel',
-        meta: { title: w.buffer, windowSlot: w.slot },
         placement: { pinned: i },
       })),
     };
@@ -684,13 +694,14 @@ export function emacsFrame(input: {
     stress: 'pinned side slots around a split main area; deleting a slot shifts the pins after it',
     description: input.description ?? EMACS_SIDE_WINDOWS,
     viewport,
-    root: {
+    mechanics: {
       id: 'frame',
       kind: 'zone',
       strategy: 'strip',
       config: { axis: 'y', fill: true },
       children: sides,
     },
+    data: { nodes },
   };
 }
 
@@ -712,19 +723,20 @@ export const EMACS_PRESET = emacsFrame({
     strategy: 'strip',
     config: { axis: 'x', fill: true },
     children: [
-      { id: 'init-el', kind: 'panel', meta: { title: 'init.el' } },
+      { id: 'init-el', kind: 'panel' },
       {
         id: 'main-right',
         kind: 'group',
         strategy: 'strip',
         config: { axis: 'y', fill: true },
         children: [
-          { id: 'help', kind: 'panel', meta: { title: '*Help*' } },
-          { id: 'messages', kind: 'panel', meta: { title: '*Messages*' } },
+          { id: 'help', kind: 'panel' },
+          { id: 'messages', kind: 'panel' },
         ],
       },
     ],
   },
+  mainTitles: { 'init-el': 'init.el', help: '*Help*', messages: '*Messages*' },
 });
 
 // ------------------------------------------------------------ trading desk
@@ -742,7 +754,7 @@ export const TRADING_DESK_PRESET: Preset = {
   description:
     "Trading platforms such as Refinitiv Eikon and Trading Technologies' TT let a trader save a workspace spread across a large monitor: quote boards and news on the left, a grid of price charts, a row of MD Trader price ladders (vertical price columns a trader clicks to place orders) and floating order-ticket windows. The workspace records every window's size and position in pixels, so reopening it on a laptop brings back a layout built for a screen almost three times as wide.",
   viewport: { w: 3840, h: 2160 },
-  root: {
+  mechanics: {
     id: 'desk',
     kind: 'zone',
     strategy: 'strip',
@@ -755,15 +767,14 @@ export const TRADING_DESK_PRESET: Preset = {
         config: { axis: 'y', gap: 4, fill: true },
         placement: { size: { w: 960 } },
         children: [
-          { id: 'quote-board', kind: 'panel', meta: { title: 'Quote board' } },
+          { id: 'quote-board', kind: 'panel' },
           {
             id: 'time-sales',
             kind: 'panel',
-            meta: { title: 'Time & sales' },
             placement: { size: { h: 1200 } },
             hints: { minSize: { w: 200, h: 120 } },
           },
-          { id: 'news', kind: 'panel', meta: { title: 'News' } },
+          { id: 'news', kind: 'panel' },
         ],
       },
       {
@@ -779,12 +790,11 @@ export const TRADING_DESK_PRESET: Preset = {
             config: { cols: 2, gap: 4 },
             placement: { size: { h: 1440 } },
             children: [
-              { id: 'chart-es', kind: 'panel', meta: { title: 'ES 5m' } },
-              { id: 'chart-nq', kind: 'panel', meta: { title: 'NQ 5m' } },
+              { id: 'chart-es', kind: 'panel' },
+              { id: 'chart-nq', kind: 'panel' },
               {
                 id: 'chart-cl',
                 kind: 'panel',
-                meta: { title: 'CL daily' },
                 placement: { span: { cols: 2 } },
               },
             ],
@@ -798,14 +808,12 @@ export const TRADING_DESK_PRESET: Preset = {
               ...['es', 'nq', 'cl'].map((sym) => ({
                 id: `ladder-${sym}`,
                 kind: 'panel',
-                meta: { title: `MD Trader ${sym.toUpperCase()}` },
                 placement: { size: { w: 420 } },
                 hints: { minSize: { w: 180, h: 200 } },
               })),
               {
                 id: 'order-book',
                 kind: 'panel',
-                meta: { title: 'Order book' },
                 hints: { minSize: { w: 240, h: 200 } },
               },
             ],
@@ -822,24 +830,38 @@ export const TRADING_DESK_PRESET: Preset = {
           {
             id: 'ticket-es',
             kind: 'panel',
-            meta: { title: 'Order ticket ES' },
             placement: { x: 60, y: 200, size: { w: 520, h: 640 } },
           },
           {
             id: 'ticket-cl',
             kind: 'panel',
-            meta: { title: 'Order ticket CL' },
             placement: { x: 820, y: 1300, size: { w: 520, h: 640 } },
           },
           {
             id: 'positions',
             kind: 'panel',
-            meta: { title: 'Positions' },
             placement: { x: 40, y: 900, size: { w: 1300, h: 360 } },
           },
         ],
       },
     ],
+  },
+  data: {
+    nodes: titles({
+      'quote-board': 'Quote board',
+      'time-sales': 'Time & sales',
+      news: 'News',
+      'chart-es': 'ES 5m',
+      'chart-nq': 'NQ 5m',
+      'chart-cl': 'CL daily',
+      'order-book': 'Order book',
+      'ticket-es': 'Order ticket ES',
+      'ticket-cl': 'Order ticket CL',
+      positions: 'Positions',
+      ...Object.fromEntries(
+        ['es', 'nq', 'cl'].map((sym) => [`ladder-${sym}`, `MD Trader ${sym.toUpperCase()}`]),
+      ),
+    }),
   },
 };
 

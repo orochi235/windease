@@ -104,7 +104,7 @@ These are config or placement keys on one strategy each.
 
 | Phase | Contents | Status |
 |---|---|---|
-| 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `placement.share`; grid `cell`, fixed cells, `justify` | in progress |
+| 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `placement.share`; grid `cell`, fixed cells, `justify` | in progress: the mechanics/data split and tabs are built, the rest is not |
 | 2 | `tear`, `zoom`, `view` (pan/zoom, desktop fit), `sticky`, `step`, `overshoot`, `layer`, `resize`, `drop` config | unbuilt |
 | 3 | Grid tracks, `compact`, pages; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | unbuilt |
 | 4 | Packer `rotate`/`sort`/height bound; `hints.aspect`; `justified` strategy; product-look CSS for every preset | unbuilt |

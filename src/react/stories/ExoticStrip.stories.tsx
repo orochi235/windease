@@ -41,7 +41,7 @@ export const Presets: Story<Args> = ({ preset: presetId }) => {
         <PresetInfo preset={preset} />
         <div className="xs-frame">
           <Container
-            parentId={asNodeId(preset.root.id)}
+            parentId={asNodeId(preset.mechanics.id)}
             chrome={chrome}
             viewport={preset.viewport}
             affordances
