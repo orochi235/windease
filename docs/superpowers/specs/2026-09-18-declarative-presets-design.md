@@ -81,7 +81,7 @@ These are config or placement keys on one strategy each.
 | Sticky children while the rest scroll | `placement.sticky` | strip, grid | Excel, Firefox pinned tabs |
 | Track sizes | `rowSize`, `tracks` | grid | Grafana, Excel |
 | Gravity | `compact: 'up'` | grid | Grafana |
-| Pages | container state `page`, overflow to the next page | grid | Launchpad, Android, iOS |
+| Pages | `pageStrategy(inner)`, a wrapper designed in another session: page by `placement.page` or by `inner`'s `unplaced` | wrapper over any strategy | Launchpad, Android, iOS |
 | Stacked title bars; tab side | `tabs: 'stacked'`, `side` | stack | i3, Golden Layout |
 | Icon origin | `iconFrom` | desktop | Win 3.1, Mac OS 9, twm |
 | Cascade wraps | `wrap: true` | desktop | cascade-200 |
@@ -106,7 +106,7 @@ These are config or placement keys on one strategy each.
 |---|---|---|
 | 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `placement.share`; grid `cell`, fixed cells, `justify` | in progress |
 | 2 | `tear`, `zoom`, `view` (pan/zoom, desktop fit), `sticky`, `step`, `overshoot`, `layer`, `resize`, `drop` config | unbuilt |
-| 3 | Grid tracks, `compact`, pages; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | unbuilt |
+| 3 | Grid tracks, `compact`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | unbuilt |
 | 4 | Packer `rotate`/`sort`/height bound; `hints.aspect`; `justified` strategy; product-look CSS for every preset | unbuilt |
 
 Each key ships with its tests, a changelog entry, and the story code it replaces deleted in the
