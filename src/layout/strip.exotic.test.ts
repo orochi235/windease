@@ -36,7 +36,8 @@ const startOf = (r: Rect, axis: 'x' | 'y') => (axis === 'x' ? r.x : r.y);
 
 const explicitOf = (it: LayoutItem, axis: 'x' | 'y') => {
   const v = axis === 'x' ? it.placement?.size?.w : it.placement?.size?.h;
-  return typeof v === 'number' ? v : undefined;
+  // A non-finite or negative stored size is treated as absent.
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined;
 };
 const naturalOf = (it: LayoutItem, axis: 'x' | 'y') => {
   const asked = axis === 'x' ? it.hints?.sizing?.w : it.hints?.sizing?.h;
@@ -300,12 +301,6 @@ const KNOWN: Record<string, string> = {
     'the unplaced budget counts stored and measured sizes but not preferredSize',
   'vscode-hinted-sidebars@400-squeeze » squeeze overflows only once every pane is at its floor':
     PREFERRED_UNSQUEEZED,
-  'zero-viewport-padded » rects are well-formed': 'the cross axis is not floored at zero',
-  'zero-viewport-padded » panes span the cross axis, never below zero':
-    'the cross axis is not floored at zero',
-  'negative-explicit » rects are well-formed': 'a negative stored size is rendered as written',
-  'negative-explicit » stays in bounds unless overflow is reported':
-    'a negative stored size is rendered as written',
 };
 
 describe('strip on real-software layouts', () => {
@@ -427,8 +422,8 @@ function gestureInvariants(preset: Preset): Record<string, Violations> {
         }
 
         for (const it of project(store, containerId, size).items) {
-          const v = explicitOf(it, axis);
-          if (v !== undefined && (!Number.isFinite(v) || v < 0)) {
+          const v = axis === 'x' ? it.placement?.size?.w : it.placement?.size?.h;
+          if (typeof v === 'number' && (!Number.isFinite(v) || v < 0)) {
             out['a drag writes finite, non-negative sizes']!.push(`${tag} wrote ${it.id}=${v}`);
           }
         }

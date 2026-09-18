@@ -7,6 +7,7 @@ import type {
   Rect,
   Size,
 } from '../layout-types.js';
+import { trace } from '../trace.js';
 import { selectByCapacity } from './capacity.js';
 import { clampExplicitSizes } from './resize.js';
 import { DEFAULT_JOIN_THRESHOLD } from './seam-join.js';
@@ -78,11 +79,19 @@ interface StripConfig {
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
 }
 
+/** A size input as the row may use it: finite and non-negative. Anything else
+ *  (a corrupt persisted size, a NaN from a consumer's arithmetic) is treated
+ *  as absent rather than rendered, and traced so it can be found. */
+function sane(v: unknown, item: LayoutItem, field: string): number | undefined {
+  if (typeof v !== 'number') return undefined;
+  if (Number.isFinite(v) && v >= 0) return v;
+  trace('layout', `strip: ignoring ${field} ${v} on ${item.id}`);
+  return undefined;
+}
+
 function explicitAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
-  const size = (item as unknown as { placement?: { size?: { w?: number; h?: number } } }).placement
-    ?.size;
-  const v = axis === 'x' ? size?.w : size?.h;
-  return typeof v === 'number' ? v : undefined;
+  const size = item.placement?.size;
+  return sane(axis === 'x' ? size?.w : size?.h, item, `placement.size.${axis === 'x' ? 'w' : 'h'}`);
 }
 
 /** A measured content extent, honored only on an axis the item asked to be
@@ -96,8 +105,8 @@ function explicitAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
 function naturalAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
   const asked = axis === 'x' ? item.hints?.sizing?.w : item.hints?.sizing?.h;
   if (asked !== 'content') return undefined;
-  const v = axis === 'x' ? item.natural?.w : item.natural?.h;
-  return typeof v === 'number' ? Math.max(v, effectiveMinAxis(item, axis)) : undefined;
+  const v = sane(axis === 'x' ? item.natural?.w : item.natural?.h, item, 'natural');
+  return v !== undefined ? Math.max(v, effectiveMinAxis(item, axis)) : undefined;
 }
 
 /** The extent this item is asking for, whatever it asked with. A measurement
@@ -109,16 +118,12 @@ function requestedAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
 
 function effectiveMinAxis(item: LayoutItem, axis: 'x' | 'y'): number {
   const m = item.hints?.minSize;
-  if (!m) return 0;
-  return axis === 'x' ? m.w : m.h;
+  return sane(axis === 'x' ? m?.w : m?.h, item, 'minSize') ?? 0;
 }
 
 function effectiveMaxAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
-  const m = (item as unknown as { hints?: { maxSize?: { w?: number; h?: number } } }).hints
-    ?.maxSize;
-  if (!m) return undefined;
-  const v = axis === 'x' ? m.w : m.h;
-  return typeof v === 'number' ? v : undefined;
+  const m = item.hints?.maxSize;
+  return sane(axis === 'x' ? m?.w : m?.h, item, 'maxSize');
 }
 
 /** Effective reach of a resize affordance on `item`, given what siblings'
@@ -363,7 +368,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
 
     if (axis === 'x') {
       const y = padding;
-      const h = container.h - 2 * padding;
+      const h = Math.max(0, container.h - 2 * padding);
       let x = padding;
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
@@ -398,7 +403,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       }
     } else {
       const x = padding;
-      const w = container.w - 2 * padding;
+      const w = Math.max(0, container.w - 2 * padding);
       let y = padding;
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;

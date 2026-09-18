@@ -6,6 +6,20 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
+## Unreleased
+
+### Fixed
+
+- **`stripStrategy` ignores a size it cannot render.** A NaN, infinite or
+  negative `placement.size`, `minSize`, `maxSize` or measurement is treated as
+  absent, with a `layout` trace naming the pane and the value. A NaN stored
+  size used to render as written and spread into the next sibling's position,
+  and a negative `maxSize` gave a negative width.
+
+- **A strip's cross axis no longer goes negative.** Padding larger than the
+  container, as a host hidden with `display: none` measures, now gives panes a
+  cross extent of 0 rather than a negative one, as `stackStrategy` already did.
+
 ## 2.0.0
 
 ### Removed
