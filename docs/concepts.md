@@ -113,6 +113,13 @@ Two paths for free-form data on a node; lifetimes differ:
   same key doesn't mean two different units depending on which strategy the
   parent runs. A span wider than the grid's `cols` (or taller than a fixed
   `rows`/`maxRows`) clamps rather than overflowing the container.
+- `cell: { col, row }` — the zero-based grid **cell** a node's top-left corner
+  sits at, honored by `grid` only; parent-relative like `span`. Celled nodes
+  reserve their cells first and the rest flow around them. A cell that
+  collides with one already taken, or lies outside a capped grid, sends the
+  node to `unplaced`. Unlike the other keys, a move or reorder **clears** it:
+  both commit a `childOrder` index the cell would override, and across parents
+  it names a cell in the old grid. `setChildOrder` leaves it alone.
 
 **Reserved key on `node.meta`:**
 

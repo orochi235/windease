@@ -518,6 +518,31 @@ const { placements, overflow } = skylineStrategy.layout({
 });
 ```
 
+## Putting a grid child at a cell
+
+`gridStrategy` normally flows its children into cells in order. A child whose
+placement holds `cell: { col, row }` sits at that cell instead, the way a
+Grafana panel sits at its `gridPos` or an element at its place in the periodic
+table. The cell is zero-based and names the child's top-left corner; its `span`
+still sets how many cells it covers.
+
+```ts
+store.patchPlacement(heliumId, { cell: { col: 17, row: 0 } });
+```
+
+Celled children reserve their cells first, and the rest flow into the free
+cells in order. A grid with no column cap grows wide enough to reach the
+furthest cell. A cell that overlaps one already taken goes to `unplaced`, and
+so does one outside a capped grid (`cols`, `maxCols`, `rows` or `maxRows`); the
+earlier child in `childOrder` keeps a contested cell. A span that would run
+past a capped edge is cut short at it. Turn on the `layout` trace to see which
+cells were refused and why.
+
+A move or reorder clears `cell`. Both commit a position in `childOrder`, and a
+cell would override it, so a dragged celled child would otherwise not move at
+all. Dragging one therefore drops it into the flow at the index it lands on.
+`setChildOrder` leaves cells alone, since it arranges every child at once.
+
 ## Letting CSS do the layout
 
 A container that declares `hints.render: 'flow'` runs no strategy. Its children

@@ -479,6 +479,7 @@ export class Store {
     });
     const toIndex =
       this.nodesMap.get(newParentId)?.container?.childOrder.indexOf(id) ?? insertIndex;
+    if (newParentId !== fromParentId || toIndex !== fromIndex) this.releaseCell(id);
 
     this.events.emit('node.moved', {
       id,
@@ -636,6 +637,7 @@ export class Store {
         const from = sourceOf.get(id) as NodeId;
         const fromIndex = fromIndexOf.get(id) ?? -1;
         const toIndex = landed.indexOf(id);
+        if (from !== toParentId || toIndex !== fromIndex) this.releaseCell(id);
         if (from === toParentId) {
           this.events.emit('node.reordered', { parentId: toParentId, id, fromIndex, toIndex });
         } else {
@@ -776,6 +778,7 @@ export class Store {
     if (this.getPinnedIndex(id) !== null && finalIndex !== this.getPinnedIndex(id)) {
       this.writePin(id, finalIndex);
     }
+    if (finalIndex !== fromIndex) this.releaseCell(id);
     this.events.emit('node.reordered', { parentId, id, fromIndex, toIndex: finalIndex });
     this.scheduleNotify();
   }
@@ -855,6 +858,23 @@ export class Store {
       const actual = parent.container.childOrder.indexOf(cid);
       if (pin !== actual) this.writePin(cid, actual);
     }
+  }
+
+  /**
+   * Drops grid's `placement.cell`. A move or reorder commits an index, and a
+   * cell would override it, so a dragged celled child would otherwise not
+   * move at all; across parents the cell also names a cell in the old grid.
+   */
+  private releaseCell(id: NodeId): void {
+    const placement = this.nodesMap.get(id)?.membership?.placement;
+    if (!placement || !('cell' in placement)) return;
+    const { cell, ...rest } = placement;
+    this.replaceMembership(id, (m) => ({ ...m, placement: rest }));
+    this.events.emit('node.placementChanged', {
+      id,
+      changes: { cell: { from: cell, to: undefined } },
+    });
+    trace('store', `move: ${id} released cell ${JSON.stringify(cell)}, flows from its index`);
   }
 
   private isDescendantOf(maybeDescendant: NodeId, ancestor: NodeId): boolean {

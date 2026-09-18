@@ -69,6 +69,16 @@ interface GridConfig {
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
 }
 
+/** An item's `placement.cell`, floored — or undefined when it has none, or
+ *  one that isn't two finite, non-negative numbers. */
+function explicitCell(item: LayoutItem): { col: number; row: number } | undefined {
+  const cell = item.placement?.cell;
+  if (!cell) return undefined;
+  const { col, row } = cell;
+  if (!Number.isFinite(col) || !Number.isFinite(row) || col < 0 || row < 0) return undefined;
+  return { col: Math.floor(col), row: Math.floor(row) };
+}
+
 /** The numeric keys grid reads, each a whole count of at least 1 — or
  *  undefined when absent or not finite, so a NaN or Infinity reads as unset. */
 interface GridDims {
@@ -260,6 +270,16 @@ class CellPacker {
     return undefined;
   }
 
+  /** Reserves the block at `col, row` if every cell of it is free. */
+  reserve(col: number, row: number, cSpan: number, rSpan: number): boolean {
+    if (this.blockedAt(col, row, cSpan, rSpan) >= 0) return false;
+    for (let dr = 0; dr < rSpan; dr++) {
+      for (let dc = 0; dc < cSpan; dc++) this.taken.add((row + dr) * this.cols + col + dc);
+    }
+    while (this.taken.has(this.cursor)) this.cursor++;
+    return true;
+  }
+
   /** The column of a taken cell inside the block, or -1 when it is free. */
   private blockedAt(col: number, row: number, cSpan: number, rSpan: number): number {
     for (let dr = 0; dr < rSpan; dr++) {
@@ -271,9 +291,28 @@ class CellPacker {
 }
 
 /**
- * Walks `order`, reserving the first free cell block each item's (clamped)
- * span fits. Items beyond `itemCap`, or whose span can't fit before `rowCap`
- * runs out, are omitted.
+ * Reserves an explicitly celled item's block, its span clamped to the room
+ * past its cell. False when the cell is outside the grid or collides.
+ */
+function reserveExplicit(
+  packer: CellPacker,
+  item: LayoutItem,
+  at: { col: number; row: number },
+  placed: Map<string, ReservedCell>,
+): boolean {
+  const { cols, rowCap } = packer;
+  if (at.col >= cols || (rowCap !== undefined && at.row >= rowCap)) return false;
+  const span = clampSpan(item, cols - at.col, rowCap === undefined ? undefined : rowCap - at.row);
+  if (!packer.reserve(at.col, at.row, span.cols, span.rows)) return false;
+  placed.set(item.id, { ...at, ...span });
+  return true;
+}
+
+/**
+ * Walks `order` twice: first reserving each explicitly celled item's block,
+ * then giving every other item the first free block its (clamped) span fits.
+ * Items beyond `itemCap`, cells that collide or fall outside the grid, and
+ * spans that can't fit before `rowCap` runs out are omitted.
  */
 function reserveCells(
   order: LayoutItem[],
@@ -283,13 +322,36 @@ function reserveCells(
 ): Map<string, ReservedCell> {
   const packer = new CellPacker(cols, rowCap);
   const placed = new Map<string, ReservedCell>();
+  let anyFlow = false;
   for (const item of order) {
     if (placed.size >= itemCap) break;
+    const at = explicitCell(item);
+    if (at) reserveExplicit(packer, item, at, placed);
+    else anyFlow = true;
+  }
+  if (!anyFlow) return placed;
+  for (const item of order) {
+    if (placed.size >= itemCap) break;
+    if (explicitCell(item)) continue;
     const span = clampSpan(item, cols, rowCap);
     const at = packer.place(span.cols, span.rows);
     if (at) placed.set(item.id, { ...at, ...span });
   }
   return placed;
+}
+
+/** One past the rightmost column the explicit cells reach, spans included. */
+function explicitReach(items: LayoutItem[]): number {
+  let reach = 0;
+  for (const item of items) {
+    const at = explicitCell(item);
+    if (at)
+      reach = Math.max(
+        reach,
+        at.col + wholeSpan(item.placement?.span?.cols, undefined, item.id, 'cols'),
+      );
+  }
+  return reach;
 }
 
 /**
@@ -313,7 +375,7 @@ function resolveTiling(
   const fill = cfg.fill ?? true;
   const resolved = resolveDims(items, dims, fill, cfg.orientation ?? 'wide');
   const { rowCap, colLimit } = resolved;
-  let cols = resolved.cols;
+  let cols = Math.min(colLimit, Math.max(resolved.cols, explicitReach(items)));
   const itemCap = dims.maxItems ?? Number.POSITIVE_INFINITY;
 
   // Two passes: the first (priority order — pins win the capacity race)
@@ -323,8 +385,12 @@ function resolveTiling(
   let priorityPlaced = reserveCells(order, cols, rowCap, itemCap);
 
   // Area set the starting width; fragmentation can need more. Past the summed
-  // span widths every item fits in row 0, so growing further cannot help.
-  const want = Math.min(items.length, itemCap);
+  // span widths every item fits in row 0, so growing further cannot help. A
+  // cell that is out of bounds or collides stays that way at any width, so it
+  // is not wanted.
+  let lost = 0;
+  for (const item of items) if (!priorityPlaced.has(item.id) && explicitCell(item)) lost++;
+  const want = Math.min(items.length - lost, itemCap);
   if (rowCap !== undefined && priorityPlaced.size < want && cols < colLimit) {
     const widths = requestedArea(items, dims.maxCols, 1);
     const ceiling = Math.min(colLimit, Math.max(cols, widths));
@@ -334,7 +400,7 @@ function resolveTiling(
       let missing = 0;
       for (const item of order) {
         if (short === 0) break;
-        if (priorityPlaced.has(item.id)) continue;
+        if (priorityPlaced.has(item.id) || explicitCell(item)) continue;
         const span = clampSpan(item, cols, rowCap);
         missing += span.cols * span.rows;
         short--;
@@ -425,32 +491,69 @@ function spanReach(
   rowCap: number | undefined,
   itemCap: number,
 ): { cols: number; rows: number } {
+  const celled = items.some((it) => explicitCell(it) !== undefined);
   // An unbounded grid grows a row rather than dropping anyone, so every span
   // fits: the ceiling is the grid's width, and — since nothing can usefully
-  // span more rows than there are items — the item count.
-  if (rowCap === undefined) return { cols, rows: items.length };
+  // span more rows than there are items — the item count. Cells break this:
+  // they don't move out of the way.
+  if (rowCap === undefined && !celled) return { cols, rows: items.length };
 
-  // Items before `id` pack the same whatever span it takes, so the prefix is
-  // packed once and each probe repacks only `id` and what follows it.
   const at = items.findIndex((it) => it.id === id);
   if (at < 0) return { cols: 1, rows: 1 };
+  const item = items[at] as LayoutItem;
+  const ownCell = explicitCell(item);
+
+  // What packs the same whatever span `id` takes is packed once, and each
+  // probe repacks only the rest: every other cell, since cells reserve first,
+  // then — unless `id` is itself celled and so reserves ahead of all flow —
+  // the flow items before it.
   const prefix = new CellPacker(cols, rowCap);
-  let before = 0;
-  for (let i = 0; i < at && before < itemCap; i++) {
-    const span = clampSpan(items[i] as LayoutItem, cols, rowCap);
-    if (prefix.place(span.cols, span.rows)) before++;
+  const prefixPlaced = new Map<string, ReservedCell>();
+  if (celled) {
+    for (const other of items) {
+      if (prefixPlaced.size >= itemCap) break;
+      const cell = other.id === id ? undefined : explicitCell(other);
+      if (cell) reserveExplicit(prefix, other, cell, prefixPlaced);
+    }
+  }
+  let before = prefixPlaced.size;
+  const rest: LayoutItem[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const other = items[i] as LayoutItem;
+    if (i === at || (celled && explicitCell(other))) continue;
+    if (ownCell || i > at) {
+      rest.push(other);
+    } else if (before < itemCap) {
+      const span = clampSpan(other, cols, rowCap);
+      if (prefix.place(span.cols, span.rows)) before++;
+    }
   }
   const baseline = reserveCells(items, cols, rowCap, itemCap).size;
-  const own = clampSpan(items[at] as LayoutItem, cols, rowCap);
+  const own = ownCell
+    ? clampSpan(item, cols - ownCell.col, rowCap === undefined ? undefined : rowCap - ownCell.row)
+    : clampSpan(item, cols, rowCap);
 
   const fits = (axis: 'cols' | 'rows', value: number): boolean => {
     const packer = prefix.clone();
     let placed = before;
-    for (let i = at; i < items.length && placed < itemCap; i++) {
-      const span =
-        i === at ? { ...own, [axis]: value } : clampSpan(items[i] as LayoutItem, cols, rowCap);
+    if (placed < itemCap) {
+      const span = { ...own, [axis]: value };
+      if (ownCell) {
+        const inBounds =
+          ownCell.col + span.cols <= cols &&
+          (rowCap === undefined || ownCell.row + span.rows <= rowCap);
+        if (!inBounds || !packer.reserve(ownCell.col, ownCell.row, span.cols, span.rows)) {
+          return false;
+        }
+        placed++;
+      } else if (packer.place(span.cols, span.rows)) {
+        placed++;
+      }
+    }
+    for (let i = 0; i < rest.length && placed < itemCap; i++) {
+      const span = clampSpan(rest[i] as LayoutItem, cols, rowCap);
       if (packer.place(span.cols, span.rows)) placed++;
-      else if (placed + items.length - 1 - i < baseline) return false;
+      else if (placed + rest.length - 1 - i < baseline) return false;
     }
     return placed >= baseline;
   };
@@ -459,7 +562,36 @@ function spanReach(
     for (let v = 1; v <= cap; v++) if (fits(axis, v)) best = v;
     return best;
   };
-  return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap) };
+  return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap ?? items.length) };
+}
+
+/** Says why an explicit cell was ignored or went unplaced. Off the hot path:
+ *  each branch only runs for an item holding a cell. */
+function traceCells(
+  items: LayoutItem[],
+  cells: Map<string, ReservedCell>,
+  cols: number,
+  rowCap: number | undefined,
+): void {
+  for (const item of items) {
+    const raw = item.placement?.cell;
+    if (!raw) continue;
+    const at = explicitCell(item);
+    if (!at) {
+      trace(
+        'layout',
+        `grid: ${item.id} cell ${JSON.stringify(raw)} is not two non-negative numbers, ignored`,
+      );
+      continue;
+    }
+    if (cells.has(item.id)) continue;
+    const where = `grid: ${item.id} cell (${at.col}, ${at.row})`;
+    if (at.col >= cols || (rowCap !== undefined && at.row >= rowCap)) {
+      trace('layout', `${where} is outside the ${cols}×${rowCap ?? '∞'} grid; unplaced`);
+    } else {
+      trace('layout', `${where} collides with a cell already taken, or the grid is full; unplaced`);
+    }
+  }
 }
 
 /**
@@ -467,7 +599,11 @@ function spanReach(
  * takes `cols` / `rows`, `gap` and `padding`; capping either dimension makes
  * the overflow `unplaced` rather than shrinking cells.
  *
- * Reads `placement.span` for children that should cover several cells.
+ * Reads `placement.span` for children that should cover several cells, and
+ * `placement.cell` for children that sit at a given cell rather than where
+ * the flow puts them. Celled children reserve their cells first; the rest
+ * flow into the free cells in order. A cell that collides with one already
+ * taken, or lies outside a capped grid, goes to `unplaced`.
  * @group Strategies
  */
 export const gridStrategy: LayoutStrategy<void, string> = {
@@ -497,14 +633,26 @@ export const gridStrategy: LayoutStrategy<void, string> = {
   },
   getDropPreview({ items, container, options, insertId, insertIndex, cursor: _cursor }) {
     const cfg = options as GridConfig;
-    // Splice ghost in if not already present.
+    // Splice ghost in if not already present. A celled child dragged within
+    // its own grid is previewed as the reorder will leave it: its cell
+    // cleared, flowing from the new index.
     const ghostAt = items.findIndex((it) => it.id === insertId);
-    const projected: LayoutItem[] =
-      ghostAt >= 0
-        ? items
-        : insertIndex !== undefined && insertIndex >= 0 && insertIndex <= items.length
-          ? [...items.slice(0, insertIndex), { id: insertId }, ...items.slice(insertIndex)]
-          : [...items, { id: insertId }];
+    const ghost = ghostAt >= 0 ? items[ghostAt] : undefined;
+    let projected: LayoutItem[];
+    if (ghost && explicitCell(ghost)) {
+      const { cell: _cell, ...placement } = ghost.placement ?? {};
+      const rest = items.filter((_, i) => i !== ghostAt);
+      const index = Math.max(0, Math.min(insertIndex ?? rest.length, rest.length));
+      rest.splice(index, 0, { ...ghost, placement });
+      projected = rest;
+    } else {
+      projected =
+        ghostAt >= 0
+          ? items
+          : insertIndex !== undefined && insertIndex >= 0 && insertIndex <= items.length
+            ? [...items.slice(0, insertIndex), { id: insertId }, ...items.slice(insertIndex)]
+            : [...items, { id: insertId }];
+    }
     if (!fitsCapacity(cfg, projected)) {
       // Still produce placements (using normal layout) so the host can show
       // the rejection overlay against the current grid.
@@ -549,6 +697,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
 
     const { cols, rows, rowCap, itemCap, cells } = resolveTiling(items, cfg);
     const unplaced = items.filter((it) => !cells.has(it.id)).map((it) => it.id);
+    traceCells(items, cells, cols, rowCap);
 
     const usableW = container.w - 2 * padding;
     const usableH = container.h - 2 * padding;

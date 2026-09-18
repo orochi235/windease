@@ -49,10 +49,14 @@ export interface LayoutItem {
    *
    * `span` is grid's cell-count analog of `size` — `cols`/`rows` are counts,
    * not pixels. Only `gridStrategy` reads it.
+   *
+   * `cell` is the zero-based grid cell an item's top-left corner sits in,
+   * instead of wherever the flow puts it. Only `gridStrategy` reads it.
    */
   placement?: {
     size?: { w?: number; h?: number };
     span?: { cols?: number; rows?: number };
+    cell?: { col: number; row: number };
   };
   /**
    * The node's whole `membership.placement` bag, projected by

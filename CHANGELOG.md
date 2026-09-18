@@ -8,7 +8,19 @@ section below.
 
 ## Unreleased
 
+### Added
+
+- **A grid child can sit at a given cell.** `placement.cell: { col, row }`
+  puts a child's top-left corner at that zero-based cell, the way a Grafana
+  panel sits at its `gridPos`; the rest flow into the free cells in order. A
+  cell that collides or falls outside a capped grid goes to `unplaced`. A move
+  or reorder clears `cell`, so dragging a celled child drops it into the flow.
+
 ### Fixed
+
+- **A grid's drop preview keeps its children's spans.** The fast preview path
+  handed the strategy bare ids, so every child previewed as one cell while a
+  drag hovered.
 
 - **A preset's own render error is no longer reported as an id collision.**
   When a `<Panel>` or `<Zone>` threw while rendering — `pinned` passed inside
