@@ -210,14 +210,11 @@ test.describe('known defects, asserted as the correct behavior', () => {
 
   // Defect: the first drag moves the row onto the stored-size path, which
   // ignores preferredSize, so untouched panes take an equal share.
-  test.fail(
-    'vscode: dragging the explorer seam leaves the activity bar at 48px',
-    async ({ page }) => {
-      await openPreset(page, 'vscode-hinted-sidebars');
-      await dragSeam(page, 'resize-x-vh-sidebar', 16, 'x');
-      expect((await settledBox(pane(page, 'vh-activity'))).w).toBeCloseTo(48, 0);
-    },
-  );
+  test('vscode: dragging the explorer seam leaves the activity bar at 48px', async ({ page }) => {
+    await openPreset(page, 'vscode-hinted-sidebars');
+    await dragSeam(page, 'resize-x-vh-sidebar', 16, 'x');
+    expect((await settledBox(pane(page, 'vh-activity'))).w).toBeCloseTo(48, 0);
+  });
 
   // Defect: a neighbor drag writes squeezed sizes for two panes, so the whole row rescales.
   test.fail('xcode: dragging the navigator seam leaves the inspector alone', async ({ page }) => {
@@ -228,16 +225,15 @@ test.describe('known defects, asserted as the correct behavior', () => {
   });
 
   // Defect: maxSize is not applied to a pane with no stored size.
-  test.fail(
-    'obsidian: the note stops at its 700px cap, and its seam follows the pointer',
-    async ({ page }) => {
-      await openPreset(page, 'obsidian-readable-line');
-      expect((await boxOf(pane(page, 'ob-note'))).w).toBeLessThanOrEqual(700.5);
-      const files = await boxOf(pane(page, 'ob-files'));
-      await dragSeam(page, 'resize-x-ob-files', -16, 'x');
-      expect((await settledBox(pane(page, 'ob-files'))).w).toBeLessThanOrEqual(files.w);
-    },
-  );
+  test('obsidian: the note stops at its 700px cap, and its seam follows the pointer', async ({
+    page,
+  }) => {
+    await openPreset(page, 'obsidian-readable-line');
+    expect((await boxOf(pane(page, 'ob-note'))).w).toBeLessThanOrEqual(700.5);
+    const files = await boxOf(pane(page, 'ob-files'));
+    await dragSeam(page, 'resize-x-ob-files', -16, 'x');
+    expect((await settledBox(pane(page, 'ob-files'))).w).toBeLessThanOrEqual(files.w);
+  });
 
   // Defect: a redistribute drag on a pane stored under its floor jumps it to the floor.
   test('photoshop: dragging a minimized group smaller never grows it', async ({ page }) => {
@@ -248,7 +244,7 @@ test.describe('known defects, asserted as the correct behavior', () => {
   });
 
   // Defect: leftover is split equally, so the thread's larger floor overflows a row that fits.
-  test.fail('slack: channel and thread both fit inside the window', async ({ page }) => {
+  test('slack: channel and thread both fit inside the window', async ({ page }) => {
     await openPreset(page, 'slack-thread-open');
     // The zone widens itself by any reported overflow, so measure against the window.
     const zone = await boxOf(page.locator('[data-node-container="slack"]'));

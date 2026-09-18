@@ -269,25 +269,15 @@ function layoutTree(preset: Preset, store: Store = presetToStore(preset)): Laid[
 const MAX_IGNORED = 'maxSize is not applied to a pane with no stored size';
 const SQUEEZED_DRAG =
   'a neighbor drag writes squeezed sizes for two panes, so the whole row rescales';
-const PREFERRED_DROPPED =
-  'the first drag moves the row to the stored-size path, which ignores preferredSize';
-const EQUAL_SHARE = 'leftover is split equally, so a larger floor overflows a row that fits';
 const PREFERRED_UNSQUEEZED =
   'squeeze never scales preferredSize, so floors do not bind before overflow';
 
 const KNOWN: Record<string, string> = {
-  'obsidian-readable-line » ceilings are honored': MAX_IGNORED,
-  'min-above-max-unconstrained » ceilings are honored': MAX_IGNORED,
-  'min-above-max-unconstrained » seam bounds contain the rendered extent': MAX_IGNORED,
   'max-below-preferred » ceilings are honored': MAX_IGNORED,
   'max-below-preferred » seam bounds contain the rendered extent': MAX_IGNORED,
-  'slack-thread-open » squeeze overflows only once every pane is at its floor': EQUAL_SHARE,
   'slack-thread-open » a neighbor drag moves only the two panes beside its seam': SQUEEZED_DRAG,
   'xcode-restored-on-laptop » a neighbor drag moves only the two panes beside its seam':
     SQUEEZED_DRAG,
-  'vscode-hinted-sidebars » a drag never moves its seam backward': PREFERRED_DROPPED,
-  'vscode-hinted-sidebars » a neighbor drag moves only the two panes beside its seam':
-    PREFERRED_DROPPED,
   'vscode-hinted-sidebars@400-unplaced » unplaced mode never overflows':
     'the unplaced budget counts stored and measured sizes but not preferredSize',
   'vscode-hinted-sidebars@400-squeeze » squeeze overflows only once every pane is at its floor':

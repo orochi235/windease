@@ -60,8 +60,7 @@ describe('clampExplicitSizes over generated strip rows', () => {
     expect(bad.slice(0, 5)).toEqual([]);
   });
 
-  // Defect: maxSize is not applied to an item with no stored size.
-  it.fails('caps an auto item at its max', () => {
+  it('caps an auto item at its max', () => {
     const bad = violations((c, out) =>
       c.items
         .filter((it) => it.explicit === undefined && it.max !== undefined)
@@ -71,8 +70,7 @@ describe('clampExplicitSizes over generated strip rows', () => {
     expect(bad.slice(0, 5)).toEqual([]);
   });
 
-  // Defect: leftover is split equally, so a larger floor overflows a row that fits.
-  it.fails('stays within the extent whenever the floors fit in it', () => {
+  it('stays within the extent whenever the floors fit in it', () => {
     const bad = violations((c, out) => {
       const floors = c.items.reduce((s, it) => s + floorOf(it), 0);
       const used = c.items.reduce((s, it) => s + (out.get(it.id) ?? 0), 0);
@@ -85,8 +83,7 @@ describe('clampExplicitSizes over generated strip rows', () => {
 });
 
 describe('clampExplicitSizes on the rows the strip fixtures isolate', () => {
-  // Defect: leftover is split equally, so a larger floor overflows a row that fits.
-  it.fails('slack: a 400px channel and a 380px thread fit the 780px left over', () => {
+  it('slack: a 400px channel and a 380px thread fit the 780px left over', () => {
     const out = clampExplicitSizes({
       available: 1100,
       items: [
@@ -102,8 +99,7 @@ describe('clampExplicitSizes on the rows the strip fixtures isolate', () => {
     expect(out.get('thread')).toBeGreaterThanOrEqual(380);
   });
 
-  // Defect: maxSize is not applied to an item with no stored size.
-  it.fails('obsidian: the note stops at its 700px readable-line cap', () => {
+  it('obsidian: the note stops at its 700px readable-line cap', () => {
     const out = clampExplicitSizes({
       available: 1920,
       items: [

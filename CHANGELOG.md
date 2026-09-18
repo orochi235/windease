@@ -16,6 +16,17 @@ section below.
   size used to render as written and spread into the next sibling's position,
   and a negative `maxSize` gave a negative width.
 
+- **`hints.maxSize` caps a strip pane with no stored size.** It was honored
+  only on a pane with a `placement.size`, so an auto pane beside stored-size
+  sidebars (Obsidian's note under a 700px readable-line cap) rendered at
+  whatever was left over.
+
+- **Strip panes that share the leftover no longer overflow a row that fits.**
+  The leftover was split equally and each share floored at its pane's
+  `minSize` afterward, so two panes with 400px and 380px minimums overflowed
+  780px by 10. A pane whose floor or cap binds now takes it, and its siblings
+  share the rest.
+
 - **A strip seam drag never moves against the pointer.** Beside a pane stored
   under its `minSize` — an acme window shrunk to a 2px sliver, a minimized
   Photoshop group — a `'neighbor'` drag could flip direction and write a
