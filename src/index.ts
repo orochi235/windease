@@ -169,7 +169,7 @@ export {
 } from './node.js';
 export { type PinnedIndexOf, placeRespectingPins, placeRunRespectingPins } from './pinning.js';
 export { observePixelRatio } from './pixel-ratio.js';
-export { RAISE_MODES } from './policies.js';
+export { RAISE_MODES, STACK_SHOW } from './policies.js';
 export {
   type ObservedChild,
   reconcileChildOrder,

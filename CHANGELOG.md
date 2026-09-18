@@ -19,6 +19,13 @@ section below.
   focus change and the raise are one transaction. `store.raise(id)` does the
   same on demand.
 
+- **Stack config `show: 'dropped'` makes an arriving child the active tab.** A
+  child moved in by `moveNode` or `moveNodes` (the first of the batch), or
+  registered into the stack, is written to `activeId`, so a drop shows what
+  was dropped without a `node.moved` listener. A reorder inside the stack
+  activates nothing. Set it after registering a stack's initial children, or
+  the last one registered becomes active.
+
 ### Fixed
 
 - **A preset's own render error is no longer reported as an id collision.**

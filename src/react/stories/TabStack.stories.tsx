@@ -19,6 +19,7 @@ import {
   Provider,
   StrategyRegistryProvider,
   useChildren,
+  useNode,
   useStack,
 } from '../index.js';
 import '../styles.css';
@@ -166,6 +167,120 @@ export const StackOnDrop: Story = () => {
             <p>
               Click a tab to switch, or focus one and use <kbd>←</kbd> <kbd>→</kbd>. Drag the last
               tab back out and the stack dissolves, lifting the survivor into the row.
+            </p>
+          </div>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+const DOCS = asNodeId('docs');
+
+function makePolicyStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      id: ROOT,
+      kind: 'zone',
+      container: { strategyId: 'strip', config: { axis: 'x', gap: 8, padding: 8, fill: true } },
+    }),
+  );
+  s.registerNode(
+    createNode({
+      id: DOCS,
+      kind: 'group',
+      parentId: ROOT,
+      container: {
+        strategyId: 'stack',
+        config: { ...STACK_CONFIG, activeId: 'readme' },
+      },
+    }),
+  );
+  s.showNode(DOCS);
+  for (const [id, title, parentId] of [
+    ['readme', 'README', DOCS],
+    ['license', 'LICENSE', DOCS],
+    ['changelog', 'CHANGELOG', DOCS],
+    ['notes', 'Notes', ROOT],
+    ['todo', 'TODO', ROOT],
+  ] as const) {
+    s.registerNode(
+      createNode({
+        id: asNodeId(id),
+        kind: 'panel',
+        focus: true,
+        parentId,
+        hints: { minSize: { w: 60, h: 0 } },
+        meta: { title },
+      }),
+    );
+    s.showNode(asNodeId(id));
+  }
+  // After the initial tabs: set first, each registration would have taken the stack.
+  s.updateContainerConfig(DOCS, { show: 'dropped' });
+  return s;
+}
+
+function ActiveReadout({ id }: { id: NodeId }) {
+  const { activeId } = useStack(id);
+  const configured = (useNode(id)?.container?.config as { activeId?: string } | undefined)
+    ?.activeId;
+  return (
+    <p className="ts-readout">
+      Showing:{' '}
+      <span className="ts-readout__value" data-testid="ts-active">
+        {activeId ?? 'none'}
+      </span>{' '}
+      · config activeId:{' '}
+      <span className="ts-readout__value" data-testid="ts-configured">
+        {configured ?? 'unset'}
+      </span>
+    </p>
+  );
+}
+
+/** Dropping a pane into the stack shows it: `show: 'dropped'` does that, with no host listener. */
+export const ShowDropped: Story = () => {
+  const store = useMemo(() => makePolicyStore(), []);
+
+  const chrome: ChromeMap = useMemo(
+    () => ({
+      panel: ({ node }) => (
+        <DragHandle nodeId={node.id} className="ts-panel">
+          <header className="ts-panel__title" data-testid={`pane-${node.id}`}>
+            {String(node.meta?.title ?? node.id)}
+          </header>
+          <div className="ts-panel__body">Drag me into the tabbed stack.</div>
+        </DragHandle>
+      ),
+      group: ({ node }) => (
+        <div className="ts-stack" data-testid={`stack-${node.id}`}>
+          <TabStrip id={node.id} />
+          <Container parentId={node.id} chrome={chrome} />
+        </div>
+      ),
+    }),
+    [],
+  );
+
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <DragProvider>
+          <div className="ts-frame">
+            <Container
+              parentId={ROOT}
+              chrome={chrome}
+              viewport={VIEWPORT}
+              className="windease-zone ts-zone"
+            />
+          </div>
+          <ActiveReadout id={DOCS} />
+          <div className="ts-prose">
+            <p>
+              The stack's config says <code>show: 'dropped'</code>: drag Notes or TODO by its header
+              into the stack and it becomes the tab you are looking at.
             </p>
           </div>
         </DragProvider>

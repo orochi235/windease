@@ -67,6 +67,7 @@ describe('stackStrategy', () => {
       'activeId',
       'headerSize',
       'padding',
+      'show',
     ]);
   });
 });

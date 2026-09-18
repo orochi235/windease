@@ -327,6 +327,7 @@ export class Store {
     }
     this.events.emit('node.registered', { id: node.id });
     trace('store', `register: ${node.id} (kind=${node.kind})`);
+    if (node.membership) this.#showArrival(node.membership.parentId, node.id);
     this.scheduleNotify();
   }
 
@@ -501,6 +502,17 @@ export class Store {
     });
 
     this.settle({ removedFrom: [fromParentId], addedTo: [newParentId], moved: [id] });
+    if (fromParentId !== newParentId) this.#showArrival(newParentId, id);
+  }
+
+  /** Container config `show: 'dropped'`: a child arriving by move or
+   *  registration becomes the stack's active child. */
+  #showArrival(parentId: NodeId, id: NodeId): void {
+    const container = this.nodesMap.get(parentId)?.container;
+    if (!container || configKey(container.config, 'show') !== 'dropped') return;
+    if (!container.childOrder.includes(id)) return;
+    this.updateContainerConfig(parentId, { activeId: id }, { force: true });
+    trace('store', `show: ${id} in ${parentId} (dropped)`);
   }
 
   /**
@@ -669,6 +681,8 @@ export class Store {
         `moveNodes: ${ordered.length} → ${toParentId}@${insertAt} (from ${from.join(', ') || 'itself'})`,
       );
       this.settle({ removedFrom: from, addedTo: [toParentId], moved: crossing });
+      const [first] = crossing;
+      if (first !== undefined) this.#showArrival(toParentId, first);
     }, 'moveNodes');
   }
 

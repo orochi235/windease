@@ -88,3 +88,34 @@ test.describe('tab stacking', () => {
     await expect(readout(page)).toHaveText('console editor preview');
   });
 });
+
+test.describe("stack config show: 'dropped'", () => {
+  const SHOW = 'tab-stack--show-dropped';
+  const active = (page: Page) => page.locator('[data-testid="ts-active"]');
+
+  /** Drag `sourceId` by its header into the middle of the stack's body. */
+  async function dragIntoStack(page: Page, sourceId: string) {
+    const from = centerOf(await boxOf(handle(page, sourceId)));
+    const to = centerOf(await boxOf(page.locator('[data-testid="stack-docs"]')));
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 12 });
+    await page.mouse.move(to.x, to.y, { steps: 2 });
+    await page.mouse.up();
+  }
+
+  test('a pane dropped into the stack becomes the tab on show', async ({ page }) => {
+    await openStory(page, SHOW);
+    await expect(active(page)).toHaveText('readme');
+
+    await dragIntoStack(page, 'notes');
+
+    await expect(page.locator('[data-testid="tab-notes"]')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(active(page)).toHaveText('notes');
+    await expect(pane(page, 'notes')).toBeVisible();
+    await expect(pane(page, 'readme')).toHaveCount(0);
+  });
+});

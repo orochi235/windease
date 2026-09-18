@@ -161,3 +161,91 @@ describe('Store.raise', () => {
     expect(() => s.raise(id('z'))).not.toThrow();
   });
 });
+
+const activeOf = (s: Store, stack: NodeId) =>
+  (s.getContainerView(stack)?.config as { activeId?: string } | undefined)?.activeId;
+
+/** Root strip `r` › stack `st` (config `stackConfig`, holding `a`, `b`, `c`) and loose panels `x`, `y`. */
+function stackSeeded(stackConfig: Record<string, unknown>): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('r') }),
+  );
+  s.registerNode(
+    createNode({
+      kind: 'group',
+      id: id('st'),
+      parentId: id('r'),
+      container: { strategyId: 'stack', config: { activeId: 'a', ...stackConfig } },
+    }),
+  );
+  s.showNode(id('st'));
+  for (const [p, parent] of [
+    ['a', 'st'],
+    ['b', 'st'],
+    ['c', 'st'],
+    ['x', 'r'],
+    ['y', 'r'],
+  ] as const) {
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id(p), parentId: id(parent) }));
+    s.showNode(id(p));
+  }
+  s.setActiveChild(id('st'), id('a'));
+  return s;
+}
+
+describe("config show: 'dropped'", () => {
+  it('activates a child moved into the stack', () => {
+    const s = stackSeeded({ show: 'dropped' });
+    s.moveNode(id('x'), id('st'));
+    expect(activeOf(s, id('st'))).toBe('x');
+  });
+
+  it('leaves the active child alone without the key', () => {
+    const s = stackSeeded({});
+    s.moveNode(id('x'), id('st'));
+    expect(activeOf(s, id('st'))).toBe('a');
+  });
+
+  it('does not activate a child reordered within the stack', () => {
+    const s = stackSeeded({ show: 'dropped' });
+    s.moveNode(id('c'), id('st'), 0);
+    expect(activeOf(s, id('st'))).toBe('a');
+  });
+
+  it('activates the first of a batch moved in together', () => {
+    const s = stackSeeded({ show: 'dropped' });
+    s.moveNodes([id('x'), id('y')], id('st'));
+    expect(activeOf(s, id('st'))).toBe('x');
+  });
+
+  it('activates a child registered into the stack', () => {
+    const s = stackSeeded({ show: 'dropped' });
+    s.registerNode(createNode({ kind: 'panel', id: id('n'), parentId: id('st') }));
+    expect(activeOf(s, id('st'))).toBe('n');
+  });
+
+  it("activates through a locked stack, as a tab click would: 'arrange' does not govern which tab shows", () => {
+    const s = stackSeeded({ show: 'dropped' });
+    s.setLock(id('st'), { arrange: true });
+    s.moveNode(id('x'), id('st'));
+    expect(activeOf(s, id('st'))).toBe('x');
+  });
+
+  it('traces the activation', () => {
+    const s = stackSeeded({ show: 'dropped' });
+    const t = captureTrace('store');
+    s.moveNode(id('x'), id('st'));
+    expect(t.matching(/show: x in st \(dropped\)/)).toHaveLength(1);
+  });
+
+  it('notifies subscribers once for the move and the activation', async () => {
+    const s = stackSeeded({ show: 'dropped' });
+    await Promise.resolve();
+    let notified = 0;
+    s.subscribe(() => notified++);
+    s.moveNode(id('x'), id('st'));
+    await Promise.resolve();
+    expect(notified).toBe(1);
+  });
+});
