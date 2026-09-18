@@ -13,6 +13,16 @@ section below.
 - **`checkStrategyConfig` reports a number config that is `NaN` or infinite.**
   It checked only the type, so `cols: NaN` passed as a number.
 
+- **`gridStrategy` no longer hangs on a `NaN` or infinite number.** `cols: NaN`,
+  or a `NaN` or infinite `placement.span` in a grid with no row cap, looped
+  forever looking for a cell. A non-finite `cols`, `rows`, `maxCols`, `maxRows`
+  or `maxItems` is now ignored, as if unset, and a fractional one rounds down.
+
+- **A `NaN` span in `gridStrategy` takes one cell.** One `NaN` `span.rows` made
+  every rect in the grid `NaN`, and under a row cap a `NaN` span sent its item to
+  `unplaced`. An infinite span fills the grid on a capped axis and takes one cell
+  otherwise; `cols: Infinity` no longer produces `NaN` rects.
+
 ## 2.0.0
 
 ### Removed

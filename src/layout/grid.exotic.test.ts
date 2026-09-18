@@ -33,11 +33,8 @@ type Check =
   | 'accept'
   | 'acceptOneMore';
 
-const INFINITE_COLS = 'cols: Infinity makes cellW 0 × Infinity = NaN';
-
 /** Checks a scenario is known to fail, each with the defect it exposes. */
 const KNOWN: Record<string, Partial<Record<Check, string>>> = {
-  'cols-infinite': { wellFormed: INFINITE_COLS, aligned: INFINITE_COLS, spans: INFINITE_COLS },
   'launchpad-thirty/lp-page': {
     acceptOneMore: 'canAccept ignores fill: false and caps a 7×5 page at ceil(sqrt(31)) = 6 cols',
   },
@@ -418,7 +415,7 @@ describe('Excel frozen panes (pinned headers)', () => {
 });
 
 describe('pathological spans', () => {
-  it.fails('a NaN span in a row-capped grid clamps to one cell — Math.max(1, NaN) is NaN, so nothing fits and it is unplaced', () => {
+  it('a NaN span in a row-capped grid clamps to one cell', () => {
     const s = PATHOLOGICAL.find((p) => p.id === 'span-nan-capped') as Scenario;
     expect(run(s).placements.has('nan')).toBe(true);
   });
@@ -444,7 +441,17 @@ describe('pathological spans', () => {
  */
 function terminates(items: unknown, options: unknown, timeoutMs = 3000): boolean {
   const grid = fileURLToPath(new URL('./grid.ts', import.meta.url));
+  // Source imports name `.js`; strip-types node finds only the `.ts` beside it.
   const code = `
+    const { registerHooks } = await import('node:module');
+    registerHooks({
+      resolve(spec, ctx, next) {
+        try { return next(spec, ctx); } catch (e) {
+          if (spec.endsWith('.js')) return next(spec.slice(0, -3) + '.ts', ctx);
+          throw e;
+        }
+      },
+    });
     const { gridStrategy } = await import(${JSON.stringify(grid)});
     const revive = (k, v) => (v === '__NaN' ? NaN : v === '__Inf' ? Infinity : v);
     gridStrategy.layout({
@@ -470,17 +477,17 @@ describe('inputs that must not hang the layout', () => {
     expect(terminates([{ id: 'a' }, { id: 'b' }], { cols: 2 })).toBe(true);
   });
 
-  it.fails('`cols: NaN` (config-check passes it as a number) — reserveCells never finds a column and loops over rows forever', () => {
+  it('`cols: NaN`', () => {
     expect(terminates([{ id: 'a' }], { cols: Number.NaN })).toBe(true);
   });
 
-  it.fails('a NaN column span with unbounded rows — same endless row scan', () => {
+  it('a NaN column span with unbounded rows', () => {
     expect(terminates([{ id: 'a', placement: { span: { cols: Number.NaN } } }], { cols: 3 })).toBe(
       true,
     );
   });
 
-  it.fails('an infinite row span with unbounded rows — fits() walks an infinite span', () => {
+  it('an infinite row span with unbounded rows', () => {
     expect(
       terminates([{ id: 'a', placement: { span: { rows: Number.POSITIVE_INFINITY } } }], {
         cols: 3,
