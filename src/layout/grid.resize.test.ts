@@ -143,6 +143,25 @@ describe('gridStrategy resize affordances', () => {
     expect(spanOf(s, 'w1')?.rows).toBe(2);
   });
 
+  it('resolves against the floored cells overflowMode draws', () => {
+    const s = store4();
+    const floored = items(2).map((it) => ({ ...it, hints: { minSize: { w: 150, h: 0 } } }));
+    const opts = { ...OPTS, cols: 4, maxRows: 1, overflowMode: 'scroll' };
+    const aff = run(floored, opts).affordances.find((a) => a.id === 'resize-x-w1');
+    if (!aff) throw new Error('no seam');
+    gridStrategy.dispatchAffordance?.({
+      event: { affordanceId: aff.id, kind: 'drag', payload: { point: { x: 300, y: 10 } } },
+      affordance: aff,
+      store: s,
+      parentId: asNodeId('z'),
+      container: CONTAINER,
+      options: opts,
+      items: floored,
+    });
+    // Cells are 150 wide at the floor, not 100, so 300px is two of them.
+    expect(spanOf(s, 'w1')?.cols).toBe(2);
+  });
+
   it('is refused by a resize lock, like a pixel size', () => {
     const s = store4();
     s.setLock(asNodeId('w1'), { resize: true });

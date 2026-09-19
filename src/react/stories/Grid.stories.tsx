@@ -11,6 +11,7 @@ import {
   DragProvider,
   Provider,
   StrategyRegistryProvider,
+  useNode,
 } from '../index.js';
 import './windease.css';
 import './grid-cells.css';
@@ -475,4 +476,167 @@ Dock.args = { justify: 'evenly' };
 
 Dock.argTypes = {
   justify: { options: ['start', 'center', 'end', 'between', 'evenly'], control: { type: 'radio' } },
+};
+
+const SHEET = asNodeId('sheet');
+const SHEET_COLS = ['', 'A', 'B', 'C', 'D', 'E'];
+const SHEET_ROWS = 8;
+/** The row-number column and A–B hold pixels; C and D split what is left, so
+ *  the seam between them trades width; E holds pixels. */
+const SHEET_TRACKS = {
+  cols: [40, 96, 96, { share: 1 }, { share: 1 }, 72],
+  rows: [28],
+};
+
+function sheetStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: {
+        strategyId: 'grid',
+        config: { gap: 1, resizable: true, cell: { h: 26 }, tracks: SHEET_TRACKS },
+      },
+      id: SHEET,
+    }),
+  );
+  for (let row = 0; row <= SHEET_ROWS; row++) {
+    SHEET_COLS.forEach((letter, col) => {
+      const header = row === 0 || col === 0;
+      const title = row === 0 ? letter : col === 0 ? String(row) : `${letter}${row}`;
+      const id = asNodeId(row === 0 && col === 0 ? 'corner' : `cell-${title}`);
+      s.registerNode(
+        createNode({ kind: 'panel', focus: true, id, parentId: SHEET, meta: { title, header } }),
+      );
+      s.showNode(id);
+    });
+  }
+  return s;
+}
+
+const sheetChrome: ChromeMap = {
+  panel: ({ node }) => (
+    <div className={node.meta?.header ? 'gc-sheet-cell gc-sheet-cell--header' : 'gc-sheet-cell'}>
+      {String(node.meta?.title ?? '')}
+    </div>
+  ),
+};
+
+function TracksReadout({ id }: { id: NodeId }) {
+  const tracks = (useNode(id)?.container?.config as { tracks?: unknown } | undefined)?.tracks;
+  return (
+    <p className="gc-readout">
+      tracks: <code data-testid="tracks">{JSON.stringify(tracks)}</code>
+    </p>
+  );
+}
+
+/** A spreadsheet from `tracks`: pixel columns keep their width, the two share
+ *  columns split the rest, and the header row is taller than the 26px rows
+ *  `cell.h` gives the others. Drag the line after a column letter or a row
+ *  number, or Tab to it and press an arrow. The drag writes the new sizes back
+ *  into the grid's config, shown below the sheet. */
+export const Spreadsheet: Story = () => {
+  const store = useMemo(sheetStore, []);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <div className="gc-sheet">
+          <Container
+            parentId={SHEET}
+            chrome={sheetChrome}
+            viewport={{ w: 640, h: 280 }}
+            className="windease-zone gc-sheet__grid"
+            affordances
+          />
+        </div>
+        <TracksReadout id={SHEET} />
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+const BOARD = asNodeId('dashboard');
+/** [id, title, col, row, cols, rows] on a 12-column board. Load and Uptime are
+ *  stated lower than anything above them, so gravity lifts them. */
+const PANELS: readonly [string, string, number, number, number, number][] = [
+  ['cpu', 'CPU', 0, 0, 4, 3],
+  ['mem', 'Memory', 4, 0, 4, 3],
+  ['disk', 'Disk', 8, 0, 4, 2],
+  ['net', 'Network', 8, 2, 4, 2],
+  ['load', 'Load', 0, 5, 6, 3],
+  ['uptime', 'Uptime', 6, 9, 6, 2],
+];
+
+function boardStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: {
+        strategyId: 'grid',
+        config: { cols: 12, cell: { h: 30 }, gap: 8, padding: 8, resizable: true, compact: 'up' },
+      },
+      id: BOARD,
+    }),
+  );
+  for (const [name, title, col, row, cols, rows] of PANELS) {
+    const id = asNodeId(name);
+    s.registerNode(
+      createNode({ kind: 'panel', focus: true, id, parentId: BOARD, meta: { title } }),
+    );
+    s.patchPlacement(id, { cell: { col, row }, span: { cols, rows } });
+    s.showNode(id);
+  }
+  return s;
+}
+
+const boardChrome: ChromeMap = {
+  panel: ({ node }) => (
+    <div className="windease-panel">
+      <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
+    </div>
+  ),
+};
+
+function CompactToggle({ store }: { store: Store }) {
+  const on = (useNode(BOARD)?.container?.config as { compact?: string } | undefined)?.compact;
+  return (
+    <label className="gc-controls">
+      <input
+        type="checkbox"
+        data-testid="compact-toggle"
+        checked={on === 'up'}
+        onChange={(e) =>
+          store.updateContainerConfig(BOARD, { compact: e.target.checked ? 'up' : undefined })
+        }
+      />
+      compact: 'up'
+    </label>
+  );
+}
+
+/** A dashboard with gravity. `compact: 'up'` floats each panel into the free
+ *  rows above it, so Load and Uptime sit right under the panels over them
+ *  although their cells say rows 5 and 9. Drag a panel's bottom edge: growing
+ *  Disk pushes Network down instead of stopping at it. Untick the box to see
+ *  the rows the cells state, where Disk can no longer grow into Network. */
+export const Dashboard: Story = () => {
+  const store = useMemo(boardStore, []);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <CompactToggle store={store} />
+        <div className="gc-board">
+          <Container
+            parentId={BOARD}
+            chrome={boardChrome}
+            viewport={{ w: 640, h: 480 }}
+            className="windease-zone"
+            affordances
+          />
+        </div>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
 };

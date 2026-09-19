@@ -59,6 +59,7 @@ const AFFORDANCE_BASE: CSSProperties = {
  * who set `meta.title` gets a usable name without a second API.
  */
 function affordanceLabel(store: Store, aff: Affordance): string | undefined {
+  if (aff.name) return aff.name;
   const ids = aff.affects ?? (aff.childId ? [aff.childId] : []);
   if (ids.length === 0) return undefined;
   const names = ids.map((id) => accessibleName(store, id as NodeId));

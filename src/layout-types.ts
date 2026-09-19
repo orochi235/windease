@@ -160,6 +160,12 @@ export interface Affordance<TMeta = unknown> {
    * as `'resize'`, which is what every seam does.
    */
   label?: string;
+  /**
+   * A whole accessible name, used as is instead of composing `label` with the
+   * panes' names: for a seam whose subject is not the panes it moves, like a
+   * grid track holding a column of cells.
+   */
+  name?: string;
   meta?: TMeta;
   /**
    * The single child whose stored `placement.size` this affordance mutates

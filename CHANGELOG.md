@@ -204,6 +204,24 @@ section below.
   'evenly'` puts the leftover before, around or between whole columns, so an
   iOS-style dock spaces its icons evenly.
 
+- **Grid tracks can have their own sizes.** `tracks: { cols, rows }` in the grid
+  config sizes each column or row by index: a number of pixels, or
+  `{ share: n }` of what the pixel tracks and gaps leave, as CSS `fr` does.
+  `tracks.cols` sets the column count when `cols` is unset; rows past the list
+  take the fixed `cell` size, or one share. With `resizable`, a tracked axis gets
+  a seam after each pixel track and between two share tracks, and a drag writes
+  the new sizes back into the config. `justify` and `cell` compose with it.
+
+- **Grid `compact: 'up'` gives a dashboard gravity.** Celled children float up
+  into the free rows above them, as Grafana's panels do, and the rest flow
+  around them. Two colliding cells no longer send the lower one to `unplaced`:
+  it is pushed down beneath the other, so a resize seam can grow a panel into
+  the one below it, which moves down. Only the layout moves; `placement.cell`
+  keeps the row it states.
+
+- **`Affordance.name` sets a seam's whole accessible name**, for a seam whose
+  subject is not the panes it moves. Grid track seams read "resize column 2".
+
 - **`ConfigSpec` accepts `'object'`** for a config key that holds a plain
   object, such as grid's `cell`.
 
@@ -237,6 +255,11 @@ section below.
 
 - **Drag auto-scroll runs at the same on-screen rate inside a scaled
   container.** The ramp is in screen pixels and a scroller scrolls in its own.
+
+- **A grid seam drag under `overflowMode` resolves against the cells drawn.**
+  The drag computed cells without the `hints.minSize` floors `'scroll'` and
+  `'unplaced'` hold them at, so a span grew by a different number of cells than
+  the pointer crossed.
 
 - **A grid's drop preview keeps its children's spans.** The fast preview path
   handed the strategy bare ids, so every child previewed as one cell while a

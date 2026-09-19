@@ -1,5 +1,6 @@
 import type {
   Affordance,
+  LayoutEvent,
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
@@ -82,7 +83,35 @@ interface GridConfig {
    * tracks, so every row stays aligned. Default `'start'`.
    */
   justify?: GridJustify;
+  /**
+   * Per-track sizes, by index: a number of pixels, or `{ share }` of what the
+   * pixel tracks and gaps leave, the way CSS `fr` splits it. A tracked axis has
+   * uneven cells. `tracks.cols` sets the column count when `cols` is unset;
+   * `tracks.rows` only sizes rows, which still come from the content. A track
+   * past the list takes the fixed `cell` size on that axis, or `{ share: 1 }`.
+   *
+   * With `resizable`, a tracked axis gets a seam after each pixel track and
+   * between two share tracks instead of per-item span seams. A seam drag
+   * writes the new sizes back into this key through `updateContainerConfig`.
+   */
+  tracks?: { cols?: TrackSize[]; rows?: TrackSize[] };
+  /**
+   * `'up'` is gravity, as a Grafana dashboard has: celled items float up into
+   * the free rows above them, in order of their stated row, and the rest flow
+   * around them. Where two cells collide the lower one is pushed down beneath
+   * the other instead of going to `unplaced`, so growing a celled item pushes
+   * the items below it down. Layout-time only: `placement.cell` keeps the row
+   * that was stated.
+   */
+  compact?: 'up';
 }
+
+/**
+ * One grid track's size: pixels, or a share of the length the pixel tracks and
+ * gaps leave.
+ * @group Strategies
+ */
+export type TrackSize = number | { share: number };
 
 type GridJustify = 'start' | 'center' | 'end' | 'between' | 'evenly';
 
@@ -176,8 +205,9 @@ function readDims(cfg: GridConfig): GridDims {
     }
     return Math.max(1, Math.floor(v));
   };
+  const listed = cfg.tracks?.cols;
   const dims: GridDims = {
-    cols: read('cols'),
+    cols: read('cols') ?? (Array.isArray(listed) && listed.length > 0 ? listed.length : undefined),
     rows: read('rows'),
     maxCols: read('maxCols'),
     maxRows: read('maxRows'),
@@ -389,22 +419,29 @@ function reserveExplicit(
  * Walks `order` twice: first reserving each explicitly celled item's block,
  * then giving every other item the first free block its (clamped) span fits.
  * Items beyond `itemCap`, cells that collide or fall outside the grid, and
- * spans that can't fit before `rowCap` runs out are omitted.
+ * spans that can't fit before `rowCap` runs out are omitted. Under `compact`
+ * the cells float up instead of holding their rows, and a collision pushes the
+ * lower cell down rather than omitting it.
  */
 function reserveCells(
   order: LayoutItem[],
   cols: number,
   rowCap: number | undefined,
   itemCap: number,
+  compact = false,
 ): Map<string, ReservedCell> {
   const packer = new CellPacker(cols, rowCap);
   const placed = new Map<string, ReservedCell>();
   let anyFlow = false;
-  for (const item of order) {
-    if (placed.size >= itemCap) break;
-    const at = explicitCell(item);
-    if (at) reserveExplicit(packer, item, at, placed);
-    else anyFlow = true;
+  if (compact) {
+    anyFlow = compactCells(packer, order, itemCap, placed);
+  } else {
+    for (const item of order) {
+      if (placed.size >= itemCap) break;
+      const at = explicitCell(item);
+      if (at) reserveExplicit(packer, item, at, placed);
+      else anyFlow = true;
+    }
   }
   if (!anyFlow) return placed;
   for (const item of order) {
@@ -415,6 +452,46 @@ function reserveCells(
     if (at) placed.set(item.id, { ...at, ...span });
   }
   return placed;
+}
+
+/**
+ * Gravity over the celled items: in order of their stated row, then column,
+ * then `order`, each lands on the lowest row its columns leave free beneath
+ * the items already landed — up into empty rows, or down below one that grew
+ * into it. A skyline of each column's lowest landed edge answers that without
+ * searching, and nothing landed later can sit above anything landed earlier
+ * in the same column, so no two blocks overlap. Returns whether any item flows.
+ */
+function compactCells(
+  packer: CellPacker,
+  order: LayoutItem[],
+  itemCap: number,
+  placed: Map<string, ReservedCell>,
+): boolean {
+  const { cols, rowCap } = packer;
+  const celled: { item: LayoutItem; col: number; row: number; index: number }[] = [];
+  let anyFlow = false;
+  for (let index = 0; index < order.length; index++) {
+    const item = order[index] as LayoutItem;
+    const at = explicitCell(item);
+    if (!at) anyFlow = true;
+    else if (at.col < cols && celled.length < itemCap) celled.push({ item, ...at, index });
+  }
+  celled.sort((a, b) => a.row - b.row || a.col - b.col || a.index - b.index);
+  const skyline = new Array<number>(cols).fill(0);
+  let moved = 0;
+  for (const { item, col, row } of celled) {
+    const span = clampSpan(item, cols - col, rowCap);
+    let top = 0;
+    for (let c = col; c < col + span.cols; c++) top = Math.max(top, skyline[c] as number);
+    if (rowCap !== undefined && top + span.rows > rowCap) continue;
+    packer.reserve(col, top, span.cols, span.rows);
+    for (let c = col; c < col + span.cols; c++) skyline[c] = top + span.rows;
+    placed.set(item.id, { col, row: top, ...span });
+    if (top !== row) moved++;
+  }
+  if (moved > 0) trace('layout', `grid: compact moved ${moved}/${celled.length} cells`);
+  return anyFlow;
 }
 
 /** One past the rightmost column the explicit cells reach, spans included. */
@@ -460,12 +537,13 @@ function resolveTiling(
   const { rowCap, colLimit } = resolved;
   let cols = Math.min(colLimit, Math.max(resolved.cols, explicitReach(items)));
   const itemCap = dims.maxItems ?? Number.POSITIVE_INFINITY;
+  const compact = cfg.compact === 'up';
 
   // Two passes: the first (priority order — pins win the capacity race)
   // decides *which* items survive; the second (childOrder) assigns actual
   // cells, so position among the survivors never depends on pin status.
   const order = byCapacityPriority(items);
-  let priorityPlaced = reserveCells(order, cols, rowCap, itemCap);
+  let priorityPlaced = reserveCells(order, cols, rowCap, itemCap, compact);
 
   // Area set the starting width; fragmentation can need more. Past the summed
   // span widths every item fits in row 0, so growing further cannot help. A
@@ -489,7 +567,7 @@ function resolveTiling(
         short--;
       }
       cols = Math.min(ceiling, cols + Math.max(1, Math.ceil(missing / rowCap)));
-      priorityPlaced = reserveCells(order, cols, rowCap, itemCap);
+      priorityPlaced = reserveCells(order, cols, rowCap, itemCap, compact);
     }
     trace(
       'layout',
@@ -498,7 +576,7 @@ function resolveTiling(
   }
 
   const survivors = items.filter((it) => priorityPlaced.has(it.id));
-  const cells = reserveCells(survivors, cols, rowCap, survivors.length);
+  const cells = reserveCells(survivors, cols, rowCap, survivors.length, compact);
 
   let usedRows = 1;
   for (const cell of cells.values()) usedRows = Math.max(usedRows, cell.row + cell.rows);
@@ -532,45 +610,220 @@ export function gridTiling(
   return { cols, rows };
 }
 
+/** A track as the layout reads it: fixed pixels, or a share of the rest. */
+type Track = { px: number } | { share: number };
+
+/** The smallest a seam drag leaves a track, in pixels. */
+const MIN_TRACK = 8;
+
+/** `tracks.cols` or `tracks.rows` when it is a non-empty array. */
+function listedTracks(cfg: GridConfig, axis: 'cols' | 'rows'): unknown[] | undefined {
+  const list = cfg.tracks?.[axis];
+  return Array.isArray(list) && list.length > 0 ? list : undefined;
+}
+
+function readTrack(v: unknown, axis: 'cols' | 'rows', i: number): Track | undefined {
+  if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return { px: v };
+  if (typeof v === 'object' && v !== null) {
+    const share = (v as { share?: unknown }).share;
+    if (typeof share === 'number' && Number.isFinite(share) && share > 0) return { share };
+  }
+  const shown = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+  trace('layout', `grid: track ${axis}[${i}] is ${shown}, read as implicit`);
+  return undefined;
+}
+
+/** The size a track takes when the list stops short of it or holds nothing
+ *  readable: the fixed cell size on that axis, else one share. */
+function implicitTrack(fixed: number | undefined): Track {
+  return fixed !== undefined ? { px: fixed } : { share: 1 };
+}
+
+function resolveTracks(
+  list: unknown[],
+  count: number,
+  fixed: number | undefined,
+  axis: 'cols' | 'rows',
+): Track[] {
+  const out: Track[] = new Array(count);
+  for (let i = 0; i < count; i++) {
+    out[i] = (i < list.length ? readTrack(list[i], axis, i) : undefined) ?? implicitTrack(fixed);
+  }
+  return out;
+}
+
+/** Pixel sizes for `tracks` along `available`: pixels as stated, shares
+ *  splitting what the pixels and gaps leave, each held at `floor`. */
+function trackSizes(tracks: Track[], available: number, gap: number, floor: number): number[] {
+  let px = 0;
+  let shares = 0;
+  for (const t of tracks) {
+    if ('px' in t) px += t.px;
+    else shares += t.share;
+  }
+  const rest = Math.max(0, available - gap * (tracks.length - 1) - px);
+  return tracks.map((t) => ('px' in t ? t.px : Math.max((rest * t.share) / shares, floor)));
+}
+
 /**
- * `resolveTiling` plus the cell sizes the container divides into.
- * `dispatchAffordance` must agree with the pass that drew the affordance — the
- * two computing cells differently is the whole class of bug `placedOf` closes
- * for strip.
+ * One axis of a laid-out grid in pixels. `start` already includes padding and
+ * the `justify` offset, and `gap` the justify space between tracks.
  */
-function gridGeometry(
-  items: LayoutItem[],
-  container: Size,
-  cfg: GridConfig,
-): {
+interface Axis {
+  count: number;
+  gap: number;
+  start(i: number): number;
+  size(i: number): number;
+  /** The length of `n` tracks from `i`, the gaps between them included. */
+  length(i: number, n: number): number;
+  /** Set on an untracked axis, whose cells are all one size. */
+  uniform?: { size: number; stride: number };
+}
+
+function uniformAxis(
+  count: number,
+  size: number,
+  gap: number,
+  origin: number,
+  extra: number,
+): Axis {
+  const between = gap + extra;
+  const stride = size + between;
+  return {
+    count,
+    gap: between,
+    start: (i) => origin + i * stride,
+    size: () => size,
+    length: (_i, n) => n * size + (n - 1) * between,
+    uniform: { size, stride },
+  };
+}
+
+function listedAxis(sizes: number[], gap: number, origin: number, extra: number): Axis {
+  const between = gap + extra;
+  const prefix = new Array<number>(sizes.length + 1);
+  prefix[0] = 0;
+  for (let i = 0; i < sizes.length; i++) {
+    prefix[i + 1] = (prefix[i] as number) + (sizes[i] as number);
+  }
+  return {
+    count: sizes.length,
+    gap: between,
+    start: (i) => origin + (prefix[i] as number) + i * between,
+    size: (i) => sizes[i] as number,
+    length: (i, n) => (prefix[i + n] as number) - (prefix[i] as number) + (n - 1) * between,
+  };
+}
+
+/** A laid-out grid: the tiling, the cells that survived the overflow mode, and
+ *  each axis in pixels. */
+interface GridGeometry {
   cols: number;
-  rows: number;
   rowCap: number | undefined;
   itemCap: number;
-  cellW: number;
-  cellH: number;
-  /** Where column 0 starts past the padding, and the extra space `justify`
-   *  puts between columns. */
-  colOffset: number;
-  colExtra: number;
   cells: Map<string, ReservedCell>;
-} | null {
-  if (items.length === 0) return null;
+  unplaced: string[];
+  x: Axis;
+  y: Axis;
+  /** Present on a tracked axis. */
+  colTracks: Track[] | undefined;
+  rowTracks: Track[] | undefined;
+  usableW: number;
+  usableH: number;
+  excessW: number;
+  excessH: number;
+}
+
+/**
+ * The tiling plus the pixel geometry the container divides it into.
+ * `dispatchAffordance` must agree with the pass that drew the affordance — the
+ * two computing cells differently is the whole class of bug `placedOf` closes
+ * for strip — so `layout` reads its geometry here too.
+ */
+function gridGeometry(items: LayoutItem[], container: Size, cfg: GridConfig): GridGeometry {
   const gap = cfg.gap ?? 0;
   const padding = cfg.padding ?? 0;
-  const tiling = resolveTiling(items, cfg, container);
+  const { cols, rows, rowCap, itemCap, cells } = resolveTiling(items, cfg, container);
   const fixed = fixedCell(cfg);
+  const unplaced = items.filter((it) => !cells.has(it.id)).map((it) => it.id);
+
   const usableW = container.w - 2 * padding;
   const usableH = container.h - 2 * padding;
-  const cellW = fixed.w ?? (usableW - gap * (tiling.cols - 1)) / tiling.cols;
-  const used = usedCols(tiling.cells);
-  const spread = justifyColumns(cfg.justify, usableW - (used * cellW + (used - 1) * gap), used);
+  const mode = cfg.overflowMode ?? 'squeeze';
+  const floor = (axis: 'w' | 'h') =>
+    mode === 'squeeze' ? 0 : Math.max(0, ...items.map((it) => it.hints?.minSize?.[axis] ?? 0));
+  const floorW = floor('w');
+  const floorH = floor('h');
+
+  const dropRowsFrom = (kept: number) => {
+    for (const [id, cell] of [...cells]) {
+      if (cell.row < kept) continue;
+      cells.delete(id);
+      unplaced.push(id);
+    }
+  };
+
+  const listedRows = listedTracks(cfg, 'rows');
+  let rowTracks: Track[] | undefined;
+  let y: Axis;
+  if (listedRows) {
+    rowTracks = resolveTracks(listedRows, rows, fixed.h, 'rows');
+    y = listedAxis(trackSizes(rowTracks, usableH, gap, floorH), gap, padding, 0);
+    if (mode === 'unplaced') {
+      let kept = rows;
+      while (kept > 1 && y.length(0, kept) > usableH) {
+        let fit = 0;
+        while (fit < kept - 1 && y.start(fit) - padding + y.size(fit) <= usableH) fit++;
+        kept = Math.max(1, fit);
+        rowTracks = rowTracks.slice(0, kept);
+        y = listedAxis(trackSizes(rowTracks, usableH, gap, floorH), gap, padding, 0);
+      }
+      if (kept < rows) dropRowsFrom(kept);
+    }
+  } else {
+    const heightFor = (r: number) => fixed.h ?? Math.max((usableH - gap * (r - 1)) / r, floorH);
+    let rowsUsed = rows;
+    let cellH = heightFor(rowsUsed);
+    if (mode === 'unplaced' && cellH * rowsUsed + gap * (rowsUsed - 1) > usableH) {
+      // The first row is placed even when it does not fit, so an overflowing
+      // grid never renders empty — same rule strip follows.
+      rowsUsed = Math.max(1, Math.floor((usableH + gap) / (heightFor(1) + gap)));
+      dropRowsFrom(rowsUsed);
+      cellH = heightFor(rowsUsed);
+    }
+    y = uniformAxis(rowsUsed, cellH, gap, padding, 0);
+  }
+
+  const listedCols = listedTracks(cfg, 'cols');
+  const colTracks = listedCols ? resolveTracks(listedCols, cols, fixed.w, 'cols') : undefined;
+  const colSizes = colTracks ? trackSizes(colTracks, usableW, gap, floorW) : undefined;
+  const cellW = fixed.w ?? Math.max((usableW - gap * (cols - 1)) / cols, floorW);
+  const axisX = (origin: number, extra: number) =>
+    colSizes
+      ? listedAxis(colSizes, gap, origin, extra)
+      : uniformAxis(cols, cellW, gap, origin, extra);
+  const plain = axisX(padding, 0);
+  const used = usedCols(cells);
+  const spread = justifyColumns(cfg.justify, usableW - plain.length(0, used), used);
+  const x =
+    spread.offset === 0 && spread.extra === 0
+      ? plain
+      : axisX(padding + spread.offset, spread.extra);
+
   return {
-    ...tiling,
-    cellW,
-    cellH: fixed.h ?? (usableH - gap * (tiling.rows - 1)) / tiling.rows,
-    colOffset: spread.offset,
-    colExtra: spread.extra,
+    cols,
+    rowCap,
+    itemCap,
+    cells,
+    unplaced,
+    x,
+    y,
+    colTracks,
+    rowTracks,
+    usableW,
+    usableH,
+    excessW: Math.max(0, plain.length(0, cols) - usableW),
+    excessH: Math.max(0, y.length(0, y.count) - usableH),
   };
 }
 
@@ -586,7 +839,9 @@ function spanReach(
   cols: number,
   rowCap: number | undefined,
   itemCap: number,
+  compact = false,
 ): { cols: number; rows: number } {
+  if (compact) return compactReach(items, id, cols, rowCap, itemCap);
   const celled = items.some((it) => explicitCell(it) !== undefined);
   // An unbounded grid grows a row rather than dropping anyone, so every span
   // fits: the ceiling is the grid's width, and — since nothing can usefully
@@ -661,6 +916,41 @@ function spanReach(
   return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap ?? items.length) };
 }
 
+/**
+ * `spanReach` under `compact`, where growing pushes whatever is below down
+ * rather than being stopped by it. With no row cap nobody is ever pushed out,
+ * so the ceiling is the room past the item's column and, as without compact,
+ * the item count in rows. Under a cap each probe repacks the whole grid.
+ */
+function compactReach(
+  items: LayoutItem[],
+  id: string,
+  cols: number,
+  rowCap: number | undefined,
+  itemCap: number,
+): { cols: number; rows: number } {
+  const item = items.find((it) => it.id === id);
+  if (!item) return { cols: 1, rows: 1 };
+  const room = cols - (explicitCell(item)?.col ?? 0);
+  const own = clampSpan(item, room, rowCap);
+  if (rowCap === undefined) return { cols: room, rows: Math.max(items.length, own.rows) };
+
+  const baseline = reserveCells(items, cols, rowCap, itemCap, true).size;
+  const fits = (axis: 'cols' | 'rows', value: number): boolean => {
+    const span = { ...own, [axis]: value };
+    const probe = items.map((it) =>
+      it === item ? { ...it, placement: { ...it.placement, span } } : it,
+    );
+    return reserveCells(probe, cols, rowCap, itemCap, true).size >= baseline;
+  };
+  const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
+    let best = 1;
+    for (let v = 1; v <= cap; v++) if (fits(axis, v)) best = v;
+    return best;
+  };
+  return { cols: reachOn('cols', room), rows: reachOn('rows', rowCap) };
+}
+
 /** Says why an explicit cell was ignored or went unplaced. Off the hot path:
  *  each branch only runs for an item holding a cell. */
 function traceCells(
@@ -691,6 +981,153 @@ function traceCells(
 }
 
 /**
+ * What the seam after track `i` moves and how far. A pixel track resizes on
+ * its own, the tracks past it shifting; a share track trades with a share
+ * track after it. A share before a pixel track, or the last track when it is a
+ * share, has no seam: nothing it could trade with keeps the seam under the
+ * pointer. `pxTotal` is the sum of the axis's pixel tracks.
+ */
+function seamAt(
+  geom: GridGeometry,
+  axis: 'cols' | 'rows',
+  i: number,
+  pxTotal: number,
+  cfg: GridConfig,
+): { pair: boolean; now: number; min: number; max: number; center: number } | undefined {
+  const tracks = axis === 'cols' ? geom.colTracks : geom.rowTracks;
+  const along = axis === 'cols' ? geom.x : geom.y;
+  const track = tracks?.[i];
+  if (!tracks || !track) return undefined;
+  const now = along.size(i);
+  const end = along.start(i) + now;
+  const center = i < along.count - 1 ? (end + along.start(i + 1)) / 2 : end;
+  if ('px' in track) {
+    const usable = axis === 'cols' ? geom.usableW : geom.usableH;
+    const room =
+      cfg.overflowMode === 'scroll'
+        ? usable
+        : usable - (pxTotal - track.px) - (cfg.gap ?? 0) * (tracks.length - 1);
+    return { pair: false, now, min: Math.min(MIN_TRACK, now), max: Math.max(now, room), center };
+  }
+  const next = tracks[i + 1];
+  if (!next || !('share' in next)) return undefined;
+  const combined = now + along.size(i + 1);
+  return {
+    pair: true,
+    now,
+    min: Math.min(MIN_TRACK, now),
+    max: Math.max(now, combined - MIN_TRACK),
+    center,
+  };
+}
+
+function pixelTotal(tracks: Track[]): number {
+  let px = 0;
+  for (const t of tracks) if ('px' in t) px += t.px;
+  return px;
+}
+
+/** The seams of a tracked axis, one after each track that has one. */
+function trackSeams(geom: GridGeometry, axis: 'cols' | 'rows', cfg: GridConfig): Affordance[] {
+  const tracks = (axis === 'cols' ? geom.colTracks : geom.rowTracks) ?? [];
+  const across = axis === 'cols' ? geom.y : geom.x;
+  const holding: string[][] = tracks.map(() => []);
+  for (const [id, cell] of geom.cells) {
+    const from = axis === 'cols' ? cell.col : cell.row;
+    const n = axis === 'cols' ? cell.cols : cell.rows;
+    for (let k = from; k < from + n && k < holding.length; k++) holding[k]?.push(id);
+  }
+  const pxTotal = pixelTotal(tracks);
+  const lo = across.start(0);
+  const extent = Math.max(0, across.length(0, across.count));
+  const out: Affordance[] = [];
+  for (let i = 0; i < tracks.length; i++) {
+    const seam = seamAt(geom, axis, i, pxTotal, cfg);
+    if (!seam) continue;
+    const affects = seam.pair
+      ? [...new Set([...(holding[i] ?? []), ...(holding[i + 1] ?? [])])]
+      : (holding[i] ?? []);
+    const cols = axis === 'cols';
+    out.push({
+      id: `track-${cols ? 'x' : 'y'}-${i}`,
+      kind: cols ? 'resize-x' : 'resize-y',
+      rect: cols
+        ? { x: seam.center - 2, y: lo, z: 0, w: 4, h: extent }
+        : { x: lo, y: seam.center - 2, z: 0, w: extent, h: 4 },
+      cursor: cols ? 'ew-resize' : 'ns-resize',
+      name: `resize ${cols ? 'column' : 'row'} ${i + 1}`,
+      affects,
+      bounds: {
+        orientation: cols ? 'horizontal' : 'vertical',
+        valueNow: seam.now,
+        valueMin: seam.min,
+        valueMax: seam.max,
+        atMin: seam.now <= seam.min,
+        atMax: seam.now >= seam.max,
+      },
+    });
+  }
+  return out;
+}
+
+function parseTrackSeam(id: string): { axis: 'cols' | 'rows'; index: number } | undefined {
+  const m = /^track-([xy])-(\d+)$/.exec(id);
+  if (!m) return undefined;
+  return { axis: m[1] === 'x' ? 'cols' : 'rows', index: Number(m[2]) };
+}
+
+const toTrackSize = (t: Track): TrackSize => ('px' in t ? t.px : { share: t.share });
+const roundShare = (v: number) => Math.round(v * 1e4) / 1e4;
+
+/**
+ * The `tracks` list a drag on the seam after track `i` leaves, or undefined
+ * when it changes nothing. Tracks before the dragged one that the list left
+ * implicit are written out at their implicit size, so the list stays indexed.
+ */
+function draggedTracks(
+  geom: GridGeometry,
+  axis: 'cols' | 'rows',
+  i: number,
+  event: LayoutEvent,
+  cfg: GridConfig,
+): TrackSize[] | undefined {
+  const tracks = axis === 'cols' ? geom.colTracks : geom.rowTracks;
+  if (!tracks) return undefined;
+  const seam = seamAt(geom, axis, i, pixelTotal(tracks), cfg);
+  if (!seam) return undefined;
+  const point = event.payload.point;
+  const delta = axis === 'cols' ? (event.payload.dx ?? 0) : (event.payload.dy ?? 0);
+  const want = point
+    ? (axis === 'cols' ? point.x : point.y) - seam.center + seam.now
+    : seam.now + delta;
+  const size = Math.max(seam.min, Math.min(seam.max, want));
+
+  const raw = listedTracks(cfg, axis) ?? [];
+  const need = seam.pair ? i + 2 : i + 1;
+  const out: unknown[] = [];
+  for (let k = 0; k < Math.max(raw.length, need); k++) {
+    const t = tracks[k];
+    out.push(t ? toTrackSize(t) : raw[k]);
+  }
+  const track = tracks[i] as Track;
+  if ('px' in track) {
+    const px = Math.round(size);
+    if (px === track.px) return undefined;
+    out[i] = px;
+  } else {
+    const next = tracks[i + 1] as { share: number };
+    const combined = seam.now + (axis === 'cols' ? geom.x : geom.y).size(i + 1);
+    if (combined <= 0) return undefined;
+    const pair = track.share + next.share;
+    const own = roundShare((pair * size) / combined);
+    if (own === track.share) return undefined;
+    out[i] = { share: own };
+    out[i + 1] = { share: roundShare(pair - own) };
+  }
+  return out as TrackSize[];
+}
+
+/**
  * Lays children out in a uniform grid, filling rows left to right. Config
  * takes `cols` / `rows`, `gap` and `padding`; capping either dimension makes
  * the overflow `unplaced` rather than shrinking cells.
@@ -718,6 +1155,8 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     overflowMode: ['squeeze', 'scroll', 'unplaced'],
     cell: 'object',
     justify: ['start', 'center', 'end', 'between', 'evenly'],
+    tracks: 'object',
+    compact: ['up'],
   },
   configConflicts: [
     { kind: 'exclusive', keys: ['maxItems', 'maxCols', 'maxRows'] },
@@ -783,8 +1222,6 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } };
   }): LayoutResult<string> {
     const cfg = options as GridConfig;
-    const gap = cfg.gap ?? 0;
-    const padding = cfg.padding ?? 0;
 
     const placements = new Map<string, Rect>();
     if (items.length === 0) {
@@ -793,65 +1230,35 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       return empty;
     }
 
-    const { cols, rows, rowCap, itemCap, cells } = resolveTiling(items, cfg, container);
-    const fixed = fixedCell(cfg);
-    const unplaced = items.filter((it) => !cells.has(it.id)).map((it) => it.id);
+    const geom = gridGeometry(items, container, cfg);
+    const { cols, rowCap, itemCap, cells, unplaced, x, y } = geom;
     traceCells(items, cells, cols, rowCap);
-
-    const usableW = container.w - 2 * padding;
-    const usableH = container.h - 2 * padding;
-    const mode = cfg.overflowMode ?? 'squeeze';
-    const floor = (axis: 'w' | 'h') =>
-      mode === 'squeeze' ? 0 : Math.max(0, ...items.map((it) => it.hints?.minSize?.[axis] ?? 0));
-    const floorW = floor('w');
-    const floorH = floor('h');
-
-    const heightFor = (r: number) => fixed.h ?? Math.max((usableH - gap * (r - 1)) / r, floorH);
-    let rowsUsed = rows;
-    let cellH = heightFor(rowsUsed);
-
-    if (mode === 'unplaced' && cellH * rowsUsed + gap * (rowsUsed - 1) > usableH) {
-      // The first row is placed even when it does not fit, so an overflowing
-      // grid never renders empty — same rule strip follows.
-      rowsUsed = Math.max(1, Math.floor((usableH + gap) / (heightFor(1) + gap)));
-      for (const [id, cell] of [...cells]) {
-        if (cell.row < rowsUsed) continue;
-        cells.delete(id);
-        unplaced.push(id);
-      }
-      cellH = heightFor(rowsUsed);
-    }
-
-    const cellW = fixed.w ?? Math.max((usableW - gap * (cols - 1)) / cols, floorW);
-    const excessW = Math.max(0, cellW * cols + gap * (cols - 1) - usableW);
-    const used = usedCols(cells);
-    const spread = justifyColumns(cfg.justify, usableW - (used * cellW + (used - 1) * gap), used);
-    const colGap = gap + spread.extra;
-    const excessH = Math.max(0, cellH * rowsUsed + gap * (rowsUsed - 1) - usableH);
 
     for (const item of items) {
       const cell = cells.get(item.id);
       if (!cell) continue;
       placements.set(item.id, {
-        x: padding + spread.offset + cell.col * (cellW + colGap),
-        y: padding + cell.row * (cellH + gap),
+        x: x.start(cell.col),
+        y: y.start(cell.row),
         z: 0,
-        w: cell.cols * cellW + (cell.cols - 1) * colGap,
-        h: cell.rows * cellH + (cell.rows - 1) * gap,
+        w: x.length(cell.col, cell.cols),
+        h: y.length(cell.row, cell.rows),
       });
     }
 
     const affordances: Affordance[] = [];
     if (cfg.resizable && !preview) {
+      if (geom.colTracks) affordances.push(...trackSeams(geom, 'cols', cfg));
+      if (geom.rowTracks) affordances.push(...trackSeams(geom, 'rows', cfg));
       for (const item of items) {
         const cell = cells.get(item.id);
         const rect = placements.get(item.id);
         if (!cell || !rect) continue;
-        const reach = spanReach(items, item.id, cols, rowCap, itemCap);
+        const reach = spanReach(items, item.id, cols, rowCap, itemCap, cfg.compact === 'up');
         // Emit when the span can move at all, in either direction. Keying on
         // "a cell follows this one" instead would drop the handle from an item
         // spanning to the edge, leaving it grown with no way back.
-        if (reach.cols > 1 || cell.cols > 1) {
+        if (!geom.colTracks && (reach.cols > 1 || cell.cols > 1)) {
           affordances.push({
             id: `resize-x-${item.id}`,
             kind: 'resize-x',
@@ -870,7 +1277,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
             },
           });
         }
-        if (reach.rows > 1 || cell.rows > 1) {
+        if (!geom.rowTracks && (reach.rows > 1 || cell.rows > 1)) {
           affordances.push({
             id: `resize-y-${item.id}`,
             kind: 'resize-y',
@@ -893,29 +1300,39 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     }
 
     const result: LayoutResult<string> = { placements, affordances };
-    if (excessW > 0 || excessH > 0) result.overflow = { w: excessW, h: excessH };
+    if (geom.excessW > 0 || geom.excessH > 0) {
+      result.overflow = { w: geom.excessW, h: geom.excessH };
+    }
     if (unplaced.length > 0) result.unplaced = unplaced;
     if (preview) result.isPreview = true;
     return result;
   },
 
-  dispatchAffordance({ event, affordance, store, items, container, options }) {
+  dispatchAffordance({ event, affordance, store, items, container, options, parentId }) {
     if (event.kind !== 'drag') return;
     if (affordance.kind !== 'resize-x' && affordance.kind !== 'resize-y') return;
+    if (items.length === 0) return;
+    const cfg = options as GridConfig;
+    const geom = gridGeometry(items, container, cfg);
+
+    const seam = parseTrackSeam(affordance.id);
+    if (seam) {
+      const next = draggedTracks(geom, seam.axis, seam.index, event, cfg);
+      if (!next) return;
+      trace('layout', `grid: track ${seam.axis}[${seam.index}] → ${JSON.stringify(next)}`);
+      store.updateContainerConfig(parentId, { tracks: { ...cfg.tracks, [seam.axis]: next } });
+      return;
+    }
+
     const childId = affordance.childId;
     if (!childId) return;
     const axis: 'cols' | 'rows' = affordance.kind === 'resize-x' ? 'cols' : 'rows';
-
-    const cfg = options as GridConfig;
-    const gap = cfg.gap ?? 0;
-    const padding = cfg.padding ?? 0;
-    const geom = gridGeometry(items, container, cfg);
-    if (!geom) return;
     const cell = geom.cells.get(String(childId));
     if (!cell) return;
-
-    const size = axis === 'cols' ? geom.cellW : geom.cellH;
-    const stride = size + gap + (axis === 'cols' ? geom.colExtra : 0);
+    // A tracked axis draws track seams instead, so a span seam's axis is uniform.
+    const along = axis === 'cols' ? geom.x : geom.y;
+    if (!along.uniform) return;
+    const { size, stride } = along.uniform;
     if (stride <= 0) return;
     const current = axis === 'cols' ? cell.cols : cell.rows;
 
@@ -925,10 +1342,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       // Resolve against the pointer rather than accumulating deltas. A span is
       // quantized, so a few pixels rounds to the span it already has and the
       // drag would never move at all.
-      const origin =
-        axis === 'cols'
-          ? padding + geom.colOffset + cell.col * stride
-          : padding + cell.row * stride;
+      const origin = along.start(axis === 'cols' ? cell.col : cell.row);
       const extent = (axis === 'cols' ? point.x : point.y) - origin;
       // A span of n covers n strides less the space after its last cell.
       want = Math.round((extent + stride - size) / stride);
@@ -939,7 +1353,14 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       want = current + Math.sign(delta) * Math.max(1, Math.round(Math.abs(delta) / stride));
     }
 
-    const reach = spanReach(items, String(childId), geom.cols, geom.rowCap, geom.itemCap);
+    const reach = spanReach(
+      items,
+      String(childId),
+      geom.cols,
+      geom.rowCap,
+      geom.itemCap,
+      cfg.compact === 'up',
+    );
     const ceiling = axis === 'cols' ? reach.cols : reach.rows;
     const next = Math.max(1, Math.min(want, ceiling));
     if (next === current) return;

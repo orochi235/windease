@@ -216,8 +216,8 @@ test.describe('Windows 8.1 Start screen (fixed rows)', () => {
 });
 
 test.describe('Grafana dashboard (24 columns)', () => {
-  // Grafana pushes the panels below a growing one down; windease has no
-  // `compact` yet, so a celled panel grows only into free rows.
+  // Grafana pushes the panels below a growing one down; this preset does not
+  // set `compact`, so a celled panel grows only into free rows.
   test('dragging the last panel’s bottom seam grows it by 30px rows', async ({ page }) => {
     await pick(page, 'grafana-node-exporter', 'imported-w30');
     const before = await settledBox(node(page, 'imported-w30'));
