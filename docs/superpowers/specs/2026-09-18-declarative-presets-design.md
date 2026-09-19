@@ -96,6 +96,7 @@ These are config or placement keys on one strategy each.
 | Keep aspect; fluid columns | `hints.aspect`; column `cols` | hints, column | Unsplash, newspaper |
 | Justified rows | new `justified` strategy | — | Flickr, Google Photos |
 | Refuse a split below the floors | `strict` | `store.split` | tmux, Emacs, Blender |
+| Children reorder by drag, declared rather than wrapped in `DragHandle` | container `reorder: true` | React layer + DragEngine | Firefox tabs, Chrome tabs, Win 10 tiles |
 
 ## What the schema carries beyond today's
 
@@ -112,7 +113,7 @@ These are config or placement keys on one strategy each.
 |---|---|---|
 | 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `drop` config; `placement.share`; grid `cell`, fixed cells, `justify`; child templates | in progress: the split, tabs, `accepts` and `drop` config are built, the rest is not |
 | 2 | `tear`, `zoom`, `view` (pan/zoom, desktop fit), `sticky`, `step`, `overshoot`, `layer`, `resize` | unbuilt |
-| 3 | Grid tracks, `compact`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | unbuilt |
+| 3 | Grid tracks, `compact`; `reorder`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | unbuilt |
 | 4 | Packer `rotate`/`sort`/height bound; `hints.aspect`; `justified` strategy; product-look CSS for every preset | unbuilt |
 
 Each key ships with its tests, a changelog entry, and the story code it replaces deleted in the
