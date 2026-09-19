@@ -44,17 +44,19 @@ interface Args {
   strategy: 'shelf' | 'column' | 'skyline';
   width: number;
   gap: number;
+  height: number;
   sort: 'none' | 'height' | 'width' | 'area' | 'max-side';
+  overflowMode: 'scroll' | 'unplaced';
 }
 
-export const PackedBoxes: Story<Args> = ({ strategy, width, gap, sort }) => {
+export const PackedBoxes: Story<Args> = ({ strategy, width, height, gap, sort, overflowMode }) => {
   const store = useMemo(() => {
     const s = new Store();
     s.registerNode(
       createNode({
         kind: 'zone',
         id: ZONE_ID,
-        container: { strategyId: strategy, config: { gap, sort } },
+        container: { strategyId: strategy, config: { gap, sort, overflowMode } },
       }),
     );
     BOXES.forEach(([w, h], i) => {
@@ -72,7 +74,7 @@ export const PackedBoxes: Story<Args> = ({ strategy, width, gap, sort }) => {
       s.showNode(id);
     });
     return s;
-  }, [strategy, gap, sort]);
+  }, [strategy, gap, sort, overflowMode]);
 
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -92,8 +94,13 @@ export const PackedBoxes: Story<Args> = ({ strategy, width, gap, sort }) => {
           <Container
             parentId={ZONE_ID}
             chrome={chrome}
-            viewport={{ w: width, h: 360 }}
-            className="windease-zone windease-zone--unclipped"
+            viewport={{ w: width, h: height }}
+            className="windease-zone windease-zone--unclipped pack-demo__zone"
+            overlay={({ placements, unplaced }) => (
+              <p className="pack-demo__readout" data-testid="pack-readout">
+                {placements.size} placed, {unplaced.length} unplaced
+              </p>
+            )}
           />
         </div>
       </StrategyRegistryProvider>
@@ -101,14 +108,23 @@ export const PackedBoxes: Story<Args> = ({ strategy, width, gap, sort }) => {
   );
 };
 
-PackedBoxes.args = { strategy: 'skyline', width: 480, gap: 8, sort: 'none' };
+PackedBoxes.args = {
+  strategy: 'skyline',
+  width: 480,
+  height: 360,
+  gap: 8,
+  sort: 'none',
+  overflowMode: 'scroll',
+};
 
 PackedBoxes.argTypes = {
   strategy: { options: ['shelf', 'column', 'skyline'], control: { type: 'radio' } },
   width: { control: { type: 'range', min: 160, max: 900, step: 10 } },
+  height: { control: { type: 'range', min: 120, max: 900, step: 10 } },
   gap: { control: { type: 'range', min: 0, max: 32, step: 1 } },
   sort: {
     options: ['none', 'height', 'width', 'area', 'max-side'],
     control: { type: 'radio' },
   },
+  overflowMode: { options: ['scroll', 'unplaced'], control: { type: 'radio' } },
 };

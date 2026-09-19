@@ -316,6 +316,24 @@ describe('real layouts, packer by packer', () => {
     },
   );
 
+  it.each(PACKERS)(
+    "%s under overflowMode 'unplaced' loads the same 8 and 20 pallets and leaves the rest on the dock",
+    (packer) => {
+      for (const [id, fit] of [
+        ['iso-20ft-eur-pallets', 8],
+        ['iso-40ft-industrial-pallets', 20],
+      ] as const) {
+        const { scenario, result } = run(preset(id), packer, (s) => ({
+          ...s,
+          options: { ...s.options, overflowMode: 'unplaced' },
+        }));
+        expect(result.placements.size, id).toBe(fit);
+        expect(result.unplaced ?? [], id).toHaveLength(scenario.items.length - fit);
+        expect(result.overflow, id).toBeUndefined();
+      }
+    },
+  );
+
   it.each(PACKERS)('%s fits ten 76.8px Explorer tiles in a 768px row', (packer) => {
     const { scenario, result } = run(preset('explorer-icons-125pct'), packer);
     const first = scenario.items.slice(0, 10).map((i) => result.placements.get(i.id)!);

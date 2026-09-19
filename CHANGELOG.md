@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **Packers can fill a fixed box and hand back what did not fit.** With
+  `overflowMode: 'unplaced'`, `shelfStrategy`, `skylineStrategy` and
+  `columnStrategy` treat the container as a bin: an item that would cross its
+  bottom or right edge goes to `unplaced` instead of being placed past it, and
+  a later item that fits still goes in. The default, `'scroll'`, packs past
+  `container.h` and reports `overflow` as before.
+
 - **Packers can sort before they pack.** `shelfStrategy`, `skylineStrategy` and
   `columnStrategy` take `sort: 'height' | 'width' | 'area' | 'max-side'`, which
   places the largest item first by that measure, keeping the given order among

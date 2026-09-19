@@ -551,6 +551,25 @@ Sorting usually packs tighter: `shelf` with `sort: 'height'` is the classic
 next-fit decreasing height packing, and `'max-side'` is a common choice for
 sprite sheets.
 
+### Packing into a fixed box
+
+By default a packer grows downward past `container.h` and reports the excess as
+`overflow`, which suits a scrolling feed. `overflowMode: 'unplaced'` makes the
+container a bin instead — a sprite sheet of fixed size, or a truck floor. An
+item that would cross the bottom or the right edge goes to `unplaced`, even the
+first, and packing carries on: a later, smaller item still takes a space an
+earlier one could not. Nothing is placed outside the container, so `overflow`
+never appears. Hand `unplaced` to the next sheet.
+
+```ts
+const { placements, unplaced } = skylineStrategy.layout({
+  items: sprites,
+  container: { w: 1024, h: 1024 },
+  state: undefined,
+  options: { sort: 'max-side', overflowMode: 'unplaced' },
+});
+```
+
 ## Putting a grid child at a cell
 
 `gridStrategy` normally flows its children into cells in order. A child whose

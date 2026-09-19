@@ -61,6 +61,7 @@ describe('columnStrategy', () => {
     expect(Object.keys(columnStrategy.configSpec ?? {}).sort()).toEqual([
       'columnWidth',
       'gap',
+      'overflowMode',
       'sort',
     ]);
   });

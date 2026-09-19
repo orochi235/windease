@@ -1,6 +1,15 @@
 import type { LayoutResult, LayoutStrategy, Rect } from '../layout-types.js';
 import { trace } from '../trace.js';
-import { PACK_EPSILON, PACK_SORTS, packGap, packQueue, packResult } from './pack.js';
+import {
+  fitsContainer,
+  PACK_EPSILON,
+  PACK_OVERFLOW_MODES,
+  PACK_SORTS,
+  packBounded,
+  packGap,
+  packQueue,
+  packResult,
+} from './pack.js';
 
 interface ColumnConfig {
   gap?: number;
@@ -13,22 +22,30 @@ interface ColumnConfig {
  * Masonry: packs items at their own size into equal columns, each item on the
  * run of adjacent columns it spans whose tallest is lowest, leftmost on ties.
  * An item wider than one column spans as many as its width needs, capped at
- * the column count. The container's width sets the column count and is the
- * only bound; columns grow down past `container.h`, and the excess is
- * reported as `overflow`.
+ * the column count. The container's width sets the column count. By default
+ * it is the only bound; columns grow down past `container.h`, and the excess
+ * is reported as `overflow`. Under `overflowMode: 'unplaced'` the container is
+ * a bin, and an item that would cross either edge on its lowest run goes to
+ * `unplaced`.
  *
  * Items are placed in the order given, or by `sort`, descending by that
  * measure with ties kept in input order. Size is `natural`, else
  * `hints.preferredSize`; an item with neither goes to `unplaced`. Config
- * takes `gap`, `sort` and `columnWidth`.
+ * takes `gap`, `sort`, `overflowMode` and `columnWidth`.
  * @group Strategies
  */
 export const columnStrategy: LayoutStrategy<void, string> = {
   name: 'column',
-  configSpec: { gap: 'number', sort: PACK_SORTS, columnWidth: 'number' },
+  configSpec: {
+    gap: 'number',
+    sort: PACK_SORTS,
+    overflowMode: PACK_OVERFLOW_MODES,
+    columnWidth: 'number',
+  },
   layout({ items, container, options }): LayoutResult<string> {
     const cfg = options as ColumnConfig;
     const gap = packGap(options);
+    const bounded = packBounded(options);
     const { queue } = packQueue(items, options);
 
     let narrowest = Number.POSITIVE_INFINITY;
@@ -57,6 +74,7 @@ export const columnStrategy: LayoutStrategy<void, string> = {
           first = start;
         }
       }
+      if (bounded && !fitsContainer(first * pitch, top, size, container)) continue;
       placed.set(item.id, { x: first * pitch, y: top, z: 0, w: size.w, h: size.h });
       for (let c = first; c < first + span; c++) heights[c] = top + size.h + gap;
     }

@@ -47,4 +47,24 @@ test.describe('the Pack story drives the packers from config', () => {
     await openStory(page, `${STORY}&arg-strategy=shelf&arg-sort=width`);
     await expect.poll(() => atOrigin(page)).toEqual(['box-3']);
   });
+
+  for (const strategy of ['shelf', 'skyline', 'column']) {
+    test(`overflowMode unplaced keeps ${strategy} inside the container's height`, async ({
+      page,
+    }) => {
+      const readout = page.getByTestId('pack-readout');
+      await openStory(page, `${STORY}&arg-strategy=${strategy}&arg-height=200`);
+      await expect(readout).toHaveText('14 placed, 0 unplaced');
+      expect(Math.max(...(await placed(page)).map((b) => b.y + b.h))).toBeGreaterThan(200);
+
+      await openStory(
+        page,
+        `${STORY}&arg-strategy=${strategy}&arg-height=200&arg-overflowMode=unplaced`,
+      );
+      await expect(readout).toHaveText(/^\d+ placed, [1-9]\d* unplaced$/);
+      const boxes = await placed(page);
+      await expect(readout).toHaveText(`${boxes.length} placed, ${14 - boxes.length} unplaced`);
+      expect(Math.max(...boxes.map((b) => b.y + b.h))).toBeLessThanOrEqual(200);
+    });
+  }
 });

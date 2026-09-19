@@ -63,6 +63,22 @@ export function packQueue(
   return { queue, unsized };
 }
 
+/** What a packing strategy's `overflowMode` accepts. `'scroll'`, the default,
+ *  packs past the container and reports the excess as `overflow`;
+ *  `'unplaced'` treats the container as a bin and sends what will not fit in it
+ *  to `unplaced`. */
+export const PACK_OVERFLOW_MODES = ['scroll', 'unplaced'] as const;
+
+/** Whether `options` bound packing to the container, under `overflowMode: 'unplaced'`. */
+export function packBounded(options: Record<string, unknown>): boolean {
+  return options.overflowMode === 'unplaced';
+}
+
+/** Whether a `size` placed at `x`, `y` stays inside `container`, allowing float drift. */
+export function fitsContainer(x: number, y: number, size: Size, container: Size): boolean {
+  return fitsWithin(x + size.w, container.w) && fitsWithin(y + size.h, container.h);
+}
+
 /** A packing strategy's `gap`; anything but a positive finite number reads as 0. */
 export function packGap(options: Record<string, unknown>): number {
   const gap = options.gap;

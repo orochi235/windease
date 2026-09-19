@@ -28,6 +28,6 @@ describe('shelfStrategy', () => {
   });
 
   it('declares its config keys so a typo is reported, not silently defaulted', () => {
-    expect(Object.keys(shelfStrategy.configSpec ?? {})).toEqual(['gap', 'sort']);
+    expect(Object.keys(shelfStrategy.configSpec ?? {})).toEqual(['gap', 'sort', 'overflowMode']);
   });
 });

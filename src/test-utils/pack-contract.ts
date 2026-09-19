@@ -150,6 +150,62 @@ export function describePackContract(strategy: LayoutStrategy<void, string>): vo
       );
     });
 
+    describe("overflowMode 'unplaced'", () => {
+      const bin = { w: 400, h: 300 };
+      const bounded = { gap: 6, overflowMode: 'unplaced' };
+
+      it('keeps every placement inside the container and reports no overflow', () => {
+        const result = runPack(strategy, boxes, bin, bounded);
+        expect(result.placements.size).toBeGreaterThan(0);
+        expect(result.unplaced?.length ?? 0).toBeGreaterThan(0);
+        for (const rect of result.placements.values()) {
+          expect(rect.x + rect.w).toBeLessThanOrEqual(bin.w);
+          expect(rect.y + rect.h).toBeLessThanOrEqual(bin.h);
+        }
+        expect(result.overflow).toBeUndefined();
+        expect(crowded(result.placements, 6)).toEqual([]);
+      });
+
+      it('lists every id once, placed or unplaced, each in input order', () => {
+        const items = [{ id: 'bare' }, ...boxes];
+        const result = runPack(strategy, items, bin, bounded);
+        const placed = [...result.placements.keys()];
+        const unplaced = result.unplaced ?? [];
+        const order = items.map((i) => i.id);
+        expect([...placed, ...unplaced].sort()).toEqual([...order].sort());
+        expect(placed).toEqual(order.filter((id) => result.placements.has(id)));
+        expect(unplaced).toEqual(order.filter((id) => !result.placements.has(id)));
+      });
+
+      it('lays out as the default does when everything fits', () => {
+        const roomy = { w: 400, h: 100_000 };
+        expect(runPack(strategy, boxes, roomy, bounded)).toEqual(
+          runPack(strategy, boxes, roomy, { gap: 6 }),
+        );
+      });
+
+      it('sends an item taller or wider than the container to unplaced, even the first', () => {
+        const items = [sized('tall', 50, 120), sized('wide', 120, 50), sized('ok', 50, 50)];
+        const result = runPack(strategy, items, { w: 100, h: 100 }, bounded);
+        expect([...result.placements.keys()]).toEqual(['ok']);
+        expect(result.placements.get('ok')).toMatchObject({ x: 0, y: 0 });
+        expect(result.unplaced).toEqual(['tall', 'wide']);
+      });
+
+      it('still places a later item that fits where an earlier one did not', () => {
+        const items = [sized('a', 100, 60), sized('b', 100, 60), sized('c', 100, 30)];
+        const result = runPack(strategy, items, { w: 100, h: 100 }, { overflowMode: 'unplaced' });
+        expect(result.placements.get('c')).toMatchObject({ x: 0, y: 60 });
+        expect(result.unplaced).toEqual(['b']);
+      });
+
+      it("lays out under 'scroll' as the default does", () => {
+        expect(runPack(strategy, boxes, bin, { gap: 6, overflowMode: 'scroll' })).toEqual(
+          runPack(strategy, boxes, bin, { gap: 6 }),
+        );
+      });
+    });
+
     for (const [sort, key] of SORT_CASES) {
       describe(`sort '${sort}'`, () => {
         const items = [{ id: 'bare' }, ...boxes];
