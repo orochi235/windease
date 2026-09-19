@@ -28,16 +28,17 @@ function renderDesktop(config: Record<string, unknown>) {
   const { container } = render(
     <Provider store={store}>
       <StrategyRegistryProvider strategies={{ desktop: desktopStrategy() as never }}>
-        <Container parentId={ZONE} chrome={CHROME} viewport={{ w: 200, h: 100 }} />
+        <Container parentId={ZONE} chrome={CHROME} viewport={{ w: 200, h: 100 }} affordances />
       </StrategyRegistryProvider>
     </Provider>,
   );
-  const click = async (id: string) => {
+  const clickOn = async (selector: string) => {
     await act(async () => {
-      fireEvent.click(container.querySelector(`[data-node="${id}"]`) as HTMLElement);
+      fireEvent.click(container.querySelector(selector) as HTMLElement);
     });
   };
-  return { store, click };
+  const click = (id: string) => clickOn(`[data-node="${id}"]`);
+  return { store, click, clickOn };
 }
 
 describe("Container with config raise: 'click'", () => {
@@ -58,5 +59,14 @@ describe("Container with config raise: 'click'", () => {
     store.setLock(ZONE, { arrange: true });
     await click('a');
     expect(store.getContainerView(ZONE)?.childOrder).toEqual(['a', 'b']);
+  });
+
+  // Defect: the desktop's title band and minimize box render in the affordance
+  // layer, a sibling of the child wrapper that carries the click-raise, so
+  // pressing a window's title bar never raises it.
+  it.fails('raises a window whose title band is clicked', async () => {
+    const { store, clickOn } = renderDesktop({ raise: 'click', drag: true });
+    await clickOn('[data-affordance-hit="desktop:drag:a"]');
+    expect(store.getContainerView(ZONE)?.childOrder).toEqual(['b', 'a']);
   });
 });
