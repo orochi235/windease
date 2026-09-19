@@ -63,6 +63,35 @@ section below.
   scroll is in layout pixels; under a `view`, the new `toLayoutScroll(scroll,
   view)` converts a scroller's offset to them.
 
+- **Masonry takes a column count, and centers fixed-width columns.**
+  `columnStrategy` accepts `cols`, which fixes the number of columns and widens
+  them to fill the container (Unsplash's three columns), and `justify: 'start' |
+  'center' | 'end'`, which places fixed-width columns in the width they leave
+  (Pinterest's centered feed). `cols` and `columnWidth` are mutually exclusive,
+  and `justify` does nothing with `cols`; `checkStrategyConfig` reports both.
+
+- **Packers can turn items a quarter to fit.** With `rotate: true`,
+  `shelfStrategy`, `skylineStrategy` and `columnStrategy` may place an item
+  turned 90°, with its rect's `w` and `h` swapped. Every placement then carries
+  a `rotation` channel, `90` or `0`, which `useChannelsForSelf` reads. Shelf
+  turns an item to fit the rest of the current row, skyline to leave its top
+  lower, and column to span fewer columns without growing the layout; an item
+  too big for the container upright turns if turned it fits.
+
+- **Packers can fill a fixed box and hand back what did not fit.** With
+  `overflowMode: 'unplaced'`, `shelfStrategy`, `skylineStrategy` and
+  `columnStrategy` treat the container as a bin: an item that would cross its
+  bottom or right edge goes to `unplaced` instead of being placed past it, and
+  a later item that fits still goes in. The default, `'scroll'`, packs past
+  `container.h` and reports `overflow` as before.
+
+- **Packers can sort before they pack.** `shelfStrategy`, `skylineStrategy` and
+  `columnStrategy` take `sort: 'height' | 'width' | 'area' | 'max-side'`, which
+  places the largest item first by that measure, keeping the given order among
+  ties. The default `'none'` is the order given, as before. Sorting changes
+  where items land, not which are placed, and the result still lists them in
+  the order given.
+
 - **A container can refuse drops from its config.** Set `accepts` in any
   container's `config`: `false` refuses every drop, `{ kinds: ['panel'] }`
   refuses a dragged node whose `kind` is not listed, and `{ max: 3 }` refuses a

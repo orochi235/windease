@@ -261,6 +261,28 @@ describe('real layouts, packer by packer', () => {
     expect([...xs].sort((a, b) => a - b)).toEqual([0, 440, 880]);
   });
 
+  it('masonry with cols: 3 widens Unsplash’s columns to the same three at any width', () => {
+    const three = (w: number) => {
+      const { result } = run(preset('unsplash-three-column'), 'column', (s) => ({
+        ...s,
+        container: { ...s.container, w },
+        options: { ...s.options, cols: 3 },
+      }));
+      return [...new Set([...result.placements.values()].map((r) => r.x))].sort((a, b) => a - b);
+    };
+    expect(three(1296)).toEqual([0, 440, 880]);
+    expect(three(1500)).toEqual([0, 508, 1016]);
+  });
+
+  it('masonry with justify: center centers Pinterest’s four columns in the 28px they leave', () => {
+    const { result } = run(preset('pinterest-home-feed'), 'column', (s) => ({
+      ...s,
+      options: { ...s.options, justify: 'center' },
+    }));
+    const xs = new Set([...result.placements.values()].filter((r) => r.w <= 236).map((r) => r.x));
+    expect([...xs].sort((a, b) => a - b)).toEqual([14, 266, 518, 770]);
+  });
+
   it.each(PACKERS)('%s gives every too-wide newspaper module its own row at x 0', (packer) => {
     const { scenario, result } = run(preset('newspaper-front-on-phone'), packer);
     const gap = gapOf(scenario);
@@ -313,6 +335,24 @@ describe('real layouts, packer by packer', () => {
       };
       expect(inside('iso-20ft-eur-pallets')).toBe(8);
       expect(inside('iso-40ft-industrial-pallets')).toBe(20);
+    },
+  );
+
+  it.each(PACKERS)(
+    "%s under overflowMode 'unplaced' loads the same 8 and 20 pallets and leaves the rest on the dock",
+    (packer) => {
+      for (const [id, fit] of [
+        ['iso-20ft-eur-pallets', 8],
+        ['iso-40ft-industrial-pallets', 20],
+      ] as const) {
+        const { scenario, result } = run(preset(id), packer, (s) => ({
+          ...s,
+          options: { ...s.options, overflowMode: 'unplaced' },
+        }));
+        expect(result.placements.size, id).toBe(fit);
+        expect(result.unplaced ?? [], id).toHaveLength(scenario.items.length - fit);
+        expect(result.overflow, id).toBeUndefined();
+      }
     },
   );
 
@@ -508,10 +548,22 @@ describe('float drift at the width boundary', () => {
 });
 
 describe.runIf(process.env.EXOTIC_DENSITY)('density table', () => {
-  it('prints fill % per preset and packer', () => {
-    const lines = [`${'preset'.padEnd(30)}${PACKERS.map((k) => k.padStart(9)).join('')}`];
+  const variants: [string, Record<string, unknown>][] = [
+    ['as given', {}],
+    ['sort: height', { sort: 'height' }],
+    ['sort: area', { sort: 'area' }],
+    ['rotate', { rotate: true }],
+    ['sort: height, rotate', { sort: 'height', rotate: true }],
+    ['sort: max-side, rotate', { sort: 'max-side', rotate: true }],
+  ];
+
+  it.each(variants)('prints fill %% per preset and packer, %s', (label, extra) => {
+    const lines = [`${label.padEnd(30)}${PACKERS.map((k) => k.padStart(9)).join('')}`];
     for (const p of ALL_PRESETS) {
-      const cells = PACKERS.map((k) => (density(run(p, k).result) * 100).toFixed(1).padStart(9));
+      const cells = PACKERS.map((k) => {
+        const { result } = run(p, k, (s) => ({ ...s, options: { ...s.options, ...extra } }));
+        return (density(result) * 100).toFixed(1).padStart(9);
+      });
       lines.push(`${p.id.padEnd(30)}${cells.join('')}`);
     }
     process.stderr.write(`\n${lines.join('\n')}\n`);

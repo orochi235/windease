@@ -168,5 +168,182 @@ export function describePackContract(
     it('places nothing for no items', () => {
       expect(runPack(strategy, [], container)).toEqual({ placements: new Map(), affordances: [] });
     });
+
+    it('lays out in the order given under sort none, the default', () => {
+      expect(runPack(strategy, boxes, container, { gap: 4, sort: 'none' })).toEqual(
+        runPack(strategy, boxes, container, { gap: 4 }),
+      );
+    });
+
+    describe("overflowMode 'unplaced'", () => {
+      const bin = { w: 400, h: 300 };
+      const bounded = { gap: 6, overflowMode: 'unplaced' };
+
+      it('keeps every placement inside the container and reports no overflow', () => {
+        const result = runPack(strategy, boxes, bin, bounded);
+        expect(result.placements.size).toBeGreaterThan(0);
+        expect(result.unplaced?.length ?? 0).toBeGreaterThan(0);
+        for (const rect of result.placements.values()) {
+          expect(rect.x + rect.w).toBeLessThanOrEqual(bin.w);
+          expect(rect.y + rect.h).toBeLessThanOrEqual(bin.h);
+        }
+        expect(result.overflow).toBeUndefined();
+        expect(crowded(result.placements, 6)).toEqual([]);
+      });
+
+      it('lists every id once, placed or unplaced, each in input order', () => {
+        const items = [{ id: 'bare' }, ...boxes];
+        const result = runPack(strategy, items, bin, bounded);
+        const placed = [...result.placements.keys()];
+        const unplaced = result.unplaced ?? [];
+        const order = items.map((i) => i.id);
+        expect([...placed, ...unplaced].sort()).toEqual([...order].sort());
+        expect(placed).toEqual(order.filter((id) => result.placements.has(id)));
+        expect(unplaced).toEqual(order.filter((id) => !result.placements.has(id)));
+      });
+
+      it('lays out as the default does when everything fits', () => {
+        const roomy = { w: 400, h: 100_000 };
+        expect(runPack(strategy, boxes, roomy, bounded)).toEqual(
+          runPack(strategy, boxes, roomy, { gap: 6 }),
+        );
+      });
+
+      it('sends an item taller or wider than the container to unplaced, even the first', () => {
+        const items = [sized('tall', 50, 120), sized('wide', 120, 50), sized('ok', 50, 50)];
+        const result = runPack(strategy, items, { w: 100, h: 100 }, bounded);
+        expect([...result.placements.keys()]).toEqual(['ok']);
+        expect(result.placements.get('ok')).toMatchObject({ x: 0, y: 0 });
+        expect(result.unplaced).toEqual(['tall', 'wide']);
+      });
+
+      it('still places a later item that fits where an earlier one did not', () => {
+        const items = [sized('a', 100, 60), sized('b', 100, 60), sized('c', 100, 30)];
+        const result = runPack(strategy, items, { w: 100, h: 100 }, { overflowMode: 'unplaced' });
+        expect(result.placements.get('c')).toMatchObject({ x: 0, y: 60 });
+        expect(result.unplaced).toEqual(['b']);
+      });
+
+      it("lays out under 'scroll' as the default does", () => {
+        expect(runPack(strategy, boxes, bin, { gap: 6, overflowMode: 'scroll' })).toEqual(
+          runPack(strategy, boxes, bin, { gap: 6 }),
+        );
+      });
+    });
+
+    describe('rotate', () => {
+      const result = runPack(strategy, boxes, container, { gap: 8, rotate: true });
+
+      it('places each box at its own size or turned a quarter, and says which in channels', () => {
+        expect(result.placements.size).toBe(boxes.length);
+        for (const box of boxes) {
+          const { w, h } = box.hints!.preferredSize!;
+          const rect = result.placements.get(box.id)!;
+          const rotation = result.channels?.get(box.id)?.rotation;
+          if (rotation === 90) expect({ w: rect.w, h: rect.h }).toEqual({ w: h, h: w });
+          else {
+            expect(rotation).toBe(0);
+            expect({ w: rect.w, h: rect.h }).toEqual({ w, h });
+          }
+        }
+        expect(result.channels?.size).toBe(boxes.length);
+      });
+
+      it('keeps every pair gap apart and every box inside the width', () => {
+        expect(crowded(result.placements, 8)).toEqual([]);
+        for (const rect of result.placements.values()) {
+          expect(rect.x + rect.w).toBeLessThanOrEqual(container.w);
+        }
+      });
+
+      it('turns some of an assorted set, and never a square', () => {
+        const turned = [...(result.channels?.values() ?? [])].filter((c) => c.rotation === 90);
+        expect(turned.length).toBeGreaterThan(0);
+        const squares = Array.from({ length: 12 }, (_, i) =>
+          sized(`q${i}`, 40 + i * 5, 40 + i * 5),
+        );
+        const packed = runPack(strategy, squares, container, { gap: 8, rotate: true });
+        expect([...packed.channels!.values()].every((c) => c.rotation === 0)).toBe(true);
+      });
+
+      it('turns an item wider than the container when turned it fits', () => {
+        const items = [sized('a', 100, 50), sized('long', 500, 40)];
+        const packed = runPack(strategy, items, { w: 400, h: 1000 }, { rotate: true });
+        expect(packed.placements.get('long')).toMatchObject({ w: 40, h: 500 });
+        expect(packed.channels?.get('long')).toEqual({ rotation: 90 });
+        expect(packed.overflow?.w ?? 0).toBe(0);
+      });
+
+      it('turns an item taller than a bounded container when turned it fits', () => {
+        const items = [sized('post', 20, 150)];
+        const packed = runPack(
+          strategy,
+          items,
+          { w: 200, h: 100 },
+          {
+            rotate: true,
+            overflowMode: 'unplaced',
+          },
+        );
+        expect(packed.placements.get('post')).toEqual({ x: 0, y: 0, z: 0, w: 150, h: 20 });
+        expect(packed.unplaced).toBeUndefined();
+      });
+
+      it('emits no channels without rotate', () => {
+        expect(runPack(strategy, boxes, container, { gap: 8 }).channels).toBeUndefined();
+        expect(runPack(strategy, boxes, container, { gap: 8, rotate: false })).toEqual(
+          runPack(strategy, boxes, container, { gap: 8 }),
+        );
+      });
+
+      it('returns the same layout on every call', () => {
+        expect(runPack(strategy, boxes, container, { gap: 8, rotate: true })).toEqual(result);
+      });
+    });
+
+    for (const [sort, key] of SORT_CASES) {
+      describe(`sort '${sort}'`, () => {
+        const items = [{ id: 'bare' }, ...boxes];
+        const result = runPack(strategy, items, container, { gap: 8, sort });
+
+        it('never changes the set of placed ids, and keys the result in input order', () => {
+          expect([...result.placements.keys()]).toEqual(boxes.map((b) => b.id));
+          expect(result.unplaced).toEqual(['bare']);
+        });
+
+        it('keeps every box at its own size and every pair gap apart', () => {
+          for (const box of boxes) {
+            const rect = result.placements.get(box.id)!;
+            expect({ w: rect.w, h: rect.h }).toEqual(box.hints?.preferredSize);
+          }
+          expect(crowded(result.placements, 8)).toEqual([]);
+        });
+
+        it(`places the box with the greatest ${sort} first, at the origin`, () => {
+          const first = [...boxes].sort(
+            (a, b) => key(b.hints!.preferredSize!) - key(a.hints!.preferredSize!),
+          )[0]!;
+          expect(result.placements.get(first.id)).toMatchObject({ x: 0, y: 0 });
+        });
+
+        it('keeps input order among equal keys', () => {
+          const same = Array.from({ length: 30 }, (_, i) => sized(`s${i}`, 60, 60));
+          expect(runPack(strategy, same, container, { gap: 8, sort })).toEqual(
+            runPack(strategy, same, container, { gap: 8 }),
+          );
+        });
+
+        it('returns the same layout on every call', () => {
+          expect(runPack(strategy, items, container, { gap: 8, sort })).toEqual(result);
+        });
+      });
+    }
   });
 }
+
+const SORT_CASES: [string, (s: Size) => number][] = [
+  ['height', (s) => s.h],
+  ['width', (s) => s.w],
+  ['area', (s) => s.w * s.h],
+  ['max-side', (s) => Math.max(s.w, s.h)],
+];

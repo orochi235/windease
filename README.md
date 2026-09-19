@@ -549,13 +549,17 @@ item with no size goes to `unplaced`.
 - **`column`** — masonry. Equal columns `columnWidth` wide (default: the
   narrowest item); each item goes on the shortest run of columns its width
   spans. One item much narrower than the rest shrinks every column to its
-  width; set `columnWidth` when the mix has one.
+  width; set `columnWidth` when the mix has one. `cols: 3` fixes the count
+  instead and widens the columns to fill the container, as Unsplash's three
+  columns do; it cannot be combined with `columnWidth`. When fixed-width
+  columns leave some of the width over, `justify: 'center'` or `'end'` moves
+  the columns into it, as Pinterest centers its feed.
 - **`skyline`** — each item takes the lowest free spot along what is already
   packed, so a short item drops in beside a tall one where `shelf` would leave
   a hole.
 
-All three take `gap`, place items in the order given, and never sort — ordering
-is the caller's. They run headless like any strategy:
+All three take `gap`, and place items in the order given unless `sort` says
+otherwise. They run headless like any strategy:
 
 ```ts
 const { placements, overflow } = skylineStrategy.layout({
@@ -594,6 +598,57 @@ createNode({ kind: 'panel', id, parentId: galleryId, hints: { aspect: 3 / 2 } })
 Rows grow down past `container.h`, and the excess is reported as `overflow`,
 as with the packers. No other built-in strategy reads `hints.aspect`: a strip
 stretches its cross axis and a grid fills its cells whatever the item's shape.
+
+### Sorting before packing
+
+`sort: 'height' | 'width' | 'area' | 'max-side'` places the largest first by
+that measure; `'none'`, the default, keeps the order given. Items that tie keep
+their order. Sorting changes where items land, never which ones are placed,
+and `placements` and `unplaced` still list items in the order given.
+
+Sorting usually packs tighter: `shelf` with `sort: 'height'` is the classic
+next-fit decreasing height packing, and `'max-side'` is a common choice for
+sprite sheets.
+
+### Turning items a quarter
+
+`rotate: true` lets a packer place an item turned 90° when that fits better,
+as sprite-sheet packers and pallet loaders do. A turned item's rect has its
+width and height swapped, and every placement carries a `rotation` channel —
+`90` for turned a quarter clockwise, `0` for upright — so the host knows to
+draw its content turned. Read it with `useChannelsForSelf(id)?.rotation`, or
+from `result.channels` when calling a strategy directly. Without `rotate`
+there is no channel. Squares are never turned.
+
+What "fits better" means differs by packer, and ties always stay upright:
+
+- **`shelf`** turns an item to fit the space left on the current row without
+  raising it (the narrower way wins when both do). An item that fits neither
+  way goes upright, raising the row, or starts a new one.
+- **`skyline`** takes whichever way leaves the item's top edge lower.
+- **`column`** takes whichever way spans fewer columns, unless that makes the
+  tallest column taller than the other way would.
+
+In all three, an item turns if only turned does it fit the container at all.
+
+### Packing into a fixed box
+
+By default a packer grows downward past `container.h` and reports the excess as
+`overflow`, which suits a scrolling feed. `overflowMode: 'unplaced'` makes the
+container a bin instead — a sprite sheet of fixed size, or a truck floor. An
+item that would cross the bottom or the right edge goes to `unplaced`, even the
+first, and packing carries on: a later, smaller item still takes a space an
+earlier one could not. Nothing is placed outside the container, so `overflow`
+never appears. Hand `unplaced` to the next sheet.
+
+```ts
+const { placements, unplaced } = skylineStrategy.layout({
+  items: sprites,
+  container: { w: 1024, h: 1024 },
+  state: undefined,
+  options: { sort: 'max-side', overflowMode: 'unplaced' },
+});
+```
 
 ## Putting a grid child at a cell
 

@@ -18,6 +18,12 @@ const SETTINGS: readonly { id: string; label: string; cell: (run: Run) => string
   },
   { id: 'gap', label: 'gap', cell: (run) => optionCell(run, 'gap') },
   {
+    id: 'sort',
+    label: 'sort',
+    cell: ({ options }) => (typeof options.sort === 'string' ? options.sort : 'none'),
+  },
+  { id: 'rotate', label: 'rotate', cell: ({ options }) => (options.rotate ? 'yes' : 'no') },
+  {
     id: 'columnWidth',
     label: 'column width',
     cell: ({ options }) => {

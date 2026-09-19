@@ -41,6 +41,14 @@ export const settingsFields = () => ({
     .step(1)
     .label('Column width (unless the dataset sets one; 0 = narrowest item)')
     .section('Packer options'),
+  sort: f
+    .enum('none', ['none', 'height', 'width', 'area', 'max-side'])
+    .label('Sort, largest first')
+    .section('Packer options'),
+  rotate: f
+    .boolean(false)
+    .label('Rotate a quarter where that fits better')
+    .section('Packer options'),
 });
 
 /** One on/off per registered packer, keyed by packer id. */

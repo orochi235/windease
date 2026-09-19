@@ -1,4 +1,24 @@
 .pack-demo {
   max-height: 640px;
   overflow: auto;
+  padding-bottom: 2em;
+}
+
+.pack-demo__zone {
+  outline: 1px dashed currentColor;
+}
+
+.pack-demo__readout {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin: 0.25em 0 0;
+  white-space: nowrap;
+}
+
+.pack-demo__turned {
+  position: absolute;
+  z-index: 1;
+  padding: 0 0.25em;
+  pointer-events: none;
 }

@@ -458,6 +458,19 @@ its body at the stack's registered `bounds()`: the host measures, the engine
 lays out. A tear is refused under the target's `lock.arrange`, and into a parent
 whose child order the host controls.
 
+  `container.h` only decides `overflow`. Config: `gap`, `sort` (`'height'`,
+  `'width'`, `'area'` or `'max-side'`, largest first and stable on ties; the
+  default `'none'` keeps the order given), `rotate` (an item may be placed
+  turned a quarter, rect `w`/`h` swapped, with a `rotation` channel of 90 or 0
+  on every placement), `overflowMode` (`'scroll'`, the
+  default, packs past `container.h` and reports `overflow`; `'unplaced'` treats
+  the container as a bin and sends any item that would cross an edge to
+  `unplaced`), plus `columnWidth`, `cols` (a fixed count of columns widened to
+  fill the container; exclusive with `columnWidth`) and `justify` (`'start'`,
+  `'center'` or `'end'` for the width fixed-width columns leave) on `column`. Items with no size go to
+  `unplaced`. Sorting decides placement order only; the
+  result lists items in the order given.
+
 ## React layer
 
 ```tsx
