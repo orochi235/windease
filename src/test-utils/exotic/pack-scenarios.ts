@@ -1,10 +1,24 @@
-import type { Size } from '../../layout-types.js';
+import { columnStrategy } from '../../layout/column.js';
+import { justifiedStrategy } from '../../layout/justified.js';
+import { shelfStrategy } from '../../layout/shelf.js';
+import { skylineStrategy } from '../../layout/skyline.js';
+import type { LayoutStrategy, Size } from '../../layout-types.js';
 import type { Scenario } from './invariants.js';
 import { prng } from './invariants.js';
 import { type Preset, type PresetNode, presetScenario } from './preset.js';
 
 export const PACKERS = ['shelf', 'skyline', 'column'] as const;
 export type PackerId = (typeof PACKERS)[number];
+
+/** Every strategy a pack preset may name: the three packers, and justified rows. */
+export type PackStrategyId = PackerId | 'justified';
+
+export const PACK_STRATEGIES: Record<PackStrategyId, LayoutStrategy<void, string>> = {
+  shelf: shelfStrategy,
+  skyline: skylineStrategy,
+  column: columnStrategy,
+  justified: justifiedStrategy,
+};
 
 /** `[w, h]`, `[w, h, title]`, or `null` for an item not measured yet. */
 type Box = readonly [number, number] | readonly [number, number, string] | null;
@@ -15,9 +29,11 @@ interface PackPresetInput {
   stress: string;
   description: string;
   viewport: Size;
-  strategy: PackerId;
+  strategy: PackStrategyId;
   config?: Record<string, unknown>;
   boxes: readonly Box[];
+  /** Per box, the shape the content reports as `hints.aspect`. */
+  aspects?: readonly number[];
   /** The product look, as `data.css`. */
   css?: string;
 }
@@ -31,14 +47,17 @@ function packPreset({
   strategy,
   config,
   boxes,
+  aspects,
   css,
 }: PackPresetInput): Preset {
   const children: PresetNode[] = boxes.map((box, i) => {
     const node: PresetNode = { id: `${id}#${i}` };
+    const aspect = aspects?.[i];
     if (box) {
       node.hints = { preferredSize: { w: box[0], h: box[1] } };
       if (box[2] !== undefined) node.meta = { title: box[2] };
     }
+    if (aspect !== undefined) node.hints = { ...node.hints, aspect };
     return node;
   });
   return {
@@ -52,8 +71,13 @@ function packPreset({
   };
 }
 
+/** The strategy `preset` names for its root. */
+export function ownStrategy(preset: Preset): PackStrategyId {
+  return preset.mechanics.strategy as PackStrategyId;
+}
+
 /** `preset` with its root packed by `strategy` instead — how one preset is run through every packer. */
-export function withStrategy(preset: Preset, strategy: PackerId): Preset {
+export function withStrategy(preset: Preset, strategy: PackStrategyId): Preset {
   return { ...preset, mechanics: { ...preset.mechanics, strategy } };
 }
 
@@ -62,28 +86,25 @@ export function packItemCount(preset: Preset): number {
   return preset.data?.children?.[preset.mechanics.id]?.length ?? 0;
 }
 
-/** stb_rect_pack's `rect_height_compare`: tallest first, then widest. */
-const byHeightDesc = (boxes: [number, number][]): [number, number][] =>
-  [...boxes].sort((a, b) => b[1] - a[1] || b[0] - a[0]);
-
 function texturePackerPow2(): Preset {
   const rand = prng(2048);
   // Skewed toward small: most sprites in a UI or particle sheet are icons.
   const pow2 = () => [8, 8, 16, 16, 16, 32, 32, 64, 128, 256][rand(0, 9)]!;
-  const boxes = byHeightDesc(
-    Array.from({ length: 320 }, () => [pow2(), pow2()] as [number, number]),
-  );
+  const boxes = Array.from({ length: 320 }, () => [pow2(), pow2()] as [number, number]);
   return packPreset({
     id: 'texturepacker-pow2-sheet',
     css: ATLAS_CSS,
     source:
-      'TexturePacker "Size constraints: POT" sheet, 320 power-of-two sprites 8–256px, stb order',
+      'TexturePacker "Size constraints: POT" 1024×1024 sheet, rotation allowed, 320 power-of-two sprites 8–256px in file order',
     stress:
       'power-of-two sizes tile exactly, so any waste is the packer’s; skyline should beat shelf',
     description:
       'TexturePacker is a tool game developers use to combine hundreds of small images (sprites: icons, particles, interface pieces) into one large texture called a sprite sheet, so the game can load and draw them together. Here every sprite has power-of-two sides (8, 16, 32 pixels and so on), and the "POT" size constraint makes the sheet a power of two as well, which older graphics hardware required. The tool arranges the sprites to waste as little of the sheet as it can.',
     viewport: { w: 1024, h: 1024 },
     strategy: 'skyline',
+    // TexturePacker's default "Sort by: Best" tries several orders and keeps the tightest;
+    // max-side ties area for the tightest of ours on this sheet.
+    config: { sort: 'max-side', rotate: true, overflowMode: 'unplaced' },
     boxes,
   });
 }
@@ -95,13 +116,15 @@ function stbStripAmongTiles(): Preset {
     id: 'stb-strip-among-tiles',
     css: ATLAS_CSS,
     source:
-      'stb_rect_pack lightmap/gradient atlas: one 2048×8 ramp texture among 1200 4×4 tiles, file order',
+      'stb_rect_pack lightmap/gradient atlas, 2048×2048: one 2048×8 ramp texture 600th among 1200 4×4 tiles',
     stress:
-      'a full-width strip mid-list lands on the skyline’s highest point and caps everything under it',
+      'stb sorts tallest first, so the full-width strip listed mid-way packs first along the top instead of capping the tiles under it',
     description:
-      "stb_rect_pack is a small, widely embedded C library that packs rectangles into a texture atlas, one image holding many small ones, such as font glyphs. This atlas mixes 1,200 tiny 4×4 tiles with one long 2048×8 color ramp (a gradient stored as a strip of texture) that spans the atlas's full width, packed in the order they appear in the source files.",
+      "stb_rect_pack is a small, widely embedded C library that packs rectangles into a texture atlas, one image holding many small ones, such as font glyphs. This atlas mixes 1,200 tiny 4×4 tiles with one long 2048×8 color ramp (a gradient stored as a strip of texture) that spans the atlas's full width. stb packs into a target of fixed size, never turns a rectangle, and sorts the rectangles tallest first before placing them, whatever order the source files list them in.",
     viewport: { w: 2048, h: 2048 },
     strategy: 'skyline',
+    // stb_rect_pack's `rect_height_compare`: tallest first (then widest, which `sort` cannot say).
+    config: { sort: 'height', overflowMode: 'unplaced' },
     boxes,
   });
 }
@@ -118,13 +141,14 @@ function kenneySpriteSheet(): Preset {
     id: 'kenney-sprite-sheet',
     css: ATLAS_CSS,
     source:
-      'Kenney-style 2D game asset pack: 80% tiles/icons, 15% characters, 5% backdrops, unsorted file order',
+      'Kenney-style 2D game asset pack, 80% tiles/icons, 15% characters, 5% backdrops, packed by TexturePacker into a 2048×2048 max sheet with rotation allowed',
     stress:
-      'skewed size distribution in arrival order; big backdrops arrive late and sit on a ragged outline',
+      'skewed size distribution: sorted largest first, the backdrops take the top and hundreds of small tiles fill the ragged outline they leave',
     description:
-      'Kenney publishes free 2D game art packs whose images come in a few rough sizes: many small tiles and icons, fewer character sprites, and a handful of large backgrounds. A game build packs them into one sprite sheet in the order they come off disk, without sorting them by size first.',
-    viewport: { w: 1024, h: 1024 },
+      'Kenney publishes free 2D game art packs whose images come in a few rough sizes: many small tiles and icons, fewer character sprites, and a handful of large backgrounds. The sprite sheets shipped with the packs are made with TexturePacker, which sorts the images largest first, may turn one sideways to fit it, and caps the sheet at a maximum size.',
+    viewport: { w: 2048, h: 2048 },
     strategy: 'skyline',
+    config: { sort: 'max-side', rotate: true, overflowMode: 'unplaced' },
     boxes,
   });
 }
@@ -219,10 +243,10 @@ function pinterestFeed(): Preset {
     stress:
       'one module wider than the whole feed: masonry must clamp its span to the column count and start it at x 0',
     description:
-      "Pinterest's home feed is a masonry layout: fixed-width columns of pins (images with a short caption below), each pin as tall as its image needs, with each new pin going into whichever column is currently shortest. More pins load as the user scrolls. Partway down, a shopping module runs across the whole feed.",
+      "Pinterest's home feed is a masonry layout: fixed-width columns of pins (images with a short caption below), each pin as tall as its image needs, with each new pin going into whichever column is currently shortest. The columns sit centered in the page, and more pins load as the user scrolls. Partway down, a shopping module runs across the whole feed.",
     viewport: { w: 1020, h: 900 },
     strategy: 'column',
-    config: { columnWidth: 236, gap: 16 },
+    config: { columnWidth: 236, gap: 16, justify: 'center' },
     boxes,
   });
 }
@@ -247,7 +271,7 @@ function unsplashGrid(): Preset {
       'Unsplash, a free stock-photo site, shows search results in three columns of photos, each photo keeping its own shape (landscape, portrait or square), so the columns end at different heights. More results load as the user scrolls, and narrower windows get fewer columns.',
     viewport: { w: 1296, h: 1200 },
     strategy: 'column',
-    config: { gap: 24 },
+    config: { cols: 3, gap: 24 },
     boxes,
   });
 }
@@ -304,50 +328,52 @@ function newspaperMobile(): Preset {
 
 function flickrJustified(): Preset {
   const rand = prng(320);
-  const aspects = [1.5, 0.667, 1.333, 0.75, 1.778, 1, 2.4];
-  const boxes: Box[] = Array.from({ length: 40 }, (_, i) => [
-    Math.round(aspects[rand(0, aspects.length - 1)]! * 320),
-    320,
-    `photo ${i + 1}`,
-  ]);
+  const shapes = [1.5, 0.667, 1.333, 0.75, 1.778, 1, 2.4];
+  const aspects = Array.from({ length: 40 }, () => shapes[rand(0, shapes.length - 1)]!);
+  const boxes: Box[] = aspects.map((a, i) => [Math.round(a * 320), 320, `photo ${i + 1}`]);
   return packPreset({
     id: 'flickr-justified-rows',
     css: FLICKR_CSS,
     source:
-      'flickr/justified-layout defaults: containerWidth 1060, targetRowHeight 320, boxSpacing 10',
-    stress: 'justified rows need scaling a shelf can’t do: rows come out ragged on the right',
+      'flickr/justified-layout defaults: containerWidth 1060, targetRowHeight 320 ±25%, boxSpacing 10, widows left at the target height',
+    stress:
+      'every row but the last must end exactly at the right edge, each photo keeping its aspect',
     description:
       'Flickr shows photos in justified rows: each row holds photos at a shared height, scaled so the row runs exactly the width of the page, and every photo keeps its shape. Flickr published the algorithm as the open-source justified-layout library, whose defaults aim for 320-pixel rows in a 1060-pixel-wide container with 10 pixels between photos.',
     viewport: { w: 1060, h: 1400 },
-    strategy: 'shelf',
-    config: { gap: 10 },
+    strategy: 'justified',
+    // targetRowHeightTolerance 0.25 caps a row at 400px; justified has no key for its 240px floor.
+    config: { rowHeight: 320, gap: 10, maxRowHeight: 400 },
     boxes,
+    aspects,
   });
 }
 
 function googlePhotos(): Preset {
   const rand = prng(180);
-  const aspects = [1.333, 0.75, 1.778, 0.5625, 1];
-  const boxes: Box[] = Array.from({ length: 36 }, (_, i) => [
-    Math.round(aspects[rand(0, aspects.length - 1)]! * 180),
+  const shapes = [1.333, 0.75, 1.778, 0.5625, 1];
+  const aspects = Array.from({ length: 36 }, () => shapes[rand(0, shapes.length - 1)]!);
+  aspects.splice(7, 0, 4);
+  aspects.splice(20, 0, 12);
+  const boxes: Box[] = aspects.map((a, i) => [
+    Math.round(a * 180),
     180,
-    `photo ${i + 1}`,
+    i === 7 ? 'panorama 4:1' : i === 20 ? 'phone panorama 12:1' : `photo ${i + 1}`,
   ]);
-  boxes.splice(7, 0, [720, 180, 'panorama 4:1']);
-  boxes.splice(20, 0, [2160, 180, 'phone panorama 12:1']);
   return packPreset({
     id: 'google-photos-panoramas',
     css: PHOTOS_CSS,
     source:
       'Google Photos web grid at 1280px, 180px rows, 4px spacing, with a 4:1 and a 12:1 phone panorama',
     stress:
-      'a panorama wider than the viewport mid-feed: rows before and after must not collide with it',
+      'a panorama wider than the viewport mid-feed: it takes a row alone, scaled down to the width, and the rows around it still fill the width',
     description:
       'Google Photos on the web shows a library as rows of photos at a shared height, each photo keeping its own shape, grouped by date in one long scrolling timeline. A panorama shot on a phone can be many times wider than it is tall, so at row height it is wider than the whole window.',
     viewport: { w: 1280, h: 1400 },
-    strategy: 'shelf',
-    config: { gap: 4 },
+    strategy: 'justified',
+    config: { rowHeight: 180, gap: 4 },
     boxes,
+    aspects,
   });
 }
 
@@ -359,25 +385,28 @@ function isoPallets(): Preset[] {
       id: 'iso-20ft-eur-pallets',
       css: PALLET_CSS,
       source:
-        '20ft ISO dry container floor, 235×590cm inside; EUR pallets 80×120cm, all long side along the length',
+        '20ft ISO dry container floor, 235×590cm inside; EUR pallets 80×120cm, turned wherever that fits more',
       stress:
-        'no rotation: 2 across × 4 deep = 8 fit, against the 11 a loader gets by turning some — 3 overflow',
+        'upright, 2 across × 4 deep = 8 fit; a loader gets 11 with a lengthwise row of 4 beside a turned row of 7',
       description:
         "A standard 20-foot shipping container has a floor about 2.35 meters wide and 5.9 meters long. Europe's standard EUR pallet measures 0.8 by 1.2 meters, and loaders get 11 of them onto that floor by turning some sideways.",
       viewport: { w: 235, h: 590 },
-      strategy: 'shelf',
+      strategy: 'skyline',
+      config: { rotate: true, overflowMode: 'unplaced' },
       boxes: eur,
     }),
     packPreset({
       id: 'iso-40ft-industrial-pallets',
       css: PALLET_CSS,
-      source: '40ft ISO dry container floor, 235×1203cm inside; 100×120cm ISO pallets',
+      source:
+        '40ft ISO dry container floor, 235×1203cm inside; 100×120cm ISO pallets, turned wherever that fits more',
       stress:
-        'the published 20-pallet single-stack figure: 2 across × 10 deep, the last 2 overflow',
+        'upright, 2 across × 10 deep gives the published 20; turning one row fits 100 + 120 across and 22 in all',
       description:
         'A 40-foot shipping container has a floor about 2.35 meters wide and 12 meters long. The 1.0 by 1.2 meter pallet common in industry fits two across, and shipping guides quote about 20 of them per container, stacked one high.',
       viewport: { w: 235, h: 1203 },
-      strategy: 'column',
+      strategy: 'skyline',
+      config: { rotate: true, overflowMode: 'unplaced' },
       boxes: industrial,
     }),
   ];
@@ -406,11 +435,13 @@ function vanLoad(): Preset {
     css: VAN_CSS,
     source:
       'Flat-pack furniture order on a long-wheelbase cargo van floor, ~178×330cm, approximate package footprints',
-    stress: 'long thin boxes of near-equal length: shelf rows waste the width a skyline fills',
+    stress:
+      'long thin boxes of near-equal length on a bounded floor: shelf rows waste the width a skyline fills, and a box turned crosswise wastes it too',
     description:
-      "A long-wheelbase cargo van has a load floor roughly 1.8 meters wide and 3.3 meters long. A flat-pack furniture delivery fills it with long, narrow boxes, such as wardrobe panels, bookcases and a bed base, laid flat along the van's length, with smaller boxes like nightstands and a chair in the gaps.",
+      "A long-wheelbase cargo van has a load floor roughly 1.8 meters wide and 3.3 meters long. A flat-pack furniture delivery fills it with long, narrow boxes, such as wardrobe panels, bookcases and a bed base, laid flat along the van's length, with smaller boxes like nightstands and a chair in the gaps. The loader may turn a box crosswise, and what does not fit waits for the next trip.",
     viewport: { w: 178, h: 330 },
     strategy: 'skyline',
+    config: { rotate: true, overflowMode: 'unplaced' },
     boxes,
   });
 }
@@ -840,7 +871,7 @@ export const HEAVY_PRESETS: Preset[] = [tenThousand()];
 export const ALL_PRESETS: Preset[] = [...PRESETS, ...PATHOLOGY_PRESETS, ...HEAVY_PRESETS];
 
 /** Each preset's root as a flat scenario, run by `packer`. */
-export function packScenario(preset: Preset, packer: PackerId): Scenario {
+export function packScenario(preset: Preset, packer: PackStrategyId): Scenario {
   return presetScenario(withStrategy(preset, packer));
 }
 
