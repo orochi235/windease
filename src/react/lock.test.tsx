@@ -216,7 +216,7 @@ describe('lock — useDragHandle', () => {
     return function Wrapper({ children }: { children: ReactNode }) {
       return (
         <Provider store={store}>
-          <DragProvider>{children}</DragProvider>
+          <DragProvider dragThreshold={0}>{children}</DragProvider>
         </Provider>
       );
     };

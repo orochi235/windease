@@ -10,8 +10,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ChildSort } from '../child-sort.js';
-import { readDropConfig } from '../container-config.js';
+import { type ChildSort, preserveStoreOrder } from '../child-sort.js';
+import { readDropConfig, readReorderConfig } from '../container-config.js';
 import type { AcceptContext } from '../dnd/DragEngine.js';
 import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
 import type {
@@ -46,6 +46,7 @@ import {
   splitPreviewStyle,
   useDropPreview,
 } from './dnd/useDropPreview.js';
+import { useReorderSources } from './dnd/useReorderSources.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useFlowGeometry } from './focus/useFlowGeometry.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
@@ -847,6 +848,8 @@ function PresetShell({
   const withheld = useIsUnplaced(id);
   const isPreviewSource = useLayoutContext().previewSourceId === id;
   const armedByParent = useContext(JoinArmContext);
+  const parentId = store.getNode(id)?.membership?.parentId;
+  const reorderSource = useReorderSources(parentId)(id);
 
   // After children render and self-report, reconcile sibling order.
   useLayoutEffect(() => {
@@ -861,7 +864,11 @@ function PresetShell({
       .snapshot()
       .filter((e) => currentSet.has(e.id))
       .map((e) => ({ id: e.id, order: e.order }));
-    reconcileChildOrder(store, id, observed, sort ? { sort } : undefined);
+    // A container whose children the user reorders owns their arrangement, so
+    // declared JSX order would revert every drop on the next render.
+    const effectiveSort =
+      sort ?? (readReorderConfig(ownContainer?.config) ? preserveStoreOrder : undefined);
+    reconcileChildOrder(store, id, observed, effectiveSort ? { sort: effectiveSort } : undefined);
   });
 
   const wrapperClass =
@@ -892,6 +899,7 @@ function PresetShell({
       <ParentScope parentId={id}>
         {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label is set only alongside role="group", under the same condition; the rule cannot see through the conditional. */}
         <div
+          {...reorderSource}
           ref={wrapperRef}
           className={compose(wrapperClass, className)}
           style={style}
@@ -936,7 +944,6 @@ function PresetShell({
   // shape and remount the subtree, and a remounted descendant preset
   // re-registers under a fresh `useId` owner token while the store still holds
   // the old one. A leaf owns no descendants, and a root is never placed.
-  const parentId = store.getNode(id)?.membership?.parentId;
   if (!selfRect && !(provide && parentId)) return shell;
 
   return (
@@ -992,6 +999,8 @@ function AbsoluteWrapper({
   children: ReactNode;
 }) {
   const { settleMs, sticky, scroll } = useLayoutContext();
+  // Only an imperative child's box is its chrome; a preset's shell is its own source.
+  const reorderSource = useReorderSources(nodeId ? parentId : undefined)(selfId);
   const stick = sticky?.get(selfId);
   const rect = placed && stick && scroll ? stuckRect(placed, stick, scroll) : placed;
   // `display: contents` rather than a class: the box exists only to hold the
@@ -1010,6 +1019,7 @@ function AbsoluteWrapper({
   if (previewSource) style.opacity = 0;
   return (
     <div
+      {...reorderSource}
       style={style}
       data-node={nodeId}
       data-node-container={parentId}

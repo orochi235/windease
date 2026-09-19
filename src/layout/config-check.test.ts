@@ -89,6 +89,8 @@ describe('checkStrategyConfig', () => {
     const config = { axis: 'y', accepts: { kinds: ['panel'], max: 2 }, drop: { stack: true } };
     expect(checkStrategyConfig('strip', config, SPEC)).toEqual([]);
     expect(checkStrategyConfig('strip', { accepts: false }, SPEC)).toEqual([]);
+    expect(checkStrategyConfig('strip', { reorder: true }, SPEC)).toEqual([]);
+    expect(checkStrategyConfig('strip', { reorder: 'handle' }, SPEC)).toEqual([]);
   });
 
   it('suggests a container-level key for a near miss', () => {

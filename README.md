@@ -849,6 +849,43 @@ attributes, the window-level Escape and pointerup safety nets, and per-frame
 coalescing of pointer samples. Samples run where they are made unless you pass
 a `schedule`.
 
+### Reordering children by drag
+
+A container can declare that its children drag, instead of each child's chrome
+wrapping itself in `<DragHandle>`:
+
+```ts
+config: { axis: 'x', fill: true, reorder: true }
+```
+
+With `reorder: true`, a press anywhere on a child starts a drag once it has
+moved 4px, so a click on a tab still selects it. The drag reorders the child
+within its container or moves it to another container that accepts it, and
+honors the same locks, `accepts` and `acceptPolicy` as any other drag. Both
+`<Container>` and the `<Zone>` / `<Panel>` presets wire it onto the wrapper
+they render for each child. A preset zone declaring `reorder` keeps the user's
+order rather than reverting to JSX order, as if `sort={preserveStoreOrder}`
+were set.
+
+`reorder: 'handle'` starts a drag only from an element inside the child marked
+with the `data-windease-handle` attribute — a grip you draw:
+
+```tsx
+<Panel id="inbox">
+  <span data-windease-handle>⋮⋮</span>
+  <button onClick={select}>Inbox</button>
+</Panel>
+```
+
+A press on a seam or other affordance, in a text field, or inside a
+`<DragHandle>` never starts a reorder; neither does a secondary button. A
+custom affordance renderer should carry `data-affordance` on its element to get
+the same exemption. Without a `<DragProvider>` the key does nothing and traces
+that under `dnd`.
+
+`<DragProvider dragThreshold>` sets the travel for both `reorder` and
+`<DragHandle>`; `0` starts a drag on press. See the **Reorder** stories.
+
 ### Drop intent
 
 A drop target answers more than "which seam". `resolveDropIntent` turns the

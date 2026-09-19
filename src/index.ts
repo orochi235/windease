@@ -9,6 +9,7 @@ export type {
   AcceptsConfig,
   ContainerConfigKeys,
   DropConfig,
+  ReorderMode,
 } from './container-config.js';
 export {
   ContainerHost,

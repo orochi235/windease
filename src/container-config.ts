@@ -39,6 +39,16 @@ export interface DropConfig {
 }
 
 /**
+ * How a container's children start a drag. `true`: a press anywhere on a
+ * child's wrapper; `'handle'`: only a press on an element inside it marked
+ * `data-windease-handle`. Read by the React layer, and inert without a
+ * `<DragProvider>`.
+ *
+ * @group Drag and drop
+ */
+export type ReorderMode = true | 'handle';
+
+/**
  * The container-level keys of `node.container.config`.
  *
  * @group Drag and drop
@@ -48,6 +58,8 @@ export interface ContainerConfigKeys {
   drop?: DropConfig;
   /** Brings a focused (or clicked) child to the top of the stacking order. Read by the store. */
   raise?: RaiseMode;
+  /** Makes every child a drag source without a `DragHandle` in its chrome. */
+  reorder?: ReorderMode;
 }
 
 /** Keys every strategy's config check accepts without declaring them. */
@@ -55,7 +67,14 @@ export const CONTAINER_CONFIG_KEYS: ReadonlySet<string> = new Set<keyof Containe
   'accepts',
   'drop',
   'raise',
+  'reorder',
 ]);
+
+/** `config.reorder` when it names a mode, else undefined. */
+export function readReorderConfig(config: unknown): ReorderMode | undefined {
+  const reorder = (config as { reorder?: unknown } | null | undefined)?.reorder;
+  return reorder === true || reorder === 'handle' ? reorder : undefined;
+}
 
 /** `config.drop`, or an empty rule when it is absent or not an object. */
 export function readDropConfig(config: unknown): DropConfig {
