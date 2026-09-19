@@ -105,6 +105,7 @@ export function AffordanceLayer({
             key={aff.id}
             affordance={aff}
             dispatch={dispatch}
+            store={store}
             tabStop={tabStop}
             label={affordanceLabel(store, aff)}
           />
@@ -130,8 +131,28 @@ export function AffordanceLayer({
 interface ClickAffordanceProps {
   affordance: Affordance;
   dispatch: ContainerLayout['dispatchAffordance'];
+  store: Store;
   tabStop: boolean;
   label: string | undefined;
+}
+
+/**
+ * Raises the child an affordance belongs to — a window's title band, its
+ * minimize box — when that child's parent says `raise`. The affordance draws
+ * beside the child's wrapper, not inside it, so the wrapper's own click-raise
+ * never sees the press. Safe on pointerdown: the pressed element is the
+ * affordance, which the raise does not move.
+ */
+function raiseOnPress(store: Store, affordance: Affordance): void {
+  const id = affordance.childId as NodeId | undefined;
+  if (!id) return;
+  const parentId = store.getNode(id)?.membership?.parentId;
+  if (!parentId) return;
+  const raise = (store.getNode(parentId)?.container?.config as { raise?: string } | undefined)
+    ?.raise;
+  if (raise !== 'click' && raise !== 'focus') return;
+  if (store.isLocked(parentId, 'arrange')) return;
+  store.raise(id);
 }
 
 const CLICK_RESET: CSSProperties = {
@@ -144,10 +165,11 @@ const CLICK_RESET: CSSProperties = {
 
 /** A `click` affordance: an empty native button, which sends one `'click'` event
  *  per press from the pointer, Enter or Space. The chrome beneath draws it. */
-function ClickAffordance({ affordance, dispatch, tabStop, label }: ClickAffordanceProps) {
+function ClickAffordance({ affordance, dispatch, store, tabStop, label }: ClickAffordanceProps) {
   const press = useCallback(() => {
+    raiseOnPress(store, affordance);
     dispatch({ affordanceId: affordance.id, kind: 'click', payload: {} });
-  }, [dispatch, affordance.id]);
+  }, [dispatch, store, affordance]);
   const { rect } = affordance;
   const style: CSSProperties = {
     ...AFFORDANCE_BASE,
@@ -259,6 +281,7 @@ function AffordanceHandle({
       last.current = { x: e.clientX, y: e.clientY };
       scale.current = elementScale(e.currentTarget);
       overshoot.current = null;
+      raiseOnPress(store, affordance);
       setDragging(true);
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -267,7 +290,7 @@ function AffordanceHandle({
       }
       onActiveChange(true);
     },
-    [onActiveChange],
+    [onActiveChange, store, affordance],
   );
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {

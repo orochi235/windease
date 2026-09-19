@@ -134,6 +134,12 @@ section below.
 
 ### Fixed
 
+- **Pressing a window's title bar or minimize box raises it under `raise`.**
+  The desktop draws those controls in the affordance layer beside the window,
+  so the window's own click-raise never saw the press; only a click on its body
+  raised it. A press on an affordance that belongs to one child now raises that
+  child when its parent sets `raise`.
+
 - **A drop preview's cursor is in the container's own pixels.** `LayoutPreview.cursor`
   promised container-relative coordinates and got the page's; a strategy
   reading it was off by the container's offset, and by its scale under a view.
