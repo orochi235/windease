@@ -837,6 +837,43 @@ not an arrangement.
 
 See the **Tab stack / Stack on drop** story for the whole setup.
 
+### Tearing a tab out
+
+Set `tear: 'float'` in a stack's config and a tab dragged out of the stack
+floats in the nearest container above it whose strategy floats children —
+`floatingStrategy` or `desktopStrategy`. That container is the drop target, so
+it must be registered as one, which every `<Container>` under a
+`<DragProvider>` is. Letting go anywhere else inside the stack reorders as
+usual.
+
+```ts
+config: { headerSize: 30, tear: 'float', show: 'dropped', tearSize: { w: 240, h: 200 } }
+```
+
+The tab lands with its top-left corner at the drop point, at `tearSize` when the
+stack sets one and at the size of the stack's body otherwise, written to
+`hints.preferredSize`. Where the position goes is the floating strategy's
+business: `desktopStrategy` writes placement `x` / `y`, `floatingStrategy` sets
+placement `floating` and keeps the corner in its container state. A floating
+child dropped back on a stack with `tear` docks as a tab and loses those
+placement keys; with `show: 'dropped'` it becomes the tab you see. Each gesture
+is one transaction, so one undo step.
+
+To make the floating container take tear-outs and nothing else, set
+`accepts: 'tear'` in its config. `floatNode` and `dockNode` do the same two
+moves from host code, for a button or a keyboard command:
+
+```ts
+floatNode(store, registry.get('studio-floating'), tabId, studioId, { at: { x: 40, y: 40 } });
+dockNode(store, tabId, stackId, { from: registry.get('studio-floating') });
+```
+
+A strategy of your own floats children by carrying a `float` hook: the placement
+keys it writes, and a pure `place` that returns them and any next state for a
+child set down at a point.
+
+See the **Tear out** story.
+
 ### Drop on edge
 
 With `splitOnDrop` on, a drop near a pane's cross-axis edge splits that pane:

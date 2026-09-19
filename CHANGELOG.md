@@ -10,6 +10,16 @@ section below.
 
 ### Added
 
+- **A tab can be torn out of a stack and docked back, from config.** Set
+  `tear: 'float'` in a stack's config: dragging a tab out onto the nearest
+  container above it whose strategy floats children (`floatingStrategy`,
+  `desktopStrategy`) floats it there, top-left corner at the drop point, at the
+  stack body's size or at `tearSize`. Dropping a floating child back on the
+  stack docks it as a tab. Each is one transaction, so one undo step.
+  `floatNode` and `dockNode` do the same from host code, and
+  `accepts: 'tear'` makes a container take tear-outs and refuse every other
+  drop. A custom strategy joins in by carrying the new optional `float` hook.
+
 - **A container can refuse drops from its config.** Set `accepts` in any
   container's `config`: `false` refuses every drop, `{ kinds: ['panel'] }`
   refuses a dragged node whose `kind` is not listed, and `{ max: 3 }` refuses a

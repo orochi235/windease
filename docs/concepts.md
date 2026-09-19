@@ -199,7 +199,8 @@ produces silence — the drop target exists but nothing lands, or vice versa.
 
 `container.config.accepts` is the third, and only the drag reads it:
 `false` refuses every drop, `{ kinds, max }` refuses by the dragged node's
-`kind` or by the visible child count after the drop. `lock.accept` is a
+`kind` or by the visible child count after the drop, and `'tear'` refuses
+everything but a tab torn out of a stack below it. `lock.accept` is a
 permission the store enforces, so it also stops `moveNode`, `stackNodes`,
 `splitInto` and `graft` from host code; `accepts` stops only the user's drag.
 A drag checks `lock.accept`, then `accepts`, then `acceptPolicy`, then the
@@ -371,7 +372,11 @@ Built-ins:
   Two keys the store reads rather than the strategy: `show: 'dropped'` writes
   `activeId` for a child that arrives by move or registration, and
   `fallback: 'next' | 'prev' | 'first'` rewrites it when the active child is
-  unregistered, hidden or moved out.
+  unregistered, hidden or moved out. A third, `tear: 'float'`, is read by the
+  drag engine: a tab dropped on the stack's nearest floating ancestor floats
+  there at the drop point, sized by `tearSize` or the stack's body, and a
+  floating child dropped on the stack docks as a tab. See
+  [Tearing a tab out](#tearing-a-tab-out).
 - **`floatingStrategy(inner?)`** — wraps another strategy. Items whose
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
@@ -389,6 +394,28 @@ Built-ins:
   width, in rows, masonry columns, or the lowest free spot. They grow downward;
   `container.h` only decides `overflow`. Config: `gap`, plus `columnWidth` on
   `column`. Items with no size go to `unplaced`.
+
+### Tearing a tab out
+
+A strategy that places children free of any tiling says so with an optional
+`float` hook: `keys`, the placement keys it writes, and a pure
+`place({ id, at, state, options })` returning `{ placement, state? }` for a
+child set down at `at`. `floatingStrategy` writes `floating: true` and keeps the
+corner in its state's `at`; `desktopStrategy` writes placement `x` / `y`.
+
+`floatNode(store, strategy, id, parentId, { at, size? })` applies it: it
+validates, then in one transaction writes `size` to `hints.preferredSize`,
+patches the placement, sets the state, and calls `moveNode`. `dockNode` is the
+reverse — `moveNode` into a stack, then clear the old parent's `keys`.
+
+The drag engine calls both for a stack with `tear: 'float'`. While a tab from
+such a stack hovers the stack's nearest ancestor with a `float` hook, the hover
+is `{ targetId, accepted, tear: true }` — no intent, no index, no live preview —
+and a drop floats it with its corner at the cursor, relative to that target's
+`bounds()`. Without `tearSize`, the size is the rect the stack's strategy gives
+its body at the stack's registered `bounds()`: the host measures, the engine
+lays out. A tear is refused under the target's `lock.arrange`, and into a parent
+whose child order the host controls.
 
 ## React layer
 
