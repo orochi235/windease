@@ -1031,10 +1031,10 @@ layout.dispatchAffordance({
 
 Two limits. An item with neither a measured `natural` size nor
 `hints.preferredSize` is withheld into `unplaced` rather than placed at zero
-size. And `LayoutResult` carries no stacking order, so a floating item renders
-above a tiled one only if the host renders it later — register it last, or give
-it a higher `z-index` yourself. [`desktopStrategy`](#desktop-windows) does emit
-one.
+size. And a floating item sits at `z` 0 like the tiles, so it renders above a
+tiled one only if the host renders it later — register it last, or give it
+`layer: 'top'` in its placement, which lifts it to `z` 2 and up in child order.
+[`desktopStrategy`](#desktop-windows) stacks every window by `z`.
 
 See the **Floating** story for both handle modes.
 
@@ -1055,13 +1055,18 @@ store.patchPlacement(windowId, { minimized: true });
 ```
 
 A window's size is `placement.size`, else `natural`, else `hints.preferredSize`;
-one with none is unplaced. A window with no `x` / `y` cascades from the top left.
+one with none is unplaced. A window with no `x` / `y` cascades from the top left,
+and with `wrap` the cascade starts again there once the next window would leave
+the desktop.
 Positions are not clamped unless `clamp` says so: a window past the edge comes back
 as `overflow`.
 
 **Stacking is `z`.** The window at rank `r` gets `z = r + 1`; icons sit at `0`.
 `<Container>` and the presets turn a nonzero `z` into `z-index`, and a 3D host
-reads it as depth. To raise a window, move it to the end of its parent:
+reads it as depth. A window whose placement has `layer: 'top'` ranks after every
+window without it, keeping child order within each layer, so a dock or palette
+stays above whatever is raised. To raise a window, move it to the end of its
+parent:
 
 ```ts
 store.reorderInParent(windowId, store.getNode(desktopId)!.container!.childOrder.length - 1);
@@ -1083,9 +1088,22 @@ the pressed element in the DOM and the browser drops the click it was for.
 | `clamp` | off | `'bar'` keeps each title band inside the desktop; `'all'` keeps whole windows inside where they fit |
 | `minimizable` | off | adds a click box at the right of each title band that flips `minimized`, and one over each iconified window |
 | `overflow` | `'scroll'` | `'scroll'` reports windows past any edge as `overflow`, left and top included; `'clip'` reports none |
+| `resize` | off | `true` resizes a window from its edges and corners |
+| `edgeSize` | `6` | thickness of the edges `resize` grabs; corners are twice it |
+| `wrap` | off | `true` restarts the cascade at the top left once the next window would leave the desktop |
+| `iconFrom` | `'top-left'` | the corner the icon layer fills from: `'top-left'`, `'bottom-left'`, `'top-right'` or `'bottom-right'` |
 
 With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`
 shades instead, with a `layout` trace.
+
+**Icon corner.** `inner` always lays icons out from the top-left, and `iconFrom`
+mirrors the result into another corner, so any inner strategy works there.
+`'bottom-left'` gives Windows 3.1's row along the bottom, filling rows upward;
+`'top-right'` with a one-column inner strategy gives Mac OS 9's disks down the
+right edge. The mirror covers the inner strategy's affordances, its overflow
+(rows past the top come back as `overflow.top`), and the pointer deltas, preview
+cursor and arrow-key direction it is handed back. An inner affordance's `bounds`
+is not mirrored.
 
 **Dragging.** With `drag` set, each window gets a `drag-xy` affordance (`drag-x`,
 `drag-y`) over its top `handleSize` pixels, and dragging it writes `x` / `y` into
@@ -1107,6 +1125,18 @@ it flips the window's `placement.minimized`. A window iconified under
 `minimize: 'icon'` gets one over its icon, so pressing the icon restores it. The
 built-in renderer draws it as an empty `<button>` named "minimize …" or
 "restore …", and the chrome draws the glyph beneath.
+
+**Resizing.** With `resize` set, each window gets eight affordances inside its
+border: `resize-y` on the top and bottom edges, `resize-x` on the left and right,
+`edgeSize` thick, and `resize-xy` squares twice that on the corners. Dragging one
+writes `placement.size`, and the left and top edges also write `x` / `y`, so the
+opposite edge stays where it was. A window stops at `hints.minSize` (twice
+`edgeSize` when it has none) and `hints.maxSize`, and a growing edge stops at the
+desktop's edge unless the window is already past it. Each edge's `bounds` is its
+position on its axis, so an arrow key moves it the way the arrow points. A window
+with `lock.resize` does not resize, one with `lock.move` does not resize from its
+left or top edge, and a shaded window has no edges. A window's own
+`placement.resize` overrides the config. The minimize box sits above the edges.
 
 **Overflow.** Under the default `overflow: 'scroll'`, a window at `x = -1800` is
 reported as `overflow.left`, so a scrolling wrapper can reach it (see

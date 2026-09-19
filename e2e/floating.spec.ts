@@ -133,3 +133,29 @@ test.describe('floating panel snapping to panes', () => {
     expect(Math.round(after.y - pane.y)).toBe(17);
   });
 });
+
+test.describe('floating layer', () => {
+  const TOP_STORY = 'floating--top-layer';
+
+  /** The node a real pointer lands on at the legend's center. */
+  async function hitAtLegend(page: import('@playwright/test').Page) {
+    const c = centerOf(await boxOf(page.locator(LEGEND)));
+    return page.evaluate(
+      ({ x, y }) =>
+        document.elementFromPoint(x, y)?.closest('[data-node]')?.getAttribute('data-node') ?? null,
+      c,
+    );
+  }
+
+  test('a legend on the top layer draws over the panes before it in child order', async ({
+    page,
+  }) => {
+    await openStory(page, TOP_STORY);
+    expect(await hitAtLegend(page)).toBe('legend');
+  });
+
+  test('without the layer, the panes after it cover it', async ({ page }) => {
+    await openStory(page, `${TOP_STORY}&arg-layer=false`);
+    expect(await hitAtLegend(page)).not.toBe('legend');
+  });
+});

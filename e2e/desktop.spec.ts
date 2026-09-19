@@ -189,6 +189,122 @@ test.describe('desktop behavior keys', () => {
   });
 });
 
+test.describe('desktop resize', () => {
+  test('dragging the bottom-right corner resizes a window in place', async ({ page }) => {
+    await openStory(page, BEHAVIOR);
+    // win-2 is on top, so its corner is clear of the others.
+    const before = await boxOf(node(page, 'win-2'));
+    const corner = { x: before.x + before.w - 3, y: before.y + before.h - 3 };
+    await dragMouse(page, corner, { x: corner.x + 40, y: corner.y + 30 });
+    const after = await settledBox(node(page, 'win-2'));
+    expect(after.x).toBeCloseTo(before.x, 0);
+    expect(after.y).toBeCloseTo(before.y, 0);
+    expect(after.w - before.w).toBeCloseTo(40, 0);
+    expect(after.h - before.h).toBeCloseTo(30, 0);
+  });
+
+  test('dragging the left edge moves the window with it, keeping its right edge', async ({
+    page,
+  }) => {
+    await openStory(page, BEHAVIOR);
+    const before = await boxOf(node(page, 'win-1'));
+    const edge = { x: before.x + 3, y: before.y + before.h / 2 };
+    await dragMouse(page, edge, { x: edge.x - 20, y: edge.y });
+    const after = await settledBox(node(page, 'win-1'));
+    expect(after.x - before.x).toBeCloseTo(-20, 0);
+    expect(after.x + after.w).toBeCloseTo(before.x + before.w, 0);
+  });
+
+  test('there are no resize edges unless resize is set', async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-resize=false`);
+    await expect(page.locator('[data-affordance-hit^="desktop:resize:"]')).toHaveCount(0);
+  });
+});
+
+test.describe('desktop layer', () => {
+  /** Raise win-2 the way the story does, by a click on its title bar. */
+  async function raiseWin2(page: Page) {
+    const { at } = await barOf(page, 'win-2');
+    await page.mouse.click(at.x, at.y);
+  }
+
+  test('a window on the top layer stays over a window raised after it', async ({ page }) => {
+    await openStory(page, BEHAVIOR);
+    const p = overlapCenter(await boxOf(node(page, 'palette')), await boxOf(node(page, 'win-2')));
+    expect(await hitAt(page, p)).toBe('palette');
+    await raiseWin2(page);
+    await expect(node(page, 'win-2')).toHaveCSS('z-index', '3');
+    expect(await hitAt(page, p)).toBe('palette');
+  });
+
+  test('without the layer, raising a window covers the palette', async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-layer=false`);
+    const p = overlapCenter(await boxOf(node(page, 'palette')), await boxOf(node(page, 'win-2')));
+    await raiseWin2(page);
+    await expect.poll(() => hitAt(page, p)).toBe('win-2');
+  });
+});
+
+test.describe('desktop iconFrom', () => {
+  test("iconFrom: 'bottom-left' lines icons up from the desktop's bottom-left", async ({
+    page,
+  }) => {
+    await openStory(page, BEHAVIOR);
+    const desk = await deskOf(page);
+    const disk = await boxOf(node(page, 'disk'));
+    const trash = await boxOf(node(page, 'trash'));
+    expect(disk.x).toBeCloseTo(desk.x, 0);
+    expect(disk.y + disk.h).toBeCloseTo(desk.y + 360, 0);
+    expect(trash.x).toBeCloseTo(disk.x + disk.w + 8, 0);
+    expect(trash.y).toBeCloseTo(disk.y, 0);
+  });
+
+  test('a window minimized to an icon joins the row at the bottom', async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-minimize=icon`);
+    const trash = await boxOf(node(page, 'trash'));
+    await page.getByRole('button', { name: 'minimize win-1' }).click();
+    const icon = await settledBox(node(page, 'win-1'));
+    expect(icon).toMatchObject({ y: trash.y, w: 72, h: 64 });
+    expect(icon.x).toBeCloseTo(trash.x + trash.w + 8, 0);
+  });
+
+  test("iconFrom: 'top-right' lines them up from the top-right", async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-iconFrom=top-right`);
+    const desk = await deskOf(page);
+    const disk = await boxOf(node(page, 'disk'));
+    expect(disk.x + disk.w).toBeCloseTo(desk.x + 480, 0);
+    expect(disk.y).toBeCloseTo(desk.y, 0);
+  });
+});
+
+test.describe('desktop wrap', () => {
+  /** Adds `n` unpositioned windows; the story cascades them 40px apart. */
+  async function addWindows(page: Page, n: number) {
+    for (let i = 0; i < n; i++) await page.getByTestId('add-window').click();
+    await expect(node(page, `new-${n}`)).toBeVisible();
+  }
+
+  test('the cascade starts again at the top-left once a window would leave', async ({ page }) => {
+    await openStory(page, BEHAVIOR);
+    const desk = await deskOf(page);
+    await addWindows(page, 8);
+    // new-7 sits at 240: 240 + 100 fits the 360px desktop; new-8 at 280 would not.
+    const seventh = await settledBox(node(page, 'new-7'));
+    expect(seventh.y - desk.y).toBeCloseTo(240, 0);
+    const eighth = await settledBox(node(page, 'new-8'));
+    expect(eighth.x).toBeCloseTo(desk.x, 0);
+    expect(eighth.y).toBeCloseTo(desk.y, 0);
+  });
+
+  test('without wrap, the cascade runs on past the edge', async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-wrap=false`);
+    const desk = await deskOf(page);
+    await addWindows(page, 8);
+    const eighth = await settledBox(node(page, 'new-8'));
+    expect(eighth.y - desk.y).toBeCloseTo(280, 0);
+  });
+});
+
 test.describe('desktop raise policy', () => {
   const RAISE = 'desktop--raise-policy';
 

@@ -129,6 +129,11 @@ Two paths for free-form data on a node; lifetimes differ:
   both commit a `childOrder` index the cell would override, and across parents
   it names a cell in the old grid. `setChildOrder` leaves it alone.
 
+- `layer: 'top'` — draw above every sibling without it, keeping child order
+  within each layer. Read by `desktop` and `floating` only; any other value is
+  the normal layer. `raise` still moves the node last in `childOrder`, which
+  reorders it within its own layer.
+
 **Reserved key on `node.meta`:**
 
 - `title: string` — the node's **accessible name**. The React layer maps it
@@ -381,14 +386,20 @@ Built-ins:
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
   `handleSize`, `snapToPanes`. Called with no argument, everything floats.
+  Floating items sit at `z` 0, stacked by render order, except those with
+  placement `layer: 'top'`, which take `z` 2 and up.
 - **`desktopStrategy(inner?)`** — windows at placement `x` / `y`, overlapping,
-  stacked by item order with `z` counting up from 1. Placement `minimized` shades
+  stacked by item order with `z` counting up from 1, placement `layer: 'top'`
+  windows after the rest. Placement `minimized` shades
   a window, or with `minimize: 'icon'` hands it to `inner` beside the items
   marked `icon`, which sit at `z` 0. Config: `minimize`, `shadeHeight`,
-  `iconWidth`, `iconHeight`, `cascade`, `drag`, `handleSize`, `clamp`, `overflow`, `minimizable`. Keeps no
-  state of its own; with `drag` set it emits a title-band drag affordance per
-  window that writes placement `x` / `y`, and with `minimizable` a `click`
-  affordance that flips `minimized`.
+  `iconWidth`, `iconHeight`, `cascade`, `drag`, `handleSize`, `clamp`, `overflow`, `minimizable`,
+  `resize`, `edgeSize`, `iconFrom`, `wrap`. Keeps no state of its own; with `drag` set it emits a
+  title-band drag affordance per window that writes placement `x` / `y`, with
+  `minimizable` a `click` affordance that flips `minimized`, and with `resize`
+  edge and corner affordances that write `size` (and `x` / `y` from the left and
+  top). `iconFrom` mirrors `inner`'s top-left layout into another corner rather
+  than asking `inner` to place from there.
 - **`shelfStrategy`**, **`columnStrategy`**, **`skylineStrategy`** — pack items
   at their own size (`natural`, else `hints.preferredSize`) into the container's
   width, in rows, masonry columns, or the lowest free spot. They grow downward;

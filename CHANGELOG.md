@@ -104,6 +104,39 @@ section below.
   renders `click` affordances, as a named `<button>`; it rendered them as inert
   drag handles before.
 
+- **`resize` on `desktopStrategy`.** `resize: true` gives each window a
+  `resize-x` or `resize-y` affordance on each edge and a `resize-xy` on each
+  corner, inside the window's border: edges `edgeSize` thick (6 by default),
+  corners twice that. Dragging one writes `placement.size`, and the left and top
+  edges also write `x` / `y` so the opposite edge stays put. A window stops at
+  its `hints.minSize` (twice `edgeSize` without one) and `hints.maxSize`, and a
+  growing edge stops at the desktop's edge. Each edge reports `bounds` as its
+  position, so a keyboard press moves it the way the arrow points. `lock.resize`
+  refuses the resize, `lock.move` refuses the left and top edges, a shaded window
+  gets no edges, and a window's own `placement.resize` overrides the config. See
+  [Desktop windows](README.md#desktop-windows).
+
+- **`wrap` on `desktopStrategy`** restarts the cascade at the top-left once the
+  next window would leave the desktop on either axis, as classic window managers
+  do. A window too big for the desktop still starts at the top-left. Without it,
+  the cascade runs on past the edge as before.
+
+- **`iconFrom` on `desktopStrategy`** picks the corner the icon layer fills
+  from: `'top-left'` (the default), `'bottom-left'` (Windows 3.1, rows going up),
+  `'top-right'` or `'bottom-right'`. The inner strategy still lays icons out from
+  the top-left, and the desktop mirrors its placements, affordances and overflow
+  into the corner, and mirrors pointer deltas, preview cursors and navigation
+  directions back on their way in, so any inner strategy works unchanged. Rows
+  that run past the top are reported as `overflow.top`.
+
+- **Placement `layer: 'top'` keeps a window above the rest, on `desktopStrategy`
+  and `floatingStrategy`.** For GIMP's docks and Mac OS 9's palettes. On a desktop,
+  windows without it take `z` 1 up in child order and top-layer windows follow, so
+  raising a window moves it to the top of its own layer and never over a
+  top-layer one. On floating, which leaves its items at `z` 0 and to DOM order, a
+  top-layer item takes `z` 2 and up in child order. Any other value is the normal
+  layer. See [Desktop windows](README.md#desktop-windows).
+
 - **An affordance handle stacks at its rect's `z`**, so a window's title band sits
   above that window and below the ones in front of it. `Affordance.label` names
   what a gesture does (`'move'`), and the handle's accessible name uses it in

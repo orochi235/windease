@@ -111,6 +111,14 @@
   visibility: hidden;
 }
 
+.desktop-add {
+  margin-top: 12px;
+  font:
+    12px system-ui,
+    -apple-system,
+    sans-serif;
+}
+
 .fit-frame {
   box-sizing: content-box;
   border: 1px solid #d4d4dc;

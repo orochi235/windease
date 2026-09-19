@@ -28,6 +28,8 @@ interface Args {
   topRight: boolean;
   bottomLeft: boolean;
   bottomRight: boolean;
+  /** Register the legend before the panes, and put it on the top layer when true. */
+  layer?: boolean;
 }
 
 function cornersFrom(args: Args): Corner[] {
@@ -40,7 +42,12 @@ function cornersFrom(args: Args): Corner[] {
 }
 
 /** `corners` arrives joined, so the memo depends on a value rather than a new array each render. */
-function useZoneStore(handleSize: number, snapToPanes: boolean, corners: string): Store {
+function useZoneStore(
+  handleSize: number,
+  snapToPanes: boolean,
+  corners: string,
+  layer: boolean | undefined,
+): Store {
   return useMemo(() => {
     const s = new Store();
     s.registerNode(
@@ -61,6 +68,25 @@ function useZoneStore(handleSize: number, snapToPanes: boolean, corners: string)
         id: ZONE_ID,
       }),
     );
+    const registerLegend = () => {
+      s.registerNode(
+        createNode({
+          kind: 'legend',
+          id: LEGEND_ID,
+          parentId: ZONE_ID,
+          // An empty list means "every corner" — the same fallback a bad value gets.
+          placement: {
+            floating: true,
+            snapCorners: corners.length > 0 ? corners.split(',') : undefined,
+            layer: layer ? 'top' : undefined,
+          },
+          hints: { preferredSize: { w: 180, h: 110 } },
+        }),
+      );
+      s.showNode(LEGEND_ID);
+    };
+    // Registered first, it renders under the panes unless its layer lifts it.
+    if (layer !== undefined) registerLegend();
     for (let i = 0; i < 4; i++) {
       const id = asNodeId(`panel-${i + 1}`);
       s.registerNode(
@@ -74,29 +100,16 @@ function useZoneStore(handleSize: number, snapToPanes: boolean, corners: string)
       );
       s.showNode(id);
     }
-    // Registered last, so it renders last: nothing in `LayoutResult` carries
-    // stacking order, and DOM order is what puts it over the tiles.
-    s.registerNode(
-      createNode({
-        kind: 'legend',
-        id: LEGEND_ID,
-        parentId: ZONE_ID,
-        // An empty list means "every corner" — the same fallback a bad value gets.
-        placement: {
-          floating: true,
-          snapCorners: corners.length > 0 ? corners.split(',') : undefined,
-        },
-        hints: { preferredSize: { w: 180, h: 110 } },
-      }),
-    );
-    s.showNode(LEGEND_ID);
+    // Registered last, it renders last: with no layer, DOM order is what puts
+    // it over the tiles.
+    if (layer === undefined) registerLegend();
     return s;
-  }, [handleSize, snapToPanes, corners]);
+  }, [handleSize, snapToPanes, corners, layer]);
 }
 
 function FloatingZone(args: Args) {
   const corners = cornersFrom(args);
-  const store = useZoneStore(args.handleSize, args.snapToPanes, corners.join(','));
+  const store = useZoneStore(args.handleSize, args.snapToPanes, corners.join(','), args.layer);
   const [clicks, setClicks] = useState(0);
   const { handleSize, snapToPanes } = args;
 
@@ -179,3 +192,7 @@ SnapToPanes.args = {
   bottomLeft: true,
   bottomRight: true,
 };
+
+/** The legend comes before the panes in child order, so only `layer: 'top'` keeps it over them. */
+export const TopLayer: Story<Args> = (args) => <FloatingZone {...args} />;
+TopLayer.args = { ...HandleBand.args, layer: true };

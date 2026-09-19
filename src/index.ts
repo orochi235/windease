@@ -84,15 +84,18 @@ export {
 } from './layout/config-check.js';
 export {
   DEFAULT_CASCADE,
+  DEFAULT_EDGE_SIZE,
   DEFAULT_HANDLE_SIZE,
   DEFAULT_ICON_SIZE,
   DEFAULT_SHADE_HEIGHT,
   DESKTOP_CLAMP,
   DESKTOP_DRAG,
   DESKTOP_DRAG_PREFIX,
+  DESKTOP_ICON_FROM,
   DESKTOP_MINIMIZE,
   DESKTOP_MINIMIZE_PREFIX,
   DESKTOP_OVERFLOW,
+  DESKTOP_RESIZE_PREFIX,
   type DesktopConfig,
   type DesktopState,
   desktopStrategy,
@@ -110,6 +113,7 @@ export {
   floatingStrategy,
 } from './layout/floating.js';
 export { gridStrategy, gridTiling } from './layout/grid.js';
+export { PLACEMENT_LAYERS } from './layout/layer.js';
 export {
   DEFAULT_JOIN_THRESHOLD,
   type JoinState,

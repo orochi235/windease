@@ -9,6 +9,7 @@ import type {
 } from '../layout-types.js';
 import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
+import { onTopLayer } from './layer.js';
 
 /** The four corners a floating item can anchor to. */
 export const FLOATING_CORNERS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const;
@@ -241,6 +242,7 @@ export function floatingStrategy<TInner>(
       const panes = cfg.snapToPanes ? result.placements : undefined;
       const affordances: Affordance[] = [...result.affordances];
       const unplaced = [...(result.unplaced ?? [])];
+      let topRank = 0;
       for (const item of floating) {
         const size = sizeOf(item);
         // A 0x0 rect renders as a panel that vanished. `natural` arrives only
@@ -254,6 +256,8 @@ export function floatingStrategy<TInner>(
           continue;
         }
         const rect = rectOf(item, state.at[item.id] ?? seed(options), container, inset, panes);
+        // From 2: a host draws every drag band at 1 or above, the others' included.
+        if (onTopLayer(item)) rect.z = 1 + ++topRank;
         placements.set(item.id, rect);
         affordances.push({
           id: `${FLOATING_DRAG_PREFIX}${item.id}`,

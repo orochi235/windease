@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { createNode } from '../constructors.js';
+import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { LayoutItem, Rect } from '../layout-types.js';
+import { asNodeId } from '../node.js';
+import { Store } from '../store.js';
 import {
   containerTarget,
   cornerOrigin,
@@ -323,5 +327,65 @@ describe('floatingStrategy delegation', () => {
     expect(s.navigate?.({ items: [pane], from: 'main', direction: 'left', options: {} })).toBe(
       'from-inner',
     );
+  });
+});
+
+describe('floatingStrategy layer', () => {
+  const float = (id: string, meta: Record<string, unknown> = {}): LayoutItem => ({
+    id,
+    meta: { floating: true, ...meta },
+    natural: { w: 100, h: 80 },
+  });
+  const zs = (items: LayoutItem[], ids: string[]) => {
+    const s = floatingStrategy(stackStrategy);
+    const r = s.layout({ items, container, state: s.initialState(items, {}), options: {} });
+    return ids.map((id) => r.placements.get(id)?.z);
+  };
+
+  it('lifts a top-layer item above the rest, which stay at 0', () => {
+    const items = [float('palette', { layer: 'top' }), float('legend'), pane];
+    expect(zs(items, ['palette', 'legend', 'main'])).toEqual([2, 0, 0]);
+  });
+
+  it('keeps child order within the top layer', () => {
+    const items = [float('b', { layer: 'top' }), float('a', { layer: 'top' })];
+    expect(zs(items, ['b', 'a'])).toEqual([2, 3]);
+  });
+
+  it("stacks a top-layer item's drag band at its z", () => {
+    const s = floatingStrategy();
+    const items = [float('palette', { layer: 'top' })];
+    const r = s.layout({ items, container, state: s.initialState(items, {}), options: {} });
+    expect(r.affordances[0]?.rect.z).toBe(2);
+  });
+
+  it('keeps a raised item under the top layer', () => {
+    const Z = asNodeId('z');
+    const store = new Store();
+    store.registerNode(
+      createNode({ kind: 'zone', id: Z, container: { strategyId: 'floating', config: {} } }),
+    );
+    for (const [id, placement] of [
+      ['legend', {}],
+      ['palette', { layer: 'top' }],
+      ['notes', {}],
+    ] as const) {
+      store.registerNode(
+        createNode({
+          kind: 'panel',
+          id: asNodeId(id),
+          parentId: Z,
+          placement: { floating: true, ...placement },
+          hints: { preferredSize: { w: 100, h: 80 } },
+        }),
+      );
+      store.showNode(asNodeId(id));
+    }
+    store.raise(asNodeId('legend'));
+    const items = store.getChildren(Z).map((n) => nodeToLayoutItem(n));
+    expect(items.map((i) => i.id)).toEqual(['palette', 'notes', 'legend']);
+    const s = floatingStrategy();
+    const r = s.layout({ items, container, state: s.initialState(items, {}), options: {} });
+    expect(r.placements.get('palette')?.z).toBeGreaterThan(r.placements.get('legend')?.z ?? 0);
   });
 });
