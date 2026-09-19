@@ -151,6 +151,10 @@ export class Store {
   private readonly publisher: Publisher;
   private locksSuspended = 0;
   private txnDepth = 0;
+  /** Containers registered in the current synchronous task whose `activeId`
+   *  nothing has written since: a child registered into one is part of the
+   *  build, not an arrival, so `show: 'dropped'` leaves the declared tab. */
+  readonly #populating = new Set<NodeId>();
   private readonly successorPolicy: SuccessorPolicy | undefined;
   /**
    * The navigation policy this store was constructed with, read by
@@ -327,7 +331,8 @@ export class Store {
     }
     this.events.emit('node.registered', { id: node.id });
     trace('store', `register: ${node.id} (kind=${node.kind})`);
-    if (node.membership) this.#showArrival(node.membership.parentId, node.id);
+    if (node.container) this.#markPopulating(node.id);
+    if (node.membership) this.#showArrival(node.membership.parentId, node.id, 'registered');
     this.scheduleNotify();
   }
 
@@ -544,11 +549,21 @@ export class Store {
     trace('store', `fallback: ${id} → ${to ?? '(first)'} in ${parentId} (${mode}, ${reason})`);
   }
 
-  /** Container config `show: 'dropped'`: a child arriving by move or
-   *  registration becomes the stack's active child. */
-  #showArrival(parentId: NodeId, id: NodeId): void {
+  #markPopulating(id: NodeId): void {
+    if (this.#populating.size === 0) queueMicrotask(() => this.#populating.clear());
+    this.#populating.add(id);
+  }
+
+  /** Container config `show: 'dropped'`: a child arriving by move, or by
+   *  registration after the stack's initial population, becomes the stack's
+   *  active child. */
+  #showArrival(parentId: NodeId, id: NodeId, how: 'moved' | 'registered' = 'moved'): void {
     const container = this.nodesMap.get(parentId)?.container;
     if (!container || configKey(container.config, 'show') !== 'dropped') return;
+    if (how === 'registered' && this.#populating.has(parentId)) {
+      trace('store', `show: ${id} in ${parentId} skipped (registered while the stack is built)`);
+      return;
+    }
     if (!container.childOrder.includes(id)) return;
     this.updateContainerConfig(parentId, { activeId: id }, { force: true });
     trace('store', `show: ${id} in ${parentId} (dropped)`);
@@ -1134,6 +1149,9 @@ export class Store {
       next = merged;
     } else {
       next = patch;
+    }
+    if (typeof patch === 'object' && patch !== null && 'activeId' in patch) {
+      this.#populating.delete(id);
     }
     // Value equality, not reference: the merge branch always allocates, so a
     // host recomputing config from a ResizeObserver would otherwise emit and

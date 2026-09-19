@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createNode } from '../constructors.js';
 import type { LayoutItem, Size } from '../layout-types.js';
 import { asNodeId } from '../node.js';
 import {
@@ -117,16 +118,28 @@ describe("Photoshop with show: 'dropped' on its groups", () => {
     return { ...PHOTOSHOP_PANELS, mechanics: tree };
   };
 
-  // Why the preset leaves `show` off: building the store registers each tab,
-  // and a registration counts as an arrival.
-  const DEFECT =
-    "show: 'dropped' fires on every registration, so building the preset leaves each group's last tab active";
-  it.fails(`keeps the activeId it declares when built [defect: ${DEFECT}]`, () => {
+  it('keeps the activeId it declares when built', () => {
     const store = presetToStore(withShow());
     const config = store.getNode(asNodeId('ps-group-layers'))?.container?.config as
       | { activeId?: string }
       | undefined;
     expect(config?.activeId).toBe('ps-layers');
+  });
+
+  it('shows a tab opened after the build', async () => {
+    const store = presetToStore(withShow());
+    await Promise.resolve();
+    store.registerNode(
+      createNode({
+        id: asNodeId('ps-history'),
+        kind: 'panel',
+        parentId: asNodeId('ps-group-layers'),
+      }),
+    );
+    const config = store.getNode(asNodeId('ps-group-layers'))?.container?.config as
+      | { activeId?: string }
+      | undefined;
+    expect(config?.activeId).toBe('ps-history');
   });
 });
 

@@ -398,7 +398,9 @@ Built-ins:
   the band your tab strip renders in, plus `padding`. The core never measures
   the strip and never draws it; `useStack(containerId)` gives you the model.
   Two keys the store reads rather than the strategy: `show: 'dropped'` writes
-  `activeId` for a child that arrives by move or registration, and
+  `activeId` for a child that arrives by move or registration (a child
+  registered in the same synchronous task as the stack, before anything writes
+  `activeId`, is part of building it and changes nothing), and
   `fallback: 'next' | 'prev' | 'first'` rewrites it when the active child is
   unregistered, hidden or moved out. A third, `tear: 'float'`, is read by the
   drag engine: a tab dropped on the stack's nearest floating ancestor floats

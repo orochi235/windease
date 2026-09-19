@@ -225,6 +225,36 @@ describe("config show: 'dropped'", () => {
     expect(activeOf(s, id('st'))).toBe('n');
   });
 
+  it('keeps a declared activeId while the stack is built in one task', () => {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'group',
+        id: id('st'),
+        container: { strategyId: 'stack', config: { activeId: 'b', show: 'dropped' } },
+      }),
+    );
+    for (const p of ['a', 'b', 'c']) {
+      s.registerNode(createNode({ kind: 'panel', id: id(p), parentId: id('st') }));
+    }
+    expect(activeOf(s, id('st'))).toBe('b');
+  });
+
+  it('activates a child registered in a later task, after the build', async () => {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'group',
+        id: id('st'),
+        container: { strategyId: 'stack', config: { activeId: 'a', show: 'dropped' } },
+      }),
+    );
+    s.registerNode(createNode({ kind: 'panel', id: id('a'), parentId: id('st') }));
+    await Promise.resolve();
+    s.registerNode(createNode({ kind: 'panel', id: id('n'), parentId: id('st') }));
+    expect(activeOf(s, id('st'))).toBe('n');
+  });
+
   it("activates through a locked stack, as a tab click would: 'arrange' does not govern which tab shows", () => {
     const s = stackSeeded({ show: 'dropped' });
     s.setLock(id('st'), { arrange: true });

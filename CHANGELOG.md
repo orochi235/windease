@@ -315,6 +315,13 @@ section below.
 
 ### Fixed
 
+- **A stack with `show: 'dropped'` keeps the `activeId` it is built with.**
+  Registering its tabs one by one counted each as an arrival, so building the
+  tree left the last tab active. Children registered in the same synchronous
+  task as the stack, before anything writes its `activeId`, are now part of the
+  build and leave the declared tab showing. A tab registered later, as when a
+  user opens one, still becomes the active tab.
+
 - **A resizable grid of celled items under a row cap lays out in milliseconds.**
   Working out how far each item's seam can grow copied the whole grid for
   every span it tried, and for a celled item recounted every cell each time.
