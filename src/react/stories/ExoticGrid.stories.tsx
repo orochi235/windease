@@ -60,7 +60,6 @@ function GroupFrame({ node }: { node: Node }) {
 
 const chrome: ChromeHandler = ({ node }) => {
   if (node.container) return <GroupFrame node={node} />;
-  if (node.meta?.spacer) return <div className="xg-spacer" aria-hidden="true" />;
   const span = spanLabel(node);
   return (
     <DragHandle nodeId={node.id} className="xg-tile">
@@ -75,7 +74,8 @@ const chrome: ChromeHandler = ({ node }) => {
 function Readout({ id, title }: { id: NodeId; title: string }) {
   const parent = useNode(id);
   const visible = useChildren(id).filter((c) => c.lifecycle.state === 'visible');
-  // `unplaced` in the default squeeze mode never depends on the container.
+  // `unplaced` in squeeze mode depends on the container only through a fixed
+  // `cell.w` with no `cols`, which no preset uses.
   const unplaced =
     gridStrategy.layout({
       items: visible.map(nodeToLayoutItem),
@@ -99,12 +99,6 @@ function Readout({ id, title }: { id: NodeId; title: string }) {
   );
 }
 
-/** A root that is not itself a grid is the device shell (a launcher, a Start
- *  menu), not a place a tile can land. Accepting there would also start its
- *  live preview, which re-lays out the shell and slides the page out from
- *  under the cursor. */
-const refuseAtShell = () => false;
-
 function RootFrame({ id, children }: { id: NodeId; children: ReactNode }) {
   return (
     <div className={useVerdictClass(id, 'xg-root xg-frame')} data-testid={`frame-${id}`}>
@@ -126,13 +120,7 @@ function PresetView({ preset }: { preset: Preset }) {
         <DragProvider>
           <PresetInfo preset={preset} />
           <RootFrame id={rootId}>
-            <Container
-              parentId={rootId}
-              chrome={chrome}
-              viewport={preset.viewport}
-              affordances
-              {...(preset.mechanics.strategy === 'grid' ? {} : { acceptPolicy: refuseAtShell })}
-            />
+            <Container parentId={rootId} chrome={chrome} viewport={preset.viewport} affordances />
           </RootFrame>
           <dl className="xg-readout">
             {grids.map((g) => (
