@@ -20,6 +20,7 @@ export const OVERLAP_STRATEGIES: Record<string, LayoutStrategy<unknown, string, 
   strip: stripStrategy as never,
 };
 
+/** A window as content: its title, size and where the user left it. The desktop's `item` makes it a window. */
 const win = (
   id: string,
   title: string,
@@ -28,11 +29,16 @@ const win = (
   placement: Record<string, unknown> = {},
 ): PresetNode => ({
   id,
-  kind: 'window',
   hints: { preferredSize: { w, h } },
   placement,
   meta: { title },
 });
+
+/** What every window on a desktop gets: the chrome that draws a title bar. */
+const WINDOW_ITEM: NonNullable<PresetNode['item']> = { kind: 'window' };
+
+/** Title-bar height, matching the bar the stories draw. */
+const BAR = 20;
 
 const icon = (id: string, title: string, w = 64, h = 64): PresetNode => ({
   id,
@@ -72,7 +78,17 @@ export const MACOS9_WINDOWSHADE: Preset = {
     id: 'mac-desktop',
     kind: 'zone',
     strategy: 'desktop-shelf',
-    config: { minimize: 'shade', shadeHeight: 20, gap: 12, padding: 12 },
+    config: {
+      minimize: 'shade',
+      shadeHeight: BAR,
+      gap: 12,
+      padding: 12,
+      drag: true,
+      handleSize: BAR,
+      raise: 'click',
+      minimizable: true,
+    },
+    item: WINDOW_ITEM,
   },
   data: {
     children: {
@@ -127,7 +143,18 @@ export const WIN31_ICONS: Preset = {
     id: 'win31-desktop',
     kind: 'zone',
     strategy: 'desktop-shelf',
-    config: { minimize: 'icon', iconWidth: 72, iconHeight: 56, gap: 4, padding: 4 },
+    config: {
+      minimize: 'icon',
+      iconWidth: 72,
+      iconHeight: 56,
+      gap: 4,
+      padding: 4,
+      drag: true,
+      handleSize: BAR,
+      raise: 'click',
+      minimizable: true,
+    },
+    item: WINDOW_ITEM,
   },
   data: {
     children: {
@@ -158,7 +185,8 @@ export const GIMP_MULTIWINDOW: Preset = {
     id: 'gimp-desktop',
     kind: 'zone',
     strategy: 'desktop',
-    config: {},
+    config: { drag: true, handleSize: BAR, raise: 'click' },
+    item: WINDOW_ITEM,
   },
   data: {
     children: {
@@ -178,13 +206,15 @@ export const AMIGA_SCREENS: Preset = {
   source: 'AmigaOS 3.1: Workbench and two application screens, front screens dragged down',
   stress: 'full-width screens stacked in z, each pulled down to reveal the one behind',
   description:
-    "AmigaOS gives each full-screen program its own screen, a whole display with its own resolution and colors, and stacks the screens one in front of another. Dragging a screen's title bar downward slides the whole screen down to reveal the ones behind it, and a button at the right of the title bar sends a screen to the back or brings it to the front.",
+    "AmigaOS gives each full-screen program its own screen, a whole display with its own resolution and colors, and stacks the screens one in front of another. Dragging a screen's title bar downward slides the whole screen down to reveal the ones behind it; whatever of it passes the bottom of the display is not shown, and no screen goes above the top. A button at the right of the title bar sends a screen to the back or brings it to the front.",
   viewport: { w: 640, h: 256 },
   mechanics: {
     id: 'amiga-display',
     kind: 'zone',
     strategy: 'desktop',
-    config: {},
+    // A screen slides only up and down, never above the display's top, and what hangs below is not shown.
+    config: { drag: 'y', handleSize: BAR, clamp: 'bar', overflow: 'clip' },
+    item: WINDOW_ITEM,
   },
   data: {
     children: {
@@ -208,7 +238,9 @@ export const FIGMA_CANVAS: Preset = {
     id: 'figma-canvas',
     kind: 'zone',
     strategy: 'desktop',
-    config: {},
+    // No raise: selecting a frame leaves its place in the layer order.
+    config: { drag: true, handleSize: BAR, overflow: 'scroll' },
+    item: WINDOW_ITEM,
   },
   data: {
     children: {
@@ -228,13 +260,14 @@ export const UNPLUGGED_MONITOR: Preset = {
   source: 'macOS laptop after its external displays unplug: windows saved on the lost screens',
   stress: 'saved positions entirely outside the container, left and right of it',
   description:
-    "A MacBook that was used with external monitors, now unplugged, running apps that remember where their windows last were. Windows saved on the missing screens have positions far to the left or right of the laptop's own display. macOS normally moves such windows onto a remaining screen, but an app that restores its own saved positions can put them where the user cannot reach them.",
+    "A MacBook that was used with external monitors, now unplugged, running apps that remember where their windows last were. Windows saved on the missing screens have positions far to the left or right of the laptop's own display. The apps keep those saved positions, and macOS pulls each window back onto the laptop's screen, where it fits, so none is left where the user cannot reach it.",
   viewport: { w: 1280, h: 800 },
   mechanics: {
     id: 'laptop-display',
     kind: 'zone',
     strategy: 'desktop',
-    config: {},
+    config: { drag: true, handleSize: BAR, raise: 'click', clamp: 'all' },
+    item: WINDOW_ITEM,
   },
   data: {
     children: {
@@ -259,7 +292,8 @@ export const CASCADE_200: Preset = {
     id: 'cascade-desktop',
     kind: 'zone',
     strategy: 'desktop',
-    config: { cascade: 24 },
+    config: { cascade: 24, drag: true, handleSize: BAR, raise: 'click' },
+    item: WINDOW_ITEM,
   },
   data: {
     children: {
@@ -390,7 +424,18 @@ export const TWM_ICON_MANAGER: Preset = {
     id: 'twm-root',
     kind: 'zone',
     strategy: 'desktop-shelf',
-    config: { minimize: 'icon', iconWidth: 160, iconHeight: 20, gap: 0, padding: 0 },
+    config: {
+      minimize: 'icon',
+      iconWidth: 160,
+      iconHeight: 20,
+      gap: 0,
+      padding: 0,
+      drag: true,
+      handleSize: BAR,
+      raise: 'click',
+      minimizable: true,
+    },
+    item: WINDOW_ITEM,
   },
   data: {
     children: {

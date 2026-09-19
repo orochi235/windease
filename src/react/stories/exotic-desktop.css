@@ -31,17 +31,16 @@
 
 .xd-window__bar {
   flex: none;
+  box-sizing: border-box;
   height: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 0 2px 0 6px;
+  padding: 0 0 0 6px;
   background: repeating-linear-gradient(#cbd5e1 0 1px, #e2e8f0 1px 3px);
   border-bottom: 1px solid #94a3b8;
-  cursor: grab;
   user-select: none;
-  touch-action: none;
 }
 
 .xd-window__title {
@@ -50,15 +49,16 @@
   text-overflow: ellipsis;
 }
 
-.xd-window__button {
+/* Drawn under the desktop's minimize box, which is a 20px square at the bar's right. */
+.xd-window__glyph {
   flex: none;
-  font: inherit;
-  width: 18px;
-  height: 16px;
-  padding: 0;
-  border: 1px solid #64748b;
-  background: #f1f5f9;
-  cursor: pointer;
+  width: 20px;
+  text-align: center;
+}
+
+.xd-frame [data-affordance-kind="click"]:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
 }
 
 .xd-window__body {
@@ -88,7 +88,6 @@
 
 .xd-icon--window {
   border: 1px dashed #1d4ed8;
-  cursor: pointer;
 }
 
 .xd-palette {
@@ -128,8 +127,13 @@
   cursor: pointer;
 }
 
+/* 'clip' reports no overflow, so nothing grows; hiding what passes the edge is the host's. */
+.xd-frame--clip {
+  overflow: hidden;
+}
+
 /* The floating drag band, painted so the strategy's own hit area is visible. */
-.xd-frame [data-affordance-kind="drag-xy"] {
+.xd-frame [data-affordance^="floating:drag:"] {
   background: rgb(59 130 246 / 20%);
 }
 

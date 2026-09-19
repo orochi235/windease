@@ -210,7 +210,11 @@ function useBehaviorStore(args: BehaviorArgs): Store {
   const store = useMemo(() => {
     const s = new Store();
     s.registerNode(
-      createNode({ kind: 'zone', id: ZONE_ID, container: { strategyId: 'desktop', config: {} } }),
+      createNode({
+        kind: 'zone',
+        id: ZONE_ID,
+        container: { strategyId: 'desktop', config: { raise: 'click' } },
+      }),
     );
     for (const { id, x, y, w, h } of BEHAVIOR_WINDOWS) {
       s.registerNode(
@@ -253,25 +257,16 @@ const BEHAVIOR_CHROME: ChromeMap = {
   ),
 };
 
-/** Raising is not a desktop key yet, so a click on a window's title band raises it here. */
-function raiseFromBand(store: Store, target: EventTarget | null) {
-  const hit = (target as Element | null)?.closest('[data-affordance-hit]');
-  const id = hit?.getAttribute('data-affordance-hit')?.match(/^desktop:drag:(.+)$/)?.[1];
-  if (id && store.getNode(asNodeId(id))) store.focusNode(asNodeId(id));
-}
-
 function BehaviorZone(args: BehaviorArgs) {
   const store = useBehaviorStore(args);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={BEHAVIOR_STRATEGIES}>
-        <RaiseOnFocus />
         <div
           ref={scrollRef}
           className={`desktop-scroller desktop-scroller--${args.overflow}${args.minimizable ? '' : ' desktop-scroller--no-toggle'}`}
           data-testid="desktop-scroller"
-          onClickCapture={(e) => raiseFromBand(store, e.target)}
         >
           <Container
             parentId={ZONE_ID}
@@ -283,8 +278,8 @@ function BehaviorZone(args: BehaviorArgs) {
           />
         </div>
         <p className="desktop-hint">
-          Drag a window by its title bar. <code>drag: 'y'</code> moves it up and down only;{' '}
-          <code>clamp</code> keeps its title bar, or all of it, on the desktop;{' '}
+          Drag a window by its title bar, and click it to raise it. <code>drag: 'y'</code> moves it
+          up and down only; <code>clamp</code> keeps its title bar, or all of it, on the desktop;{' '}
           <code>minimizable</code> makes the box at its right roll it up. win-3 was left on a
           monitor that is gone: scroll left to reach it, or clamp to bring it back.
         </p>

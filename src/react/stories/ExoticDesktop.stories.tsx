@@ -1,7 +1,7 @@
 export default { title: 'Exotic / Desktop' };
 
 import type { Story } from '@ladle/react';
-import { type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
+import { type ReactNode, useMemo, useRef } from 'react';
 import { asNodeId, type Node, type NodeId, type Store } from '../../index.js';
 import { OVERLAP_STRATEGIES, PRESETS } from '../../test-utils/exotic/overlap-scenarios.js';
 import { type Preset, presetToStore } from '../../test-utils/exotic/preset.js';
@@ -11,7 +11,6 @@ import {
   Provider,
   StrategyRegistryProvider,
   useChildren,
-  useFocusedNode,
   useNode,
   useStack,
   useStore,
@@ -29,85 +28,25 @@ const parentOf = (store: Store, node: Node) =>
   node.membership ? store.getNode(node.membership.parentId) : undefined;
 const titleOf = (node: Node) => String(node.meta?.title ?? node.id);
 
-/** A desktop's one host rule: focusing a window moves it to the end of `childOrder`, which is the top. */
-function RaiseOnFocus() {
-  const store = useStore();
-  const focused = useFocusedNode();
-  useEffect(() => {
-    if (!focused?.membership) return;
-    const parent = store.getNode(focused.membership.parentId);
-    if (!parent?.container?.strategyId.startsWith('desktop')) return;
-    const order = parent.container.childOrder;
-    if (order.at(-1) !== focused.id) store.reorderInParent(focused.id, order.length - 1);
-  }, [focused, store]);
-  return null;
-}
-
-/** Title-bar drag for a desktop window: the host writes `x` / `y`, as the strategy expects. */
-function useTitleDrag(id: NodeId) {
-  const store = useStore();
-  const last = useRef<{ x: number; y: number } | null>(null);
-  const onPointerDown = useCallback((e: PointerEvent<HTMLElement>) => {
-    if ((e.target as HTMLElement).closest('button')) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    last.current = { x: e.clientX, y: e.clientY };
-  }, []);
-  const onPointerMove = useCallback(
-    (e: PointerEvent<HTMLElement>) => {
-      if (!last.current) return;
-      const dx = e.clientX - last.current.x;
-      const dy = e.clientY - last.current.y;
-      last.current = { x: e.clientX, y: e.clientY };
-      const p = placementOf(store.getNode(id));
-      const x = typeof p.x === 'number' ? p.x : 0;
-      const y = typeof p.y === 'number' ? p.y : 0;
-      store.patchPlacement(id, { x: x + dx, y: y + dy });
-    },
-    [id, store],
-  );
-  const onPointerUp = useCallback(() => {
-    last.current = null;
-  }, []);
-  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp };
-}
-
+/** Draws a window's title bar and minimize glyph; dragging, raising and minimizing are the desktop's config. */
 function DesktopWindow({ node }: { node: Node }) {
   const store = useStore();
-  const drag = useTitleDrag(node.id);
   const minimized = placementOf(node).minimized === true;
-  const parent = parentOf(store, node);
-  const iconMode =
-    (parent?.container?.config as { minimize?: string } | undefined)?.minimize === 'icon';
-  const toggle = () => store.patchPlacement(node.id, { minimized: !minimized });
-
-  if (minimized && iconMode) {
-    return (
-      <button
-        type="button"
-        className="xd-icon xd-icon--window"
-        data-testid={`restore-${node.id}`}
-        onClick={toggle}
-      >
-        {titleOf(node)}
-      </button>
-    );
+  const config = parentOf(store, node)?.container?.config as
+    | { minimize?: string; minimizable?: boolean }
+    | undefined;
+  if (minimized && config?.minimize === 'icon') {
+    return <div className="xd-icon xd-icon--window">{titleOf(node)}</div>;
   }
   return (
-    // On click, not pointerdown: raising reorders the DOM, and a move mid-press drops the click.
-    // biome-ignore lint/a11y/noStaticElementInteractions: the wrapper is the window's group; clicking only raises it.
-    // biome-ignore lint/a11y/useKeyWithClickEvents: raising is a pointer convenience; the minimize button is the keyboard control.
-    <div className="xd-window" onClick={() => store.focusNode(node.id)}>
-      <header className="xd-window__bar" data-testid={`bar-${node.id}`} {...drag}>
+    <div className="xd-window">
+      <header className="xd-window__bar" data-testid={`bar-${node.id}`}>
         <span className="xd-window__title">{titleOf(node)}</span>
-        <button
-          type="button"
-          className="xd-window__button"
-          data-testid={`minimize-${node.id}`}
-          aria-label={minimized ? 'Restore' : 'Minimize'}
-          onClick={toggle}
-        >
-          {minimized ? '▢' : '–'}
-        </button>
+        {config?.minimizable ? (
+          <span className="xd-window__glyph" aria-hidden="true">
+            {minimized ? '▢' : '–'}
+          </span>
+        ) : null}
       </header>
       <div className="xd-window__body">{String(node.id)}</div>
     </div>
@@ -134,6 +73,7 @@ function TabStrip({ node, rootId }: { node: Node; rootId: NodeId }) {
   const header = (node.container?.config as { headerSize?: number } | undefined)?.headerSize ?? 0;
   const canFloat = store.getNode(rootId)?.container?.strategyId.startsWith('floating') === true;
 
+  // The one remaining behavior callback, with dock() below: tearing out waits on config `tear` (phase 2).
   const tearOut = (id: NodeId) =>
     store.transact(() => {
       store.moveNode(id, rootId);
@@ -283,13 +223,19 @@ function PresetView({ preset }: { preset: Preset }) {
   const store = useMemo(() => presetToStore(preset), [preset]);
   const rootId = asNodeId(preset.mechanics.id);
   const chrome = useMemo(() => makeChrome(rootId), [rootId]);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const clip = preset.mechanics.config?.overflow === 'clip';
   return (
     <Provider store={store}>
-      <RaiseOnFocus />
-      <div className="xd-frame">
+      <div
+        ref={frameRef}
+        className={`xd-frame${clip ? ' xd-frame--clip' : ''}`}
+        data-testid="xd-frame"
+      >
         <RootFrame rootId={rootId}>
           <Container
             parentId={rootId}
+            scrollRef={frameRef}
             chrome={chrome}
             viewport={preset.viewport}
             affordances={true}

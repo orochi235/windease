@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createNode } from '../constructors.js';
-import { runStrategyForContainer } from '../layout-node-adapter.js';
-import type { LayoutResult, Rect } from '../layout-types.js';
+import { nodeToLayoutItem, runStrategyForContainer } from '../layout-node-adapter.js';
+import type { LayoutEvent, LayoutResult, Rect } from '../layout-types.js';
 import { asNodeId, type NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import {
@@ -69,6 +69,44 @@ function layoutStore(store: Store, parent: string, preset: Preset) {
   ) as unknown as LayoutResult<string>;
 }
 
+/** Sends `event` to the affordance `affordanceId` of `preset`'s root, as a pointer on it would. */
+function dispatch(
+  store: Store,
+  preset: Preset,
+  affordanceId: string,
+  event: Omit<LayoutEvent, 'affordanceId'>,
+) {
+  const parentId = asNodeId(preset.mechanics.id) as NodeId;
+  const affordance = layoutStore(store, preset.mechanics.id, preset).affordances.find(
+    (a) => a.id === affordanceId,
+  );
+  if (!affordance) throw new Error(`no affordance ${affordanceId}`);
+  const strategy = OVERLAP_STRATEGIES[preset.mechanics.strategy!]!;
+  strategy.dispatchAffordance!({
+    event: { affordanceId, ...event },
+    affordance,
+    store,
+    parentId,
+    container: preset.viewport,
+    options: (store.getNode(parentId)?.container?.config ?? {}) as Record<string, unknown>,
+    items: store.getChildren(parentId).map((n) => nodeToLayoutItem(n)),
+  });
+}
+
+const dragBy = (store: Store, preset: Preset, id: string, dx: number, dy: number) =>
+  dispatch(store, preset, `desktop:drag:${id}`, { kind: 'drag', payload: { dx, dy } });
+
+const toggle = (store: Store, preset: Preset, id: string) =>
+  dispatch(store, preset, `desktop:minimize:${id}`, { kind: 'click', payload: {} });
+
+const orderOf = (store: Store, preset: Preset) =>
+  store.getNode(asNodeId(preset.mechanics.id) as NodeId)?.container?.childOrder ?? [];
+
+const savedAt = (store: Store, id: string) => {
+  const p = store.getNode(asNodeId(id) as NodeId)?.membership?.placement ?? {};
+  return { x: p.x, y: p.y };
+};
+
 describe('desktop presets: generic invariants', () => {
   it.each(DESKTOP_PRESETS.map((p) => [p.id, p] as const))(
     '%s: no malformed rects, no silent drops, deterministic',
@@ -111,8 +149,10 @@ describe('desktop presets: generic invariants', () => {
         left = Math.max(left, -rect.x);
         top = Math.max(top, -rect.y);
       }
-      if (w <= 0 && h <= 0 && left <= 0 && top <= 0) expect(r.overflow).toBeUndefined();
-      else {
+      const clipped = scenario.options.overflow === 'clip';
+      if (clipped || (w <= 0 && h <= 0 && left <= 0 && top <= 0)) {
+        expect(r.overflow).toBeUndefined();
+      } else {
         const want: Record<string, number> = { w: Math.max(0, w), h: Math.max(0, h) };
         if (left > 0) want.left = left;
         if (top > 0) want.top = top;
@@ -122,8 +162,67 @@ describe('desktop presets: generic invariants', () => {
   );
 });
 
+describe('desktop presets: behavior as config', () => {
+  it.each(DESKTOP_PRESETS.map((p) => [p.id, p] as const))(
+    '%s: every window drags by its title band',
+    (_, preset) => {
+      const r = runPreset(preset);
+      const windows = [...r.placements].filter(([, rect]) => rect.z > 0);
+      expect(windows.length).toBeGreaterThan(0);
+      for (const [id, rect] of windows) {
+        const band = r.affordances.find((a) => a.id === `desktop:drag:${id}`);
+        expect(band?.rect).toMatchObject({ x: rect.x, y: rect.y, w: rect.w, h: 20 });
+      }
+    },
+  );
+
+  it.each(DESKTOP_PRESETS.map((p) => [p.id, p] as const))(
+    '%s: its content children carry no mechanics',
+    (_, preset) => {
+      for (const child of preset.data?.children?.[preset.mechanics.id] ?? []) {
+        expect(child.kind === undefined || child.kind === 'icon', child.id).toBe(true);
+        expect(child.config, child.id).toBeUndefined();
+        expect(child.lock, child.id).toBeUndefined();
+      }
+    },
+  );
+});
+
 describe('Mac OS 9 WindowShade', () => {
   const r = runPreset(MACOS9_WINDOWSHADE);
+
+  it('moves the Finder window by its title bar', () => {
+    const store = presetToStore(MACOS9_WINDOWSHADE);
+    dragBy(store, MACOS9_WINDOWSHADE, 'mac-finder', 30, 25);
+    expect(savedAt(store, 'mac-finder')).toEqual({ x: 70, y: 65 });
+  });
+
+  it('brings a clicked window to the front', () => {
+    const store = presetToStore(MACOS9_WINDOWSHADE);
+    store.focusNode(asNodeId('mac-finder'));
+    expect(orderOf(store, MACOS9_WINDOWSHADE).at(-1)).toBe('mac-finder');
+    const after = layoutStore(store, 'mac-desktop', MACOS9_WINDOWSHADE);
+    expect(after.placements.get('mac-finder')?.z).toBe(5);
+  });
+
+  it('rolls a window up from its collapse box, and down again, in place', () => {
+    const store = presetToStore(MACOS9_WINDOWSHADE);
+    toggle(store, MACOS9_WINDOWSHADE, 'mac-finder');
+    const shaded = layoutStore(store, 'mac-desktop', MACOS9_WINDOWSHADE);
+    expect(shaded.placements.get('mac-finder')).toMatchObject({ x: 40, y: 40, w: 360, h: 20 });
+    toggle(store, MACOS9_WINDOWSHADE, 'mac-finder');
+    const open = layoutStore(store, 'mac-desktop', MACOS9_WINDOWSHADE);
+    expect(open.placements.get('mac-finder')).toMatchObject({ w: 360, h: 240 });
+  });
+
+  it('puts the collapse box at the right of the title bar', () => {
+    expect(r.affordances.find((a) => a.id === 'desktop:minimize:mac-finder')?.rect).toMatchObject({
+      x: 40 + 360 - 20,
+      y: 40,
+      w: 20,
+      h: 20,
+    });
+  });
 
   it('rolls a shaded window up to the bar, keeping x, y and w', () => {
     expect(r.placements.get('mac-simpletext')).toMatchObject({ x: 180, y: 110, w: 300, h: 20 });
@@ -175,9 +274,9 @@ describe('Windows 3.1 minimized icons', () => {
     expect(r.placements.get('win31-filemgr')?.z).toBe(2);
   });
 
-  it('restoring a window takes it back to its saved x, y and size above the rest', () => {
+  it('restoring a window from its icon takes it back to its saved x, y and size above the rest', () => {
     const store = presetToStore(WIN31_ICONS);
-    store.patchPlacement(asNodeId('win31-app-3'), { minimized: false });
+    toggle(store, WIN31_ICONS, 'win31-app-3');
     const after = layoutStore(store, 'win31-desktop', WIN31_ICONS);
     expect(after.placements.get('win31-app-3')).toEqual({ x: 76, y: 76, z: 3, w: 300, h: 200 });
   });
@@ -278,16 +377,48 @@ describe('Amiga screens pulled down', () => {
     expect(topmostAt(r, { x: 320, y: 200 })).toBe('amiga-term');
   });
 
-  it('reports how far the pulled-down screens hang below the display', () => {
-    expect(r.overflow).toEqual({ w: 0, h: 180 });
+  it('starts every screen full width with its title bar on the display, where the user left it', () => {
+    const store = presetToStore(AMIGA_SCREENS);
+    for (const id of ['amiga-workbench', 'amiga-dpaint', 'amiga-term']) {
+      const rect = r.placements.get(id)!;
+      expect(rect).toMatchObject({ x: 0, w: 640, h: 256 });
+      expect(rect.y).toBe(savedAt(store, id).y);
+      expect(rect.y + 20).toBeLessThanOrEqual(256);
+    }
   });
 
-  it('dragging a screen fully down reveals the whole screen behind it', () => {
+  it('clips what hangs below the display rather than reporting it', () => {
+    expect(r.overflow).toBeUndefined();
+  });
+
+  it('drags a screen up and down only', () => {
+    const store = presetToStore(AMIGA_SCREENS);
+    dragBy(store, AMIGA_SCREENS, 'amiga-term', 80, 30);
+    expect(savedAt(store, 'amiga-term')).toEqual({ x: 0, y: 210 });
+  });
+
+  it('stops a screen with its title bar at the bottom, and at the top of the display', () => {
+    const store = presetToStore(AMIGA_SCREENS);
+    dragBy(store, AMIGA_SCREENS, 'amiga-term', 0, 500);
+    expect(savedAt(store, 'amiga-term').y).toBe(256 - 20);
+    dragBy(store, AMIGA_SCREENS, 'amiga-dpaint', 0, -500);
+    expect(savedAt(store, 'amiga-dpaint').y).toBe(0);
+  });
+
+  it('pulled all the way down, a screen reveals all but a title bar of the one behind', () => {
     const store = presetToStore(AMIGA_SCREENS);
     store.patchPlacement(asNodeId('amiga-term'), { y: 256 });
     store.patchPlacement(asNodeId('amiga-dpaint'), { y: 256 });
     const after = layoutStore(store, 'amiga-display', AMIGA_SCREENS);
-    expect(topmostAt(after, { x: 10, y: 250 })).toBe('amiga-workbench');
+    expect(after.placements.get('amiga-term')?.y).toBe(236);
+    expect(topmostAt(after, { x: 10, y: 230 })).toBe('amiga-workbench');
+    expect(topmostAt(after, { x: 10, y: 240 })).toBe('amiga-term');
+  });
+
+  it('leaves the depth order alone when a screen is clicked', () => {
+    const store = presetToStore(AMIGA_SCREENS);
+    store.focusNode(asNodeId('amiga-workbench'));
+    expect(orderOf(store, AMIGA_SCREENS).at(-1)).toBe('amiga-term');
   });
 });
 
@@ -304,6 +435,20 @@ describe('Figma canvas: negative and far-off coordinates', () => {
     expect(r.overflow?.left).toBeGreaterThan(0);
   });
 
+  it('moves a frame to negative coordinates and reports the canvas growing to reach it', () => {
+    const store = presetToStore(FIGMA_CANVAS);
+    dragBy(store, FIGMA_CANVAS, 'figma-mobile', -5000, -3000);
+    expect(savedAt(store, 'figma-mobile')).toEqual({ x: -4880, y: -2960 });
+    const after = layoutStore(store, 'figma-canvas', FIGMA_CANVAS);
+    expect(after.overflow).toMatchObject({ left: 4880, top: 2960 });
+  });
+
+  it('leaves the layer order alone when a frame is selected', () => {
+    const store = presetToStore(FIGMA_CANVAS);
+    store.focusNode(asNodeId('figma-cover'));
+    expect(orderOf(store, FIGMA_CANVAS).at(0)).toBe('figma-cover');
+  });
+
   it('lists the frames outside the viewport, which the host must pan to', () => {
     const scenario = scenarioOf(FIGMA_CANVAS);
     expect(outOfBounds(r.placements, scenario.container).sort()).toEqual(
@@ -315,21 +460,43 @@ describe('Figma canvas: negative and far-off coordinates', () => {
 describe('unplugged second monitor', () => {
   const r = runPreset(UNPLUGGED_MONITOR);
 
-  it('keeps positions saved on a lost display, unclamped', () => {
-    expect(r.placements.get('mon-slack')).toMatchObject({ x: 1920, y: 60 });
-    expect(r.placements.get('mon-xcode')).toMatchObject({ x: -1800, y: 40 });
+  it('keeps the positions the apps saved on the lost displays', () => {
+    const store = presetToStore(UNPLUGGED_MONITOR);
+    expect(savedAt(store, 'mon-slack')).toEqual({ x: 1920, y: 60 });
+    expect(savedAt(store, 'mon-xcode')).toEqual({ x: -1800, y: 40 });
   });
 
-  it('reports both the right-hand window and the one wholly off the left edge', () => {
-    expect(r.overflow).toEqual({ w: 1920 + 1000 - 1280, h: 40 + 1000 - 800, left: 1800 });
-    const xcode = r.placements.get('mon-xcode')!;
-    expect(xcode.x + xcode.w).toBeLessThan(0);
+  it('pulls every window onto the laptop screen, wholly where it fits', () => {
+    expect(r.placements.get('mon-slack')).toMatchObject({ x: 1280 - 1000, y: 60 });
+    expect(r.placements.get('mon-terminal')).toMatchObject({ x: 1280 - 700, y: 800 - 440 });
+    expect(r.placements.get('mon-mail')).toMatchObject({ x: 120, y: 80 });
+    expect(outOfBounds(r.placements, UNPLUGGED_MONITOR.viewport)).toEqual(['mon-xcode']);
+  });
+
+  it('puts a window bigger than the screen at its top-left corner', () => {
+    expect(r.placements.get('mon-xcode')).toMatchObject({ x: 0, y: 0, w: 1600, h: 1000 });
+    expect(r.overflow).toEqual({ w: 1600 - 1280, h: 1000 - 800 });
+  });
+
+  it('drags from where a window shows, not the saved spot, and stops at the edge', () => {
+    const store = presetToStore(UNPLUGGED_MONITOR);
+    dragBy(store, UNPLUGGED_MONITOR, 'mon-slack', -30, 10);
+    expect(savedAt(store, 'mon-slack')).toEqual({ x: 250, y: 70 });
+    dragBy(store, UNPLUGGED_MONITOR, 'mon-slack', 900, 0);
+    expect(savedAt(store, 'mon-slack')).toEqual({ x: 280, y: 70 });
+  });
+
+  it('brings a clicked window to the front', () => {
+    const store = presetToStore(UNPLUGGED_MONITOR);
+    store.focusNode(asNodeId('mon-mail'));
+    expect(orderOf(store, UNPLUGGED_MONITOR).at(-1)).toBe('mon-mail');
   });
 
   it('survives a snapshot round trip with the off-screen positions intact', async () => {
     const { serialize, deserialize } = await import('../snapshot.js');
     const store = presetToStore(UNPLUGGED_MONITOR);
     const back = deserialize(JSON.parse(JSON.stringify(serialize(store))));
+    expect(savedAt(back, 'mon-xcode')).toEqual({ x: -1800, y: 40 });
     const after = layoutStore(back, 'laptop-display', UNPLUGGED_MONITOR);
     expect(after.placements.get('mon-xcode')).toEqual(r.placements.get('mon-xcode'));
   });
