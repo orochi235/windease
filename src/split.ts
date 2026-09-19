@@ -5,9 +5,18 @@ import {
   InvariantViolationError,
   LockedError,
   NodeNotFoundError,
+  NoSpaceError,
 } from './errors.js';
+import type { Size } from './layout-types.js';
 import type { NodeId } from './node.js';
-import type { SplitInput } from './split-types.js';
+import {
+  columnsShortfall,
+  gridShortfall,
+  rowShortfall,
+  type SplitShortfall,
+  type SplitSpacing,
+} from './split-fit.js';
+import type { SplitInput, SplitStrict } from './split-types.js';
 import type { MutateOptions, Store } from './store.js';
 import { trace } from './trace.js';
 
@@ -255,9 +264,90 @@ function assertUnsplitUnlocked(
   if (store.isLocked(parentId, 'arrange')) throw new LockedError(parentId, 'arrange', 'unsplit');
 }
 
+/** The larger of each axis. */
+function floorOf(...sizes: (Partial<Size> | undefined)[]): Size {
+  return {
+    w: Math.max(0, ...sizes.map((s) => s?.w ?? 0)),
+    h: Math.max(0, ...sizes.map((s) => s?.h ?? 0)),
+  };
+}
+
+function spacingOf(config: Record<string, unknown> | undefined): SplitSpacing {
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+  return { gap: n(config?.gap), padding: n(config?.padding) };
+}
+
+/** Throw when a strict split's panes would not fit their floors. */
+function assertSplitFits(
+  store: Store,
+  id: NodeId,
+  input: SplitInput,
+  mode: SplitMode,
+  strict: SplitStrict,
+): void {
+  const newFloor = floorOf(strict.minSize);
+  const floors = [
+    floorOf(store.getNodeTruth(id)?.hints?.minSize, strict.minSize),
+    ...input.newIds.map(() => newFloor),
+  ];
+  let short: SplitShortfall | null;
+  if (input.direction === 'both') {
+    const [cols, rows] = input.into;
+    const columns = Array.from({ length: cols }, (_, c) => floors.slice(c * rows, (c + 1) * rows));
+    short = columnsShortfall(strict.size, columns, spacingOf(input.config));
+  } else if (input.direction === 'grid') {
+    const cols = input.cols ?? Math.ceil(Math.sqrt(floors.length));
+    short = gridShortfall(strict.size, cols, floors, spacingOf(input.config));
+  } else {
+    // Flattened panes join the parent's row, so its gap separates them; the
+    // slot they divide has no padding of its own.
+    const parentId = store.getNodeTruth(id)?.membership?.parentId;
+    const spacing =
+      mode === 'flatten'
+        ? {
+            gap: spacingOf(
+              store.getNodeTruth(parentId as NodeId)?.container?.config as Record<string, unknown>,
+            ).gap,
+            padding: 0,
+          }
+        : spacingOf(input.config);
+    short = rowShortfall(strict.size, input.direction, floors, spacing);
+  }
+  if (short) refuse(id, 'split', short);
+}
+
+function refuse(id: NodeId, operation: string, short: SplitShortfall): never {
+  trace(
+    'store',
+    `${operation}: ${id} refused, needs ${short.needed}px on ${short.axis}, has ${short.available}`,
+  );
+  throw new NoSpaceError(id, operation, short.axis, short.needed, short.available);
+}
+
+/** Throw when `splitInto` under `strict` would leave either pane below its floor
+ *  in the slot `ontoId` holds. */
+export function assertSplitIntoFits(
+  store: Store,
+  sourceId: NodeId,
+  ontoId: NodeId,
+  axis: 'x' | 'y',
+  config: Record<string, unknown> | undefined,
+  strict: SplitStrict,
+): void {
+  const floor = (nid: NodeId) => floorOf(store.getNodeTruth(nid)?.hints?.minSize, strict.minSize);
+  const short = rowShortfall(
+    strict.size,
+    axis,
+    [floor(sourceId), floor(ontoId)],
+    spacingOf(config),
+  );
+  if (short) refuse(ontoId, 'splitInto', short);
+}
+
 export function splitNode(store: Store, id: NodeId, input: SplitInput): void {
   const mode = validateSplit(store, id, input);
   assertSplitUnlocked(store, id, mode, input.force === true);
+  if (input.strict) assertSplitFits(store, id, input, mode, input.strict);
 
   store.transact(() => {
     store.withLocksSuspended(() => {

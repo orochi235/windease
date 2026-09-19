@@ -25,6 +25,30 @@ section below.
 - **`<DragProvider dragThreshold>`**: how many pixels a press travels before it
   becomes a drag. Default 4; `0` starts on press.
 
+- **A split can refuse to push panes below their floors.** Pass
+  `strict: { size, minSize? }` to `store.split` or `store.splitInto`, with the
+  node's current extent, and a split that would leave any pane under its floor
+  (`hints.minSize`, raised to `minSize`) throws the new `NoSpaceError`
+  (`code: 'no-space'`) before changing anything, as tmux refuses with "no space
+  for new pane". Gaps and padding of the container the panes land in count.
+  See [Refusing a split below the floors](README.md#refusing-a-split-below-the-floors).
+
+- **A floating item can fill the pane it is dropped on.** `snap: 'fill'` in
+  `floatingStrategy`'s config makes the inner strategy's panes zones, as in
+  FancyZones: an item dragged over one fills it, and follows it through
+  resizes and reflows. Dragged off every pane, it returns to its own size.
+  `'corner'`, the default, is the corner snapping it always did. See
+  [Floating chrome over a tiled zone](README.md#floating-chrome-over-a-tiled-zone).
+
+- **A stack's tabs can sit on any edge, or stack as one title bar per tab.**
+  `side: 'top' | 'bottom' | 'left' | 'right'` in a stack's config puts the tab
+  band on that edge and the body beside it. `tabs: 'stacked'` is i3's stacked
+  layout: each child gets a `tabSize` title bar (default `headerSize`), so the
+  band grows with the child count. The stack still draws nothing; it reports
+  the band, and each stacked bar, to every child as channels, and
+  `stackBands` computes the same rects. See
+  [Which edge the tabs sit on](README.md#which-edge-the-tabs-sit-on-and-stacked-title-bars).
+
 - **A tab can be torn out of a stack and docked back, from config.** Set
   `tear: 'float'` in a stack's config: dragging a tab out onto the nearest
   container above it whose strategy floats children (`floatingStrategy`,

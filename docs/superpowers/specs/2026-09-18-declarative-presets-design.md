@@ -3,8 +3,8 @@
 For whoever extends windease's layout vocabulary, and for anyone turning the Exotic presets into
 canned presets a consumer can load.
 **Status, 2026-09-18, on branch `exotic-layout-fixtures`: phase 1 is built. Phase 2 is built
-except grid `sticky`; phase 4 is built; of phase 3, grid `tracks`/`compact`, `reorder` and
-desktop `iconFrom`/`wrap` are built.** The phase table at the end is the record of what exists.
+except grid `sticky`; phases 3 and 4 are built.** The phase table at the end is the record of
+what exists.
 
 An Exotic preset (`src/test-utils/exotic/`) reproduces a real product's layout: Blender, Grafana,
 Launchpad, Mac OS 9, i3, 75 in all. Today a preset states the layout as data and the story around
@@ -89,14 +89,14 @@ These are config or placement keys on one strategy each.
 | Track sizes | `rowSize`, `tracks` | grid | Grafana, Excel |
 | Gravity | `compact: 'up'` | grid | Grafana |
 | Pages | `pageStrategy(inner)`, a wrapper designed in another session: page by `placement.page` or by `inner`'s `unplaced` | wrapper over any strategy | Launchpad, Android, iOS |
-| Stacked title bars; tab side | `tabs: 'stacked'`, `side` | stack | i3, Golden Layout |
+| Stacked title bars; tab side | `tabs: 'stacked'`, `side`, `tabSize`; band reported as channels (built) | stack | i3, Golden Layout |
 | Icon origin | `iconFrom` | desktop | Win 3.1, Mac OS 9, twm |
 | Cascade wraps | `wrap: true` | desktop | cascade-200 |
-| Snap fills a zone | `snap: 'corner' \| 'fill'` | floating | FancyZones |
+| Snap fills a zone | `snap: 'corner' \| 'fill'` (built) | floating | FancyZones |
 | Rotate, sort, height bound | `rotate`, `sort`, `overflowMode: 'unplaced'` | shelf, skyline, column | pallets, TexturePacker |
 | Keep aspect; fluid columns | `hints.aspect`; column `cols` | hints, column | Unsplash, newspaper |
 | Justified rows | new `justified` strategy | — | Flickr, Google Photos |
-| Refuse a split below the floors | `strict` | `store.split` | tmux, Emacs, Blender |
+| Refuse a split below the floors | `strict: { size, minSize? }`, an option on the call, since the store holds no geometry (built) | `store.split`, `splitInto` | tmux, Emacs, Blender |
 | Children reorder by drag, declared rather than wrapped in `DragHandle` | container `reorder: true \| 'handle'` (built); `'handle'` reads a `data-windease-handle` element | React layer + DragEngine | Firefox tabs, Chrome tabs, Win 10 tiles |
 
 ## What the schema carries beyond today's
@@ -118,7 +118,7 @@ These are config or placement keys on one strategy each.
 |---|---|---|
 | 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `drop` config; `placement.share`; grid `cell`, fixed cells, `justify`; child templates | built |
 | 2 | `tear`, `zoom`, `view` (pan/zoom, desktop fit), `sticky`, `step`, `overshoot`, `layer`, `resize` | built: `view`, `fit`, `tear`, `layer` (desktop, floating), `resize` (desktop), `step`, `overshoot`, `zoom` and strip `sticky`; grid `sticky` unbuilt |
-| 3 | Grid tracks, `compact`; `reorder`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | built: grid `tracks` and `compact`, `reorder`, desktop `iconFrom` and `wrap`; the rest unbuilt |
+| 3 | Grid tracks, `compact`; `reorder`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | built |
 | 4 | Packer `rotate`/`sort`/height bound; `hints.aspect`; `justified` strategy; product-look CSS for every preset | built: packer `rotate`, `sort`, height bound (`overflowMode: 'unplaced'`), column `cols`/`justify`, `hints.aspect`, `justified`, product-look CSS for every preset |
 
 Each key ships with its tests, a changelog entry, and the story code it replaces deleted in the

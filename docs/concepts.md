@@ -260,7 +260,12 @@ methods:
   flattens new siblings into a matching-axis strip parent, or reconfigures
   a root in place, depending on the target's position; `unsplit` dissolves
   a group into its parent. See
-  `docs/superpowers/specs/2026-08-19-split-operation-design.md`.
+  `docs/superpowers/specs/2026-08-19-split-operation-design.md`. `split` and
+  `splitInto` take `strict: { size, minSize? }`, an option on the call rather
+  than container config because the store holds no geometry: the caller
+  passes the node's current extent, and the split throws `NoSpaceError`,
+  before mutating, when the panes' floors (`hints.minSize`, raised to
+  `strict.minSize`) plus gaps and padding would not fit it.
 - `transact(fn, label?)` — runs `fn` as one logical change, emitting
   `transaction.begin` / `transaction.end` around it (re-entrant: only the
   outermost call emits). Bracket history pushes on that pair to get one
@@ -399,7 +404,13 @@ Built-ins:
   drag engine: a tab dropped on the stack's nearest floating ancestor floats
   there at the drop point, sized by `tearSize` or the stack's body, and a
   floating child dropped on the stack docks as a tab. See
-  [Tearing a tab out](#tearing-a-tab-out).
+  [Tearing a tab out](#tearing-a-tab-out). `side` puts the band on any edge,
+  and `tabs: 'stacked'` makes it one `tabSize` bar per child (i3's stacked
+  layout) instead of one `headerSize` strip. The strategy reports the band, and
+  each stacked bar, to every child as channels (`bandX`… and `tabX`…), withheld
+  children included, so a host draws tabs from the result rather than
+  re-deriving the geometry; `stackBands` is the same arithmetic as a pure
+  function.
 - **`zoom`** — a config key on both `strip` and `stack` naming one child that
   fills the container (a stack's header band included) while every other child
   goes to `unplaced`, placement untouched. It is config rather than
@@ -408,7 +419,11 @@ Built-ins:
 - **`floatingStrategy(inner?)`** — wraps another strategy. Items whose
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
-  `handleSize`, `snapToPanes`. Called with no argument, everything floats.
+  `handleSize`, `snapToPanes`, `snap`. Called with no argument, everything
+  floats. `snap: 'fill'` replaces corner snapping with FancyZones' zones: an
+  item dragged over a pane of `inner` fills it, and its state entry in `at`
+  records the pane as `fill`. Its `x` / `y` stay its free position at its own
+  size, which is where it goes when it leaves the pane or the pane goes away.
   Floating items sit at `z` 0, stacked by render order, except those with
   placement `layer: 'top'`, which take `z` 2 and up.
 - **`desktopStrategy(inner?)`** — windows at placement `x` / `y`, overlapping,
@@ -607,6 +622,8 @@ Class hierarchy under `WindeaseError`:
 - `StrategyRejectionError` (`'strategy-rejected'`)
 - `LockedError` (`'locked'`)
 - `PinIndexError` (`'pin-index-out-of-range'`)
+- `NoSpaceError` (`'no-space'`) — a `strict` split whose panes would not fit
+  their floors
 - `InvariantViolationError` (free-form `code` + `context`)
 
 Catch on `instanceof` or `.code`, not message text.

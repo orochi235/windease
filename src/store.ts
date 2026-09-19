@@ -15,8 +15,8 @@ import { destroyBlockedBy, type LockAxis, type LockSet, resolveLock } from './lo
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeHints, NodeId } from './node.js';
 import { placeRespectingPins, placeRunRespectingPins } from './pinning.js';
 import { sameConfig } from './same-config.js';
-import { splitNode, unsplitNode } from './split.js';
-import type { SplitInput } from './split-types.js';
+import { assertSplitIntoFits, splitNode, unsplitNode } from './split.js';
+import type { SplitInput, SplitStrict } from './split-types.js';
 import {
   type MachineName,
   type PendingPublish,
@@ -1788,6 +1788,8 @@ export class Store {
       axis: 'x' | 'y';
       edge: 'start' | 'end';
       config?: Record<string, unknown>;
+      /** Refuse a split that leaves either pane below its floor. See `SplitStrict`. */
+      strict?: SplitStrict;
     } & MutateOptions,
   ): void {
     const source = this.requireNode(sourceId);
@@ -1825,6 +1827,9 @@ export class Store {
     this.assertUnlocked(parentId, 'accept', 'splitInto', opts);
     this.assertUnlocked(parentId, 'dragOut', 'splitInto', opts);
     this.assertUnlocked(source.membership.parentId, 'dragOut', 'splitInto', opts);
+    if (opts.strict) {
+      assertSplitIntoFits(this, sourceId, ontoId, opts.axis, opts.config, opts.strict);
+    }
 
     const at = parent.container.childOrder.indexOf(ontoId);
     const placement = { ...onto.membership.placement };

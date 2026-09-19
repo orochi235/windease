@@ -53,6 +53,7 @@ export {
   InvariantViolationError,
   LockedError,
   NodeNotFoundError,
+  NoSpaceError,
   PinIndexError,
   StrategyRejectionError,
   WindeaseError,
@@ -108,8 +109,10 @@ export {
   DEFAULT_SNAP_THRESHOLD,
   FLOATING_CORNERS,
   FLOATING_DRAG_PREFIX,
+  FLOATING_SNAP,
   type FloatingConfig,
   type FloatingPlacement,
+  type FloatingSnap,
   type FloatingState,
   floatingStrategy,
 } from './layout/floating.js';
@@ -127,7 +130,15 @@ export {
 } from './layout/seam-join.js';
 export { shelfStrategy } from './layout/shelf.js';
 export { skylineStrategy } from './layout/skyline.js';
-export { stackStrategy } from './layout/stack.js';
+export {
+  STACK_SIDES,
+  STACK_TABS,
+  type StackBands,
+  type StackSide,
+  type StackTabs,
+  stackBands,
+  stackStrategy,
+} from './layout/stack.js';
 export { stuckRect } from './layout/sticky.js';
 export { stripStrategy } from './layout/strip.js';
 export {
@@ -212,7 +223,7 @@ export {
   type SerializeOptions,
   serialize,
 } from './snapshot.js';
-export type { SplitInput } from './split-types.js';
+export type { SplitInput, SplitStrict } from './split-types.js';
 export { type MutateOptions, Store, type StoreEvents } from './store.js';
 export { dockNode, type FloatInput, floatAncestor, floatNode } from './tear.js';
 export {

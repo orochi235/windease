@@ -1,7 +1,7 @@
 export default { title: 'Tab stack' };
 
 import type { Story } from '@ladle/react';
-import { useCallback, useMemo, useRef } from 'react';
+import { type CSSProperties, useCallback, useMemo, useRef } from 'react';
 import {
   asNodeId,
   createNode,
@@ -14,6 +14,7 @@ import {
 import {
   type ChromeMap,
   Container,
+  type ContainerLayout,
   DragHandle,
   DragProvider,
   Provider,
@@ -327,4 +328,183 @@ export const ShowAndFallback: Story<{ fallback: Fallback }> = ({ fallback }) => 
 ShowAndFallback.args = { fallback: 'next' };
 ShowAndFallback.argTypes = {
   fallback: { options: ['next', 'prev', 'first'], control: { type: 'radio' } },
+};
+
+const SIDED = asNodeId('sided');
+const TAB_SIZE = 24;
+const SIDE_BAND = 110;
+
+type Tabs = 'strip' | 'stacked';
+type Side = 'top' | 'bottom' | 'left' | 'right';
+
+function makeSidedStore(tabs: Tabs, side: Side): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      id: ROOT,
+      kind: 'zone',
+      container: { strategyId: 'strip', config: { axis: 'x', padding: 8, fill: true } },
+    }),
+  );
+  s.registerNode(
+    createNode({
+      id: SIDED,
+      kind: 'sided',
+      parentId: ROOT,
+      container: {
+        strategyId: 'stack',
+        config: {
+          tabs,
+          side,
+          headerSize: side === 'left' || side === 'right' ? SIDE_BAND : HEADER,
+          tabSize: TAB_SIZE,
+        },
+      },
+    }),
+  );
+  s.showNode(SIDED);
+  for (const pane of PANES) {
+    s.registerNode(
+      createNode({
+        id: asNodeId(pane.id),
+        kind: 'panel',
+        focus: true,
+        parentId: SIDED,
+        meta: { title: pane.title },
+      }),
+    );
+    s.showNode(asNodeId(pane.id));
+  }
+  return s;
+}
+
+/** A rect as custom properties; the stylesheet positions the element with them. */
+const rectVars = (x: number, y: number, w: number, h: number) =>
+  ({ '--x': `${x}px`, '--y': `${y}px`, '--w': `${w}px`, '--h': `${h}px` }) as CSSProperties;
+
+/**
+ * Draws the tabs into the band the strategy reserved. `stackStrategy` reports
+ * the band, and under `tabs: 'stacked'` each child's own title bar, as
+ * channels; the tabs themselves are this story's.
+ */
+function BandTabs({ id, channels }: { id: NodeId; channels: ContainerLayout['channels'] }) {
+  const { tabs, activeId, activate } = useStack(id);
+  const first = tabs[0] && channels?.get(tabs[0].id);
+  if (!first || first.bandX === undefined) return null;
+  const stacked = first.tabH !== undefined;
+  const button = (tab: { id: NodeId; title: string }, style?: CSSProperties) => (
+    <button
+      key={tab.id}
+      type="button"
+      role="tab"
+      data-testid={`tab-${tab.id}`}
+      aria-selected={tab.id === activeId}
+      className={stacked ? 'ts-tab ts-bar' : 'ts-tab'}
+      style={style}
+      onClick={() => activate(tab.id)}
+    >
+      {tab.title}
+    </button>
+  );
+  if (stacked) {
+    return (
+      <div role="tablist" data-testid="ts-band">
+        {tabs.map((tab) => {
+          const c = channels?.get(tab.id);
+          if (c?.tabX === undefined) return null;
+          return button(tab, rectVars(c.tabX, c.tabY ?? 0, c.tabW ?? 0, c.tabH ?? 0));
+        })}
+      </div>
+    );
+  }
+  return (
+    <div
+      role="tablist"
+      data-testid="ts-band"
+      className="ts-band"
+      data-vertical={(first.bandH ?? 0) > (first.bandW ?? 0) || undefined}
+      style={rectVars(first.bandX, first.bandY ?? 0, first.bandW ?? 0, first.bandH ?? 0)}
+    >
+      {tabs.map((tab) => button(tab))}
+    </div>
+  );
+}
+
+/**
+ * The stack reserves its tab band on any edge, as one strip of tabs or as
+ * i3's stacked title bars, one per child. The tabs are drawn where the
+ * strategy's channels say the band is.
+ */
+export const TabsAndSide: Story<{ tabs: Tabs; side: Side }> = ({ tabs, side }) => {
+  const store = useMemo(() => makeSidedStore(tabs, side), [tabs, side]);
+  const added = useRef(0);
+  const addPane = () => {
+    added.current += 1;
+    const id = asNodeId(`extra-${added.current}`);
+    store.registerNode(
+      createNode({
+        id,
+        kind: 'panel',
+        focus: true,
+        parentId: SIDED,
+        meta: { title: `Extra ${added.current}` },
+      }),
+    );
+    store.showNode(id);
+  };
+
+  const chrome: ChromeMap = useMemo(
+    () => ({
+      panel: ({ node }) => (
+        <div className="ts-panel" data-testid={`body-${node.id}`}>
+          <header className="ts-panel__title">{String(node.meta?.title ?? node.id)}</header>
+          <div className="ts-panel__body">The body sits beside the band, on whichever edge.</div>
+        </div>
+      ),
+      sided: ({ node }) => (
+        <div className="ts-stack" data-testid={`stack-${node.id}`}>
+          <Container
+            parentId={node.id}
+            chrome={chrome}
+            overlay={(ctx) => <BandTabs id={node.id} channels={ctx.channels} />}
+          />
+        </div>
+      ),
+    }),
+    [],
+  );
+
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <div className="ts-frame">
+          <Container
+            parentId={ROOT}
+            chrome={chrome}
+            viewport={VIEWPORT}
+            className="windease-zone ts-zone"
+          />
+        </div>
+        <p className="ts-actions">
+          <button type="button" data-testid="add-pane" onClick={addPane}>
+            Add a pane
+          </button>
+        </p>
+        <div className="ts-prose">
+          <p>
+            <code>tabs: '{tabs}'</code>, <code>side: '{side}'</code>.{' '}
+            {tabs === 'stacked'
+              ? `Each child has its own ${TAB_SIZE}px title bar, so the band grows with every pane you add.`
+              : 'One band of tabs, headerSize thick.'}{' '}
+            Click a tab to show its pane.
+          </p>
+        </div>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+TabsAndSide.args = { tabs: 'stacked', side: 'top' };
+TabsAndSide.argTypes = {
+  tabs: { options: ['strip', 'stacked'], control: { type: 'radio' } },
+  side: { options: ['top', 'bottom', 'left', 'right'], control: { type: 'radio' } },
 };

@@ -84,6 +84,14 @@ export function snapCorner(
   return best;
 }
 
+/** The values floating's `config.snap` accepts. `'corner'` rests a dropped
+ *  item on a corner at its own size; `'fill'` resizes it to fill the pane of
+ *  the inner strategy it is dropped on, as FancyZones does. */
+export const FLOATING_SNAP = ['corner', 'fill'] as const;
+
+/** One of {@link FLOATING_SNAP}. */
+export type FloatingSnap = (typeof FLOATING_SNAP)[number];
+
 /** Where one floating item rests. `anchor` is a sticky cache over `x`/`y`. */
 export interface FloatingPlacement {
   x: number;
@@ -91,6 +99,10 @@ export interface FloatingPlacement {
   anchor: Corner | null;
   /** The pane the anchor belongs to; absent means the container's own corner. */
   anchorTo?: string;
+  /** Under `snap: 'fill'`, the pane this item fills. `x`/`y` stay its free
+   *  position at its own size, which it returns to when it leaves the pane or
+   *  the pane goes away. */
+  fill?: string;
 }
 
 export function isFloating(item: LayoutItem): boolean {
@@ -149,9 +161,54 @@ export function rectOf(
   inset: number,
   panes?: ReadonlyMap<string, Rect>,
 ): Rect {
+  const filled = place.fill === undefined ? undefined : panes?.get(place.fill);
+  if (filled) return { x: filled.x, y: filled.y, z: 0, w: filled.w, h: filled.h };
   const size = sizeOf(item);
   const origin = resolveOrigin(place, size, container, inset, panes);
   return { x: origin.x, y: origin.y, z: 0, w: size.w, h: size.h };
+}
+
+function paneAt(point: Point, panes: ReadonlyMap<string, Rect>): string | undefined {
+  for (const [id, r] of panes) {
+    if (point.x >= r.x && point.x < r.x + r.w && point.y >= r.y && point.y < r.y + r.h) return id;
+  }
+  return undefined;
+}
+
+/**
+ * One drag event under `snap: 'fill'`. The free position follows the pointer
+ * at the item's own size, holding the grab point in proportion when a filled
+ * item shrinks back; the item fills whichever pane the pointer is over (its
+ * center, for a keyboard move that carries no pointer).
+ */
+function dragFill(
+  item: LayoutItem,
+  place: FloatingPlacement,
+  delta: { dx: number; dy: number },
+  point: Point | undefined,
+  ctx: { container: Size; inset: number; panes: ReadonlyMap<string, Rect> },
+): FloatingPlacement {
+  const size = sizeOf(item);
+  let free: Point;
+  if (point) {
+    const shown = rectOf(item, place, ctx.container, ctx.inset, ctx.panes);
+    const grab = {
+      x: shown.w > 0 ? ((point.x - delta.dx - shown.x) * size.w) / shown.w : 0,
+      y: shown.h > 0 ? ((point.y - delta.dy - shown.y) * size.h) / shown.h : 0,
+    };
+    free = { x: point.x - grab.x, y: point.y - grab.y };
+  } else {
+    const base =
+      place.fill !== undefined
+        ? place
+        : resolveOrigin(place, size, ctx.container, ctx.inset, ctx.panes);
+    free = { x: base.x + delta.dx, y: base.y + delta.dy };
+  }
+  const next = clampToContainer(free, size, ctx.container);
+  const pane = paneAt(point ?? { x: next.x + size.w / 2, y: next.y + size.h / 2 }, ctx.panes);
+  const placed: FloatingPlacement = { ...next, anchor: null };
+  if (pane !== undefined) placed.fill = pane;
+  return placed;
 }
 
 /** {@link floatingStrategy}'s state: where the floating items rest, plus
@@ -174,6 +231,8 @@ export interface FloatingConfig {
   /** Also snap to the corners of the panes the inner strategy placed, not only
    *  the container's own. Costs one extra inner layout pass per drag event. */
   snapToPanes?: boolean;
+  /** What a drag rests on. Default `'corner'`. */
+  snap?: FloatingSnap;
 }
 
 /** Pixels between a snapped item and its target's edges. */
@@ -213,6 +272,7 @@ export function floatingStrategy<TInner>(
       snapThreshold: 'number',
       handleSize: 'number',
       snapToPanes: 'boolean',
+      snap: FLOATING_SNAP,
       defaultAnchor: FLOATING_CORNERS,
       raise: RAISE_MODES,
     },
@@ -239,7 +299,7 @@ export function floatingStrategy<TInner>(
       const placements = new Map(result.placements);
       // The panes are the inner strategy's own placements; a floating item is
       // never one of them, so this cannot anchor an item to itself.
-      const panes = cfg.snapToPanes ? result.placements : undefined;
+      const panes = cfg.snapToPanes || cfg.snap === 'fill' ? result.placements : undefined;
       const affordances: Affordance[] = [...result.affordances];
       const unplaced = [...(result.unplaced ?? [])];
       let topRank = 0;
@@ -296,11 +356,12 @@ export function floatingStrategy<TInner>(
       const threshold = cfg.snapThreshold ?? DEFAULT_SNAP_THRESHOLD;
       const place = state.at[id] ?? seed(context.options);
       const size = sizeOf(item);
+      const fill = cfg.snap === 'fill';
 
       // Pane corners are the inner strategy's placements, which only it can
       // produce — so ask it, at the cost of one layout pass per drag event.
       const panes =
-        cfg.snapToPanes && inner
+        (cfg.snapToPanes || fill) && inner
           ? inner.layout({
               items: context.items.filter((i) => !isFloating(i)),
               container: context.container,
@@ -308,6 +369,16 @@ export function floatingStrategy<TInner>(
               options: context.options,
             }).placements
           : undefined;
+      if (fill) {
+        const placed = dragFill(item, place, { dx, dy }, event.payload.point, {
+          container: context.container,
+          inset,
+          panes: panes ?? new Map(),
+        });
+        trace('layout', `floating: ${id} -> ${placed.fill ?? `${placed.x},${placed.y}`}`);
+        return { ...state, at: { ...state.at, [id]: placed } };
+      }
+
       const targets: SnapTarget[] = [containerTarget(context.container)];
       if (panes) for (const [paneId, rect] of panes) targets.push({ id: paneId, rect });
 

@@ -1065,6 +1065,30 @@ not an arrangement.
 
 See the **Tab stack / Stack on drop** story for the whole setup.
 
+#### Which edge the tabs sit on, and stacked title bars
+
+`side` puts the band on the `'top'` (the default), `'bottom'`, `'left'` or
+`'right'` edge, and the body moves to the other side of it. `headerSize` is the
+band's thickness whichever edge it is on.
+
+`tabs: 'stacked'` is i3's stacked layout: one title bar per child, stacked
+across the band, so the band is `tabSize × childCount` thick and grows as tabs
+arrive. `tabSize` defaults to `headerSize`. `tabs: 'strip'`, the default, is one
+band of `headerSize`.
+
+```ts
+config: { tabs: 'stacked', side: 'left', tabSize: 24 }
+```
+
+The strategy still draws nothing. It reports the band to every child, the
+withheld ones included, as channels: `bandX`, `bandY`, `bandW`, `bandH` in the
+stack's coordinates, and under `'stacked'` each child's own bar as `tabX`,
+`tabY`, `tabW`, `tabH`. Draw the tabs from a `<Container overlay>` function,
+whose context carries `channels`, or compute the same rects with
+`stackBands(config, size, childCount)`.
+
+See the **Tab stack / Tabs and side** story.
+
 ### Tearing a tab out
 
 Set `tear: 'float'` in a stack's config and a tab dragged out of the stack
@@ -1191,6 +1215,7 @@ store.patchPlacement(panelId, { floating: true, snapCorners: ['bottom-left', 'bo
 | `defaultAnchor` | `'bottom-left'` | corner a newly floated item seeds at |
 | `handleSize` | `0` | height of the drag band; `0` makes the whole item the handle |
 | `snapToPanes` | `false` | also snap to the corners of the panes the inner strategy placed |
+| `snap` | `'corner'` | `'fill'` makes a dropped item fill the pane under the pointer instead |
 
 Snapping is live during the drag — there is no drag-end event — so the item
 follows the pointer, sticks on reaching a corner, and lets go once the pointer
@@ -1202,6 +1227,14 @@ too, and the item remembers which pane it caught — so it rides that pane throu
 a resize or a reflow, and falls back to its free position if the pane goes away.
 The nearest corner wins when a pane's and the container's coincide. It costs one
 extra inner layout pass per drag event, which is why it is off by default.
+
+`snap: 'fill'` is FancyZones: the inner strategy's panes are zones, and an item
+dragged over one fills it, resized to the pane's rect. The binding is by pane
+id, in the strategy's state, so the item follows its pane through a resize or a
+reflow. Drag it off every pane, or let its pane go away, and it returns to its
+own size at its free position, with the grab point kept in proportion under the
+pointer. Under `'fill'` nothing snaps to a corner, and the same extra inner
+layout pass runs per drag event.
 
 **The handle covers what it sits on.** An affordance is an interactive element
 at its own rect, so at the default `handleSize` of `0` the panel's own buttons
@@ -1381,6 +1414,34 @@ Under `resizeMode: 'neighbor'` a step is bounded by the pair, so a pane can
 stop moving because its *neighbor* hit a limit while it is nowhere near its
 own. `aria-valuenow` reflects where it actually landed; the value itself is
 never narrated to a live region.
+
+### Refusing a split below the floors
+
+`strict` on `store.split` or `store.splitInto` refuses a split whose panes
+could not all stay at or above their floors, the way tmux answers "no space
+for new pane" and Emacs refuses to split below `window-min-width`. The store
+keeps no geometry, so the call carries the extent the host last laid the node
+out at, and optionally a floor for every pane the split makes:
+
+```ts
+store.split(paneId, {
+  direction: 'x',
+  groupId,
+  newIds: [newId],
+  strict: { size: { w: 300, h: 400 }, minSize: { w: 120, h: 80 } },
+});
+```
+
+Each pane's floor is the larger of `strict.minSize` and its own
+`hints.minSize`. The check runs the arithmetic the new container will: along a
+strip, every floor plus the gaps and padding must fit, and the largest floor
+must fit across it; a grid's cells are equal, so the largest floor must fit
+one cell. A refusal throws `NoSpaceError` (`code: 'no-space'`), naming the
+axis, the pixels needed and the pixels available, before anything is changed.
+`splitInto` checks the two panes against the onto-pane's slot. Drop-driven
+splits pass no `strict`.
+
+See the **Split operation** story, with **strict** checked.
 
 ### Sizing panes by share
 
