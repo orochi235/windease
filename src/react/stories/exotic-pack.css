@@ -31,3 +31,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.exotic-pack__turned {
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
+  border: 1px solid rgb(15 23 42 / 70%);
+  background: repeating-linear-gradient(45deg, rgb(15 23 42 / 45%) 0 2px, #0000 2px 6px);
+  pointer-events: none;
+}

@@ -11,20 +11,17 @@ import {
 } from '../test-utils/exotic/invariants.js';
 import {
   ALL_PRESETS,
+  ownStrategy,
+  PACK_STRATEGIES,
   PACKERS,
   type PackerId,
+  type PackStrategyId,
   packScenario,
 } from '../test-utils/exotic/pack-scenarios.js';
 import type { Preset } from '../test-utils/exotic/preset.js';
-import { columnStrategy } from './column.js';
-import { shelfStrategy } from './shelf.js';
 import { skylineStrategy } from './skyline.js';
 
-const STRATEGIES: Record<PackerId, LayoutStrategy<void, string>> = {
-  shelf: shelfStrategy,
-  skyline: skylineStrategy,
-  column: columnStrategy,
-};
+const STRATEGIES: Record<PackStrategyId, LayoutStrategy<void, string>> = PACK_STRATEGIES;
 
 const preset = (id: string): Preset => {
   const found = ALL_PRESETS.find((p) => p.id === id);
@@ -34,8 +31,15 @@ const preset = (id: string): Preset => {
 
 const sizeOf = (item: LayoutItem): Size | undefined => item.hints?.preferredSize;
 const gapOf = (s: Scenario): number => (typeof s.options.gap === 'number' ? s.options.gap : 0);
+const bounded = (s: Scenario): boolean => s.options.overflowMode === 'unplaced';
 
-function run(p: Preset, packer: PackerId, patch?: (s: Scenario) => Scenario) {
+/** `s` packed in the order given, upright and unbounded, the setting the literature's bounds assume. */
+const plain = (s: Scenario): Scenario => {
+  const { sort: _s, rotate: _r, overflowMode: _o, ...options } = s.options;
+  return { ...s, options };
+};
+
+function run(p: Preset, packer: PackStrategyId, patch?: (s: Scenario) => Scenario) {
   const base = packScenario(p, packer);
   const scenario = patch ? patch(base) : base;
   return { scenario, result: runScenario(STRATEGIES[packer], scenario) };
@@ -97,8 +101,15 @@ describe.each(ALL_PRESETS.map((p) => [p.id, p] as const))('%s', (_id, p) => {
     it('places every sized item once, sends the unsized to unplaced, and drops nothing', () => {
       expect(dropped(scenario.items, result)).toEqual([]);
       const unsized = scenario.items.filter((i) => !sizeOf(i)).map((i) => i.id);
-      expect(result.unplaced ?? []).toEqual(unsized);
-      expect(result.placements.size).toBe(scenario.items.length - unsized.length);
+      if (bounded(scenario)) {
+        // A bin also sends what will not fit to unplaced, and places nothing outside itself.
+        expect(result.unplaced ?? []).toEqual(expect.arrayContaining(unsized));
+        expect(result.placements.size + (result.unplaced?.length ?? 0)).toBe(scenario.items.length);
+        expect(outOfBounds(result.placements, scenario.container)).toEqual([]);
+      } else {
+        expect(result.unplaced ?? []).toEqual(unsized);
+        expect(result.placements.size).toBe(scenario.items.length - unsized.length);
+      }
       expect(malformedRects(result.placements)).toEqual([]);
     });
 
@@ -112,9 +123,10 @@ describe.each(ALL_PRESETS.map((p) => [p.id, p] as const))('%s', (_id, p) => {
         const size = sizeOf(item);
         const rect = result.placements.get(item.id);
         if (!size || !rect) continue;
-        if (rect.w !== size.w || rect.h !== size.h) wrong.push(`${item.id} resized`);
-        if (size.w > W ? rect.x !== 0 : rect.x + rect.w > W + EPS)
-          wrong.push(`${item.id} at ${rect.x}`);
+        const turned = result.channels?.get(item.id)?.rotation === 90;
+        const [w, h] = turned ? [size.h, size.w] : [size.w, size.h];
+        if (rect.w !== w || rect.h !== h) wrong.push(`${item.id} resized`);
+        if (w > W ? rect.x !== 0 : rect.x + rect.w > W + EPS) wrong.push(`${item.id} at ${rect.x}`);
       }
       expect(wrong).toEqual([]);
       expect(
@@ -150,7 +162,7 @@ describe('packing quality against the literature', () => {
   )('shelf sorted tallest first stays within the NFDH bound: %s', (_id, p) => {
     it('height + gap ≤ 2·A/(W+gap) + h_max + gap', () => {
       const { scenario, result } = run(p, 'shelf', (s) => ({
-        ...s,
+        ...plain(s),
         items: [...s.items].sort((a, b) => (sizeOf(b)?.h ?? 0) - (sizeOf(a)?.h ?? 0)),
       }));
       const g = gapOf(scenario);
@@ -186,7 +198,7 @@ describe('packing quality against the literature', () => {
     ),
   )('masonry with single-column items stays within Graham’s bound: %s', (_id, p) => {
     it('height ≤ Σ(h+gap)/columns + h_max', () => {
-      const { scenario, result } = run(p, 'column');
+      const { scenario, result } = run(p, 'column', plain);
       const g = gapOf(scenario);
       let total = 0;
       let hMax = 0;
@@ -245,42 +257,36 @@ describe('real layouts, packer by packer', () => {
     },
   );
 
-  it('masonry puts every pin after the full-bleed module below it, since it spans all four columns', () => {
+  it('masonry centers Pinterest’s four columns in the 28px they leave, and puts every pin after the full-bleed module below it', () => {
     const { scenario, result } = run(preset('pinterest-home-feed'), 'column');
     const ids = scenario.items.map((i) => i.id);
     const wide = result.placements.get(ids[9]!)!;
-    const xs = new Set(ids.map((id) => result.placements.get(id)!.x));
-    expect([...xs].sort((a, b) => a - b)).toEqual([0, 252, 504, 756]);
+    const xs = new Set(ids.filter((_, i) => i !== 9).map((id) => result.placements.get(id)!.x));
+    expect([...xs].sort((a, b) => a - b)).toEqual([14, 266, 518, 770]);
+    expect(wide.x).toBe(0);
     for (const id of ids.slice(10))
       expect(result.placements.get(id)!.y).toBeGreaterThanOrEqual(wide.y + wide.h + 16);
   });
 
-  it('masonry fits exactly three Unsplash columns into three columns plus two gutters', () => {
-    const { result } = run(preset('unsplash-three-column'), 'column');
-    const xs = new Set([...result.placements.values()].map((r) => r.x));
-    expect([...xs].sort((a, b) => a - b)).toEqual([0, 440, 880]);
+  it('masonry keeps Pinterest’s two columns centered in a 600px pane', () => {
+    const { result } = run(preset('pinterest-home-feed'), 'column', (s) => ({
+      ...s,
+      container: { ...s.container, w: 600 },
+    }));
+    const xs = new Set([...result.placements.values()].filter((r) => r.w <= 236).map((r) => r.x));
+    expect([...xs].sort((a, b) => a - b)).toEqual([56, 308]);
   });
 
-  it('masonry with cols: 3 widens Unsplash’s columns to the same three at any width', () => {
+  it('masonry keeps Unsplash at three columns at any width, widened to fill it', () => {
     const three = (w: number) => {
       const { result } = run(preset('unsplash-three-column'), 'column', (s) => ({
         ...s,
         container: { ...s.container, w },
-        options: { ...s.options, cols: 3 },
       }));
       return [...new Set([...result.placements.values()].map((r) => r.x))].sort((a, b) => a - b);
     };
     expect(three(1296)).toEqual([0, 440, 880]);
     expect(three(1500)).toEqual([0, 508, 1016]);
-  });
-
-  it('masonry with justify: center centers Pinterest’s four columns in the 28px they leave', () => {
-    const { result } = run(preset('pinterest-home-feed'), 'column', (s) => ({
-      ...s,
-      options: { ...s.options, justify: 'center' },
-    }));
-    const xs = new Set([...result.placements.values()].filter((r) => r.w <= 236).map((r) => r.x));
-    expect([...xs].sort((a, b) => a - b)).toEqual([14, 266, 518, 770]);
   });
 
   it.each(PACKERS)('%s gives every too-wide newspaper module its own row at x 0', (packer) => {
@@ -298,20 +304,54 @@ describe('real layouts, packer by packer', () => {
     expect(result.overflow?.w).toBe(970 - 375);
   });
 
-  it('shelf leaves Flickr’s justified rows ragged: uniform 330px pitch, and each row too full for the next photo', () => {
-    const { scenario, result } = run(preset('flickr-justified-rows'), 'shelf');
+  it('justifies Flickr’s rows to the width, none past 400px, the widow row left at 320', () => {
+    const { scenario, result } = run(preset('flickr-justified-rows'), 'justified');
     const byRow = rows(result);
     const rect = (id: string) => result.placements.get(id)!;
-    expect(byRow.map((ids) => rect(ids[0]!).y)).toEqual(byRow.map((_, r) => r * 330));
-    let slack = 0;
-    for (let r = 0; r + 1 < byRow.length; r++) {
-      const last = rect(byRow[r]!.at(-1)!);
-      const free = scenario.container.w - (last.x + last.w);
-      slack += free;
-      expect(free).toBeLessThan(rect(byRow[r + 1]![0]!).w + 10);
+    expect(result.placements.size).toBe(40);
+    for (const [r, ids] of byRow.entries()) {
+      const first = rect(ids[0]!);
+      const last = rect(ids.at(-1)!);
+      expect(first.x).toBe(0);
+      if (r < byRow.length - 1) {
+        expect(last.x + last.w).toBeCloseTo(scenario.container.w, 6);
+        expect(first.h).toBeLessThanOrEqual(400);
+      } else {
+        expect(first.h).toBe(320);
+        expect(last.x + last.w).toBeLessThan(scenario.container.w);
+      }
     }
-    // The ragged edge a justified layout would have scaled away.
+    for (const item of scenario.items) {
+      const r = rect(item.id);
+      expect(r.w / r.h, item.id).toBeCloseTo(item.hints!.aspect!, 6);
+    }
+    expect(result.overflow?.w ?? 0).toBe(0);
+  });
+
+  it('shelf, the fallback without justified rows, leaves Flickr’s rows ragged on the right', () => {
+    const { scenario, result } = run(preset('flickr-justified-rows'), 'shelf');
+    const byRow = rows(result);
+    const last = (ids: string[]) => result.placements.get(ids.at(-1)!)!;
+    const slack = byRow
+      .slice(0, -1)
+      .reduce((sum, ids) => sum + scenario.container.w - (last(ids).x + last(ids).w), 0);
     expect(slack).toBeGreaterThan(0);
+  });
+
+  it('gives the 12:1 Google Photos panorama a row of its own, scaled down to the width', () => {
+    const { scenario, result } = run(preset('google-photos-panoramas'), 'justified');
+    const panoId = scenario.items[20]!.id;
+    const pano = result.placements.get(panoId)!;
+    expect(pano.x).toBe(0);
+    expect(pano.w).toBeCloseTo(1280, 6);
+    expect(pano.h).toBeCloseTo(1280 / 12, 6);
+    const byRow = rows(result);
+    expect(byRow.find((ids) => ids.includes(panoId))).toEqual([panoId]);
+    for (const ids of byRow.slice(0, -1)) {
+      const r = result.placements.get(ids.at(-1)!)!;
+      expect(r.x + r.w).toBeCloseTo(1280, 6);
+    }
+    expect(result.overflow?.w ?? 0).toBe(0);
   });
 
   it.each(PACKERS)('%s gives the 12:1 Google Photos panorama a row of its own at x 0', (packer) => {
@@ -325,36 +365,51 @@ describe('real layouts, packer by packer', () => {
     expect(result.overflow?.w).toBe(2160 - 1280);
   });
 
-  it.each(PACKERS)(
-    '%s loads 8 EUR pallets into a 20ft container and 20 ISO pallets into a 40ft one',
-    (packer) => {
-      const inside = (id: string) => {
-        const { scenario, result } = run(preset(id), packer);
-        return [...result.placements.values()].filter((r) => r.y + r.h <= scenario.container.h)
-          .length;
-      };
-      expect(inside('iso-20ft-eur-pallets')).toBe(8);
-      expect(inside('iso-40ft-industrial-pallets')).toBe(20);
-    },
-  );
+  const upright = (s: Scenario): Scenario => ({ ...s, options: { ...s.options, rotate: false } });
 
   it.each(PACKERS)(
-    "%s under overflowMode 'unplaced' loads the same 8 and 20 pallets and leaves the rest on the dock",
+    '%s, upright, loads 8 EUR pallets into a 20ft container and 20 ISO pallets into a 40ft one and leaves the rest on the dock',
     (packer) => {
       for (const [id, fit] of [
         ['iso-20ft-eur-pallets', 8],
         ['iso-40ft-industrial-pallets', 20],
       ] as const) {
-        const { scenario, result } = run(preset(id), packer, (s) => ({
-          ...s,
-          options: { ...s.options, overflowMode: 'unplaced' },
-        }));
+        const { scenario, result } = run(preset(id), packer, upright);
         expect(result.placements.size, id).toBe(fit);
         expect(result.unplaced ?? [], id).toHaveLength(scenario.items.length - fit);
         expect(result.overflow, id).toBeUndefined();
       }
     },
   );
+
+  it('skyline turning pallets loads all 11 EUR, a lengthwise row of 4 beside a turned row of 7, and all 22 ISO', () => {
+    const eur = run(preset('iso-20ft-eur-pallets'), 'skyline').result;
+    expect(eur.placements.size).toBe(11);
+    expect(eur.unplaced).toBeUndefined();
+    const turned = [...eur.channels!.values()].filter((c) => c.rotation === 90);
+    expect(turned).toHaveLength(7);
+    const iso = run(preset('iso-40ft-industrial-pallets'), 'skyline').result;
+    expect(iso.placements.size).toBe(22);
+    expect(iso.unplaced).toBeUndefined();
+  });
+
+  it('turning pallets costs shelf and masonry what it gains skyline: greedy per-item choices', () => {
+    const loaded = (id: string, packer: PackerId) => run(preset(id), packer).result.placements.size;
+    // Shelf turns only the ninth EUR pallet, into the 110cm left at the back; masonry turns every
+    // pallet to keep its tallest column low, laying them one across the floor at a time.
+    expect(loaded('iso-20ft-eur-pallets', 'shelf')).toBe(9);
+    expect(loaded('iso-20ft-eur-pallets', 'column')).toBe(7);
+    expect(loaded('iso-40ft-industrial-pallets', 'shelf')).toBe(20);
+    expect(loaded('iso-40ft-industrial-pallets', 'column')).toBe(12);
+  });
+
+  it('skyline turning flat-pack boxes crosswise loads 5 of 14 onto the van floor, against 7 upright', () => {
+    const p = preset('flat-pack-van-floor');
+    const turned = run(p, 'skyline').result;
+    expect(turned.placements.size).toBe(5);
+    expect([...turned.channels!.values()].filter((c) => c.rotation === 90)).toHaveLength(2);
+    expect(run(p, 'skyline', upright).result.placements.size).toBe(7);
+  });
 
   it.each(PACKERS)('%s fits ten 76.8px Explorer tiles in a 768px row', (packer) => {
     const { scenario, result } = run(preset('explorer-icons-125pct'), packer);
@@ -558,13 +613,16 @@ describe.runIf(process.env.EXOTIC_DENSITY)('density table', () => {
   ];
 
   it.each(variants)('prints fill %% per preset and packer, %s', (label, extra) => {
-    const lines = [`${label.padEnd(30)}${PACKERS.map((k) => k.padStart(9)).join('')}`];
+    const heads = [...PACKERS, 'own'].map((k) => k.padStart(9)).join('');
+    const lines = [`${label.padEnd(30)}${heads}${'placed'.padStart(13)}  own strategy`];
     for (const p of ALL_PRESETS) {
-      const cells = PACKERS.map((k) => {
-        const { result } = run(p, k, (s) => ({ ...s, options: { ...s.options, ...extra } }));
-        return (density(result) * 100).toFixed(1).padStart(9);
-      });
-      lines.push(`${p.id.padEnd(30)}${cells.join('')}`);
+      const own = ownStrategy(p);
+      const results = [...PACKERS, own].map(
+        (k) => run(p, k, (s) => ({ ...s, options: { ...s.options, ...extra } })).result,
+      );
+      const cells = results.map((r) => (density(r) * 100).toFixed(1).padStart(9));
+      const count = `${results.at(-1)!.placements.size}/${packScenario(p, own).items.length}`;
+      lines.push(`${p.id.padEnd(30)}${cells.join('')}${count.padStart(13)}  ${own}`);
     }
     process.stderr.write(`\n${lines.join('\n')}\n`);
   });

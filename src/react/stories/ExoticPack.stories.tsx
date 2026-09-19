@@ -2,18 +2,25 @@ export default { title: 'Exotic / Pack' };
 
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
-import { asNodeId, columnStrategy, shelfStrategy, skylineStrategy } from '../../index.js';
-import type { LayoutStrategy } from '../../layout-types.js';
+import { asNodeId } from '../../index.js';
 import { runScenario } from '../../test-utils/exotic/invariants.js';
 import {
+  ownStrategy,
+  PACK_STRATEGIES,
   PACKERS,
-  type PackerId,
+  type PackStrategyId,
   packScenario,
   STORY_PRESETS,
   withStrategy,
 } from '../../test-utils/exotic/pack-scenarios.js';
 import { presetToStore } from '../../test-utils/exotic/preset.js';
-import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
+import {
+  type ChromeMap,
+  Container,
+  type OverlayContext,
+  Provider,
+  StrategyRegistryProvider,
+} from '../index.js';
 import './exotic-pack.css';
 import './windease.css';
 import { PresetInfo } from './PresetInfo.js';
@@ -21,21 +28,14 @@ import { PresetPicker, usePresetPick } from './PresetPicker.js';
 import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
 
-const PACK: Record<PackerId, LayoutStrategy<void, string>> = {
-  shelf: shelfStrategy,
-  skyline: skylineStrategy,
-  column: columnStrategy,
-};
+const STRATEGIES = PACK_STRATEGIES as Record<PackStrategyId, never>;
 
-const STRATEGIES = {
-  shelf: shelfStrategy as never,
-  column: columnStrategy as never,
-  skyline: skylineStrategy as never,
-};
+/** `'preset'` runs the strategy the preset names; any other value overrides it. */
+type StrategyPick = 'preset' | PackStrategyId;
 
 interface Args {
   scenario: string;
-  strategy: PackerId;
+  strategy: StrategyPick;
   /** Container width in px; 0 keeps the width the preset was designed for. */
   width: number;
 }
@@ -50,15 +50,33 @@ const chrome: ChromeMap = {
   ),
 };
 
-export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
-  const [preset, pick] = usePresetPick(STORY_PRESETS, scenario);
+/** A hatched frame over every box its packer turned, read from the `rotation` channel. */
+function TurnedOverlay({ placements, channels }: OverlayContext) {
+  if (!channels) return null;
+  return [...channels].map(([id, c]) => {
+    const rect = c.rotation === 90 ? placements.get(id) : undefined;
+    return rect ? (
+      <span
+        key={id}
+        className="exotic-pack__turned"
+        data-turned={id}
+        title="turned a quarter"
+        style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+      />
+    ) : null;
+  });
+}
+
+export const Scenarios: Story<Args> = ({ scenario, strategy: pick, width }) => {
+  const [preset, pickPreset] = usePresetPick(STORY_PRESETS, scenario);
+  const strategy = pick === 'preset' ? ownStrategy(preset) : pick;
   const vw = width > 0 ? width : preset.viewport.w;
   const vh = preset.viewport.h;
   const store = useMemo(() => presetToStore(withStrategy(preset, strategy)), [preset, strategy]);
 
   const stats = useMemo(() => {
     const flat = packScenario(preset, strategy);
-    const result = runScenario(PACK[strategy], { ...flat, container: { w: vw, h: vh } });
+    const result = runScenario(PACK_STRATEGIES[strategy], { ...flat, container: { w: vw, h: vh } });
     let area = 0;
     let right = 0;
     let bottom = 0;
@@ -70,6 +88,7 @@ export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
     return {
       placed: result.placements.size,
       unplaced: result.unplaced?.length ?? 0,
+      turned: [...(result.channels?.values() ?? [])].filter((c) => c.rotation === 90).length,
       fill: right > 0 && bottom > 0 ? (area / (right * bottom)) * 100 : 0,
     };
   }, [preset, strategy, vw, vh]);
@@ -78,13 +97,13 @@ export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <section className="exotic-pack" aria-label="Exotic pack scenario">
-          <PresetPicker presets={STORY_PRESETS} value={preset} onChange={pick} />
+          <PresetPicker presets={STORY_PRESETS} value={preset} onChange={pickPreset} />
           <PresetInfo preset={preset}>
             <p className="preset-info__live">
-              <strong>Packed:</strong>{' '}
+              <strong>Packed by {strategy}:</strong>{' '}
               <span data-testid="exotic-stats">
-                {stats.placed} placed, {stats.unplaced} unplaced, {vw}px wide, fill{' '}
-                <span className="exotic-pack__number">{stats.fill.toFixed(1)}%</span>
+                {stats.placed} placed, {stats.unplaced} unplaced, {stats.turned} turned, {vw}px
+                wide, fill <span className="exotic-pack__number">{stats.fill.toFixed(1)}%</span>
               </span>
             </p>
           </PresetInfo>
@@ -97,6 +116,7 @@ export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
               viewport={{ w: vw, h: vh }}
               settleMs={0}
               className="windease-zone windease-zone--unclipped"
+              overlay={TurnedOverlay}
             />
           </div>
           <PresetCode preset={preset} viewport={{ w: vw, h: vh }} />
@@ -106,10 +126,10 @@ export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
   );
 };
 
-Scenarios.args = { scenario: 'pinterest-home-feed', strategy: 'column', width: 0 };
+Scenarios.args = { scenario: 'pinterest-home-feed', strategy: 'preset', width: 0 };
 
 Scenarios.argTypes = {
   scenario: { options: STORY_PRESETS.map((p) => p.id), control: { type: 'select' } },
-  strategy: { options: [...PACKERS], control: { type: 'radio' } },
+  strategy: { options: ['preset', ...PACKERS, 'justified'], control: { type: 'radio' } },
   width: { control: { type: 'range', min: 0, max: 2400, step: 10 } },
 };
