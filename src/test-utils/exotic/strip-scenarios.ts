@@ -38,21 +38,19 @@ const blenderSplitTitles = (depth: number) =>
   );
 
 const ACME_TAG = 18;
+/** An acme window at the height the user last left it. */
 const acmeWindow = (id: string, size: number, extra: Partial<PresetNode> = {}): PresetNode => ({
   id,
   placement: { size: { h: size } },
-  hints: { minSize: h(ACME_TAG) },
   meta: { title: id },
   ...extra,
 });
 
 const FIREFOX_TAB_MIN = 76;
 const FIREFOX_TAB_MAX = 225;
-const firefoxTab = (i: number): PresetNode => ({
-  id: `tab-${i}`,
-  hints: { minSize: w(FIREFOX_TAB_MIN), maxSize: w(FIREFOX_TAB_MAX) },
-  meta: { title: `Tab ${i}` },
-});
+const FIREFOX_TAB = { hints: { minSize: w(FIREFOX_TAB_MIN), maxSize: w(FIREFOX_TAB_MAX) } };
+const firefoxTab = (i: number): PresetNode => ({ id: `tab-${i}`, meta: { title: `Tab ${i}` } });
+/** A tab the user pinned, which Firefox draws icon-sized. */
 const firefoxPinned = (i: number): PresetNode => ({
   id: `pinned-${i}`,
   placement: { size: { w: 40 } },
@@ -191,6 +189,7 @@ export const PRESETS: Preset[] = [
       id: 'acme',
       strategy: 'strip',
       config: { axis: 'y', gap: 1, resizeMode: 'neighbor' },
+      item: { hints: { minSize: h(ACME_TAG) } },
     },
     data: {
       children: {
@@ -350,14 +349,11 @@ export const PRESETS: Preset[] = [
       id: 'tmux',
       strategy: 'strip',
       config: { axis: 'x', gap: 1, fill: true, resizeMode: 'neighbor' },
+      item: { hints: { minSize: w(8) } },
     },
     data: {
       children: {
-        tmux: Array.from({ length: 40 }, (_, i) => ({
-          id: `pane-${i}`,
-          hints: { minSize: w(8) },
-          meta: { title: `%${i}` },
-        })),
+        tmux: Array.from({ length: 40 }, (_, i) => ({ id: `pane-${i}`, meta: { title: `%${i}` } })),
       },
     },
   },
@@ -373,12 +369,12 @@ export const PRESETS: Preset[] = [
       id: 'emacs',
       strategy: 'strip',
       config: { axis: 'x', gap: 1, fill: true, resizeMode: 'neighbor' },
+      item: { hints: { minSize: w(80) } },
     },
     data: {
       children: {
         emacs: Array.from({ length: 18 }, (_, i) => ({
           id: `window-${i}`,
-          hints: { minSize: w(80) },
           meta: { title: `*buffer-${i}*` },
         })),
       },
@@ -395,6 +391,7 @@ export const PRESETS: Preset[] = [
       id: 'firefox',
       strategy: 'strip',
       config: { axis: 'x', overflowMode: 'scroll', resizable: false },
+      item: FIREFOX_TAB,
     },
     data: {
       children: {
@@ -413,7 +410,12 @@ export const PRESETS: Preset[] = [
     description:
       'With only a few tabs open, Firefox gives each tab its full width of about 225 pixels and leaves the rest of the tab strip empty rather than stretching tabs to fill it. Tabs start to shrink only once more are open than fit at that width.',
     viewport: { w: 1280, h: 40 },
-    mechanics: { id: 'firefox-few', strategy: 'strip', config: { axis: 'x', resizable: false } },
+    mechanics: {
+      id: 'firefox-few',
+      strategy: 'strip',
+      config: { axis: 'x', resizable: false },
+      item: FIREFOX_TAB,
+    },
     data: { children: { 'firefox-few': [1, 2, 3].map(firefoxTab) } },
   },
   {
