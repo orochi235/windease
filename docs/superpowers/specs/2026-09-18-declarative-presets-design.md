@@ -2,7 +2,7 @@
 
 For whoever extends windease's layout vocabulary, and for anyone turning the Exotic presets into
 canned presets a consumer can load.
-**Status, 2026-09-18, on branch `exotic-layout-fixtures`: phase 1 is built. Phase 2 is built
+**Status, 2026-09-18, merged to `main`: phase 1 is built. Phase 2 is built
 except grid `sticky`; phases 3 and 4 are built.** The phase table at the end is the record of
 what exists.
 
@@ -12,6 +12,13 @@ it wires the behavior by hand: dragging a window, raising it on click, tearing a
 refusing a drop. The goal is that a preset states both, and a story draws chrome and nothing
 else. Progress is measured in callback code deleted from `src/react/stories/Exotic*.stories.tsx`;
 the work is done when no story wires a behavior a product in the corpus has.
+
+## Where presets ship
+
+Public, but not front and center: a secondary entry point beside the core, the way D3DX sat beside
+Direct3D. Consumers who want a product's layout import it from there; the README and the core
+exports lead with the primitives, not the presets. They leave `src/test-utils/` for that entry
+point once built; the test-only parts (invariants, known-failure entries, viewports) stay behind.
 
 ## A preset is mechanics plus data
 
