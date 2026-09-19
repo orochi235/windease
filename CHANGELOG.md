@@ -94,6 +94,18 @@ section below.
   renders `click` affordances, as a named `<button>`; it rendered them as inert
   drag handles before.
 
+- **`resize` on `desktopStrategy`.** `resize: true` gives each window a
+  `resize-x` or `resize-y` affordance on each edge and a `resize-xy` on each
+  corner, inside the window's border: edges `edgeSize` thick (6 by default),
+  corners twice that. Dragging one writes `placement.size`, and the left and top
+  edges also write `x` / `y` so the opposite edge stays put. A window stops at
+  its `hints.minSize` (twice `edgeSize` without one) and `hints.maxSize`, and a
+  growing edge stops at the desktop's edge. Each edge reports `bounds` as its
+  position, so a keyboard press moves it the way the arrow points. `lock.resize`
+  refuses the resize, `lock.move` refuses the left and top edges, a shaded window
+  gets no edges, and a window's own `placement.resize` overrides the config. See
+  [Desktop windows](README.md#desktop-windows).
+
 - **An affordance handle stacks at its rect's `z`**, so a window's title band sits
   above that window and below the ones in front of it. `Affordance.label` names
   what a gesture does (`'move'`), and the handle's accessible name uses it in

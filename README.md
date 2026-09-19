@@ -1007,6 +1007,8 @@ the pressed element in the DOM and the browser drops the click it was for.
 | `clamp` | off | `'bar'` keeps each title band inside the desktop; `'all'` keeps whole windows inside where they fit |
 | `minimizable` | off | adds a click box at the right of each title band that flips `minimized`, and one over each iconified window |
 | `overflow` | `'scroll'` | `'scroll'` reports windows past any edge as `overflow`, left and top included; `'clip'` reports none |
+| `resize` | off | `true` resizes a window from its edges and corners |
+| `edgeSize` | `6` | thickness of the edges `resize` grabs; corners are twice it |
 
 With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`
 shades instead, with a `layout` trace.
@@ -1031,6 +1033,18 @@ it flips the window's `placement.minimized`. A window iconified under
 `minimize: 'icon'` gets one over its icon, so pressing the icon restores it. The
 built-in renderer draws it as an empty `<button>` named "minimize …" or
 "restore …", and the chrome draws the glyph beneath.
+
+**Resizing.** With `resize` set, each window gets eight affordances inside its
+border: `resize-y` on the top and bottom edges, `resize-x` on the left and right,
+`edgeSize` thick, and `resize-xy` squares twice that on the corners. Dragging one
+writes `placement.size`, and the left and top edges also write `x` / `y`, so the
+opposite edge stays where it was. A window stops at `hints.minSize` (twice
+`edgeSize` when it has none) and `hints.maxSize`, and a growing edge stops at the
+desktop's edge unless the window is already past it. Each edge's `bounds` is its
+position on its axis, so an arrow key moves it the way the arrow points. A window
+with `lock.resize` does not resize, one with `lock.move` does not resize from its
+left or top edge, and a shaded window has no edges. A window's own
+`placement.resize` overrides the config. The minimize box sits above the edges.
 
 **Overflow.** Under the default `overflow: 'scroll'`, a window at `x = -1800` is
 reported as `overflow.left`, so a scrolling wrapper can reach it (see

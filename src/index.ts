@@ -84,6 +84,7 @@ export {
 } from './layout/config-check.js';
 export {
   DEFAULT_CASCADE,
+  DEFAULT_EDGE_SIZE,
   DEFAULT_HANDLE_SIZE,
   DEFAULT_ICON_SIZE,
   DEFAULT_SHADE_HEIGHT,
@@ -93,6 +94,7 @@ export {
   DESKTOP_MINIMIZE,
   DESKTOP_MINIMIZE_PREFIX,
   DESKTOP_OVERFLOW,
+  DESKTOP_RESIZE_PREFIX,
   type DesktopConfig,
   type DesktopState,
   desktopStrategy,

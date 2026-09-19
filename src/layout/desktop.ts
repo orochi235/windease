@@ -47,6 +47,11 @@ export interface DesktopConfig {
   /** Put a click box at the right of each title band that flips the window's
    *  `minimized`, and one over each iconified window that restores it. */
   minimizable?: boolean;
+  /** Resize windows from their edges and corners. A window's own
+   *  `placement.resize` overrides it. */
+  resize?: boolean;
+  /** Thickness of the edges `resize` grabs; corners are twice it. */
+  edgeSize?: number;
 }
 
 /** {@link desktopStrategy}'s state: only whatever the wrapped strategy keeps. */
@@ -58,10 +63,12 @@ export const DEFAULT_SHADE_HEIGHT = 28;
 export const DEFAULT_ICON_SIZE = 64;
 export const DEFAULT_CASCADE = 24;
 export const DEFAULT_HANDLE_SIZE = 22;
+export const DEFAULT_EDGE_SIZE = 6;
 
 /** Affordance id prefixes, so dispatch can route without knowing the inner strategy. */
 export const DESKTOP_DRAG_PREFIX = 'desktop:drag:';
 export const DESKTOP_MINIMIZE_PREFIX = 'desktop:minimize:';
+export const DESKTOP_RESIZE_PREFIX = 'desktop:resize:';
 
 const DRAG_KIND = { xy: 'drag-xy', x: 'drag-x', y: 'drag-y' } as const;
 
@@ -93,7 +100,137 @@ function clampWindow(
 }
 
 function isOwnAffordance(id: string): boolean {
-  return id.startsWith(DESKTOP_DRAG_PREFIX) || id.startsWith(DESKTOP_MINIMIZE_PREFIX);
+  return (
+    id.startsWith(DESKTOP_DRAG_PREFIX) ||
+    id.startsWith(DESKTOP_MINIMIZE_PREFIX) ||
+    id.startsWith(DESKTOP_RESIZE_PREFIX)
+  );
+}
+
+type Edge = 'n' | 's' | 'w' | 'e' | 'nw' | 'ne' | 'sw' | 'se';
+const EDGES: readonly Edge[] = ['n', 's', 'w', 'e', 'nw', 'ne', 'sw', 'se'];
+const EDGE_CURSOR: Record<Edge, string> = {
+  n: 'ns-resize',
+  s: 'ns-resize',
+  w: 'ew-resize',
+  e: 'ew-resize',
+  nw: 'nwse-resize',
+  se: 'nwse-resize',
+  ne: 'nesw-resize',
+  sw: 'nesw-resize',
+};
+
+function resizable(item: LayoutItem, cfg: DesktopConfig): boolean {
+  const own = item.meta?.resize;
+  return (own === undefined ? cfg.resize : own) === true;
+}
+
+/** Which side an edge moves on each axis, or null where it moves none. */
+function sidesOf(edge: Edge): { x: 'w' | 'e' | null; y: 'n' | 's' | null } {
+  const x = edge.includes('w') ? 'w' : edge.includes('e') ? 'e' : null;
+  const y = edge.startsWith('n') ? 'n' : edge.startsWith('s') ? 's' : null;
+  return { x, y };
+}
+
+interface EdgeRange {
+  now: number;
+  min: number;
+  max: number;
+}
+
+/**
+ * Where one side of a window may go, as a position on its axis: far enough to
+ * leave the window its floor, near enough to keep it under `maxSize`, and no
+ * further out than the container unless it is already past it. Always contains
+ * where the side is now.
+ */
+function edgeRange(
+  side: 'w' | 'e' | 'n' | 's',
+  rect: Rect,
+  item: LayoutItem,
+  container: Size,
+  edgeSize: number,
+): EdgeRange {
+  const horizontal = side === 'w' || side === 'e';
+  const start = horizontal ? rect.x : rect.y;
+  const extent = horizontal ? rect.w : rect.h;
+  const end = start + extent;
+  const limit = horizontal ? container.w : container.h;
+  const floor = horizontal ? item.hints?.minSize?.w : item.hints?.minSize?.h;
+  const cap = horizontal ? item.hints?.maxSize?.w : item.hints?.maxSize?.h;
+  const lo = floor ?? Math.max(1, 2 * edgeSize);
+  const hi = cap ?? Number.POSITIVE_INFINITY;
+  if (side === 'e' || side === 's') {
+    const max = Math.min(start + hi, Math.max(limit, end));
+    return { now: end, min: Math.min(start + lo, end), max: Math.max(max, end) };
+  }
+  const min = Math.max(end - hi, Math.min(0, start));
+  return { now: start, min: Math.min(min, start), max: Math.max(end - lo, start) };
+}
+
+function edgeRect(edge: Edge, rect: Rect, edgeSize: number): Rect | null {
+  const e = Math.min(edgeSize, rect.w / 2, rect.h / 2);
+  const c = Math.min(2 * edgeSize, rect.w / 2, rect.h / 2);
+  if (e <= 0) return null;
+  const { x, y, z, w, h } = rect;
+  const along = (len: number) => (len - 2 * c > 0 ? len - 2 * c : null);
+  switch (edge) {
+    case 'n':
+    case 's': {
+      const len = along(w);
+      return len === null ? null : { x: x + c, y: edge === 'n' ? y : y + h - e, z, w: len, h: e };
+    }
+    case 'w':
+    case 'e': {
+      const len = along(h);
+      return len === null ? null : { x: edge === 'w' ? x : x + w - e, y: y + c, z, w: e, h: len };
+    }
+    default:
+      return {
+        x: edge.endsWith('w') ? x : x + w - c,
+        y: edge.startsWith('n') ? y : y + h - c,
+        z,
+        w: c,
+        h: c,
+      };
+  }
+}
+
+function resizeAffordances(
+  item: LayoutItem,
+  rect: Rect,
+  container: Size,
+  edgeSize: number,
+): Affordance[] {
+  const out: Affordance[] = [];
+  for (const edge of EDGES) {
+    const at = edgeRect(edge, rect, edgeSize);
+    if (!at) continue;
+    const { x, y } = sidesOf(edge);
+    const aff: Affordance = {
+      id: `${DESKTOP_RESIZE_PREFIX}${edge}:${item.id}`,
+      kind: x && y ? 'resize-xy' : x ? 'resize-x' : 'resize-y',
+      rect: at,
+      cursor: EDGE_CURSOR[edge],
+      label: 'resize',
+      childId: item.id,
+      affects: [item.id],
+    };
+    const side = x ?? y;
+    if (side && !(x && y)) {
+      const r = edgeRange(side, rect, item, container, edgeSize);
+      aff.bounds = {
+        orientation: x ? 'horizontal' : 'vertical',
+        valueNow: r.now,
+        valueMin: r.min,
+        valueMax: r.max,
+        atMin: r.now <= r.min,
+        atMax: r.now >= r.max,
+      };
+    }
+    out.push(aff);
+  }
+  return out;
 }
 
 function minimizeToggle(id: string, rect: Rect, minimized: boolean): Affordance {
@@ -144,6 +281,120 @@ function windowSize(item: LayoutItem): Size | null {
   return usable(w) && usable(h) ? { w, h } : null;
 }
 
+interface PlacedWindow {
+  item: LayoutItem;
+  rect: Rect;
+  minimized: boolean;
+}
+
+/** Where each window shows, and the ones with no size to show at. Shared by
+ *  `layout` and the resize dispatch, which works from where a window shows. */
+function placeWindows(
+  windows: readonly LayoutItem[],
+  cfg: DesktopConfig,
+  container: Size,
+): { windows: PlacedWindow[]; unplaced: string[] } {
+  const shadeHeight = cfg.shadeHeight ?? DEFAULT_SHADE_HEIGHT;
+  const cascade = cfg.cascade ?? DEFAULT_CASCADE;
+  const handleSize = cfg.handleSize ?? DEFAULT_HANDLE_SIZE;
+  const out: PlacedWindow[] = [];
+  const unplaced: string[] = [];
+  let slot = 0;
+  for (const item of windows) {
+    const size = windowSize(item);
+    if (!size) {
+      trace('layout', `desktop: ${item.id} has no size, unplaced`);
+      unplaced.push(item.id);
+      continue;
+    }
+    const { x, y } = item.meta ?? {};
+    let at: Point;
+    if (Number.isFinite(x) && Number.isFinite(y)) at = { x: x as number, y: y as number };
+    else {
+      const bad = (n: unknown) => typeof n === 'number' && !Number.isFinite(n);
+      if (bad(x) || bad(y)) {
+        trace('layout', `desktop: ${item.id} at non-finite (${x}, ${y}), cascaded`);
+      }
+      at = { x: slot * cascade, y: slot * cascade };
+      slot++;
+    }
+    const minimized = item.meta?.minimized === true;
+    if (minimized && cfg.minimize === 'icon') {
+      trace('layout', `desktop: ${item.id} minimized to an icon with no icon layer, shaded`);
+    }
+    const h = minimized ? shadeHeight : size.h;
+    if (cfg.clamp) {
+      const kept = clampWindow(at, { w: size.w, h }, container, cfg.clamp, handleSize);
+      if (kept.x !== at.x || kept.y !== at.y) {
+        trace('layout', `desktop: ${item.id} clamped (${at.x}, ${at.y}) → (${kept.x}, ${kept.y})`);
+        at = kept;
+      }
+    }
+    out.push({ item, rect: { x: at.x, y: at.y, z: out.length + 1, w: size.w, h }, minimized });
+  }
+  return { windows: out, unplaced };
+}
+
+type DispatchContext = Parameters<NonNullable<LayoutStrategy['dispatchAffordance']>>[0];
+
+/** Moves one or two sides of a window within {@link edgeRange}, writing
+ *  `placement.size` and, for the left and top sides, `x` / `y`. */
+function resizeWindow(ctx: DispatchContext, windows: readonly LayoutItem[]): void {
+  const { event, store, container } = ctx;
+  const rest = event.affordanceId.slice(DESKTOP_RESIZE_PREFIX.length);
+  const cut = rest.indexOf(':');
+  const edge = rest.slice(0, cut) as Edge;
+  const id = asNodeId(rest.slice(cut + 1));
+  if (!EDGES.includes(edge)) return;
+  if (store.isLocked(id, 'resize')) {
+    trace('layout', `desktop: ${id} resize refused (lock.resize)`);
+    return;
+  }
+  const cfg = ctx.options as DesktopConfig;
+  const shown = placeWindows(windows, cfg, container).windows.find((p) => p.item.id === id);
+  if (!shown || shown.minimized) return;
+  const { item, rect } = shown;
+  const edgeSize = cfg.edgeSize ?? DEFAULT_EDGE_SIZE;
+  const moveLocked = store.isLocked(id, 'move');
+  const sides = sidesOf(edge);
+  const next = { ...rect };
+  for (const side of [sides.x, sides.y]) {
+    if (!side) continue;
+    if (moveLocked && (side === 'w' || side === 'n')) {
+      trace('layout', `desktop: ${id} ${side} side refused (lock.move)`);
+      continue;
+    }
+    const horizontal = side === 'w' || side === 'e';
+    const raw = horizontal ? event.payload.dx : event.payload.dy;
+    if (raw === undefined || !Number.isFinite(raw) || raw === 0) continue;
+    const r = edgeRange(side, rect, item, container, edgeSize);
+    const to = Math.max(r.min, Math.min(r.max, r.now + raw));
+    if (side === 'e') next.w = to - rect.x;
+    else if (side === 's') next.h = to - rect.y;
+    else if (side === 'w') {
+      next.x = to;
+      next.w = rect.x + rect.w - to;
+    } else {
+      next.y = to;
+      next.h = rect.y + rect.h - to;
+    }
+  }
+  if (next.w === rect.w && next.h === rect.h) return;
+  const size = { ...(item.placement?.size ?? {}) };
+  if (next.w !== rect.w) size.w = next.w;
+  if (next.h !== rect.h) size.h = next.h;
+  const patch: Record<string, unknown> = { size };
+  if (next.x !== rect.x || next.y !== rect.y) {
+    patch.x = next.x;
+    patch.y = next.y;
+  }
+  trace(
+    'layout',
+    `desktop: ${id} resized from ${edge} to ${next.w}x${next.h} at ${next.x},${next.y}`,
+  );
+  store.patchPlacement(id, patch);
+}
+
 /**
  * Lays windows out the way a desktop does: each at the `x` / `y` its placement
  * carries, overlapping freely, stacked in item order — later is nearer, `z`
@@ -174,6 +425,8 @@ export function desktopStrategy<TInner>(
       clamp: DESKTOP_CLAMP,
       overflow: DESKTOP_OVERFLOW,
       minimizable: 'boolean',
+      resize: 'boolean',
+      edgeSize: 'number',
     },
 
     initialState(items, options) {
@@ -182,8 +435,6 @@ export function desktopStrategy<TInner>(
 
     layout({ items, container, state, options, preview }) {
       const cfg = options as DesktopConfig;
-      const shadeHeight = cfg.shadeHeight ?? DEFAULT_SHADE_HEIGHT;
-      const cascade = cfg.cascade ?? DEFAULT_CASCADE;
       const handleSize = cfg.handleSize ?? DEFAULT_HANDLE_SIZE;
       const { icons, windows } = layers(items, options, hasInner);
 
@@ -204,69 +455,40 @@ export function desktopStrategy<TInner>(
         }
       }
 
+      const edgeSize = cfg.edgeSize ?? DEFAULT_EDGE_SIZE;
+      const placed = placeWindows(windows, cfg, container);
+      unplaced.push(...placed.unplaced);
       let overW = result.overflow?.w ?? 0;
       let overH = result.overflow?.h ?? 0;
       let overLeft = result.overflow?.left ?? 0;
       let overTop = result.overflow?.top ?? 0;
-      let rank = 0;
-      let slot = 0;
-      for (const item of windows) {
-        const size = windowSize(item);
-        if (!size) {
-          trace('layout', `desktop: ${item.id} has no size, unplaced`);
-          unplaced.push(item.id);
-          continue;
-        }
-        const { x, y } = item.meta ?? {};
-        let at: { x: number; y: number };
-        if (Number.isFinite(x) && Number.isFinite(y)) at = { x: x as number, y: y as number };
-        else {
-          const bad = (n: unknown) => typeof n === 'number' && !Number.isFinite(n);
-          if (bad(x) || bad(y)) {
-            trace('layout', `desktop: ${item.id} at non-finite (${x}, ${y}), cascaded`);
-          }
-          at = { x: slot * cascade, y: slot * cascade };
-          slot++;
-        }
-        const minimized = item.meta?.minimized === true;
-        if (minimized && cfg.minimize === 'icon') {
-          trace('layout', `desktop: ${item.id} minimized to an icon with no icon layer, shaded`);
-        }
-        const h = minimized ? shadeHeight : size.h;
-        if (cfg.clamp) {
-          const kept = clampWindow(at, { w: size.w, h }, container, cfg.clamp, handleSize);
-          if (kept.x !== at.x || kept.y !== at.y) {
-            trace(
-              'layout',
-              `desktop: ${item.id} clamped (${at.x}, ${at.y}) → (${kept.x}, ${kept.y})`,
-            );
-            at = kept;
-          }
-        }
-        rank++;
-        const rect = { x: at.x, y: at.y, z: rank, w: size.w, h };
+      for (const { item, rect, minimized } of placed.windows) {
         placements.set(item.id, rect);
         const axes = dragAxes(item, cfg);
         if (axes) {
           affordances.push({
             id: `${DESKTOP_DRAG_PREFIX}${item.id}`,
             kind: DRAG_KIND[axes],
-            rect: { ...rect, h: Math.min(handleSize, h) },
+            rect: { ...rect, h: Math.min(handleSize, rect.h) },
             cursor: 'grab',
             label: 'move',
             childId: item.id,
           });
         }
+        if (!minimized && resizable(item, cfg)) {
+          affordances.push(...resizeAffordances(item, rect, container, edgeSize));
+        }
         if (cfg.minimizable) {
-          const side = Math.min(handleSize, h, size.w);
-          const box = { x: at.x + size.w - side, y: at.y, z: rank, w: side, h: side };
+          const side = Math.min(handleSize, rect.h, rect.w);
+          const box = { x: rect.x + rect.w - side, y: rect.y, z: rect.z, w: side, h: side };
           affordances.push(minimizeToggle(item.id, box, minimized));
         }
-        overW = Math.max(overW, at.x + size.w - container.w);
-        overH = Math.max(overH, at.y + h - container.h);
-        overLeft = Math.max(overLeft, -at.x);
-        overTop = Math.max(overTop, -at.y);
+        overW = Math.max(overW, rect.x + rect.w - container.w);
+        overH = Math.max(overH, rect.y + rect.h - container.h);
+        overLeft = Math.max(overLeft, -rect.x);
+        overTop = Math.max(overTop, -rect.y);
       }
+      const rank = placed.windows.length;
 
       trace(
         'layout',
@@ -303,6 +525,10 @@ export function desktopStrategy<TInner>(
         return;
       }
       if (event.kind !== 'drag') return;
+      if (event.affordanceId.startsWith(DESKTOP_RESIZE_PREFIX)) {
+        resizeWindow(ctx, layers(ctx.items, ctx.options, hasInner).windows);
+        return;
+      }
       const id = asNodeId(event.affordanceId.slice(DESKTOP_DRAG_PREFIX.length));
       if (store.isLocked(id, 'move')) {
         trace('layout', `desktop: ${id} drag refused (lock.move)`);

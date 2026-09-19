@@ -189,6 +189,38 @@ test.describe('desktop behavior keys', () => {
   });
 });
 
+test.describe('desktop resize', () => {
+  test('dragging the bottom-right corner resizes a window in place', async ({ page }) => {
+    await openStory(page, BEHAVIOR);
+    // win-2 is on top, so its corner is clear of the others.
+    const before = await boxOf(node(page, 'win-2'));
+    const corner = { x: before.x + before.w - 3, y: before.y + before.h - 3 };
+    await dragMouse(page, corner, { x: corner.x + 40, y: corner.y + 30 });
+    const after = await settledBox(node(page, 'win-2'));
+    expect(after.x).toBeCloseTo(before.x, 0);
+    expect(after.y).toBeCloseTo(before.y, 0);
+    expect(after.w - before.w).toBeCloseTo(40, 0);
+    expect(after.h - before.h).toBeCloseTo(30, 0);
+  });
+
+  test('dragging the left edge moves the window with it, keeping its right edge', async ({
+    page,
+  }) => {
+    await openStory(page, BEHAVIOR);
+    const before = await boxOf(node(page, 'win-1'));
+    const edge = { x: before.x + 3, y: before.y + before.h / 2 };
+    await dragMouse(page, edge, { x: edge.x - 20, y: edge.y });
+    const after = await settledBox(node(page, 'win-1'));
+    expect(after.x - before.x).toBeCloseTo(-20, 0);
+    expect(after.x + after.w).toBeCloseTo(before.x + before.w, 0);
+  });
+
+  test('there are no resize edges unless resize is set', async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-resize=false`);
+    await expect(page.locator('[data-affordance-hit^="desktop:resize:"]')).toHaveCount(0);
+  });
+});
+
 test.describe('desktop raise policy', () => {
   const RAISE = 'desktop--raise-policy';
 

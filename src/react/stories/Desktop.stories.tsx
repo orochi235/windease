@@ -184,6 +184,7 @@ interface BehaviorArgs {
   clamp: 'none' | 'bar' | 'all';
   overflow: 'scroll' | 'clip';
   minimizable: boolean;
+  resize: boolean;
 }
 
 const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number }[] = [
@@ -203,6 +204,7 @@ function behaviorConfig(args: BehaviorArgs): Record<string, unknown> {
     clamp: args.clamp === 'none' ? undefined : args.clamp,
     overflow: args.overflow,
     minimizable: args.minimizable,
+    resize: args.resize,
   };
 }
 
@@ -220,7 +222,7 @@ function useBehaviorStore(args: BehaviorArgs): Store {
           id: asNodeId(id),
           parentId: ZONE_ID,
           placement: { x, y },
-          hints: { preferredSize: { w, h } },
+          hints: { preferredSize: { w, h }, minSize: { w: 120, h: 60 } },
           meta: { title: id },
         }),
       );
@@ -285,8 +287,9 @@ function BehaviorZone(args: BehaviorArgs) {
         <p className="desktop-hint">
           Drag a window by its title bar. <code>drag: 'y'</code> moves it up and down only;{' '}
           <code>clamp</code> keeps its title bar, or all of it, on the desktop;{' '}
-          <code>minimizable</code> makes the box at its right roll it up. win-3 was left on a
-          monitor that is gone: scroll left to reach it, or clamp to bring it back.
+          <code>minimizable</code> makes the box at its right roll it up; <code>resize</code> lets
+          its edges and corners resize it. win-3 was left on a monitor that is gone: scroll left to
+          reach it, or clamp to bring it back.
         </p>
       </StrategyRegistryProvider>
     </Provider>
@@ -295,7 +298,13 @@ function BehaviorZone(args: BehaviorArgs) {
 
 /** Every gesture here is a `desktopStrategy` config key; the story wires no pointer code. */
 export const Behavior: Story<BehaviorArgs> = (args) => <BehaviorZone {...args} />;
-Behavior.args = { drag: 'true', clamp: 'none', overflow: 'scroll', minimizable: true };
+Behavior.args = {
+  drag: 'true',
+  clamp: 'none',
+  overflow: 'scroll',
+  minimizable: true,
+  resize: true,
+};
 Behavior.argTypes = {
   drag: { options: ['true', 'x', 'y', 'false'], control: { type: 'radio' } },
   clamp: { options: ['none', 'bar', 'all'], control: { type: 'radio' } },
