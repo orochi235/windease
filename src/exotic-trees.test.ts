@@ -317,7 +317,16 @@ describe('Golden Layout configs', () => {
       GOLDEN_V1_PRESET,
     );
     expect(v2.mechanics).toEqual(GOLDEN_V1_PRESET.mechanics);
-    expect(v2.data).toEqual(GOLDEN_V1_PRESET.data);
+    // The exported preset is dressed with product CSS and class names; the
+    // translation itself is what both formats must agree on.
+    const unstyled = (data: Preset['data']) => {
+      const { css: _css, nodes, ...rest } = data ?? {};
+      const bare = Object.fromEntries(
+        Object.entries(nodes ?? {}).map(([k, { className: _c, ...v }]) => [k, v]),
+      );
+      return { ...rest, nodes: bare };
+    };
+    expect(unstyled(v2.data)).toEqual(unstyled(GOLDEN_V1_PRESET.data));
   });
 
   for (const preset of [GOLDEN_PRESET, GOLDEN_V1_PRESET]) {
