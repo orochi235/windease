@@ -62,6 +62,14 @@ const palette = (
   meta: { title },
 });
 
+/** A window the product itself opens, above every content window; its title is data. */
+const utility = (id: string, w: number, h: number, at: { x: number; y: number }): PresetNode => ({
+  id,
+  kind: 'window',
+  hints: { preferredSize: { w, h } },
+  placement: { ...at, layer: 'top' },
+});
+
 const tab = (id: string, title: string): PresetNode => ({ id, kind: 'tab', meta: { title } });
 
 /** A tab of the product's own panels, whose title is data. */
@@ -113,16 +121,23 @@ export const MACOS9_WINDOWSHADE: Preset = {
   mechanics: {
     id: 'mac-desktop',
     kind: 'zone',
-    strategy: 'desktop-shelf',
+    strategy: 'desktop-grid',
     config: {
       minimize: 'shade',
       shadeHeight: BAR,
+      // The disks and Trash, one column down the right edge.
+      cols: 1,
+      cell: { w: 64, h: 64 },
       gap: 12,
       padding: 12,
+      iconFrom: 'top-right',
       drag: true,
       handleSize: BAR,
       raise: 'click',
       minimizable: true,
+      resize: true,
+      // Mac OS 9 resizes only from the grow box; thin edges keep the other seven out of the way.
+      edgeSize: 4,
     },
     item: WINDOW_ITEM,
   },
@@ -225,10 +240,13 @@ export const WIN31_ICONS: Preset = {
       iconHeight: 56,
       gap: 4,
       padding: 4,
+      iconFrom: 'bottom-left',
       drag: true,
       handleSize: BAR,
       raise: 'click',
       minimizable: true,
+      resize: true,
+      edgeSize: 4,
     },
     item: WINDOW_ITEM,
   },
@@ -290,24 +308,28 @@ export const GIMP_MULTIWINDOW: Preset = {
     id: 'gimp-desktop',
     kind: 'zone',
     strategy: 'desktop',
-    config: { drag: true, handleSize: BAR, raise: 'click' },
+    config: { drag: true, handleSize: BAR, raise: 'click', resize: true },
     item: WINDOW_ITEM,
+    // GIMP's own utility windows, which it asks the window manager to keep above the images.
+    children: [
+      utility('gimp-toolbox', 150, 520, { x: 8, y: 20 }),
+      utility('gimp-layers', 190, 520, { x: 600, y: 20 }),
+    ],
   },
   data: {
     css: GIMP_CSS,
     nodes: {
+      'gimp-layers': { meta: { title: 'Layers, Channels, Paths' } },
       'gimp-img-1': { className: 'gimp-image' },
       'gimp-img-2': { className: 'gimp-image' },
       'gimp-img-3': { className: 'gimp-image' },
-      'gimp-toolbox': { className: 'gimp-toolbox' },
+      'gimp-toolbox': { meta: { title: 'Toolbox' }, className: 'gimp-toolbox' },
     },
     children: {
       'gimp-desktop': [
         win('gimp-img-1', 'wilber.xcf', 440, 340, { x: 170, y: 30 }),
         win('gimp-img-2', 'photo.jpg', 480, 380, { x: 220, y: 90 }),
         win('gimp-img-3', 'untitled-1', 360, 300, { x: 280, y: 180 }),
-        win('gimp-toolbox', 'Toolbox', 150, 520, { x: 8, y: 20 }),
-        win('gimp-layers', 'Layers, Channels, Paths', 190, 520, { x: 600, y: 20 }),
       ],
     },
   },
@@ -440,7 +462,7 @@ export const UNPLUGGED_MONITOR: Preset = {
     id: 'laptop-display',
     kind: 'zone',
     strategy: 'desktop',
-    config: { drag: true, handleSize: BAR, raise: 'click', clamp: 'all' },
+    config: { drag: true, handleSize: BAR, raise: 'click', clamp: 'all', resize: true },
     item: WINDOW_ITEM,
   },
   data: {
@@ -483,15 +505,15 @@ const XP_CSS = `
 export const CASCADE_200: Preset = {
   id: 'cascade-200-windows',
   source: 'Windows XP Explorer after 200 "New Window" commands, each cascaded',
-  stress: 'the cascade walks off the container; overflow must say how far',
+  stress: 'the cascade runs off the container 200 times over and must wrap back to the top left',
   description:
-    'Windows XP places each new window a little below and to the right of the previous one, a cascade that keeps every title bar visible. Choosing New Window from an Explorer window 200 times asks for far more steps than fit on a 1024×768 screen.',
+    'Windows XP places each new window a little below and to the right of the previous one, a cascade that keeps every title bar visible, and starts again at the top left once the next window would run off the screen. Choosing New Window from an Explorer window 200 times asks for far more steps than fit on a 1024×768 screen.',
   viewport: { w: 1024, h: 768 },
   mechanics: {
     id: 'cascade-desktop',
     kind: 'zone',
     strategy: 'desktop',
-    config: { cascade: 24, drag: true, handleSize: BAR, raise: 'click' },
+    config: { cascade: 24, wrap: true, drag: true, handleSize: BAR, raise: 'click' },
     item: WINDOW_ITEM,
   },
   data: {
@@ -554,11 +576,15 @@ const PHOTOSHOP_CSS = `
 .xd-tab__label[aria-selected='true'] { color: #eee; box-shadow: none; }
 .xd-page { color: #ddd; font: 11px system-ui, sans-serif; }
 .xd-palette { background: #535353; border-color: #222; color: #ddd; font: 11px system-ui, sans-serif; }
-.xd-palette__bar { background: #3c3c3c; }
-.xd-palette__body {
-  background: linear-gradient(90deg, red, yellow, lime, cyan, blue, magenta, red) 8px 36px / calc(100% - 16px) 14px no-repeat;
+.xd-palette__bar, .xd-palette__tabs { background: #3c3c3c; }
+.xd-palette__tab { background: #535353; color: #eee; }
+.ps-color-panel .xd-palette__body {
+  background: linear-gradient(90deg, red, yellow, lime, cyan, blue, magenta, red) 8px 12px / calc(100% - 16px) 14px no-repeat;
 }
 `;
+
+/** A docked panel group: a tab dragged out of it floats at a panel's size. */
+const PS_GROUP = { tear: 'float', tearSize: { w: 240, h: 260 } };
 
 export const PHOTOSHOP_PANELS: Preset = {
   id: 'photoshop-panel-dock',
@@ -571,7 +597,8 @@ export const PHOTOSHOP_PANELS: Preset = {
     id: 'ps-workspace',
     kind: 'zone',
     strategy: 'floating-strip',
-    config: { axis: 'x', fill: true, handleSize: 22, defaultAnchor: 'top-left' },
+    // Takes panels torn out of the dock, and nothing else.
+    config: { axis: 'x', fill: true, handleSize: 22, defaultAnchor: 'top-left', accepts: 'tear' },
     children: [
       { id: 'ps-canvas', kind: 'canvas' },
       {
@@ -585,21 +612,21 @@ export const PHOTOSHOP_PANELS: Preset = {
             id: 'ps-group-layers',
             kind: 'tabs',
             strategy: 'stack',
-            config: { headerSize: 26, activeId: 'ps-layers' },
+            config: { headerSize: 26, activeId: 'ps-layers', ...PS_GROUP },
             children: [panelTab('ps-layers'), panelTab('ps-channels'), panelTab('ps-paths')],
           },
           {
             id: 'ps-group-props',
             kind: 'tabs',
             strategy: 'stack',
-            config: { headerSize: 26, activeId: 'ps-properties' },
+            config: { headerSize: 26, activeId: 'ps-properties', ...PS_GROUP },
             children: [panelTab('ps-properties'), panelTab('ps-adjustments')],
           },
         ],
       },
       {
         id: 'ps-color',
-        kind: 'palette',
+        kind: 'tab',
         hints: { preferredSize: { w: 240, h: 180 } },
         placement: { floating: true },
       },
@@ -607,15 +634,17 @@ export const PHOTOSHOP_PANELS: Preset = {
   },
   data: {
     css: PHOTOSHOP_CSS,
-    nodes: titles({
-      'ps-canvas': 'Untitled-1 @ 66.7%',
-      'ps-layers': 'Layers',
-      'ps-channels': 'Channels',
-      'ps-paths': 'Paths',
-      'ps-properties': 'Properties',
-      'ps-adjustments': 'Adjustments',
-      'ps-color': 'Color',
-    }),
+    nodes: {
+      ...titles({
+        'ps-canvas': 'Untitled-1 @ 66.7%',
+        'ps-layers': 'Layers',
+        'ps-channels': 'Channels',
+        'ps-paths': 'Paths',
+        'ps-properties': 'Properties',
+        'ps-adjustments': 'Adjustments',
+      }),
+      'ps-color': { meta: { title: 'Color' }, className: 'ps-color-panel' },
+    },
   },
 };
 
@@ -721,6 +750,7 @@ export const TWM_ICON_MANAGER: Preset = {
       handleSize: BAR,
       raise: 'click',
       minimizable: true,
+      resize: true,
     },
     item: WINDOW_ITEM,
   },

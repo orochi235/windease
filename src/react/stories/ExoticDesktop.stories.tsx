@@ -8,9 +8,12 @@ import { type Preset, presetToStore } from '../../test-utils/exotic/preset.js';
 import {
   type ChromeMap,
   Container,
+  DragHandle,
+  DragProvider,
   Provider,
   StrategyRegistryProvider,
   useChildren,
+  useDragHandle,
   useNode,
   useStack,
   useStore,
@@ -21,8 +24,6 @@ import { PresetInfo } from './PresetInfo.js';
 import { PresetPicker, usePresetPick } from './PresetPicker.js';
 import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
-
-const TORN_OUT_SIZE = { w: 240, h: 260 };
 
 const placementOf = (node: Node | undefined) => node?.membership?.placement ?? {};
 const parentOf = (store: Store, node: Node) =>
@@ -54,60 +55,51 @@ function DesktopWindow({ node }: { node: Node }) {
   );
 }
 
-/** The first stack under `rootId`, where a floating tab docks back to. */
-function firstStack(store: Store, rootId: NodeId): NodeId | null {
-  const walk = (id: NodeId): NodeId | null => {
-    const n = store.getNode(id);
-    if (n?.container?.strategyId === 'stack') return id;
-    for (const c of n?.container?.childOrder ?? []) {
-      const hit = walk(c);
-      if (hit) return hit;
-    }
-    return null;
-  };
-  return walk(rootId);
+function Tab({
+  id,
+  title,
+  active,
+  onPick,
+}: {
+  id: NodeId;
+  title: string;
+  active: boolean;
+  onPick: () => void;
+}) {
+  const drag = useDragHandle(id);
+  return (
+    <button
+      type="button"
+      role="tab"
+      className="xd-tab__label"
+      data-testid={`tab-${id}`}
+      aria-selected={active}
+      tabIndex={active ? 0 : -1}
+      onClick={onPick}
+      {...drag}
+    >
+      {title}
+    </button>
+  );
 }
 
-function TabStrip({ node, rootId }: { node: Node; rootId: NodeId }) {
+/** A stack's tabs. Dragging one out, or back in, is the stack's `tear` config. */
+function TabStrip({ node }: { node: Node }) {
   const store = useStore();
   const { tabs, activeId, activate } = useStack(node.id);
-  const header = (node.container?.config as { headerSize?: number } | undefined)?.headerSize ?? 0;
-  const canFloat = store.getNode(rootId)?.container?.strategyId.startsWith('floating') === true;
-
-  // The one remaining behavior callback, with dock() below: tearing out waits on config `tear` (phase 2).
-  const tearOut = (id: NodeId) =>
-    store.transact(() => {
-      store.moveNode(id, rootId);
-      store.patchPlacement(id, { floating: true });
-      store.setHints(id, { preferredSize: TORN_OUT_SIZE });
-    }, 'tear out');
-
+  const config = node.container?.config as { headerSize?: number; tear?: string } | undefined;
+  const header = config?.headerSize ?? 0;
   return (
     <div className={`xd-tabs ${header >= 30 ? 'xd-tabs--tall' : 'xd-tabs--short'}`} role="tablist">
       {tabs.map((tab) => (
         <div key={tab.id} className="xd-tab" role="presentation">
-          <button
-            type="button"
-            role="tab"
-            className="xd-tab__label"
-            data-testid={`tab-${tab.id}`}
-            aria-selected={tab.id === activeId}
-            tabIndex={tab.id === activeId ? 0 : -1}
-            onClick={() => activate(tab.id)}
-          >
-            {tab.title}
-          </button>
-          {canFloat ? (
-            <button
-              type="button"
-              className="xd-tab__action"
-              data-testid={`float-${tab.id}`}
-              aria-label={`Float ${tab.title}`}
-              onClick={() => tearOut(tab.id)}
-            >
-              ⇱
-            </button>
-          ) : (
+          <Tab
+            id={tab.id}
+            title={tab.title}
+            active={tab.id === activeId}
+            onPick={() => activate(tab.id)}
+          />
+          {config?.tear ? null : (
             <button
               type="button"
               className="xd-tab__action"
@@ -124,77 +116,61 @@ function TabStrip({ node, rootId }: { node: Node; rootId: NodeId }) {
   );
 }
 
-function FloatingTab({ node, rootId }: { node: Node; rootId: NodeId }) {
-  const store = useStore();
-  const dock = () => {
-    const target = firstStack(store, rootId);
-    if (!target) return;
-    store.transact(() => {
-      store.patchPlacement(node.id, { floating: false });
-      store.moveNode(node.id, target);
-      store.setActiveChild(target, node.id);
-    }, 'dock');
-  };
+/** A torn-out panel: the bar over it moves it, and its tab drags back into a group. */
+function FloatingTab({ node }: { node: Node }) {
   return (
-    <div className={withMetaClass('xd-palette', node)}>
-      <header className="xd-palette__bar">{titleOf(node)}</header>
-      <div className="xd-palette__body">
-        <button
-          type="button"
-          className="xd-palette__button"
-          data-testid={`dock-${node.id}`}
-          onClick={dock}
-        >
-          Dock
-        </button>
+    <div className={withMetaClass('xd-palette', node)} data-testid={`palette-${node.id}`}>
+      <header className="xd-palette__bar" />
+      <div className="xd-palette__tabs">
+        <DragHandle nodeId={node.id} className="xd-palette__tab">
+          <span data-testid={`chip-${node.id}`}>{titleOf(node)}</span>
+        </DragHandle>
       </div>
+      <div className="xd-palette__body" />
     </div>
   );
 }
 
-function makeChrome(rootId: NodeId): ChromeMap {
-  const chrome: ChromeMap = {
-    window: ({ node }) => <DesktopWindow node={node} />,
-    icon: ({ node }) => (
-      <div className={withMetaClass('xd-icon', node)} data-testid={`icon-${node.id}`}>
+const chrome: ChromeMap = {
+  window: ({ node }) => <DesktopWindow node={node} />,
+  icon: ({ node }) => (
+    <div className={withMetaClass('xd-icon', node)} data-testid={`icon-${node.id}`}>
+      {titleOf(node)}
+    </div>
+  ),
+  palette: ({ node }) => (
+    <div className={withMetaClass('xd-palette', node)}>
+      <header className="xd-palette__bar">{titleOf(node)}</header>
+      <div className="xd-palette__body">{String(node.id)}</div>
+    </div>
+  ),
+  tab: ({ node }) =>
+    placementOf(node).floating === true ? (
+      <FloatingTab node={node} />
+    ) : (
+      <div className={withMetaClass('xd-page', node)} data-testid={`page-${node.id}`}>
         {titleOf(node)}
       </div>
     ),
-    palette: ({ node }) => (
-      <div className={withMetaClass('xd-palette', node)}>
-        <header className="xd-palette__bar">{titleOf(node)}</header>
-        <div className="xd-palette__body">{String(node.id)}</div>
-      </div>
-    ),
-    tab: ({ node }) =>
-      placementOf(node).floating === true ? (
-        <FloatingTab node={node} rootId={rootId} />
-      ) : (
-        <div className={withMetaClass('xd-page', node)} data-testid={`page-${node.id}`}>
-          {titleOf(node)}
-        </div>
-      ),
-    tabs: ({ node }) => (
-      <div className={withMetaClass('xd-stack', node)} data-testid={`stack-${node.id}`}>
-        <TabStrip node={node} rootId={rootId} />
-        <Container parentId={node.id} chrome={chrome} className="windease-zone" settleMs={0} />
-      </div>
-    ),
-    dock: ({ node }) => (
-      <Container
-        parentId={node.id}
-        chrome={chrome}
-        className={withMetaClass('windease-zone xd-dock', node)}
-        settleMs={0}
-      />
-    ),
-    canvas: ({ node }) => <div className={withMetaClass('xd-canvas', node)}>{titleOf(node)}</div>,
-    'snap-zone': ({ node }) => (
-      <div className={withMetaClass('xd-snap-zone', node)}>{titleOf(node)}</div>
-    ),
-  };
-  return chrome;
-}
+  tabs: ({ node }) => (
+    <div className={withMetaClass('xd-stack', node)} data-testid={`stack-${node.id}`}>
+      <TabStrip node={node} />
+      <Container parentId={node.id} chrome={chrome} className="windease-zone" settleMs={0} />
+    </div>
+  ),
+  dock: ({ node }) => (
+    <Container
+      parentId={node.id}
+      chrome={chrome}
+      className={withMetaClass('windease-zone xd-dock', node)}
+      settleMs={0}
+    />
+  ),
+  canvas: ({ node }) => <div className={withMetaClass('xd-canvas', node)}>{titleOf(node)}</div>,
+  'snap-zone': ({ node }) => (
+    <div className={withMetaClass('xd-snap-zone', node)}>{titleOf(node)}</div>
+  ),
+};
 
 function Readout({ rootId }: { rootId: NodeId }) {
   const children = useChildren(rootId);
@@ -216,40 +192,56 @@ function RootFrame({ rootId, children }: { rootId: NodeId; children: ReactNode }
   if (root?.container?.strategyId !== 'stack') return <>{children}</>;
   return (
     <div className={withMetaClass('xd-stack', root)} data-testid={`stack-${rootId}`}>
-      <TabStrip node={root} rootId={rootId} />
+      <TabStrip node={root} />
       {children}
     </div>
   );
 }
 
+/**
+ * A desktop is scaled to the frame's width. Two keep their designed size in a scrolling frame: a
+ * preset that asks for its scroll extent (Figma's canvas pans), and a root stack, whose tab strip
+ * is drawn outside the container and would not scale with it.
+ */
+function fitOf(preset: Preset): 'width' | undefined {
+  const pans = preset.mechanics.config?.overflow === 'scroll';
+  return pans || preset.mechanics.strategy === 'stack' ? undefined : 'width';
+}
+
 function PresetView({ preset }: { preset: Preset }) {
   const store = useMemo(() => presetToStore(preset), [preset]);
   const rootId = asNodeId(preset.mechanics.id);
-  const chrome = useMemo(() => makeChrome(rootId), [rootId]);
   const frameRef = useRef<HTMLDivElement | null>(null);
-  const clip = preset.mechanics.config?.overflow === 'clip';
+  const fit = fitOf(preset);
+  const mode = fit
+    ? ' xd-frame--fit'
+    : preset.mechanics.config?.overflow === 'clip'
+      ? ' xd-frame--clip'
+      : '';
   return (
     <Provider store={store}>
-      <PresetStyle preset={preset} />
-      <div
-        ref={frameRef}
-        className={`xd-frame ${presetClass(preset)}${clip ? ' xd-frame--clip' : ''}`}
-        data-testid="xd-frame"
-      >
-        <RootFrame rootId={rootId}>
-          <Container
-            parentId={rootId}
-            scrollRef={frameRef}
-            chrome={chrome}
-            viewport={preset.viewport}
-            affordances={true}
-            settleMs={0}
-            className="windease-zone xd-root"
-          />
-        </RootFrame>
-      </div>
-      <Readout rootId={rootId} />
-      <PresetCode preset={preset} />
+      <DragProvider>
+        <PresetStyle preset={preset} />
+        <div
+          ref={frameRef}
+          className={`xd-frame ${presetClass(preset)}${mode}`}
+          data-testid="xd-frame"
+        >
+          <RootFrame rootId={rootId}>
+            <Container
+              parentId={rootId}
+              chrome={chrome}
+              viewport={preset.viewport}
+              affordances={true}
+              settleMs={0}
+              className="windease-zone xd-root"
+              {...(fit ? { fit } : { scrollRef: frameRef })}
+            />
+          </RootFrame>
+        </div>
+        <Readout rootId={rootId} />
+        <PresetCode preset={preset} />
+      </DragProvider>
     </Provider>
   );
 }

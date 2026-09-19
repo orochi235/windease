@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DragEngine } from '../dnd/DragEngine.js';
 import { runStrategyForContainer } from '../layout-node-adapter.js';
 import type {
   LayoutEvent,
@@ -243,6 +244,66 @@ describe('Photoshop: a tab torn out of a docked panel group', () => {
     const store = tearOut(true);
     const r = layoutStore(store, 'ps-group-layers', { w: 280, h: 359 });
     expect([...r.placements.keys()]).toEqual(['ps-channels']);
+  });
+});
+
+describe('Photoshop: tearing a panel out and docking it by its config', () => {
+  const WORKSPACE = asNodeId('ps-workspace');
+  const LAYERS = asNodeId('ps-group-layers');
+  const PROPS = asNodeId('ps-group-props');
+
+  /** The preset under a drag engine, with the dock's two groups stacked at the right edge. */
+  const setup = () => {
+    const store = presetToStore(PHOTOSHOP_PANELS);
+    const e = new DragEngine(store, { getStrategy: (sid) => OVERLAP_STRATEGIES[sid] });
+    e.addDropTarget(WORKSPACE, { bounds: () => ({ x: 0, y: 0, z: 0, w: 800, h: 520 }) });
+    e.addDropTarget(LAYERS, {
+      bounds: () => ({ x: 520, y: 0, z: 0, w: 280, h: 259 }),
+      depth: () => 2,
+      getInsertionIndex: () => 0,
+    });
+    e.addDropTarget(PROPS, {
+      bounds: () => ({ x: 520, y: 261, z: 0, w: 280, h: 259 }),
+      depth: () => 2,
+      getInsertionIndex: () => 0,
+    });
+    return { store, e };
+  };
+
+  it('a tab dropped on the canvas floats there at the tearSize, and its group shows the next', () => {
+    const { store, e } = setup();
+    e.tryBegin(asNodeId('ps-layers'));
+    e.updateHoverByPoint(100, 80);
+    expect(e.state()?.hover).toEqual({ targetId: WORKSPACE, accepted: true, tear: true });
+    e.drop();
+
+    expect(store.getParent(asNodeId('ps-layers'))?.id).toBe(WORKSPACE);
+    expect(store.getNode(asNodeId('ps-layers'))?.hints?.preferredSize).toEqual({ w: 240, h: 260 });
+    expect(store.getPlacement(asNodeId('ps-layers')).floating).toBe(true);
+    expect((store.getContainerState(WORKSPACE) as State).at['ps-layers']).toMatchObject({
+      x: 100,
+      y: 80,
+    });
+    const group = layoutStore(store, 'ps-group-layers', { w: 280, h: 259 });
+    expect([...group.placements.keys()]).toEqual(['ps-channels']);
+  });
+
+  it('a floating panel dropped on a group docks there as a tab, no longer floating', () => {
+    const { store, e } = setup();
+    e.tryBegin(asNodeId('ps-color'));
+    e.updateHoverByPoint(600, 300);
+    expect(e.state()?.hover).toMatchObject({ targetId: PROPS, accepted: true });
+    e.drop();
+
+    expect(store.getParent(asNodeId('ps-color'))?.id).toBe(PROPS);
+    expect(store.getPlacement(asNodeId('ps-color')).floating).toBeUndefined();
+  });
+
+  it('the workspace takes only tear-outs: the floating panel is not dropped back onto it', () => {
+    const { e } = setup();
+    e.tryBegin(asNodeId('ps-color'));
+    e.updateHoverByPoint(100, 300);
+    expect(e.state()?.hover).toMatchObject({ targetId: WORKSPACE, accepted: false });
   });
 });
 
