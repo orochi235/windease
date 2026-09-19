@@ -135,3 +135,9 @@
     sans-serif;
   color: #475569;
 }
+
+.gc-board {
+  position: relative;
+  width: 640px;
+  height: 480px;
+}

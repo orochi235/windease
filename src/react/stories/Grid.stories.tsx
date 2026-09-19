@@ -555,3 +555,88 @@ export const Spreadsheet: Story = () => {
     </Provider>
   );
 };
+
+const BOARD = asNodeId('dashboard');
+/** [id, title, col, row, cols, rows] on a 12-column board. Load and Uptime are
+ *  stated lower than anything above them, so gravity lifts them. */
+const PANELS: readonly [string, string, number, number, number, number][] = [
+  ['cpu', 'CPU', 0, 0, 4, 3],
+  ['mem', 'Memory', 4, 0, 4, 3],
+  ['disk', 'Disk', 8, 0, 4, 2],
+  ['net', 'Network', 8, 2, 4, 2],
+  ['load', 'Load', 0, 5, 6, 3],
+  ['uptime', 'Uptime', 6, 9, 6, 2],
+];
+
+function boardStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: {
+        strategyId: 'grid',
+        config: { cols: 12, cell: { h: 30 }, gap: 8, padding: 8, resizable: true, compact: 'up' },
+      },
+      id: BOARD,
+    }),
+  );
+  for (const [name, title, col, row, cols, rows] of PANELS) {
+    const id = asNodeId(name);
+    s.registerNode(
+      createNode({ kind: 'panel', focus: true, id, parentId: BOARD, meta: { title } }),
+    );
+    s.patchPlacement(id, { cell: { col, row }, span: { cols, rows } });
+    s.showNode(id);
+  }
+  return s;
+}
+
+const boardChrome: ChromeMap = {
+  panel: ({ node }) => (
+    <div className="windease-panel">
+      <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
+    </div>
+  ),
+};
+
+function CompactToggle({ store }: { store: Store }) {
+  const on = (useNode(BOARD)?.container?.config as { compact?: string } | undefined)?.compact;
+  return (
+    <label className="gc-controls">
+      <input
+        type="checkbox"
+        data-testid="compact-toggle"
+        checked={on === 'up'}
+        onChange={(e) =>
+          store.updateContainerConfig(BOARD, { compact: e.target.checked ? 'up' : undefined })
+        }
+      />
+      compact: 'up'
+    </label>
+  );
+}
+
+/** A dashboard with gravity. `compact: 'up'` floats each panel into the free
+ *  rows above it, so Load and Uptime sit right under the panels over them
+ *  although their cells say rows 5 and 9. Drag a panel's bottom edge: growing
+ *  Disk pushes Network down instead of stopping at it. Untick the box to see
+ *  the rows the cells state, where Disk can no longer grow into Network. */
+export const Dashboard: Story = () => {
+  const store = useMemo(boardStore, []);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <CompactToggle store={store} />
+        <div className="gc-board">
+          <Container
+            parentId={BOARD}
+            chrome={boardChrome}
+            viewport={{ w: 640, h: 480 }}
+            className="windease-zone"
+            affordances
+          />
+        </div>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};

@@ -627,6 +627,24 @@ tracks are held at the children's `hints.minSize` floors, as uniform cells are.
 
 With `resizable`, a tracked axis gets track seams (see [Grid seams](#grid-seams)).
 
+### Gravity
+
+`compact: 'up'` makes a grid a dashboard: each celled child floats up into the
+free rows above it, the way Grafana closes the gap a panel leaves. The rest
+flow into what is left. Children go in order of the row their cell states,
+then its column, then `childOrder`, and none passes another in the same
+column.
+
+Where two cells overlap, the lower one is pushed down beneath the other instead
+of going to `unplaced`. So a resize seam can grow a panel into the one below
+it, and that one, with everything under it, moves down. Under a row cap
+(`rows` or `maxRows`) a child pushed past the last row is `unplaced`, and the
+seam stops short of pushing anyone that far. A cell past the last column is
+still `unplaced`.
+
+Gravity is a layout rule, not a write: `placement.cell` keeps the row it
+states, so turning `compact` off puts every child back.
+
 ## Letting CSS do the layout
 
 A container that declares `hints.render: 'flow'` runs no strategy. Its children

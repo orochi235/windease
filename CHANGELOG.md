@@ -126,6 +126,13 @@ section below.
   a seam after each pixel track and between two share tracks, and a drag writes
   the new sizes back into the config. `justify` and `cell` compose with it.
 
+- **Grid `compact: 'up'` gives a dashboard gravity.** Celled children float up
+  into the free rows above them, as Grafana's panels do, and the rest flow
+  around them. Two colliding cells no longer send the lower one to `unplaced`:
+  it is pushed down beneath the other, so a resize seam can grow a panel into
+  the one below it, which moves down. Only the layout moves; `placement.cell`
+  keeps the row it states.
+
 - **`Affordance.name` sets a seam's whole accessible name**, for a seam whose
   subject is not the panes it moves. Grid track seams read "resize column 2".
 

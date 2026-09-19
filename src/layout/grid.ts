@@ -95,6 +95,15 @@ interface GridConfig {
    * writes the new sizes back into this key through `updateContainerConfig`.
    */
   tracks?: { cols?: TrackSize[]; rows?: TrackSize[] };
+  /**
+   * `'up'` is gravity, as a Grafana dashboard has: celled items float up into
+   * the free rows above them, in order of their stated row, and the rest flow
+   * around them. Where two cells collide the lower one is pushed down beneath
+   * the other instead of going to `unplaced`, so growing a celled item pushes
+   * the items below it down. Layout-time only: `placement.cell` keeps the row
+   * that was stated.
+   */
+  compact?: 'up';
 }
 
 /**
@@ -410,22 +419,29 @@ function reserveExplicit(
  * Walks `order` twice: first reserving each explicitly celled item's block,
  * then giving every other item the first free block its (clamped) span fits.
  * Items beyond `itemCap`, cells that collide or fall outside the grid, and
- * spans that can't fit before `rowCap` runs out are omitted.
+ * spans that can't fit before `rowCap` runs out are omitted. Under `compact`
+ * the cells float up instead of holding their rows, and a collision pushes the
+ * lower cell down rather than omitting it.
  */
 function reserveCells(
   order: LayoutItem[],
   cols: number,
   rowCap: number | undefined,
   itemCap: number,
+  compact = false,
 ): Map<string, ReservedCell> {
   const packer = new CellPacker(cols, rowCap);
   const placed = new Map<string, ReservedCell>();
   let anyFlow = false;
-  for (const item of order) {
-    if (placed.size >= itemCap) break;
-    const at = explicitCell(item);
-    if (at) reserveExplicit(packer, item, at, placed);
-    else anyFlow = true;
+  if (compact) {
+    anyFlow = compactCells(packer, order, itemCap, placed);
+  } else {
+    for (const item of order) {
+      if (placed.size >= itemCap) break;
+      const at = explicitCell(item);
+      if (at) reserveExplicit(packer, item, at, placed);
+      else anyFlow = true;
+    }
   }
   if (!anyFlow) return placed;
   for (const item of order) {
@@ -436,6 +452,46 @@ function reserveCells(
     if (at) placed.set(item.id, { ...at, ...span });
   }
   return placed;
+}
+
+/**
+ * Gravity over the celled items: in order of their stated row, then column,
+ * then `order`, each lands on the lowest row its columns leave free beneath
+ * the items already landed — up into empty rows, or down below one that grew
+ * into it. A skyline of each column's lowest landed edge answers that without
+ * searching, and nothing landed later can sit above anything landed earlier
+ * in the same column, so no two blocks overlap. Returns whether any item flows.
+ */
+function compactCells(
+  packer: CellPacker,
+  order: LayoutItem[],
+  itemCap: number,
+  placed: Map<string, ReservedCell>,
+): boolean {
+  const { cols, rowCap } = packer;
+  const celled: { item: LayoutItem; col: number; row: number; index: number }[] = [];
+  let anyFlow = false;
+  for (let index = 0; index < order.length; index++) {
+    const item = order[index] as LayoutItem;
+    const at = explicitCell(item);
+    if (!at) anyFlow = true;
+    else if (at.col < cols && celled.length < itemCap) celled.push({ item, ...at, index });
+  }
+  celled.sort((a, b) => a.row - b.row || a.col - b.col || a.index - b.index);
+  const skyline = new Array<number>(cols).fill(0);
+  let moved = 0;
+  for (const { item, col, row } of celled) {
+    const span = clampSpan(item, cols - col, rowCap);
+    let top = 0;
+    for (let c = col; c < col + span.cols; c++) top = Math.max(top, skyline[c] as number);
+    if (rowCap !== undefined && top + span.rows > rowCap) continue;
+    packer.reserve(col, top, span.cols, span.rows);
+    for (let c = col; c < col + span.cols; c++) skyline[c] = top + span.rows;
+    placed.set(item.id, { col, row: top, ...span });
+    if (top !== row) moved++;
+  }
+  if (moved > 0) trace('layout', `grid: compact moved ${moved}/${celled.length} cells`);
+  return anyFlow;
 }
 
 /** One past the rightmost column the explicit cells reach, spans included. */
@@ -481,12 +537,13 @@ function resolveTiling(
   const { rowCap, colLimit } = resolved;
   let cols = Math.min(colLimit, Math.max(resolved.cols, explicitReach(items)));
   const itemCap = dims.maxItems ?? Number.POSITIVE_INFINITY;
+  const compact = cfg.compact === 'up';
 
   // Two passes: the first (priority order — pins win the capacity race)
   // decides *which* items survive; the second (childOrder) assigns actual
   // cells, so position among the survivors never depends on pin status.
   const order = byCapacityPriority(items);
-  let priorityPlaced = reserveCells(order, cols, rowCap, itemCap);
+  let priorityPlaced = reserveCells(order, cols, rowCap, itemCap, compact);
 
   // Area set the starting width; fragmentation can need more. Past the summed
   // span widths every item fits in row 0, so growing further cannot help. A
@@ -510,7 +567,7 @@ function resolveTiling(
         short--;
       }
       cols = Math.min(ceiling, cols + Math.max(1, Math.ceil(missing / rowCap)));
-      priorityPlaced = reserveCells(order, cols, rowCap, itemCap);
+      priorityPlaced = reserveCells(order, cols, rowCap, itemCap, compact);
     }
     trace(
       'layout',
@@ -519,7 +576,7 @@ function resolveTiling(
   }
 
   const survivors = items.filter((it) => priorityPlaced.has(it.id));
-  const cells = reserveCells(survivors, cols, rowCap, survivors.length);
+  const cells = reserveCells(survivors, cols, rowCap, survivors.length, compact);
 
   let usedRows = 1;
   for (const cell of cells.values()) usedRows = Math.max(usedRows, cell.row + cell.rows);
@@ -782,7 +839,9 @@ function spanReach(
   cols: number,
   rowCap: number | undefined,
   itemCap: number,
+  compact = false,
 ): { cols: number; rows: number } {
+  if (compact) return compactReach(items, id, cols, rowCap, itemCap);
   const celled = items.some((it) => explicitCell(it) !== undefined);
   // An unbounded grid grows a row rather than dropping anyone, so every span
   // fits: the ceiling is the grid's width, and — since nothing can usefully
@@ -855,6 +914,41 @@ function spanReach(
     return best;
   };
   return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap ?? items.length) };
+}
+
+/**
+ * `spanReach` under `compact`, where growing pushes whatever is below down
+ * rather than being stopped by it. With no row cap nobody is ever pushed out,
+ * so the ceiling is the room past the item's column and, as without compact,
+ * the item count in rows. Under a cap each probe repacks the whole grid.
+ */
+function compactReach(
+  items: LayoutItem[],
+  id: string,
+  cols: number,
+  rowCap: number | undefined,
+  itemCap: number,
+): { cols: number; rows: number } {
+  const item = items.find((it) => it.id === id);
+  if (!item) return { cols: 1, rows: 1 };
+  const room = cols - (explicitCell(item)?.col ?? 0);
+  const own = clampSpan(item, room, rowCap);
+  if (rowCap === undefined) return { cols: room, rows: Math.max(items.length, own.rows) };
+
+  const baseline = reserveCells(items, cols, rowCap, itemCap, true).size;
+  const fits = (axis: 'cols' | 'rows', value: number): boolean => {
+    const span = { ...own, [axis]: value };
+    const probe = items.map((it) =>
+      it === item ? { ...it, placement: { ...it.placement, span } } : it,
+    );
+    return reserveCells(probe, cols, rowCap, itemCap, true).size >= baseline;
+  };
+  const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
+    let best = 1;
+    for (let v = 1; v <= cap; v++) if (fits(axis, v)) best = v;
+    return best;
+  };
+  return { cols: reachOn('cols', room), rows: reachOn('rows', rowCap) };
 }
 
 /** Says why an explicit cell was ignored or went unplaced. Off the hot path:
@@ -1062,6 +1156,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     cell: 'object',
     justify: ['start', 'center', 'end', 'between', 'evenly'],
     tracks: 'object',
+    compact: ['up'],
   },
   configConflicts: [
     { kind: 'exclusive', keys: ['maxItems', 'maxCols', 'maxRows'] },
@@ -1159,7 +1254,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
         const cell = cells.get(item.id);
         const rect = placements.get(item.id);
         if (!cell || !rect) continue;
-        const reach = spanReach(items, item.id, cols, rowCap, itemCap);
+        const reach = spanReach(items, item.id, cols, rowCap, itemCap, cfg.compact === 'up');
         // Emit when the span can move at all, in either direction. Keying on
         // "a cell follows this one" instead would drop the handle from an item
         // spanning to the edge, leaving it grown with no way back.
@@ -1258,7 +1353,14 @@ export const gridStrategy: LayoutStrategy<void, string> = {
       want = current + Math.sign(delta) * Math.max(1, Math.round(Math.abs(delta) / stride));
     }
 
-    const reach = spanReach(items, String(childId), geom.cols, geom.rowCap, geom.itemCap);
+    const reach = spanReach(
+      items,
+      String(childId),
+      geom.cols,
+      geom.rowCap,
+      geom.itemCap,
+      cfg.compact === 'up',
+    );
     const ceiling = axis === 'cols' ? reach.cols : reach.rows;
     const next = Math.max(1, Math.min(want, ceiling));
     if (next === current) return;

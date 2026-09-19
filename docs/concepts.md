@@ -125,9 +125,11 @@ Two paths for free-form data on a node; lifetimes differ:
   sits at, honored by `grid` only; parent-relative like `span`. Celled nodes
   reserve their cells first and the rest flow around them. A cell that
   collides with one already taken, or lies outside a capped grid, sends the
-  node to `unplaced`. Unlike the other keys, a move or reorder **clears** it:
-  both commit a `childOrder` index the cell would override, and across parents
-  it names a cell in the old grid. `setChildOrder` leaves it alone.
+  node to `unplaced`; under `compact: 'up'` a collision pushes it down
+  instead, and the row is where it starts falling from. Unlike the other
+  keys, a move or reorder **clears** it: both commit a `childOrder` index
+  the cell would override, and across parents it names a cell in the old
+  grid. `setChildOrder` leaves it alone.
 
 **Reserved key on `node.meta`:**
 
@@ -354,8 +356,9 @@ Built-ins:
   `'evenly'`) places the leftover width when the occupied columns don't span
   the container. `tracks: { cols?, rows? }` sizes each column or row by
   index, in pixels or as `{ share }` of the rest; a seam drag on a tracked axis
-  writes the list back into config. Reads child `placement.span` and
-  `placement.cell`.
+  writes the list back into config. `compact: 'up'` floats celled children
+  up into free rows and pushes a colliding one down rather than unplacing it.
+  Reads child `placement.span` and `placement.cell`.
 - **`stripStrategy`** — children share one axis: `axis` ('x' or 'y'), `fill`,
   `defaultItemSize`, `gap`, `padding`, `maxItems`, and `justify` for where
   space the panes leave goes. Strip covers both axes, so
