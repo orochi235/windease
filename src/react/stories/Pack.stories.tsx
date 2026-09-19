@@ -54,6 +54,12 @@ interface Args {
   sort: 'none' | 'height' | 'width' | 'area' | 'max-side';
   rotate: boolean;
   overflowMode: 'scroll' | 'unplaced';
+  /** Column only; 0 leaves it unset. */
+  cols: number;
+  /** Column only; 0 leaves it unset, so the narrowest box sets it. */
+  columnWidth: number;
+  /** Column only, and only without `cols`. */
+  justify: 'start' | 'center' | 'end';
 }
 
 /** The count readout, and a ↻ on every box the packer turned, read from its
@@ -92,6 +98,9 @@ export const PackedBoxes: Story<Args> = ({
   sort,
   rotate,
   overflowMode,
+  cols,
+  columnWidth,
+  justify,
 }) => {
   const store = useMemo(() => {
     const s = new Store();
@@ -99,7 +108,21 @@ export const PackedBoxes: Story<Args> = ({
       createNode({
         kind: 'zone',
         id: ZONE_ID,
-        container: { strategyId: strategy, config: { gap, sort, rotate, overflowMode } },
+        container: {
+          strategyId: strategy,
+          config: {
+            gap,
+            sort,
+            rotate,
+            overflowMode,
+            ...(strategy === 'column'
+              ? {
+                  justify,
+                  ...(cols > 0 ? { cols } : columnWidth > 0 ? { columnWidth } : {}),
+                }
+              : {}),
+          },
+        },
       }),
     );
     BOXES.forEach(([w, h], i) => {
@@ -117,7 +140,7 @@ export const PackedBoxes: Story<Args> = ({
       s.showNode(id);
     });
     return s;
-  }, [strategy, gap, sort, rotate, overflowMode]);
+  }, [strategy, gap, sort, rotate, overflowMode, cols, columnWidth, justify]);
 
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -155,6 +178,9 @@ PackedBoxes.args = {
   sort: 'none',
   rotate: false,
   overflowMode: 'scroll',
+  cols: 0,
+  columnWidth: 0,
+  justify: 'start',
 };
 
 PackedBoxes.argTypes = {
@@ -168,4 +194,7 @@ PackedBoxes.argTypes = {
   },
   rotate: { control: { type: 'boolean' } },
   overflowMode: { options: ['scroll', 'unplaced'], control: { type: 'radio' } },
+  cols: { control: { type: 'range', min: 0, max: 8, step: 1 } },
+  columnWidth: { control: { type: 'range', min: 0, max: 240, step: 10 } },
+  justify: { options: ['start', 'center', 'end'], control: { type: 'radio' } },
 };

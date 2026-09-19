@@ -523,7 +523,11 @@ item with no size goes to `unplaced`.
 - **`column`** — masonry. Equal columns `columnWidth` wide (default: the
   narrowest item); each item goes on the shortest run of columns its width
   spans. One item much narrower than the rest shrinks every column to its
-  width; set `columnWidth` when the mix has one.
+  width; set `columnWidth` when the mix has one. `cols: 3` fixes the count
+  instead and widens the columns to fill the container, as Unsplash's three
+  columns do; it cannot be combined with `columnWidth`. When fixed-width
+  columns leave some of the width over, `justify: 'center'` or `'end'` moves
+  the columns into it, as Pinterest centers its feed.
 - **`skyline`** — each item takes the lowest free spot along what is already
   packed, so a short item drops in beside a tall one where `shelf` would leave
   a hole.

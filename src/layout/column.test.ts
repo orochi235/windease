@@ -59,8 +59,10 @@ describe('columnStrategy', () => {
 
   it('declares its config keys so a typo is reported, not silently defaulted', () => {
     expect(Object.keys(columnStrategy.configSpec ?? {}).sort()).toEqual([
+      'cols',
       'columnWidth',
       'gap',
+      'justify',
       'overflowMode',
       'rotate',
       'sort',

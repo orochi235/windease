@@ -394,7 +394,9 @@ Built-ins:
   on every placement), `overflowMode` (`'scroll'`, the
   default, packs past `container.h` and reports `overflow`; `'unplaced'` treats
   the container as a bin and sends any item that would cross an edge to
-  `unplaced`), plus `columnWidth` on `column`. Items with no size go to
+  `unplaced`), plus `columnWidth`, `cols` (a fixed count of columns widened to
+  fill the container; exclusive with `columnWidth`) and `justify` (`'start'`,
+  `'center'` or `'end'` for the width fixed-width columns leave) on `column`. Items with no size go to
   `unplaced`. Sorting decides placement order only; the
   result lists items in the order given.
 

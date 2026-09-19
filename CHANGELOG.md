@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **Masonry takes a column count, and centers fixed-width columns.**
+  `columnStrategy` accepts `cols`, which fixes the number of columns and widens
+  them to fill the container (Unsplash's three columns), and `justify: 'start' |
+  'center' | 'end'`, which places fixed-width columns in the width they leave
+  (Pinterest's centered feed). `cols` and `columnWidth` are mutually exclusive,
+  and `justify` does nothing with `cols`; `checkStrategyConfig` reports both.
+
 - **Packers can turn items a quarter to fit.** With `rotate: true`,
   `shelfStrategy`, `skylineStrategy` and `columnStrategy` may place an item
   turned 90°, with its rect's `w` and `h` swapped. Every placement then carries

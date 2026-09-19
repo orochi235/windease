@@ -261,6 +261,28 @@ describe('real layouts, packer by packer', () => {
     expect([...xs].sort((a, b) => a - b)).toEqual([0, 440, 880]);
   });
 
+  it('masonry with cols: 3 widens Unsplash’s columns to the same three at any width', () => {
+    const three = (w: number) => {
+      const { result } = run(preset('unsplash-three-column'), 'column', (s) => ({
+        ...s,
+        container: { ...s.container, w },
+        options: { ...s.options, cols: 3 },
+      }));
+      return [...new Set([...result.placements.values()].map((r) => r.x))].sort((a, b) => a - b);
+    };
+    expect(three(1296)).toEqual([0, 440, 880]);
+    expect(three(1500)).toEqual([0, 508, 1016]);
+  });
+
+  it('masonry with justify: center centers Pinterest’s four columns in the 28px they leave', () => {
+    const { result } = run(preset('pinterest-home-feed'), 'column', (s) => ({
+      ...s,
+      options: { ...s.options, justify: 'center' },
+    }));
+    const xs = new Set([...result.placements.values()].filter((r) => r.w <= 236).map((r) => r.x));
+    expect([...xs].sort((a, b) => a - b)).toEqual([14, 266, 518, 770]);
+  });
+
   it.each(PACKERS)('%s gives every too-wide newspaper module its own row at x 0', (packer) => {
     const { scenario, result } = run(preset('newspaper-front-on-phone'), packer);
     const gap = gapOf(scenario);

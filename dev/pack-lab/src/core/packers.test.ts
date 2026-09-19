@@ -8,8 +8,10 @@ describe('packers', () => {
 
   it('offers the option keys each strategy declares', () => {
     expect(optionKeys(packerById('column')).sort()).toEqual([
+      'cols',
       'columnWidth',
       'gap',
+      'justify',
       'overflowMode',
       'rotate',
       'sort',

@@ -103,4 +103,26 @@ test.describe('the Pack story drives the packers from config', () => {
       }
     });
   }
+
+  test('cols fixes the column count and widens the columns to fill the width', async ({ page }) => {
+    const xs = async () => [...new Set((await placed(page)).map((b) => b.x))].sort((a, b) => a - b);
+    await openStory(page, `${STORY}&arg-strategy=column&arg-cols=3`);
+    // (480 − 2·8) / 3 ≈ 154.7 wide: every box starts on one of three columns.
+    await expect.poll(xs).toEqual([0, 163, 325]);
+
+    await openStory(page, `${STORY}&arg-strategy=column&arg-cols=3&arg-width=720`);
+    await expect.poll(xs).toEqual([0, 243, 485]);
+  });
+
+  test('justify places fixed-width columns in the width they leave', async ({ page }) => {
+    const left = async () => Math.min(...(await placed(page)).map((b) => b.x));
+    const base = `${STORY}&arg-strategy=column&arg-columnWidth=100`;
+    await openStory(page, base);
+    await expect.poll(left).toBe(0);
+    // Four columns of 100 and three gaps of 8 leave 56 of 480.
+    await openStory(page, `${base}&arg-justify=center`);
+    await expect.poll(left).toBe(28);
+    await openStory(page, `${base}&arg-justify=end`);
+    await expect.poll(left).toBe(56);
+  });
 });
