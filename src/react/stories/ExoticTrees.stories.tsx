@@ -23,6 +23,7 @@ import '../styles.css';
 import './exotic-trees.css';
 import { PresetInfo } from './PresetInfo.js';
 import { PresetPicker, usePresetPick } from './PresetPicker.js';
+import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
 
 /** Every tree was saved for a bigger screen; its shares scale down in proportion. */
@@ -55,7 +56,7 @@ const chrome: ChromeMap = {
     const header = (node.container?.config as { headerSize?: number } | undefined)?.headerSize;
     if (stack) {
       return (
-        <div className="xt-stack" data-testid={`xt-group-${node.id}`}>
+        <div className={withMetaClass('xt-stack', node)} data-testid={`xt-group-${node.id}`}>
           <TabStrip id={node.id} stacked={(header ?? 0) > 30} />
           <Container parentId={node.id} chrome={chrome} className="xt-fill" />
         </div>
@@ -63,7 +64,10 @@ const chrome: ChromeMap = {
     }
     const axis = (node.container?.config as { axis?: string } | undefined)?.axis ?? 'x';
     return (
-      <div className={`xt-split xt-split--${axis}`} data-testid={`xt-group-${node.id}`}>
+      <div
+        className={withMetaClass(`xt-split xt-split--${axis}`, node)}
+        data-testid={`xt-group-${node.id}`}
+      >
         <Container parentId={node.id} chrome={chrome} affordances className="xt-fill" />
       </div>
     );
@@ -71,7 +75,7 @@ const chrome: ChromeMap = {
   panel: ({ node }) => {
     const share = (node.membership?.placement as { share?: number } | undefined)?.share;
     return (
-      <DragHandle nodeId={node.id} className="xt-pane">
+      <DragHandle nodeId={node.id} className={withMetaClass('xt-pane', node)}>
         <header className="xt-pane__title" data-testid={`xt-pane-${node.id}`}>
           {String(node.meta?.title ?? node.id)}
         </header>
@@ -90,7 +94,8 @@ function Tree({ preset }: { preset: Preset }) {
       <StrategyRegistryProvider strategies={TREE_STRATEGIES}>
         <DragProvider>
           <PresetInfo preset={preset} />
-          <div className="xt-frame">
+          <PresetStyle preset={preset} />
+          <div className={`xt-frame ${presetClass(preset)}`}>
             <Container
               parentId={asNodeId(preset.mechanics.id)}
               chrome={chrome}

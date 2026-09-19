@@ -19,6 +19,7 @@ import '../styles.css';
 import './exotic-desktop.css';
 import { PresetInfo } from './PresetInfo.js';
 import { PresetPicker, usePresetPick } from './PresetPicker.js';
+import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
 
 const TORN_OUT_SIZE = { w: 240, h: 260 };
@@ -36,10 +37,10 @@ function DesktopWindow({ node }: { node: Node }) {
     | { minimize?: string; minimizable?: boolean }
     | undefined;
   if (minimized && config?.minimize === 'icon') {
-    return <div className="xd-icon xd-icon--window">{titleOf(node)}</div>;
+    return <div className={withMetaClass('xd-icon xd-icon--window', node)}>{titleOf(node)}</div>;
   }
   return (
-    <div className="xd-window">
+    <div className={withMetaClass('xd-window', node)}>
       <header className="xd-window__bar" data-testid={`bar-${node.id}`}>
         <span className="xd-window__title">{titleOf(node)}</span>
         {config?.minimizable ? (
@@ -135,7 +136,7 @@ function FloatingTab({ node, rootId }: { node: Node; rootId: NodeId }) {
     }, 'dock');
   };
   return (
-    <div className="xd-palette">
+    <div className={withMetaClass('xd-palette', node)}>
       <header className="xd-palette__bar">{titleOf(node)}</header>
       <div className="xd-palette__body">
         <button
@@ -155,12 +156,12 @@ function makeChrome(rootId: NodeId): ChromeMap {
   const chrome: ChromeMap = {
     window: ({ node }) => <DesktopWindow node={node} />,
     icon: ({ node }) => (
-      <div className="xd-icon" data-testid={`icon-${node.id}`}>
+      <div className={withMetaClass('xd-icon', node)} data-testid={`icon-${node.id}`}>
         {titleOf(node)}
       </div>
     ),
     palette: ({ node }) => (
-      <div className="xd-palette">
+      <div className={withMetaClass('xd-palette', node)}>
         <header className="xd-palette__bar">{titleOf(node)}</header>
         <div className="xd-palette__body">{String(node.id)}</div>
       </div>
@@ -169,12 +170,12 @@ function makeChrome(rootId: NodeId): ChromeMap {
       placementOf(node).floating === true ? (
         <FloatingTab node={node} rootId={rootId} />
       ) : (
-        <div className="xd-page" data-testid={`page-${node.id}`}>
+        <div className={withMetaClass('xd-page', node)} data-testid={`page-${node.id}`}>
           {titleOf(node)}
         </div>
       ),
     tabs: ({ node }) => (
-      <div className="xd-stack" data-testid={`stack-${node.id}`}>
+      <div className={withMetaClass('xd-stack', node)} data-testid={`stack-${node.id}`}>
         <TabStrip node={node} rootId={rootId} />
         <Container parentId={node.id} chrome={chrome} className="windease-zone" settleMs={0} />
       </div>
@@ -183,12 +184,14 @@ function makeChrome(rootId: NodeId): ChromeMap {
       <Container
         parentId={node.id}
         chrome={chrome}
-        className="windease-zone xd-dock"
+        className={withMetaClass('windease-zone xd-dock', node)}
         settleMs={0}
       />
     ),
-    canvas: ({ node }) => <div className="xd-canvas">{titleOf(node)}</div>,
-    'snap-zone': ({ node }) => <div className="xd-snap-zone">{titleOf(node)}</div>,
+    canvas: ({ node }) => <div className={withMetaClass('xd-canvas', node)}>{titleOf(node)}</div>,
+    'snap-zone': ({ node }) => (
+      <div className={withMetaClass('xd-snap-zone', node)}>{titleOf(node)}</div>
+    ),
   };
   return chrome;
 }
@@ -212,7 +215,7 @@ function RootFrame({ rootId, children }: { rootId: NodeId; children: ReactNode }
   const root = useNode(rootId);
   if (root?.container?.strategyId !== 'stack') return <>{children}</>;
   return (
-    <div className="xd-stack" data-testid={`stack-${rootId}`}>
+    <div className={withMetaClass('xd-stack', root)} data-testid={`stack-${rootId}`}>
       <TabStrip node={root} rootId={rootId} />
       {children}
     </div>
@@ -227,9 +230,10 @@ function PresetView({ preset }: { preset: Preset }) {
   const clip = preset.mechanics.config?.overflow === 'clip';
   return (
     <Provider store={store}>
+      <PresetStyle preset={preset} />
       <div
         ref={frameRef}
-        className={`xd-frame${clip ? ' xd-frame--clip' : ''}`}
+        className={`xd-frame ${presetClass(preset)}${clip ? ' xd-frame--clip' : ''}`}
         data-testid="xd-frame"
       >
         <RootFrame rootId={rootId}>

@@ -91,6 +91,20 @@ export function titles(map: Record<string, string>): NonNullable<PresetData['nod
 }
 
 /**
+ * `preset` dressed as its product: `css` as its `data.css`, and `classes`
+ * (node id → class name) merged into `data.nodes`. For presets a builder
+ * returns; a literal preset writes both in its `data` directly.
+ */
+export function styled(preset: Preset, css: string, classes: Record<string, string> = {}): Preset {
+  const nodes = { ...preset.data?.nodes };
+  for (const [id, className] of Object.entries(classes)) nodes[id] = { ...nodes[id], className };
+  return {
+    ...preset,
+    data: { ...preset.data, ...(Object.keys(nodes).length > 0 ? { nodes } : {}), css },
+  };
+}
+
+/**
  * The preset's full node tree: its mechanics with `data.nodes` merged onto the
  * matching nodes and `data.children` appended to the matching containers.
  * Throws when a data key names no node, or `data.children` names a non-container.

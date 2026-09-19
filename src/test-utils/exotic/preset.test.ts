@@ -6,6 +6,7 @@ import {
   presetScenario,
   presetToStore,
   presetTree,
+  styled,
 } from './preset.js';
 
 const PRESET: Preset = {
@@ -188,5 +189,31 @@ describe('item templates', () => {
     });
     expect(b?.placement).toEqual({ size: { w: 120 }, pinned: 0 });
     expect(b?.hints).toEqual({ minSize: { w: 8, h: 0 } });
+  });
+});
+
+describe('styled', () => {
+  it('sets data.css and adds class names, changing nothing else in the tree', () => {
+    const dressed = styled(PRESET, '.x { color: red; }', { a: 'product-a' });
+    expect(dressed.data?.css).toBe('.x { color: red; }');
+    const [a, inner] = presetTree(dressed).children ?? [];
+    expect(a).toEqual({
+      id: 'a',
+      placement: { size: { w: 100 } },
+      meta: { className: 'product-a' },
+    });
+    expect(inner).toEqual(presetTree(PRESET).children?.[1]);
+  });
+
+  it('keeps what data.nodes already says about a node it adds a class to', () => {
+    const titled: Preset = { ...PRESET, data: { nodes: { a: { meta: { title: 'A' } } } } };
+    expect(styled(titled, '', { a: 'x' }).data?.nodes?.a).toEqual({
+      meta: { title: 'A' },
+      className: 'x',
+    });
+  });
+
+  it('adds no data.nodes when there are no classes', () => {
+    expect(styled(PRESET, '.x {}').data).toEqual({ css: '.x {}' });
   });
 });
