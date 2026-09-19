@@ -55,12 +55,19 @@ export interface PackContractOptions {
    * than the container, which such a packer shrinks to fit, does not apply.
    */
   scales?: boolean;
+  /**
+   * The packer may place items out of the order given — sorted, turned, or
+   * skipped past for a later one that fits a bounded bin. False for a packer
+   * that keeps a stream's order, like justified rows, which skips the
+   * `sort`, `rotate` and `overflowMode: 'unplaced'` clauses.
+   */
+  rearranges?: boolean;
 }
 
 /** What every packing strategy promises, whatever its algorithm. */
 export function describePackContract(
   strategy: LayoutStrategy<void, string>,
-  { scales = false }: PackContractOptions = {},
+  { scales = false, rearranges = true }: PackContractOptions = {},
 ): void {
   describe(`${strategy.name}Strategy packing contract`, () => {
     const container = { w: 400, h: 300 };
@@ -175,7 +182,9 @@ export function describePackContract(
       );
     });
 
-    describe("overflowMode 'unplaced'", () => {
+    const rearranging = rearranges ? describe : describe.skip;
+
+    rearranging("overflowMode 'unplaced'", () => {
       const bin = { w: 400, h: 300 };
       const bounded = { gap: 6, overflowMode: 'unplaced' };
 
@@ -231,7 +240,7 @@ export function describePackContract(
       });
     });
 
-    describe('rotate', () => {
+    rearranging('rotate', () => {
       const result = runPack(strategy, boxes, container, { gap: 8, rotate: true });
 
       it('places each box at its own size or turned a quarter, and says which in channels', () => {
@@ -302,7 +311,7 @@ export function describePackContract(
     });
 
     for (const [sort, key] of SORT_CASES) {
-      describe(`sort '${sort}'`, () => {
+      rearranging(`sort '${sort}'`, () => {
         const items = [{ id: 'bare' }, ...boxes];
         const result = runPack(strategy, items, container, { gap: 8, sort });
 

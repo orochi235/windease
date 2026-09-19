@@ -117,7 +117,7 @@ export const justifiedStrategy: LayoutStrategy<void, string> = {
       rows++;
     }
 
-    const result = packResult(placements, unplaced, container);
+    const result = packResult(items, placements, container);
     trace(
       'layout',
       `justified: ${n} of ${items.length} in ${rows} rows (${ragged} ragged) at w=${width}, target ${target}, gap ${gap}`,

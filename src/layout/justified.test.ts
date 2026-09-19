@@ -3,7 +3,7 @@ import type { LayoutItem, Rect } from '../layout-types.js';
 import { describePackContract, runPack } from '../test-utils/pack-contract.js';
 import { justifiedStrategy } from './justified.js';
 
-describePackContract(justifiedStrategy, { scales: true });
+describePackContract(justifiedStrategy, { scales: true, rearranges: false });
 
 const shaped = (id: string, aspect: number): LayoutItem => ({ id, hints: { aspect } });
 
