@@ -277,6 +277,34 @@ test.describe('desktop iconFrom', () => {
   });
 });
 
+test.describe('desktop wrap', () => {
+  /** Adds `n` unpositioned windows; the story cascades them 40px apart. */
+  async function addWindows(page: Page, n: number) {
+    for (let i = 0; i < n; i++) await page.getByTestId('add-window').click();
+    await expect(node(page, `new-${n}`)).toBeVisible();
+  }
+
+  test('the cascade starts again at the top-left once a window would leave', async ({ page }) => {
+    await openStory(page, BEHAVIOR);
+    const desk = await deskOf(page);
+    await addWindows(page, 8);
+    // new-7 sits at 240: 240 + 100 fits the 360px desktop; new-8 at 280 would not.
+    const seventh = await settledBox(node(page, 'new-7'));
+    expect(seventh.y - desk.y).toBeCloseTo(240, 0);
+    const eighth = await settledBox(node(page, 'new-8'));
+    expect(eighth.x).toBeCloseTo(desk.x, 0);
+    expect(eighth.y).toBeCloseTo(desk.y, 0);
+  });
+
+  test('without wrap, the cascade runs on past the edge', async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-wrap=false`);
+    const desk = await deskOf(page);
+    await addWindows(page, 8);
+    const eighth = await settledBox(node(page, 'new-8'));
+    expect(eighth.y - desk.y).toBeCloseTo(280, 0);
+  });
+});
+
 test.describe('desktop raise policy', () => {
   const RAISE = 'desktop--raise-policy';
 

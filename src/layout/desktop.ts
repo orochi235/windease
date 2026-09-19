@@ -60,6 +60,9 @@ export interface DesktopConfig {
   /** The corner the icon layer fills from. `inner` lays icons out from the
    *  top-left as usual, and the desktop mirrors its result into this corner. */
   iconFrom?: (typeof DESKTOP_ICON_FROM)[number];
+  /** Restart the cascade at the top-left once the next window would leave the
+   *  container. */
+  wrap?: boolean;
 }
 
 /** {@link desktopStrategy}'s state: only whatever the wrapped strategy keeps. */
@@ -369,6 +372,11 @@ function placeWindows(
       unplaced.push(item.id);
       continue;
     }
+    const minimized = item.meta?.minimized === true;
+    if (minimized && cfg.minimize === 'icon') {
+      trace('layout', `desktop: ${item.id} minimized to an icon with no icon layer, shaded`);
+    }
+    const h = minimized ? shadeHeight : size.h;
     const { x, y } = item.meta ?? {};
     let at: Point;
     if (Number.isFinite(x) && Number.isFinite(y)) at = { x: x as number, y: y as number };
@@ -379,12 +387,13 @@ function placeWindows(
       }
       at = { x: slot * cascade, y: slot * cascade };
       slot++;
+      const leaves = at.x + size.w > container.w || at.y + h > container.h;
+      if (cfg.wrap && slot > 1 && leaves) {
+        trace('layout', `desktop: cascade wrapped at ${item.id}`);
+        at = { x: 0, y: 0 };
+        slot = 1;
+      }
     }
-    const minimized = item.meta?.minimized === true;
-    if (minimized && cfg.minimize === 'icon') {
-      trace('layout', `desktop: ${item.id} minimized to an icon with no icon layer, shaded`);
-    }
-    const h = minimized ? shadeHeight : size.h;
     if (cfg.clamp) {
       const kept = clampWindow(at, { w: size.w, h }, container, cfg.clamp, handleSize);
       if (kept.x !== at.x || kept.y !== at.y) {
@@ -494,6 +503,7 @@ export function desktopStrategy<TInner>(
       resize: 'boolean',
       edgeSize: 'number',
       iconFrom: DESKTOP_ICON_FROM,
+      wrap: 'boolean',
     },
 
     initialState(items, options) {

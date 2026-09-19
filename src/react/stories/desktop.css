@@ -110,3 +110,11 @@
 .desktop-scroller--no-toggle .desktop-window__glyph {
   visibility: hidden;
 }
+
+.desktop-add {
+  margin-top: 12px;
+  font:
+    12px system-ui,
+    -apple-system,
+    sans-serif;
+}

@@ -106,6 +106,11 @@ section below.
   gets no edges, and a window's own `placement.resize` overrides the config. See
   [Desktop windows](README.md#desktop-windows).
 
+- **`wrap` on `desktopStrategy`** restarts the cascade at the top-left once the
+  next window would leave the desktop on either axis, as classic window managers
+  do. A window too big for the desktop still starts at the top-left. Without it,
+  the cascade runs on past the edge as before.
+
 - **`iconFrom` on `desktopStrategy`** picks the corner the icon layer fills
   from: `'top-left'` (the default), `'bottom-left'` (Windows 3.1, rows going up),
   `'top-right'` or `'bottom-right'`. The inner strategy still lays icons out from

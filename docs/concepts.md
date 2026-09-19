@@ -389,7 +389,7 @@ Built-ins:
   a window, or with `minimize: 'icon'` hands it to `inner` beside the items
   marked `icon`, which sit at `z` 0. Config: `minimize`, `shadeHeight`,
   `iconWidth`, `iconHeight`, `cascade`, `drag`, `handleSize`, `clamp`, `overflow`, `minimizable`,
-  `resize`, `edgeSize`, `iconFrom`. Keeps no state of its own; with `drag` set it emits a
+  `resize`, `edgeSize`, `iconFrom`, `wrap`. Keeps no state of its own; with `drag` set it emits a
   title-band drag affordance per window that writes placement `x` / `y`, with
   `minimizable` a `click` affordance that flips `minimized`, and with `resize`
   edge and corner affordances that write `size` (and `x` / `y` from the left and

@@ -516,3 +516,57 @@ describe('desktop iconFrom', () => {
     });
   });
 });
+
+describe('desktop wrap', () => {
+  const unplacedWins = (n: number, w = 100, h = 80): LayoutItem[] =>
+    Array.from({ length: n }, (_, i) => ({ id: `w${i + 1}`, hints: { preferredSize: { w, h } } }));
+  function run(items: LayoutItem[], options: Record<string, unknown>) {
+    const s = desktopStrategy();
+    return s.layout({
+      items,
+      container: CONTAINER,
+      state: s.initialState(items, options),
+      options,
+    });
+  }
+  const at = (r: ReturnType<typeof run>, id: string) => {
+    const p = r.placements.get(id);
+    return p && { x: p.x, y: p.y };
+  };
+
+  it('cascades on past the edge without wrap', () => {
+    const r = run(unplacedWins(11), {});
+    expect(at(r, 'w11')).toEqual({ x: 240, y: 240 });
+  });
+
+  it('restarts at the top-left once the next window would leave the container', () => {
+    const r = run(unplacedWins(12), { wrap: true });
+    // w10 ends at y 216 + 80 = 296, inside; w11 at 240 would end at 320.
+    expect(at(r, 'w10')).toEqual({ x: 216, y: 216 });
+    expect(at(r, 'w11')).toEqual({ x: 0, y: 0 });
+    expect(at(r, 'w12')).toEqual({ x: 24, y: 24 });
+  });
+
+  it('wraps on whichever axis runs out first', () => {
+    const r = run(unplacedWins(3, 350, 40), { wrap: true, cascade: 30 });
+    expect(at(r, 'w2')).toEqual({ x: 30, y: 30 });
+    expect(at(r, 'w3')).toEqual({ x: 0, y: 0 });
+  });
+
+  it('leaves a window too big for the container at the top-left rather than looping', () => {
+    const r = run(unplacedWins(2, 500, 400), { wrap: true });
+    expect(at(r, 'w1')).toEqual({ x: 0, y: 0 });
+    expect(at(r, 'w2')).toEqual({ x: 0, y: 0 });
+  });
+
+  it('counts a shaded window at its shaded height', () => {
+    const items = unplacedWins(11);
+    items[10] = { ...items[10], id: 'w11', meta: { minimized: true } } as LayoutItem;
+    const r = run(items, { wrap: true });
+    expect(at(r, 'w11')).toEqual({ x: 240, y: 240 });
+  });
+
+  it('declares wrap in its config spec', () => {
+    expect(desktopStrategy().configSpec).toMatchObject({ wrap: 'boolean' });
+  });
+});

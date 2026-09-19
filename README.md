@@ -979,7 +979,9 @@ store.patchPlacement(windowId, { minimized: true });
 ```
 
 A window's size is `placement.size`, else `natural`, else `hints.preferredSize`;
-one with none is unplaced. A window with no `x` / `y` cascades from the top left.
+one with none is unplaced. A window with no `x` / `y` cascades from the top left,
+and with `wrap` the cascade starts again there once the next window would leave
+the desktop.
 Positions are not clamped unless `clamp` says so: a window past the edge comes back
 as `overflow`.
 
@@ -1012,6 +1014,7 @@ the pressed element in the DOM and the browser drops the click it was for.
 | `overflow` | `'scroll'` | `'scroll'` reports windows past any edge as `overflow`, left and top included; `'clip'` reports none |
 | `resize` | off | `true` resizes a window from its edges and corners |
 | `edgeSize` | `6` | thickness of the edges `resize` grabs; corners are twice it |
+| `wrap` | off | `true` restarts the cascade at the top left once the next window would leave the desktop |
 | `iconFrom` | `'top-left'` | the corner the icon layer fills from: `'top-left'`, `'bottom-left'`, `'top-right'` or `'bottom-right'` |
 
 With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`

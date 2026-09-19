@@ -189,6 +189,7 @@ interface BehaviorArgs {
   layer: boolean;
   minimize: 'shade' | 'icon';
   iconFrom: 'top-left' | 'bottom-left' | 'top-right' | 'bottom-right';
+  wrap: boolean;
 }
 
 const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number }[] = [
@@ -216,10 +217,32 @@ function behaviorConfig(args: BehaviorArgs): Record<string, unknown> {
     resize: args.resize,
     minimize: args.minimize,
     iconFrom: args.iconFrom,
+    wrap: args.wrap,
+    cascade: 40,
     gap: 8,
     iconWidth: 72,
     iconHeight: 64,
   };
+}
+
+function addBehaviorWindow(
+  s: Store,
+  id: string,
+  size: { w: number; h: number },
+  placement: Record<string, unknown> = {},
+) {
+  s.registerNode(
+    createNode({
+      kind: 'window',
+      focus: true,
+      id: asNodeId(id),
+      parentId: ZONE_ID,
+      placement,
+      hints: { preferredSize: size, minSize: { w: 120, h: 60 } },
+      meta: { title: id },
+    }),
+  );
+  s.showNode(asNodeId(id));
 }
 
 function useBehaviorStore(args: BehaviorArgs): Store {
@@ -241,18 +264,7 @@ function useBehaviorStore(args: BehaviorArgs): Store {
       s.showNode(asNodeId(id));
     }
     for (const { id, x, y, w, h } of BEHAVIOR_WINDOWS) {
-      s.registerNode(
-        createNode({
-          kind: 'window',
-          focus: true,
-          id: asNodeId(id),
-          parentId: ZONE_ID,
-          placement: { x, y },
-          hints: { preferredSize: { w, h }, minSize: { w: 120, h: 60 } },
-          meta: { title: id },
-        }),
-      );
-      s.showNode(asNodeId(id));
+      addBehaviorWindow(s, id, { w, h }, { x, y });
     }
     return s;
   }, []);
@@ -308,6 +320,12 @@ function BehaviorZone(args: BehaviorArgs) {
   const store = useBehaviorStore(args);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const chrome = useMemo(() => behaviorChrome(args.minimize), [args.minimize]);
+  const added = useRef(0);
+  // No position, so the desktop cascades it.
+  const addWindow = () => {
+    added.current++;
+    addBehaviorWindow(store, `new-${added.current}`, { w: 160, h: 100 });
+  };
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={BEHAVIOR_STRATEGIES}>
@@ -327,6 +345,9 @@ function BehaviorZone(args: BehaviorArgs) {
             affordances
           />
         </div>
+        <button type="button" className="desktop-add" data-testid="add-window" onClick={addWindow}>
+          Add window
+        </button>
         <p className="desktop-hint">
           Drag a window by its title bar. <code>drag: 'y'</code> moves it up and down only;{' '}
           <code>clamp</code> keeps its title bar, or all of it, on the desktop;{' '}
@@ -334,8 +355,9 @@ function BehaviorZone(args: BehaviorArgs) {
           its edges and corners resize it. With <code>layer</code> on, the palette's placement
           carries <code>layer: 'top'</code>, so raising a window never covers it.{' '}
           <code>iconFrom</code> picks the corner the icons, and windows minimized to icons, line up
-          from. win-3 was left on a monitor that is gone: scroll left to reach it, or clamp to bring
-          it back.
+          from. Added windows cascade from the top-left, and with <code>wrap</code> start again
+          there once the next would leave the desktop. win-3 was left on a monitor that is gone:
+          scroll left to reach it, or clamp to bring it back.
         </p>
       </StrategyRegistryProvider>
     </Provider>
@@ -353,6 +375,7 @@ Behavior.args = {
   layer: true,
   minimize: 'shade',
   iconFrom: 'bottom-left',
+  wrap: true,
 };
 Behavior.argTypes = {
   drag: { options: ['true', 'x', 'y', 'false'], control: { type: 'radio' } },
