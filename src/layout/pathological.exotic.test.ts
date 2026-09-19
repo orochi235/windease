@@ -191,8 +191,11 @@ describe('pathological containers and counts', () => {
     describe(entry.name, () => {
       for (const [cname, c] of Object.entries(containers)) {
         for (const n of [0, 1, 10_000]) {
-          it(`${n} items in ${cname}`, () =>
-            expect(breakage(entry, items(n, entry.allFloat), c)).toEqual(CLEAN));
+          // 10,000 items take ~1.3s alone; a loaded machine stretches that past
+          // the 5s default, which reads as a regression when it is contention.
+          it(`${n} items in ${cname}`, { timeout: 20_000 }, () =>
+            expect(breakage(entry, items(n, entry.allFloat), c)).toEqual(CLEAN),
+          );
         }
       }
       it('duplicate ids never throw, and each id is placed or unplaced', () => {
