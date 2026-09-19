@@ -65,7 +65,7 @@ describe('listings', () => {
     const jsx = presetJsx(preset);
     expect(jsx).toMatch(new RegExp(`^<Zone\\s+id="${preset.mechanics.id}"`));
     expect(jsx).toContain(`strategyId="${preset.mechanics.strategy}"`);
-    expect(jsx).toContain(`meta={{ title: 'Top bar' }}`);
+    expect(jsx).toContain(`meta={{ title: 'Top bar', className: 'bl-bar' }}`);
   });
 });
 

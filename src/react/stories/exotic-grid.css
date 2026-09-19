@@ -16,13 +16,14 @@
     border-color 120ms ease;
 }
 
-.xg-frame--accept {
+/* Outranks a preset's data.css, which restyles groups under the story's root. */
+.xg-story .xg-frame.xg-frame--accept {
   border-color: #10b981;
   border-style: solid;
   background: #ecfdf5;
 }
 
-.xg-frame--reject {
+.xg-story .xg-frame.xg-frame--reject {
   border-color: #ef4444;
   border-style: solid;
   background: #fef2f2;

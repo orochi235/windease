@@ -67,6 +67,42 @@ const tab = (id: string, title: string): PresetNode => ({ id, kind: 'tab', meta:
 /** A tab of the product's own panels, whose title is data. */
 const panelTab = (id: string): PresetNode => ({ id, kind: 'tab' });
 
+const MACOS9_CSS = `
+.xd-root { background: #6666a8; }
+.xd-window {
+  border: 1px solid #000;
+  background: #ddd;
+  box-shadow: 1px 1px 0 #333;
+  font: bold 12px Charcoal, Chicago, Geneva, 'Helvetica Neue', sans-serif;
+  color: #000;
+}
+.xd-window__bar {
+  background:
+    repeating-linear-gradient(#fff 0 1px, #999 1px 2px) 6px 4px / calc(100% - 32px) 11px no-repeat,
+    #ddd;
+  border-bottom: 1px solid #888;
+}
+.xd-window__title { margin-inline: auto; padding: 0 6px; background: #ddd; }
+.xd-window__glyph { background: #ddd; }
+.xd-window__body { margin: 0 5px 5px; background: #fff; border: 1px solid #777; font-weight: normal; }
+.xd-icon {
+  flex-direction: column;
+  align-items: center;
+  background: none;
+  font: 11px Geneva, 'Helvetica Neue', sans-serif;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+}
+.xd-icon::before {
+  content: '';
+  width: 34px;
+  height: 24px;
+  margin-bottom: 4px;
+  border: 1px solid #000;
+  border-radius: 2px;
+  background: linear-gradient(#f4f4f4, #aaa);
+}
+`;
+
 export const MACOS9_WINDOWSHADE: Preset = {
   id: 'macos9-windowshade',
   source: 'Mac OS 9.2 Platinum desktop with WindowShade',
@@ -91,6 +127,7 @@ export const MACOS9_WINDOWSHADE: Preset = {
     item: WINDOW_ITEM,
   },
   data: {
+    css: MACOS9_CSS,
     children: {
       'mac-desktop': [
         icon('mac-hd', 'Macintosh HD'),
@@ -132,6 +169,45 @@ const WIN31_MINIMIZED = [
   'Reversi',
 ];
 
+const WIN31_CSS = `
+.xd-root { background: #c0c0c0; }
+.xd-window {
+  border: 1px solid #000;
+  box-shadow: 0 0 0 3px #c0c0c0, 0 0 0 4px #000;
+  background: #fff;
+  font: bold 12px 'MS Sans Serif', 'Microsoft Sans Serif', Arial, sans-serif;
+  color: #000;
+}
+.xd-window__bar { background: #000080; color: #fff; border-bottom: 1px solid #000; }
+.xd-window__title { margin-inline: auto; }
+.xd-window__glyph {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  background: #c0c0c0;
+  color: #000;
+  border-left: 1px solid #000;
+  box-shadow: inset -2px -2px #808080, inset 1px 1px #fff;
+}
+.xd-window__body { font-weight: normal; color: #000; }
+.xd-icon, .xd-icon--window {
+  flex-direction: column;
+  align-items: center;
+  border: 0;
+  background: none;
+  font: 11px 'MS Sans Serif', 'Microsoft Sans Serif', Arial, sans-serif;
+  color: #000;
+}
+.xd-icon::before {
+  content: '';
+  width: 30px;
+  height: 24px;
+  margin-bottom: 3px;
+  border: 1px solid #000;
+  background: linear-gradient(#000080 0 6px, #fff 6px);
+}
+`;
+
 export const WIN31_ICONS: Preset = {
   id: 'win31-minimized-icons',
   source: 'Windows 3.1 Program Manager with a row of minimized application icons',
@@ -157,6 +233,7 @@ export const WIN31_ICONS: Preset = {
     item: WINDOW_ITEM,
   },
   data: {
+    css: WIN31_CSS,
     children: {
       'win31-desktop': [
         icon('win31-recycle', 'Main', 72, 56),
@@ -174,6 +251,34 @@ export const WIN31_ICONS: Preset = {
   },
 };
 
+const GIMP_CSS = `
+.xd-root { background: #2e3436; }
+.xd-window {
+  border: 1px solid #1c1c1a;
+  border-radius: 5px 5px 0 0;
+  background: #edeceb;
+  font: 12px Ubuntu, Cantarell, 'DejaVu Sans', sans-serif;
+  color: #3c3c3c;
+}
+.xd-window__bar {
+  background: linear-gradient(#57564f, #3c3b37);
+  color: #dfdbd2;
+  font-weight: bold;
+  border-bottom: 1px solid #1c1c1a;
+}
+.gimp-image .xd-window__body {
+  margin: 4px;
+  background: repeating-conic-gradient(#999 0 25%, #666 0 50%) 0 0 / 16px 16px;
+  color: #eee;
+}
+.gimp-toolbox .xd-window__body {
+  background:
+    repeating-linear-gradient(90deg, #0000 0 26px, #c4c2bf 26px 28px),
+    repeating-linear-gradient(#0000 0 26px, #c4c2bf 26px 28px),
+    #edeceb;
+}
+`;
+
 export const GIMP_MULTIWINDOW: Preset = {
   id: 'gimp-2.8-multi-window',
   source: 'GIMP 2.8 multi-window mode: image windows under the Toolbox and dock utility windows',
@@ -189,6 +294,13 @@ export const GIMP_MULTIWINDOW: Preset = {
     item: WINDOW_ITEM,
   },
   data: {
+    css: GIMP_CSS,
+    nodes: {
+      'gimp-img-1': { className: 'gimp-image' },
+      'gimp-img-2': { className: 'gimp-image' },
+      'gimp-img-3': { className: 'gimp-image' },
+      'gimp-toolbox': { className: 'gimp-toolbox' },
+    },
     children: {
       'gimp-desktop': [
         win('gimp-img-1', 'wilber.xcf', 440, 340, { x: 170, y: 30 }),
@@ -200,6 +312,26 @@ export const GIMP_MULTIWINDOW: Preset = {
     },
   },
 };
+
+const AMIGA_CSS = `
+.xd-root { background: #000; }
+.xd-window {
+  border: 0;
+  box-shadow: 0 -2px 0 #000;
+  font: 12px Topaz, 'Topaz New', 'Courier New', monospace;
+}
+.xd-window__bar { border-bottom: 0; font-weight: bold; }
+.xd-window__body { color: inherit; }
+.xd-window__bar::after { content: '▭▣'; padding-right: 4px; letter-spacing: 2px; }
+.amiga-wb { background: #0055aa; color: #fff; }
+.amiga-wb .xd-window__bar { background: #fff; color: #0055aa; }
+.amiga-wb .xd-window__body { color: #ff8800; }
+.amiga-dpaint { background: #000; color: #fff; }
+.amiga-dpaint .xd-window__bar { background: #aaa; color: #000; }
+.amiga-dpaint .xd-window__body { box-shadow: inset 0 -28px #555; }
+.amiga-term { background: #222; color: #fff; }
+.amiga-term .xd-window__bar { background: #888; color: #fff; }
+`;
 
 export const AMIGA_SCREENS: Preset = {
   id: 'amiga-workbench-screens',
@@ -217,6 +349,12 @@ export const AMIGA_SCREENS: Preset = {
     item: WINDOW_ITEM,
   },
   data: {
+    css: AMIGA_CSS,
+    nodes: {
+      'amiga-workbench': { className: 'amiga-wb' },
+      'amiga-dpaint': { className: 'amiga-dpaint' },
+      'amiga-term': { className: 'amiga-term' },
+    },
     children: {
       'amiga-display': [
         win('amiga-workbench', 'Workbench Screen', 640, 256, { x: 0, y: 0 }),
@@ -226,6 +364,19 @@ export const AMIGA_SCREENS: Preset = {
     },
   },
 };
+
+const FIGMA_CSS = `
+.xd-root { background: #e5e5e5; }
+.xd-window {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font: 11px Inter, system-ui, sans-serif;
+  color: #8c8c8c;
+}
+.xd-window__bar { background: none; border-bottom: 0; padding: 0; align-items: flex-end; }
+.xd-window__body { background: #fff; color: #c4c4c4; box-shadow: 0 0 0 1px rgb(0 0 0 / 8%); }
+`;
 
 export const FIGMA_CANVAS: Preset = {
   id: 'figma-canvas',
@@ -243,6 +394,7 @@ export const FIGMA_CANVAS: Preset = {
     item: WINDOW_ITEM,
   },
   data: {
+    css: FIGMA_CSS,
     children: {
       'figma-canvas': [
         win('figma-cover', 'Cover', 1440, 960, { x: -4200, y: -2600 }),
@@ -254,6 +406,28 @@ export const FIGMA_CANVAS: Preset = {
     },
   },
 };
+
+const MACOS_CSS = `
+.xd-root { background: linear-gradient(160deg, #3c6ed6, #8e5bd0 55%, #e9869a); }
+.xd-window {
+  border: 1px solid rgb(0 0 0 / 25%);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 35%);
+  font: 13px -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  color: #222;
+}
+.xd-window__bar { background: #ececec; border-bottom: 1px solid #d0d0d0; font-weight: 600; }
+.xd-window__bar::before,
+.xd-window__bar::after { content: ''; flex: none; width: 52px; height: 12px; }
+.xd-window__bar::before {
+  background:
+    radial-gradient(circle at 6px 6px, #ff5f57 5px, #0000 5.5px),
+    radial-gradient(circle at 26px 6px, #febc2e 5px, #0000 5.5px),
+    radial-gradient(circle at 46px 6px, #28c840 5px, #0000 5.5px);
+}
+.xd-window__body { color: #999; }
+`;
 
 export const UNPLUGGED_MONITOR: Preset = {
   id: 'unplugged-second-monitor',
@@ -270,6 +444,7 @@ export const UNPLUGGED_MONITOR: Preset = {
     item: WINDOW_ITEM,
   },
   data: {
+    css: MACOS_CSS,
     children: {
       'laptop-display': [
         win('mon-mail', 'Mail', 900, 600, { x: 120, y: 80 }),
@@ -280,6 +455,30 @@ export const UNPLUGGED_MONITOR: Preset = {
     },
   },
 };
+
+const XP_CSS = `
+.xd-root { background: linear-gradient(#2d6fd6, #a9cdf5 58%, #6aa843 58.5%, #2f6e1b); }
+.xd-window {
+  border: 3px solid #0831d9;
+  border-top: 0;
+  border-radius: 7px 7px 0 0;
+  background: #ece9d8;
+  font: 11px Tahoma, Verdana, sans-serif;
+  color: #000;
+}
+.xd-window__bar {
+  background: linear-gradient(#3d95ff, #0058ee 20%, #0053e7 75%, #0a47c9);
+  color: #fff;
+  font: bold 12px 'Trebuchet MS', Tahoma, sans-serif;
+  text-shadow: 1px 1px #0f1089;
+  border-bottom: 0;
+}
+.xd-window__body {
+  background: linear-gradient(90deg, #7a96df 0 90px, #fff 90px);
+  color: #444;
+  padding-left: 98px;
+}
+`;
 
 export const CASCADE_200: Preset = {
   id: 'cascade-200-windows',
@@ -296,6 +495,7 @@ export const CASCADE_200: Preset = {
     item: WINDOW_ITEM,
   },
   data: {
+    css: XP_CSS,
     children: {
       'cascade-desktop': Array.from({ length: 200 }, (_, i) =>
         win(`cascade-${i + 1}`, `My Computer (${i + 1})`, 480, 360),
@@ -303,6 +503,17 @@ export const CASCADE_200: Preset = {
     },
   },
 };
+
+const CHROME_CSS = `
+.xd-stack { background: #fff; }
+.xd-tabs { gap: 0; padding: 6px 8px 0; box-sizing: border-box; background: #dee1e6; }
+.xd-tab { border-radius: 8px 8px 0 0; background: none; }
+.xd-tab:has([aria-selected='true']) { background: #fff; }
+.xd-tab__label { color: #5f6368; font: 12px 'Segoe UI', system-ui, sans-serif; }
+.xd-tab__label[aria-selected='true'] { color: #202124; box-shadow: none; }
+.xd-tab__action { color: #5f6368; }
+.xd-page { font: 13px system-ui, sans-serif; color: #202124; }
+`;
 
 export const CHROME_150_TABS: Preset = {
   id: 'chrome-150-tabs',
@@ -318,6 +529,7 @@ export const CHROME_150_TABS: Preset = {
     config: { headerSize: 34, activeId: 'chrome-tab-150' },
   },
   data: {
+    css: CHROME_CSS,
     children: {
       'chrome-window': Array.from({ length: 150 }, (_, i) =>
         tab(`chrome-tab-${i + 1}`, `Tab ${i + 1}`),
@@ -325,6 +537,28 @@ export const CHROME_150_TABS: Preset = {
     },
   },
 };
+
+const PHOTOSHOP_CSS = `
+.xd-root { background: #282828; }
+.xd-canvas {
+  background: linear-gradient(#fff, #fff) 50% 55% / 70% 70% no-repeat, #282828;
+  color: #ccc;
+  font: 11px system-ui, sans-serif;
+}
+.xd-dock { background: #1e1e1e; }
+.xd-stack, .xd-page { background: #535353; }
+.xd-tabs { gap: 0; background: #3c3c3c; }
+.xd-tab { max-width: 96px; background: none; }
+.xd-tab:has([aria-selected='true']) { background: #535353; }
+.xd-tab__label { color: #aaa; font: 11px system-ui, sans-serif; }
+.xd-tab__label[aria-selected='true'] { color: #eee; box-shadow: none; }
+.xd-page { color: #ddd; font: 11px system-ui, sans-serif; }
+.xd-palette { background: #535353; border-color: #222; color: #ddd; font: 11px system-ui, sans-serif; }
+.xd-palette__bar { background: #3c3c3c; }
+.xd-palette__body {
+  background: linear-gradient(90deg, red, yellow, lime, cyan, blue, magenta, red) 8px 36px / calc(100% - 16px) 14px no-repeat;
+}
+`;
 
 export const PHOTOSHOP_PANELS: Preset = {
   id: 'photoshop-panel-dock',
@@ -372,6 +606,7 @@ export const PHOTOSHOP_PANELS: Preset = {
     ],
   },
   data: {
+    css: PHOTOSHOP_CSS,
     nodes: titles({
       'ps-canvas': 'Untitled-1 @ 66.7%',
       'ps-layers': 'Layers',
@@ -383,6 +618,29 @@ export const PHOTOSHOP_PANELS: Preset = {
     }),
   },
 };
+
+const WIN11_ZONES_CSS = `
+.xd-root { background: radial-gradient(ellipse at 60% 115%, #7eb0ff, #1a4fc4 45%, #0b1d5a); }
+.xd-snap-zone {
+  display: grid;
+  place-items: center;
+  border: 2px solid rgb(255 255 255 / 55%);
+  border-radius: 8px;
+  background: rgb(0 103 192 / 25%);
+  font: 600 28px 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+}
+.xd-palette {
+  border: 1px solid rgb(0 0 0 / 20%);
+  border-radius: 8px;
+  background: #f3f3f3;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+  font: 12px 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  color: #1b1b1b;
+}
+.xd-palette__bar { background: none; }
+.xd-palette__bar::after { content: '─   ☐   ✕'; margin-left: auto; font-size: 10px; }
+.xd-palette__body { background: #fff; }
+`;
 
 export const FANCYZONES: Preset = {
   id: 'fancyzones-priority-grid',
@@ -403,6 +661,7 @@ export const FANCYZONES: Preset = {
     ],
   },
   data: {
+    css: WIN11_ZONES_CSS,
     nodes: titles({ 'fz-zone-left': 'Left', 'fz-zone-center': 'Center', 'fz-zone-right': 'Right' }),
     children: {
       'fz-desktop': [
@@ -412,6 +671,34 @@ export const FANCYZONES: Preset = {
     },
   },
 };
+
+const TWM_CSS = `
+.xd-root { background: repeating-conic-gradient(#000 0 25%, #fff 0 50%) 0 0 / 2px 2px; }
+.xd-window {
+  border: 2px solid #000;
+  box-shadow: none;
+  background: #fff;
+  font: bold 12px Helvetica, Arial, sans-serif;
+  color: #000;
+}
+.xd-window__bar { gap: 8px; background: #fff; border-bottom: 2px solid #000; }
+.xd-window__bar::after {
+  content: '';
+  flex: 1;
+  height: 10px;
+  background: repeating-linear-gradient(#000 0 1px, #fff 1px 2px);
+}
+.xd-window__glyph { order: 1; }
+.xd-window__body { font: 12px 'DejaVu Sans Mono', monospace; color: #000; }
+.xd-icon, .xd-icon--window {
+  justify-content: flex-start;
+  align-items: center;
+  padding: 0 6px;
+  border: 1px solid #000;
+  background: #fff;
+  font: bold 12px Helvetica, Arial, sans-serif;
+}
+`;
 
 export const TWM_ICON_MANAGER: Preset = {
   id: 'twm-icon-manager',
@@ -438,6 +725,7 @@ export const TWM_ICON_MANAGER: Preset = {
     item: WINDOW_ITEM,
   },
   data: {
+    css: TWM_CSS,
     children: {
       'twm-root': [
         win('twm-xclock', 'xclock', 164, 164, { x: 850, y: 10 }),

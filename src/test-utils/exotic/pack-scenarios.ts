@@ -18,6 +18,8 @@ interface PackPresetInput {
   strategy: PackerId;
   config?: Record<string, unknown>;
   boxes: readonly Box[];
+  /** The product look, as `data.css`. */
+  css?: string;
 }
 
 function packPreset({
@@ -29,6 +31,7 @@ function packPreset({
   strategy,
   config,
   boxes,
+  css,
 }: PackPresetInput): Preset {
   const children: PresetNode[] = boxes.map((box, i) => {
     const node: PresetNode = { id: `${id}#${i}` };
@@ -45,7 +48,7 @@ function packPreset({
     description,
     viewport,
     mechanics: { id: `${id}:root`, kind: 'zone', strategy, config: config ?? {} },
-    data: { children: { [`${id}:root`]: children } },
+    data: { children: { [`${id}:root`]: children }, ...(css === undefined ? {} : { css }) },
   };
 }
 
@@ -72,6 +75,7 @@ function texturePackerPow2(): Preset {
   );
   return packPreset({
     id: 'texturepacker-pow2-sheet',
+    css: ATLAS_CSS,
     source:
       'TexturePacker "Size constraints: POT" sheet, 320 power-of-two sprites 8–256px, stb order',
     stress:
@@ -89,6 +93,7 @@ function stbStripAmongTiles(): Preset {
   boxes.splice(600, 0, [2048, 8]);
   return packPreset({
     id: 'stb-strip-among-tiles',
+    css: ATLAS_CSS,
     source:
       'stb_rect_pack lightmap/gradient atlas: one 2048×8 ramp texture among 1200 4×4 tiles, file order',
     stress:
@@ -111,6 +116,7 @@ function kenneySpriteSheet(): Preset {
   });
   return packPreset({
     id: 'kenney-sprite-sheet',
+    css: ATLAS_CSS,
     source:
       'Kenney-style 2D game asset pack: 80% tiles/icons, 15% characters, 5% backdrops, unsorted file order',
     stress:
@@ -160,6 +166,7 @@ export function asciiGlyphBoxes(em: number, pad: number, seed: number): [number,
 function sdfGlyphAtlas(): Preset {
   return packPreset({
     id: 'msdf-ascii-glyph-atlas',
+    css: MSDF_CSS,
     source:
       'msdf-atlas-gen, printable ASCII at 32px em with pxrange 4, glyph boxes in codepoint order',
     stress:
@@ -181,6 +188,7 @@ function cjkGlyphAtlas(): Preset {
   ]);
   return packPreset({
     id: 'troika-cjk-glyph-atlas',
+    css: MSDF_CSS,
     source:
       'troika-three-text SDF atlas for the 3755 GB2312 level-1 hanzi, 26px glyphs + 4px padding',
     stress:
@@ -205,6 +213,7 @@ function pinterestFeed(): Preset {
   boxes.splice(9, 0, [1200, 320, 'shopping spotlight (full bleed)']);
   return packPreset({
     id: 'pinterest-home-feed',
+    css: PINTEREST_CSS,
     source:
       'Pinterest home feed at 1020px: 236px pins, 16px gutter, with a full-bleed shopping module',
     stress:
@@ -229,6 +238,7 @@ function unsplashGrid(): Preset {
   ]);
   return packPreset({
     id: 'unsplash-three-column',
+    css: UNSPLASH_CSS,
     source:
       'Unsplash search results at 1296px: three 416px columns, 24px gutter, real aspect-ratio mix',
     stress:
@@ -248,6 +258,7 @@ function googleKeep(): Preset {
   boxes.splice(3, 0, [240, 4000, 'packing checklist (212 items)']);
   return packPreset({
     id: 'google-keep-notes',
+    css: KEEP_CSS,
     source: 'Google Keep grid view at 1024px: 240px notes, 16px gutter, one 212-item checklist',
     stress: 'one note twenty times taller than the rest: every later note must avoid its column',
     description:
@@ -277,6 +288,7 @@ function newspaperMobile(): Preset {
   ];
   return packPreset({
     id: 'newspaper-front-on-phone',
+    css: NEWSPAPER_CSS,
     source:
       'Broadsheet homepage modules sized for a 1280px desktop grid, fixed-aspect, dropped into a 375px phone',
     stress:
@@ -300,6 +312,7 @@ function flickrJustified(): Preset {
   ]);
   return packPreset({
     id: 'flickr-justified-rows',
+    css: FLICKR_CSS,
     source:
       'flickr/justified-layout defaults: containerWidth 1060, targetRowHeight 320, boxSpacing 10',
     stress: 'justified rows need scaling a shelf can’t do: rows come out ragged on the right',
@@ -324,6 +337,7 @@ function googlePhotos(): Preset {
   boxes.splice(20, 0, [2160, 180, 'phone panorama 12:1']);
   return packPreset({
     id: 'google-photos-panoramas',
+    css: PHOTOS_CSS,
     source:
       'Google Photos web grid at 1280px, 180px rows, 4px spacing, with a 4:1 and a 12:1 phone panorama',
     stress:
@@ -343,6 +357,7 @@ function isoPallets(): Preset[] {
   return [
     packPreset({
       id: 'iso-20ft-eur-pallets',
+      css: PALLET_CSS,
       source:
         '20ft ISO dry container floor, 235×590cm inside; EUR pallets 80×120cm, all long side along the length',
       stress:
@@ -355,6 +370,7 @@ function isoPallets(): Preset[] {
     }),
     packPreset({
       id: 'iso-40ft-industrial-pallets',
+      css: PALLET_CSS,
       source: '40ft ISO dry container floor, 235×1203cm inside; 100×120cm ISO pallets',
       stress:
         'the published 20-pallet single-stack figure: 2 across × 10 deep, the last 2 overflow',
@@ -387,6 +403,7 @@ function vanLoad(): Preset {
   ];
   return packPreset({
     id: 'flat-pack-van-floor',
+    css: VAN_CSS,
     source:
       'Flat-pack furniture order on a long-wheelbase cargo van floor, ~178×330cm, approximate package footprints',
     stress: 'long thin boxes of near-equal length: shelf rows waste the width a skyline fills',
@@ -408,6 +425,7 @@ function explorerAt125(): Preset {
   ]);
   return packPreset({
     id: 'explorer-icons-125pct',
+    css: EXPLORER_CSS,
     source: 'Windows Explorer "Large icons" view at 125% display scaling in a 768 CSS px pane',
     stress: 'fractional sizes that tile the width exactly: ten 76.8px tiles must share a row',
     description:
@@ -417,6 +435,217 @@ function explorerAt125(): Preset {
     boxes,
   });
 }
+
+const ATLAS_CSS = `
+.windease-zone {
+  border: 0;
+  border-radius: 0;
+  background: repeating-conic-gradient(#cfcfcf 0 25%, #fff 0 50%) 0 0 / 16px 16px;
+}
+.exotic-pack__box { border: 1px solid rgb(0 0 0 / 35%); background: rgb(255 120 60 / 75%); }
+[data-node]:nth-child(5n + 2) .exotic-pack__box { background: rgb(80 170 255 / 75%); }
+[data-node]:nth-child(5n + 3) .exotic-pack__box { background: rgb(110 200 90 / 75%); }
+[data-node]:nth-child(5n + 4) .exotic-pack__box { background: rgb(250 200 50 / 75%); }
+[data-node]:nth-child(5n) .exotic-pack__box { background: rgb(190 110 230 / 75%); }
+`;
+
+const MSDF_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #000; }
+.exotic-pack__box {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: radial-gradient(#f0f 0 30%, #0ff 45%, #ff0 60%, #0000 70%);
+}
+.exotic-pack__label { color: #fff; font: bold 14px monospace; mix-blend-mode: difference; }
+`;
+
+const PINTEREST_CSS = `
+.windease-zone { border: 0; background: #fff; }
+.exotic-pack__box { border: 0; border-radius: 16px; background: #e9e4dc; }
+[data-node]:nth-child(4n + 2) .exotic-pack__box { background: #c9d6cf; }
+[data-node]:nth-child(4n + 3) .exotic-pack__box { background: #e2c7c0; }
+[data-node]:nth-child(4n) .exotic-pack__box { background: #cfd3e3; }
+.exotic-pack__label { padding: 8px 12px; color: #111; font: 600 14px system-ui, sans-serif; }
+`;
+
+const UNSPLASH_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #fff; }
+.exotic-pack__box { border: 0; background: linear-gradient(160deg, #8a9bb0, #3e4a57); }
+[data-node]:nth-child(3n + 2) .exotic-pack__box { background: linear-gradient(160deg, #d8c3a5, #7a6048); }
+[data-node]:nth-child(3n) .exotic-pack__box { background: linear-gradient(160deg, #a7c4a0, #3f5e3a); }
+.exotic-pack__label { color: #fff; font: 14px system-ui, sans-serif; }
+`;
+
+const KEEP_CSS = `
+.windease-zone { border: 0; background: #fff; }
+.exotic-pack__box {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  font: 14px Roboto, system-ui, sans-serif;
+}
+[data-node]:nth-child(5n + 2) .exotic-pack__box { border-color: #0000; background: #fff8b8; }
+[data-node]:nth-child(5n + 4) .exotic-pack__box { border-color: #0000; background: #e2f6d3; }
+[data-node]:nth-child(7n) .exotic-pack__box { border-color: #0000; background: #faafa8; }
+.exotic-pack__label { padding: 12px 16px 0; color: #202124; font-weight: 500; }
+`;
+
+const NEWSPAPER_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #f9f7f1; }
+.exotic-pack__box {
+  border: 0;
+  border-top: 1px solid #121212;
+  background: linear-gradient(#0000 0 26px, #d9d4c7 26px) padding-box;
+}
+.exotic-pack__label {
+  padding: 4px 0;
+  color: #121212;
+  font: bold 15px Georgia, 'Times New Roman', serif;
+}
+`;
+
+const FLICKR_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #f3f5f6; }
+.exotic-pack__box { border: 0; background: linear-gradient(135deg, #5d7a8c, #1d2b36); }
+[data-node]:nth-child(3n + 2) .exotic-pack__box { background: linear-gradient(135deg, #e0a96d, #7b3f1f); }
+[data-node]:nth-child(3n) .exotic-pack__box { background: linear-gradient(135deg, #9fc5a8, #2c5236); }
+.exotic-pack__label { color: #fff; font: 12px 'Helvetica Neue', Arial, sans-serif; }
+`;
+
+const PHOTOS_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #fff; }
+.exotic-pack__box { border: 0; background: linear-gradient(#9fc3e7, #e8d6b9 55%, #6d8a5b 56%); }
+[data-node]:nth-child(2n) .exotic-pack__box { background: linear-gradient(135deg, #d9a6a1, #6e4a6a); }
+.exotic-pack__label { color: #fff; font: 12px 'Google Sans', Roboto, system-ui, sans-serif; }
+`;
+
+const PALLET_CSS = `
+.windease-zone {
+  border: 3px solid #6b7b85;
+  border-radius: 0;
+  background: repeating-linear-gradient(90deg, #7a5536 0 30px, #5f412a 30px 32px);
+}
+.exotic-pack__box {
+  border: 1px solid #6e4f2c;
+  background: repeating-linear-gradient(#e0bd85 0 12px, #8a6a45 12px 16px);
+}
+.exotic-pack__label { color: #3b2a16; font: bold 11px system-ui, sans-serif; }
+`;
+
+const VAN_CSS = `
+.windease-zone {
+  border: 0;
+  border-radius: 6px;
+  background: repeating-linear-gradient(#4a4d50 0 10px, #3d4043 10px 12px);
+}
+.exotic-pack__box {
+  border: 1px solid #8a6a3c;
+  background: linear-gradient(90deg, #0000 calc(50% - 6px), #d8c9a6 0 calc(50% + 6px), #0000 0), #c49a5c;
+}
+.exotic-pack__label { color: #3b2a16; font: bold 11px system-ui, sans-serif; }
+`;
+
+const EXPLORER_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #fff; }
+.exotic-pack__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid #0000;
+  background: none;
+}
+.exotic-pack__box:hover { border-color: #cce8ff; background: #e5f3ff; }
+.exotic-pack__box::before {
+  content: '';
+  width: 48px;
+  height: 38px;
+  margin: 6px 0 4px;
+  border-radius: 2px 8px 3px 3px;
+  background: linear-gradient(#ffe38a, #f4b73f);
+}
+.exotic-pack__label { white-space: normal; text-align: center; color: #000; font: 12px 'Segoe UI', system-ui, sans-serif; }
+`;
+
+const GNOME_GRID_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #242424; }
+.exotic-pack__box { border: 0; border-radius: 14px; background: linear-gradient(#62a0ea, #1c71d8); }
+[data-node]:nth-child(5n + 2) .exotic-pack__box { background: linear-gradient(#8ff0a4, #26a269); }
+[data-node]:nth-child(5n + 3) .exotic-pack__box { background: linear-gradient(#ffbe6f, #e66100); }
+[data-node]:nth-child(5n + 4) .exotic-pack__box { background: linear-gradient(#dc8add, #813d9c); }
+[data-node]:nth-child(5n) .exotic-pack__box { background: linear-gradient(#f6f5f4, #9a9996); }
+`;
+
+const SPARKLINE_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #0d1117; }
+.exotic-pack__box { border: 0; background: #3fb950; }
+[data-node]:nth-child(2n) .exotic-pack__box { background: #238636; }
+`;
+
+const LOG_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #1e1e1e; }
+.exotic-pack__box { border: 0; background: #d4d4d4; }
+[data-node]:nth-child(2n) .exotic-pack__box { background: #569cd6; }
+`;
+
+const SETTINGS_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #f2f2f7; }
+.exotic-pack__box {
+  display: flex;
+  align-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 0 0 0.5px rgb(0 0 0 / 12%);
+}
+.exotic-pack__box::after { content: '›'; margin: 0 12px 0 auto; color: #c7c7cc; font: 20px system-ui; }
+.exotic-pack__label { padding: 0 12px; color: #000; font: 13px -apple-system, system-ui, sans-serif; }
+`;
+
+const BOOTSTRAP_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #fff; }
+.exotic-pack__box {
+  border: 1px solid rgb(0 0 0 / 17.5%);
+  border-radius: 6px;
+  background: linear-gradient(#e9ecef 0 45%, #fff 45%);
+}
+.exotic-pack__label { color: #212529; font: 16px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+`;
+
+const TOOLBAR_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #f3f3f3; }
+.exotic-pack__box {
+  border: 1px solid #c4c4c4;
+  border-radius: 4px;
+  background: linear-gradient(#fff, #ececec);
+}
+.exotic-pack__box:hover { background: #e5f1fb; border-color: #0078d4; }
+`;
+
+const CHIPS_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #fef7ff; }
+.exotic-pack__box { border: 1px solid #79747e; border-radius: 8px; background: #e8def8; }
+`;
+
+const MASONRY_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #fff; }
+.exotic-pack__box { border: 2px solid rgb(0 0 0 / 50%); border-radius: 5px; background: #d26; }
+[data-node]:nth-child(3n + 2) .exotic-pack__box { background: #c25; }
+[data-node]:nth-child(3n) .exotic-pack__box { background: #e14; }
+`;
+
+const FEED_CSS = `
+.windease-zone { border: 0; border-radius: 0; background: #fafafa; }
+.exotic-pack__box { border: 1px solid #dbdbdb; border-radius: 4px; background: linear-gradient(160deg, #e8c39e, #b0766a); }
+[data-node]:nth-child(2n) .exotic-pack__box { background: linear-gradient(160deg, #a1c4fd, #c2e9fb); }
+`;
+
+const PAPER_CSS = `
+.windease-zone { border: 1px solid #000; border-radius: 0; background: #fff; }
+.exotic-pack__box { border: 1px solid #000; background: #d9d9d9; }
+[data-node]:nth-child(2n) .exotic-pack__box { background: #bfbfbf; }
+.exotic-pack__label { font: 11px 'Times New Roman', Times, serif; }
+`;
 
 /** Real software, one preset per layout. */
 export const PRESETS: Preset[] = [
@@ -442,6 +671,7 @@ const repeat = (n: number, box: Box): Box[] => Array.from({ length: n }, () => b
 export const PATHOLOGY_PRESETS: Preset[] = [
   packPreset({
     id: 'identical-squares',
+    css: GNOME_GRID_CSS,
     source:
       'App launcher grid (iOS home screen, GNOME app grid): 500 identical 64px icons, 8px gap',
     stress: 'identical sizes: all three packers should agree on one row-major grid',
@@ -454,6 +684,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'vertical-needles',
+    css: SPARKLINE_CSS,
     source: 'Sparkline/bar-chart atlas: 400 1×10000 column textures',
     stress: '1px-wide items: masonry’s default column width becomes 1, so 300 columns',
     description:
@@ -464,6 +695,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'horizontal-needles',
+    css: LOG_CSS,
     source: 'Log-viewer line textures: 10000×1 rows interleaved with 1×1 dots',
     stress: 'every other item is 12× wider than the container; dots must not tuck under a needle',
     description:
@@ -474,6 +706,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'exact-container-width',
+    css: SETTINGS_CSS,
     source:
       'Settings list rows (macOS System Settings, Android preferences): full-width 800×30 rows, 8px gap',
     stress: 'every item exactly the container width: one per row, no width overflow',
@@ -486,6 +719,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'width-plus-gap-fits',
+    css: BOOTSTRAP_CSS,
     source: 'Bootstrap-style 4-up card row: 4×244 + 3×8 = 1000 exactly',
     stress: 'n·w + (n−1)·gap equals the width: n per row, not n−1',
     description:
@@ -497,6 +731,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'width-plus-gap-one-over',
+    css: BOOTSTRAP_CSS,
     source: 'The same 4-up card row with cards one pixel too wide',
     stress: 'n·w + (n−1)·gap exceeds the width by 1px: n−1 per row',
     description:
@@ -508,6 +743,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'equal-sixths',
+    css: TOOLBAR_CSS,
     source: 'A toolbar of six tiles each computed as width / 6 (flex: 1 1 0 measured back into px)',
     stress: 'six 100/6 widths sum past 100 in floating point: the last must not wrap',
     description:
@@ -518,6 +754,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'gap-dominates',
+    css: CHIPS_CSS,
     source: 'Material spacing token misapplied: 16px chips with a 64px gap',
     stress: 'gap four times the item size: the gap, not the items, sets the pitch',
     description:
@@ -529,6 +766,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'masonry-images-loading',
+    css: MASONRY_CSS,
     source: 'Masonry.js before imagesLoaded fires: every third tile has no measured size yet',
     stress:
       'unsized items interleaved: they go to unplaced, and never shift or drop the sized ones',
@@ -544,6 +782,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'ascending-heights',
+    css: FEED_CSS,
     source: 'Chronological photo feed that happens to grow taller: the order NFDH sorts away from',
     stress: 'next-fit shelf with heights ascending: each row’s tallest item arrives last',
     description:
@@ -555,6 +794,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'staircase-widths',
+    css: PAPER_CSS,
     source:
       'Skyline worst case from Jylänki, “A Thousand Ways to Pack the Bin” (2010): widths stepping down by 1px',
     stress:
@@ -567,6 +807,7 @@ export const PATHOLOGY_PRESETS: Preset[] = [
   }),
   packPreset({
     id: 'narrower-than-a-pin',
+    css: PINTEREST_CSS,
     source: 'Pinterest feed in a 200px split-screen pane, narrower than one 236px pin',
     stress: 'container narrower than the column width: one column, every pin overflows by 36px',
     description:
