@@ -15,10 +15,11 @@ the work is done when no story wires a behavior a product in the corpus has.
 
 ## Where presets ship
 
-Public, but not front and center: a secondary entry point beside the core, the way D3DX sat beside
-Direct3D. Consumers who want a product's layout import it from there; the README and the core
-exports lead with the primitives, not the presets. They leave `src/test-utils/` for that entry
-point once built; the test-only parts (invariants, known-failure entries, viewports) stay behind.
+Public, but not front and center: `windease/nuts` (Novel UI Torture Suite), a secondary entry point
+beside the core, the way D3DX sat beside Direct3D. Consumers who want a product's layout import it
+from there; the README and the core exports lead with the primitives, not the presets. They leave
+`src/test-utils/` for it once built (unbuilt as of 2026-09-18); the test-only parts (invariants,
+known-failure entries, viewports) stay behind.
 
 ## A preset is mechanics plus data
 
