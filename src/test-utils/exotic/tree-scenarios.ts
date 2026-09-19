@@ -125,9 +125,9 @@ export interface I3Node {
 export const I3_TITLE_BAR = 20;
 
 /**
- * Translates an i3 layout into a preset. `percent` becomes a pixel
- * `placement.size` on the parent's split axis, resolved against the viewport,
- * which is exactly what makes a moved i3 window carry a stale extent.
+ * Translates an i3 layout into a preset. `percent` becomes `placement.share`,
+ * a fraction of the parent split that i3 keeps when the output resizes. A moved
+ * window carries it into its new parent, where i3 would have reset it.
  */
 export function fromI3Layout(
   root: I3Node,
@@ -135,20 +135,11 @@ export function fromI3Layout(
 ): Preset {
   const mint = idMint();
   const nodes: PresetNodeData = {};
-  const walk = (
-    node: I3Node,
-    extent: Size,
-    parent: I3Node | undefined,
-    path: string,
-  ): PresetNode => {
+  const walk = (node: I3Node, parent: I3Node | undefined, path: string): PresetNode => {
     const out: PresetNode = { id: '' };
     if (parent?.layout === 'splith' || parent?.layout === 'splitv') {
-      // `extent` is already this node's share of the parent, so it is the pixel value.
       if (typeof node.percent === 'number' && node.percent > 0) {
-        out.placement =
-          parent.layout === 'splith'
-            ? { size: { w: Math.round(extent.w) } }
-            : { size: { h: Math.round(extent.h) } };
+        out.placement = { share: node.percent };
       }
     }
     if (!node.nodes || node.nodes.length === 0) {
@@ -167,22 +158,19 @@ export function fromI3Layout(
       out.strategy = 'strip';
       out.config = { axis: layout === 'splith' ? 'x' : 'y', fill: true };
     } else {
+      // i3 focuses a window moved into a tabbed or stacked container. What it
+      // shows after the focused one closes is its focus history, which no
+      // `fallback` rule names.
       out.strategy = 'stack';
-      out.config = { headerSize: layout === 'tabbed' ? I3_TITLE_BAR : I3_TITLE_BAR * n };
+      out.config = {
+        headerSize: layout === 'tabbed' ? I3_TITLE_BAR : I3_TITLE_BAR * n,
+        show: 'dropped',
+      };
     }
-    const childExtent = (child: I3Node): Size => {
-      const share = child.percent ?? 1 / n;
-      if (layout === 'splith') return { w: extent.w * share, h: extent.h };
-      if (layout === 'splitv') return { w: extent.w, h: extent.h * share };
-      const header = (out.config as { headerSize: number }).headerSize;
-      return { w: extent.w, h: Math.max(0, extent.h - header) };
-    };
-    out.children = node.nodes.map((child, i) =>
-      walk(child, childExtent(child), node, `${path}.${i}`),
-    );
+    out.children = node.nodes.map((child, i) => walk(child, node, `${path}.${i}`));
     return out;
   };
-  const mechanics = walk(root, meta.viewport, undefined, '0');
+  const mechanics = walk(root, undefined, '0');
   return { ...meta, mechanics, data: { nodes } };
 }
 
@@ -261,8 +249,7 @@ export const I3_DEV_WORKSPACE: I3Node = {
 export const I3_PRESET = fromI3Layout(I3_DEV_WORKSPACE, {
   id: 'i3-dev-workspace',
   source: 'i3 4.x / sway append_layout JSON (i3-save-tree), 1920x1080 workspace',
-  stress:
-    'seven levels of splith/splitv/tabbed/stacked with percent shares resolved to pixel placement.size',
+  stress: 'seven levels of splith/splitv/tabbed/stacked with percent shares as placement.share',
   description:
     'i3 and its Wayland counterpart sway are tiling window managers: windows never overlap but divide the screen between them, split side by side or one above the other, and any split can instead hold its windows as tabs or as a stack of title bars. This workspace has monitoring terminals on the left, an editor column with a browser tabbed against a devtools split, and chat apps tabbed on the right. Users resize a split by dragging its border or from the keyboard, and i3-save-tree saves the arrangement as JSON to restore later.',
   viewport: { w: 1920, h: 1080 },
@@ -304,7 +291,9 @@ function goldenShare(item: GoldenItem, axis: 'x' | 'y'): number | undefined {
 /**
  * Translates a Golden Layout config into a preset. A bare component under a
  * row or column is wrapped in a one-tab stack, as Golden Layout itself does
- * on load; `minItemWidth`/`minItemHeight` become `hints.minSize` on every tab.
+ * on load; `minItemWidth`/`minItemHeight` become `hints.minSize` on every tab,
+ * and percentages become `placement.share`. A stack shows a dropped tab, and
+ * after the active tab closes shows the one before it, as Golden Layout does.
  */
 export function fromGoldenLayout(
   config: GoldenConfig,
@@ -323,15 +312,10 @@ export function fromGoldenLayout(
     return { id, kind: 'panel', hints: { minSize: { w: minW, h: minH } } };
   };
 
-  const walk = (item: GoldenItem, extent: Size, parentAxis: 'x' | 'y' | undefined): PresetNode => {
+  const stack = { headerSize: header, show: 'dropped', fallback: 'prev' };
+  const walk = (item: GoldenItem, parentAxis: 'x' | 'y' | undefined): PresetNode => {
     const share = parentAxis ? goldenShare(item, parentAxis) : undefined;
-    // `extent` is already this item's share of the parent, so it is the pixel value.
-    const placement =
-      parentAxis && share !== undefined
-        ? {
-            size: parentAxis === 'x' ? { w: Math.round(extent.w) } : { h: Math.round(extent.h) },
-          }
-        : undefined;
+    const placement = share !== undefined && share > 0 ? { share } : undefined;
     const withPlacement = (n: PresetNode): PresetNode => (placement ? { ...n, placement } : n);
 
     if (item.type === 'component') {
@@ -341,7 +325,7 @@ export function fromGoldenLayout(
         id: mint(`stack-${panel.id}`),
         kind: 'group',
         strategy: 'stack',
-        config: { headerSize: header, activeId: panel.id },
+        config: { ...stack, activeId: panel.id },
         children: [panel],
       });
     }
@@ -354,27 +338,22 @@ export function fromGoldenLayout(
         id: mint(item.id ?? `stack-${tabs[0]?.id ?? 'empty'}`),
         kind: 'group',
         strategy: 'stack',
-        config: active ? { headerSize: header, activeId: active.id } : { headerSize: header },
+        config: active ? { ...stack, activeId: active.id } : stack,
         children: tabs,
       });
     }
 
     const axis = item.type === 'row' ? 'x' : 'y';
-    const n = Math.max(1, children.length);
-    const childExtent = (child: GoldenItem): Size => {
-      const s = goldenShare(child, axis) ?? 1 / n;
-      return axis === 'x' ? { w: extent.w * s, h: extent.h } : { w: extent.w, h: extent.h * s };
-    };
     return withPlacement({
       id: mint(item.id ?? `${item.type}`),
       kind: parentAxis ? 'group' : 'zone',
       strategy: 'strip',
       config: { axis, fill: true },
-      children: children.map((c) => walk(c, childExtent(c), axis)),
+      children: children.map((c) => walk(c, axis)),
     });
   };
 
-  const mechanics = walk(config.root, meta.viewport, undefined);
+  const mechanics = walk(config.root, undefined);
   return { ...meta, mechanics, data: { nodes } };
 }
 
@@ -445,7 +424,7 @@ export const GOLDEN_IDE_CONFIG: GoldenConfig = {
 export const GOLDEN_PRESET = fromGoldenLayout(GOLDEN_IDE_CONFIG, {
   id: 'golden-layout-ide',
   source: 'Golden Layout 2.x LayoutConfig (row/column/stack, size percentages), 1600x900',
-  stress: 'percent sizes resolved per level, bare components wrapped in one-tab stacks',
+  stress: 'percent sizes as shares at every level, bare components wrapped in one-tab stacks',
   description:
     'Golden Layout is a JavaScript library that gives web apps IDE-style docking: panels arranged in rows and columns and grouped into tabbed stacks. This app has file and outline tabs above a search panel on the left, editor tabs above a terminal and a problems/output stack in the middle, and chat and preview tabs on the right. Users drag a tab into another stack, or to the edge of one to split it, and drag the dividers to resize; the app saves the arrangement to restore later.',
   viewport: { w: 1600, h: 900 },
@@ -506,8 +485,12 @@ export const DOCKVIEW_TAB_HEIGHT = 35;
 
 /**
  * Translates `api.toJSON()` output into a preset. Branch orientation alternates
- * by depth from `grid.orientation`, and a child's `size` is already pixels on
- * its parent's axis, so it goes straight into `placement.size`.
+ * by depth from `grid.orientation`. A child's `size` is pixels on its parent's
+ * axis at the saved `width`/`height`, but Dockview lays its grid out
+ * proportionally, rescaling every saved size to the element it restores into,
+ * so each becomes `placement.share`: its size over its siblings' total. A
+ * group shows a dropped tab; after the active tab closes it shows the most
+ * recently used one, which no `fallback` rule names.
  */
 export function fromDockview(
   layout: DockviewLayout,
@@ -518,12 +501,12 @@ export function fromDockview(
   const walk = (
     node: DockviewGridNode,
     orientation: 'HORIZONTAL' | 'VERTICAL',
-    parentAxis: 'x' | 'y' | undefined,
+    siblingsTotal: number | undefined,
     path: string,
   ): PresetNode => {
     const placement =
-      parentAxis && typeof node.size === 'number'
-        ? { size: parentAxis === 'x' ? { w: node.size } : { h: node.size } }
+      siblingsTotal !== undefined && siblingsTotal > 0 && typeof node.size === 'number'
+        ? { share: node.size / siblingsTotal }
         : undefined;
     if (node.type === 'leaf') {
       const views = node.data.views.map((v) => {
@@ -536,19 +519,20 @@ export function fromDockview(
         strategy: 'stack',
         config: {
           headerSize: DOCKVIEW_TAB_HEIGHT,
+          show: 'dropped',
           ...(node.data.activeView ? { activeId: node.data.activeView } : {}),
         },
         children: views,
       };
       return placement ? { ...out, placement } : out;
     }
-    const axis = orientation === 'HORIZONTAL' ? 'x' : 'y';
+    const total = node.data.reduce((s, c) => s + (c.size ?? 0), 0);
     const out: PresetNode = {
       id: `branch-${path}`,
-      kind: parentAxis ? 'group' : 'zone',
+      kind: siblingsTotal === undefined ? 'zone' : 'group',
       strategy: 'strip',
-      config: { axis, fill: true },
-      children: node.data.map((c, i) => walk(c, flip(orientation), axis, `${path}.${i}`)),
+      config: { axis: orientation === 'HORIZONTAL' ? 'x' : 'y', fill: true },
+      children: node.data.map((c, i) => walk(c, flip(orientation), total, `${path}.${i}`)),
     };
     return placement ? { ...out, placement } : out;
   };
@@ -609,9 +593,9 @@ export const DOCKVIEW_LAYOUT: DockviewLayout = {
 export const DOCKVIEW_PRESET = fromDockview(DOCKVIEW_LAYOUT, {
   id: 'dockview-vscode',
   source: 'Dockview 4.x api.toJSON() of a VS Code-shaped workbench, 1600x1000',
-  stress: 'alternating branch orientation with pixel sizes on the parent axis',
+  stress: 'alternating branch orientation with pixel sizes rescaled as shares of the parent axis',
   description:
-    "Dockview is a JavaScript docking library for web apps; this layout imitates VS Code, with an Explorer on the left, editor tabs in the middle above a terminal and a debug console, and outline and timeline tabs on the right. Each area is a group of tabs: users drag tabs between groups, or to a group's edge to split it, and drag the borders between groups to resize them. The library saves the whole layout, with each area's size in pixels, to restore later.",
+    "Dockview is a JavaScript docking library for web apps; this layout imitates VS Code, with an Explorer on the left, editor tabs in the middle above a terminal and a debug console, and outline and timeline tabs on the right. Each area is a group of tabs: users drag tabs between groups, or to a group's edge to split it, and drag the borders between groups to resize them. The library saves the whole layout, with each area's size in pixels, and scales those sizes in proportion when it restores them into a different-sized window.",
 });
 
 // ------------------------------------------------------------------- Emacs
@@ -665,10 +649,7 @@ export function emacsFrame(input: {
       kind: 'group',
       strategy: 'strip',
       config: { axis, fill: true },
-      placement:
-        axis === 'y'
-          ? { size: { w: Math.round(fraction * viewport.w) } }
-          : { size: { h: Math.round(fraction * viewport.h) } },
+      placement: { share: fraction },
       children: sorted.map((w, i) => ({
         id: slug(w.buffer),
         kind: 'panel',
@@ -741,16 +722,21 @@ export const EMACS_PRESET = emacsFrame({
 
 // ------------------------------------------------------------ trading desk
 
+/** The desk's strip extents at 3840x2160, less the padding and gaps, which its pixel sizes were fractions of. */
+const DESK = { row: 3840 - 2 * 4 - 2 * 4, quotes: 2160 - 2 * 4 - 2 * 4, center: 2160 - 2 * 4 - 4 };
+const LADDER_ROW = 3840 - 2 * 4 - 2 * 4 - 960 - 1400 - 3 * 4;
+
 /**
  * A futures desk laid out on a 3840x2160 monitor, in the shape Refinitiv
- * Eikon and TT save a workspace: fixed-pixel quote and ladder columns, a chart
- * grid, and floating order tickets at absolute positions. Restored on a
- * 1366x768 laptop, every one of those pixel values is wrong.
+ * Eikon and TT save a workspace: quote and ladder columns, a chart grid, and
+ * floating order tickets at absolute positions. The docked columns are saved
+ * as shares of the 4K extents they held, so a 1366x768 laptop scales them in
+ * proportion; the tickets keep their 4K pixel positions.
  */
 export const TRADING_DESK_PRESET: Preset = {
   id: 'trading-desk-4k',
   source: 'Refinitiv Eikon / TT desktop workspace saved at 3840x2160',
-  stress: 'pixel sizes, ladder floors and absolute window positions from a 4K monitor',
+  stress: 'shares taken from a 4K monitor, ladder floors and absolute window positions',
   description:
     "Trading platforms such as Refinitiv Eikon and Trading Technologies' TT let a trader save a workspace spread across a large monitor: quote boards and news on the left, a grid of price charts, a row of MD Trader price ladders (vertical price columns a trader clicks to place orders) and floating order-ticket windows. The workspace records every window's size and position in pixels, so reopening it on a laptop brings back a layout built for a screen almost three times as wide.",
   viewport: { w: 3840, h: 2160 },
@@ -765,13 +751,13 @@ export const TRADING_DESK_PRESET: Preset = {
         kind: 'group',
         strategy: 'strip',
         config: { axis: 'y', gap: 4, fill: true },
-        placement: { size: { w: 960 } },
+        placement: { share: 960 / DESK.row },
         children: [
           { id: 'quote-board', kind: 'panel' },
           {
             id: 'time-sales',
             kind: 'panel',
-            placement: { size: { h: 1200 } },
+            placement: { share: 1200 / DESK.quotes },
             hints: { minSize: { w: 200, h: 120 } },
           },
           { id: 'news', kind: 'panel' },
@@ -788,7 +774,7 @@ export const TRADING_DESK_PRESET: Preset = {
             kind: 'group',
             strategy: 'grid',
             config: { cols: 2, gap: 4 },
-            placement: { size: { h: 1440 } },
+            placement: { share: 1440 / DESK.center },
             children: [
               { id: 'chart-es', kind: 'panel' },
               { id: 'chart-nq', kind: 'panel' },
@@ -808,7 +794,7 @@ export const TRADING_DESK_PRESET: Preset = {
               ...['es', 'nq', 'cl'].map((sym) => ({
                 id: `ladder-${sym}`,
                 kind: 'panel',
-                placement: { size: { w: 420 } },
+                placement: { share: 420 / LADDER_ROW },
                 hints: { minSize: { w: 180, h: 200 } },
               })),
               {
@@ -825,7 +811,7 @@ export const TRADING_DESK_PRESET: Preset = {
         kind: 'group',
         strategy: 'desktop',
         config: {},
-        placement: { size: { w: 1400 } },
+        placement: { share: 1400 / DESK.row },
         children: [
           {
             id: 'ticket-es',
