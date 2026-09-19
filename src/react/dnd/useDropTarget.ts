@@ -1,5 +1,5 @@
 import { type RefObject, useContext, useEffect } from 'react';
-import type { AcceptContext } from '../../dnd/DragEngine.js';
+import type { AcceptPolicy } from '../../dnd/DragEngine.js';
 import type { DropIntent, NodeId } from '../../index.js';
 import { DragContext } from './DragProvider.js';
 
@@ -8,7 +8,7 @@ export interface UseDropTargetOptions {
   /** Whether this target takes the drop, from the prospective post-drop child
    *  list. `true` accepts even where the strategy would refuse, `false`
    *  refuses, `undefined` defers to it. */
-  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
+  acceptPolicy?: AcceptPolicy;
   /** When false, skip registration. Useful for opt-in props on declarative
    *  presets where the hook must be called unconditionally to preserve hook
    *  order, but registration should depend on a runtime flag. Defaults to

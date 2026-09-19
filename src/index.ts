@@ -28,6 +28,7 @@ export {
 } from './dnd/DragController.js';
 export {
   type AcceptContext,
+  type AcceptPolicy,
   DragEngine,
   type DragEngineOptions,
   type DropTarget,

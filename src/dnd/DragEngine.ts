@@ -64,6 +64,15 @@ export interface AcceptContext {
 }
 
 /**
+ * Overrides `strategy.canAccept` for one drop target. `true` accepts even
+ * where the strategy would refuse, `false` refuses, `undefined` defers to it.
+ * One that throws is traced and read as `undefined`.
+ *
+ * Runs on every drag `pointermove` — keep it O(items.length) or smaller.
+ */
+export type AcceptPolicy = (ctx: AcceptContext) => boolean | undefined;
+
+/**
  * A registered drop target, as data. The host supplies geometry; the engine
  * never measures. `bounds` and `depth` are read once per hover sample, so keep
  * both cheap.
@@ -81,7 +90,7 @@ export interface DropTarget {
    *  Checks run in order `lock.accept`, `config.accepts`, this, then
    *  `strategy.canAccept`. The first two only refuse, so `true` here cannot
    *  override them. */
-  acceptPolicy?(ctx: AcceptContext): boolean | undefined;
+  acceptPolicy?: AcceptPolicy;
   getInsertionIndex?(point: Point): number | undefined;
   /** What kind of drop the cursor is asking for. Takes precedence over
    *  `getInsertionIndex`, which stays for targets that answer only "which

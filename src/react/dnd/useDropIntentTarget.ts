@@ -1,5 +1,5 @@
 import { type RefObject, useContext, useEffect, useRef } from 'react';
-import type { AcceptContext, Point } from '../../dnd/DragEngine.js';
+import type { AcceptPolicy, Point } from '../../dnd/DragEngine.js';
 import { type DropIntent, resolveDropIntent } from '../../dnd/dropIntent.js';
 import type { EdgeScrollOptions } from '../../dnd/edgeScroll.js';
 import { axisFromRects, childRectsForContainer } from '../../dnd/insertionIndex.js';
@@ -38,7 +38,7 @@ export interface DropIntentTargetOptions {
    *  an element: `.current` is null on the first render and the effect must
    *  read it when it runs. */
   scrollRef?: RefObject<Element | null> | undefined;
-  acceptPolicy?: ((ctx: AcceptContext) => boolean | undefined) | undefined;
+  acceptPolicy?: AcceptPolicy | undefined;
   /** Ramp shape for edge scrolling. Inert without `scrollRef`. */
   edgeScroll?: EdgeScrollOptions | undefined;
 }

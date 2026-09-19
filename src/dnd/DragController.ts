@@ -4,7 +4,7 @@ import { trace } from '../trace.js';
 import { toLayoutDelta } from '../view.js';
 import { elementScale } from '../view-dom.js';
 import {
-  type AcceptContext,
+  type AcceptPolicy,
   type ChildOrderCommit,
   type DragCancelReason,
   DragEngine,
@@ -48,7 +48,7 @@ export interface DropTargetOptions {
   /** Ramp shape for that scrolling. See `edgeScrollDelta`. */
   edgeScroll?: EdgeScrollOptions;
   /** Overrides `strategy.canAccept` for this target. See `DropTarget.acceptPolicy`. */
-  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
+  acceptPolicy?: AcceptPolicy;
 }
 
 function rectOf(el: Element): { x: number; y: number; z: number; w: number; h: number } {

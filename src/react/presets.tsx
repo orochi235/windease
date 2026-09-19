@@ -12,7 +12,7 @@ import {
 } from 'react';
 import { type ChildSort, preserveStoreOrder } from '../child-sort.js';
 import { readDropConfig, readReorderConfig } from '../container-config.js';
-import type { AcceptContext } from '../dnd/DragEngine.js';
+import type { AcceptPolicy } from '../dnd/DragEngine.js';
 import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
 import type {
   DropIntent,
@@ -125,7 +125,7 @@ interface CommonBindingProps {
   dropIntent?: (ctx: DropIntentContext) => DropIntent | undefined;
   /** Override this preset's drop acceptance — the callback `<Container acceptPolicy>`
    *  takes. Runs on every drag `pointermove`. */
-  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
+  acceptPolicy?: AcceptPolicy;
   /** Permissions restricting what the user may do to this node. `true` locks
    *  every axis the node's capabilities support. */
   lock?: boolean | LockSet;
@@ -739,7 +739,7 @@ interface PresetShellProps {
         stackOnDrop?: boolean | undefined;
         splitOnDrop?: boolean | undefined;
         dropIntent?: ((ctx: DropIntentContext) => DropIntent | undefined) | undefined;
-        acceptPolicy?: ((ctx: AcceptContext) => boolean | undefined) | undefined;
+        acceptPolicy?: AcceptPolicy | undefined;
         scrollRef?: RefObject<Element | null> | undefined;
         edgeScroll?: EdgeScrollOptions | undefined;
         /** A strategy places these children. Without one, CSS does, and the

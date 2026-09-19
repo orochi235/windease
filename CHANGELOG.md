@@ -304,6 +304,12 @@ section below.
   `toLayoutDelta` and `toLocalPoint` are the pure arithmetic, and
   `elementScale` / `observeFit` the DOM helpers over them.
 
+- **`AcceptPolicy`**, the type a drop target's `acceptPolicy` already had. Its
+  signature was written out structurally at all six places that take one —
+  `DropTarget`, `DropTargetOptions`, `useDropTarget`, `useDropIntentTarget`,
+  `<Container>` and the presets' `drop` bag — where it could drift apart
+  silently. Additive: every existing callback still typechecks.
+
 ### Changed
 
 - **A `DragHandle` drag starts after 4px of travel, not on press.** A click on

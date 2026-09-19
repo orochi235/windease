@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 import { readDropConfig } from '../container-config.js';
-import type { AcceptContext } from '../dnd/DragEngine.js';
+import type { AcceptPolicy } from '../dnd/DragEngine.js';
 import type { DropIntent } from '../dnd/dropIntent.js';
 import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
 import {
@@ -152,7 +152,7 @@ export interface ContainerProps {
    *
    * Runs on every drag `pointermove` — keep it O(items.length) or smaller.
    */
-  acceptPolicy?: (ctx: AcceptContext) => boolean | undefined;
+  acceptPolicy?: AcceptPolicy;
   /** Ramp shape for edge scrolling during a drag. Inert without `scrollRef`. */
   edgeScroll?: EdgeScrollOptions;
   className?: string;
