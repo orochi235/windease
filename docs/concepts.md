@@ -258,7 +258,12 @@ methods:
   flattens new siblings into a matching-axis strip parent, or reconfigures
   a root in place, depending on the target's position; `unsplit` dissolves
   a group into its parent. See
-  `docs/superpowers/specs/2026-08-19-split-operation-design.md`.
+  `docs/superpowers/specs/2026-08-19-split-operation-design.md`. `split` and
+  `splitInto` take `strict: { size, minSize? }`, an option on the call rather
+  than container config because the store holds no geometry: the caller
+  passes the node's current extent, and the split throws `NoSpaceError`,
+  before mutating, when the panes' floors (`hints.minSize`, raised to
+  `strict.minSize`) plus gaps and padding would not fit it.
 - `transact(fn, label?)` — runs `fn` as one logical change, emitting
   `transaction.begin` / `transaction.end` around it (re-entrant: only the
   outermost call emits). Bracket history pushes on that pair to get one
@@ -586,6 +591,8 @@ Class hierarchy under `WindeaseError`:
 - `StrategyRejectionError` (`'strategy-rejected'`)
 - `LockedError` (`'locked'`)
 - `PinIndexError` (`'pin-index-out-of-range'`)
+- `NoSpaceError` (`'no-space'`) — a `strict` split whose panes would not fit
+  their floors
 - `InvariantViolationError` (free-form `code` + `context`)
 
 Catch on `instanceof` or `.code`, not message text.

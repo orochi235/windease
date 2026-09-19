@@ -31,6 +31,7 @@ export type WindeaseErrorCode =
   | 'strategy-rejected'
   | 'locked'
   | 'pin-index-out-of-range'
+  | 'no-space'
   // codes (throttling)
   | 'invalid-throttle-policy'
   // Free-form code surface for InvariantViolationError.
@@ -169,6 +170,31 @@ export class PinIndexError extends WindeaseError {
     this.id = id;
     this.requested = requested;
     this.length = length;
+  }
+}
+
+/**
+ * A strict split would leave its panes below their floors, as tmux refuses
+ * with "no space for new pane". Thrown before anything is mutated.
+ * @group Errors
+ */
+export class NoSpaceError extends WindeaseError {
+  readonly id: NodeId;
+  readonly axis: 'x' | 'y';
+  /** Pixels the panes' floors, gaps and padding need on `axis`. */
+  readonly needed: number;
+  /** Pixels the split has on `axis`. */
+  readonly available: number;
+  constructor(id: NodeId, operation: string, axis: 'x' | 'y', needed: number, available: number) {
+    super(
+      'no-space',
+      `No space for new pane: ${operation} of ${id} needs ${needed}px on ${axis}, has ${available}px`,
+    );
+    this.name = 'NoSpaceError';
+    this.id = id;
+    this.axis = axis;
+    this.needed = needed;
+    this.available = available;
   }
 }
 

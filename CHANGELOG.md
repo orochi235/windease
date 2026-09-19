@@ -10,6 +10,14 @@ section below.
 
 ### Added
 
+- **A split can refuse to push panes below their floors.** Pass
+  `strict: { size, minSize? }` to `store.split` or `store.splitInto`, with the
+  node's current extent, and a split that would leave any pane under its floor
+  (`hints.minSize`, raised to `minSize`) throws the new `NoSpaceError`
+  (`code: 'no-space'`) before changing anything, as tmux refuses with "no space
+  for new pane". Gaps and padding of the container the panes land in count.
+  See [Refusing a split below the floors](README.md#refusing-a-split-below-the-floors).
+
 - **A floating item can fill the pane it is dropped on.** `snap: 'fill'` in
   `floatingStrategy`'s config makes the inner strategy's panes zones, as in
   FancyZones: an item dragged over one fills it, and follows it through

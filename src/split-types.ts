@@ -1,4 +1,18 @@
+import type { Size } from './layout-types.js';
 import type { NodeId } from './node.js';
+
+/**
+ * Refuse a split that would push its panes below their floors, as tmux says
+ * "no space for new pane". The store keeps no geometry, so the caller passes
+ * the extent it last laid the split node out at.
+ */
+export interface SplitStrict {
+  /** The split node's current extent. */
+  size: Size;
+  /** The floor for every pane the split creates, and at least the split
+   *  node's own. Default none: only `hints.minSize` counts. */
+  minSize?: Size | undefined;
+}
 
 /**
  * Input bag for `Store.split`. Discriminated on `direction`, so each mode
@@ -18,6 +32,7 @@ export type SplitInput =
       /** Merged over every container config this call writes. */
       config?: Record<string, unknown> | undefined;
       force?: boolean | undefined;
+      strict?: SplitStrict | undefined;
     }
   | {
       direction: 'both';
@@ -29,6 +44,7 @@ export type SplitInput =
       newIds: readonly NodeId[];
       config?: Record<string, unknown> | undefined;
       force?: boolean | undefined;
+      strict?: SplitStrict | undefined;
     }
   | {
       /**
@@ -46,4 +62,5 @@ export type SplitInput =
       newIds: readonly NodeId[];
       config?: Record<string, unknown> | undefined;
       force?: boolean | undefined;
+      strict?: SplitStrict | undefined;
     };

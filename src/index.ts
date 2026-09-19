@@ -52,6 +52,7 @@ export {
   InvariantViolationError,
   LockedError,
   NodeNotFoundError,
+  NoSpaceError,
   PinIndexError,
   StrategyRejectionError,
   WindeaseError,
@@ -221,7 +222,7 @@ export {
   type SerializeOptions,
   serialize,
 } from './snapshot.js';
-export type { SplitInput } from './split-types.js';
+export type { SplitInput, SplitStrict } from './split-types.js';
 export { type MutateOptions, Store, type StoreEvents } from './store.js';
 export { dockNode, type FloatInput, floatAncestor, floatNode } from './tear.js';
 export {

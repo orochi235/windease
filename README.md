@@ -1281,6 +1281,34 @@ stop moving because its *neighbor* hit a limit while it is nowhere near its
 own. `aria-valuenow` reflects where it actually landed; the value itself is
 never narrated to a live region.
 
+### Refusing a split below the floors
+
+`strict` on `store.split` or `store.splitInto` refuses a split whose panes
+could not all stay at or above their floors, the way tmux answers "no space
+for new pane" and Emacs refuses to split below `window-min-width`. The store
+keeps no geometry, so the call carries the extent the host last laid the node
+out at, and optionally a floor for every pane the split makes:
+
+```ts
+store.split(paneId, {
+  direction: 'x',
+  groupId,
+  newIds: [newId],
+  strict: { size: { w: 300, h: 400 }, minSize: { w: 120, h: 80 } },
+});
+```
+
+Each pane's floor is the larger of `strict.minSize` and its own
+`hints.minSize`. The check runs the arithmetic the new container will: along a
+strip, every floor plus the gaps and padding must fit, and the largest floor
+must fit across it; a grid's cells are equal, so the largest floor must fit
+one cell. A refusal throws `NoSpaceError` (`code: 'no-space'`), naming the
+axis, the pixels needed and the pixels available, before anything is changed.
+`splitInto` checks the two panes against the onto-pane's slot. Drop-driven
+splits pass no `strict`.
+
+See the **Split operation** story, with **strict** checked.
+
 ### Sizing panes by share
 
 `placement.size` is pixels, so a layout saved on a big screen is squeezed on a

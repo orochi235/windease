@@ -326,3 +326,12 @@
   gap: 6px;
   margin-bottom: 8px;
 }
+
+.story-split-refused {
+  min-height: 1.5em;
+  margin: 0 0 8px;
+  font:
+    12px / 1.5 system-ui,
+    sans-serif;
+  color: #b91c1c;
+}
