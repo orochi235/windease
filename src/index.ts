@@ -121,6 +121,12 @@ export { gridStrategy, gridTiling, type TrackSize } from './layout/grid.js';
 export { justifiedStrategy } from './layout/justified.js';
 export { PLACEMENT_LAYERS } from './layout/layer.js';
 export {
+  type PageAffordanceMeta,
+  type PageMode,
+  type PageState,
+  pageStrategy,
+} from './layout/page.js';
+export {
   captureSeam,
   commitJoin,
   DEFAULT_JOIN_THRESHOLD,
@@ -165,6 +171,7 @@ export type {
   Size,
   StatefulLayoutStrategy,
   StickyInset,
+  StrategyCommand,
   StrategyRegistry,
 } from './layout-types.js';
 export {

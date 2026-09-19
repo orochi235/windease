@@ -138,6 +138,10 @@ Two paths for free-form data on a node; lifetimes differ:
   the cell would override, and across parents it names a cell in the old
   grid. `setChildOrder` leaves it alone.
 
+- `page: number` — the zero-based page a node is on, read by `page` under
+  `mode: 'assigned'`. A node moved in from another parent is written onto the
+  page shown, since the number it carries names a page of the old container.
+
 - `layer: 'top'` — draw above every sibling without it, keeping child order
   within each layer. Read by `desktop` and `floating` only; any other value is
   the normal layer. `raise` still moves the node last in `childOrder`, which
@@ -348,6 +352,15 @@ expose an optional `reduce(state, event, context)` that turns affordance
 drag events into new state, and an optional `canAccept(items, options)`
 that the drag controller consults before accepting a drop.
 
+Two more optional hooks run through `ContainerHost` rather than a gesture.
+`command(state, cmd, context)` answers a request with no affordance behind it
+— a keyboard shortcut, a button the strategy did not draw — sent by
+`host.command(cmd)` or `useContainerLayout(...).command`; its state is stored
+like `reduce`'s, and refused under `lock.arrange`. `land(ctx)` is handed the
+children that just arrived from another parent, at the end of the move, so a
+placement it writes joins the move's undo step. It runs only while a host is
+attached.
+
 `items` are `LayoutItem`s, projected from each child by `nodeToLayoutItem`.
 It splits `membership.placement` two ways: the whole bag lands in `meta`, and
 `size` alone is re-surfaced as the typed `placement.size`. So a strategy reads
@@ -442,6 +455,15 @@ Built-ins:
   edge and corner affordances that write `size` (and `x` / `y` from the left and
   top). `iconFrom` mirrors `inner`'s top-left layout into another corner rather
   than asking `inner` to place from there.
+- **`pageStrategy(inner)`** — one page of children at a time, laid out by
+  `inner`: virtual desktops under `mode: 'assigned'`, where a child's page is
+  placement `page`, and pagination under `mode: 'flowed'`, where children fill
+  a page until `inner` reports them `unplaced`. The page shown is
+  `container.state.page`, changed by the `click` affordances it emits in `bar`
+  or by the `page` / `next` / `prev` commands. Children on other pages are
+  `unplaced`, and every child's page comes back as the `page` channel. Config:
+  `mode`, `pages`, `bar`, `barSide`, and `inner`'s own config nested under
+  `inner` rather than beside page's keys.
 - **`shelfStrategy`**, **`columnStrategy`**, **`skylineStrategy`** — pack items
   at their own size (`natural`, else `hints.preferredSize`) into the container's
   width, in rows, masonry columns, or the lowest free spot. They grow downward;

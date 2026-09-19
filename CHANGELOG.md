@@ -10,6 +10,20 @@ section below.
 
 ### Added
 
+- **`pageStrategy(inner)` shows one page of children at a time.** Under
+  `mode: 'assigned'` each child's `placement.page` names its page — virtual
+  desktops; under `mode: 'flowed'` children fill a page until `inner` runs out
+  of room — pagination. `bar` reserves a strip of switcher affordances, and the
+  page shown lives in container state, so switching undoes. A window moved in
+  from elsewhere lands on the page shown. See [Pages](README.md#pages).
+
+- **Strategies can take commands, and see children arrive.** Two optional
+  `LayoutStrategy` hooks: `command(state, cmd, context)`, sent by
+  `ContainerHost.command(cmd)` and by `command` on `useContainerLayout` and a
+  container's `overlay`, for keyboard shortcuts and other requests with no
+  affordance behind them; and `land(ctx)`, called with children that just moved
+  in from another parent, in the same undo step as the move.
+
 - **Children reorder by drag when their container declares `reorder`.** Set
   `reorder: true` in a container's config and every child becomes draggable by
   the wrapper `<Container>` or the preset already renders, with no

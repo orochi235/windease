@@ -46,8 +46,9 @@ See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
   `floatingStrategy(inner?)`, which wraps another strategy so items marked
   `floating` sit free over what it tiles, `desktopStrategy(inner?)` for
   overlapping, stacked, minimizable windows over an icon layer, three packers — `shelfStrategy`,
-  `columnStrategy`, `skylineStrategy` — for boxes of fixed, varied sizes, and `justifiedStrategy`
-  for photo-gallery rows that keep each item's aspect. Strategies work unchanged on
+  `columnStrategy`, `skylineStrategy` — for boxes of fixed, varied sizes, `justifiedStrategy`
+  for photo-gallery rows that keep each item's aspect, and `pageStrategy(inner)`, which shows
+  one page of children at a time: virtual desktops, or pagination. Strategies work unchanged on
   recursive trees via the `LayoutNode` adapter. `store.split(id, input)` builds
   nested `stripStrategy` trees without a dedicated strategy of its own.
 
@@ -1364,6 +1365,77 @@ left or top edge, and a shaded window has no edges. A window's own
 reported as `overflow.left`, so a scrolling wrapper can reach it (see
 [When panes don't fit](#when-panes-dont-fit) for how the box makes room). `'clip'` reports nothing and
 leaves clipping to the host's CSS.
+
+## Pages
+
+`pageStrategy(inner)` shows one page of a container's children at a time and
+hands that page to `inner`. It does two jobs, picked by `mode`:
+
+- **`'assigned'`** — virtual desktops. A child's page is its `placement.page`,
+  zero-based; a child without one is on page 0. There are `pages` pages, or
+  more if a child names a later one.
+- **`'flowed'`** — pagination. Children fill page 0 until `inner` has no room,
+  then page 1, in child order. `inner` has to be one that honors
+  `overflowMode: 'unplaced'` (`strip`, `grid`, the packers); page sets it.
+
+```ts
+import { desktopStrategy, gridStrategy, pageStrategy } from 'windease';
+
+const strategies = {
+  desktops: pageStrategy(desktopStrategy()),
+  launcher: pageStrategy(gridStrategy),
+};
+
+// Four desktops with a 28px switcher along the bottom.
+{ strategyId: 'desktops', config: { pages: 4, bar: 28 } }
+// App-grid pages; grid's own config goes under `inner`.
+{ strategyId: 'launcher', config: { mode: 'flowed', bar: 28, inner: { cell: { w: 96, h: 72 } } } }
+
+store.patchPlacement(windowId, { page: 2 }); // send a window to desktop 3
+```
+
+Children on other pages come back `unplaced`, and every child's page comes
+back as the `page` channel, so a host can label a window's desktop.
+
+**Switching.** The page shown is `container.state.page`. With `bar` set, page
+emits one `click` affordance per page across the bar, named "Page 2 of 4" and
+carrying `meta: { page, count, current }`; pass `affordances` to the container,
+and draw the switcher beneath them from the same meta. Anything else — a
+keyboard shortcut, next and previous buttons — sends a command:
+
+```ts
+<Container
+  parentId={desktopsId}
+  affordances
+  overlay={(layout) => <Switcher layout={layout} />}
+/>
+
+// inside Switcher
+layout.command({ type: 'next' }); // or 'prev', or { type: 'page', to: 2 }
+```
+
+`next` on the last page and `prev` on the first stay put. Both paths write
+container state, so a switch is an undo step, and both are refused under
+`lock.arrange`. A headless host calls `host.command(cmd)` on its
+`ContainerHost`.
+
+**Arriving windows.** `placement` survives a move, so a window dragged in from
+another page container would keep that container's page number. In assigned
+mode page writes the page shown onto it instead, in the same undo step as the
+move. That happens only while the container is rendered (or has a
+`ContainerHost`); a child registered with a `page` keeps it.
+
+| Config | Default | Meaning |
+| --- | --- | --- |
+| `mode` | `'assigned'` | `'assigned'` reads `placement.page`; `'flowed'` fills pages in child order |
+| `pages` | `1` | assigned only: the fewest pages there are |
+| `bar` | `0` | pixels reserved for the switcher; `0` emits no switcher affordances |
+| `barSide` | `'bottom'` | `'top'` or `'bottom'` |
+| `inner` | `{}` | `inner`'s own config |
+
+Not handled: dropping a window on a page's switcher to move it there, and
+sliding between pages — other pages are unplaced, not laid out off-screen.
+Every drop is accepted, whatever `inner`'s capacity. See the **Pages** story.
 
 ## Resize
 

@@ -1,0 +1,133 @@
+.pages-row {
+  display: flex;
+  gap: 16px;
+  width: 760px;
+  height: 400px;
+}
+
+.pages-inbox {
+  flex: 0 0 200px;
+  position: relative;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.pages-desk {
+  flex: 1 1 auto;
+  position: relative;
+  border-radius: 8px;
+  background: #334155;
+}
+
+.pages-tiles {
+  width: 440px;
+  height: 300px;
+  position: relative;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+
+.pages-fill {
+  width: 100%;
+  height: 100%;
+}
+
+.pages-window {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #0f172a;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgb(15 23 42 / 25%);
+  font:
+    12px system-ui,
+    sans-serif;
+  color: #1e293b;
+  overflow: hidden;
+}
+
+.pages-window__bar {
+  flex: none;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  background: #e2e8f0;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.pages-window__body {
+  flex: 1;
+  padding: 8px;
+}
+
+.pages-move {
+  font: inherit;
+}
+
+/* Drawn under the strategy's transparent page buttons, which take the press. */
+.pages-dot {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font:
+    600 12px system-ui,
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: #94a3b8;
+  border-top: 2px solid transparent;
+}
+
+.pages-dot--current {
+  color: #e2e8f0;
+  border-top-color: #38bdf8;
+}
+
+.pages-tiles .pages-dot {
+  color: #64748b;
+}
+
+.pages-tiles .pages-dot--current {
+  color: #0f172a;
+}
+
+.pages-tile {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 20%);
+  font:
+    600 16px system-ui,
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: #334155;
+}
+
+.pages-add {
+  margin-top: 12px;
+  font:
+    13px system-ui,
+    sans-serif;
+}
+
+.pages-hint {
+  margin: 12px 0 0;
+  font:
+    12px / 1.4 system-ui,
+    sans-serif;
+  color: #64748b;
+}

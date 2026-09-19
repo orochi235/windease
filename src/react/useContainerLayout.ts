@@ -15,6 +15,7 @@ import type {
   NodeId,
   Overflow,
   PlacementCommit,
+  StrategyCommand,
   View,
 } from '../index.js';
 import {
@@ -57,6 +58,8 @@ export interface ContainerLayout extends HostLayout {
   observeScroll: (el: Element) => () => void;
   /** Set the pan and zoom this container is shown at. See `ContainerHost.setView`. */
   setView: (view: View) => void;
+  /** Send the strategy a command with no affordance behind it. See `ContainerHost.command`. */
+  command: (cmd: StrategyCommand) => void;
 }
 
 /**
@@ -133,6 +136,8 @@ export function useContainerLayout(
 
   const setView = useCallback((view: View) => host.setView(view), [host]);
 
+  const command = useCallback((cmd: StrategyCommand) => host.command(cmd), [host]);
+
   return {
     ...layout,
     dispatchAffordance,
@@ -140,6 +145,7 @@ export function useContainerLayout(
     registerPlacementControl,
     observeScroll,
     setView,
+    command,
   };
 }
 

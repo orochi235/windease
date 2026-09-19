@@ -4,12 +4,14 @@ import { nodeToLayoutItem, runStrategyForContainer } from './layout-node-adapter
 import type {
   Affordance,
   LayoutEvent,
+  LayoutItem,
   LayoutPreview,
   LayoutResult,
   LayoutStrategy,
   Overflow,
   Rect,
   StickyInset,
+  StrategyCommand,
   StrategyRegistry,
 } from './layout-types.js';
 import type { ContainerCap, NodeId } from './node.js';
@@ -262,6 +264,20 @@ export class ContainerHost {
     this.#unsubs.push(
       store.events.on('node.cascadeDestroyed', (e) => {
         if (e.parentId === this.#parentId) this.#invalidate();
+      }),
+    );
+    // `node.moved` fires mid-move; the transit settling to idle is its end.
+    const arriving = new Set<NodeId>();
+    this.#unsubs.push(
+      store.events.on('node.moved', (e) => {
+        if (e.toParentId === this.#parentId && e.fromParentId !== this.#parentId) {
+          arriving.add(e.id);
+        }
+      }),
+    );
+    this.#unsubs.push(
+      store.events.on('node.transitioned', (e) => {
+        if (e.machine === 'transit' && e.to === 'idle' && arriving.delete(e.id)) this.#land(e.id);
       }),
     );
     // A resize lock lands on a *child*, leaving the parent's reference
@@ -580,18 +596,71 @@ export class ContainerHost {
       }
     }
     if (!strategy.reduce) return;
-    const current =
-      this.#store.getContainerState(this.#parentId) ??
-      (strategy.initialState
-        ? strategy.initialState(items, (container.config ?? {}) as Record<string, unknown>)
-        : undefined);
-    const next = strategy.reduce(current as never, event, {
-      container: viewport,
-      options: (container.config ?? {}) as Record<string, unknown>,
-      items,
-    });
+    const options = (container.config ?? {}) as Record<string, unknown>;
+    const current = this.#currentState(strategy, items, options);
+    const next = strategy.reduce(current as never, event, { container: viewport, options, items });
     if (next === current) return;
     this.#store.setContainerState(this.#parentId, next);
+  }
+
+  /**
+   * Send `cmd` to the strategy's `command` and store the state it returns: the
+   * path for a keyboard shortcut or a button the strategy did not draw. A no-op
+   * before a viewport is set, under `lock.arrange`, or when the strategy has no
+   * `command`.
+   */
+  command(cmd: StrategyCommand): void {
+    const container = this.#store.getNode(this.#parentId)?.container;
+    const viewport = this.#viewport;
+    if (!container || !viewport) return;
+    const strategy = this.#registry.get(container.strategyId);
+    if (!strategy?.command) {
+      trace('layout', `command ${cmd.type} on ${this.#parentId}: strategy has no command`);
+      return;
+    }
+    if (this.#store.isLocked(this.#parentId, 'arrange')) {
+      trace('layout', `command ${cmd.type} on ${this.#parentId}: REJECTED (lock.arrange)`);
+      return;
+    }
+    const items = this.#visibleItems();
+    const options = (container.config ?? {}) as Record<string, unknown>;
+    const current = this.#currentState(strategy, items, options);
+    const next = strategy.command(current as never, cmd, { container: viewport, options, items });
+    if (next === current) return;
+    this.#store.setContainerState(this.#parentId, next);
+  }
+
+  #land(id: NodeId): void {
+    if (this.#destroyed) return;
+    const container = this.#store.getNode(this.#parentId)?.container;
+    if (!container) return;
+    const strategy = this.#registry.get(container.strategyId);
+    if (!strategy?.land) return;
+    const items = this.#visibleItems();
+    const options = (container.config ?? {}) as Record<string, unknown>;
+    const current = this.#currentState(strategy, items, options);
+    const next = strategy.land({
+      ids: [id],
+      state: current as never,
+      store: this.#store,
+      parentId: this.#parentId,
+      container: this.#viewport,
+      options,
+      items,
+    });
+    if (next === current || this.#store.isLocked(this.#parentId, 'arrange')) return;
+    this.#store.setContainerState(this.#parentId, next);
+  }
+
+  #currentState(
+    strategy: LayoutStrategy<unknown, string, unknown>,
+    items: LayoutItem[],
+    options: Record<string, unknown>,
+  ): unknown {
+    return (
+      this.#store.getContainerState(this.#parentId) ??
+      (strategy.initialState ? strategy.initialState(items, options) : undefined)
+    );
   }
 
   destroy(): void {

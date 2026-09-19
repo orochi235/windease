@@ -96,7 +96,7 @@ These are config or placement keys on one strategy each.
 | Sticky children while the rest scroll | `placement.sticky` | strip (built), grid | Excel, Firefox pinned tabs |
 | Track sizes | `rowSize`, `tracks` | grid | Grafana, Excel |
 | Gravity | `compact: 'up'` | grid | Grafana |
-| Pages | `pageStrategy(inner)`, a wrapper designed in another session: page by `placement.page` or by `inner`'s `unplaced` | wrapper over any strategy | Launchpad, Android, iOS |
+| Pages | `pageStrategy(inner)` (built; see `2026-09-19-page-strategy-design.md`): page by `placement.page` or by `inner`'s `unplaced` | wrapper over any strategy | Launchpad, Android, iOS |
 | Stacked title bars; tab side | `tabs: 'stacked'`, `side`, `tabSize`; band reported as channels (built) | stack | i3, Golden Layout |
 | Icon origin | `iconFrom` | desktop | Win 3.1, Mac OS 9, twm |
 | Cascade wraps | `wrap: true` | desktop | cascade-200 |

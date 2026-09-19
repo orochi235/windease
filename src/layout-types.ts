@@ -341,6 +341,15 @@ export interface LayoutEvent {
 }
 
 /**
+ * A request sent to a strategy by its host rather than by an affordance
+ * gesture. `type` names it; the other keys are the strategy's to define.
+ */
+export interface StrategyCommand {
+  type: string;
+  [key: string]: unknown;
+}
+
+/**
  * A `LayoutStrategy` that seeds its own state, with `initialState` required
  * rather than optional. Declare a stateful strategy as this and
  * `strategy.initialState(items)` types as `TState`, so its result can be
@@ -422,6 +431,30 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
     options: Record<string, unknown>;
     items: LayoutItem[];
   }): void;
+  /**
+   * Answers a host command — a request with no affordance behind it, such as a
+   * keyboard shortcut. Sent through `ContainerHost.command`; the state it
+   * returns is stored. Return `state` itself for a command it does not know.
+   */
+  command?(
+    state: TState,
+    cmd: StrategyCommand,
+    context: { container: Size; options: Record<string, unknown>; items: LayoutItem[] },
+  ): TState;
+  /**
+   * Called by `ContainerHost` with the children that just arrived from another
+   * parent, synchronously at the end of the move so its writes join the move's
+   * undo step. Returns the next state. Runs only while a host is attached.
+   */
+  land?(ctx: {
+    ids: NodeId[];
+    state: TState;
+    store: Store;
+    parentId: NodeId;
+    container: Size | null;
+    options: Record<string, unknown>;
+    items: LayoutItem[];
+  }): TState;
   /**
    * Optional hook used by DnD to reject drops the strategy can't lay out.
    * Receives the prospective post-drop items list. Return false to reject.
