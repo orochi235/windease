@@ -955,10 +955,10 @@ layout.dispatchAffordance({
 
 Two limits. An item with neither a measured `natural` size nor
 `hints.preferredSize` is withheld into `unplaced` rather than placed at zero
-size. And `LayoutResult` carries no stacking order, so a floating item renders
-above a tiled one only if the host renders it later — register it last, or give
-it a higher `z-index` yourself. [`desktopStrategy`](#desktop-windows) does emit
-one.
+size. And a floating item sits at `z` 0 like the tiles, so it renders above a
+tiled one only if the host renders it later — register it last, or give it
+`layer: 'top'` in its placement, which lifts it to `z` 2 and up in child order.
+[`desktopStrategy`](#desktop-windows) stacks every window by `z`.
 
 See the **Floating** story for both handle modes.
 
@@ -985,7 +985,10 @@ as `overflow`.
 
 **Stacking is `z`.** The window at rank `r` gets `z = r + 1`; icons sit at `0`.
 `<Container>` and the presets turn a nonzero `z` into `z-index`, and a 3D host
-reads it as depth. To raise a window, move it to the end of its parent:
+reads it as depth. A window whose placement has `layer: 'top'` ranks after every
+window without it, keeping child order within each layer, so a dock or palette
+stays above whatever is raised. To raise a window, move it to the end of its
+parent:
 
 ```ts
 store.reorderInParent(windowId, store.getNode(desktopId)!.container!.childOrder.length - 1);

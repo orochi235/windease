@@ -10,6 +10,7 @@ import type {
 import { asNodeId } from '../node.js';
 import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
+import { onTopLayer } from './layer.js';
 
 /** The values `container.config.minimize` accepts. */
 export const DESKTOP_MINIMIZE = ['shade', 'icon'] as const;
@@ -330,7 +331,11 @@ function placeWindows(
         at = kept;
       }
     }
-    out.push({ item, rect: { x: at.x, y: at.y, z: out.length + 1, w: size.w, h }, minimized });
+    out.push({ item, rect: { x: at.x, y: at.y, z: 0, w: size.w, h }, minimized });
+  }
+  let z = 0;
+  for (const top of [false, true]) {
+    for (const p of out) if (onTopLayer(p.item) === top) p.rect.z = ++z;
   }
   return { windows: out, unplaced };
 }

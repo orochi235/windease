@@ -221,6 +221,30 @@ test.describe('desktop resize', () => {
   });
 });
 
+test.describe('desktop layer', () => {
+  /** Raise win-2 the way the story does, by a click on its title bar. */
+  async function raiseWin2(page: Page) {
+    const { at } = await barOf(page, 'win-2');
+    await page.mouse.click(at.x, at.y);
+  }
+
+  test('a window on the top layer stays over a window raised after it', async ({ page }) => {
+    await openStory(page, BEHAVIOR);
+    const p = overlapCenter(await boxOf(node(page, 'palette')), await boxOf(node(page, 'win-2')));
+    expect(await hitAt(page, p)).toBe('palette');
+    await raiseWin2(page);
+    await expect(node(page, 'win-2')).toHaveCSS('z-index', '3');
+    expect(await hitAt(page, p)).toBe('palette');
+  });
+
+  test('without the layer, raising a window covers the palette', async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-layer=false`);
+    const p = overlapCenter(await boxOf(node(page, 'palette')), await boxOf(node(page, 'win-2')));
+    await raiseWin2(page);
+    await expect.poll(() => hitAt(page, p)).toBe('win-2');
+  });
+});
+
 test.describe('desktop raise policy', () => {
   const RAISE = 'desktop--raise-policy';
 

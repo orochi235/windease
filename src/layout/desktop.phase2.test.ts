@@ -278,3 +278,71 @@ describe('desktop resize', () => {
     expect(strategy.configSpec).toMatchObject({ resize: 'boolean', edgeSize: 'number' });
   });
 });
+
+describe('desktop layer', () => {
+  const { layoutOf, affordance } = harness();
+  const zs = (s: Store, ids: string[]) => ids.map((id) => layoutOf(s).placements.get(id)?.z);
+
+  it('draws a window on the top layer above every window without it', () => {
+    const s = desktop({}, [
+      { id: 'dock', placement: { x: 0, y: 0, layer: 'top' } },
+      { id: 'a', placement: { x: 10, y: 10 } },
+      { id: 'b', placement: { x: 20, y: 20 } },
+    ]);
+    expect(zs(s, ['a', 'b', 'dock'])).toEqual([1, 2, 3]);
+  });
+
+  it('keeps child order within each layer', () => {
+    const s = desktop({}, [
+      { id: 't1', placement: { x: 0, y: 0, layer: 'top' } },
+      { id: 'a', placement: { x: 0, y: 0 } },
+      { id: 't2', placement: { x: 0, y: 0, layer: 'top' } },
+      { id: 'b', placement: { x: 0, y: 0 } },
+    ]);
+    expect(zs(s, ['a', 'b', 't1', 't2'])).toEqual([1, 2, 3, 4]);
+  });
+
+  it('keeps a raised window under the top layer', () => {
+    const s = desktop({}, [
+      { id: 'a', placement: { x: 0, y: 0 } },
+      { id: 'dock', placement: { x: 0, y: 0, layer: 'top' } },
+      { id: 'b', placement: { x: 0, y: 0 } },
+    ]);
+    s.raise(asNodeId('a'));
+    expect(zs(s, ['b', 'a', 'dock'])).toEqual([1, 2, 3]);
+  });
+
+  it('raises a top-layer window among its own layer', () => {
+    const s = desktop({}, [
+      { id: 't1', placement: { x: 0, y: 0, layer: 'top' } },
+      { id: 't2', placement: { x: 0, y: 0, layer: 'top' } },
+      { id: 'a', placement: { x: 0, y: 0 } },
+    ]);
+    s.raise(asNodeId('t1'));
+    expect(zs(s, ['a', 't2', 't1'])).toEqual([1, 2, 3]);
+  });
+
+  it("stacks a window's affordances at its layered z", () => {
+    const s = desktop({ drag: true, resize: true }, [
+      { id: 'dock', placement: { x: 0, y: 0, layer: 'top' } },
+      { id: 'a', placement: { x: 0, y: 0 } },
+    ]);
+    expect(affordance(s, 'desktop:drag:dock').rect.z).toBe(2);
+    expect(affordance(s, 'desktop:resize:se:dock').rect.z).toBe(2);
+    expect(affordance(s, 'desktop:drag:a').rect.z).toBe(1);
+  });
+
+  it('treats any other layer value as the normal layer', () => {
+    const s = desktop({}, [
+      { id: 'a', placement: { x: 0, y: 0, layer: 'bottom' } },
+      { id: 'b', placement: { x: 0, y: 0 } },
+    ]);
+    expect(zs(s, ['a', 'b'])).toEqual([1, 2]);
+  });
+
+  it('keeps the cascade in child order, whatever the layer', () => {
+    const s = desktop({ cascade: 30 }, [{ id: 'dock', placement: { layer: 'top' } }, { id: 'a' }]);
+    expect(layoutOf(s).placements.get('dock')).toMatchObject({ x: 0, y: 0, z: 2 });
+    expect(layoutOf(s).placements.get('a')).toMatchObject({ x: 30, y: 30, z: 1 });
+  });
+});

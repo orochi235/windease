@@ -185,6 +185,8 @@ interface BehaviorArgs {
   overflow: 'scroll' | 'clip';
   minimizable: boolean;
   resize: boolean;
+  /** Keep the palette on the top layer, above every window you raise. */
+  layer: boolean;
 }
 
 const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number }[] = [
@@ -192,7 +194,10 @@ const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number
   { id: 'win-2', x: 180, y: 120, w: 220, h: 150 },
   // Saved on a monitor to the left that is no longer plugged in.
   { id: 'win-3', x: -300, y: 190, w: 200, h: 120 },
+  { id: 'palette', x: 320, y: 90, w: 140, h: 100 },
 ];
+
+const PALETTE = asNodeId('palette');
 
 const BEHAVIOR_STRATEGIES = { desktop: desktopStrategy() as never };
 
@@ -237,6 +242,9 @@ function useBehaviorStore(args: BehaviorArgs): Store {
   useLayoutEffect(() => {
     store.updateContainerConfig(ZONE_ID, patch);
   }, [store, patchKey]);
+  useLayoutEffect(() => {
+    store.patchPlacement(PALETTE, { layer: args.layer ? 'top' : undefined });
+  }, [store, args.layer]);
   return store;
 }
 
@@ -288,8 +296,9 @@ function BehaviorZone(args: BehaviorArgs) {
           Drag a window by its title bar. <code>drag: 'y'</code> moves it up and down only;{' '}
           <code>clamp</code> keeps its title bar, or all of it, on the desktop;{' '}
           <code>minimizable</code> makes the box at its right roll it up; <code>resize</code> lets
-          its edges and corners resize it. win-3 was left on a monitor that is gone: scroll left to
-          reach it, or clamp to bring it back.
+          its edges and corners resize it. With <code>layer</code> on, the palette's placement
+          carries <code>layer: 'top'</code>, so raising a window never covers it. win-3 was left on
+          a monitor that is gone: scroll left to reach it, or clamp to bring it back.
         </p>
       </StrategyRegistryProvider>
     </Provider>
@@ -304,6 +313,7 @@ Behavior.args = {
   overflow: 'scroll',
   minimizable: true,
   resize: true,
+  layer: true,
 };
 Behavior.argTypes = {
   drag: { options: ['true', 'x', 'y', 'false'], control: { type: 'radio' } },

@@ -106,6 +106,14 @@ section below.
   gets no edges, and a window's own `placement.resize` overrides the config. See
   [Desktop windows](README.md#desktop-windows).
 
+- **Placement `layer: 'top'` keeps a window above the rest, on `desktopStrategy`
+  and `floatingStrategy`.** For GIMP's docks and Mac OS 9's palettes. On a desktop,
+  windows without it take `z` 1 up in child order and top-layer windows follow, so
+  raising a window moves it to the top of its own layer and never over a
+  top-layer one. On floating, which leaves its items at `z` 0 and to DOM order, a
+  top-layer item takes `z` 2 and up in child order. Any other value is the normal
+  layer. See [Desktop windows](README.md#desktop-windows).
+
 - **An affordance handle stacks at its rect's `z`**, so a window's title band sits
   above that window and below the ones in front of it. `Affordance.label` names
   what a gesture does (`'move'`), and the handle's accessible name uses it in
