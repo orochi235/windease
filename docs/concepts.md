@@ -360,7 +360,9 @@ Built-ins:
   0.9.0 — not today's `stackStrategy`, which is unrelated. Honors child
   `hints.minSize` as a pixel floor and `hints.maxSize` as a ceiling, plus
   `placement.size` for a fixed-px pane and `placement.share` for a
-  proportional one.
+  proportional one. `step` rounds every pane to whole multiples of a number
+  (tmux's character cells); the last pane with no pixel `size` takes the
+  rounding remainder, so a filled row stays filled.
   `store.split(id, input)` (see Store API) builds nested strip trees —
   workspace-level splits with draggable gutters — without a dedicated
   strategy of its own.

@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **Strip `step` sizes panes in whole multiples of a number.** `step: 12` on a
+  strip's config rounds each pane to 12px, the way tmux and Emacs size panes in
+  character cells. The last pane without a pixel `size` takes the rounding
+  remainder, so the row still fills. Seam drags land on whole steps, each arrow
+  press moves a seam one step, and a seam's reported range narrows to whole
+  steps.
+
 - **A container can refuse drops from its config.** Set `accepts` in any
   container's `config`: `false` refuses every drop, `{ kinds: ['panel'] }`
   refuses a dragged node whose `kind` is not listed, and `{ max: 3 }` refuses a

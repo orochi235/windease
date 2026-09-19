@@ -84,6 +84,15 @@ interface StripConfig {
    * moves when the panes fill or overflow the row.
    */
   justify?: 'start' | 'center' | 'end' | 'between';
+  /**
+   * Main-axis quantum, the way tmux and Emacs size panes in character cells.
+   * Each pane's extent rounds to the nearest multiple, never under a floor it
+   * was not stored under, and the rounding remainder goes to the last pane that
+   * does not ask for pixels (else the last pane), so the row fills exactly as
+   * it would unstepped. Seam drags snap to the step nearest the pointer, and a
+   * seam's bounds narrow to whole steps. `gap` and `padding` are not stepped.
+   */
+  step?: number;
 }
 
 /** A size input as the row may use it: finite and non-negative. Anything else
@@ -145,6 +154,65 @@ function effectiveMaxAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined
   return sane(axis === 'x' ? m?.w : m?.h, item, 'maxSize');
 }
 
+/** The row's `step`, when it is a usable one. */
+function stepOf(cfg: StripConfig): number | undefined {
+  const v = cfg.step;
+  if (v === undefined) return undefined;
+  if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v;
+  trace('layout', `strip: ignoring step ${String(v)}`);
+  return undefined;
+}
+
+const EPS = 1e-9;
+const stepDown = (v: number, step: number) => Math.floor(v / step + EPS) * step;
+const stepUp = (v: number, step: number) => Math.ceil(v / step - EPS) * step;
+
+/** `v` at the nearest whole step inside the item's limits. A pane stored
+ *  under its floor stays under it, as it does unstepped. */
+function snapAxis(v: number, item: LayoutItem, axis: 'x' | 'y', step: number): number {
+  let out = Math.round(v / step) * step;
+  const min = effectiveMinAxis(item, axis);
+  const max = effectiveMaxAxis(item, axis);
+  if (v >= min - EPS && out < min) out = stepUp(min, step);
+  if (max !== undefined && out > max) {
+    out = stepDown(max, step);
+    if (out < min) out = Math.min(v, max);
+  }
+  return out;
+}
+
+/** `sizes` snapped to `step`, the rounding remainder given to one pane so the
+ *  row's total is unchanged. */
+function stepped(items: LayoutItem[], sizes: number[], axis: 'x' | 'y', step: number): number[] {
+  const out = sizes.map((v, i) => snapAxis(v, items[i]!, axis, step));
+  const drift = sizes.reduce((s, v) => s + v, 0) - out.reduce((s, v) => s + v, 0);
+  if (Math.abs(drift) > EPS && out.length > 0) {
+    let k = items.length - 1;
+    while (k >= 0 && requestedAxis(items[k]!, axis) !== undefined) k--;
+    if (k < 0) k = items.length - 1;
+    out[k] = Math.max(0, (out[k] ?? 0) + drift);
+  }
+  return out;
+}
+
+/** `bounds` narrowed to whole steps, never so far that the range excludes
+ *  where the seam sits. */
+function stepBounds(
+  b: NonNullable<Affordance['bounds']>,
+  step: number,
+): NonNullable<Affordance['bounds']> {
+  const valueMin = Math.min(stepUp(b.valueMin, step), b.valueNow);
+  const valueMax = Math.max(stepDown(b.valueMax, step), b.valueNow);
+  return {
+    ...b,
+    valueMin,
+    valueMax,
+    atMin: b.valueNow <= valueMin + EPS,
+    atMax: b.valueNow >= valueMax - EPS,
+    step,
+  };
+}
+
 /** Effective reach of a resize affordance on `item`, given what siblings'
  *  minimums already claim. Mirrors `dispatchAffordance`'s clamp order.
  *
@@ -155,6 +223,19 @@ function effectiveMaxAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined
  *  `aria-valuemax`, promising a screen-reader user an extent that does not
  *  exist. */
 function boundsFor(
+  item: LayoutItem,
+  valueNow: number,
+  placedItems: LayoutItem[],
+  axis: 'x' | 'y',
+  usableMain: number,
+  pair?: { item: LayoutItem; extent: number },
+  step?: number,
+): NonNullable<Affordance['bounds']> {
+  const b = rawBoundsFor(item, valueNow, placedItems, axis, usableMain, pair);
+  return step === undefined ? b : stepBounds(b, step);
+}
+
+function rawBoundsFor(
   item: LayoutItem,
   valueNow: number,
   placedItems: LayoutItem[],
@@ -235,7 +316,9 @@ function mainSizes(
   axis: 'x' | 'y',
   usableMain: number,
 ): number[] {
-  return resolveRow(placedItems, cfg, axis, usableMain).sizes;
+  const { sizes } = resolveRow(placedItems, cfg, axis, usableMain);
+  const step = stepOf(cfg);
+  return step === undefined ? sizes : stepped(placedItems, sizes, axis, step);
 }
 
 /** `mainSizes`, plus the extent the pixel-sized panes leave, which is what a
@@ -488,6 +571,27 @@ function justified(
   }
 }
 
+/** The extent a drag asks `sizes[index]` to take. Under a step a few pixels
+ *  round to nothing, so a pointer drag resolves against the pointer rather
+ *  than accumulating deltas; a keyboard step carries no pointer. */
+function steppedTarget(
+  cfg: StripConfig,
+  sizes: number[],
+  index: number,
+  axis: 'x' | 'y',
+  usableMain: number,
+  delta: number,
+  point: { x: number; y: number } | undefined,
+): number {
+  const base = sizes[index] ?? 0;
+  if (stepOf(cfg) === undefined || !point) return base + delta;
+  const used = sizes.reduce((s, v) => s + v, 0);
+  const { lead, spacing } = justified(cfg, usableMain - used, cfg.gap ?? 0, sizes.length);
+  let start = (cfg.padding ?? 0) + lead;
+  for (let i = 0; i < index; i++) start += (sizes[i] ?? 0) + spacing;
+  return (axis === 'x' ? point.x : point.y) - start;
+}
+
 /** Capacity-selected subset both `layout` and `dispatchAffordance` must agree
  *  on — the two drifting apart is the whole class of bug this closes. So the
  *  size budget under `overflowMode: 'unplaced'` is resolved here too, not at
@@ -545,6 +649,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     joinOnOvershoot: 'boolean',
     joinThreshold: 'number',
     maxItems: 'number',
+    step: 'number',
     overflowMode: ['squeeze', 'scroll', 'unplaced'],
     justify: ['start', 'center', 'end', 'between'],
   },
@@ -570,6 +675,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const gap = cfg.gap ?? 0;
     const padding = cfg.padding ?? 0;
     const resizable = cfg.resizable ?? true;
+    const step = stepOf(cfg);
 
     const placements = new Map<string, Rect>();
     const affordances: Affordance[] = [];
@@ -620,6 +726,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
               cfg.resizeMode === 'neighbor' && placedItems[i + 1]
                 ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
                 : undefined,
+              step,
             ),
             ...(join ? { join } : {}),
           });
@@ -655,6 +762,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
               cfg.resizeMode === 'neighbor' && placedItems[i + 1]
                 ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
                 : undefined,
+              step,
             ),
             ...(join ? { join } : {}),
           });
@@ -695,6 +803,8 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
     const sizes = mainSizes(placedItems, cfg, axis, usableMain);
     const index = placedItems.indexOf(item);
+    const step = stepOf(cfg);
+    const want = steppedTarget(cfg, sizes, index, axis, usableMain, delta, event.payload.point);
 
     if (cfg.resizeMode === 'neighbor') {
       const next = placedItems[index + 1];
@@ -705,7 +815,17 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       const baseA = sizes[index] ?? 0;
       const baseB = sizes[index + 1] ?? 0;
       const { lo, hi } = neighborRange(item, baseA, next, baseB, axis);
-      const d = Math.min(hi, Math.max(lo, delta));
+      let d: number;
+      if (step === undefined) {
+        d = Math.min(hi, Math.max(lo, delta));
+      } else {
+        let t = Math.round(want / step) * step;
+        if (t > baseA + hi) t = stepDown(baseA + hi, step);
+        if (t < baseA + lo) t = stepUp(baseA + lo, step);
+        // A range narrower than one step holds no whole step to land on.
+        if (t > baseA + hi + EPS || t < baseA + lo - EPS) return;
+        d = t - baseA;
+      }
       if (d === 0) return;
 
       // Two new sizes can move the rest of the row: a squeezed row rescales
@@ -738,7 +858,9 @@ export const stripStrategy: LayoutStrategy<void, string> = {
 
     const base = sizes[index] ?? 0;
 
-    let next = base + delta;
+    const down = (v: number) => (step === undefined ? v : stepDown(v, step));
+    const up = (v: number) => (step === undefined ? v : stepUp(v, step));
+    let next = step === undefined ? base + delta : Math.round(want / step) * step;
     const min = effectiveMinAxis(item, axis);
     const max = effectiveMaxAxis(item, axis);
     const otherMinSum = placedItems
@@ -747,12 +869,13 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     // A sibling ceiling tighter than this child's own min must not win: floor
     // last, so the row overflows rather than writing a size the child forbids.
     const ceiling = usableMain - otherMinSum;
-    if (next > ceiling) next = ceiling;
-    if (next < min) next = min;
-    if (max !== undefined && next > max) next = max;
+    if (next > ceiling) next = down(ceiling);
+    if (next < min) next = up(min);
+    if (max !== undefined && next > max) next = down(max);
     // A pane stored under its floor (a minimized group) sits outside the range
     // above; clamping into it would move the seam against the pointer.
     if ((next - base) * delta < 0) return;
+    if (step !== undefined && next === base) return;
 
     const writes = new Map<string, number>([[childId as string, next]]);
     const after = mainSizes(

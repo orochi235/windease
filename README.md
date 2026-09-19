@@ -1124,6 +1124,32 @@ share cleared rather than set to 0.
 Like `size`, a share is relative to the parent: `store.split` clears it from the
 panes it moves into a new group, and the group inherits the slot's share.
 
+### Sizing panes in steps
+
+`step` on a strip's config sizes every pane in whole multiples of it, the way
+tmux and Emacs size panes in character cells:
+
+```tsx
+<Zone id={zoneId} strategyId="strip" config={{ axis: 'x', fill: true, step: 12 }} />
+```
+
+Each pane rounds to the nearest step, never under a floor it wasn't already
+stored under. The rounding leaves a remainder: a 725px row of 12px cells is
+five pixels over. The last pane with no pixel `size` of its own takes it (the
+last pane, if every pane has one), so the row fills exactly as it would
+without a step.
+
+A seam drag lands on the whole step nearest the pointer, and its
+`aria-valuemin` / `aria-valuemax` narrow to whole steps. Each arrow press moves
+it one step, whatever `affordanceKeyStep` says. `gap` and `padding` are not
+stepped, so set them to multiples of the step if pane edges should sit on a
+cell grid. A step that is not a positive number is ignored and traced under
+`layout`.
+
+Without React, a stepped seam needs the pointer: a drag event's
+`payload.point` gives the seam's target, since a few pixels of `dx` round to
+nothing. An event with only `dx` still moves by `dx`, rounded to a step.
+
 ### Seam join
 
 A neighbor seam can end in a destroy rather than a clamp. With

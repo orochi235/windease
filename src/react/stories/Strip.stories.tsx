@@ -262,3 +262,79 @@ export const Justify: Story = () => {
     </Provider>
   );
 };
+
+const STEP_ZONE = asNodeId('strip-step');
+const CELL = 12;
+/** Sixty cells and five pixels over, so the remainder has somewhere to go. */
+const STEP_W = 60 * CELL + 5;
+
+function makeStepStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: {
+        strategyId: 'strip',
+        config: { axis: 'x', fill: true, resizeMode: 'neighbor', step: CELL },
+      },
+      id: STEP_ZONE,
+    }),
+  );
+  for (const name of ['shell', 'editor', 'logs']) {
+    const id = asNodeId(`step-${name}`);
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id,
+        parentId: STEP_ZONE,
+        hints: { minSize: { w: 4 * CELL, h: 0 } },
+        meta: { title: name },
+      }),
+    );
+    s.showNode(id);
+  }
+  return s;
+}
+
+const stepChrome: ChromeMap = {
+  panel: ({ node }) => {
+    const w = (node.membership?.placement?.size as { w?: number } | undefined)?.w;
+    return (
+      <div className="windease-panel">
+        <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
+        <span className="strip-readout" data-cols={w === undefined ? '' : String(w / CELL)}>
+          {w === undefined ? 'fill' : `${w / CELL} cols`}
+        </span>
+      </div>
+    );
+  },
+};
+
+/**
+ * Panes sized in 12px cells, the way tmux sizes in characters. A seam drag
+ * lands on whole cells; the last fill pane takes the 5px no cell covers.
+ */
+export const Steps: Story = () => {
+  const store = useMemo(makeStepStore, []);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <div className="strip-stage">
+          <Container
+            parentId={STEP_ZONE}
+            chrome={stepChrome}
+            viewport={{ w: STEP_W, h: 120 }}
+            className="windease-zone"
+            affordances
+          />
+        </div>
+        <p className="strip-hint">
+          <code>step: {CELL}</code>. Drag a seam and it lands on whole {CELL}px cells; focus one and
+          each arrow press moves it a cell. The row is {STEP_W}px, five pixels past sixty cells, and
+          the last fill pane carries those five.
+        </p>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
