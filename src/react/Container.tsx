@@ -27,6 +27,7 @@ import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { type DropIntentContext, useDropIntentTarget } from './dnd/useDropIntentTarget.js';
 import { splitPreviewStyle, useDropPreview } from './dnd/useDropPreview.js';
+import { useReorderSources } from './dnd/useReorderSources.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useFlowGeometry } from './focus/useFlowGeometry.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
@@ -318,6 +319,7 @@ function StoreContainer({
           if (!store.isLocked(parentId, 'arrange')) store.raise(id);
         }
       : undefined;
+  const reorderSource = useReorderSources(parentId);
   useDropIntentTarget(parentId, ref, {
     ...(containerCfg.axis ? { axis: containerCfg.axis } : {}),
     ...(parent?.container?.strategyId ? { strategyId: parent.container.strategyId } : {}),
@@ -397,6 +399,7 @@ function StoreContainer({
               // biome-ignore lint/a11y/useKeyWithClickEvents: a click-raise is the pointer path; the keyboard path raises on focus.
               <div
                 key={c.id}
+                {...reorderSource(c.id)}
                 onClick={raiseOnClick?.(c.id)}
                 data-node={c.id}
                 tabIndex={rovingId === c.id ? 0 : -1}
@@ -475,6 +478,7 @@ function StoreContainer({
             return (
               <div
                 key={id}
+                {...reorderSource(id)}
                 style={{ ...childStyle, opacity: 0 }}
                 data-node={id}
                 data-preview-source="true"
@@ -494,6 +498,7 @@ function StoreContainer({
             // biome-ignore lint/a11y/useKeyWithClickEvents: a click-raise is the pointer path; the keyboard path raises on focus.
             <div
               key={id}
+              {...reorderSource(id)}
               style={childStyle}
               onClick={raiseOnClick?.(id)}
               data-node={id}

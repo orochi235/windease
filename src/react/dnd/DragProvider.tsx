@@ -8,6 +8,12 @@ import { type DragOverlayRenderer, defaultDragOverlay } from './defaultDragOverl
 /** Raw drag-controller context. Prefer {@link useDragController}. */
 export const DragContext = createContext<DragController | null>(null);
 
+/** Pixels a press travels before it becomes a drag, unless a `DragProvider` says otherwise. */
+export const DEFAULT_DRAG_THRESHOLD = 4;
+
+/** The nearest `DragProvider`'s `dragThreshold`. */
+export const DragThresholdContext = createContext(DEFAULT_DRAG_THRESHOLD);
+
 export interface DragProviderProps {
   children: ReactNode;
   /**
@@ -23,6 +29,12 @@ export interface DragProviderProps {
   /** Container config given to the strip a split drop creates, merged over its
    *  `axis` and `fill`. */
   splitConfig?: Record<string, unknown>;
+  /**
+   * Pixels a press on a `DragHandle` or a `reorder` child travels before it
+   * becomes a drag. Below it, the press stays a click. `0` starts the drag on
+   * press. Default 4.
+   */
+  dragThreshold?: number;
 }
 
 /**
@@ -36,6 +48,7 @@ export function DragProvider({
   dragOverlay = defaultDragOverlay,
   stackConfig,
   splitConfig,
+  dragThreshold = DEFAULT_DRAG_THRESHOLD,
 }: DragProviderProps) {
   const store = useStore();
   const registry = useOptionalStrategyRegistry();
@@ -55,8 +68,10 @@ export function DragProvider({
 
   return (
     <DragContext.Provider value={controller}>
-      {children}
-      {dragOverlay && state ? <DragOverlayPortal state={state} render={dragOverlay} /> : null}
+      <DragThresholdContext.Provider value={dragThreshold}>
+        {children}
+        {dragOverlay && state ? <DragOverlayPortal state={state} render={dragOverlay} /> : null}
+      </DragThresholdContext.Provider>
     </DragContext.Provider>
   );
 }

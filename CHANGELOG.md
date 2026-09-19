@@ -10,6 +10,21 @@ section below.
 
 ### Added
 
+- **Children reorder by drag when their container declares `reorder`.** Set
+  `reorder: true` in a container's config and every child becomes draggable by
+  the wrapper `<Container>` or the preset already renders, with no
+  `DragHandle` in the chrome: it reorders within the container and moves to any
+  other container that accepts it, under the usual locks and `accepts` rules.
+  `reorder: 'handle'` starts a drag only from an element inside the child
+  marked `data-windease-handle`. A press on a seam or other affordance, or in a
+  text field, never starts one, and without a `DragProvider` the key does
+  nothing. A preset zone that declares `reorder` keeps the order the user
+  dropped rather than reverting to JSX order. See
+  [Reordering children by drag](README.md#reordering-children-by-drag).
+
+- **`<DragProvider dragThreshold>`**: how many pixels a press travels before it
+  becomes a drag. Default 4; `0` starts on press.
+
 - **A tab can be torn out of a stack and docked back, from config.** Set
   `tear: 'float'` in a stack's config: dragging a tab out onto the nearest
   container above it whose strategy floats children (`floatingStrategy`,
@@ -264,6 +279,15 @@ section below.
   it and `layout().view` reports it; `fitScale`, `fitView`, `zoomView`,
   `toLayoutDelta` and `toLocalPoint` are the pure arithmetic, and
   `elementScale` / `observeFit` the DOM helpers over them.
+
+### Changed
+
+- **A `DragHandle` drag starts after 4px of travel, not on press.** A click on
+  a handle, or on a button inside one, now clicks, and the click that ends a
+  drag is swallowed. `<DragProvider dragThreshold={0}>` restores starting on
+  press. `useDragHandle` follows the gesture on `window` from the press, so only
+  its `onPointerDown` does anything; the other three handlers remain as no-ops.
+  A secondary-button press no longer starts a drag.
 
 ### Fixed
 

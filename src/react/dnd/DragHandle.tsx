@@ -26,9 +26,6 @@ export function DragHandle({ nodeId, children, className, style }: DragHandlePro
       style={style}
       data-windease-drag-handle={nodeId}
       onPointerDown={handlers.onPointerDown}
-      onPointerMove={handlers.onPointerMove}
-      onPointerUp={handlers.onPointerUp}
-      onPointerCancel={handlers.onPointerCancel}
       draggable={false}
       onDragStart={preventNativeDrag}
     >

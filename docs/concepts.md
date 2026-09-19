@@ -507,6 +507,18 @@ and calls `store.moveNode` on drop. The controller honors `lock.accept`
 (target), `lock.dragOut` (source's parent), `lock.move` (source), the
 target's `config.accepts`, and the destination strategy's `canAccept`.
 
+`container.config.reorder` makes a container's children drag sources without a
+`<DragHandle>` in their chrome. It lives in the parent's config, not on each
+child, because it says how that container's children behave — the way `raise`
+does — and the React layer reads it where it renders the child's wrapper: the
+positioned box in `<Container>`, the preset shell for `<Zone>` / `<Panel>`.
+`true` makes the whole wrapper a source; `'handle'` only an element inside it
+marked `data-windease-handle`. Presses on an affordance, a text field or a
+nested `DragHandle` are exempt, and without a `<DragProvider>` the key is
+inert. The core never reads it. A drag from either this or a `DragHandle`
+begins only after the press travels `<DragProvider dragThreshold>` pixels
+(default 4), so a click stays a click.
+
 Pass `affordances` to `<Container>`, `<Zone>` or a `<Panel>` promoted to a
 container to render the strategy's interactive gutters; all three share one
 renderer, so a seam is the same element with the same keyboard contract
