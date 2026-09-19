@@ -111,8 +111,11 @@ export {
 } from './layout/floating.js';
 export { gridStrategy, gridTiling } from './layout/grid.js';
 export {
+  captureSeam,
+  commitJoin,
   DEFAULT_JOIN_THRESHOLD,
   type JoinState,
+  type SeamCapture,
   type TrackJoinInput,
   trackJoin,
 } from './layout/seam-join.js';

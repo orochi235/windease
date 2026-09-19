@@ -17,6 +17,15 @@ section below.
   press moves a seam one step, and a seam's reported range narrows to whole
   steps.
 
+- **Strip `overshoot: 'hide'` hides a pane pushed past its floor instead of
+  closing it.** The seam arms exactly as `joinOnOvershoot` does, but releasing
+  hides the pane, the way VS Code closes a sidebar dragged shut, and puts the
+  rest of the row back at the sizes the drag found. `store.showNode` returns
+  the pane at its old size. `overshoot: 'join'` is the same as
+  `joinOnOvershoot: true`, which keeps working. `AffordanceJoin` gains
+  `action: 'destroy' | 'hide'`, and `captureSeam` and `commitJoin` carry out a
+  release for hosts that drive seams without React.
+
 - **A container can refuse drops from its config.** Set `accepts` in any
   container's `config`: `false` refuses every drop, `{ kinds: ['panel'] }`
   refuses a dragged node whose `kind` is not listed, and `{ max: 3 }` refuses a

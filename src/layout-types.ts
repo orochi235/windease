@@ -110,7 +110,7 @@ export type BuiltinAffordanceKind =
   | 'click';
 
 /**
- * Who a seam destroys when the gesture is pushed past each end of its range.
+ * Who a seam destroys (or hides) when the gesture is pushed past each end of its range.
  * A strategy that omits this emits a seam that clamps and nothing more.
  *
  * `atMax` is the node destroyed by pushing toward `bounds.valueMax` (the
@@ -122,6 +122,13 @@ export interface AffordanceJoin {
   atMax?: NodeId | string;
   /** Main-axis pixels past the clamp before the gesture arms. */
   threshold: number;
+  /**
+   * What releasing the armed gesture does to the victim. `'destroy'`, the
+   * default, unregisters it; `'hide'` hides it, restoring the row's sizes to
+   * where the gesture found them so `showNode` brings the pane back as it was.
+   * See `commitJoin`.
+   */
+  action?: 'destroy' | 'hide';
 }
 
 /**

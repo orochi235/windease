@@ -54,6 +54,14 @@ interface StripConfig {
    * delta across every sibling and so has no single pane to name as the victim.
    */
   joinOnOvershoot?: boolean;
+  /**
+   * What pushing a seam past a pane's floor does. `'join'` is
+   * `joinOnOvershoot: true`: releasing destroys the pane. `'hide'` hides it
+   * instead, as VS Code does with a sidebar dragged shut, and the pane's size
+   * is kept for `showNode`. Outranks `joinOnOvershoot`; the same
+   * `resizeMode: 'neighbor'` requirement applies.
+   */
+  overshoot?: 'join' | 'hide';
   /** Main-axis pixels past the floor before the join arms. Defaults to 24. */
   joinThreshold?: number;
   /**
@@ -395,11 +403,13 @@ function joinFor(
 ): AffordanceJoin | undefined {
   if (!next) return undefined;
   if (cfg.resizeMode !== 'neighbor') return undefined;
-  if (!(cfg.joinOnOvershoot ?? false)) return undefined;
+  const mode = cfg.overshoot ?? (cfg.joinOnOvershoot ? 'join' : undefined);
+  if (mode !== 'join' && mode !== 'hide') return undefined;
   return {
     atMin: item.id,
     atMax: next.id,
     threshold: cfg.joinThreshold ?? DEFAULT_JOIN_THRESHOLD,
+    ...(mode === 'hide' ? { action: 'hide' as const } : {}),
   };
 }
 
@@ -647,6 +657,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     resizable: 'boolean',
     resizeMode: ['redistribute', 'neighbor'],
     joinOnOvershoot: 'boolean',
+    overshoot: ['join', 'hide'],
     joinThreshold: 'number',
     maxItems: 'number',
     step: 'number',

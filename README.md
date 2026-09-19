@@ -1193,7 +1193,34 @@ step.
 Without React, `trackJoin` is the whole decision: give it the affordance's
 `join` and `bounds`, this move's main-axis delta, and the overshoot it returned
 last time, and it answers whether the gesture is armed and on which node.
-`destroyBlockedBy(store, id)` is the lock check to pass it.
+`destroyBlockedBy(store, id)` is the lock check to pass it. `commitJoin(store,
+affordance, victimId)` carries out the release.
+
+#### Hiding instead of closing
+
+`overshoot: 'hide'` arms the same gesture but hides the pane on release
+instead of destroying it, the way VS Code closes a sidebar dragged shut.
+`overshoot: 'join'` is the same as `joinOnOvershoot: true`, and `overshoot`
+wins when both are set.
+
+```tsx
+<Zone
+  id={zoneId}
+  strategyId="strip"
+  config={{ axis: 'x', resizeMode: 'neighbor', fill: true, overshoot: 'hide' }}
+/>
+```
+
+The drag has already squeezed the pane to its floor by the time it arms, so a
+hide first puts every pane in the row back at the size it had when the gesture
+began, then hides the victim. The rest re-lay out without it, and
+`store.showNode(id)` brings it back with the row exactly as it was. Both
+happen in one transaction. Nothing is destroyed, so a `destroy` lock does not
+stop the gesture arming. The live region says the pane "will hide".
+
+A host driving seams itself calls `captureSeam(store, affordance)` when the
+gesture begins and passes the result to `commitJoin` as its fourth argument.
+Without it, the pane is hidden at the size the drag left it.
 
 ### Grid seams
 
