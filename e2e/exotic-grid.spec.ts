@@ -1,5 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { PRESETS } from '../src/test-utils/exotic/grid-scenarios.js';
+import { presetTree } from '../src/test-utils/exotic/preset.js';
+import { type Box, boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 /**
  * Grid presets reproduced from real software (`src/test-utils/exotic/grid-scenarios.ts`),
@@ -81,19 +83,54 @@ test.describe('Android home screen (Pixel Launcher 4×5)', () => {
   });
 });
 
-test.describe('iPhone dock (maxCols 4 × maxRows 1)', () => {
+test.describe('iPhone dock (fixed icon cells, spaced evenly)', () => {
+  /** The docked icons left to right, and the space between each pair. */
+  async function dock(page: Page, ids: string[]) {
+    const boxes = await Promise.all(ids.map((id) => settledBox(node(page, id))));
+    boxes.sort((a, b) => a.x - b.x);
+    const between = boxes.slice(1).map((b, i) => b.x - (boxes[i]!.x + boxes[i]!.w));
+    const frameBox = await settledBox(frame(page, 'ios-dock'));
+    const left = boxes[0]!.x - frameBox.x;
+    const right = frameBox.x + frameBox.w - (boxes.at(-1)!.x + boxes.at(-1)!.w);
+    return { boxes, between, left, right };
+  }
+
   test('shows all three docked apps', async ({ page }) => {
     await pick(page, 'ios-dock', 'ios-app-1');
     await expect(unplaced(page, 'ios-dock')).toHaveText('(none)');
     await expect(node(page, 'ios-dock-app-3')).toBeVisible();
   });
 
-  test('takes a fourth app dragged down from the home screen', async ({ page }) => {
+  test('spaces three apps evenly at a fixed 60pt size', async ({ page }) => {
+    await pick(page, 'ios-dock', 'ios-app-1');
+    const { boxes, between, left, right } = await dock(page, [
+      'ios-dock-app-1',
+      'ios-dock-app-2',
+      'ios-dock-app-3',
+    ]);
+    for (const b of boxes) expect({ w: b.w, h: b.h }).toEqual({ w: 60, h: 60 });
+    expect(between[0]).toBeGreaterThan(40);
+    expect(between[1]).toBeCloseTo(between[0]!, 0);
+    expect(left).toBeCloseTo(right, 0);
+  });
+
+  test('takes a fourth app dragged down from the home screen, at the same size', async ({
+    page,
+  }) => {
     await pick(page, 'ios-dock', 'ios-app-1');
 
     await dragOnto(page, 'ios-app-1', { frame: 'ios-dock' }, 'ios-dock', 'accept');
 
     await expect.poll(() => order(page, 'ios-dock')).toContain('ios-app-1');
+    const { boxes, between, left, right } = await dock(page, [
+      'ios-dock-app-1',
+      'ios-dock-app-2',
+      'ios-dock-app-3',
+      'ios-app-1',
+    ]);
+    for (const b of boxes) expect(b.w).toBe(60);
+    for (const gap of between) expect(gap).toBeCloseTo(between[0]!, 0);
+    expect(left).toBeCloseTo(right, 0);
   });
 });
 
@@ -179,15 +216,17 @@ test.describe('Windows 8.1 Start screen (fixed rows)', () => {
 });
 
 test.describe('Grafana dashboard (24 columns)', () => {
-  test('dragging a stat panel’s bottom seam makes it taller', async ({ page }) => {
-    await pick(page, 'grafana-node-exporter', 'cpu-cores');
-    const before = await settledBox(node(page, 'cpu-cores'));
-    const edge = centerOf(await boxOf(seam(page, 'resize-y-cpu-cores')));
+  // Grafana pushes the panels below a growing one down; windease has no
+  // `compact` yet, so a celled panel grows only into free rows.
+  test('dragging the last panel’s bottom seam grows it by 30px rows', async ({ page }) => {
+    await pick(page, 'grafana-node-exporter', 'imported-w30');
+    const before = await settledBox(node(page, 'imported-w30'));
+    const edge = centerOf(await boxOf(seam(page, 'resize-y-imported-w30')));
 
-    await dragMouse(page, edge, { x: edge.x, y: edge.y + before.h });
+    await dragMouse(page, edge, { x: edge.x, y: edge.y + 2 * 38 });
 
-    const after = await settledBox(node(page, 'cpu-cores'));
-    expect(after.h).toBeGreaterThan(before.h * 1.3);
+    const after = await settledBox(node(page, 'imported-w30'));
+    expect(after.h).toBeCloseTo(before.h + 2 * 38, 0);
   });
 
   test('a w:30 panel is clamped to the dashboard width, and the right-edge panel sits flush', async ({
@@ -211,6 +250,33 @@ test.describe('periodic table and keyboard', () => {
     const ne = await settledBox(node(page, 'el-Ne'));
     expect(la.x).toBeCloseTo(ref.x, 0);
     expect(he.x).toBeCloseTo(ne.x, 0);
+  });
+
+  test('renders only elements, with no spacer nodes, each at its group and period', async ({
+    page,
+  }) => {
+    await pick(page, 'periodic-table', 'el-H');
+    const table = presetTree(PRESETS.find((p) => p.id === 'periodic-table')!).children!.find(
+      (c) => c.id === 'main-table',
+    )!;
+    const want = new Map(
+      table.children!.map((c) => [c.id, c.placement?.cell as { col: number; row: number }]),
+    );
+    const rendered = await frame(page, 'main-table')
+      .locator('[data-node]')
+      .evaluateAll((els) => els.map((el) => el.getAttribute('data-node')));
+    expect(rendered.sort()).toEqual([...want.keys()].sort());
+
+    const h = await settledBox(node(page, 'el-H'));
+    const he = await settledBox(node(page, 'el-He'));
+    const fr = await settledBox(node(page, 'el-Fr'));
+    const cellOf = (b: Box) => ({
+      col: Math.round(((b.x - h.x) / (he.x - h.x)) * 17),
+      row: Math.round(((b.y - h.y) / (fr.y - h.y)) * 6),
+    });
+    for (const [id, cell] of want) {
+      expect({ id, ...cellOf(await settledBox(node(page, id))) }).toEqual({ id, ...cell });
+    }
   });
 
   test('Backspace is two keys and a gap wide', async ({ page }) => {

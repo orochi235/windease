@@ -24,16 +24,39 @@ const tile = (id: string, cols = 1, rows = 1, title = id): PresetNode => ({
   meta: { title },
 });
 
-/** An invisible cell-filler: grid packs densely and has no explicit positions,
- *  so a deliberate hole has to be a child that occupies it. */
-const spacer = (id: string, cols: number): PresetNode => ({
-  id,
-  placement: { span: { cols } },
-  meta: { spacer: true },
+/** `node` with its top-left corner at `col, row`. */
+const at = (node: PresetNode, col: number, row: number): PresetNode => ({
+  ...node,
+  placement: { ...node.placement, cell: { col, row } },
 });
+
+/** A content container's children are apps unless a child says otherwise. */
+const APP: NonNullable<PresetNode['item']> = { kind: 'app' };
 
 const icons = (prefix: string, n: number, names: readonly string[] = []): PresetNode[] =>
   Array.from({ length: n }, (_, i) => tile(`${prefix}-${i + 1}`, 1, 1, names[i] ?? `App ${i + 1}`));
+
+const widget = (id: string, cols: number, rows: number, title: string): PresetNode => ({
+  ...tile(id, cols, rows, title),
+  kind: 'widget',
+});
+
+/** A Grafana panel from its `gridPos`: `x, y` its cell, `w × h` its span. */
+const panel = (id: string, x: number, y: number, w: number, h: number, title: string) =>
+  at(tile(id, w, h, title), x, y);
+
+/** `nodes` at the free cells of a `cols`-wide page, row-major, skipping
+ *  `taken` (as `col,row` keys): where a user left them. */
+function placed(nodes: PresetNode[], cols: number, taken: readonly string[] = []): PresetNode[] {
+  const skip = new Set(taken);
+  let i = 0;
+  return nodes.map((node) => {
+    while (skip.has(`${i % cols},${Math.floor(i / cols)}`)) i++;
+    const out = at(node, i % cols, Math.floor(i / cols));
+    i++;
+    return out;
+  });
+}
 
 // Windows 10 Start: small 1×1, medium 2×2, wide 4×2, large 4×4, in small-tile units.
 const small = (id: string, title = id) => tile(id, 1, 1, title);
@@ -55,7 +78,7 @@ function win10Start(groupCols: 6 | 8): Halves {
     mechanics: {
       id: 'start',
       strategy: 'strip',
-      config: { axis: 'x', fill: true, gap: 24, padding: 12 },
+      config: { axis: 'x', fill: true, gap: 24, padding: 12, accepts: false },
       children: [group('productivity'), group('explore')],
     },
     data: {
@@ -108,26 +131,33 @@ const PIXEL_APPS = [
   'Podcasts',
 ] as const;
 
-/** The launcher's page, hotseat and picker are mechanics; the icons and widgets on them are the user's. */
+/**
+ * The launcher's page, hotseat and picker are mechanics; the icons and widgets
+ * on them are the user's, each on the page at the cell it was left in.
+ * Launcher3 divides the workspace into cells rather than fixing their size,
+ * so these grids do too. The hotseat takes apps only.
+ */
 function pixelHome(page: PresetNode[]): Halves {
   return {
     mechanics: {
       id: 'launcher',
       strategy: 'strip',
-      config: { axis: 'y', fill: true, gap: 8, padding: 8 },
+      config: { axis: 'y', fill: true, gap: 8, padding: 8, accepts: false },
       children: [
         {
           id: 'page',
           kind: 'group',
           strategy: 'grid',
           config: { cols: 4, maxRows: 5, gap: 8 },
+          item: APP,
         },
         {
           id: 'hotseat',
           kind: 'group',
           strategy: 'grid',
-          config: { cols: 4, maxRows: 1, gap: 8 },
+          config: { cols: 4, maxRows: 1, gap: 8, accepts: { kinds: ['app'] } },
           placement: { size: { h: 72 } },
+          item: APP,
         },
         {
           id: 'picker',
@@ -135,6 +165,7 @@ function pixelHome(page: PresetNode[]): Halves {
           strategy: 'grid',
           config: { cols: 4, gap: 8 },
           placement: { size: { h: 96 } },
+          item: APP,
         },
       ],
     },
@@ -147,27 +178,45 @@ function pixelHome(page: PresetNode[]): Halves {
       children: {
         page,
         hotseat: icons('dock', 4, ['Phone', 'Messages', 'Chrome', 'Camera']),
-        picker: [tile('widget-weather', 4, 2, 'Weather 4×2'), tile('new-app', 1, 1, 'Recorder')],
+        picker: [widget('widget-weather', 4, 2, 'Weather 4×2'), tile('new-app', 1, 1, 'Recorder')],
       },
     },
   };
 }
 
+/** An iPhone app icon, in points, which are the viewport's CSS pixels. */
+const IOS_ICON = 60;
+
 const MAC_APPS = Array.from({ length: 40 }, (_, i) => `App ${i + 1}`);
 
-/** One Launchpad page above a Dock to drag apps in from; the apps are the user's. */
-function launchpad(n: number, fill: boolean): Halves {
+/** A Launchpad cell at 1440×900: a 96px icon over its label. */
+const LAUNCHPAD_CELL = { w: 112, h: 124 };
+
+/**
+ * One Launchpad page above a Dock to drag apps in from; the apps are the
+ * user's. Launchpad keeps every icon one size and spreads the 7×5 page across
+ * the screen, so the page has fixed cells spaced evenly.
+ */
+function launchpad(n: number): Halves {
   return {
     mechanics: {
       id: 'launchpad-root',
       strategy: 'strip',
-      config: { axis: 'y', fill: true, gap: 12, padding: 12 },
+      config: { axis: 'y', fill: true, gap: 12, padding: 12, accepts: false },
       children: [
         {
           id: 'lp-page',
           kind: 'group',
           strategy: 'grid',
-          config: { maxCols: 7, maxRows: 5, gap: 16, padding: 24, fill },
+          config: {
+            cols: 7,
+            maxRows: 5,
+            gap: 16,
+            padding: 24,
+            cell: LAUNCHPAD_CELL,
+            justify: 'evenly',
+          },
+          item: APP,
         },
         {
           id: 'mac-dock',
@@ -175,6 +224,7 @@ function launchpad(n: number, fill: boolean): Halves {
           strategy: 'grid',
           config: { cols: 6, maxRows: 1, gap: 8 },
           placement: { size: { h: 80 } },
+          item: APP,
         },
       ],
     },
@@ -195,16 +245,44 @@ const ELEMENTS = (
   'Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf ' +
   'Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og'
 ).split(' ');
-const el = (sym: string): PresetNode => ({ id: `el-${sym}` });
-const els = (from: string, to: string) =>
-  ELEMENTS.slice(ELEMENTS.indexOf(from), ELEMENTS.indexOf(to) + 1).map(el);
+/** A run of consecutive elements on one row: `[row, first group, from, to]`, groups 1-based. */
+type Run = readonly [row: number, group: number, from: string, to: string];
 
-/** The table's cells and holes are its fixed structure; the symbols on them are data. */
+const elementsAt = (runs: readonly Run[]): PresetNode[] =>
+  runs.flatMap(([row, group, from, to]) =>
+    ELEMENTS.slice(ELEMENTS.indexOf(from), ELEMENTS.indexOf(to) + 1).map((sym, i) =>
+      at({ id: `el-${sym}` }, group - 1 + i, row),
+    ),
+  );
+
+/** Periods 1–7 as rows 0–6, the f-block left out. */
+const MAIN_RUNS: Run[] = [
+  [0, 1, 'H', 'H'],
+  [0, 18, 'He', 'He'],
+  [1, 1, 'Li', 'Be'],
+  [1, 13, 'B', 'Ne'],
+  [2, 1, 'Na', 'Mg'],
+  [2, 13, 'Al', 'Ar'],
+  [3, 1, 'K', 'Kr'],
+  [4, 1, 'Rb', 'Xe'],
+  [5, 1, 'Cs', 'Ba'],
+  [5, 4, 'Hf', 'Rn'],
+  [6, 1, 'Fr', 'Ra'],
+  [6, 4, 'Rf', 'Og'],
+];
+
+/** The lanthanides and actinides, from group 3 on. */
+const F_RUNS: Run[] = [
+  [0, 3, 'La', 'Lu'],
+  [1, 3, 'Ac', 'Lr'],
+];
+
+/** Every element sits at its group and period; the symbols on them are data. */
 function periodicTable(): Halves {
   const mechanics: PresetNode = {
     id: 'periodic',
     strategy: 'strip',
-    config: { axis: 'y', fill: true, gap: 16, padding: 8 },
+    config: { axis: 'y', fill: true, gap: 16, padding: 8, accepts: false },
     children: [
       {
         id: 'main-table',
@@ -212,23 +290,9 @@ function periodicTable(): Halves {
         strategy: 'grid',
         config: { cols: 18, gap: 2 },
         children: [
-          el('H'),
-          spacer('gap-p1', 16),
-          el('He'),
-          ...els('Li', 'Be'),
-          spacer('gap-p2', 10),
-          ...els('B', 'Ne'),
-          ...els('Na', 'Mg'),
-          spacer('gap-p3', 10),
-          ...els('Al', 'Ar'),
-          ...els('K', 'Kr'),
-          ...els('Rb', 'Xe'),
-          ...els('Cs', 'Ba'),
-          { id: 'lanthanides-ref' },
-          ...els('Hf', 'Rn'),
-          ...els('Fr', 'Ra'),
-          { id: 'actinides-ref' },
-          ...els('Rf', 'Og'),
+          ...elementsAt(MAIN_RUNS),
+          at({ id: 'lanthanides-ref' }, 2, 5),
+          at({ id: 'actinides-ref' }, 2, 6),
         ],
       },
       {
@@ -237,14 +301,7 @@ function periodicTable(): Halves {
         strategy: 'grid',
         config: { cols: 18, gap: 2 },
         placement: { size: { h: 96 } },
-        children: [
-          spacer('f-lead-1', 2),
-          ...els('La', 'Lu'),
-          spacer('f-tail-1', 1),
-          spacer('f-lead-2', 2),
-          ...els('Ac', 'Lr'),
-          spacer('f-tail-2', 1),
-        ],
+        children: elementsAt(F_RUNS),
       },
     ],
   };
@@ -428,7 +485,7 @@ export const PRESETS: Preset[] = [
     id: 'grafana-node-exporter',
     source: 'Grafana "Node Exporter Full" dashboard (24-column gridPos, 30px row unit)',
     stress:
-      'panel w/h spans in a 24-column grid, full-width row headers, a panel at the right edge, and a w:30 panel wider than the grid',
+      'panels at their gridPos x/y with w/h spans in a 24-column grid of 30px rows, full-width row headers, a panel at the right edge, and a w:30 panel wider than the grid',
     description:
       'Grafana dashboards arrange monitoring panels (graphs, gauges, single numbers) on a grid 24 columns wide. "Node Exporter Full" is a widely used community dashboard for a Linux server\'s CPU, memory, disk and network, with its panels grouped under full-width row headers that collapse. Users drag a panel by its title to move it and drag its corner to resize it, and the panels below move down to make room.',
     viewport: { w: 1440, h: 900 },
@@ -436,31 +493,31 @@ export const PRESETS: Preset[] = [
       id: 'dashboard',
       kind: 'group',
       strategy: 'grid',
-      config: { cols: 24, gap: 4, padding: 8, resizable: true },
+      config: { cols: 24, gap: 8, padding: 8, cell: { h: 30 }, resizable: true },
     },
     data: {
       nodes: titles({ dashboard: 'Node Exporter Full' }),
       children: {
         dashboard: [
-          tile('row-quick', 24, 1, 'Quick CPU / Mem / Disk'),
-          tile('pressure', 3, 4, 'Pressure'),
-          tile('cpu-busy', 3, 4, 'CPU Busy'),
-          tile('sys-load', 3, 4, 'Sys Load'),
-          tile('ram-used', 3, 4, 'RAM Used'),
-          tile('swap-used', 3, 4, 'SWAP Used'),
-          tile('root-fs', 3, 4, 'Root FS Used'),
-          tile('cpu-cores', 2, 2, 'CPU Cores'),
-          tile('uptime', 4, 2, 'Uptime'),
-          tile('rootfs-total', 2, 2, 'RootFS Total'),
-          tile('ram-total', 2, 2, 'RAM Total'),
-          tile('swap-total', 2, 2, 'SWAP Total'),
-          tile('row-basic', 24, 1, 'Basic CPU / Mem / Net / Disk'),
-          tile('cpu-basic', 12, 7, 'CPU Basic'),
-          tile('mem-basic', 12, 7, 'Memory Basic'),
-          tile('net-basic', 12, 7, 'Network Traffic Basic'),
-          tile('disk-basic', 8, 7, 'Disk Space Used Basic'),
-          tile('edge-panel', 4, 7, 'Right-edge panel'),
-          tile('imported-w30', 30, 3, 'Imported panel with w: 30'),
+          panel('row-quick', 0, 0, 24, 1, 'Quick CPU / Mem / Disk'),
+          panel('pressure', 0, 1, 3, 4, 'Pressure'),
+          panel('cpu-busy', 3, 1, 3, 4, 'CPU Busy'),
+          panel('sys-load', 6, 1, 3, 4, 'Sys Load'),
+          panel('ram-used', 9, 1, 3, 4, 'RAM Used'),
+          panel('swap-used', 12, 1, 3, 4, 'SWAP Used'),
+          panel('root-fs', 15, 1, 3, 4, 'Root FS Used'),
+          panel('cpu-cores', 18, 1, 2, 2, 'CPU Cores'),
+          panel('uptime', 20, 1, 4, 2, 'Uptime'),
+          panel('rootfs-total', 18, 3, 2, 2, 'RootFS Total'),
+          panel('ram-total', 20, 3, 2, 2, 'RAM Total'),
+          panel('swap-total', 22, 3, 2, 2, 'SWAP Total'),
+          panel('row-basic', 0, 5, 24, 1, 'Basic CPU / Mem / Net / Disk'),
+          panel('cpu-basic', 0, 6, 12, 7, 'CPU Basic'),
+          panel('mem-basic', 12, 6, 12, 7, 'Memory Basic'),
+          panel('net-basic', 0, 13, 12, 7, 'Network Traffic Basic'),
+          panel('disk-basic', 12, 13, 8, 7, 'Disk Space Used Basic'),
+          panel('edge-panel', 20, 13, 4, 7, 'Right-edge panel'),
+          panel('imported-w30', 0, 20, 30, 3, 'Imported panel with w: 30'),
         ],
       },
     },
@@ -474,9 +531,18 @@ export const PRESETS: Preset[] = [
       'The Pixel Launcher home screen on Android is a grid four columns wide and five rows tall. App icons take one cell each, while widgets span several: here the At a Glance date-and-weather strip across the top row and a 2×2 weather widget. Below the page sits the hotseat, a row of four favorite apps that stays the same on every page. Users long-press an icon or widget to drag it, and add widgets by dragging them in from a widget picker.',
     viewport: { w: 412, h: 915 },
     ...pixelHome([
-      tile('glance', 4, 1, 'At a Glance'),
-      tile('weather-2x2', 2, 2, 'Weather'),
-      ...icons('app', 12, PIXEL_APPS.slice(4)),
+      at(widget('glance', 4, 1, 'At a Glance'), 0, 0),
+      at(widget('weather-2x2', 2, 2, 'Weather'), 0, 1),
+      ...placed(icons('app', 12, PIXEL_APPS.slice(4)), 4, [
+        '0,0',
+        '1,0',
+        '2,0',
+        '3,0',
+        '0,1',
+        '1,1',
+        '0,2',
+        '1,2',
+      ]),
     ]),
   },
   {
@@ -486,7 +552,7 @@ export const PRESETS: Preset[] = [
     description:
       'A Pixel Launcher home screen, four columns by five rows, with an app icon in every one of its 20 cells and the four-app hotseat below. Users long-press an icon to drag it around, and dropping one icon on another makes a folder.',
     viewport: { w: 412, h: 915 },
-    ...pixelHome(icons('app', 20, PIXEL_APPS)),
+    ...pixelHome(placed(icons('app', 20, PIXEL_APPS), 4)),
   },
   {
     id: 'android-fragmented',
@@ -496,33 +562,52 @@ export const PRESETS: Preset[] = [
     description:
       'A Pixel Launcher home screen, four columns by five rows, with three app icons along the top row and a clock widget two rows tall across the full width beneath them. A new widget needs an empty rectangle of cells in its own shape, not just enough empty cells, and widgets can be resized after they are placed.',
     viewport: { w: 412, h: 915 },
-    ...pixelHome([...icons('app', 3, PIXEL_APPS), tile('clock-4x2', 4, 2, 'Clock')]),
+    ...pixelHome([
+      ...placed(icons('app', 3, PIXEL_APPS), 4),
+      at(widget('clock-4x2', 4, 2, 'Clock'), 0, 1),
+    ]),
   },
   {
     id: 'ios-dock',
     source: 'iPhone home screen: a 4×6 page above a one-row, four-slot dock holding three apps',
     stress:
-      'maxCols 4 × maxRows 1 underfilled — the auto-balance must not pick a square and drop the third app',
+      'fixed 60pt icon cells spaced evenly: three docked apps keep their size and spread across the dock, and a fourth is accepted up to accepts.max',
     description:
       'The iPhone home screen shows pages of app icons, four columns by six rows, above the Dock, a single row of up to four apps that stays in place as the user swipes between pages. Users press and hold an icon to start editing, then drag it around the page or into or out of the Dock. With three apps in the Dock, iOS spaces them evenly across its width.',
     viewport: { w: 390, h: 844 },
     mechanics: {
       id: 'springboard',
       strategy: 'strip',
-      config: { axis: 'y', fill: true, gap: 8, padding: 8 },
+      config: { axis: 'y', fill: true, gap: 8, padding: 8, accepts: false },
       children: [
         {
           id: 'ios-page',
           kind: 'group',
           strategy: 'grid',
-          config: { cols: 4, maxRows: 6, gap: 12 },
+          config: {
+            cols: 4,
+            maxRows: 6,
+            gap: 24,
+            padding: 8,
+            cell: { w: IOS_ICON, h: IOS_ICON + 16 },
+            justify: 'evenly',
+          },
+          item: APP,
         },
         {
           id: 'ios-dock',
           kind: 'group',
           strategy: 'grid',
-          config: { maxCols: 4, maxRows: 1, gap: 12, padding: 12 },
-          placement: { size: { h: 96 } },
+          config: {
+            cols: 4,
+            maxRows: 1,
+            padding: 8,
+            cell: { w: IOS_ICON, h: IOS_ICON },
+            justify: 'evenly',
+            accepts: { max: 4 },
+          },
+          placement: { size: { h: 100 } },
+          item: APP,
         },
       ],
     },
@@ -546,12 +631,11 @@ export const PRESETS: Preset[] = [
   {
     id: 'launchpad-full',
     source: 'macOS Launchpad, one 7×5 page holding exactly 35 apps',
-    stress:
-      'a page full to the cap must place all 35 — the auto-balance picks 6 columns for 26–36 items',
+    stress: 'a page full to the cap must place all 35 fixed cells, spread evenly across the screen',
     description:
       'macOS Launchpad shows every installed app as a full-screen grid of icons, seven across and five down, in pages the user swipes between. Users drag an icon to rearrange it, drop it on another to make a folder, or drag it to the edge of the screen to move it to the next page. This page holds exactly 35 apps, so every cell is full.',
     viewport: { w: 1440, h: 900 },
-    ...launchpad(35, true),
+    ...launchpad(35),
   },
   {
     id: 'launchpad-overflow',
@@ -560,7 +644,7 @@ export const PRESETS: Preset[] = [
     description:
       'macOS Launchpad with 40 apps, more than one seven-by-five page holds. Launchpad fills the first page and puts the rest on a second page, shown by the dots at the bottom of the screen.',
     viewport: { w: 1440, h: 900 },
-    ...launchpad(40, false),
+    ...launchpad(40),
   },
   {
     id: 'launchpad-thirty',
@@ -569,7 +653,7 @@ export const PRESETS: Preset[] = [
     description:
       'A macOS Launchpad page holding 30 apps, so five of its 35 cells are still empty and a newly installed app lands on this page rather than starting a new one. The Dock sits below the page.',
     viewport: { w: 1440, h: 900 },
-    ...launchpad(30, false),
+    ...launchpad(30),
   },
   {
     id: 'excel-frozen-panes',
@@ -586,7 +670,7 @@ export const PRESETS: Preset[] = [
     source:
       'IUPAC periodic table: 18 groups, the gap over groups 3–12 in periods 1–3, and the detached f-block',
     stress:
-      'holes expressed as spacer spans (16, 10, 10), and a second grid aligned to the first by leading spacers',
+      'every element at an explicit cell with the holes in periods 1–3 left empty, and a second grid aligned to the first by the same cells',
     description:
       'The standard periodic table lays out the 118 chemical elements in 18 columns (groups) and 7 rows (periods), leaving gaps at the top where the first three rows hold fewer elements. The lanthanides and actinides, which belong in rows 6 and 7, are pulled out into two separate rows beneath the main table so that it does not become 32 columns wide.',
     viewport: { w: 1080, h: 600 },

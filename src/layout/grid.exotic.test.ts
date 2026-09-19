@@ -50,6 +50,19 @@ interface Cfg {
   maxRows?: number;
   gap?: number;
   padding?: number;
+  cell?: { w?: number; h?: number };
+  justify?: 'start' | 'center' | 'end' | 'between' | 'evenly';
+}
+
+/** Where column 0 starts and the extra space between columns, when `used`
+ *  columns of `cellW` leave `leftover` of the width for `justify` to hand out. */
+function spread(justify: Cfg['justify'], leftover: number, used: number) {
+  if (leftover <= 0) return { offset: 0, extra: 0 };
+  if (justify === 'center') return { offset: leftover / 2, extra: 0 };
+  if (justify === 'end') return { offset: leftover, extra: 0 };
+  if (justify === 'between') return { offset: 0, extra: used > 1 ? leftover / (used - 1) : 0 };
+  if (justify === 'evenly') return { offset: leftover / (used + 1), extra: leftover / (used + 1) };
+  return { offset: 0, extra: 0 };
 }
 
 /** The span grid *should* give `item`: floor, at least 1 (NaN included), at most the grid. */
@@ -74,29 +87,48 @@ function rowCapOf(cfg: Cfg): number | undefined {
 /** Each placed rect as whole cells, or the reason it is not on the lattice. */
 function cellsOf(s: Scenario, result: LayoutResult<string>) {
   const cfg = s.options as Cfg;
-  const { cols, rows } = gridTiling(s.items, s.options);
+  const { cols, rows } = gridTiling(s.items, s.options, s.container);
   const gap = cfg.gap ?? 0;
   const pad = cfg.padding ?? 0;
-  const cellW = Math.max((s.container.w - 2 * pad - gap * (cols - 1)) / cols, 0);
-  const cellH = Math.max((s.container.h - 2 * pad - gap * (rows - 1)) / rows, 0);
+  const usableW = s.container.w - 2 * pad;
+  const cellW = cfg.cell?.w ?? Math.max((usableW - gap * (cols - 1)) / cols, 0);
+  const cellH = cfg.cell?.h ?? Math.max((s.container.h - 2 * pad - gap * (rows - 1)) / rows, 0);
   const whole = (v: number) => Math.abs(v - Math.round(v)) < 1e-6;
-  const out = new Map<string, { col: number; row: number; cols: number; rows: number }>();
-  const off: string[] = [];
-  for (const [id, r] of result.placements) {
-    const col = (r.x - pad) / (cellW + gap);
-    const row = (r.y - pad) / (cellH + gap);
-    const cs = (r.w + gap) / (cellW + gap);
-    const rs = (r.h + gap) / (cellH + gap);
-    if (cellW + gap <= 0 || cellH + gap <= 0) continue;
-    if (![col, row, cs, rs].every(whole)) off.push(`${id} at ${col},${row} ${cs}x${rs}`);
-    out.set(id, {
-      col: Math.round(col),
-      row: Math.round(row),
-      cols: Math.round(cs),
-      rows: Math.round(rs),
-    });
+  // The occupied column count `justify` spread over is not in the result, so
+  // try each and keep the one the rects agree with.
+  const read = (used: number) => {
+    const { offset, extra } = spread(
+      cfg.justify,
+      usableW - (used * cellW + (used - 1) * gap),
+      used,
+    );
+    const colStride = cellW + gap + extra;
+    const out = new Map<string, { col: number; row: number; cols: number; rows: number }>();
+    const off: string[] = [];
+    let reach = 0;
+    for (const [id, r] of result.placements) {
+      const col = (r.x - pad - offset) / colStride;
+      const row = (r.y - pad) / (cellH + gap);
+      const cs = (r.w + gap + extra) / colStride;
+      const rs = (r.h + gap) / (cellH + gap);
+      if (colStride <= 0 || cellH + gap <= 0) continue;
+      if (![col, row, cs, rs].every(whole)) off.push(`${id} at ${col},${row} ${cs}x${rs}`);
+      reach = Math.max(reach, Math.round(col) + Math.round(cs));
+      out.set(id, {
+        col: Math.round(col),
+        row: Math.round(row),
+        cols: Math.round(cs),
+        rows: Math.round(rs),
+      });
+    }
+    return { cells: out, off, cols, reach };
+  };
+  if (cfg.justify === undefined || cfg.justify === 'start') return read(cols);
+  for (let used = 1; used <= cols; used++) {
+    const attempt = read(used);
+    if (attempt.off.length === 0 && attempt.reach === used) return attempt;
   }
-  return { cells: out, off, cols };
+  return read(cols);
 }
 
 function check(name: Check, s: Scenario, title: string, fn: () => void) {
@@ -162,16 +194,60 @@ describe.each(SCENARIOS)('$id + one more 1×1', (s) => {
   });
 });
 
-describe('capacity under maxCols × maxRows', () => {
-  it('an iPhone dock (4×1) holds three apps in one row', () => {
-    const r = run(scenario('ios-dock', 'ios-dock'));
-    expect(r.unplaced).toBeUndefined();
-    expect(r.placements.size).toBe(3);
+describe('iPhone dock: fixed icon cells spaced evenly', () => {
+  const s = scenario('ios-dock', 'ios-dock');
+  const rects = (sc: Scenario) => [...run(sc).placements.values()].sort((a, b) => a.x - b.x);
+  /** The space before, between and after the icons along the dock. */
+  const spaces = (rs: Rect[], w: number, pad: number) => [
+    rs[0]!.x - pad,
+    ...rs.slice(1).map((r, i) => r.x - (rs[i]!.x + rs[i]!.w)),
+    w - pad - (rs.at(-1)!.x + rs.at(-1)!.w),
+  ];
+
+  it('holds three apps in one row at 60pt each, with equal space around them', () => {
+    const rs = rects(s);
+    expect(rs).toHaveLength(3);
+    for (const r of rs) expect({ w: r.w, h: r.h }).toEqual({ w: 60, h: 60 });
+    const gaps = spaces(rs, s.container.w, 8);
+    for (const g of gaps) expect(g).toBeCloseTo(gaps[0]!, 6);
+    expect(gaps[0]).toBeGreaterThan(0);
   });
 
-  it('a full 7×5 Launchpad page places all 35', () => {
+  it('takes a fourth app at the same size, still evenly spaced', () => {
+    const rs = rects({ ...s, items: [...s.items, { id: 'ios-app-1' }] });
+    expect(rs).toHaveLength(4);
+    for (const r of rs) expect(r.w).toBe(60);
+    const gaps = spaces(rs, s.container.w, 8);
+    for (const g of gaps) expect(g).toBeCloseTo(gaps[0]!, 6);
+  });
+
+  it('refuses a fifth by accepts.max, and accepts a fourth, through the drag engine', () => {
+    const preset = PRESETS.find((p) => p.id === 'ios-dock') as Preset;
+    const store = presetToStore(preset);
+    const strategies: Record<string, unknown> = { grid: gridStrategy, strip: stripStrategy };
+    const hover = (sourceId: string) => {
+      const engine = new DragEngine(store, { getStrategy: (id) => strategies[id] as never });
+      engine.addDropTarget(asNodeId('ios-dock'), {
+        bounds: (): Rect => ({ x: 0, y: 0, z: 0, w: 390, h: 100 }),
+      });
+      engine.tryBegin(asNodeId(sourceId));
+      engine.updateHoverByPoint(100, 50);
+      const accepted = engine.state()?.hover?.accepted;
+      engine.cancel();
+      return accepted;
+    };
+    expect(hover('ios-app-1')).toBe(true);
+    store.moveNode(asNodeId('ios-app-1'), asNodeId('ios-dock'));
+    expect(hover('ios-app-2')).toBe(false);
+  });
+});
+
+describe('capacity under maxCols × maxRows', () => {
+  it('a full 7×5 Launchpad page places all 35 at one fixed size', () => {
     const r = run(scenario('launchpad-full', 'lp-page'));
     expect(r.placements.size).toBe(35);
+    for (const rect of r.placements.values())
+      expect({ w: rect.w, h: rect.h }).toEqual({ w: 112, h: 124 });
   });
 
   it('a fixed 7×5 Launchpad page places 35 of 40 and reports the last 5 as the next page', () => {
@@ -214,9 +290,14 @@ describe('Android home screen: cells, not items', () => {
   const full = scenario('android-full-by-cells', 'page');
   const widget: LayoutItem = { id: 'widget-weather', placement: { span: { cols: 4, rows: 2 } } };
 
-  it('the page is full by cells with 14 children', () => {
+  it('the page is full by cells with 14 children, each at the cell it was left in', () => {
     expect(full.items).toHaveLength(14);
-    expect(run(full).unplaced).toBeUndefined();
+    const r = run(full);
+    expect(r.unplaced).toBeUndefined();
+    const { cells } = cellsOf(full, r);
+    expect(cells.get('weather-2x2')).toEqual({ col: 0, row: 1, cols: 2, rows: 2 });
+    expect(cells.get('app-1')).toMatchObject({ col: 2, row: 1 });
+    expect(cells.get('app-12')).toMatchObject({ col: 3, row: 4 });
   });
 
   it('canAccept counts the 4×2 widget as eight cells and refuses it', () => {
@@ -339,6 +420,18 @@ describe('Grafana dashboard', () => {
     expect(gridTiling(s.items, s.options)).toEqual({ cols: 24, rows: 23 });
   });
 
+  it('puts each panel at its gridPos, in 30px rows with 8px margins', () => {
+    const { cells } = cellsOf(s, r);
+    for (const item of s.items) {
+      expect({ id: item.id, ...cells.get(item.id) }).toMatchObject({
+        id: item.id,
+        ...item.placement?.cell,
+      });
+    }
+    expect(r.placements.get('cpu-cores')?.h).toBe(2 * 30 + 8);
+    expect(r.placements.get('cpu-basic')?.y).toBe(8 + 6 * (30 + 8));
+  });
+
   it('puts the right-edge panel flush with the right padding', () => {
     const edge = r.placements.get('edge-panel') as Rect;
     expect(edge.x + edge.w).toBeCloseTo(s.container.w - 8, 6);
@@ -356,7 +449,21 @@ describe('periodic table', () => {
   const fBlock = scenario('periodic-table', 'f-block');
   const cellOf = (sc: Scenario, id: string) => cellsOf(sc, run(sc)).cells.get(id);
 
-  it('spacer spans put every element in its IUPAC group and period', () => {
+  it('holds only elements and the two f-block markers, each placed at its own cell', () => {
+    const r = run(main);
+    expect(main.items).toHaveLength(118 - 30 + 2);
+    expect(r.unplaced).toBeUndefined();
+    const { cells } = cellsOf(main, r);
+    for (const item of [...main.items, ...fBlock.items]) {
+      expect(item.id).toMatch(/^(el-|lanthanides-ref|actinides-ref)/);
+      const want = item.placement?.cell;
+      const sc = main.items.includes(item) ? main : fBlock;
+      const got = sc === main ? cells.get(item.id) : cellOf(fBlock, item.id);
+      expect({ id: item.id, ...got }).toMatchObject({ id: item.id, ...want });
+    }
+  });
+
+  it('puts every element in its IUPAC group and period', () => {
     expect(gridTiling(main.items, main.options)).toEqual({ cols: 18, rows: 7 });
     expect(cellOf(main, 'el-He')).toMatchObject({ col: 17, row: 0 });
     expect(cellOf(main, 'el-B')).toMatchObject({ col: 12, row: 1 });
@@ -526,6 +633,41 @@ describe('DragEngine feeding grid.canAccept', () => {
     engine.updateHoverByPoint(200, 200);
     return engine.state()?.hover?.accepted;
   }
+
+  it('a device shell refuses every drop by accepts: false', () => {
+    const shells = PRESETS.filter((p) => p.mechanics.strategy !== 'grid');
+    expect(shells.length).toBeGreaterThan(0);
+    for (const preset of shells) {
+      const group = preset.mechanics.children?.[0]?.id as string;
+      const leaf = presetToStore(preset).getChildren(asNodeId(group))[0]?.id as string;
+      expect({ preset: preset.id, accepted: verdict(preset, preset.mechanics.id, leaf) }).toEqual({
+        preset: preset.id,
+        accepted: false,
+      });
+    }
+  });
+
+  it('the Pixel hotseat takes an app into a free slot but refuses a 1×1 widget by kind', () => {
+    const preset = PRESETS.find((p) => p.id === 'android-full-by-count') as Preset;
+    const store = presetToStore(preset);
+    store.unregisterNode(asNodeId('dock-4'));
+    // One cell, so only its kind can refuse it.
+    store.patchPlacement(asNodeId('widget-weather'), { span: { cols: 1, rows: 1 } });
+    const strategies: Record<string, unknown> = { grid: gridStrategy, strip: stripStrategy };
+    const hover = (sourceId: string) => {
+      const engine = new DragEngine(store, { getStrategy: (id) => strategies[id] as never });
+      engine.addDropTarget(asNodeId('hotseat'), {
+        bounds: (): Rect => ({ x: 0, y: 0, z: 0, w: 400, h: 72 }),
+      });
+      engine.tryBegin(asNodeId(sourceId));
+      engine.updateHoverByPoint(200, 36);
+      const accepted = engine.state()?.hover?.accepted;
+      engine.cancel();
+      return accepted;
+    };
+    expect(hover('new-app')).toBe(true);
+    expect(hover('widget-weather')).toBe(false);
+  });
 
   it('an over-capacity sheet accepts a reorder of its own cells', () => {
     const preset = PRESETS.find((p) => p.id === 'excel-frozen-panes') as Preset;
