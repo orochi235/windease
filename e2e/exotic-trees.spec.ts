@@ -2,9 +2,9 @@ import { expect, type Page, test } from '@playwright/test';
 import { type Box, boxOf, centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
- * A pane saved with a pixel `placement.size` in one kind of container, dragged
- * into another kind. The size travels with it; these check the box it lands in
- * is still one a user can see and grab.
+ * A pane saved with a `placement.share` in one kind of container, dragged
+ * into another kind. The share travels with it; these check the box it lands
+ * in is still one a user can see and grab.
  */
 
 const SWAY = 'exotic--trees--sway-workspace';
@@ -13,7 +13,9 @@ const GOLDEN = 'exotic--trees--golden-layout';
 const node = (page: Page, id: string) => page.locator(`[data-node="${id}"]`);
 const handle = (page: Page, id: string) => page.locator(`[data-windease-drag-handle="${id}"]`);
 const group = (page: Page, id: string) => page.getByTestId(`xt-group-${id}`);
-const lastMove = (page: Page) => page.getByTestId('xt-last-move');
+/** `id`'s node sits inside `groupId`'s chrome, so the drop moved it there. */
+const landedIn = (page: Page, id: string, groupId: string) =>
+  expect(group(page, groupId).locator(`[data-node="${id}"]`)).toHaveCount(1);
 
 async function drag(page: Page, sourceId: string, to: { x: number; y: number }) {
   const from = centerOf(await boxOf(handle(page, sourceId)));
@@ -39,14 +41,14 @@ function expectInside(inner: Box, outer: Box, slack = 2) {
 }
 
 test.describe('exotic trees', () => {
-  test('a sized pane from a horizontal split fills a tabbed container', async ({ page }) => {
+  test('a shared pane from a horizontal split fills a tabbed container', async ({ page }) => {
     await openStory(page, SWAY);
     const tabs = await settledBox(group(page, 'tabbed-0-2'));
 
-    // nvim carries placement.size.w from the splith it was saved in.
+    // nvim carries placement.share from the splith it was saved in.
     await drag(page, 'nvim', { x: tabs.x + tabs.w / 2, y: tabs.y + tabs.h * 0.6 });
 
-    await expect(lastMove(page)).toHaveText('nvim → tabbed-0-2');
+    await landedIn(page, 'nvim', 'tabbed-0-2');
     await expect(page.getByTestId('xt-tab-nvim')).toHaveAttribute('aria-selected', 'true');
     const pane = await settledBox(node(page, 'nvim'));
     expectFinite(pane);
@@ -56,7 +58,7 @@ test.describe('exotic trees', () => {
     expect(pane.h).toBeGreaterThan(tabs.h - 20 - 4);
   });
 
-  test('a sized pane from a horizontal split lands inside a vertical one', async ({ page }) => {
+  test('a shared pane from a horizontal split lands inside a vertical one', async ({ page }) => {
     await openStory(page, SWAY);
     const column = await settledBox(group(page, 'splitv-0-0'));
     const htop = await settledBox(node(page, 'htop'));
@@ -64,12 +66,13 @@ test.describe('exotic trees', () => {
     // Over htop, whose innermost container is the vertical split itself.
     await drag(page, 'nvim', { x: htop.x + htop.w / 2, y: htop.y + htop.h * 0.75 });
 
-    await expect(lastMove(page)).toHaveText('nvim → splitv-0-0');
+    await landedIn(page, 'nvim', 'splitv-0-0');
     const pane = await settledBox(node(page, 'nvim'));
     expectFinite(pane);
     expectInside(pane, column);
-    // Its stale width is the cross axis here, so it spans the column.
+    // It spans the column, and its share of a width is now a share of the height.
     expect(pane.w).toBeGreaterThan(column.w - 4);
+    expect(pane.h).toBeGreaterThan(20);
     // htop and the stacked group still share the column between them.
     const after = await settledBox(node(page, 'htop'));
     expectInside(after, column);
@@ -82,7 +85,8 @@ test.describe('exotic trees', () => {
 
     await drag(page, 'terminal', { x: chat.x + chat.w / 2, y: chat.y + chat.h / 2 });
 
-    await expect(lastMove(page)).toHaveText('terminal → stack-chat');
+    await landedIn(page, 'terminal', 'stack-chat');
+    await expect(page.getByTestId('xt-tab-terminal')).toHaveAttribute('aria-selected', 'true');
     const pane = await settledBox(node(page, 'terminal'));
     expectFinite(pane);
     expectInside(pane, chat);

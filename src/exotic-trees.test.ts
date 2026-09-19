@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createNode } from './constructors.js';
+import { ContainerHost } from './container-host.js';
 import { CycleError, WindeaseError } from './errors.js';
-import type { LayoutStrategy, Rect } from './layout-types.js';
+import type { LayoutStrategy, Rect, Size } from './layout-types.js';
 import { asNodeId, type NodeId } from './node.js';
 import { deserialize, serialize } from './snapshot.js';
 import type { Store } from './store.js';
@@ -85,6 +86,46 @@ const rectOf = (rects: Map<string, Rect>, nid: string) => {
   return r;
 };
 
+/**
+ * Drags the seam after `childId` in strip `rowId` by `d` through a
+ * `ContainerHost`, as the React gutter does. `moved` is how far the seam went;
+ * `total` is how much the row's extent changed, which should be nothing.
+ */
+function dragSeam(
+  store: Store,
+  rootId: string,
+  rowId: string,
+  childId: string,
+  d: number,
+  viewport: Size,
+) {
+  const before = layoutTree(store, rootId, viewport);
+  const box = before.passes.find((p) => p.id === rowId)?.box ?? { w: 0, h: 0 };
+  const config = store.getNode(id(rowId))?.container?.config as { axis?: 'x' | 'y' } | undefined;
+  const axis = config?.axis ?? 'x';
+  const end = (rects: Map<string, Rect>, n: string) =>
+    axis === 'x'
+      ? rectOf(rects, n).x + rectOf(rects, n).w
+      : rectOf(rects, n).y + rectOf(rects, n).h;
+  const extent = (rects: Map<string, Rect>) =>
+    (store.getContainerView(id(rowId))?.childOrder ?? []).reduce((s, c) => {
+      const r = rects.get(String(c));
+      return s + (r ? (axis === 'x' ? r.w : r.h) : 0);
+    }, 0);
+  const host = new ContainerHost(store, id(rowId), new Map(Object.entries(TREE_STRATEGIES)));
+  host.setViewport({ w: box.w, h: box.h });
+  host.dispatchAffordance({
+    affordanceId: `resize-${axis}-${childId}`,
+    kind: 'drag',
+    payload: axis === 'x' ? { dx: d, dy: 0 } : { dx: 0, dy: d },
+  });
+  const after = layoutTree(store, rootId, viewport);
+  return {
+    moved: end(after.rects, childId) - end(before.rects, childId),
+    total: extent(after.rects) - extent(before.rects),
+  };
+}
+
 describe('i3 / sway trees', () => {
   const DEVTOOLS_TAB = 'splitv-0-1-0-0-1';
   const withDevtools = () => {
@@ -93,11 +134,22 @@ describe('i3 / sway trees', () => {
     return store;
   };
 
-  it('translates append_layout into six nested containers with pixel shares', () => {
+  it('translates append_layout into six nested containers with percent as share', () => {
     expect(depth(presetTree(I3_PRESET))).toBeGreaterThanOrEqual(6);
-    expect(find(presetTree(I3_PRESET), 'splitv-0-0')?.placement).toEqual({ size: { w: 480 } });
-    expect(find(presetTree(I3_PRESET), 'nvim')?.placement).toEqual({ size: { w: 384 } });
-    expect(find(presetTree(I3_PRESET), 'stacked-0-0-1')?.config).toEqual({ headerSize: 60 });
+    expect(find(presetTree(I3_PRESET), 'splitv-0-0')?.placement).toEqual({ share: 0.25 });
+    expect(find(presetTree(I3_PRESET), 'nvim')?.placement).toEqual({ share: 0.4 });
+    expect(find(presetTree(I3_PRESET), 'stacked-0-0-1')?.config).toEqual({
+      headerSize: 60,
+      show: 'dropped',
+    });
+  });
+
+  it('keeps every split in proportion on a smaller output', () => {
+    const { rects, problems } = laidOut(I3_PRESET, withDevtools(), { w: 1280, h: 720 });
+    expect(problems).toEqual([]);
+    expect(rectOf(rects, 'splitv-0-0').w).toBeCloseTo(320, 6);
+    expect(rectOf(rects, 'nvim').w).toBeCloseTo(0.4 * 0.5 * 1280, 6);
+    expect(rectOf(rects, 'htop').h).toBeCloseTo(0.4 * 720, 6);
   });
 
   it('lays the whole workspace out clean, down to the deepest split', () => {
@@ -109,22 +161,32 @@ describe('i3 / sway trees', () => {
     expect(consoleRect.w / (consoleRect.w + network.w)).toBeCloseTo(0.3, 1);
   });
 
-  it('gives a pane zero extent when it lands unsized among fully sized siblings', () => {
-    // i3 hands a moved window an equal share. Here htop and the stack already
-    // claim all 1080px as placement.size, nvim's stale w is the cross axis, and
-    // an unsized fill pane gets only the leftover — none. A translated tree is
-    // fully sized at every level, so this is what any cross-axis move produces.
+  it('gives a pane zero extent when it lands unshared among siblings whose shares fill the split', () => {
+    // i3 hands a moved window an equal share. A tab carries no share, and
+    // htop and the stack already share all of the column, so an unshared pane
+    // gets only the leftover — none.
+    const store = presetToStore(I3_PRESET);
+    store.moveNode(id('slack'), id('splitv-0-0'), 1);
+    const { rects, problems } = laidOut(I3_PRESET, store);
+    expect(problems).toEqual([]);
+    expect(rectOf(rects, 'slack').w).toBeCloseTo(rectOf(rects, 'splitv-0-0').w, 6);
+    expect(rectOf(rects, 'slack').h).toBe(0);
+  });
+
+  it('reads a share carried from a horizontal split on a vertical one', () => {
+    // A share names no axis, so nvim's 0.4 of a width becomes 0.4 of a height,
+    // normalized against the 1.0 htop and the stack already hold.
     const store = presetToStore(I3_PRESET);
     store.moveNode(id('nvim'), id('splitv-0-0'), 1);
     const { rects, problems } = laidOut(I3_PRESET, store);
     expect(problems).toEqual([]);
-    expect(rectOf(rects, 'nvim').w).toBeCloseTo(rectOf(rects, 'splitv-0-0').w, 6);
-    expect(rectOf(rects, 'nvim').h).toBe(0);
+    expect(rectOf(rects, 'nvim').h / rectOf(rects, 'splitv-0-0').h).toBeCloseTo(0.4 / 1.4, 6);
   });
 
-  it('lets a stale pixel size claim its old share of a much narrower split', () => {
-    // i3 resets percent on a move; windease carries placement.size, so the 480px
-    // column squeezes in proportion against panes a third its size.
+  it('lets a stale share claim its old fraction of a much narrower split', () => {
+    // i3 resets percent on a move; windease carries placement.share, so the
+    // column's 0.25 of the workspace normalizes against console's 0.3 and
+    // network's 0.7.
     const store = withDevtools();
     store.moveNode(id('splitv-0-0'), id('splith-0-1-0-0-1-1'), 1);
     const { rects, problems } = laidOut(I3_PRESET, store);
@@ -133,7 +195,7 @@ describe('i3 / sway trees', () => {
     const moved = rectOf(rects, 'splitv-0-0');
     const parts = ['console', 'splitv-0-0', 'network'].map((n) => rectOf(rects, n).w);
     expect(parts.reduce((a, b) => a + b, 0)).toBeCloseTo(row.w, 6);
-    expect(moved.w / row.w).toBeCloseTo(480 / (173 + 480 + 403), 6);
+    expect(moved.w / row.w).toBeCloseTo(0.25 / (0.3 + 0.25 + 0.7), 6);
     // Its own children still fit inside the squeezed column.
     for (const leaf of ['htop', 'stacked-0-0-1']) {
       const r = rectOf(rects, leaf);
@@ -157,13 +219,15 @@ describe('i3 / sway trees', () => {
     });
   });
 
-  it('reports a pane moved behind the active tab as unplaced, not lost', () => {
+  it('shows a pane moved into a tabbed container and reports the tabs behind it as unplaced', () => {
     const store = presetToStore(I3_PRESET);
     store.moveNode(id('shell'), id('tabbed-0-2'), 2);
+    expect(store.getContainerView(id('tabbed-0-2'))?.config).toMatchObject({ activeId: 'shell' });
     const { passes, problems } = laidOut(I3_PRESET, store);
     expect(problems).toEqual([]);
     const tabbed = passes.find((p) => p.id === 'tabbed-0-2');
-    expect(tabbed?.result.unplaced).toContain('shell');
+    expect(tabbed?.result.placements.has(id('shell'))).toBe(true);
+    expect(tabbed?.result.unplaced).toEqual(['slack', 'spotify']);
   });
 
   it('clamps a span carried out of a wide grid into a narrow one', () => {
@@ -214,7 +278,22 @@ describe('Golden Layout configs', () => {
     const search = find(presetTree(GOLDEN_PRESET), 'stack-search');
     expect(search?.strategy).toBe('stack');
     expect(search?.children?.map((c) => c.id)).toEqual(['search']);
-    expect(search?.placement).toEqual({ size: { h: 360 } });
+    expect(search?.placement).toEqual({ share: 0.4 });
+  });
+
+  it('shows a dropped tab, and the tab before a closed active one', () => {
+    const store = presetToStore(GOLDEN_PRESET);
+    store.moveNode(id('terminal'), id('stack-chat'), 1);
+    expect(store.getContainerView(id('stack-chat'))?.config).toMatchObject({
+      activeId: 'terminal',
+    });
+    store.unregisterNode(id('terminal'));
+    expect(store.getContainerView(id('stack-chat'))?.config).toMatchObject({ activeId: 'chat' });
+    store.setActiveChild(id('stack-main-ts'), id('main-ts-2'));
+    store.unregisterNode(id('main-ts-2'));
+    expect(store.getContainerView(id('stack-main-ts'))?.config).toMatchObject({
+      activeId: 'store-ts',
+    });
   });
 
   it('reads v1 width/height percentages the same as v2 size strings', () => {
@@ -253,7 +332,7 @@ describe('Golden Layout configs', () => {
     });
   }
 
-  it('drops a nested stack into the root row, where its 448px squeezes with the rest', () => {
+  it('drops a nested stack into the root row, where its 50% normalizes with the rest', () => {
     const store = presetToStore(GOLDEN_PRESET);
     store.moveNode(id('stack-problems'), id('row'), 3);
     const { rects, problems } = laidOut(GOLDEN_PRESET, store);
@@ -262,20 +341,18 @@ describe('Golden Layout configs', () => {
       (n) => rectOf(rects, n).w,
     );
     expect(widths.reduce((a, b) => a + b, 0)).toBeCloseTo(1600, 6);
-    expect(rectOf(rects, 'stack-problems').w).toBeCloseTo((448 / 2048) * 1600, 6);
+    expect(rectOf(rects, 'stack-problems').w).toBeCloseTo((0.5 / 1.5) * 1600, 6);
   });
 });
 
 describe('Dockview layouts', () => {
-  it('alternates branch orientation and keeps pixel sizes on the parent axis', () => {
+  it('alternates branch orientation and turns pixel sizes into shares of the parent axis', () => {
     expect(DOCKVIEW_PRESET.mechanics.config).toEqual({ axis: 'x', fill: true });
     expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1')?.config).toEqual({
       axis: 'y',
       fill: true,
     });
-    expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1.1')?.placement).toEqual({
-      size: { h: 300 },
-    });
+    expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1.1')?.placement).toEqual({ share: 0.3 });
   });
 
   it('lays out at the saved grid size and restores identically', () => {
@@ -285,6 +362,41 @@ describe('Dockview layouts', () => {
     const restored = roundTrip(before.store);
     expect(layoutTree(restored, 'branch-0', DOCKVIEW_PRESET.viewport).rects).toEqual(before.rects);
   });
+
+  it('scales every saved pixel size in proportion into a smaller window', () => {
+    const { rects, problems } = laidOut(DOCKVIEW_PRESET, undefined, { w: 800, h: 500 });
+    expect(problems).toEqual([]);
+    expect(rectOf(rects, 'group-1').w).toBeCloseTo(140, 6);
+    expect(rectOf(rects, 'branch-0.1.1').h).toBeCloseTo(150, 6);
+    expect(rectOf(rects, 'group-4').w).toBeCloseTo(200, 6);
+  });
+
+  it('shows a tab dropped into another group', () => {
+    const store = presetToStore(DOCKVIEW_PRESET);
+    store.moveNode(id('terminal'), id('group-5'), 0);
+    expect(store.getContainerView(id('group-5'))?.config).toMatchObject({ activeId: 'terminal' });
+  });
+
+  for (const [seam, row] of [
+    ['group-1', 'branch-0'],
+    ['group-2', 'branch-0.1'],
+    ['group-3', 'branch-0.1.1'],
+  ] as const) {
+    it(`moves the ${seam} seam by exactly the drag, in the saved window and a smaller one`, () => {
+      for (const viewport of [DOCKVIEW_PRESET.viewport, { w: 960, h: 540 }]) {
+        const { moved, total } = dragSeam(
+          presetToStore(DOCKVIEW_PRESET),
+          'branch-0',
+          row,
+          seam,
+          40,
+          viewport,
+        );
+        expect(moved).toBeCloseTo(40, 6);
+        expect(total).toBeCloseTo(0, 6);
+      }
+    });
+  }
 });
 
 describe('Emacs side windows', () => {
@@ -296,6 +408,14 @@ describe('Emacs side windows', () => {
     const store = presetToStore(EMACS_PRESET);
     expect(pins(store, ['dired', 'treemacs', 'imenu-list'])).toEqual([0, 1, 2]);
     expect(laidOut(EMACS_PRESET, store).problems).toEqual([]);
+  });
+
+  it('keeps each side at its frame fraction when the frame resizes', () => {
+    for (const frame of [EMACS_PRESET.viewport, LAPTOP]) {
+      const { rects } = laidOut(EMACS_PRESET, undefined, frame);
+      expect(rectOf(rects, 'side-left').w).toBeCloseTo(0.2 * frame.w, 6);
+      expect(rectOf(rects, 'side-bottom').h).toBeCloseTo(0.25 * frame.h, 6);
+    }
   });
 
   it('shifts the later slots down when a side window is deleted', () => {
@@ -353,10 +473,28 @@ describe('trading desk saved at 3840x2160, restored at 1366x768', () => {
     expect(overflow?.h).toBeGreaterThan(0);
   });
 
-  it('collapses a fill column with no floor when fixed-pixel siblings outgrow the screen', () => {
-    // The chart column has no size of its own; 960 + 1400 fixed px squeeze it to nothing.
+  it('scales the columns in proportion, so the unsized chart column keeps its 4K fraction', () => {
     const { rects } = laidOut(TRADING_DESK_PRESET, restored(), LAPTOP);
-    expect(rectOf(rects, 'center-col').w).toBe(0);
+    const row = LAPTOP.w - 2 * 4 - 2 * 4;
+    expect(rectOf(rects, 'quotes-col').w).toBeCloseTo((960 / 3824) * row, 6);
+    expect(rectOf(rects, 'center-col').w).toBeCloseTo((1464 / 3824) * row, 6);
+    expect(rectOf(rects, 'tickets').w).toBeCloseTo((1400 / 3824) * row, 6);
+  });
+
+  it('gives every docked pane a nonzero box on the laptop', () => {
+    const { rects, passes } = laidOut(TRADING_DESK_PRESET, restored(), LAPTOP);
+    const docked = passes
+      .filter((p) => p.id !== 'tickets')
+      .flatMap((p) => [...p.result.placements.keys()].map(String));
+    expect(docked.length).toBeGreaterThanOrEqual(12);
+    const empty = docked.filter((n) => rectOf(rects, n).w <= 0 || rectOf(rects, n).h <= 0);
+    expect(empty).toEqual([]);
+  });
+
+  it('moves a column seam by exactly the drag on the laptop', () => {
+    const { moved, total } = dragSeam(restored(), 'desk', 'desk', 'quotes-col', -30, LAPTOP);
+    expect(moved).toBeCloseTo(-30, 6);
+    expect(total).toBeCloseTo(0, 6);
   });
 
   it('keeps a floored fill column open and overflows the desk instead', () => {
