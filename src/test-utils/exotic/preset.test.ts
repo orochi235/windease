@@ -153,3 +153,40 @@ describe('presetTree', () => {
     );
   });
 });
+
+describe('item templates', () => {
+  const panes: Preset = {
+    id: 'tmux-ish',
+    source: 'test',
+    stress: 'none',
+    description: 'test',
+    viewport: { w: 400, h: 100 },
+    mechanics: {
+      id: 'row',
+      strategy: 'strip',
+      item: { hints: { minSize: { w: 8, h: 0 } }, placement: { size: { w: 50 } } },
+      children: [{ id: 'fixed' }],
+    },
+    data: {
+      children: {
+        row: [
+          { id: 'a', meta: { title: 'A' } },
+          { id: 'b', placement: { size: { w: 120 }, pinned: 0 } },
+        ],
+      },
+    },
+  };
+
+  it('gives every data child the container template, the child winning key by key', () => {
+    const [fixed, a, b] = presetTree(panes).children ?? [];
+    expect(fixed).toEqual({ id: 'fixed' });
+    expect(a).toEqual({
+      id: 'a',
+      meta: { title: 'A' },
+      hints: { minSize: { w: 8, h: 0 } },
+      placement: { size: { w: 50 } },
+    });
+    expect(b?.placement).toEqual({ size: { w: 120 }, pinned: 0 });
+    expect(b?.hints).toEqual({ minSize: { w: 8, h: 0 } });
+  });
+});

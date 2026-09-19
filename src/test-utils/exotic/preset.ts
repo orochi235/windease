@@ -26,6 +26,25 @@ export interface PresetNode {
   /** Shown, then hidden — `hidden` proper, which layout skips, not merely `mounted`. */
   hidden?: boolean;
   children?: PresetNode[];
+  /**
+   * On a container: the mechanics every child `data.children` adds to it gets —
+   * floors, spans, drag. The child's own values win, key by key, so a data
+   * child need carry only what its content decides.
+   */
+  item?: Omit<PresetNode, 'id' | 'children' | 'item'>;
+}
+
+const MERGED = ['config', 'hints', 'placement', 'meta'] as const;
+
+/** `child` over `template`: object fields merge key by key, anything else falls back. */
+function withTemplate(template: NonNullable<PresetNode['item']>, child: PresetNode): PresetNode {
+  const out: Record<string, unknown> = { ...template, ...child };
+  for (const key of MERGED) {
+    const t = template[key] as Record<string, unknown> | undefined;
+    const c = child[key] as Record<string, unknown> | undefined;
+    if (t !== undefined && c !== undefined) out[key] = { ...t, ...c };
+  }
+  return out as unknown as PresetNode;
 }
 
 /**
@@ -101,7 +120,9 @@ export function presetTree(preset: Preset): PresetNode {
       );
     }
     if (node.children !== undefined || added !== undefined) {
-      out.children = [...(node.children ?? []), ...(added ?? [])].map(build);
+      const template = node.item;
+      const fromData = template ? (added ?? []).map((c) => withTemplate(template, c)) : added;
+      out.children = [...(node.children ?? []), ...(fromData ?? [])].map(build);
     }
     return out;
   };
