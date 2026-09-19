@@ -1,4 +1,5 @@
 import type { LayoutItem, LayoutStrategy, Rect } from '#windease/layout-types.js';
+import type { Recipe } from './engine/types.js';
 
 /** What a dataset's source packed it with, so a run can reproduce that. */
 export interface DatasetHint {
@@ -19,10 +20,22 @@ export interface Dataset {
 export interface Packer {
   id: string;
   strategy: LayoutStrategy<void, string>;
+  /** The engine recipe behind `strategy`, when it has one; the `moved` metric passes it the
+   *  previous packing so `drift` has something to read. */
+  recipe?: Recipe;
+  /** Whether a new trial starts with this packer on. */
+  on: boolean;
 }
 
 /** How wide the container is: fixed, or searched for the shape closest to a ratio. */
-export type Fit = { kind: 'width'; width: number } | { kind: 'aspect'; ratio: number };
+export type Fit =
+  | {
+      kind: 'width';
+      width: number;
+      /** A bin's height, which only a packer under `overflowMode: 'unplaced'` reads. */
+      height?: number;
+    }
+  | { kind: 'aspect'; ratio: number };
 
 export interface Packing {
   placements: ReadonlyMap<string, Rect>;
@@ -30,6 +43,8 @@ export interface Packing {
   bounds: { w: number; h: number };
   /** The container width the packing ran at. */
   width: number;
+  /** The container height it ran at: a bin's height, else 0. */
+  height: number;
 }
 
 export interface RunSpec {

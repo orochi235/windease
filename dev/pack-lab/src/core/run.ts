@@ -1,6 +1,7 @@
+import type { EngineSort } from './engine/order.js';
 import { fitPacking } from './fit.js';
 import { METRICS } from './metrics.js';
-import { optionKeys } from './packers.js';
+import { acceptsOption } from './packers.js';
 import type { Dataset, Fit, Packer, Run, RunSpec } from './types.js';
 
 /** The container and packer settings every instrument's config carries. */
@@ -10,8 +11,9 @@ export interface Settings {
   aspect: number;
   gap: number;
   columnWidth: number;
-  /** A packer's `sort`; `'none'` passes no key, leaving the dataset's order. */
-  sort?: 'none' | 'height' | 'width' | 'area' | 'max-side';
+  /** A packer's `sort`; `'none'` passes no key, leaving the dataset's order. A packer that
+   *  lacks the order chosen gets no key either. */
+  sort?: EngineSort;
   /** A packer's `rotate`; off passes no key. */
   rotate?: boolean;
   /** Take gap, column width and aspect from the dataset where it has them. */
@@ -26,8 +28,9 @@ export function specFor(dataset: Dataset, packer: Packer, settings: Settings): R
   };
   if (settings.sort && settings.sort !== 'none') all.sort = settings.sort;
   if (settings.rotate) all.rotate = true;
-  const accepted = new Set(optionKeys(packer));
-  const options = Object.fromEntries(Object.entries(all).filter(([key]) => accepted.has(key)));
+  const options = Object.fromEntries(
+    Object.entries(all).filter(([key, value]) => acceptsOption(packer, key, value)),
+  );
   const aspectTarget = hint.aspect ?? settings.aspect;
   const fit: Fit =
     settings.fit === 'width'

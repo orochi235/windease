@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { packAt } from './fit.js';
-import { fillPercent, formatMetric, METRICS, targetRatio } from './metrics.js';
+import { fillPercent, formatMetric, METRICS, movedCount, nudged, targetRatio } from './metrics.js';
 import { packerById } from './packers.js';
 import { type Settings, specFor } from './run.js';
 import type { Dataset } from './types.js';
@@ -46,5 +46,23 @@ describe('formatMetric', () => {
     if (!fill) throw new Error('no fill metric');
     expect(formatMetric(fill, 50)).toBe('50.0');
     expect(formatMetric(fill, Number.POSITIVE_INFINITY)).toBe('—');
+  });
+});
+
+describe('movedCount', () => {
+  const row: Dataset = { ...dataset, items: tens('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h') };
+  const wide: Settings = { ...settings, useHints: false };
+
+  it('grows the sized item at the given fraction by 1px each way', () => {
+    const change = nudged(row.items, 0.5)!;
+    expect(change.id).toBe('e');
+    expect(change.items[4]!.natural).toEqual({ w: 11, h: 11 });
+  });
+
+  it('counts the boxes a grown one shifts along its row or lowers under it', () => {
+    // Rows of three at 35px. c raises the first row, lowering d–h (5); e shifts f and raises
+    // the second row, lowering g and h (3); g shifts h (1).
+    const spec = specFor(row, packerById('shelf'), wide);
+    expect(movedCount(packAt(spec.packer, row.items, 35, spec.options), spec)).toBe(3);
   });
 });

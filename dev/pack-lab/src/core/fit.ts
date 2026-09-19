@@ -27,10 +27,11 @@ export function packAt(
   items: readonly LayoutItem[],
   width: number,
   options: Record<string, unknown>,
+  height = 0,
 ): Packing {
   const result = packer.strategy.layout({
     items: [...items],
-    container: { w: width, h: 0 },
+    container: { w: width, h: height },
     state: undefined,
     options,
   });
@@ -45,6 +46,7 @@ export function packAt(
     unplaced: result.unplaced ?? [],
     bounds: { w, h },
     width,
+    height,
   };
 }
 
@@ -60,7 +62,7 @@ export function fitPacking(
   fit: Fit,
   options: Record<string, unknown>,
 ): Packing {
-  if (fit.kind === 'width') return packAt(packer, items, fit.width, options);
+  if (fit.kind === 'width') return packAt(packer, items, fit.width, options, fit.height);
   const gap = optionsGap(options);
   let widest = 1;
   let total = 0;

@@ -19,7 +19,7 @@ test.describe('the pack lab compares packers on a dataset', () => {
     await expect(page.getByRole('img', { name: /^Pack story boxes packed by / })).toHaveCount(3);
     await expect(runs.locator('tbody tr')).toHaveCount(3);
 
-    await page.getByRole('checkbox', { name: 'column' }).uncheck();
+    await page.getByRole('checkbox', { name: 'column', exact: true }).uncheck();
     await expect(tiles).toHaveCount(2);
     await expect(runs.locator('tbody tr')).toHaveCount(2);
     await expect(runs.getByRole('rowheader', { name: 'Pack story boxes · column' })).toHaveCount(0);
@@ -40,5 +40,22 @@ test.describe('the pack lab compares packers on a dataset', () => {
     const shelf = runs.getByRole('row', { name: new RegExp(`^${plate} · shelf `) });
     // The row header is the first column, so data cells sit one index left of their header.
     await expect(shelf.getByRole('cell').nth(gap - 1)).toHaveText('1.0');
+  });
+
+  test('an engine recipe turned on packs beside the shipped packers', async ({ page }) => {
+    await openLab(page);
+    const tiles = page.getByRole('img', { name: / packed by / });
+    await expect(tiles).toHaveCount(3);
+
+    await page.getByRole('checkbox', { name: 'engine:maxrects-bssf' }).check();
+    await expect(tiles).toHaveCount(4);
+    const runs = page.getByRole('table', { name: 'Runs' });
+    const row = runs.getByRole('row', { name: /· engine:maxrects-bssf / });
+    await expect(row).toHaveCount(1);
+
+    const headers = await runs.getByRole('columnheader').allTextContents();
+    const unplaced = headers.indexOf('unplaced');
+    expect(unplaced).toBeGreaterThan(0);
+    await expect(row.getByRole('cell').nth(unplaced - 1)).toHaveText('0');
   });
 });

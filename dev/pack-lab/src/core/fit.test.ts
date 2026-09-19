@@ -66,6 +66,7 @@ describe('aspectScore', () => {
     unplaced: [],
     bounds: { w, h },
     width: w,
+    height: 0,
   });
 
   it('scores a wide miss and a tall miss by the same factor alike', () => {

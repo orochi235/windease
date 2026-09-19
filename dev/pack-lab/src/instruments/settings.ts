@@ -1,4 +1,5 @@
 import { f } from '@weasel-js/labkit';
+import { ENGINE_SORTS, type EngineSort } from '../core/engine/order.js';
 import { PACKERS } from '../core/packers.js';
 import { STORY_BOXES } from '../core/sample.js';
 import { DATASETS } from '../datasets.js';
@@ -42,8 +43,8 @@ export const settingsFields = () => ({
     .label('Column width (unless the dataset sets one; 0 = narrowest item)')
     .section('Packer options'),
   sort: f
-    .enum('none', ['none', 'height', 'width', 'area', 'max-side'])
-    .label('Sort, largest first')
+    .enum<EngineSort>('none', [...ENGINE_SORTS])
+    .label('Sort, largest first (perimeter and height-width: engine recipes only)')
     .section('Packer options'),
   rotate: f
     .boolean(false)
@@ -54,5 +55,5 @@ export const settingsFields = () => ({
 /** One on/off per registered packer, keyed by packer id. */
 export const packerToggles = () =>
   f
-    .group(Object.fromEntries(PACKERS.map((p) => [p.id, f.boolean(true).label(p.id)])))
+    .group(Object.fromEntries(PACKERS.map((p) => [p.id, f.boolean(p.on).label(p.id)])))
     .label('Packers');
