@@ -130,6 +130,7 @@ export type {
   Affordance,
   AffordanceJoin,
   BuiltinAffordanceKind,
+  FloatHook,
   ItemId,
   LayoutEvent,
   LayoutItem,
@@ -181,7 +182,7 @@ export {
 } from './node.js';
 export { type PinnedIndexOf, placeRespectingPins, placeRunRespectingPins } from './pinning.js';
 export { observePixelRatio } from './pixel-ratio.js';
-export { RAISE_MODES, STACK_FALLBACK, STACK_SHOW } from './policies.js';
+export { RAISE_MODES, STACK_FALLBACK, STACK_SHOW, STACK_TEAR } from './policies.js';
 export {
   type ObservedChild,
   reconcileChildOrder,
@@ -202,6 +203,7 @@ export {
 } from './snapshot.js';
 export type { SplitInput } from './split-types.js';
 export { type MutateOptions, Store, type StoreEvents } from './store.js';
+export { dockNode, type FloatInput, floatAncestor, floatNode } from './tear.js';
 export {
   type Clock,
   type MachineName,

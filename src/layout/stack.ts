@@ -1,5 +1,5 @@
 import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
-import { STACK_FALLBACK, STACK_SHOW } from '../policies.js';
+import { STACK_FALLBACK, STACK_SHOW, STACK_TEAR } from '../policies.js';
 import { trace } from '../trace.js';
 
 interface StackConfig {
@@ -25,6 +25,8 @@ export const stackStrategy: LayoutStrategy<void, string> = {
     padding: 'number',
     show: STACK_SHOW,
     fallback: STACK_FALLBACK,
+    tear: STACK_TEAR,
+    tearSize: 'object',
   },
   layout({
     items,

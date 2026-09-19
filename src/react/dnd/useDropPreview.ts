@@ -58,7 +58,8 @@ export function useDropPreview(
 
   const hover =
     dragState?.hover?.targetId === parentId && dragState.hover.accepted ? dragState.hover : null;
-  if (!hover || !dragState) return NOTHING;
+  // A tear lands at the cursor, free of the layout, so there is no slot to open.
+  if (!hover || !dragState || hover.tear) return NOTHING;
 
   const intent = hover.intent?.kind === 'split' ? hover.intent : null;
   const split: SplitBag | null = intent

@@ -8,12 +8,14 @@ import type { RaiseMode } from './policies.js';
 /**
  * Which drops a container takes, checked by the drag engine after `lock.accept`
  * and before `acceptPolicy`. `false` refuses every drop, a reorder within the
- * container included.
+ * container included; `'tear'` refuses every drop but a tab torn out of a
+ * descendant stack whose config sets `tear`.
  *
  * @group Drag and drop
  */
 export type AcceptsConfig =
   | false
+  | 'tear'
   | {
       /** Only a source whose `node.kind` is listed may land here. */
       kinds?: readonly string[];

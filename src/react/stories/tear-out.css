@@ -1,0 +1,148 @@
+.to-frame {
+  padding: 12px;
+  background: #101218;
+  border-radius: 8px;
+  display: inline-block;
+}
+
+.to-studio {
+  background: #0b0d12;
+  border-radius: 6px;
+}
+
+.to-canvas {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: repeating-conic-gradient(#171a22 0% 25%, #12151c 0% 50%) 0 0 / 24px 24px;
+  color: #4d566b;
+  font:
+    600 13px / 1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.to-stack {
+  position: relative;
+  height: 100%;
+  background: #141826;
+  border-left: 1px solid #33405c;
+}
+
+/* The body Container fills the whole stack and overlaps this band, so the strip
+   is raised or its presses land on the container. */
+.to-tabs {
+  z-index: 1;
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 30px;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 2px;
+  background: #0e1220;
+  border-bottom: 1px solid #33405c;
+}
+
+.to-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #8d97ad;
+  font:
+    500 11px / 1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  padding: 0 10px;
+  cursor: grab;
+  border-bottom: 2px solid transparent;
+  touch-action: none;
+  user-select: none;
+}
+
+.to-tab[aria-selected="true"] {
+  color: #e6ebf5;
+  background: #141826;
+  border-bottom-color: #5b8cff;
+}
+
+.to-tab--chip {
+  display: flex;
+  align-items: center;
+  color: #e6ebf5;
+  background: #141826;
+  border-bottom-color: #5b8cff;
+}
+
+.to-page {
+  height: 100%;
+  padding: 12px;
+  color: #dfe4ef;
+  font:
+    12px / 1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+
+.to-palette {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1b2030;
+  border: 1px solid #3a4666;
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  overflow: hidden;
+}
+
+/* The floating strategy's drag band covers exactly this: `handleSize` is 24. */
+.to-palette__bar {
+  flex: 0 0 24px;
+  background: #262d42;
+}
+
+.to-palette__tabs {
+  flex: 0 0 26px;
+  display: flex;
+  background: #0e1220;
+  border-bottom: 1px solid #33405c;
+}
+
+.to-palette__body {
+  padding: 10px 12px;
+  color: #97a0b5;
+  font:
+    12px / 1.5 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+
+.to-readout {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 12px 0 0;
+  font:
+    12px / 1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: #8d97ad;
+}
+
+.to-readout dd {
+  margin: 0;
+  color: #e6ebf5;
+}
+
+.to-prose {
+  max-width: 62ch;
+  font:
+    13px / 1.6 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  color: #97a0b5;
+}
