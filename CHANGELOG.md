@@ -10,6 +10,17 @@ section below.
 
 ### Added
 
+- **`justifiedStrategy` lays out justified rows, like Flickr and Google
+  Photos.** Each item keeps its aspect and every row but the last is scaled to
+  fill the width exactly. Config: `rowHeight` (the target, default 200), `gap`,
+  `maxRowHeight`, and `justifyLast` to stretch the last row too. Row breaks are
+  chosen to keep the rows' heights as close to `rowHeight` as possible overall.
+  See [Justified rows of photos](README.md#justified-rows-of-photos).
+
+- **`hints.aspect` states the width ÷ height a node keeps when scaled.**
+  `justifiedStrategy` reads it before the measured or preferred size; no other
+  built-in strategy honors it yet.
+
 - **A container can refuse drops from its config.** Set `accepts` in any
   container's `config`: `false` refuses every drop, `{ kinds: ['panel'] }`
   refuses a dragged node whose `kind` is not listed, and `{ max: 3 }` refuses a

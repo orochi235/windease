@@ -85,7 +85,7 @@ Two paths for free-form data on a node; lifetimes differ:
 | `node.meta`            | Intrinsic; survives `moveNode`                 | Window-intrinsic consumer data (title, URL, etc.)       |
 | `node.membership.placement`  | Per-membership, but carried across `moveNode`  | State that exists *because of this placement* — the held pin index, placement-specific UI state |
 | `node.container.config` | Container-strategy options                    | Strategy options (`cols`, `gap`, etc.)                  |
-| `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `sizing`, `order` |
+| `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `aspect`, `sizing`, `order` |
 
 **Reserved keys on `membership.placement`:**
 
@@ -389,6 +389,13 @@ Built-ins:
   width, in rows, masonry columns, or the lowest free spot. They grow downward;
   `container.h` only decides `overflow`. Config: `gap`, plus `columnWidth` on
   `column`. Items with no size go to `unplaced`.
+- **`justifiedStrategy`** — justified rows, as in Flickr or Google Photos. Each
+  item keeps its aspect (`hints.aspect`, else `natural` or `preferredSize`
+  width ÷ height) and every row but the last is scaled to fill the width.
+  Config: `rowHeight` (the target, default 200), `gap`, `maxRowHeight`,
+  `justifyLast`. It is the only strategy that honors `hints.aspect`; strip's
+  cross axis and grid's cells stretch an item regardless. Items with no aspect
+  go to `unplaced`.
 
 ## React layer
 

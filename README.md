@@ -45,8 +45,9 @@ See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
   `stackStrategy` (one child visible, you draw the tab strip),
   `floatingStrategy(inner?)`, which wraps another strategy so items marked
   `floating` sit free over what it tiles, `desktopStrategy(inner?)` for
-  overlapping, stacked, minimizable windows over an icon layer, and three packers — `shelfStrategy`,
-  `columnStrategy`, `skylineStrategy` — for boxes of fixed, varied sizes. Strategies work unchanged on
+  overlapping, stacked, minimizable windows over an icon layer, three packers — `shelfStrategy`,
+  `columnStrategy`, `skylineStrategy` — for boxes of fixed, varied sizes, and `justifiedStrategy`
+  for photo-gallery rows that keep each item's aspect. Strategies work unchanged on
   recursive trees via the `LayoutNode` adapter. `store.split(id, input)` builds
   nested `stripStrategy` trees without a dedicated strategy of its own.
 
@@ -539,6 +540,35 @@ const { placements, overflow } = skylineStrategy.layout({
   options: { gap: 8 },
 });
 ```
+
+## Justified rows of photos
+
+`justifiedStrategy` lays items out the way Flickr and Google Photos do. Each
+item keeps its shape and gets scaled, and each row is sized so it fills the
+container's width exactly. The shape is `hints.aspect` (width ÷ height), else
+the width ÷ height of `natural` or `hints.preferredSize`; an item with none of
+them goes to `unplaced`.
+
+```ts
+createNode({ kind: 'panel', id, parentId: galleryId, hints: { aspect: 3 / 2 } });
+// the gallery's config:
+{ rowHeight: 180, gap: 4, maxRowHeight: 360, justifyLast: false }
+```
+
+- **`rowHeight`** (default 200) is the height rows aim for. The strategy picks
+  all the row breaks together, so the rows' heights stray from it as little as
+  possible in total, rather than filling each row greedily and leaving one
+  awkward row badly stretched.
+- **`justifyLast`** — the last row stays at `rowHeight` and ends short of the
+  right edge unless this is `true`. A last row too wide to fit at `rowHeight`
+  is always scaled down to the width.
+- **`maxRowHeight`** — a row that would have to grow taller than this to fill
+  the width stays at `rowHeight` and ends short instead, as a lone portrait
+  in a wide container would.
+
+Rows grow down past `container.h`, and the excess is reported as `overflow`,
+as with the packers. No other built-in strategy reads `hints.aspect`: a strip
+stretches its cross axis and a grid fills its cells whatever the item's shape.
 
 ## Putting a grid child at a cell
 
