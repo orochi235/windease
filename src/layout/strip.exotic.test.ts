@@ -289,10 +289,6 @@ const KNOWN: Record<string, string> = {
   // scales panes down, but strip.test.ts pins preferredSize as unscaled.
   'vscode-hinted-sidebars@400-squeeze » squeeze overflows only once every pane is at its floor':
     'squeeze never scales preferredSize, so floors do not bind before overflow',
-  'tmux-even-horizontal-40 » overflow is reported exactly':
-    "step's remainder arithmetic leaves the last pane 4.5e-13px long, reported as overflow",
-  'tmux-even-horizontal-40 » squeeze overflows only once every pane is at its floor':
-    'the same phantom 4.5e-13px overflow, with every pane above its floor',
 };
 
 describe('strip on real-software layouts', () => {

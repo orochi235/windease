@@ -178,3 +178,16 @@ describe('strip step: seam drags', () => {
     expect((w.b ?? 0) % 10).toBe(0);
   });
 });
+
+describe('strip step remainder', () => {
+  it('reports no overflow for the float noise the remainder leaves in a filled row', () => {
+    const items = Array.from({ length: 40 }, (_, i) => ({
+      id: `p${i}`,
+      hints: { minSize: { w: 8, h: 0 } },
+    }));
+    const r = run(items, { axis: 'x', gap: 8, step: 8, fill: true }, 1366);
+    const end = Math.max(...[...r.placements.values()].map((p) => p.x + p.w));
+    expect(end).toBeCloseTo(1366, 6);
+    expect(r.overflow).toBeUndefined();
+  });
+});

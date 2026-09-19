@@ -315,6 +315,11 @@ section below.
 
 ### Fixed
 
+- **A filled strip under `step` no longer reports a phantom overflow.** The
+  pane taking the rounding remainder could come out a float hair long (tmux's
+  40-pane row ended 4.5e-13px past the edge), and the strip reported that as
+  `overflow`. Excess under 1e-6px, the packer's tolerance, now counts as none.
+
 - **A pane can refuse to be hidden by `overshoot: 'hide'`.** The seam armed on
   whichever pane it squeezed, the editor included, and nothing could stop it:
   `lock.destroy` does not apply to a hide. The new lock axis `hide`

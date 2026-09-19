@@ -10,6 +10,7 @@ import type {
 } from '../layout-types.js';
 import { trace } from '../trace.js';
 import { selectByCapacity } from './capacity.js';
+import { PACK_EPSILON } from './pack.js';
 import { clampExplicitSizes } from './resize.js';
 import { DEFAULT_JOIN_THRESHOLD } from './seam-join.js';
 import { zoomedOf, zoomLayout } from './zoom.js';
@@ -859,7 +860,8 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const consumed =
       sizes.reduce((sum, v) => sum + v, 0) + gap * (placedItems.length - 1) + 2 * padding;
     const excess = consumed - main;
-    if (excess > 0) result.overflow = axis === 'x' ? { w: excess, h: 0 } : { w: 0, h: excess };
+    if (excess > PACK_EPSILON)
+      result.overflow = axis === 'x' ? { w: excess, h: 0 } : { w: 0, h: excess };
     if (unplaced.length > 0) result.unplaced = unplaced;
     if (preview) result.isPreview = true;
     return result;
