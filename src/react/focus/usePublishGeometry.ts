@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
-import { type NodeId, type Rect, trace } from '../../index.js';
+import { type NodeId, type Rect, type StickyInset, stuckRect, trace } from '../../index.js';
 import { useNode } from '../hooks.js';
 import { useGeometryRegistry } from './useGeometrySource.js';
 
@@ -21,6 +21,7 @@ function sameOrigin(a: Rect, b: Rect): boolean {
 export interface PublishableLayout {
   placements: ReadonlyMap<NodeId, Rect>;
   scroll: { x: number; y: number };
+  sticky?: ReadonlyMap<NodeId, StickyInset>;
 }
 
 /**
@@ -125,6 +126,7 @@ export function usePublishGeometry(
 
   const placements = layout.placements;
   const scroll = layout.scroll;
+  const sticky = layout.sticky;
   useEffect(() => {
     if (!registry) return;
     // Placements are unscrolled; the visible position is what the resolver
@@ -132,7 +134,8 @@ export function usePublishGeometry(
     // chain lands placed and flow children in the same space.
     const originX = (selfRect?.x ?? 0) - scroll.x;
     const originY = (selfRect?.y ?? 0) - scroll.y;
-    for (const [cid, r] of placements) {
+    for (const [cid, placed] of placements) {
+      const r = stuckRect(placed, sticky?.get(cid), scroll);
       registry.rects.set(String(cid), {
         x: originX + r.x,
         y: originY + r.y,
@@ -146,5 +149,5 @@ export function usePublishGeometry(
       for (const cid of placements.keys()) registry.rects.delete(String(cid));
       registry.commit();
     };
-  }, [registry, placements, scroll, selfRect?.x, selfRect?.y]);
+  }, [registry, placements, scroll, sticky, selfRect?.x, selfRect?.y]);
 }

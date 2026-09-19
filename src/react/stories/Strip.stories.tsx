@@ -1,7 +1,7 @@
 export default { title: 'Strip' };
 
 import type { Story } from '@ladle/react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { asNodeId, createNode, Store, stackStrategy, stripStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
@@ -438,6 +438,83 @@ export const Zoom: Story = () => {
         <p className="strip-hint">
           Drag a seam, zoom a pane, then zoom <b>none</b>: the row comes back at the sizes you left
           it. Under <code>stack</code> the zone reserves a 28px tab band; a zoomed child covers it.
+        </p>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+const STICKY_ZONE = asNodeId('strip-sticky');
+const PINNED_TABS = ['mail', 'chat'];
+const OPEN_TABS = Array.from({ length: 10 }, (_, i) => `page ${i + 1}`);
+
+function makeStickyStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: {
+        strategyId: 'strip',
+        config: { axis: 'x', gap: 4, padding: 4, overflowMode: 'scroll', resizable: false },
+      },
+      id: STICKY_ZONE,
+    }),
+  );
+  const tabs = [
+    ...PINNED_TABS.map((name) => ({ name, w: 44, sticky: true })),
+    ...OPEN_TABS.map((name) => ({ name, w: 140, sticky: false })),
+  ];
+  for (const { name, w, sticky } of tabs) {
+    const id = asNodeId(`sticky-${name.replace(' ', '-')}`);
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id,
+        parentId: STICKY_ZONE,
+        placement: { size: { w }, ...(sticky ? { sticky: true } : {}) },
+        meta: { title: name },
+      }),
+    );
+    s.showNode(id);
+  }
+  return s;
+}
+
+const stickyChrome: ChromeMap = {
+  panel: ({ node }) => (
+    <div
+      className={`windease-panel strip-tab${node.membership?.placement?.sticky ? ' is-sticky' : ''}`}
+    >
+      {String(node.meta?.title ?? node.id)}
+    </div>
+  ),
+};
+
+/**
+ * `placement.sticky` under `overflowMode: 'scroll'`: the two pinned tabs stay
+ * at the start of the bar while the rest scroll under them, as in Firefox.
+ */
+export const StickyTabs: Story = () => {
+  const store = useMemo(makeStickyStore, []);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <div ref={scrollRef} className="strip-scroller" data-testid="sticky-scroller">
+          <Container
+            parentId={STICKY_ZONE}
+            chrome={stickyChrome}
+            viewport={{ w: 600, h: 40 }}
+            scrollRef={scrollRef}
+            className="windease-zone"
+          />
+        </div>
+        <p className="strip-hint">
+          Scroll the tab bar sideways. <b>mail</b> and <b>chat</b> set <code>placement.sticky</code>
+          , so they hold at the start while the pages slide under them. The strategy never sees the
+          scroll; it reports where each sticky tab sticks, and the container holds it there as the
+          scroll changes.
         </p>
       </StrategyRegistryProvider>
     </Provider>

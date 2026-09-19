@@ -17,6 +17,7 @@ import {
   destroyBlockedBy,
   type NodeId,
   type SeamCapture,
+  stuckRect,
   trace,
   trackJoin,
 } from '../index.js';
@@ -75,7 +76,11 @@ export interface AffordanceLayerProps {
   /** The node a release would destroy right now, or null. Optional: a host
    *  with no per-pane element to mark still gets the destroy. */
   onJoinArmChange?: (victimId: NodeId | null) => void;
+  /** The container's scroll, which a sticky seam is held against. */
+  scroll?: { x: number; y: number };
 }
+
+const NO_SCROLL = { x: 0, y: 0 };
 
 /**
  * The strategy's affordances as DOM. Shared by `<Container>` and the
@@ -92,12 +97,16 @@ export function AffordanceLayer({
   tabStop,
   onActiveChange,
   onJoinArmChange = noJoinArmChange,
+  scroll = NO_SCROLL,
 }: AffordanceLayerProps) {
   if (!render) return null;
   return (
     <>
-      {affordances.map((aff) =>
-        typeof render === 'function' ? (
+      {affordances.map((placed) => {
+        const aff = placed.sticky
+          ? { ...placed, rect: stuckRect(placed.rect, placed.sticky, scroll) }
+          : placed;
+        return typeof render === 'function' ? (
           <Fragment key={aff.id}>{render({ affordance: aff, dispatch, hitPad })}</Fragment>
         ) : aff.kind === 'click' ? (
           <ClickAffordance
@@ -120,8 +129,8 @@ export function AffordanceLayer({
             onActiveChange={(active) => onActiveChange(active ? aff.id : null)}
             onJoinArmChange={onJoinArmChange}
           />
-        ),
-      )}
+        );
+      })}
     </>
   );
 }

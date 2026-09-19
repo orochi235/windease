@@ -24,6 +24,7 @@ import {
   reconcileHints,
   reconcilePinned,
   reconcilePlacement,
+  stuckRect,
 } from '../index.js';
 import type { LockSet } from '../lock.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
@@ -54,6 +55,7 @@ import { ResizeGestureContext } from './resize-gesture.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
 import {
   scrollExtentStyle,
+  settleTransition,
   useContainerLayout,
   useOverflowOrigin,
   useScrollOffset,
@@ -367,6 +369,10 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
     observeNatural: layout.observeNatural,
   };
   if (layout.channels) layoutInfo.channels = layout.channels;
+  if (layout.sticky) {
+    layoutInfo.sticky = layout.sticky;
+    layoutInfo.scroll = layout.scroll;
+  }
   if (layout.isPreview && dropPreview.sourceId) layoutInfo.previewSourceId = dropPreview.sourceId;
 
   const panelStyle: CSSProperties = {
@@ -407,6 +413,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         tabStop={props.affordanceTabStops ?? true}
         onActiveChange={setDraggingAffordanceId}
         onJoinArmChange={setJoinArmedId}
+        scroll={layout.scroll}
       />
     </PresetShell>
   );
@@ -569,6 +576,10 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
     observeNatural: layout.observeNatural,
   };
   if (layout.channels) layoutInfo.channels = layout.channels;
+  if (layout.sticky) {
+    layoutInfo.sticky = layout.sticky;
+    layoutInfo.scroll = layout.scroll;
+  }
   if (layout.isPreview && dropPreview.sourceId) layoutInfo.previewSourceId = dropPreview.sourceId;
 
   // When this Zone is itself absolute-positioned by a parent strategy, our
@@ -597,7 +608,13 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
       const rect = layout.placements.get(node.id);
       if (!rect) continue;
       out.push(
-        <AbsoluteWrapper key={`imp-${node.id}`} rect={rect} parentId={props.id} nodeId={node.id}>
+        <AbsoluteWrapper
+          key={`imp-${node.id}`}
+          rect={rect}
+          selfId={node.id}
+          parentId={props.id}
+          nodeId={node.id}
+        >
           {renderImperative(node)}
         </AbsoluteWrapper>,
       );
@@ -636,6 +653,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
           tabStop={props.affordanceTabStops ?? true}
           onActiveChange={setDraggingAffordanceId}
           onJoinArmChange={setJoinArmedId}
+          scroll={layout.scroll}
         />
       </PresetShell>
     </ResizeGestureContext.Provider>
@@ -879,7 +897,12 @@ function PresetShell({
   if (!selfRect && !(provide && parentId)) return shell;
 
   return (
-    <AbsoluteWrapper rect={selfRect} parentId={parentId} previewSource={isPreviewSource}>
+    <AbsoluteWrapper
+      rect={selfRect}
+      selfId={id}
+      parentId={parentId}
+      previewSource={isPreviewSource}
+    >
       {shell}
     </AbsoluteWrapper>
   );
@@ -904,13 +927,16 @@ function SplitPreview({
  *  consistently. Without a rect it collapses to `display: contents` and stamps
  *  no attributes, leaving the child exactly where the JSX put it. */
 function AbsoluteWrapper({
-  rect,
+  rect: placed,
+  selfId,
   parentId,
   nodeId,
   previewSource,
   children,
 }: {
   rect?: Rect | undefined;
+  /** The node this box places, for looking up a sticky inset. */
+  selfId: NodeId;
   parentId?: NodeId | undefined;
   /** Set when this box is the child's only chrome — an imperative render,
    *  which stamps no `data-node` of its own and would be invisible to every
@@ -922,7 +948,9 @@ function AbsoluteWrapper({
   previewSource?: boolean | undefined;
   children: ReactNode;
 }) {
-  const { settleMs } = useLayoutContext();
+  const { settleMs, sticky, scroll } = useLayoutContext();
+  const stick = sticky?.get(selfId);
+  const rect = placed && stick && scroll ? stuckRect(placed, stick, scroll) : placed;
   // `display: contents` rather than a class: the box exists only to hold the
   // tree shape stable, and must vanish from layout even for a consumer who
   // never loaded the stylesheet.
@@ -935,9 +963,7 @@ function AbsoluteWrapper({
     height: rect.h,
   };
   if (rect.z !== 0) style.zIndex = Math.round(rect.z);
-  if (settleMs > 0) {
-    style.transition = `left ${settleMs}ms ease, top ${settleMs}ms ease, width ${settleMs}ms ease, height ${settleMs}ms ease`;
-  }
+  if (settleMs > 0) style.transition = settleTransition(settleMs, stick !== undefined);
   if (previewSource) style.opacity = 0;
   return (
     <div

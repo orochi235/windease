@@ -122,6 +122,7 @@ export {
 export { shelfStrategy } from './layout/shelf.js';
 export { skylineStrategy } from './layout/skyline.js';
 export { stackStrategy } from './layout/stack.js';
+export { stuckRect } from './layout/sticky.js';
 export { stripStrategy } from './layout/strip.js';
 export {
   getLayoutNodes,
@@ -144,6 +145,7 @@ export type {
   Rect,
   Size,
   StatefulLayoutStrategy,
+  StickyInset,
   StrategyRegistry,
 } from './layout-types.js';
 export {

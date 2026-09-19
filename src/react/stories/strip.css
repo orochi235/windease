@@ -30,6 +30,30 @@
   font-variant-numeric: tabular-nums;
 }
 
+.strip-scroller {
+  width: 600px;
+  overflow-x: auto;
+}
+
+.strip-tab {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 0 8px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font:
+    12px / 32px system-ui,
+    sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.strip-tab.is-sticky {
+  background: #e0e7ff;
+  border-color: #6366f1;
+}
+
 .strip-zoom {
   display: flex;
   gap: 4px;

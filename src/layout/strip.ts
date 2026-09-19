@@ -6,6 +6,7 @@ import type {
   LayoutStrategy,
   Rect,
   Size,
+  StickyInset,
 } from '../layout-types.js';
 import { trace } from '../trace.js';
 import { selectByCapacity } from './capacity.js';
@@ -81,6 +82,9 @@ interface StripConfig {
    * `'scroll'` lays out at the extent the panes asked for and reports the
    * whole excess as `overflow`, for a host that sizes a scrolling box to it.
    * A measured pane holds at its measurement rather than shrinking below it.
+   * A pane whose placement sets `sticky: true` is reported in
+   * `LayoutResult.sticky`, so a host holds it at the leading edge while the
+   * rest scroll (Firefox's pinned tabs).
    *
    * `'unplaced'` places what fits at full extent and sends the rest to
    * `unplaced`. Composes with `maxItems`, which caps by count instead.
@@ -589,6 +593,43 @@ function justified(
   }
 }
 
+/** Depth of a sticky pane and its seam: above the panes that scroll under
+ *  it, and above their seams, which a host draws at depth 1. */
+const STICKY_Z = 2;
+
+/**
+ * Where each `placement.sticky` pane sticks: its inset from the visible
+ * leading edge once scrolling would carry it past, stacked after the sticky
+ * panes before it. Raises those panes and their seams to `STICKY_Z` in place.
+ */
+function stickTo(
+  items: LayoutItem[],
+  sizes: number[],
+  axis: 'x' | 'y',
+  padding: number,
+  spacing: number,
+  placements: Map<string, Rect>,
+  affordances: Affordance[],
+): Map<string, StickyInset> {
+  const out = new Map<string, StickyInset>();
+  const seams = new Map(affordances.map((a) => [a.childId, a]));
+  let at = padding;
+  items.forEach((it, i) => {
+    if (it.meta?.sticky !== true) return;
+    const size = sizes[i] ?? 0;
+    const rect = placements.get(it.id);
+    if (rect) placements.set(it.id, { ...rect, z: STICKY_Z });
+    out.set(it.id, axis === 'x' ? { x: at } : { y: at });
+    const seam = seams.get(it.id);
+    if (seam) {
+      seam.rect = { ...seam.rect, z: STICKY_Z };
+      seam.sticky = axis === 'x' ? { x: at + size - 2 } : { y: at + size - 2 };
+    }
+    at += size + spacing;
+  });
+  return out;
+}
+
 /** The extent a drag asks `sizes[index]` to take. Under a step a few pixels
  *  round to nothing, so a pointer drag resolves against the pointer rather
  *  than accumulating deltas; a keyboard step carries no pointer. */
@@ -798,6 +839,10 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       }
     }
     const result: LayoutResult<string> = { placements, affordances };
+    if (cfg.overflowMode === 'scroll') {
+      const sticky = stickTo(placedItems, sizes, axis, padding, spacing, placements, affordances);
+      if (sticky.size > 0) result.sticky = sticky;
+    }
     // Children hold their constraints and the row grows past the container
     // rather than crushing them; say so instead of leaving it to be noticed.
     const consumed =

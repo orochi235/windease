@@ -116,6 +116,11 @@ Two paths for free-form data on a node; lifetimes differ:
   except to a pane that already asks for pixels. A share that is not a positive
   finite number is ignored, with a `layout` trace. `split` clears it with
   `size`.
+- `sticky: true` — holds a strip pane at the start of the row while the rest
+  scroll, under `overflowMode: 'scroll'` only. The strategy never sees the
+  scroll offset: it reports the inset each sticky pane holds in
+  `LayoutResult.sticky`, and the binding places it with `stuckRect`, so
+  `placements` stay unscrolled and scrolling never re-runs layout.
 - `span: { cols?, rows? }` — fixed **cell-count** extent honored by `grid`
   only. Kept separate from `size` (pixels) rather than reusing it, so the
   same key doesn't mean two different units depending on which strategy the

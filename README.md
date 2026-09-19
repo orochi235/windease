@@ -463,6 +463,31 @@ amount whenever the margin changes, which keeps the origin still on screen: the
 content past the edge opens scrolled out of view, one scroll away. The margin
 sits outside the box, so the box itself must not clip — the wrapper does.
 
+### Keeping panes in view while the rest scroll
+
+A strip pane whose placement sets `sticky: true` stays at the start of the
+row while the others scroll under it, like Firefox's pinned tabs. It only
+means anything under `overflowMode: 'scroll'`, and the container needs a
+`scrollRef` (below) to know how far it has scrolled:
+
+```tsx
+<Zone id={tabsId} strategyId="strip" config={{ axis: 'x', overflowMode: 'scroll' }} scrollRef={scrollRef}>
+  <Panel id={mail} placement={{ size: { w: 44 }, sticky: true }} />
+  <Panel id={page} placement={{ size: { w: 140 } }} />
+</Zone>
+```
+
+Sticky panes stack in row order: the second one sticks just after the first.
+A sticky pane sits where the row puts it until the scroll reaches it, and its
+seam moves with it. It draws above the panes that scroll under it, so give it
+an opaque background.
+
+The strategy never sees the scroll offset, so scrolling still doesn't re-run
+it. It reports each sticky pane's inset from the visible edge in
+`LayoutResult.sticky`, and the container shows the pane at
+`stuckRect(rect, inset, scroll)`. `placements` stay unscrolled. A host drawing
+its own panes calls `stuckRect` with the offset it passed to `setScroll`.
+
 ### Telling windease where the scroll got to
 
 The wrapper is yours, so the scroll offset is something windease has to be

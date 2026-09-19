@@ -32,6 +32,14 @@ section below.
   `zoom` restores the row. A zoomed strip emits no seams; a zoomed stack child
   covers the `headerSize` band too. An id naming no visible child is ignored.
 
+- **`placement.sticky` keeps a strip pane in view while the rest scroll.**
+  Under `overflowMode: 'scroll'`, a pane whose placement sets `sticky: true`
+  holds at the start of the row once the scroll reaches it, like Firefox's
+  pinned tabs, and draws above what scrolls under it. The strategy reports
+  where each sticky pane sticks in `LayoutResult.sticky` (carried on
+  `ContainerLayout.sticky`) and never sees the scroll; `<Container>`, `<Zone>`
+  and `<Panel>` apply it with the new `stuckRect(rect, inset, scroll)`.
+
 - **A container can refuse drops from its config.** Set `accepts` in any
   container's `config`: `false` refuses every drop, `{ kinds: ['panel'] }`
   refuses a dragged node whose `kind` is not listed, and `{ max: 3 }` refuses a

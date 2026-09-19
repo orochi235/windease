@@ -132,6 +132,15 @@ export interface AffordanceJoin {
 }
 
 /**
+ * Where a sticky placement sticks: its inset from the visible leading edge, per
+ * axis, once scrolling would carry it past. See `LayoutResult.sticky`.
+ */
+export interface StickyInset {
+  x?: number;
+  y?: number;
+}
+
+/**
  * An interactive region a strategy emits alongside its placements — a resize
  * edge, a gutter between panes, a click target. The strategy describes it in
  * layout coordinates and the host renders and binds it, which is what keeps
@@ -198,6 +207,11 @@ export interface Affordance<TMeta = unknown> {
      */
     step?: number;
   };
+  /**
+   * Present on a seam that belongs to a sticky placement, so it moves with the
+   * pane. Same meaning as `LayoutResult.sticky`.
+   */
+  sticky?: StickyInset;
   /**
    * Present when overshooting this affordance destroys a node. The host reads
    * it through `trackJoin`; absent means the seam only ever resizes.
@@ -278,6 +292,13 @@ export interface LayoutResult<TId extends string = string, TMeta = unknown> {
    * what any key means.
    */
   channels?: Map<TId, Record<string, number>>;
+  /**
+   * Placements that stay in view while the container scrolls, like Firefox's
+   * pinned tabs. `placements` stay unscrolled, as always; a host shows a
+   * listed rect at `stuckRect(rect, inset, scroll)`. The strategy never sees
+   * the scroll offset, so scrolling still does not re-run it.
+   */
+  sticky?: Map<TId, StickyInset>;
   /**
    * True when this result was produced in response to a `preview` input and
    * the strategy honored it. `<Container>` uses this to know whether to
