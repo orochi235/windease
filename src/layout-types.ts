@@ -28,6 +28,8 @@ export interface LayoutItem {
     /** Ceiling honored by `stripStrategy` along its main axis. */
     maxSize?: Size;
     preferredSize?: Size;
+    /** Width ÷ height to keep when scaled. See `NodeHints`. */
+    aspect?: number;
     /** Per-axis request to be sized by measured content. See `NodeHints`. */
     sizing?: { w?: 'content'; h?: 'content' };
   };
