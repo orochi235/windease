@@ -315,6 +315,14 @@ section below.
 
 ### Fixed
 
+- **A pane can refuse to be hidden by `overshoot: 'hide'`.** The seam armed on
+  whichever pane it squeezed, the editor included, and nothing could stop it:
+  `lock.destroy` does not apply to a hide. The new lock axis `hide`
+  (`lock: { hide: true }`) keeps a pane out of the join, so its seam clamps at
+  the floor like any resize, and makes `store.hideNode` throw `LockedError`
+  unless passed `{ force: true }`. `lock: true` does not include it, so existing
+  locked panes still hide. See [Hiding instead of closing](README.md#hiding-instead-of-closing).
+
 - **A stack with `show: 'dropped'` keeps the `activeId` it is built with.**
   Registering its tabs one by one counted each as an arrival, so building the
   tree left the last tab active. Children registered in the same synchronous

@@ -112,6 +112,26 @@ describe('Store — setLock / getLock', () => {
   });
 });
 
+describe('Store — hide lock', () => {
+  it('blocks hideNode on a locked node, and force overrides it', () => {
+    const { s, p } = seeded();
+    s.showNode(p);
+    s.setLock(p, { hide: true });
+    expect(() => s.hideNode(p)).toThrow(LockedError);
+    expect(s.getNode(p)?.lifecycle.state).toBe('visible');
+    s.hideNode(p, { force: true });
+    expect(s.getNode(p)?.lifecycle.state).toBe('hidden');
+  });
+
+  it('is not set by lock(true)', () => {
+    const { s, p } = seeded();
+    s.showNode(p);
+    s.setLock(p, true);
+    s.hideNode(p);
+    expect(s.getNode(p)?.lifecycle.state).toBe('hidden');
+  });
+});
+
 describe('Store — destroy lock', () => {
   it('blocks unregisterNode on a locked node', () => {
     const { s, p } = seeded();

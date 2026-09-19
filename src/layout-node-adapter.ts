@@ -47,6 +47,7 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
       if (cell) item.placement.cell = cell;
     }
   }
+  if (node.lock && Object.values(node.lock).some((v) => v === true)) item.lock = { ...node.lock };
   return item;
 }
 

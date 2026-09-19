@@ -166,13 +166,14 @@ neither.
 like `meta`, so it survives `moveNode`. Which axes apply depends on the
 node's capabilities; axes a node doesn't support are dropped silently on
 write, so `store.setLock(id, true)` is safe to call without checking shape
-first.
+first. `true` sets every supported axis except `hide`, which has to be named.
 
 | Axis      | Requires     | Guards                                                     |
 | --------- | ------------ | ----------------------------------------------------------- |
 | `move`    | `membership` | `moveNode` (as source), `reorderInParent`                   |
 | `resize`  | `membership` | `patchPlacement`, reserved `size` / `span` / `share` keys only |
 | `destroy` | —            | `unregisterNode`                                             |
+| `hide`    | —            | `hideNode`, and an `overshoot: 'hide'` seam arming on the node |
 | `accept`  | `container`  | `moveNode` (as target)                                       |
 | `dragOut` | `container`  | `moveNode` where the source's parent is this node             |
 | `arrange` | `container`  | `setChildOrder`, `setContainerState`, `updateContainerConfig`, `setPinned`/`unpin` |
@@ -193,9 +194,9 @@ drag writes the same `childOrder` array, and forcing a stale prop would
 revert it — `arrange` itself never gates that drag; freezing drag-reordering
 needs `lock.move` on the children. `container.state` skips too, for the more
 direct reason that `dispatchAffordance` writes it through the same `arrange`
-check. `placement.size` and node existence force instead, because their only
-other writer is the gesture the very same lock already blocks (`resize`,
-`destroy`). `deserialize` and `HistoryController` use `withLocksSuspended`
+check. `placement.size`, node existence and `hidden` force instead, because
+their only other writer is the gesture the very same lock already blocks
+(`resize`, `destroy`, `hide`). `deserialize` and `HistoryController` use `withLocksSuspended`
 internally, so restoring a snapshot or undoing is never blocked by a lock.
 
 `lock.destroy` on a child does not veto an ancestor's cascade destroy — it
@@ -390,6 +391,7 @@ Built-ins:
   `resizeMode: 'neighbor'`, `overshoot` says what a seam pushed past a pane's
   floor does on release: `'join'` destroys the pane, `'hide'` hides it with
   the row's sizes put back as the drag found them, so `showNode` restores it.
+  A pane with `lock.hide` is left out of the join, so its seam just clamps.
   `store.split(id, input)` (see Store API) builds nested strip trees —
   workspace-level splits with draggable gutters — without a dedicated
   strategy of its own.

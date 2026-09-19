@@ -4,9 +4,9 @@ import type { Store } from './store.js';
 /**
  * One restrictable operation. Which axes apply to a node follows from its
  * capabilities: `move`/`resize` need `membership`, `accept`/`dragOut` need
- * `container`, and `destroy`/`arrange` always apply.
+ * `container`, and `destroy`/`arrange`/`hide` always apply.
  */
-export type LockAxis = 'move' | 'resize' | 'destroy' | 'accept' | 'dragOut' | 'arrange';
+export type LockAxis = 'move' | 'resize' | 'destroy' | 'accept' | 'dragOut' | 'arrange' | 'hide';
 
 /**
  * The axes locked on a node. Absent and `false` both mean unlocked. Enforced
@@ -19,7 +19,7 @@ const CONTAINER_AXES = ['accept', 'dragOut'] as const;
 // `arrange` governs whether this node's children may be rearranged — including
 // whether it may acquire any. Gating it on an existing container would make it
 // bind everywhere except on `ensureContainer`, the one call it has to stop.
-const ALWAYS_AXES = ['destroy', 'arrange'] as const;
+const ALWAYS_AXES = ['destroy', 'arrange', 'hide'] as const;
 
 /** Axes meaningful for this node, decided by which capabilities it carries. */
 export function supportedAxes(node: Node): ReadonlySet<LockAxis> {
@@ -31,13 +31,14 @@ export function supportedAxes(node: Node): ReadonlySet<LockAxis> {
 
 /**
  * Unsupported axes are dropped rather than rejected, so a host can pass `true`
- * without branching on node shape.
+ * without branching on node shape. `true` leaves out `hide`, which has to be
+ * named: a pane frozen in place is still one a View menu shows and hides.
  */
 export function resolveLock(node: Node, input: boolean | LockSet): LockSet {
   const supported = supportedAxes(node);
   const out: LockSet = {};
   if (input === true) {
-    for (const axis of supported) out[axis] = true;
+    for (const axis of supported) if (axis !== 'hide') out[axis] = true;
     return out;
   }
   if (input === false) return out;

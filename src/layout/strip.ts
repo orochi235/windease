@@ -60,8 +60,9 @@ interface StripConfig {
    * What pushing a seam past a pane's floor does. `'join'` is
    * `joinOnOvershoot: true`: releasing destroys the pane. `'hide'` hides it
    * instead, as VS Code does with a sidebar dragged shut, and the pane's size
-   * is kept for `showNode`. Outranks `joinOnOvershoot`; the same
-   * `resizeMode: 'neighbor'` requirement applies.
+   * is kept for `showNode`; a pane with `lock.hide` never arms, and its seam
+   * clamps. Outranks `joinOnOvershoot`; the same `resizeMode: 'neighbor'`
+   * requirement applies.
    */
   overshoot?: 'join' | 'hide';
   /** Main-axis pixels past the floor before the join arms. Defaults to 24. */
@@ -417,11 +418,21 @@ function joinFor(
   if (cfg.resizeMode !== 'neighbor') return undefined;
   const mode = cfg.overshoot ?? (cfg.joinOnOvershoot ? 'join' : undefined);
   if (mode !== 'join' && mode !== 'hide') return undefined;
+  if (mode === 'join') {
+    return {
+      atMin: item.id,
+      atMax: next.id,
+      threshold: cfg.joinThreshold ?? DEFAULT_JOIN_THRESHOLD,
+    };
+  }
+  const minHides = item.lock?.hide !== true;
+  const maxHides = next.lock?.hide !== true;
+  if (!minHides && !maxHides) return undefined;
   return {
-    atMin: item.id,
-    atMax: next.id,
+    ...(minHides ? { atMin: item.id } : {}),
+    ...(maxHides ? { atMax: next.id } : {}),
     threshold: cfg.joinThreshold ?? DEFAULT_JOIN_THRESHOLD,
-    ...(mode === 'hide' ? { action: 'hide' as const } : {}),
+    action: 'hide',
   };
 }
 

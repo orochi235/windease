@@ -482,7 +482,7 @@ export const PRESETS: Preset[] = [
             id: 'vh-sidebar',
             hints: { preferredSize: w(300), minSize: w(170) },
           },
-          { id: 'vh-editor', hints: { minSize: w(220) } },
+          { id: 'vh-editor', hints: { minSize: w(220) }, lock: { hide: true } },
           {
             id: 'vh-aux',
             hints: { preferredSize: w(300), minSize: w(170) },

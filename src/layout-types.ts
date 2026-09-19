@@ -1,4 +1,5 @@
 import type { ConfigConflict, ConfigSpec } from './layout/config-check.js';
+import type { LockSet } from './lock.js';
 import type { NodeId } from './node.js';
 import type { Store } from './store.js';
 
@@ -71,6 +72,9 @@ export interface LayoutItem {
    * from `placement`, which surfaces only the typed `size` key.
    */
   meta?: Record<string, unknown>;
+  /** The node's `lock`, projected by `nodeToLayoutItem` when any axis is set.
+   *  `stripStrategy` reads `hide` to keep a pane out of an `overshoot: 'hide'` join. */
+  lock?: LockSet;
 }
 
 /**

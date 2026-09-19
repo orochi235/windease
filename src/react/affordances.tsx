@@ -297,7 +297,10 @@ function AffordanceHandle({
         atMin: b.atMin,
         atMax: b.atMax,
         // Hiding destroys nothing, so a destroy lock does not refuse it.
-        canDestroy: (id) => hides || destroyBlockedBy(store, id as NodeId) === null,
+        canDestroy: (id) =>
+          hides
+            ? !store.isLocked(id as NodeId, 'hide')
+            : destroyBlockedBy(store, id as NodeId) === null,
       });
       overshoot.current = state.overshoot;
       setArmed(state.armed ? ((state.candidateId as NodeId | undefined) ?? null) : null);

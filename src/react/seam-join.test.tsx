@@ -529,6 +529,18 @@ describe("seam join — overshoot: 'hide'", () => {
     expect(store.getNode(asNodeId('b'))?.lifecycle.state).toBe('hidden');
   });
 
+  it('never arms on a pane locked against hiding, and the resize clamps against it', () => {
+    const store = seedHide();
+    store.setLock(asNodeId('b'), { hide: true });
+    const { container, seam } = mount(store);
+    down(seam);
+    const x = move(seam, 300, move(seam, TO_CLAMP));
+    expect(armedPane(container)).toBeNull();
+    up(seam, x);
+    expect(store.getNode(asNodeId('b'))?.lifecycle.state).toBe('visible');
+    expect(widthOf(store, 'a')).toBe(320);
+  });
+
   it('hides from the keyboard, and says so', () => {
     const store = seedHide();
     const { container, seam } = mount(store);

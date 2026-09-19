@@ -13,7 +13,13 @@ describe('supportedAxes', () => {
       id: id('p'),
       parentId: id('z'),
     });
-    expect([...supportedAxes(panel)].sort()).toEqual(['arrange', 'destroy', 'move', 'resize']);
+    expect([...supportedAxes(panel)].sort()).toEqual([
+      'arrange',
+      'destroy',
+      'hide',
+      'move',
+      'resize',
+    ]);
   });
 
   it('gives a zone the container axes plus destroy, and no membership axes', () => {
@@ -22,7 +28,13 @@ describe('supportedAxes', () => {
       container: { strategyId: 'grid', config: {} },
       id: id('z'),
     });
-    expect([...supportedAxes(zone)].sort()).toEqual(['accept', 'arrange', 'destroy', 'dragOut']);
+    expect([...supportedAxes(zone)].sort()).toEqual([
+      'accept',
+      'arrange',
+      'destroy',
+      'dragOut',
+      'hide',
+    ]);
   });
 
   it('gives a group every axis', () => {
@@ -37,6 +49,7 @@ describe('supportedAxes', () => {
       'arrange',
       'destroy',
       'dragOut',
+      'hide',
       'move',
       'resize',
     ]);
@@ -56,6 +69,12 @@ describe('resolveLock', () => {
       destroy: true,
       dragOut: true,
     });
+  });
+
+  it('keeps hide out of true, and takes it when named', () => {
+    const panel = createNode({ kind: 'panel', id: id('p'), parentId: id('z') });
+    expect(resolveLock(panel, true).hide).toBeUndefined();
+    expect(resolveLock(panel, { hide: true })).toEqual({ hide: true });
   });
 
   it('drops unsupported axes instead of throwing', () => {

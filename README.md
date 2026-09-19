@@ -1595,6 +1595,11 @@ began, then hides the victim. The rest re-lay out without it, and
 happen in one transaction. Nothing is destroyed, so a `destroy` lock does not
 stop the gesture arming. The live region says the pane "will hide".
 
+A pane that must stay, like VS Code's editor, takes `lock: { hide: true }`. The
+strip leaves it out of the join, so pushing a seam into it clamps at its floor
+as an ordinary resize does, and `store.hideNode` refuses it with `LockedError`
+unless passed `{ force: true }`. `lock: true` does not set `hide`; name it.
+
 A host driving seams itself calls `captureSeam(store, affordance)` when the
 gesture begins and passes the result to `commitJoin` as its fourth argument.
 Without it, the pane is hidden at the size the drag left it.

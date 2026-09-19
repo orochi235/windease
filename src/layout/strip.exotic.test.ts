@@ -212,12 +212,15 @@ function seamShape(s: Scenario, r: LayoutResult<string>, placed: LayoutItem[]): 
       bad.push(`${a.id} affects ${JSON.stringify(a.affects)}`);
     }
     const mode = cfg.overshoot ?? (cfg.joinOnOvershoot ? 'join' : undefined);
-    const joins = neighbor && mode !== undefined;
+    // Under 'hide', a pane locked against hiding is left out of its end of the join.
+    const end = (item: LayoutItem | undefined) =>
+      mode === 'hide' && item?.lock?.hide ? undefined : item?.id;
+    const joins = neighbor && mode !== undefined && (end(pane) ?? end(next)) !== undefined;
     if (joins !== !!a.join) bad.push(`${a.id} join ${JSON.stringify(a.join)}`);
     if (a.join && (a.join.action ?? 'join') !== mode) {
       bad.push(`${a.id} join action ${a.join.action}, expected ${mode}`);
     }
-    if (a.join && (a.join.atMin !== pane.id || a.join.atMax !== next?.id)) {
+    if (a.join && (a.join.atMin !== end(pane) || a.join.atMax !== end(next))) {
       bad.push(`${a.id} join names ${a.join.atMin}/${a.join.atMax}`);
     }
   });
@@ -750,7 +753,7 @@ describe("VS Code: a sidebar dragged shut hides (overshoot: 'hide')", () => {
     expect(r.placements.get('vh-editor')!.w).toBe(1600 - 48 - 300 - 300);
   });
 
-  it.fails("pushing the Explorer's seam into the editor never hides the editor [defect: overshoot: 'hide' arms on whichever pane the seam squeezes, and nothing, lock.destroy included, keeps one pane in the row from hiding]", () => {
+  it("pushing the Explorer's seam into the editor never hides the editor", () => {
     const store = presetToStore(hinted);
     expect(pushAndRelease(store, 'resize-x-vh-sidebar', 40, 60)).toBeUndefined();
   });

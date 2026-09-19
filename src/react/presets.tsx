@@ -709,7 +709,7 @@ function makeReconciler(props: CommonBindingProps) {
     const node = store.getNode(id);
     if (!node) return;
     if (props.hidden) {
-      if (node.lifecycle.state !== 'hidden') store.hideNode(id);
+      if (node.lifecycle.state !== 'hidden') store.hideNode(id, { force: true });
     } else {
       if (node.lifecycle.state !== 'visible') store.showNode(id);
     }

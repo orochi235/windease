@@ -30,6 +30,29 @@ describe('strip overshoot declaration', () => {
     expect(first?.join).toEqual({ atMin: 'a', atMax: 'b', threshold: 24, action: 'hide' });
   });
 
+  it('leaves a pane locked against hiding out of its end of the join', () => {
+    const locked = items.map((it) => (it.id === 'b' ? { ...it, lock: { hide: true } } : it));
+    const [first, second] = stripStrategy.layout({
+      items: locked,
+      container: { w: 600, h: 200 },
+      state: undefined,
+      options: { resizeMode: 'neighbor', overshoot: 'hide' },
+    }).affordances;
+    expect(first?.join).toEqual({ atMin: 'a', threshold: 24, action: 'hide' });
+    expect(second?.join).toEqual({ atMax: 'c', threshold: 24, action: 'hide' });
+  });
+
+  it('keeps a hide-locked pane in a join that destroys', () => {
+    const locked = items.map((it) => (it.id === 'b' ? { ...it, lock: { hide: true } } : it));
+    const [first] = stripStrategy.layout({
+      items: locked,
+      container: { w: 600, h: 200 },
+      state: undefined,
+      options: { resizeMode: 'neighbor', overshoot: 'join' },
+    }).affordances;
+    expect(first?.join).toEqual({ atMin: 'a', atMax: 'b', threshold: 24 });
+  });
+
   it('lets overshoot outrank joinOnOvershoot', () => {
     const [first] = seams({ resizeMode: 'neighbor', overshoot: 'hide', joinOnOvershoot: true });
     expect(first?.join?.action).toBe('hide');

@@ -1413,7 +1413,8 @@ export class Store {
     this.scheduleNotify();
   }
 
-  hideNode(id: NodeId): void {
+  hideNode(id: NodeId, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'hide', 'hideNode', opts);
     const node = this.requireNode(id);
     const prev = node.lifecycle.state;
     if (!node.lifecycle.send('hide')) {
