@@ -345,5 +345,13 @@ export function floatingStrategy<TInner>(
       if (!inner?.navigate) return undefined;
       return inner.navigate({ ...input, items: input.items.filter((i) => !isFloating(i)) });
     },
+
+    float: {
+      keys: ['floating'],
+      place: ({ id, at, state }) => ({
+        placement: { floating: true },
+        state: { ...state, at: { ...state.at, [id]: { x: at.x, y: at.y, anchor: null } } },
+      }),
+    },
   };
 }

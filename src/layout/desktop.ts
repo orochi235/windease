@@ -343,5 +343,10 @@ export function desktopStrategy<TInner>(
       const items = layers(input.items, input.options, hasInner).icons;
       return inner.navigate({ ...input, items });
     },
+
+    float: {
+      keys: ['x', 'y'],
+      place: ({ at }) => ({ placement: { x: at.x, y: at.y } }),
+    },
   };
 }

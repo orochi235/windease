@@ -1,9 +1,10 @@
 import type { AcceptsConfig } from '../container-config.js';
 import { nodeToLayoutItem } from '../layout-node-adapter.js';
-import type { LayoutItem, LayoutStrategy, Rect } from '../layout-types.js';
+import type { LayoutItem, LayoutStrategy, Rect, Size } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import { placeRespectingPins } from '../pinning.js';
 import type { Store } from '../store.js';
+import { containerStateFor, dockNode, floatAncestor, floatNode } from '../tear.js';
 import { trace } from '../trace.js';
 import type { DropIntent } from './dropIntent.js';
 import { type EdgeScrollOptions, edgeScrollDelta } from './edgeScroll.js';
@@ -45,6 +46,10 @@ export interface DragState {
     /** What kind of drop this is, for a target that resolves one. Absent for a
      *  target registering only `getInsertionIndex`. */
     intent?: DropIntent;
+    /** The drop tears a tab out of a stack with `tear: 'float'` and floats it
+     *  in this target, the stack's nearest floating ancestor. A tear carries
+     *  no `intent` or `insertIndex`: the child lands at the cursor. */
+    tear?: true;
   } | null;
 }
 
@@ -172,6 +177,7 @@ function sameHover(a: DragState['hover'], b: DragState['hover']): boolean {
     a.targetId === b.targetId &&
     a.accepted === b.accepted &&
     a.insertIndex === b.insertIndex &&
+    a.tear === b.tear &&
     sameIntent(a.intent, b.intent)
   );
 }
@@ -318,6 +324,11 @@ export class DragEngine {
     }
     const target = this.dropTargets.get(best.id);
     this.autoScroll(target, x, y);
+    if (this.tearStrategy(best.id)) {
+      const accepted = this.checkAccept(best.id, undefined, true);
+      this.setHover({ targetId: best.id, accepted, tear: true }, { x, y });
+      return;
+    }
     const intent = target?.getDropIntent?.({ x, y });
     // An intent that names a seam is the authority on the index too, so the
     // two answers cannot disagree about where the drop lands.
@@ -360,10 +371,34 @@ export class DragEngine {
     }
   }
 
-  private checkAccept(targetId: NodeId, intent?: DropIntent): boolean {
+  /**
+   * `targetId`'s strategy when dropping the active drag there is a tear: the
+   * source sits in a stack whose config sets `tear: 'float'`, and `targetId`
+   * is that stack's nearest ancestor with a strategy that floats children.
+   */
+  private tearStrategy(targetId: NodeId): LayoutStrategy<unknown, string, unknown> | undefined {
+    if (!this.active || !this.getStrategy) return undefined;
+    const stackId = this.store.getNode(this.active.draggingId)?.membership?.parentId;
+    if (stackId === undefined || stackId === targetId) return undefined;
+    const config = this.store.getNode(stackId)?.container?.config as { tear?: unknown } | undefined;
+    if (config?.tear !== 'float') return undefined;
+    if (floatAncestor(this.store, this.getStrategy, stackId) !== targetId) return undefined;
+    const strategyId = this.store.getNode(targetId)?.container?.strategyId;
+    return strategyId ? this.getStrategy(strategyId) : undefined;
+  }
+
+  private checkAccept(targetId: NodeId, intent?: DropIntent, tear = false): boolean {
     if (!this.active) return false;
     const draggingId = this.active.draggingId;
     if (intent && !this.checkIntent(targetId, draggingId, intent)) return false;
+    if (tear && this.store.isLocked(targetId, 'arrange')) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (tear into lock.arrange)`);
+      return false;
+    }
+    if (tear && this.orderControls.has(targetId)) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (tear into a controlled parent)`);
+      return false;
+    }
     if (targetId === draggingId) {
       trace('dnd', `checkAccept ${targetId}: REJECT (target is the source)`);
       return false;
@@ -385,12 +420,19 @@ export class DragEngine {
     // path, so only pay for it when something will actually read it, and once.
     let items: AcceptItem[] | undefined;
     const prospective = (): AcceptItem[] => {
-      items ??= this.prospectiveItems(targetId, draggingId);
+      items ??= this.prospectiveItems(targetId, draggingId, tear);
       return items;
     };
 
     if (
-      !this.checkAcceptsConfig(targetId, draggingId, options.accepts, withinParent, prospective)
+      !this.checkAcceptsConfig(
+        targetId,
+        draggingId,
+        options.accepts,
+        withinParent,
+        prospective,
+        tear,
+      )
     ) {
       return false;
     }
@@ -441,14 +483,19 @@ export class DragEngine {
     accepts: unknown,
     withinParent: boolean,
     prospective: () => AcceptItem[],
+    tear: boolean,
   ): boolean {
     if (accepts === undefined || accepts === null) return true;
     if (accepts === false) {
       trace('dnd', `checkAccept ${targetId}: REJECT (accepts: false)`);
       return false;
     }
+    if (accepts === 'tear') {
+      if (!tear) trace('dnd', `checkAccept ${targetId}: REJECT (accepts: 'tear', not a tear)`);
+      return tear;
+    }
     if (typeof accepts !== 'object') return true;
-    const { kinds, max } = accepts as Exclude<AcceptsConfig, false>;
+    const { kinds, max } = accepts as Exclude<AcceptsConfig, false | 'tear'>;
     if (Array.isArray(kinds)) {
       const kind = this.store.getNode(draggingId)?.kind;
       if (kind === undefined || !kinds.includes(kind)) {
@@ -470,8 +517,10 @@ export class DragEngine {
   }
 
   /** The children `targetId` would hold after the drop, as layout sees them:
-   *  spans and placement carried, the source appended if it is new here. */
-  private prospectiveItems(targetId: NodeId, draggingId: NodeId): AcceptItem[] {
+   *  spans and placement carried, the source appended if it is new here. A
+   *  torn-out source carries the placement its float would write, so a
+   *  strategy that tiles some children does not count it among them. */
+  private prospectiveItems(targetId: NodeId, draggingId: NodeId, tear = false): AcceptItem[] {
     const items: AcceptItem[] = [];
     let alreadyChild = false;
     for (const child of this.store.getChildren(targetId)) {
@@ -482,7 +531,22 @@ export class DragEngine {
     }
     if (!alreadyChild) {
       const source = this.store.getNode(draggingId);
-      items.push((source ? nodeToLayoutItem(source) : { id: draggingId }) as AcceptItem);
+      const item = (source ? nodeToLayoutItem(source) : { id: draggingId }) as AcceptItem;
+      const strategy = tear ? this.tearStrategy(targetId) : undefined;
+      if (strategy?.float) {
+        const options = (this.store.getNode(targetId)?.container?.config ?? {}) as Record<
+          string,
+          unknown
+        >;
+        const { placement } = strategy.float.place({
+          id: draggingId,
+          at: { x: 0, y: 0 },
+          state: containerStateFor(this.store, targetId, strategy),
+          options,
+        });
+        item.meta = { ...item.meta, ...placement };
+      }
+      items.push(item);
     }
     return items;
   }
@@ -558,6 +622,7 @@ export class DragEngine {
           accepted: hover.accepted,
           ...(hover.insertIndex !== undefined ? { insertIndex: hover.insertIndex } : {}),
           ...(hover.intent !== undefined ? { intent: hover.intent } : {}),
+          ...(hover.tear ? { tear: true as const } : {}),
         }
       : null;
     const cursorChanged = this.active.cursor.x !== cursor.x || this.active.cursor.y !== cursor.y;
@@ -568,7 +633,7 @@ export class DragEngine {
       const prevDesc = previous ? `${previous.targetId}` : 'none';
       trace(
         'dnd',
-        `hover: ${prevDesc} → target=${next.targetId} accepted=${next.accepted} insertIndex=${next.insertIndex ?? '-'} cursor=(${cursor.x},${cursor.y})`,
+        `hover: ${prevDesc} → target=${next.targetId} accepted=${next.accepted} insertIndex=${next.insertIndex ?? '-'}${next.tear ? ' tear' : ''} cursor=(${cursor.x},${cursor.y})`,
       );
     } else if (previous) {
       trace(
@@ -586,9 +651,14 @@ export class DragEngine {
     // queued here; dropping it resolves the drop against the frame before,
     // which on a fast drag is a different zone.
     this.flushPending();
-    const { draggingId, hover } = this.active;
+    const { draggingId, hover, cursor } = this.active;
     if (!hover?.accepted) {
       this.cancel(hover ? 'rejected' : 'outside');
+      return;
+    }
+    if (hover.tear) {
+      this.dropTear(draggingId, hover.targetId, cursor);
+      this.clear();
       return;
     }
     if (hover.intent?.kind === 'stack') {
@@ -628,12 +698,89 @@ export class DragEngine {
       return;
     }
     try {
-      this.store.moveNode(draggingId, hover.targetId, hover.insertIndex);
-      trace('dnd', `drop: ${draggingId} → ${hover.targetId}@${hover.insertIndex ?? 'append'}`);
+      const from = this.dockingFrom(draggingId, hover.targetId);
+      if (from) {
+        dockNode(this.store, draggingId, hover.targetId, {
+          ...(hover.insertIndex !== undefined ? { at: hover.insertIndex } : {}),
+          from,
+        });
+      } else {
+        this.store.moveNode(draggingId, hover.targetId, hover.insertIndex);
+      }
+      trace(
+        'dnd',
+        `drop: ${draggingId} → ${hover.targetId}@${hover.insertIndex ?? 'append'}${from ? ' (dock)' : ''}`,
+      );
     } catch (err) {
       trace('dnd', `drop failed: ${(err as Error).message}`);
     }
     this.clear();
+  }
+
+  /** Float the source in `targetId` with its top-left corner at the cursor. */
+  private dropTear(draggingId: NodeId, targetId: NodeId, cursor: Point): void {
+    const strategy = this.tearStrategy(targetId);
+    const box = this.dropTargets.get(targetId)?.bounds();
+    if (!strategy || !box) {
+      trace('dnd', `drop failed: tear into ${targetId} lost its strategy or bounds`);
+      return;
+    }
+    const at = { x: cursor.x - box.x, y: cursor.y - box.y };
+    const size = this.tornSize(draggingId);
+    try {
+      floatNode(this.store, strategy, draggingId, targetId, { at, ...(size ? { size } : {}) });
+      trace('dnd', `drop: tear ${draggingId} → ${targetId} at (${at.x}, ${at.y})`);
+    } catch (err) {
+      trace('dnd', `drop failed: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * The size a torn-out tab floats at: the stack's `tearSize`, else the rect
+   * the stack's strategy gives its body at the stack's registered bounds.
+   * Undefined when the stack has neither, which leaves the node's hints alone.
+   */
+  private tornSize(draggingId: NodeId): Size | undefined {
+    const stackId = this.store.getNode(draggingId)?.membership?.parentId;
+    const container = stackId === undefined ? undefined : this.store.getNode(stackId)?.container;
+    if (stackId === undefined || !container) return undefined;
+    const config = (container.config ?? {}) as Record<string, unknown>;
+    const fixed = config.tearSize as Partial<Size> | undefined;
+    if (typeof fixed?.w === 'number' && typeof fixed.h === 'number' && fixed.w > 0 && fixed.h > 0) {
+      return { w: fixed.w, h: fixed.h };
+    }
+    const box = this.dropTargets.get(stackId)?.bounds();
+    const strategy = this.getStrategy?.(container.strategyId);
+    if (!box || !strategy) return undefined;
+    const items = this.store
+      .getChildren(stackId)
+      .filter((c) => c.lifecycle.state === 'visible')
+      .map(nodeToLayoutItem);
+    const { placements } = strategy.layout({
+      items,
+      container: { w: box.w, h: box.h },
+      state: containerStateFor(this.store, stackId, strategy),
+      options: config,
+    });
+    const body = placements.get(draggingId) ?? placements.values().next().value;
+    return body && body.w > 0 && body.h > 0 ? { w: body.w, h: body.h } : undefined;
+  }
+
+  /** The strategy of the source's floating parent, when this drop docks it
+   *  into a stack whose config sets `tear`. */
+  private dockingFrom(
+    draggingId: NodeId,
+    targetId: NodeId,
+  ): LayoutStrategy<unknown, string, unknown> | undefined {
+    const config = this.store.getNode(targetId)?.container?.config as
+      | { tear?: unknown }
+      | undefined;
+    if (config?.tear !== 'float' || !this.getStrategy) return undefined;
+    const parentId = this.store.getNode(draggingId)?.membership?.parentId;
+    if (parentId === undefined || parentId === targetId) return undefined;
+    const strategyId = this.store.getNode(parentId)?.container?.strategyId;
+    const strategy = strategyId ? this.getStrategy(strategyId) : undefined;
+    return strategy?.float ? strategy : undefined;
   }
 
   /**

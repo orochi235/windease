@@ -16,5 +16,10 @@ export const STACK_SHOW = ['dropped'] as const;
  *  and `'prev'` fall to the other side at an end; `'first'` clears `activeId`. */
 export const STACK_FALLBACK = ['next', 'prev', 'first'] as const;
 
+/** The values a stack's `config.tear` accepts. `'float'` lets a tab dragged out
+ *  onto the nearest ancestor whose strategy floats children land there as a
+ *  floating child, and lets a floating child dropped on the stack dock as a tab. */
+export const STACK_TEAR = ['float'] as const;
+
 /** One of {@link RAISE_MODES}. */
 export type RaiseMode = (typeof RAISE_MODES)[number];

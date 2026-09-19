@@ -416,4 +416,30 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
     insertIndex: number | undefined;
     cursor: { x: number; y: number };
   }): { placements: Map<TId, Rect>; accepted: boolean } | null;
+  /**
+   * Present on a strategy that places children free of any tiling — floating,
+   * desktop. A stack's `tear: 'float'` looks for it on an ancestor, and
+   * `floatNode` / `dockNode` call it.
+   */
+  float?: FloatHook<TState>;
+}
+
+/**
+ * How a strategy that floats children takes one at a point.
+ *
+ * @group Layout
+ */
+export interface FloatHook<TState = unknown> {
+  /** The placement keys `place` writes. A child docked out of this container
+   *  has them cleared, since they mean nothing to a stack. */
+  keys: readonly string[];
+  /** What to write so child `id` floats with its top-left corner at `at`,
+   *  container-relative: placement keys, and the container's next state for a
+   *  strategy that keeps positions there. Pure. */
+  place(input: {
+    id: string;
+    at: { x: number; y: number };
+    state: TState;
+    options: Record<string, unknown>;
+  }): { placement: Record<string, unknown>; state?: TState };
 }
