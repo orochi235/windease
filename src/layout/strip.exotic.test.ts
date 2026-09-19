@@ -19,7 +19,7 @@ import {
   presetTree,
 } from '../test-utils/exotic/preset.js';
 import { PATHOLOGICAL, PRESETS } from '../test-utils/exotic/strip-scenarios.js';
-import { trackJoin } from './seam-join.js';
+import { captureSeam, commitJoin, trackJoin } from './seam-join.js';
 import { stripStrategy } from './strip.js';
 
 interface Cfg {
@@ -31,6 +31,7 @@ interface Cfg {
   resizeMode?: 'redistribute' | 'neighbor';
   joinOnOvershoot?: boolean;
   joinThreshold?: number;
+  overshoot?: 'join' | 'hide';
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
   justify?: 'start' | 'center' | 'end' | 'between';
 }
@@ -210,8 +211,12 @@ function seamShape(s: Scenario, r: LayoutResult<string>, placed: LayoutItem[]): 
     if (JSON.stringify(a.affects) !== JSON.stringify(affects)) {
       bad.push(`${a.id} affects ${JSON.stringify(a.affects)}`);
     }
-    const joins = neighbor && (cfg.joinOnOvershoot ?? false);
+    const mode = cfg.overshoot ?? (cfg.joinOnOvershoot ? 'join' : undefined);
+    const joins = neighbor && mode !== undefined;
     if (joins !== !!a.join) bad.push(`${a.id} join ${JSON.stringify(a.join)}`);
+    if (a.join && (a.join.action ?? 'join') !== mode) {
+      bad.push(`${a.id} join action ${a.join.action}, expected ${mode}`);
+    }
     if (a.join && (a.join.atMin !== pane.id || a.join.atMax !== next?.id)) {
       bad.push(`${a.id} join names ${a.join.atMin}/${a.join.atMax}`);
     }
@@ -281,6 +286,10 @@ const KNOWN: Record<string, string> = {
   // scales panes down, but strip.test.ts pins preferredSize as unscaled.
   'vscode-hinted-sidebars@400-squeeze » squeeze overflows only once every pane is at its floor':
     'squeeze never scales preferredSize, so floors do not bind before overflow',
+  'tmux-even-horizontal-40 » overflow is reported exactly':
+    "step's remainder arithmetic leaves the last pane 4.5e-13px long, reported as overflow",
+  'tmux-even-horizontal-40 » squeeze overflows only once every pane is at its floor':
+    'the same phantom 4.5e-13px overflow, with every pane above its floor',
 };
 
 describe('strip on real-software layouts', () => {
@@ -603,14 +612,19 @@ describe('strip under the other overflow modes', () => {
     expect(r.unplaced).toHaveLength(90);
   });
 
-  it('tmux: forty equal shares and thirty-nine borders end exactly at the right edge', () => {
+  it('tmux: forty panes in whole cells and one-cell borders end exactly at the right edge', () => {
     const r = runScenario(
       stripStrategy,
       at(PRESETS.find((p) => p.id === 'tmux-even-horizontal-40')!, {}),
     );
-    const last = r.placements.get('pane-39')!;
+    const panes = [...r.placements.values()];
+    const last = panes.at(-1)!;
     expect(Math.abs(last.x + last.w - 1366)).toBeLessThan(1e-9);
-    for (const p of r.placements.values()) expect(p.w).toBeCloseTo((1366 - 39) / 40, 9);
+    // (1366 - 39 × 8) / 40 is 26.35px, which rounds to three cells; the last pane takes the rest.
+    for (const p of panes.slice(0, -1)) expect(p.w).toBe(24);
+    for (let i = 1; i < panes.length; i++) {
+      expect(panes[i]!.x - (panes[i - 1]!.x + panes[i - 1]!.w)).toBe(8);
+    }
   });
 });
 
@@ -641,6 +655,30 @@ describe('behavior keys on real-software layouts', () => {
     expect(note.x - (files.x + files.w)).toBeCloseTo(outline.x - (note.x + note.w), 9);
   });
 
+  it('tmux: a seam drag lands on a whole cell', () => {
+    const store = presetToStore(byId('tmux-even-horizontal-40'));
+    const { after } = dragSeam(store, 'tmux', { w: 1366, h: 768 }, 'resize-x-pane-0', 10);
+    // 24 + 10 is nearer four cells than five; the neighbor gives up the same cell.
+    expect(after.placements.get('pane-0')!.w).toBe(32);
+    expect(after.placements.get('pane-1')!.w).toBe(16);
+  });
+
+  it('emacs: every window is a whole number of 8px columns', () => {
+    for (const p of layout(byId('emacs-balanced-past-min')).placements.values()) {
+      expect(p.w % 8).toBe(0);
+    }
+  });
+
+  it('firefox: the three pinned tabs stick at the start of the scrolling strip, one after another', () => {
+    expect(layout(byId('firefox-100-tabs')).sticky).toEqual(
+      new Map([
+        ['pinned-1', { x: 0 }],
+        ['pinned-2', { x: 40 }],
+        ['pinned-3', { x: 80 }],
+      ]),
+    );
+  });
+
   it('emacs: a seam drag writes shares, so windows keep their proportions when the frame resizes', () => {
     const store = presetToStore(byId('emacs-balanced-past-min'));
     const wide = { w: 2400, h: 768 };
@@ -651,6 +689,69 @@ describe('behavior keys on real-software layouts', () => {
       runScenario(stripStrategy, project(store, 'emacs', { w, h: 768 })).placements;
     const ratio = (p: Map<string, Rect>) => p.get('window-0')!.w / p.get('window-1')!.w;
     expect(ratio(at(2400))).toBeGreaterThan(1.2);
-    expect(ratio(at(3000))).toBeCloseTo(ratio(at(2400)), 6);
+    // Each width rounds to a whole 8px column, so the ratio holds to within a column.
+    expect(Math.abs(ratio(at(3000)) - ratio(at(2400)))).toBeLessThan(8 / 120);
+  });
+});
+
+describe("VS Code: a sidebar dragged shut hides (overshoot: 'hide')", () => {
+  const hinted = PRESETS.find((p) => p.id === 'vscode-hinted-sidebars')!;
+  const size = hinted.viewport;
+  const shown = (store: Store) => {
+    const s = project(store, 'vscode-hinted', size);
+    const hidden = new Set(
+      store
+        .getChildren(asNodeId('vscode-hinted'))
+        .filter((n) => n.lifecycle.state === 'hidden')
+        .map((n) => String(n.id)),
+    );
+    return runScenario(stripStrategy, { ...s, items: s.items.filter((it) => !hidden.has(it.id)) });
+  };
+
+  /** Pushes `seamId` by `step` until the join arms or `steps` run out, then releases. */
+  function pushAndRelease(store: Store, seamId: string, step: number, steps: number) {
+    const first = shown(store).affordances.find((a) => a.id === seamId)!;
+    const before = captureSeam(store, first);
+    let overshoot = 0;
+    let armed: string | undefined;
+    for (let i = 0; i < steps && armed === undefined; i++) {
+      const { seam } = dragSeam(store, 'vscode-hinted', size, seamId, step);
+      const state = trackJoin({
+        join: seam.join!,
+        overshoot,
+        delta: step,
+        atMin: seam.bounds!.atMin,
+        atMax: seam.bounds!.atMax,
+        canDestroy: () => true,
+      });
+      overshoot = state.overshoot;
+      if (state.armed) armed = String(state.candidateId);
+    }
+    if (armed) commitJoin(store, first, asNodeId(armed), before);
+    return armed;
+  }
+
+  it('pushing the Explorer past its 170px floor hides it, and the row goes back as the drag found it', () => {
+    const store = presetToStore(hinted);
+    expect(pushAndRelease(store, 'resize-x-vh-sidebar', -20, 20)).toBe('vh-sidebar');
+    expect(store.getNode(asNodeId('vh-sidebar'))?.lifecycle.state).toBe('hidden');
+    const r = shown(store);
+    expect(r.placements.get('vh-activity')!.w).toBe(48);
+    expect(r.placements.get('vh-aux')!.w).toBe(300);
+    expect(r.placements.get('vh-editor')!.w).toBe(1600 - 48 - 300);
+  });
+
+  it('showing it again brings it back at its width from before the drag', () => {
+    const store = presetToStore(hinted);
+    pushAndRelease(store, 'resize-x-vh-sidebar', -20, 20);
+    store.showNode(asNodeId('vh-sidebar'));
+    const r = shown(store);
+    expect(r.placements.get('vh-sidebar')!.w).toBe(300);
+    expect(r.placements.get('vh-editor')!.w).toBe(1600 - 48 - 300 - 300);
+  });
+
+  it.fails("pushing the Explorer's seam into the editor never hides the editor [defect: overshoot: 'hide' arms on whichever pane the seam squeezes, and nothing, lock.destroy included, keeps one pane in the row from hiding]", () => {
+    const store = presetToStore(hinted);
+    expect(pushAndRelease(store, 'resize-x-vh-sidebar', 40, 60)).toBeUndefined();
   });
 });

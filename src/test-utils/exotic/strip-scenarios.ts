@@ -37,6 +37,9 @@ const blenderSplitTitles = (depth: number) =>
     Object.fromEntries(Array.from({ length: depth + 1 }, (_, i) => [`area-${i}`, `area-${i}`])),
   );
 
+/** One terminal character cell. */
+const TMUX_CELL = 8;
+
 const ACME_TAG = 18;
 /** An acme window at the height the user last left it. */
 const acmeWindow = (id: string, size: number, extra: Partial<PresetNode> = {}): PresetNode => ({
@@ -53,7 +56,7 @@ const firefoxTab = (i: number): PresetNode => ({ id: `tab-${i}`, meta: { title: 
 /** A tab the user pinned, which Firefox draws icon-sized. */
 const firefoxPinned = (i: number): PresetNode => ({
   id: `pinned-${i}`,
-  placement: { size: { w: 40 } },
+  placement: { size: { w: 40 }, sticky: true },
   hints: { minSize: w(40), maxSize: w(40) },
   meta: { title: `Pinned ${i}` },
 });
@@ -201,6 +204,8 @@ const FIREFOX_CSS = `
 .xs-pane:hover { background-color: #e0e0e6; }
 .xs-pane__title { padding: 8px 8px; background: none; border: 0; font-weight: normal; }
 .xs-pane__title::before { content: '◍ '; color: #5b5b66; }
+/* Pinned tabs stay put while the rest scroll under them. */
+[data-node]:has(> .ff-pinned) { background: #f0f0f4; }
 .ff-pinned .xs-pane__title { font-size: 0; }
 .ff-pinned .xs-pane__title::before { font-size: 14px; }
 `;
@@ -408,7 +413,7 @@ export const PRESETS: Preset[] = [
       mechanics: {
         id: 'vscode',
         strategy: 'strip',
-        config: { axis: 'x', resizeMode: 'neighbor' },
+        config: { axis: 'x', resizeMode: 'neighbor', overshoot: 'hide' },
         children: [
           {
             id: 'vs-activity',
@@ -423,7 +428,7 @@ export const PRESETS: Preset[] = [
           {
             id: 'vs-center',
             strategy: 'strip',
-            config: { axis: 'y', resizeMode: 'neighbor' },
+            config: { axis: 'y', resizeMode: 'neighbor', overshoot: 'hide' },
             hints: { minSize: w(220) },
             children: [
               { id: 'vs-editor', hints: { minSize: h(70) } },
@@ -467,7 +472,7 @@ export const PRESETS: Preset[] = [
       mechanics: {
         id: 'vscode-hinted',
         strategy: 'strip',
-        config: { axis: 'x', fill: true, resizeMode: 'neighbor' },
+        config: { axis: 'x', fill: true, resizeMode: 'neighbor', overshoot: 'hide' },
         children: [
           {
             id: 'vh-activity',
@@ -542,15 +547,16 @@ export const PRESETS: Preset[] = [
       id: 'tmux-even-horizontal-40',
       source: 'tmux select-layout even-horizontal after 40 splits, on a 1366px-wide terminal',
       stress:
-        'fractional equal shares with 1px borders — do 40 extents and 39 gaps sum to the width exactly',
+        'forty panes in whole 8px cells with one-cell borders; the last takes the rounding remainder so the row still ends at the right edge',
       description:
         'tmux runs several shell sessions inside one terminal window, dividing it into panes separated by one-character borders. The even-horizontal layout (select-layout even-horizontal) lines every pane up side by side at equal width. Users resize panes with resize-pane or, with mouse mode on, by dragging a border; when a split would leave a pane too small, tmux refuses it with "no space for new pane".',
       viewport: { w: 1366, h: 768 },
       mechanics: {
         id: 'tmux',
         strategy: 'strip',
-        config: { axis: 'x', gap: 1, fill: true, resizeMode: 'neighbor' },
-        item: { hints: { minSize: w(8) } },
+        // Sizes and borders in character cells, 8px wide.
+        config: { axis: 'x', gap: TMUX_CELL, step: TMUX_CELL, fill: true, resizeMode: 'neighbor' },
+        item: { hints: { minSize: w(TMUX_CELL) } },
       },
       data: {
         children: {
@@ -575,7 +581,8 @@ export const PRESETS: Preset[] = [
       mechanics: {
         id: 'emacs',
         strategy: 'strip',
-        config: { axis: 'x', gap: 1, fill: true, resizeMode: 'neighbor' },
+        // Windows size in whole 8px columns.
+        config: { axis: 'x', gap: 1, step: 8, fill: true, resizeMode: 'neighbor' },
         item: { hints: { minSize: w(80) } },
       },
       data: {
