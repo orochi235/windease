@@ -338,17 +338,52 @@ class CellPacker {
   readonly rowCap: number | undefined;
   private readonly taken = new Set<number>();
   private cursor = 0;
+  private journal: number[] | undefined;
 
   constructor(cols: number, rowCap: number | undefined) {
     this.cols = cols;
     this.rowCap = rowCap;
   }
 
-  clone(): CellPacker {
-    const copy = new CellPacker(this.cols, this.rowCap);
-    for (const cell of this.taken) copy.taken.add(cell);
-    copy.cursor = this.cursor;
-    return copy;
+  /** Runs `probe` against this packer, then undoes every cell it took. */
+  trial<T>(probe: (packer: CellPacker) => T): T {
+    const cursor = this.cursor;
+    const outer = this.journal;
+    const journal: number[] = [];
+    this.journal = journal;
+    try {
+      return probe(this);
+    } finally {
+      this.journal = outer;
+      for (const cell of journal) this.taken.delete(cell);
+      this.cursor = cursor;
+    }
+  }
+
+  free(col: number, row: number, cSpan: number, rSpan: number): boolean {
+    return this.blockedAt(col, row, cSpan, rSpan) < 0;
+  }
+
+  /** Runs `probe` with a block this packer holds freed, then takes it back. */
+  without<T>(block: ReservedCell, probe: (packer: CellPacker) => T): T {
+    const { cols, taken, cursor } = this;
+    const cells: number[] = [];
+    for (let dr = 0; dr < block.rows; dr++) {
+      for (let dc = 0; dc < block.cols; dc++) cells.push((block.row + dr) * cols + block.col + dc);
+    }
+    for (const cell of cells) taken.delete(cell);
+    this.cursor = Math.min(cursor, block.row * cols + block.col);
+    try {
+      return probe(this);
+    } finally {
+      for (const cell of cells) taken.add(cell);
+      this.cursor = cursor;
+    }
+  }
+
+  private take(cell: number): void {
+    this.journal?.push(cell);
+    this.taken.add(cell);
   }
 
   /** Reserves the first block a `cSpan × rSpan` item fits, if any. */
@@ -364,7 +399,7 @@ class CellPacker {
         const blocked = this.blockedAt(col, row, cSpan, rSpan);
         if (blocked < 0) {
           for (let dr = 0; dr < rSpan; dr++) {
-            for (let dc = 0; dc < cSpan; dc++) taken.add((row + dr) * cols + col + dc);
+            for (let dc = 0; dc < cSpan; dc++) this.take((row + dr) * cols + col + dc);
           }
           while (taken.has(this.cursor)) this.cursor++;
           return { col, row };
@@ -381,7 +416,7 @@ class CellPacker {
   reserve(col: number, row: number, cSpan: number, rSpan: number): boolean {
     if (this.blockedAt(col, row, cSpan, rSpan) >= 0) return false;
     for (let dr = 0; dr < rSpan; dr++) {
-      for (let dc = 0; dc < cSpan; dc++) this.taken.add((row + dr) * this.cols + col + dc);
+      for (let dc = 0; dc < cSpan; dc++) this.take((row + dr) * this.cols + col + dc);
     }
     while (this.taken.has(this.cursor)) this.cursor++;
     return true;
@@ -827,93 +862,182 @@ function gridGeometry(items: LayoutItem[], container: Size, cfg: GridConfig): Gr
   };
 }
 
+type Reach = { cols: number; rows: number };
+
 /**
  * The largest span `id` can take on each axis without pushing any sibling out
  * of the grid. A grid packs rather than pairing, so growing an item costs
  * whoever no longer fits — the honest ceiling is the last span at which
  * everyone is still placed.
  */
-function spanReach(
+export function spanReach(
   items: LayoutItem[],
   id: string,
   cols: number,
   rowCap: number | undefined,
   itemCap: number,
   compact = false,
-): { cols: number; rows: number } {
-  if (compact) return compactReach(items, id, cols, rowCap, itemCap);
-  const celled = items.some((it) => explicitCell(it) !== undefined);
+): Reach {
+  return spanReacher(items, cols, rowCap, itemCap, compact)(id);
+}
+
+/**
+ * `spanReach` for any item of one layout. What packs the same whatever span
+ * the item takes — the baseline count and the celled items' blocks — is
+ * packed once and shared by every call.
+ */
+function spanReacher(
+  items: LayoutItem[],
+  cols: number,
+  rowCap: number | undefined,
+  itemCap: number,
+  compact: boolean,
+): (id: string) => Reach {
+  if (compact) return (id) => compactReach(items, id, cols, rowCap, itemCap);
+  const cellOf = items.map(explicitCell);
+  const flow = items.filter((_, i) => !cellOf[i]);
+  const celled = flow.length < items.length;
   // An unbounded grid grows a row rather than dropping anyone, so every span
   // fits: the ceiling is the grid's width, and — since nothing can usefully
   // span more rows than there are items — the item count. Cells break this:
   // they don't move out of the way.
-  if (rowCap === undefined && !celled) return { cols, rows: items.length };
+  if (rowCap === undefined && !celled) return () => ({ cols, rows: items.length });
 
-  const at = items.findIndex((it) => it.id === id);
-  if (at < 0) return { cols: 1, rows: 1 };
-  const item = items[at] as LayoutItem;
-  const ownCell = explicitCell(item);
+  const baseline = reserveCells(items, cols, rowCap, itemCap).size;
+  const cellPacker = new CellPacker(cols, rowCap);
+  const cellsPlaced = new Map<string, ReservedCell>();
+  let lastRefused = -1;
+  for (let i = 0; i < items.length && cellsPlaced.size < itemCap; i++) {
+    const cell = cellOf[i];
+    if (cell && !reserveExplicit(cellPacker, items[i] as LayoutItem, cell, cellsPlaced)) {
+      lastRefused = i;
+    }
+  }
+  const capped = cellsPlaced.size >= itemCap;
+  const indexOf = new Map<string, number>();
+  for (let i = items.length - 1; i >= 0; i--) indexOf.set((items[i] as LayoutItem).id, i);
 
-  // What packs the same whatever span `id` takes is packed once, and each
-  // probe repacks only the rest: every other cell, since cells reserve first,
-  // then — unless `id` is itself celled and so reserves ahead of all flow —
-  // the flow items before it.
-  const prefix = new CellPacker(cols, rowCap);
-  const prefixPlaced = new Map<string, ReservedCell>();
-  if (celled) {
+  return (id) => {
+    const at = indexOf.get(id);
+    if (at === undefined) return { cols: 1, rows: 1 };
+    const item = items[at] as LayoutItem;
+    const ownCell = cellOf[at];
+
+    if (!ownCell) {
+      // Cells reserve first, then the flow items before `id`; each probe
+      // repacks only `id` and the flow after it.
+      return cellPacker.trial((prefix) => {
+        let before = cellsPlaced.size;
+        const rest: LayoutItem[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const other = items[i] as LayoutItem;
+          if (i === at || cellOf[i]) continue;
+          if (i > at) {
+            rest.push(other);
+          } else if (before < itemCap) {
+            const span = clampSpan(other, cols, rowCap);
+            if (prefix.place(span.cols, span.rows)) before++;
+          }
+        }
+        return probeReach(prefix, before, undefined, clampSpan(item, cols, rowCap), rest);
+      });
+    }
+
+    // A celled `id` reserves ahead of all flow, so each probe repacks every
+    // flow item, over every cell but its own.
+    const rest = flow;
+    const own = clampSpan(
+      item,
+      cols - ownCell.col,
+      rowCap === undefined ? undefined : rowCap - ownCell.row,
+    );
+    // Leaving out a cell the shared pass refused changes nothing. Leaving out
+    // one it reserved frees that block and nothing else, unless a later cell
+    // collided with it or the cap now admits one more.
+    const shared = cellsPlaced.get(id);
+    if (!shared) return probeReach(cellPacker, cellsPlaced.size, ownCell, own, rest);
+    if (!capped && lastRefused < at) {
+      return cellPacker.without(shared, (prefix) =>
+        probeReach(prefix, cellsPlaced.size - 1, ownCell, own, rest),
+      );
+    }
+    const prefix = new CellPacker(cols, rowCap);
+    const prefixPlaced = new Map<string, ReservedCell>();
     for (const other of items) {
       if (prefixPlaced.size >= itemCap) break;
       const cell = other.id === id ? undefined : explicitCell(other);
       if (cell) reserveExplicit(prefix, other, cell, prefixPlaced);
     }
-  }
-  let before = prefixPlaced.size;
-  const rest: LayoutItem[] = [];
-  for (let i = 0; i < items.length; i++) {
-    const other = items[i] as LayoutItem;
-    if (i === at || (celled && explicitCell(other))) continue;
-    if (ownCell || i > at) {
-      rest.push(other);
-    } else if (before < itemCap) {
-      const span = clampSpan(other, cols, rowCap);
-      if (prefix.place(span.cols, span.rows)) before++;
-    }
-  }
-  const baseline = reserveCells(items, cols, rowCap, itemCap).size;
-  const own = ownCell
-    ? clampSpan(item, cols - ownCell.col, rowCap === undefined ? undefined : rowCap - ownCell.row)
-    : clampSpan(item, cols, rowCap);
+    return probeReach(prefix, prefixPlaced.size, ownCell, own, rest);
+  };
 
-  const fits = (axis: 'cols' | 'rows', value: number): boolean => {
-    const packer = prefix.clone();
-    let placed = before;
-    if (placed < itemCap) {
-      const span = { ...own, [axis]: value };
-      if (ownCell) {
-        const inBounds =
-          ownCell.col + span.cols <= cols &&
-          (rowCap === undefined || ownCell.row + span.rows <= rowCap);
-        if (!inBounds || !packer.reserve(ownCell.col, ownCell.row, span.cols, span.rows)) {
-          return false;
-        }
-        placed++;
-      } else if (packer.place(span.cols, span.rows)) {
-        placed++;
+  /**
+   * The largest span on each axis at which `id` — celled at `ownCell`, or
+   * flowed — and then `rest` still place `baseline` items over `prefix`,
+   * which already holds `before`.
+   */
+  function probeReach(
+    prefix: CellPacker,
+    before: number,
+    ownCell: { col: number; row: number } | undefined,
+    own: Reach,
+    rest: LayoutItem[],
+  ): Reach {
+    const packRest = (packer: CellPacker, placed: number): boolean => {
+      for (let i = 0; i < rest.length && placed < itemCap; i++) {
+        const span = clampSpan(rest[i] as LayoutItem, cols, rowCap);
+        if (packer.place(span.cols, span.rows)) placed++;
+        else if (placed + rest.length - 1 - i < baseline) return false;
       }
-    }
-    for (let i = 0; i < rest.length && placed < itemCap; i++) {
-      const span = clampSpan(rest[i] as LayoutItem, cols, rowCap);
-      if (packer.place(span.cols, span.rows)) placed++;
-      else if (placed + rest.length - 1 - i < baseline) return false;
-    }
-    return placed >= baseline;
-  };
-  const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
-    let best = 1;
-    for (let v = 1; v <= cap; v++) if (fits(axis, v)) best = v;
-    return best;
-  };
-  return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap ?? items.length) };
+      return placed >= baseline;
+    };
+    // A celled block that collides or leaves the grid at one span does so at
+    // every larger span, and each span adds one strip to the block before it,
+    // so the probe checks only that strip and stops at the first taken cell.
+    const cellReach = (at: { col: number; row: number }, axis: 'cols' | 'rows', cap: number) => {
+      let best = 1;
+      for (let v = 1; v <= cap; v++) {
+        const span = { ...own, [axis]: v };
+        if (at.col + span.cols > cols || (rowCap !== undefined && at.row + span.rows > rowCap)) {
+          break;
+        }
+        const strip =
+          v === 1
+            ? prefix.free(at.col, at.row, span.cols, span.rows)
+            : axis === 'cols'
+              ? prefix.free(at.col + v - 1, at.row, 1, span.rows)
+              : prefix.free(at.col, at.row + v - 1, span.cols, 1);
+        if (!strip) break;
+        const fits =
+          rest.length === 0
+            ? before + 1 >= baseline
+            : prefix.trial((packer) => {
+                packer.reserve(at.col, at.row, span.cols, span.rows);
+                return packRest(packer, before + 1);
+              });
+        if (fits) best = v;
+      }
+      return best;
+    };
+    const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
+      if (ownCell && before < itemCap) return cellReach(ownCell, axis, cap);
+      let best = 1;
+      for (let v = 1; v <= cap; v++) {
+        const fits = prefix.trial((packer) => {
+          let placed = before;
+          // Past the cap `id` places nowhere, whatever its span.
+          if (placed < itemCap && !ownCell) {
+            const span = { ...own, [axis]: v };
+            if (packer.place(span.cols, span.rows)) placed++;
+          }
+          return packRest(packer, placed);
+        });
+        if (fits) best = v;
+      }
+      return best;
+    };
+    return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap ?? items.length) };
+  }
 }
 
 /**
@@ -1250,11 +1374,12 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     if (cfg.resizable && !preview) {
       if (geom.colTracks) affordances.push(...trackSeams(geom, 'cols', cfg));
       if (geom.rowTracks) affordances.push(...trackSeams(geom, 'rows', cfg));
+      const reachOf = spanReacher(items, cols, rowCap, itemCap, cfg.compact === 'up');
       for (const item of items) {
         const cell = cells.get(item.id);
         const rect = placements.get(item.id);
         if (!cell || !rect) continue;
-        const reach = spanReach(items, item.id, cols, rowCap, itemCap, cfg.compact === 'up');
+        const reach = reachOf(item.id);
         // Emit when the span can move at all, in either direction. Keying on
         // "a cell follows this one" instead would drop the handle from an item
         // spanning to the edge, leaving it grown with no way back.

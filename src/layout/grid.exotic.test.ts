@@ -410,6 +410,21 @@ describe('Windows 10 Start tiles', () => {
     run({ items, container: { w: 800, h: 800 }, options: { resizable: true } });
     expect(performance.now() - t).toBeLessThan(100);
   });
+
+  it('a resizable 200-panel celled dashboard under a row cap lays out in under 100ms', () => {
+    const items = Array.from({ length: 200 }, (_, i) => ({
+      id: `p${i}`,
+      placement: {
+        cell: { col: (i % 4) * 6, row: Math.floor(i / 4) * 8 },
+        span: { cols: 6, rows: 8 },
+      },
+    }));
+    const options = { cols: 24, maxRows: 420, cell: { h: 30 }, resizable: true };
+    const t = performance.now();
+    const r = run({ items, container: { w: 2400, h: 1000 }, options });
+    expect(performance.now() - t).toBeLessThan(100);
+    expect(r.unplaced).toBeUndefined();
+  });
 });
 
 describe('Grafana dashboard', () => {
