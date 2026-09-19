@@ -245,6 +245,38 @@ test.describe('desktop layer', () => {
   });
 });
 
+test.describe('desktop iconFrom', () => {
+  test("iconFrom: 'bottom-left' lines icons up from the desktop's bottom-left", async ({
+    page,
+  }) => {
+    await openStory(page, BEHAVIOR);
+    const desk = await deskOf(page);
+    const disk = await boxOf(node(page, 'disk'));
+    const trash = await boxOf(node(page, 'trash'));
+    expect(disk.x).toBeCloseTo(desk.x, 0);
+    expect(disk.y + disk.h).toBeCloseTo(desk.y + 360, 0);
+    expect(trash.x).toBeCloseTo(disk.x + disk.w + 8, 0);
+    expect(trash.y).toBeCloseTo(disk.y, 0);
+  });
+
+  test('a window minimized to an icon joins the row at the bottom', async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-minimize=icon`);
+    const trash = await boxOf(node(page, 'trash'));
+    await page.getByRole('button', { name: 'minimize win-1' }).click();
+    const icon = await settledBox(node(page, 'win-1'));
+    expect(icon).toMatchObject({ y: trash.y, w: 72, h: 64 });
+    expect(icon.x).toBeCloseTo(trash.x + trash.w + 8, 0);
+  });
+
+  test("iconFrom: 'top-right' lines them up from the top-right", async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-iconFrom=top-right`);
+    const desk = await deskOf(page);
+    const disk = await boxOf(node(page, 'disk'));
+    expect(disk.x + disk.w).toBeCloseTo(desk.x + 480, 0);
+    expect(disk.y).toBeCloseTo(desk.y, 0);
+  });
+});
+
 test.describe('desktop raise policy', () => {
   const RAISE = 'desktop--raise-policy';
 

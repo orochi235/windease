@@ -106,6 +106,14 @@ section below.
   gets no edges, and a window's own `placement.resize` overrides the config. See
   [Desktop windows](README.md#desktop-windows).
 
+- **`iconFrom` on `desktopStrategy`** picks the corner the icon layer fills
+  from: `'top-left'` (the default), `'bottom-left'` (Windows 3.1, rows going up),
+  `'top-right'` or `'bottom-right'`. The inner strategy still lays icons out from
+  the top-left, and the desktop mirrors its placements, affordances and overflow
+  into the corner, and mirrors pointer deltas, preview cursors and navigation
+  directions back on their way in, so any inner strategy works unchanged. Rows
+  that run past the top are reported as `overflow.top`.
+
 - **Placement `layer: 'top'` keeps a window above the rest, on `desktopStrategy`
   and `floatingStrategy`.** For GIMP's docks and Mac OS 9's palettes. On a desktop,
   windows without it take `z` 1 up in child order and top-layer windows follow, so

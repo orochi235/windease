@@ -187,6 +187,8 @@ interface BehaviorArgs {
   resize: boolean;
   /** Keep the palette on the top layer, above every window you raise. */
   layer: boolean;
+  minimize: 'shade' | 'icon';
+  iconFrom: 'top-left' | 'bottom-left' | 'top-right' | 'bottom-right';
 }
 
 const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number }[] = [
@@ -199,7 +201,9 @@ const BEHAVIOR_WINDOWS: { id: string; x: number; y: number; w: number; h: number
 
 const PALETTE = asNodeId('palette');
 
-const BEHAVIOR_STRATEGIES = { desktop: desktopStrategy() as never };
+const BEHAVIOR_ICONS = ['disk', 'trash'];
+
+const BEHAVIOR_STRATEGIES = { desktop: desktopStrategy(shelfStrategy) as never };
 
 function behaviorConfig(args: BehaviorArgs): Record<string, unknown> {
   const drag = args.drag === 'true' ? true : args.drag === 'false' ? false : args.drag;
@@ -210,6 +214,11 @@ function behaviorConfig(args: BehaviorArgs): Record<string, unknown> {
     overflow: args.overflow,
     minimizable: args.minimizable,
     resize: args.resize,
+    minimize: args.minimize,
+    iconFrom: args.iconFrom,
+    gap: 8,
+    iconWidth: 72,
+    iconHeight: 64,
   };
 }
 
@@ -219,6 +228,18 @@ function useBehaviorStore(args: BehaviorArgs): Store {
     s.registerNode(
       createNode({ kind: 'zone', id: ZONE_ID, container: { strategyId: 'desktop', config: {} } }),
     );
+    for (const id of BEHAVIOR_ICONS) {
+      s.registerNode(
+        createNode({
+          kind: 'icon',
+          id: asNodeId(id),
+          parentId: ZONE_ID,
+          placement: { icon: true },
+          hints: { preferredSize: { w: 72, h: 64 } },
+        }),
+      );
+      s.showNode(asNodeId(id));
+    }
     for (const { id, x, y, w, h } of BEHAVIOR_WINDOWS) {
       s.registerNode(
         createNode({
@@ -249,19 +270,32 @@ function useBehaviorStore(args: BehaviorArgs): Store {
 }
 
 /** Draws the bar and a glyph under the toggle; the desktop's affordances do the rest. */
-const BEHAVIOR_CHROME: ChromeMap = {
-  window: ({ node }) => (
-    <div className="desktop-window">
-      <header className="desktop-window__bar">
-        <span>{String(node.meta?.title ?? node.id)}</span>
-        <span className="desktop-window__glyph" aria-hidden="true">
-          {node.membership?.placement.minimized === true ? '▢' : '–'}
-        </span>
-      </header>
-      <div className="desktop-window__body">{String(node.id)}</div>
-    </div>
-  ),
-};
+function behaviorChrome(minimize: BehaviorArgs['minimize']): ChromeMap {
+  return {
+    icon: ({ node }) => <div className="desktop-icon">{String(node.id)}</div>,
+    window: ({ node }) => {
+      const minimized = node.membership?.placement.minimized === true;
+      if (minimized && minimize === 'icon') {
+        return (
+          <div className="desktop-icon desktop-icon--window">
+            {String(node.meta?.title ?? node.id)}
+          </div>
+        );
+      }
+      return (
+        <div className="desktop-window">
+          <header className="desktop-window__bar">
+            <span>{String(node.meta?.title ?? node.id)}</span>
+            <span className="desktop-window__glyph" aria-hidden="true">
+              {minimized ? '▢' : '–'}
+            </span>
+          </header>
+          <div className="desktop-window__body">{String(node.id)}</div>
+        </div>
+      );
+    },
+  };
+}
 
 /** Raising is not a desktop key yet, so a click on a window's title band raises it here. */
 function raiseFromBand(store: Store, target: EventTarget | null) {
@@ -273,6 +307,7 @@ function raiseFromBand(store: Store, target: EventTarget | null) {
 function BehaviorZone(args: BehaviorArgs) {
   const store = useBehaviorStore(args);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const chrome = useMemo(() => behaviorChrome(args.minimize), [args.minimize]);
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={BEHAVIOR_STRATEGIES}>
@@ -285,7 +320,7 @@ function BehaviorZone(args: BehaviorArgs) {
         >
           <Container
             parentId={ZONE_ID}
-            chrome={BEHAVIOR_CHROME}
+            chrome={chrome}
             viewport={{ w: 480, h: 360 }}
             className="desktop-surface"
             scrollRef={scrollRef}
@@ -297,8 +332,10 @@ function BehaviorZone(args: BehaviorArgs) {
           <code>clamp</code> keeps its title bar, or all of it, on the desktop;{' '}
           <code>minimizable</code> makes the box at its right roll it up; <code>resize</code> lets
           its edges and corners resize it. With <code>layer</code> on, the palette's placement
-          carries <code>layer: 'top'</code>, so raising a window never covers it. win-3 was left on
-          a monitor that is gone: scroll left to reach it, or clamp to bring it back.
+          carries <code>layer: 'top'</code>, so raising a window never covers it.{' '}
+          <code>iconFrom</code> picks the corner the icons, and windows minimized to icons, line up
+          from. win-3 was left on a monitor that is gone: scroll left to reach it, or clamp to bring
+          it back.
         </p>
       </StrategyRegistryProvider>
     </Provider>
@@ -314,11 +351,18 @@ Behavior.args = {
   minimizable: true,
   resize: true,
   layer: true,
+  minimize: 'shade',
+  iconFrom: 'bottom-left',
 };
 Behavior.argTypes = {
   drag: { options: ['true', 'x', 'y', 'false'], control: { type: 'radio' } },
   clamp: { options: ['none', 'bar', 'all'], control: { type: 'radio' } },
   overflow: { options: ['scroll', 'clip'], control: { type: 'radio' } },
+  minimize: { options: ['shade', 'icon'], control: { type: 'radio' } },
+  iconFrom: {
+    options: ['top-left', 'bottom-left', 'top-right', 'bottom-right'],
+    control: { type: 'radio' },
+  },
 };
 
 const RAISE_ZONE = asNodeId('raise-desktop');

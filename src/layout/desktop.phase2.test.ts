@@ -6,6 +6,7 @@ import type { Affordance, LayoutItem, LayoutStrategy, Size } from '../layout-typ
 import { asNodeId } from '../node.js';
 import { Store } from '../store.js';
 import { desktopStrategy } from './desktop.js';
+import { shelfStrategy } from './shelf.js';
 
 const Z = asNodeId('z');
 const CONTAINER = { w: 400, h: 300 };
@@ -344,5 +345,174 @@ describe('desktop layer', () => {
     const s = desktop({ cascade: 30 }, [{ id: 'dock', placement: { layer: 'top' } }, { id: 'a' }]);
     expect(layoutOf(s).placements.get('dock')).toMatchObject({ x: 0, y: 0, z: 2 });
     expect(layoutOf(s).placements.get('a')).toMatchObject({ x: 30, y: 30, z: 1 });
+  });
+});
+
+describe('desktop iconFrom', () => {
+  const icon = (id: string): LayoutItem => ({
+    id,
+    meta: { icon: true },
+    hints: { preferredSize: { w: 64, h: 64 } },
+  });
+  const icons = (n: number) => Array.from({ length: n }, (_, i) => icon(`i${i + 1}`));
+  function run(
+    items: LayoutItem[],
+    options: Record<string, unknown>,
+    inner: Inner = shelfStrategy as Inner,
+    container: Size = CONTAINER,
+  ) {
+    const s = desktopStrategy(inner);
+    return s.layout({ items, container, state: s.initialState(items, options), options });
+  }
+  const at = (r: ReturnType<typeof run>, id: string) => {
+    const p = r.placements.get(id);
+    return p && { x: p.x, y: p.y };
+  };
+
+  it('lines icons up from the top-left by default', () => {
+    const r = run(icons(2), {});
+    expect([at(r, 'i1'), at(r, 'i2')]).toEqual([
+      { x: 0, y: 0 },
+      { x: 64, y: 0 },
+    ]);
+  });
+
+  it('fills from the bottom-left with rows going up, as Windows 3.1 does', () => {
+    const r = run(icons(7), { iconFrom: 'bottom-left' });
+    expect(at(r, 'i1')).toEqual({ x: 0, y: 236 });
+    expect(at(r, 'i6')).toEqual({ x: 320, y: 236 });
+    expect(at(r, 'i7')).toEqual({ x: 0, y: 172 });
+  });
+
+  it('runs right to left from the top-right', () => {
+    const r = run(icons(2), { iconFrom: 'top-right' });
+    expect([at(r, 'i1'), at(r, 'i2')]).toEqual([
+      { x: 336, y: 0 },
+      { x: 272, y: 0 },
+    ]);
+  });
+
+  it('starts in the bottom-right corner', () => {
+    expect(at(run(icons(1), { iconFrom: 'bottom-right' }), 'i1')).toEqual({ x: 336, y: 236 });
+  });
+
+  it('reports rows past the top as overflow above, not below', () => {
+    const r = run(icons(7), { iconFrom: 'bottom-left' }, undefined, { w: 400, h: 100 });
+    expect(at(r, 'i7')).toEqual({ x: 0, y: -28 });
+    expect(r.overflow).toEqual({ w: 0, h: 0, top: 28 });
+  });
+
+  it('leaves windows where they are', () => {
+    const win: LayoutItem = {
+      id: 'w',
+      meta: { x: 10, y: 20 },
+      hints: { preferredSize: { w: 50, h: 40 } },
+    };
+    const r = run([win, icon('i1')], { iconFrom: 'bottom-right' });
+    expect(r.placements.get('w')).toEqual({ x: 10, y: 20, z: 1, w: 50, h: 40 });
+  });
+
+  it('puts the restore toggle over an iconified window where it now shows', () => {
+    const win: LayoutItem = {
+      id: 'w',
+      meta: { minimized: true },
+      hints: { preferredSize: { w: 50, h: 40 } },
+    };
+    const r = run([win], { iconFrom: 'bottom-left', minimize: 'icon', minimizable: true });
+    const toggle = r.affordances.find((a) => a.id === 'desktop:minimize:w');
+    expect(toggle?.rect).toMatchObject({ x: 0, y: 236, w: 64, h: 64 });
+  });
+
+  describe('with an inner strategy that emits and hears gestures', () => {
+    const seen: Record<string, unknown>[] = [];
+    const spy: Inner = {
+      name: 'spy',
+      layout: ({ items, preview }) => {
+        if (preview) seen.push({ cursor: preview.cursor });
+        return {
+          placements: new Map(items.map((i) => [i.id, { x: 0, y: 0, z: 0, w: 10, h: 10 }])),
+          affordances: [
+            { id: 'spy:seam', kind: 'drag-xy', rect: { x: 0, y: 0, z: 0, w: 10, h: 20 } },
+          ],
+        };
+      },
+      reduce: (state, event) => {
+        seen.push({ reduce: event.payload });
+        return state;
+      },
+      dispatchAffordance: ({ event, affordance }) => {
+        seen.push({ dispatch: event.payload, rect: affordance.rect });
+      },
+      navigate: ({ direction }) => {
+        seen.push({ direction });
+        return undefined;
+      },
+    };
+    const options = { iconFrom: 'bottom-right' };
+    const s = desktopStrategy(spy);
+    const items = [icon('i1')];
+
+    it('mirrors the inner affordances onto the icons', () => {
+      const r = s.layout({
+        items,
+        container: CONTAINER,
+        state: s.initialState(items, options),
+        options,
+      });
+      expect(r.affordances[0]?.rect).toEqual({ x: 390, y: 280, z: 0, w: 10, h: 20 });
+    });
+
+    it('hands the inner strategy its own frame: the rect, the deltas and the point', () => {
+      seen.length = 0;
+      const event = {
+        affordanceId: 'spy:seam',
+        kind: 'drag' as const,
+        payload: { dx: 5, dy: -3, point: { x: 395, y: 290 } },
+      };
+      const store = desktop(options, []);
+      s.dispatchAffordance?.({
+        event,
+        affordance: {
+          id: 'spy:seam',
+          kind: 'drag-xy',
+          rect: { x: 390, y: 280, z: 0, w: 10, h: 20 },
+        },
+        store,
+        parentId: Z,
+        container: CONTAINER,
+        options,
+        items,
+      });
+      s.reduce?.(s.initialState(items, options), event, { container: CONTAINER, options, items });
+      const flipped = { dx: -5, dy: 3, point: { x: 5, y: 10 } };
+      expect(seen).toEqual([
+        { dispatch: flipped, rect: { x: 0, y: 0, z: 0, w: 10, h: 20 } },
+        { reduce: flipped },
+      ]);
+    });
+
+    it('mirrors a preview cursor and a navigation direction', () => {
+      seen.length = 0;
+      s.layout({
+        items,
+        container: CONTAINER,
+        state: s.initialState(items, options),
+        options,
+        preview: { insertId: 'i1', cursor: { x: 390, y: 10 } },
+      });
+      s.navigate?.({ items, from: 'i1', direction: 'left', options });
+      s.navigate?.({ items, from: 'i1', direction: 'up', options });
+      expect(seen).toEqual([
+        { cursor: { x: 10, y: 290 } },
+        { direction: 'right' },
+        { direction: 'down' },
+      ]);
+    });
+  });
+
+  it('declares iconFrom in its config spec', () => {
+    expect(desktopStrategy().configSpec).toMatchObject({
+      iconFrom: ['top-left', 'bottom-left', 'top-right', 'bottom-right'],
+    });
   });
 });

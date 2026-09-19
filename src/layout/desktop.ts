@@ -1,5 +1,6 @@
 import type {
   Affordance,
+  LayoutEvent,
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
@@ -23,6 +24,9 @@ export const DESKTOP_OVERFLOW = ['clip', 'scroll'] as const;
 
 /** The values `drag` accepts, in config or in a window's placement. */
 export const DESKTOP_DRAG = [true, false, 'x', 'y'] as const;
+
+/** The corners `container.config.iconFrom` accepts. */
+export const DESKTOP_ICON_FROM = ['top-left', 'bottom-left', 'top-right', 'bottom-right'] as const;
 
 /** `container.config` keys {@link desktopStrategy} reads. */
 export interface DesktopConfig {
@@ -53,6 +57,9 @@ export interface DesktopConfig {
   resize?: boolean;
   /** Thickness of the edges `resize` grabs; corners are twice it. */
   edgeSize?: number;
+  /** The corner the icon layer fills from. `inner` lays icons out from the
+   *  top-left as usual, and the desktop mirrors its result into this corner. */
+  iconFrom?: (typeof DESKTOP_ICON_FROM)[number];
 }
 
 /** {@link desktopStrategy}'s state: only whatever the wrapped strategy keeps. */
@@ -245,6 +252,60 @@ function minimizeToggle(id: string, rect: Rect, minimized: boolean): Affordance 
   };
 }
 
+/** Which axes `iconFrom` flips the icon layer on; null when it flips none. */
+interface Mirror {
+  x: boolean;
+  y: boolean;
+}
+
+function mirrorOf(cfg: DesktopConfig): Mirror | null {
+  const x = cfg.iconFrom === 'top-right' || cfg.iconFrom === 'bottom-right';
+  const y = cfg.iconFrom === 'bottom-left' || cfg.iconFrom === 'bottom-right';
+  return x || y ? { x, y } : null;
+}
+
+const OPPOSITE = { left: 'right', right: 'left', up: 'down', down: 'up' } as const;
+
+function flipRect(r: Rect, m: Mirror | null, c: Size): Rect {
+  if (!m) return r;
+  return { ...r, x: m.x ? c.w - r.x - r.w : r.x, y: m.y ? c.h - r.y - r.h : r.y };
+}
+
+function flipPoint(p: Point, m: Mirror | null, c: Size): Point {
+  if (!m) return p;
+  return { x: m.x ? c.w - p.x : p.x, y: m.y ? c.h - p.y : p.y };
+}
+
+/** A mirror is its own inverse, so this maps the inner strategy's frame to the
+ *  desktop's and back. `bounds` values are left alone: they may be sizes. */
+function flipResult(r: LayoutResult<string>, m: Mirror | null, c: Size): LayoutResult<string> {
+  if (!m) return r;
+  const out: LayoutResult<string> = {
+    ...r,
+    placements: new Map([...r.placements].map(([id, rect]) => [id, flipRect(rect, m, c)])),
+    affordances: r.affordances.map((a) => ({ ...a, rect: flipRect(a.rect, m, c) })),
+  };
+  if (r.overflow) {
+    const { w, h, left = 0, top = 0 } = r.overflow;
+    const over = { w: m.x ? left : w, h: m.y ? top : h };
+    const near = { left: m.x ? w : left, top: m.y ? h : top };
+    out.overflow = over;
+    if (near.left > 0) out.overflow.left = near.left;
+    if (near.top > 0) out.overflow.top = near.top;
+  }
+  return out;
+}
+
+function flipEvent(e: LayoutEvent, m: Mirror | null, c: Size): LayoutEvent {
+  if (!m) return e;
+  const { dx, dy, point } = e.payload;
+  const payload: LayoutEvent['payload'] = {};
+  if (dx !== undefined) payload.dx = m.x ? -dx : dx;
+  if (dy !== undefined) payload.dy = m.y ? -dy : dy;
+  if (point) payload.point = flipPoint(point, m, c);
+  return { ...e, payload };
+}
+
 interface Layers {
   icons: LayoutItem[];
   windows: LayoutItem[];
@@ -432,6 +493,7 @@ export function desktopStrategy<TInner>(
       minimizable: 'boolean',
       resize: 'boolean',
       edgeSize: 'number',
+      iconFrom: DESKTOP_ICON_FROM,
     },
 
     initialState(items, options) {
@@ -443,9 +505,18 @@ export function desktopStrategy<TInner>(
       const handleSize = cfg.handleSize ?? DEFAULT_HANDLE_SIZE;
       const { icons, windows } = layers(items, options, hasInner);
 
+      const mirror = mirrorOf(cfg);
       const innerInput = { items: icons, container, state: state.inner as TInner, options };
+      const innerPreview = preview && {
+        ...preview,
+        cursor: flipPoint(preview.cursor, mirror, container),
+      };
       const result: LayoutResult<string> = inner
-        ? inner.layout(preview ? { ...innerInput, preview } : innerInput)
+        ? flipResult(
+            inner.layout(innerPreview ? { ...innerInput, preview: innerPreview } : innerInput),
+            mirror,
+            container,
+          )
         : { placements: new Map(), affordances: [] };
 
       const placements = new Map(result.placements);
@@ -518,7 +589,13 @@ export function desktopStrategy<TInner>(
       if (!isOwnAffordance(event.affordanceId)) {
         if (!inner?.dispatchAffordance) return;
         const items = layers(ctx.items, ctx.options, hasInner).icons;
-        inner.dispatchAffordance({ ...ctx, items });
+        const mirror = mirrorOf(ctx.options as DesktopConfig);
+        inner.dispatchAffordance({
+          ...ctx,
+          items,
+          event: flipEvent(event, mirror, ctx.container),
+          affordance: { ...affordance, rect: flipRect(affordance.rect, mirror, ctx.container) },
+        });
         return;
       }
       if (event.affordanceId.startsWith(DESKTOP_MINIMIZE_PREFIX)) {
@@ -561,7 +638,15 @@ export function desktopStrategy<TInner>(
     reduce(state, event, context) {
       if (!inner?.reduce || isOwnAffordance(event.affordanceId)) return state;
       const items = layers(context.items, context.options, hasInner).icons;
-      return { ...state, inner: inner.reduce(state.inner as TInner, event, { ...context, items }) };
+      const flipped = flipEvent(
+        event,
+        mirrorOf(context.options as DesktopConfig),
+        context.container,
+      );
+      return {
+        ...state,
+        inner: inner.reduce(state.inner as TInner, flipped, { ...context, items }),
+      };
     },
 
     canAccept(items, options) {
@@ -572,7 +657,14 @@ export function desktopStrategy<TInner>(
     navigate(input) {
       if (!inner?.navigate) return undefined;
       const items = layers(input.items, input.options, hasInner).icons;
-      return inner.navigate({ ...input, items });
+      const mirror = mirrorOf(input.options as DesktopConfig);
+      const { direction } = input;
+      const across = direction === 'left' || direction === 'right' ? mirror?.x : mirror?.y;
+      return inner.navigate({
+        ...input,
+        items,
+        direction: across ? OPPOSITE[direction] : direction,
+      });
     },
   };
 }

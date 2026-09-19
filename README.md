@@ -1012,9 +1012,19 @@ the pressed element in the DOM and the browser drops the click it was for.
 | `overflow` | `'scroll'` | `'scroll'` reports windows past any edge as `overflow`, left and top included; `'clip'` reports none |
 | `resize` | off | `true` resizes a window from its edges and corners |
 | `edgeSize` | `6` | thickness of the edges `resize` grabs; corners are twice it |
+| `iconFrom` | `'top-left'` | the corner the icon layer fills from: `'top-left'`, `'bottom-left'`, `'top-right'` or `'bottom-right'` |
 
 With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`
 shades instead, with a `layout` trace.
+
+**Icon corner.** `inner` always lays icons out from the top-left, and `iconFrom`
+mirrors the result into another corner, so any inner strategy works there.
+`'bottom-left'` gives Windows 3.1's row along the bottom, filling rows upward;
+`'top-right'` with a one-column inner strategy gives Mac OS 9's disks down the
+right edge. The mirror covers the inner strategy's affordances, its overflow
+(rows past the top come back as `overflow.top`), and the pointer deltas, preview
+cursor and arrow-key direction it is handed back. An inner affordance's `bounds`
+is not mirrored.
 
 **Dragging.** With `drag` set, each window gets a `drag-xy` affordance (`drag-x`,
 `drag-y`) over its top `handleSize` pixels, and dragging it writes `x` / `y` into
