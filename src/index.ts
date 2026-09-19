@@ -107,8 +107,10 @@ export {
   DEFAULT_SNAP_THRESHOLD,
   FLOATING_CORNERS,
   FLOATING_DRAG_PREFIX,
+  FLOATING_SNAP,
   type FloatingConfig,
   type FloatingPlacement,
+  type FloatingSnap,
   type FloatingState,
   floatingStrategy,
 } from './layout/floating.js';

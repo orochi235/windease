@@ -285,6 +285,7 @@ describe('floatingStrategy.layout', () => {
       'handleSize',
       'inset',
       'raise',
+      'snap',
       'snapThreshold',
       'snapToPanes',
     ]);

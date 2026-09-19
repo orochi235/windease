@@ -6,6 +6,7 @@ import {
   asNodeId,
   type Corner,
   createNode,
+  type FloatingSnap,
   floatingStrategy,
   gridStrategy,
   Store,
@@ -30,6 +31,7 @@ interface Args {
   bottomRight: boolean;
   /** Register the legend before the panes, and put it on the top layer when true. */
   layer?: boolean;
+  snap?: FloatingSnap;
 }
 
 function cornersFrom(args: Args): Corner[] {
@@ -47,6 +49,7 @@ function useZoneStore(
   snapToPanes: boolean,
   corners: string,
   layer: boolean | undefined,
+  snap: FloatingSnap | undefined,
 ): Store {
   return useMemo(() => {
     const s = new Store();
@@ -63,6 +66,7 @@ function useZoneStore(
             snapToPanes,
             inset: 12,
             snapThreshold: 12,
+            ...(snap ? { snap } : {}),
           },
         },
         id: ZONE_ID,
@@ -104,12 +108,28 @@ function useZoneStore(
     // it over the tiles.
     if (layer === undefined) registerLegend();
     return s;
-  }, [handleSize, snapToPanes, corners, layer]);
+  }, [handleSize, snapToPanes, corners, layer, snap]);
+}
+
+function addPane(store: Store) {
+  const order = store.getContainerView(ZONE_ID)?.childOrder ?? [];
+  const n = order.filter((id) => id !== LEGEND_ID).length + 1;
+  const id = asNodeId(`panel-${n}`);
+  store.registerNode(
+    createNode({ kind: 'panel', focus: true, id, parentId: ZONE_ID, meta: { title: `Pane ${n}` } }),
+  );
+  store.showNode(id);
 }
 
 function FloatingZone(args: Args) {
   const corners = cornersFrom(args);
-  const store = useZoneStore(args.handleSize, args.snapToPanes, corners.join(','), args.layer);
+  const store = useZoneStore(
+    args.handleSize,
+    args.snapToPanes,
+    corners.join(','),
+    args.layer,
+    args.snap,
+  );
   const [clicks, setClicks] = useState(0);
   const { handleSize, snapToPanes } = args;
 
@@ -123,7 +143,15 @@ function FloatingZone(args: Args) {
               handle <strong>{handleSize === 0 ? 'whole panel' : `${handleSize}px band`}</strong>
             </span>
             <span>
-              snaps to <strong>{snapToPanes ? 'panes + zone' : 'zone'}</strong>
+              {args.snap === 'fill' ? (
+                <>
+                  fills <strong>the pane under the pointer</strong>
+                </>
+              ) : (
+                <>
+                  snaps to <strong>{snapToPanes ? 'panes + zone' : 'zone'}</strong>
+                </>
+              )}
             </span>
             <button
               type="button"
@@ -137,7 +165,7 @@ function FloatingZone(args: Args) {
         </div>
       ),
     }),
-    [handleSize, snapToPanes, clicks],
+    [handleSize, snapToPanes, clicks, args.snap],
   );
 
   return (
@@ -155,13 +183,28 @@ function FloatingZone(args: Args) {
             className="windease-zone"
           />
         </div>
-        <p className="floating-hint">
-          The blue wash is the drag handle. Snapping corners:{' '}
-          <strong>
-            {corners.length === 4 || corners.length === 0 ? 'all four' : corners.join(', ')}
-          </strong>
-          , capturing within 12px of {args.snapToPanes ? 'a pane or the zone' : 'the zone'}.
-        </p>
+        {args.snap === 'fill' ? (
+          <>
+            <p className="floating-hint">
+              <button type="button" data-testid="add-pane" onClick={() => addPane(store)}>
+                Add a pane
+              </button>
+            </p>
+            <p className="floating-hint">
+              The blue wash is the drag handle. Drop the legend on a pane and it fills that pane,
+              and keeps filling it when adding a pane reflows the grid. Drag it off the pane and it
+              goes back to its own size.
+            </p>
+          </>
+        ) : (
+          <p className="floating-hint">
+            The blue wash is the drag handle. Snapping corners:{' '}
+            <strong>
+              {corners.length === 4 || corners.length === 0 ? 'all four' : corners.join(', ')}
+            </strong>
+            , capturing within 12px of {args.snapToPanes ? 'a pane or the zone' : 'the zone'}.
+          </p>
+        )}
       </StrategyRegistryProvider>
     </Provider>
   );
@@ -196,3 +239,7 @@ SnapToPanes.args = {
 /** The legend comes before the panes in child order, so only `layer: 'top'` keeps it over them. */
 export const TopLayer: Story<Args> = (args) => <FloatingZone {...args} />;
 TopLayer.args = { ...HandleBand.args, layer: true };
+
+/** `snap: 'fill'`, as FancyZones does it: a dropped legend fills the pane under the pointer. */
+export const SnapFill: Story<Args> = (args) => <FloatingZone {...args} />;
+SnapFill.args = { ...HandleBand.args, snap: 'fill' };

@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **A floating item can fill the pane it is dropped on.** `snap: 'fill'` in
+  `floatingStrategy`'s config makes the inner strategy's panes zones, as in
+  FancyZones: an item dragged over one fills it, and follows it through
+  resizes and reflows. Dragged off every pane, it returns to its own size.
+  `'corner'`, the default, is the corner snapping it always did. See
+  [Floating chrome over a tiled zone](README.md#floating-chrome-over-a-tiled-zone).
+
 - **A stack's tabs can sit on any edge, or stack as one title bar per tab.**
   `side: 'top' | 'bottom' | 'left' | 'right'` in a stack's config puts the tab
   band on that edge and the body beside it. `tabs: 'stacked'` is i3's stacked

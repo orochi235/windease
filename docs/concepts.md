@@ -408,7 +408,11 @@ Built-ins:
 - **`floatingStrategy(inner?)`** — wraps another strategy. Items whose
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
-  `handleSize`, `snapToPanes`. Called with no argument, everything floats.
+  `handleSize`, `snapToPanes`, `snap`. Called with no argument, everything
+  floats. `snap: 'fill'` replaces corner snapping with FancyZones' zones: an
+  item dragged over a pane of `inner` fills it, and its state entry in `at`
+  records the pane as `fill`. Its `x` / `y` stay its free position at its own
+  size, which is where it goes when it leaves the pane or the pane goes away.
   Floating items sit at `z` 0, stacked by render order, except those with
   placement `layer: 'top'`, which take `z` 2 and up.
 - **`desktopStrategy(inner?)`** — windows at placement `x` / `y`, overlapping,

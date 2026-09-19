@@ -1081,6 +1081,7 @@ store.patchPlacement(panelId, { floating: true, snapCorners: ['bottom-left', 'bo
 | `defaultAnchor` | `'bottom-left'` | corner a newly floated item seeds at |
 | `handleSize` | `0` | height of the drag band; `0` makes the whole item the handle |
 | `snapToPanes` | `false` | also snap to the corners of the panes the inner strategy placed |
+| `snap` | `'corner'` | `'fill'` makes a dropped item fill the pane under the pointer instead |
 
 Snapping is live during the drag — there is no drag-end event — so the item
 follows the pointer, sticks on reaching a corner, and lets go once the pointer
@@ -1092,6 +1093,14 @@ too, and the item remembers which pane it caught — so it rides that pane throu
 a resize or a reflow, and falls back to its free position if the pane goes away.
 The nearest corner wins when a pane's and the container's coincide. It costs one
 extra inner layout pass per drag event, which is why it is off by default.
+
+`snap: 'fill'` is FancyZones: the inner strategy's panes are zones, and an item
+dragged over one fills it, resized to the pane's rect. The binding is by pane
+id, in the strategy's state, so the item follows its pane through a resize or a
+reflow. Drag it off every pane, or let its pane go away, and it returns to its
+own size at its free position, with the grab point kept in proportion under the
+pointer. Under `'fill'` nothing snaps to a corner, and the same extra inner
+layout pass runs per drag event.
 
 **The handle covers what it sits on.** An affordance is an interactive element
 at its own rect, so at the default `handleSize` of `0` the panel's own buttons
