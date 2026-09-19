@@ -13,7 +13,7 @@ import {
   PHOTOSHOP_PANELS,
   STACK_PATHOLOGY,
 } from '../test-utils/exotic/overlap-scenarios.js';
-import { presetScenario, presetToStore } from '../test-utils/exotic/preset.js';
+import { type Preset, presetScenario, presetToStore } from '../test-utils/exotic/preset.js';
 import { stackStrategy } from './stack.js';
 
 const run = (s: Pick<Scenario, 'items' | 'container' | 'options'>) => runScenario(stackStrategy, s);
@@ -105,6 +105,28 @@ describe('Photoshop: stacks docked in a strip', () => {
       { items: items('ps-group-props'), container, options: config('ps-group-props') },
       'ps-properties',
     );
+  });
+});
+
+describe("Photoshop with show: 'dropped' on its groups", () => {
+  /** The preset as Photoshop behaves, where a panel dropped into a group becomes its shown tab. */
+  const withShow = (): Preset => {
+    const tree = structuredClone(PHOTOSHOP_PANELS.mechanics);
+    const dock = tree.children!.find((c) => c.id === 'ps-dock')!;
+    for (const group of dock.children!) group.config = { ...group.config, show: 'dropped' };
+    return { ...PHOTOSHOP_PANELS, mechanics: tree };
+  };
+
+  // Why the preset leaves `show` off: building the store registers each tab,
+  // and a registration counts as an arrival.
+  const DEFECT =
+    "show: 'dropped' fires on every registration, so building the preset leaves each group's last tab active";
+  it.fails(`keeps the activeId it declares when built [defect: ${DEFECT}]`, () => {
+    const store = presetToStore(withShow());
+    const config = store.getNode(asNodeId('ps-group-layers'))?.container?.config as
+      | { activeId?: string }
+      | undefined;
+    expect(config?.activeId).toBe('ps-layers');
   });
 });
 

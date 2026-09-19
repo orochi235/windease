@@ -442,7 +442,15 @@ function frozenSheet(): Halves {
       id: 'sheet',
       kind: 'group',
       strategy: 'grid',
-      config: { cols: COLS, maxRows: 6, gap: 1 },
+      // Excel's defaults at 100%: 64px columns, 20px rows, a narrow row-number column.
+      config: {
+        cols: COLS,
+        maxRows: 6,
+        gap: 1,
+        cell: { h: 20 },
+        tracks: { cols: [32, 64, 64, 64, 64, 64], rows: [20, 20, 20, 20, 20, 20] },
+        resizable: true,
+      },
       children,
     },
     data: { nodes },
@@ -713,7 +721,8 @@ export const PRESETS: Preset[] = [
         id: 'dashboard',
         kind: 'group',
         strategy: 'grid',
-        config: { cols: 24, gap: 8, padding: 8, cell: { h: 30 }, resizable: true },
+        // Panels float up into free rows, and a growing one pushes the ones below down.
+        config: { cols: 24, gap: 8, padding: 8, cell: { h: 30 }, resizable: true, compact: 'up' },
       },
       data: {
         nodes: titles({ dashboard: 'Node Exporter Full' }),
@@ -921,7 +930,7 @@ export const PRESETS: Preset[] = [
         'header cells pinned to their childOrder index; capacity trims data rows, and a pin is an index, not a cell',
       description:
         'An Excel spreadsheet with Freeze Panes set so that row 1 (the column headings) and column A (the row labels) stay on screen while the rest of the sheet scrolls. Users set it from View > Freeze Panes and then scroll as usual; only as many rows as fit in the window are shown.',
-      viewport: { w: 720, h: 180 },
+      viewport: { w: 720, h: 125 },
       ...frozenSheet(),
     },
     EXCEL_CSS,

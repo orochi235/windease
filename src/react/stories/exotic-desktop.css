@@ -121,10 +121,25 @@
   padding: 8px;
 }
 
-.xd-palette__button {
-  font: inherit;
-  padding: 2px 8px;
-  cursor: pointer;
+.xd-palette__tabs {
+  flex: none;
+  display: flex;
+  background: #1e293b;
+}
+
+.xd-palette__tab {
+  padding: 3px 10px;
+  background: #334155;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+/* A fitted desktop scales into the frame's width; the frame inside it clips. */
+.xd-frame--fit {
+  display: block;
+  max-height: none;
+  overflow: visible;
 }
 
 /* 'clip' reports no overflow, so nothing grows; hiding what passes the edge is the host's. */

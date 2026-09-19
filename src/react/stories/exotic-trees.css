@@ -1,5 +1,5 @@
 .xt-frame {
-  display: inline-block;
+  aspect-ratio: 16 / 9;
   padding: 8px;
   background: #0f1219;
   border-radius: 8px;

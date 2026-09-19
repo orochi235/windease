@@ -120,17 +120,17 @@ describe('desktop presets: generic invariants', () => {
   );
 
   it.each(DESKTOP_PRESETS.map((p) => [p.id, p] as const))(
-    '%s: window z strictly follows child order, every window above every icon',
+    '%s: window z follows child order within each layer, every window above every icon',
     (_, preset) => {
       const scenario = scenarioOf(preset);
       const r = runPreset(preset);
       const iconIds = new Set(
         [...r.placements.entries()].filter(([, rect]) => rect.z === 0).map(([id]) => id),
       );
-      const windowZ = scenario.items
-        .filter((i) => r.placements.has(i.id) && !iconIds.has(i.id))
-        .map((i) => r.placements.get(i.id)!.z);
-      expect(windowZ).toEqual(windowZ.map((_, k) => k + 1));
+      const windows = scenario.items.filter((i) => r.placements.has(i.id) && !iconIds.has(i.id));
+      const top = (i: (typeof windows)[number]) => (i.meta?.layer === 'top' ? 1 : 0);
+      const ranked = [...windows].sort((a, b) => top(a) - top(b));
+      expect(ranked.map((i) => r.placements.get(i.id)!.z)).toEqual(ranked.map((_, k) => k + 1));
     },
   );
 
@@ -175,6 +175,27 @@ describe('desktop presets: behavior as config', () => {
       }
     },
   );
+
+  it.each(
+    DESKTOP_PRESETS.filter((p) => p.mechanics.config?.resize === true).map(
+      (p) => [p.id, p] as const,
+    ),
+  )('%s: every open window resizes from all four edges and corners', (_, preset) => {
+    const r = runPreset(preset);
+    const shaded = new Set(
+      scenarioOf(preset)
+        .items.filter((i) => i.meta?.minimized === true)
+        .map((i) => i.id),
+    );
+    const windows = [...r.placements].filter(([id, rect]) => rect.z > 0 && !shaded.has(id));
+    expect(windows.length).toBeGreaterThan(0);
+    for (const [id] of windows) {
+      const edges = r.affordances
+        .filter((a) => a.id.startsWith('desktop:resize:') && a.childId === id)
+        .map((a) => a.id.split(':')[2]);
+      expect(edges.sort(), id).toEqual(['e', 'n', 'ne', 'nw', 's', 'se', 'sw', 'w']);
+    }
+  });
 
   it.each(DESKTOP_PRESETS.map((p) => [p.id, p] as const))(
     '%s: its content children carry no mechanics',
@@ -238,9 +259,23 @@ describe('Mac OS 9 WindowShade', () => {
     expect(r.placements.get('mac-app-switcher')?.h).toBe(20);
   });
 
-  it('tiles the desktop icons under every window', () => {
-    expect(r.placements.get('mac-hd')).toMatchObject({ z: 0, w: 64, h: 64 });
-    expect(r.placements.get('mac-trash')?.z).toBe(0);
+  it('grows the Finder window from its bottom-right corner, its top-left staying put', () => {
+    const store = presetToStore(MACOS9_WINDOWSHADE);
+    dispatch(store, MACOS9_WINDOWSHADE, 'desktop:resize:se:mac-finder', {
+      kind: 'drag',
+      payload: { dx: 40, dy: 30 },
+    });
+    const after = layoutStore(store, 'mac-desktop', MACOS9_WINDOWSHADE);
+    expect(after.placements.get('mac-finder')).toMatchObject({ x: 40, y: 40, w: 400, h: 270 });
+  });
+
+  it('lines the disk and Trash icons up down the right edge, under every window', () => {
+    expect(r.placements.get('mac-hd')).toMatchObject({ x: 640 - 12 - 64, y: 12, z: 0, w: 64 });
+    expect(r.placements.get('mac-trash')).toMatchObject({
+      x: 640 - 12 - 64,
+      y: 12 + 64 + 12,
+      z: 0,
+    });
   });
 });
 
@@ -262,6 +297,14 @@ describe('Windows 3.1 minimized icons', () => {
     expect(rects[0]!.x).toBeGreaterThan(first.x);
     const rows = new Set(rects.map((rect) => rect.y));
     expect(rows.size).toBeGreaterThan(1);
+  });
+
+  it('lines the icons up along the bottom of the screen, filling rows upward', () => {
+    const first = r.placements.get('win31-recycle')!;
+    expect(first).toMatchObject({ x: 0, y: 480 - 56 });
+    const ys = minimized.map((id) => r.placements.get(id)!.y);
+    expect(Math.min(...ys)).toBeLessThan(first.y);
+    expect(Math.max(...ys)).toBe(first.y);
   });
 
   it('never lets two icons overlap', () => {
@@ -310,39 +353,28 @@ describe('GIMP multi-window: utility windows above image windows', () => {
     return minTool > maxImage;
   };
 
-  const pinnedStore = () => {
-    const store = presetToStore(GIMP_MULTIWINDOW);
-    store.setPinned(asNodeId('gimp-toolbox'), 3);
-    store.setPinned(asNodeId('gimp-layers'), 4);
-    return store;
-  };
-
   it('starts with the utility windows on top', () => {
     expect(toolsOnTop(presetToStore(GIMP_MULTIWINDOW))).toBe(true);
   });
 
-  it('an unpinned raise puts the image window above the Toolbox — childOrder alone interleaves', () => {
+  it('a clicked image window rises over the other images but stays under the utility windows', () => {
     const store = presetToStore(GIMP_MULTIWINDOW);
-    store.reorderInParent(asNodeId('gimp-img-1'), 4);
-    expect(toolsOnTop(store)).toBe(false);
-  });
-
-  it('pinning the utility windows last keeps a raised image window under them', () => {
-    const store = pinnedStore();
-    store.reorderInParent(asNodeId('gimp-img-1'), 4);
-    expect(store.getNode(asNodeId('gimp-desktop'))?.container?.childOrder.at(2)).toBe('gimp-img-1');
+    store.focusNode(asNodeId('gimp-img-1'));
+    expect(orderOf(store, GIMP_MULTIWINDOW).at(-1)).toBe('gimp-img-1');
+    const r = layoutStore(store, 'gimp-desktop', GIMP_MULTIWINDOW);
+    const images = ['gimp-img-1', 'gimp-img-2', 'gimp-img-3'].map((id) => r.placements.get(id)!.z);
+    expect(Math.max(...images)).toBe(r.placements.get('gimp-img-1')!.z);
     expect(toolsOnTop(store)).toBe(true);
   });
 
-  it('closing an image window keeps the pinned utility windows above the rest', () => {
-    const store = pinnedStore();
+  it('closing an image window keeps the utility windows above the rest', () => {
+    const store = presetToStore(GIMP_MULTIWINDOW);
     store.unregisterNode(asNodeId('gimp-img-2'));
     expect(toolsOnTop(store)).toBe(true);
   });
 
-  // Pins are absolute indices, so "pinned last" stops being last the moment a window opens.
-  it('a newly opened image window lands above the pinned utility windows', () => {
-    const store = pinnedStore();
+  it('a newly opened image window lands under the utility windows', () => {
+    const store = presetToStore(GIMP_MULTIWINDOW);
     const id = asNodeId('gimp-img-4');
     store.registerNode(
       createNode({
@@ -355,10 +387,8 @@ describe('GIMP multi-window: utility windows above image windows', () => {
       }),
     );
     store.showNode(id);
-    expect(store.getNode(asNodeId('gimp-desktop'))?.container?.childOrder.at(-1)).toBe(
-      'gimp-img-4',
-    );
-    expect(toolsOnTop(store)).toBe(false);
+    expect(orderOf(store, GIMP_MULTIWINDOW).at(-1)).toBe('gimp-img-4');
+    expect(toolsOnTop(store)).toBe(true);
   });
 });
 
@@ -505,14 +535,16 @@ describe('unplugged second monitor', () => {
 describe('cascade after 200 new windows', () => {
   const r = runPreset(CASCADE_200);
 
-  it('walks 24px per window without wrapping', () => {
+  it('walks 24px per window, and starts again at the top left before one would leave', () => {
+    // 768 - 360 = 408 holds 17 steps of 24, so the 18th window starts a new run.
     expect(r.placements.get('cascade-1')).toMatchObject({ x: 0, y: 0 });
-    expect(r.placements.get('cascade-200')).toMatchObject({ x: 199 * 24, y: 199 * 24 });
+    expect(r.placements.get('cascade-18')).toMatchObject({ x: 17 * 24, y: 17 * 24 });
+    expect(r.placements.get('cascade-19')).toMatchObject({ x: 0, y: 0 });
   });
 
-  it('is reachable only through overflow, which covers the last window', () => {
-    const last = r.placements.get('cascade-200')!;
-    expect(r.overflow).toEqual({ w: last.x + last.w - 1024, h: last.y + last.h - 768 });
+  it('keeps all 200 windows on the screen, so nothing overflows', () => {
+    expect(outOfBounds(r.placements, CASCADE_200.viewport)).toEqual([]);
+    expect(r.overflow).toBeUndefined();
   });
 
   it('stacks the 200 windows 1..200 in order', () => {

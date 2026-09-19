@@ -146,22 +146,22 @@ test.describe('tmux even-horizontal, 40 panes', () => {
     expect(last.x + last.w).toBeCloseTo(zone.x + zone.w, 0);
   });
 
-  test('dragging the first border moves only its two panes', async ({ page }) => {
+  test('a border dragged 13px snaps to the nearest whole cell, moving only its two panes', async ({
+    page,
+  }) => {
     await openPreset(page, 'tmux-even-horizontal-40');
     const zone = page.locator('[data-node-container="tmux"]');
     // Pressing the seam scrolls it into view, so compare offsets within the zone, not page boxes.
     const relative = async (id: string) => {
       const [p, z] = [await settledBox(pane(page, id)), await boxOf(zone)];
-      return { x: p.x - z.x, w: p.w };
+      return { x: Math.round(p.x - z.x), w: Math.round(p.w) };
     };
-    const [a, b, c] = [
-      await relative('pane-0'),
-      await relative('pane-1'),
-      await relative('pane-2'),
-    ];
-    await dragSeam(page, 'resize-x-pane-0', 10, 'x');
-    expect((await relative('pane-0')).w).toBeCloseTo(a.w + 10, 0);
-    expect((await relative('pane-1')).w).toBeCloseTo(b.w - 10, 0);
+    expect(await relative('pane-0')).toEqual({ x: 0, w: 24 });
+    const c = await relative('pane-2');
+    await dragSeam(page, 'resize-x-pane-0', 13, 'x');
+    // 24 + 13 = 37 is nearest five cells.
+    expect((await relative('pane-0')).w).toBe(40);
+    expect((await relative('pane-1')).w).toBe(8);
     expect(await relative('pane-2')).toEqual(c);
   });
 });
@@ -192,6 +192,56 @@ test.describe('firefox with 100 tabs', () => {
     });
     await expect(pane(page, 'tab-97')).toBeInViewport();
     expect((await boxOf(pane(page, 'tab-97'))).w).toBeCloseTo(76, 0);
+  });
+});
+
+test.describe('firefox pinned tabs', () => {
+  test('stay at the start of the strip while the other tabs scroll under them', async ({
+    page,
+  }) => {
+    await openPreset(page, 'firefox-100-tabs');
+    const frame = page.getByTestId('xs-frame');
+    const origin = (await boxOf(frame)).x;
+    const at = async (id: string) => Math.round((await boxOf(pane(page, id))).x - origin);
+    const pinned = [await at('pinned-1'), await at('pinned-3')];
+    const tab = await at('tab-1');
+
+    await frame.evaluate((el) => {
+      el.scrollLeft = 600;
+    });
+
+    await expect.poll(() => at('tab-1')).toBe(tab - 600);
+    await expect.poll(() => at('pinned-1')).toBe(pinned[0]);
+    expect(await at('pinned-3')).toBe(pinned[1]);
+  });
+});
+
+test.describe('vscode: a sidebar dragged shut hides', () => {
+  test('pushing the Explorer past its floor hides it, and Show brings the row back', async ({
+    page,
+  }) => {
+    await openPreset(page, 'vscode-hinted-sidebars');
+    const id = 'resize-x-vh-sidebar';
+    const travel =
+      (await valueAttr(page, id, 'aria-valuenow')) - (await valueAttr(page, id, 'aria-valuemin'));
+    const at = await dragSeam(page, id, -travel, 'x', false);
+    await page.mouse.move(at.x - 40, at.y, { steps: 5 });
+    await expect(pane(page, 'vh-sidebar')).toHaveAttribute('data-join-armed', 'true');
+    await page.mouse.up();
+
+    await expect(pane(page, 'vh-sidebar')).toHaveCount(0);
+    await expect(page.getByTestId('xs-hidden')).toHaveText('vh-sidebar');
+    // The rest of the row goes back as the drag found it, and the editor takes the space.
+    await expect
+      .poll(async () => Math.round((await boxOf(pane(page, 'vh-editor'))).w))
+      .toBe(1600 - 48 - 300);
+    expect((await boxOf(pane(page, 'vh-aux'))).w).toBeCloseTo(300, 0);
+
+    await page.getByTestId('xs-show-vh-sidebar').click();
+    await expect(page.getByTestId('xs-hidden')).toHaveText('(nothing)');
+    const width = async (id: string) => Math.round((await settledBox(pane(page, id))).w);
+    await expect.poll(() => width('vh-sidebar')).toBe(300);
+    expect(await width('vh-editor')).toBe(1600 - 48 - 300 - 300);
   });
 });
 

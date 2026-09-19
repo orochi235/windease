@@ -2,8 +2,10 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { DragEngine } from '../dnd/DragEngine.js';
+import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { LayoutItem, LayoutResult, Rect } from '../layout-types.js';
 import { asNodeId } from '../node.js';
+import type { Store } from '../store.js';
 import {
   PATHOLOGICAL,
   PRESETS,
@@ -52,6 +54,54 @@ interface Cfg {
   padding?: number;
   cell?: { w?: number; h?: number };
   justify?: 'start' | 'center' | 'end' | 'between' | 'evenly';
+  tracks?: { cols?: Track[]; rows?: Track[] };
+}
+
+type Track = number | { share: number };
+
+/**
+ * Where each of `count` tracks starts along an axis `usable` long, as the
+ * README states it: `list` by index, a pixel number as is, `{ share }` a share
+ * of what pixels and gaps leave; past the list, `cell` pixels or one share.
+ */
+function trackStarts(list: Track[], count: number, usable: number, gap: number, cell?: number) {
+  const all = Array.from({ length: count }, (_, i) => list[i] ?? cell ?? { share: 1 });
+  const px = all.reduce<number>((a, t) => a + (typeof t === 'number' ? t : 0), 0);
+  const shares = all.reduce<number>((a, t) => a + (typeof t === 'number' ? 0 : t.share), 0);
+  const rest = Math.max(0, usable - px - gap * (count - 1));
+  const sizes = all.map((t) => (typeof t === 'number' ? t : (rest * t.share) / shares));
+  const starts: number[] = [];
+  let at = 0;
+  for (const size of sizes) {
+    starts.push(at);
+    at += size + gap;
+  }
+  return { starts, ends: sizes.map((size, i) => starts[i]! + size) };
+}
+
+/** {@link cellsOf} for a grid whose `tracks` size its columns and rows unevenly. */
+function trackedCellsOf(s: Scenario, result: LayoutResult<string>) {
+  const cfg = s.options as Cfg;
+  const { cols, rows } = gridTiling(s.items, s.options, s.container);
+  const gap = cfg.gap ?? 0;
+  const pad = cfg.padding ?? 0;
+  const x = trackStarts(cfg.tracks?.cols ?? [], cols, s.container.w - 2 * pad, gap, cfg.cell?.w);
+  const y = trackStarts(cfg.tracks?.rows ?? [], rows, s.container.h - 2 * pad, gap, cfg.cell?.h);
+  const near = (list: number[], v: number) => list.findIndex((a) => Math.abs(a - v) < 1e-6);
+  const out = new Map<string, { col: number; row: number; cols: number; rows: number }>();
+  const off: string[] = [];
+  for (const [id, r] of result.placements) {
+    const col = near(x.starts, r.x - pad);
+    const row = near(y.starts, r.y - pad);
+    const lastCol = near(x.ends, r.x + r.w - pad);
+    const lastRow = near(y.ends, r.y + r.h - pad);
+    if ([col, row, lastCol, lastRow].includes(-1)) {
+      off.push(`${id} at ${r.x},${r.y} ${r.w}x${r.h}`);
+      continue;
+    }
+    out.set(id, { col, row, cols: lastCol - col + 1, rows: lastRow - row + 1 });
+  }
+  return { cells: out, off, cols, reach: cols };
 }
 
 /** Where column 0 starts and the extra space between columns, when `used`
@@ -87,6 +137,7 @@ function rowCapOf(cfg: Cfg): number | undefined {
 /** Each placed rect as whole cells, or the reason it is not on the lattice. */
 function cellsOf(s: Scenario, result: LayoutResult<string>) {
   const cfg = s.options as Cfg;
+  if (cfg.tracks) return trackedCellsOf(s, result);
   const { cols, rows } = gridTiling(s.items, s.options, s.container);
   const gap = cfg.gap ?? 0;
   const pad = cfg.padding ?? 0;
@@ -129,6 +180,13 @@ function cellsOf(s: Scenario, result: LayoutResult<string>) {
     if (attempt.off.length === 0 && attempt.reach === used) return attempt;
   }
   return read(cols);
+}
+
+/** `base` re-read from `store` after a gesture wrote to it. */
+function fromStore(store: Store, containerId: string, base: Scenario): Scenario {
+  const parent = store.getNode(asNodeId(containerId))!;
+  const items = parent.container!.childOrder.map((id) => nodeToLayoutItem(store.getNode(id)!));
+  return { ...base, items, options: parent.container!.config as Record<string, unknown> };
 }
 
 function check(name: Check, s: Scenario, title: string, fn: () => void) {
@@ -457,6 +515,34 @@ describe('Grafana dashboard', () => {
     expect(wide.x).toBe(8);
     expect(wide.w).toBeCloseTo(s.container.w - 16, 6);
   });
+
+  it('growing CPU Basic a row pushes the network panel under it down a row', () => {
+    const preset = PRESETS.find((p) => p.id === 'grafana-node-exporter')!;
+    const store = presetToStore(preset);
+    const cpu = r.placements.get('cpu-basic') as Rect;
+    const seam = r.affordances.find((a) => a.id === 'resize-y-cpu-basic')!;
+    gridStrategy.dispatchAffordance?.({
+      event: {
+        affordanceId: seam.id,
+        kind: 'drag',
+        payload: { point: { x: cpu.x, y: cpu.y + cpu.h + 38 } },
+      },
+      affordance: seam,
+      store,
+      parentId: asNodeId('dashboard'),
+      container: s.container,
+      options: s.options,
+      items: s.items,
+    });
+    expect(store.getNode(asNodeId('cpu-basic'))?.membership?.placement?.span).toEqual({
+      cols: 12,
+      rows: 8,
+    });
+    const after = run(fromStore(store, 'dashboard', s));
+    expect(after.placements.get('net-basic')!.y).toBe(r.placements.get('net-basic')!.y + 38);
+    expect(after.placements.get('mem-basic')!.y).toBe(r.placements.get('mem-basic')!.y);
+    expect(after.unplaced ?? []).toEqual(r.unplaced ?? []);
+  });
 });
 
 describe('periodic table', () => {
@@ -523,6 +609,34 @@ describe('Excel frozen panes (pinned headers)', () => {
     for (const id of pinned) expect(r.placements.has(id)).toBe(true);
     expect((r.unplaced ?? []).every((id) => !pinned.includes(id))).toBe(true);
     expect(r.placements.size).toBe(36);
+  });
+
+  it('sizes the row-number column 32px, every other column 64px, and every row 20px', () => {
+    const { cells } = cellsOf(s, r);
+    for (const [id, rect] of r.placements) {
+      expect(rect.w, id).toBe(cells.get(id)!.col === 0 ? 32 : 64);
+      expect(rect.h, id).toBe(20);
+    }
+  });
+
+  it('dragging the seam after column A widens it alone and writes the tracks back', () => {
+    const preset = PRESETS.find((p) => p.id === 'excel-frozen-panes')!;
+    const store = presetToStore(preset);
+    const seam = r.affordances.find((a) => a.id === 'track-x-1')!;
+    gridStrategy.dispatchAffordance?.({
+      event: { affordanceId: seam.id, kind: 'drag', payload: { dx: 16 } },
+      affordance: seam,
+      store,
+      parentId: asNodeId('sheet'),
+      container: s.container,
+      options: s.options,
+      items: s.items,
+    });
+    const config = store.getNode(asNodeId('sheet'))?.container?.config as Cfg;
+    expect(config.tracks?.cols).toEqual([32, 80, 64, 64, 64, 64]);
+    const after = run(fromStore(store, 'sheet', s));
+    expect(after.placements.get('cell-A')!.w).toBe(80);
+    expect(after.placements.get('cell-B')!.x).toBe(r.placements.get('cell-B')!.x + 16);
   });
 
   it('a pin holds a childOrder index, not a cell: a trimmed sheet shifts a row header out of column A', () => {
