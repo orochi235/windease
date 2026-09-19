@@ -12,6 +12,8 @@ export interface Settings {
   columnWidth: number;
   /** A packer's `sort`; `'none'` passes no key, leaving the dataset's order. */
   sort?: 'none' | 'height' | 'width' | 'area' | 'max-side';
+  /** A packer's `rotate`; off passes no key. */
+  rotate?: boolean;
   /** Take gap, column width and aspect from the dataset where it has them. */
   useHints: boolean;
 }
@@ -23,6 +25,7 @@ export function specFor(dataset: Dataset, packer: Packer, settings: Settings): R
     columnWidth: hint.columnWidth ?? settings.columnWidth,
   };
   if (settings.sort && settings.sort !== 'none') all.sort = settings.sort;
+  if (settings.rotate) all.rotate = true;
   const accepted = new Set(optionKeys(packer));
   const options = Object.fromEntries(Object.entries(all).filter(([key]) => accepted.has(key)));
   const aspectTarget = hint.aspect ?? settings.aspect;

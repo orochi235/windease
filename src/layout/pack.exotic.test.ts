@@ -530,6 +530,9 @@ describe.runIf(process.env.EXOTIC_DENSITY)('density table', () => {
     ['as given', {}],
     ['sort: height', { sort: 'height' }],
     ['sort: area', { sort: 'area' }],
+    ['rotate', { rotate: true }],
+    ['sort: height, rotate', { sort: 'height', rotate: true }],
+    ['sort: max-side, rotate', { sort: 'max-side', rotate: true }],
   ];
 
   it.each(variants)('prints fill %% per preset and packer, %s', (label, extra) => {

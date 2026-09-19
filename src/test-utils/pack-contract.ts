@@ -206,6 +206,76 @@ export function describePackContract(strategy: LayoutStrategy<void, string>): vo
       });
     });
 
+    describe('rotate', () => {
+      const result = runPack(strategy, boxes, container, { gap: 8, rotate: true });
+
+      it('places each box at its own size or turned a quarter, and says which in channels', () => {
+        expect(result.placements.size).toBe(boxes.length);
+        for (const box of boxes) {
+          const { w, h } = box.hints!.preferredSize!;
+          const rect = result.placements.get(box.id)!;
+          const rotation = result.channels?.get(box.id)?.rotation;
+          if (rotation === 90) expect({ w: rect.w, h: rect.h }).toEqual({ w: h, h: w });
+          else {
+            expect(rotation).toBe(0);
+            expect({ w: rect.w, h: rect.h }).toEqual({ w, h });
+          }
+        }
+        expect(result.channels?.size).toBe(boxes.length);
+      });
+
+      it('keeps every pair gap apart and every box inside the width', () => {
+        expect(crowded(result.placements, 8)).toEqual([]);
+        for (const rect of result.placements.values()) {
+          expect(rect.x + rect.w).toBeLessThanOrEqual(container.w);
+        }
+      });
+
+      it('turns some of an assorted set, and never a square', () => {
+        const turned = [...(result.channels?.values() ?? [])].filter((c) => c.rotation === 90);
+        expect(turned.length).toBeGreaterThan(0);
+        const squares = Array.from({ length: 12 }, (_, i) =>
+          sized(`q${i}`, 40 + i * 5, 40 + i * 5),
+        );
+        const packed = runPack(strategy, squares, container, { gap: 8, rotate: true });
+        expect([...packed.channels!.values()].every((c) => c.rotation === 0)).toBe(true);
+      });
+
+      it('turns an item wider than the container when turned it fits', () => {
+        const items = [sized('a', 100, 50), sized('long', 500, 40)];
+        const packed = runPack(strategy, items, { w: 400, h: 1000 }, { rotate: true });
+        expect(packed.placements.get('long')).toMatchObject({ w: 40, h: 500 });
+        expect(packed.channels?.get('long')).toEqual({ rotation: 90 });
+        expect(packed.overflow?.w ?? 0).toBe(0);
+      });
+
+      it('turns an item taller than a bounded container when turned it fits', () => {
+        const items = [sized('post', 20, 150)];
+        const packed = runPack(
+          strategy,
+          items,
+          { w: 200, h: 100 },
+          {
+            rotate: true,
+            overflowMode: 'unplaced',
+          },
+        );
+        expect(packed.placements.get('post')).toEqual({ x: 0, y: 0, z: 0, w: 150, h: 20 });
+        expect(packed.unplaced).toBeUndefined();
+      });
+
+      it('emits no channels without rotate', () => {
+        expect(runPack(strategy, boxes, container, { gap: 8 }).channels).toBeUndefined();
+        expect(runPack(strategy, boxes, container, { gap: 8, rotate: false })).toEqual(
+          runPack(strategy, boxes, container, { gap: 8 }),
+        );
+      });
+
+      it('returns the same layout on every call', () => {
+        expect(runPack(strategy, boxes, container, { gap: 8, rotate: true })).toEqual(result);
+      });
+    });
+
     for (const [sort, key] of SORT_CASES) {
       describe(`sort '${sort}'`, () => {
         const items = [{ id: 'bare' }, ...boxes];

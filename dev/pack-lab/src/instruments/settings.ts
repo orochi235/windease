@@ -45,6 +45,10 @@ export const settingsFields = () => ({
     .enum('none', ['none', 'height', 'width', 'area', 'max-side'])
     .label('Sort, largest first')
     .section('Packer options'),
+  rotate: f
+    .boolean(false)
+    .label('Rotate a quarter where that fits better')
+    .section('Packer options'),
 });
 
 /** One on/off per registered packer, keyed by packer id. */

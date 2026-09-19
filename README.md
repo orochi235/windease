@@ -551,6 +551,27 @@ Sorting usually packs tighter: `shelf` with `sort: 'height'` is the classic
 next-fit decreasing height packing, and `'max-side'` is a common choice for
 sprite sheets.
 
+### Turning items a quarter
+
+`rotate: true` lets a packer place an item turned 90° when that fits better,
+as sprite-sheet packers and pallet loaders do. A turned item's rect has its
+width and height swapped, and every placement carries a `rotation` channel —
+`90` for turned a quarter clockwise, `0` for upright — so the host knows to
+draw its content turned. Read it with `useChannelsForSelf(id)?.rotation`, or
+from `result.channels` when calling a strategy directly. Without `rotate`
+there is no channel. Squares are never turned.
+
+What "fits better" means differs by packer, and ties always stay upright:
+
+- **`shelf`** turns an item to fit the space left on the current row without
+  raising it (the narrower way wins when both do). An item that fits neither
+  way goes upright, raising the row, or starts a new one.
+- **`skyline`** takes whichever way leaves the item's top edge lower.
+- **`column`** takes whichever way spans fewer columns, unless that makes the
+  tallest column taller than the other way would.
+
+In all three, an item turns if only turned does it fit the container at all.
+
 ### Packing into a fixed box
 
 By default a packer grows downward past `container.h` and reports the excess as

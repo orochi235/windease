@@ -62,7 +62,32 @@ describe('columnStrategy', () => {
       'columnWidth',
       'gap',
       'overflowMode',
+      'rotate',
       'sort',
     ]);
+  });
+
+  describe('rotate', () => {
+    it('turns an item to span fewer columns beside a taller one', () => {
+      // At 299 wide, tower cannot lie down, and upright wide spans both columns.
+      const items = [sized('tower', 100, 300), sized('wide', 250, 90)];
+      const r = runPack(columnStrategy, items, { w: 299, h: 1000 }, { rotate: true });
+      expect(r.placements.get('wide')).toEqual({ x: 100, y: 0, z: 0, w: 90, h: 250 });
+      expect(r.channels?.get('wide')).toEqual({ rotation: 90 });
+    });
+
+    it('keeps a wide item upright where turning it would make the layout taller', () => {
+      const items = [sized('wide', 250, 90), sized('n', 100, 10)];
+      const r = runPack(columnStrategy, items, { w: 300, h: 1000 }, { rotate: true });
+      expect(r.placements.get('wide')).toEqual({ x: 0, y: 0, z: 0, w: 250, h: 90 });
+      expect(r.channels?.get('wide')).toEqual({ rotation: 0 });
+    });
+
+    it('of two ways that grow the layout alike, takes the one spanning fewer columns', () => {
+      const items = [sized('tower', 100, 400), sized('b', 150, 90)];
+      const r = runPack(columnStrategy, items, { w: 399, h: 1000 }, { rotate: true });
+      // Upright b spans cols 1–2 to 90; turned it takes col 1 alone to 150. Neither passes 400.
+      expect(r.placements.get('b')).toMatchObject({ x: 100, w: 90, h: 150 });
+    });
   });
 });

@@ -79,6 +79,46 @@ export function fitsContainer(x: number, y: number, size: Size, container: Size)
   return fitsWithin(x + size.w, container.w) && fitsWithin(y + size.h, container.h);
 }
 
+/** One way to place an item: its own size, or turned a quarter with `w` and `h` swapped. */
+export interface PackTurn {
+  w: number;
+  h: number;
+  turned: boolean;
+}
+
+/** The ways `size` may be placed: upright first, then turned when `rotate` is
+ *  set and turning changes anything. Callers break ties toward the first. */
+export function packTurns(size: Size, rotate: boolean): PackTurn[] {
+  const upright = { w: size.w, h: size.h, turned: false };
+  return rotate && size.w !== size.h
+    ? [upright, { w: size.h, h: size.w, turned: true }]
+    : [upright];
+}
+
+/** The candidate with the least `keys`, compared in order; the earliest on a
+ *  full tie. `null` for no candidates. */
+export function packLeast<T>(candidates: readonly T[], ...keys: ((c: T) => number)[]): T | null {
+  let best: T | null = null;
+  for (const candidate of candidates) {
+    if (best === null) {
+      best = candidate;
+      continue;
+    }
+    for (const key of keys) {
+      const a = key(candidate);
+      const b = key(best);
+      if (a < b) best = candidate;
+      if (a !== b) break;
+    }
+  }
+  return best;
+}
+
+/** Whether `options` let items be turned a quarter, under `rotate: true`. */
+export function packRotate(options: Record<string, unknown>): boolean {
+  return options.rotate === true;
+}
+
 /** A packing strategy's `gap`; anything but a positive finite number reads as 0. */
 export function packGap(options: Record<string, unknown>): number {
   const gap = options.gap;
@@ -90,13 +130,19 @@ export function packGap(options: Record<string, unknown>): number {
  * each absent when empty. Placements and `unplaced` come back in `items`'
  * order, whatever order the pass placed them in. Overflow measures the placed
  * rects' far edges, so a trailing gap never counts toward it.
+ *
+ * `turned` is null when the pass could not rotate. Otherwise every placement
+ * gets a `rotation` channel: 90 for an item placed turned a quarter clockwise,
+ * 0 for one placed upright.
  */
 export function packResult(
   items: LayoutItem[],
   placed: Map<string, Rect>,
   container: Size,
+  turned: ReadonlySet<string> | null = null,
 ): LayoutResult<string> {
   const placements = new Map<string, Rect>();
+  const channels = new Map<string, Record<string, number>>();
   const unplaced: string[] = [];
   let right = 0;
   let bottom = 0;
@@ -107,11 +153,13 @@ export function packResult(
       continue;
     }
     placements.set(id, rect);
+    if (turned) channels.set(id, { rotation: turned.has(id) ? 90 : 0 });
     right = Math.max(right, rect.x + rect.w);
     bottom = Math.max(bottom, rect.y + rect.h);
   }
   const result: LayoutResult<string> = { placements, affordances: [] };
   if (unplaced.length > 0) result.unplaced = unplaced;
+  if (turned) result.channels = channels;
   const w = fitsWithin(right, container.w) ? 0 : right - container.w;
   const h = fitsWithin(bottom, container.h) ? 0 : bottom - container.h;
   if (w > 0 || h > 0) result.overflow = { w, h };

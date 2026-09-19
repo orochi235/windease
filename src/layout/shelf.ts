@@ -1,14 +1,17 @@
 import type { LayoutResult, LayoutStrategy, Rect } from '../layout-types.js';
 import { trace } from '../trace.js';
 import {
-  fitsContainer,
   fitsWithin,
   PACK_OVERFLOW_MODES,
   PACK_SORTS,
+  type PackTurn,
   packBounded,
   packGap,
+  packLeast,
   packQueue,
   packResult,
+  packRotate,
+  packTurns,
 } from './pack.js';
 
 /**
@@ -20,46 +23,72 @@ import {
  * either edge goes to `unplaced`, and the row stays open for a later item that
  * fits.
  *
+ * With `rotate: true` an item may be turned a quarter where that fits it into
+ * the current row: of the ways that fit the row's remaining width without
+ * raising it, the narrower wins, upright on a tie. An item that fits neither
+ * way goes upright, raising the row, if it fits the width, and otherwise
+ * starts a new one. An item is also turned when only turned does it fit the
+ * container at all. Each placement then carries a `rotation` channel, 90 or 0.
+ *
  * Items are placed in the order given, or by `sort`, descending by that
  * measure with ties kept in input order. Size is `natural`, else
  * `hints.preferredSize`; an item with neither goes to `unplaced`. Config
- * takes `gap`, `sort` and `overflowMode`.
+ * takes `gap`, `sort`, `rotate` and `overflowMode`.
  * @group Strategies
  */
 export const shelfStrategy: LayoutStrategy<void, string> = {
   name: 'shelf',
-  configSpec: { gap: 'number', sort: PACK_SORTS, overflowMode: PACK_OVERFLOW_MODES },
+  configSpec: {
+    gap: 'number',
+    sort: PACK_SORTS,
+    rotate: 'boolean',
+    overflowMode: PACK_OVERFLOW_MODES,
+  },
   layout({ items, container, options }): LayoutResult<string> {
     const gap = packGap(options);
     const bounded = packBounded(options);
+    const rotate = packRotate(options);
     const { queue } = packQueue(items, options);
     const placed = new Map<string, Rect>();
+    const turned = new Set<string>();
 
     let x = 0;
     let y = 0;
     let rowHeight = 0;
     let rows = 0;
+    const below = (top: number, turn: PackTurn) =>
+      !bounded || fitsWithin(top + turn.h, container.h);
+
     for (const { item, size } of queue) {
-      const wraps = x > 0 && !fitsWithin(x + size.w, container.w);
-      if (bounded) {
-        const at = wraps ? { x: 0, y: y + rowHeight + gap } : { x, y };
-        if (!fitsContainer(at.x, at.y, size, container)) continue;
+      const turns = packTurns(size, rotate);
+      let turn: PackTurn | null = null;
+      if (x > 0) {
+        const fit = turns.filter((t) => fitsWithin(x + t.w, container.w) && below(y, t));
+        const under = fit.filter((t) => fitsWithin(t.h, rowHeight));
+        turn = packLeast(under, (t) => t.w) ?? fit.find((t) => !t.turned) ?? null;
       }
-      if (wraps) {
-        y += rowHeight + gap;
-        x = 0;
-        rowHeight = 0;
+      if (!turn) {
+        const top = x > 0 ? y + rowHeight + gap : y;
+        const fit = turns.find((t) => fitsWithin(t.w, container.w) && below(top, t));
+        turn = fit ?? (bounded ? null : turns[0]!);
+        if (!turn) continue;
+        if (x > 0) {
+          y = top;
+          x = 0;
+          rowHeight = 0;
+        }
       }
       if (x === 0) rows++;
-      placed.set(item.id, { x, y, z: 0, w: size.w, h: size.h });
-      rowHeight = Math.max(rowHeight, size.h);
-      x += size.w + gap;
+      placed.set(item.id, { x, y, z: 0, w: turn.w, h: turn.h });
+      if (turn.turned) turned.add(item.id);
+      rowHeight = Math.max(rowHeight, turn.h);
+      x += turn.w + gap;
     }
 
-    const result = packResult(items, placed, container);
+    const result = packResult(items, placed, container, rotate ? turned : null);
     trace(
       'layout',
-      `shelf: ${placed.size} of ${items.length} in ${rows} rows at w=${container.w}, gap ${gap}, sort ${String(options.sort ?? 'none')}`,
+      `shelf: ${placed.size} of ${items.length} in ${rows} rows at w=${container.w}, gap ${gap}, sort ${String(options.sort ?? 'none')}${rotate ? `, ${turned.size} turned` : ''}`,
       { unplaced: result.unplaced, overflow: result.overflow },
     );
     return result;

@@ -10,6 +10,14 @@ section below.
 
 ### Added
 
+- **Packers can turn items a quarter to fit.** With `rotate: true`,
+  `shelfStrategy`, `skylineStrategy` and `columnStrategy` may place an item
+  turned 90°, with its rect's `w` and `h` swapped. Every placement then carries
+  a `rotation` channel, `90` or `0`, which `useChannelsForSelf` reads. Shelf
+  turns an item to fit the rest of the current row, skyline to leave its top
+  lower, and column to span fewer columns without growing the layout; an item
+  too big for the container upright turns if turned it fits.
+
 - **Packers can fill a fixed box and hand back what did not fit.** With
   `overflowMode: 'unplaced'`, `shelfStrategy`, `skylineStrategy` and
   `columnStrategy` treat the container as a bin: an item that would cross its

@@ -33,6 +33,28 @@ describe('skylineStrategy', () => {
   });
 
   it('declares its config keys so a typo is reported, not silently defaulted', () => {
-    expect(Object.keys(skylineStrategy.configSpec ?? {})).toEqual(['gap', 'sort', 'overflowMode']);
+    expect(Object.keys(skylineStrategy.configSpec ?? {})).toEqual([
+      'gap',
+      'sort',
+      'rotate',
+      'overflowMode',
+    ]);
+  });
+
+  describe('rotate', () => {
+    it('turns an item when that leaves its top edge lower', () => {
+      const items = [sized('block', 60, 60), sized('b', 100, 45)];
+      const r = runPack(skylineStrategy, items, { w: 105, h: 1000 }, { rotate: true });
+      // Upright, b only fits below block, topping out at 105; turned it stands beside it, at 100.
+      expect(r.placements.get('b')).toEqual({ x: 60, y: 0, z: 0, w: 45, h: 100 });
+      expect(r.channels?.get('b')).toEqual({ rotation: 90 });
+    });
+
+    it('keeps an item upright when turning gains nothing', () => {
+      const items = [sized('a', 100, 20), sized('b', 100, 20)];
+      const r = runPack(skylineStrategy, items, { w: 100, h: 1000 }, { rotate: true });
+      expect(r.placements.get('b')).toEqual({ x: 0, y: 20, z: 0, w: 100, h: 20 });
+      expect(r.channels?.get('b')).toEqual({ rotation: 0 });
+    });
   });
 });

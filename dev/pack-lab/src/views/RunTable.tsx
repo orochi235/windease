@@ -22,6 +22,7 @@ const SETTINGS: readonly { id: string; label: string; cell: (run: Run) => string
     label: 'sort',
     cell: ({ options }) => (typeof options.sort === 'string' ? options.sort : 'none'),
   },
+  { id: 'rotate', label: 'rotate', cell: ({ options }) => (options.rotate ? 'yes' : 'no') },
   {
     id: 'columnWidth',
     label: 'column width',

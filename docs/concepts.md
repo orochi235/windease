@@ -389,7 +389,9 @@ Built-ins:
   width, in rows, masonry columns, or the lowest free spot. They grow downward;
   `container.h` only decides `overflow`. Config: `gap`, `sort` (`'height'`,
   `'width'`, `'area'` or `'max-side'`, largest first and stable on ties; the
-  default `'none'` keeps the order given), `overflowMode` (`'scroll'`, the
+  default `'none'` keeps the order given), `rotate` (an item may be placed
+  turned a quarter, rect `w`/`h` swapped, with a `rotation` channel of 90 or 0
+  on every placement), `overflowMode` (`'scroll'`, the
   default, packs past `container.h` and reports `overflow`; `'unplaced'` treats
   the container as a bin and sends any item that would cross an edge to
   `unplaced`), plus `columnWidth` on `column`. Items with no size go to

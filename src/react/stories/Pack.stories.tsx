@@ -10,7 +10,13 @@ import {
   shelfStrategy,
   skylineStrategy,
 } from '../../index.js';
-import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
+import {
+  type ChromeMap,
+  Container,
+  type OverlayContext,
+  Provider,
+  StrategyRegistryProvider,
+} from '../index.js';
 import './pack.css';
 import './windease.css';
 
@@ -46,17 +52,54 @@ interface Args {
   gap: number;
   height: number;
   sort: 'none' | 'height' | 'width' | 'area' | 'max-side';
+  rotate: boolean;
   overflowMode: 'scroll' | 'unplaced';
 }
 
-export const PackedBoxes: Story<Args> = ({ strategy, width, height, gap, sort, overflowMode }) => {
+/** The count readout, and a ↻ on every box the packer turned, read from its
+ *  `rotation` channel. */
+function PackOverlay({ placements, unplaced, channels }: OverlayContext) {
+  const turned = [...(channels ?? [])].filter(([, c]) => c.rotation === 90);
+  return (
+    <>
+      {turned.map(([id]) => {
+        const rect = placements.get(id);
+        return rect ? (
+          <span
+            key={id}
+            className="pack-demo__turned"
+            data-turned={id}
+            title="turned a quarter"
+            style={{ left: rect.x, top: rect.y }}
+          >
+            ↻
+          </span>
+        ) : null;
+      })}
+      <p className="pack-demo__readout" data-testid="pack-readout">
+        {placements.size} placed, {unplaced.length} unplaced
+        {channels ? `, ${turned.length} turned` : ''}
+      </p>
+    </>
+  );
+}
+
+export const PackedBoxes: Story<Args> = ({
+  strategy,
+  width,
+  height,
+  gap,
+  sort,
+  rotate,
+  overflowMode,
+}) => {
   const store = useMemo(() => {
     const s = new Store();
     s.registerNode(
       createNode({
         kind: 'zone',
         id: ZONE_ID,
-        container: { strategyId: strategy, config: { gap, sort, overflowMode } },
+        container: { strategyId: strategy, config: { gap, sort, rotate, overflowMode } },
       }),
     );
     BOXES.forEach(([w, h], i) => {
@@ -74,7 +117,7 @@ export const PackedBoxes: Story<Args> = ({ strategy, width, height, gap, sort, o
       s.showNode(id);
     });
     return s;
-  }, [strategy, gap, sort, overflowMode]);
+  }, [strategy, gap, sort, rotate, overflowMode]);
 
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -96,11 +139,7 @@ export const PackedBoxes: Story<Args> = ({ strategy, width, height, gap, sort, o
             chrome={chrome}
             viewport={{ w: width, h: height }}
             className="windease-zone windease-zone--unclipped pack-demo__zone"
-            overlay={({ placements, unplaced }) => (
-              <p className="pack-demo__readout" data-testid="pack-readout">
-                {placements.size} placed, {unplaced.length} unplaced
-              </p>
-            )}
+            overlay={PackOverlay}
           />
         </div>
       </StrategyRegistryProvider>
@@ -114,6 +153,7 @@ PackedBoxes.args = {
   height: 360,
   gap: 8,
   sort: 'none',
+  rotate: false,
   overflowMode: 'scroll',
 };
 
@@ -126,5 +166,6 @@ PackedBoxes.argTypes = {
     options: ['none', 'height', 'width', 'area', 'max-side'],
     control: { type: 'radio' },
   },
+  rotate: { control: { type: 'boolean' } },
   overflowMode: { options: ['scroll', 'unplaced'], control: { type: 'radio' } },
 };
