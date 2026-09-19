@@ -94,10 +94,18 @@ export function AffordanceLayer({
   onActiveChange,
   onJoinArmChange = noJoinArmChange,
 }: AffordanceLayerProps) {
+  // Each handle keeps the DOM slot it first rendered in; stacking comes from
+  // its rect's `z`. Following the strategy's order instead would move a
+  // pressed handle when the press raises its window, dropping the pointer
+  // capture the drag runs on.
+  const firstSeen = useRef(new Map<string, number>());
+  const seen = firstSeen.current;
+  for (const aff of affordances) if (!seen.has(aff.id)) seen.set(aff.id, seen.size);
+  const ordered = [...affordances].sort((a, b) => (seen.get(a.id) ?? 0) - (seen.get(b.id) ?? 0));
   if (!render) return null;
   return (
     <>
-      {affordances.map((aff) =>
+      {ordered.map((aff) =>
         typeof render === 'function' ? (
           <Fragment key={aff.id}>{render({ affordance: aff, dispatch, hitPad })}</Fragment>
         ) : aff.kind === 'click' ? (
