@@ -142,8 +142,11 @@ describe("gridStrategy — compact: 'up'", () => {
 
 describe('Grafana dashboard under compact', () => {
   const preset = PRESETS.find((p) => p.id === 'grafana-node-exporter') as Preset;
-  const base = presetScenario(preset, 'dashboard');
-  const compact = { ...base, options: { ...base.options, compact: 'up' } };
+  const declared = presetScenario(preset, 'dashboard');
+  // The preset states compact; these compare the dashboard with and without it.
+  const { compact: _, ...loose } = declared.options;
+  const base = { ...declared, options: loose };
+  const compact = { ...base, options: { ...loose, compact: 'up' } };
   const run2 = (s: typeof base) => runLayout(s.items, s.options, s.container);
   const rowOf = (s: typeof base, id: string) => {
     const rect = run2(s).placements.get(id);

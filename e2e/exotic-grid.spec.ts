@@ -216,17 +216,21 @@ test.describe('Windows 8.1 Start screen (fixed rows)', () => {
 });
 
 test.describe('Grafana dashboard (24 columns)', () => {
-  // Grafana pushes the panels below a growing one down; this preset does not
-  // set `compact`, so a celled panel grows only into free rows.
-  test('dragging the last panel’s bottom seam grows it by 30px rows', async ({ page }) => {
+  test('growing a panel a row pushes every panel under it down a row', async ({ page }) => {
     await pick(page, 'grafana-node-exporter', 'imported-w30');
-    const before = await settledBox(node(page, 'imported-w30'));
-    const edge = centerOf(await boxOf(seam(page, 'resize-y-imported-w30')));
+    const cpu = await settledBox(node(page, 'cpu-basic'));
+    const net = await settledBox(node(page, 'net-basic'));
+    const wide = await settledBox(node(page, 'imported-w30'));
+    const mem = await settledBox(node(page, 'mem-basic'));
+    const edge = centerOf(await boxOf(seam(page, 'resize-y-cpu-basic')));
 
-    await dragMouse(page, edge, { x: edge.x, y: edge.y + 2 * 38 });
+    // One 30px row and its 8px gap.
+    await dragMouse(page, edge, { x: edge.x, y: edge.y + 38 });
 
-    const after = await settledBox(node(page, 'imported-w30'));
-    expect(after.h).toBeCloseTo(before.h + 2 * 38, 0);
+    expect((await settledBox(node(page, 'cpu-basic'))).h).toBeCloseTo(cpu.h + 38, 0);
+    expect((await settledBox(node(page, 'net-basic'))).y).toBeCloseTo(net.y + 38, 0);
+    expect((await settledBox(node(page, 'imported-w30'))).y).toBeCloseTo(wide.y + 38, 0);
+    expect(await settledBox(node(page, 'mem-basic'))).toEqual(mem);
   });
 
   test('a w:30 panel is clamped to the dashboard width, and the right-edge panel sits flush', async ({
@@ -294,5 +298,26 @@ test.describe('Excel frozen panes', () => {
       await expect(node(page, id)).toBeVisible();
     }
     await expect(unplaced(page, 'sheet')).toContainText('cell-E8');
+  });
+
+  test('the row-number column is narrow, and dragging column A’s seam widens it alone', async ({
+    page,
+  }) => {
+    await pick(page, 'excel-frozen-panes', 'cell-corner');
+    expect((await settledBox(node(page, 'cell-corner'))).w).toBeCloseTo(32, 0);
+    const a = await settledBox(node(page, 'cell-A'));
+    const b = await settledBox(node(page, 'cell-B'));
+    expect(a.w).toBeCloseTo(64, 0);
+    expect(a.h).toBeCloseTo(20, 0);
+    // In the header row, clear of the row seams that cross the column seam lower down.
+    const seamBox = await boxOf(seam(page, 'track-x-1'));
+    const edge = { x: seamBox.x + seamBox.w / 2, y: a.y + a.h * 0.4 };
+
+    await dragMouse(page, edge, { x: edge.x + 16, y: edge.y });
+
+    expect((await settledBox(node(page, 'cell-A'))).w).toBeCloseTo(a.w + 16, 0);
+    const after = await settledBox(node(page, 'cell-B'));
+    expect(after.x).toBeCloseTo(b.x + 16, 0);
+    expect(after.w).toBeCloseTo(b.w, 0);
   });
 });
