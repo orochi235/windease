@@ -1,6 +1,7 @@
 import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
 import { STACK_FALLBACK, STACK_SHOW } from '../policies.js';
 import { trace } from '../trace.js';
+import { zoomedOf, zoomLayout } from './zoom.js';
 
 interface StackConfig {
   /** Which child fills the body. Defaults to the first in `childOrder`. */
@@ -9,6 +10,10 @@ interface StackConfig {
    *  measurement — the core never measures the strip it does not draw. */
   headerSize?: number;
   padding?: number;
+  /** A child that fills the whole container, header band included, while
+   *  every other child is withheld. `activeId` is left alone for when it
+   *  clears. */
+  zoom?: string;
 }
 
 /**
@@ -25,6 +30,7 @@ export const stackStrategy: LayoutStrategy<void, string> = {
     padding: 'number',
     show: STACK_SHOW,
     fallback: STACK_FALLBACK,
+    zoom: 'string',
   },
   layout({
     items,
@@ -42,6 +48,8 @@ export const stackStrategy: LayoutStrategy<void, string> = {
 
     const placements = new Map<string, Rect>();
     if (items.length === 0) return { placements, affordances: [] };
+    const zoomed = zoomedOf(items, cfg.zoom);
+    if (zoomed) return zoomLayout(items, zoomed, container, padding);
 
     const active = items.find((i) => i.id === cfg.activeId) ?? items[0]!;
     placements.set(active.id, {

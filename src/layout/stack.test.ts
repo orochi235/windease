@@ -69,6 +69,7 @@ describe('stackStrategy', () => {
       'headerSize',
       'padding',
       'show',
+      'zoom',
     ]);
   });
 });

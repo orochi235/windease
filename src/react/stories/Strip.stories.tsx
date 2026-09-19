@@ -2,7 +2,7 @@ export default { title: 'Strip' };
 
 import type { Story } from '@ladle/react';
 import { useMemo, useState } from 'react';
-import { asNodeId, createNode, Store, stripStrategy } from '../../index.js';
+import { asNodeId, createNode, Store, stackStrategy, stripStrategy } from '../../index.js';
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 import './strip.css';
@@ -333,6 +333,111 @@ export const Steps: Story = () => {
           <code>step: {CELL}</code>. Drag a seam and it lands on whole {CELL}px cells; focus one and
           each arrow press moves it a cell. The row is {STEP_W}px, five pixels past sixty cells, and
           the last fill pane carries those five.
+        </p>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+const ZOOM_ZONE = asNodeId('strip-zoom');
+const ZOOM_PANES = ['shell', 'editor', 'logs'] as const;
+const ZOOM_STRATEGIES = { strip: stripStrategy as never, stack: stackStrategy as never };
+
+function makeZoomStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: {
+        strategyId: 'strip',
+        config: {
+          axis: 'x',
+          gap: 6,
+          padding: 6,
+          fill: true,
+          resizeMode: 'neighbor',
+          headerSize: 28,
+        },
+      },
+      id: ZOOM_ZONE,
+    }),
+  );
+  for (const name of ZOOM_PANES) {
+    const id = asNodeId(`zoom-${name}`);
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id,
+        parentId: ZOOM_ZONE,
+        hints: { minSize: { w: 60, h: 0 } },
+        meta: { title: name },
+      }),
+    );
+    s.showNode(id);
+  }
+  return s;
+}
+
+/**
+ * `zoom` names one child that fills the container while the rest keep their
+ * sizes to return to, like tmux's prefix-z. Switch the zone to `stack` and a
+ * zoomed child covers the tab band too.
+ */
+export const Zoom: Story = () => {
+  const store = useMemo(makeZoomStore, []);
+  const [zoom, setZoom] = useState<string | undefined>(undefined);
+  const [strategy, setStrategy] = useState<'strip' | 'stack'>('strip');
+  const zoomTo = (id: string | undefined) => {
+    setZoom(id);
+    store.updateContainerConfig(ZOOM_ZONE, { zoom: id });
+  };
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={ZOOM_STRATEGIES}>
+        <div className="strip-controls">
+          <label>
+            strategy{' '}
+            <select
+              value={strategy}
+              data-testid="zoom-strategy"
+              onChange={(e) => {
+                const next = e.target.value as typeof strategy;
+                setStrategy(next);
+                store.setStrategy(ZOOM_ZONE, next);
+              }}
+            >
+              <option value="strip">strip</option>
+              <option value="stack">stack</option>
+            </select>
+          </label>
+          <fieldset className="strip-zoom">
+            <legend>zoom</legend>
+            {[undefined, ...ZOOM_PANES.map((n) => `zoom-${n}`)].map((id) => (
+              <button
+                key={id ?? 'none'}
+                type="button"
+                aria-pressed={zoom === id}
+                data-testid={`zoom-${id ?? 'none'}`}
+                onClick={() => zoomTo(id)}
+              >
+                {id ? id.slice('zoom-'.length) : 'none'}
+              </button>
+            ))}
+          </fieldset>
+        </div>
+        <div className="strip-stage">
+          <Container
+            parentId={ZOOM_ZONE}
+            chrome={chrome}
+            viewport={{ w: 720, h: 160 }}
+            className="windease-zone"
+            affordances
+          />
+        </div>
+        <p className="strip-hint">
+          Drag a seam, zoom a pane, then zoom <b>none</b>: the row comes back at the sizes you left
+          it. Under <code>stack</code> the zone reserves a 28px tab band; a zoomed child covers it.
         </p>
       </StrategyRegistryProvider>
     </Provider>

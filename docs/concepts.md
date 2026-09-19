@@ -377,6 +377,11 @@ Built-ins:
   `activeId` for a child that arrives by move or registration, and
   `fallback: 'next' | 'prev' | 'first'` rewrites it when the active child is
   unregistered, hidden or moved out.
+- **`zoom`** — a config key on both `strip` and `stack` naming one child that
+  fills the container (a stack's header band included) while every other child
+  goes to `unplaced`, placement untouched. It is config rather than
+  `container.state` for the reason `activeId` is: it names which child shows,
+  a preset declares it, and `configSpec` checks it.
 - **`floatingStrategy(inner?)`** — wraps another strategy. Items whose
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,

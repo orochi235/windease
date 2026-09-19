@@ -26,6 +26,12 @@ section below.
   `action: 'destroy' | 'hide'`, and `captureSeam` and `commitJoin` carry out a
   release for hosts that drive seams without React.
 
+- **`zoom` on a strip's or stack's config fills the container with one
+  child.** Like tmux's prefix-z, the named child takes the whole container and
+  the rest go to `unplaced` with their placements untouched, so clearing
+  `zoom` restores the row. A zoomed strip emits no seams; a zoomed stack child
+  covers the `headerSize` band too. An id naming no visible child is ignored.
+
 - **A container can refuse drops from its config.** Set `accepts` in any
   container's `config`: `false` refuses every drop, `{ kinds: ['panel'] }`
   refuses a dragged node whose `kind` is not listed, and `{ max: 3 }` refuses a

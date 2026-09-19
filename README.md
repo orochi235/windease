@@ -1150,6 +1150,27 @@ Without React, a stepped seam needs the pointer: a drag event's
 `payload.point` gives the seam's target, since a few pixels of `dx` round to
 nothing. An event with only `dx` still moves by `dx`, rounded to a step.
 
+### Zooming one pane
+
+`zoom` on a strip's or stack's config names a child that fills the container,
+the way tmux's prefix-z, Blender's Ctrl+Space and i3's fullscreen do. The
+other children go to `unplaced`, so they are not rendered, and they keep their
+`placement` untouched: clear `zoom` and the row comes back exactly as it was.
+
+```ts
+store.updateContainerConfig(zoneId, { zoom: editorId }); // zoom in
+store.updateContainerConfig(zoneId, { zoom: undefined }); // and back out
+```
+
+A zoomed strip child takes the container inside `padding` and emits no seams.
+A zoomed stack child covers the `headerSize` band as well, so hide or overlay
+your tab strip while `zoom` is set. `activeId` is left alone for when zoom
+clears. A `zoom` naming no visible child is ignored, and traced under
+`layout`; it stays in config, so a hidden child zooms again when shown.
+
+Zoom lives in config, like stack's `activeId`, so a snapshot or preset carries
+it and `lock.arrange` guards it.
+
 ### Seam join
 
 A neighbor seam can end in a destroy rather than a clamp. With

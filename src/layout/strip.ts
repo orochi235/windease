@@ -11,6 +11,7 @@ import { trace } from '../trace.js';
 import { selectByCapacity } from './capacity.js';
 import { clampExplicitSizes } from './resize.js';
 import { DEFAULT_JOIN_THRESHOLD } from './seam-join.js';
+import { zoomedOf, zoomLayout } from './zoom.js';
 
 interface StripConfig {
   axis?: 'x' | 'y';
@@ -101,6 +102,13 @@ interface StripConfig {
    * seam's bounds narrow to whole steps. `gap` and `padding` are not stepped.
    */
   step?: number;
+  /**
+   * The child that fills the container, inside `padding`, while the rest are
+   * withheld as `unplaced` and keep their placement to return to (tmux's
+   * prefix-z). No seams are emitted while zoomed. An id naming no visible
+   * child is ignored.
+   */
+  zoom?: string;
 }
 
 /** A size input as the row may use it: finite and non-negative. Anything else
@@ -661,6 +669,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     joinThreshold: 'number',
     maxItems: 'number',
     step: 'number',
+    zoom: 'string',
     overflowMode: ['squeeze', 'scroll', 'unplaced'],
     justify: ['start', 'center', 'end', 'between'],
   },
@@ -694,6 +703,13 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       const empty: LayoutResult<string> = { placements, affordances };
       if (preview) empty.isPreview = true;
       return empty;
+    }
+
+    const zoomed = zoomedOf(items, cfg.zoom);
+    if (zoomed) {
+      const result = zoomLayout(items, zoomed, container, padding);
+      if (preview) result.isPreview = true;
+      return result;
     }
 
     const main = axis === 'x' ? container.w : container.h;
@@ -802,6 +818,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     if (delta === 0) return;
 
     const cfg = options as StripConfig;
+    if (zoomedOf(items, cfg.zoom)) return;
     const gap = cfg.gap ?? 0;
     const padding = cfg.padding ?? 0;
     const main = axis === 'x' ? container.w : container.h;
