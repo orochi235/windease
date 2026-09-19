@@ -32,6 +32,7 @@ interface Cfg {
   joinOnOvershoot?: boolean;
   joinThreshold?: number;
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
+  justify?: 'start' | 'center' | 'end' | 'between';
 }
 
 const cfgOf = (s: Pick<Scenario, 'options'>) => s.options as Cfg;
@@ -136,13 +137,17 @@ function invariants(s: Scenario, r: LayoutResult<string>): Record<string, Violat
   }
 
   const packing: Violations = [];
-  let cursor = padding;
+  const free = Math.max(0, -excess);
+  const n = placed.length;
+  const lead = cfg.justify === 'center' ? free / 2 : cfg.justify === 'end' ? free : 0;
+  const step = gap + (cfg.justify === 'between' && n > 1 ? free / (n - 1) : 0);
+  let cursor = padding + lead;
   for (const it of placed) {
     const at = startOf(rect(it.id), axis);
     if (Math.abs(at - cursor) > 1e-6) packing.push(`${it.id} starts at ${at}, expected ${cursor}`);
-    cursor = at + mainOf(rect(it.id), axis) + gap;
+    cursor = at + mainOf(rect(it.id), axis) + step;
   }
-  out['panes pack in order along the main axis'] = packing;
+  out['panes pack in order along the main axis, leftover placed by justify'] = packing;
 
   const cross = Math.max(0, crossOf(s.container, axis) - 2 * padding);
   out['panes span the cross axis, never below zero'] = placed
@@ -405,6 +410,15 @@ function gestureInvariants(preset: Preset): Record<string, Violations> {
           if (typeof v === 'number' && (!Number.isFinite(v) || v < 0)) {
             out['a drag writes finite, non-negative sizes']!.push(`${tag} wrote ${it.id}=${v}`);
           }
+          const share = it.placement?.share;
+          if (
+            share !== undefined &&
+            !(typeof share === 'number' && Number.isFinite(share) && share > 0)
+          ) {
+            out['a drag writes finite, non-negative sizes']!.push(
+              `${tag} wrote ${it.id} share ${share}`,
+            );
+          }
         }
 
         if (cfg.resizeMode === 'neighbor') {
@@ -597,5 +611,46 @@ describe('strip under the other overflow modes', () => {
     const last = r.placements.get('pane-39')!;
     expect(Math.abs(last.x + last.w - 1366)).toBeLessThan(1e-9);
     for (const p of r.placements.values()) expect(p.w).toBeCloseTo((1366 - 39) / 40, 9);
+  });
+});
+
+describe('behavior keys on real-software layouts', () => {
+  const byId = (id: string) => PRESETS.find((p) => p.id === id)!;
+  const layout = (preset: Preset) =>
+    runScenario(
+      stripStrategy,
+      project(presetToStore(preset), preset.mechanics.id, preset.viewport),
+    );
+
+  it('firefox: three tabs sit at their 225px cap from the left, the rest of the strip empty', () => {
+    const r = layout(byId('firefox-3-tabs'));
+    expect([...r.placements].map(([id, p]) => [id, p.x, p.w])).toEqual([
+      ['tab-1', 0, 225],
+      ['tab-2', 225, 225],
+      ['tab-3', 450, 225],
+    ]);
+  });
+
+  it('obsidian: the capped note sits centered between sidebars flush to the edges', () => {
+    const r = layout(byId('obsidian-readable-line'));
+    const files = r.placements.get('ob-files')!;
+    const note = r.placements.get('ob-note')!;
+    const outline = r.placements.get('ob-outline')!;
+    expect(files.x).toBe(0);
+    expect(outline.x + outline.w).toBeCloseTo(1920, 9);
+    expect(note.x - (files.x + files.w)).toBeCloseTo(outline.x - (note.x + note.w), 9);
+  });
+
+  it('emacs: a seam drag writes shares, so windows keep their proportions when the frame resizes', () => {
+    const store = presetToStore(byId('emacs-balanced-past-min'));
+    const wide = { w: 2400, h: 768 };
+    dragSeam(store, 'emacs', wide, 'resize-x-window-0', 40);
+    const items = project(store, 'emacs', wide).items;
+    expect(items.every((it) => it.placement?.size === undefined)).toBe(true);
+    const at = (w: number) =>
+      runScenario(stripStrategy, project(store, 'emacs', { w, h: 768 })).placements;
+    const ratio = (p: Map<string, Rect>) => p.get('window-0')!.w / p.get('window-1')!.w;
+    expect(ratio(at(2400))).toBeGreaterThan(1.2);
+    expect(ratio(at(3000))).toBeCloseTo(ratio(at(2400)), 6);
   });
 });

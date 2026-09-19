@@ -195,6 +195,31 @@ test.describe('firefox with 100 tabs', () => {
   });
 });
 
+test.describe('leftover space placed by justify', () => {
+  test('firefox: three tabs take their 225px cap from the left and leave the rest empty', async ({
+    page,
+  }) => {
+    await openPreset(page, 'firefox-3-tabs');
+    const zone = await boxOf(page.locator('[data-node-container="firefox-few"]'));
+    for (const [i, id] of ['tab-1', 'tab-2', 'tab-3'].entries()) {
+      const tab = await boxOf(pane(page, id));
+      expect(tab.w).toBeCloseTo(225, 0);
+      expect(tab.x - zone.x).toBeCloseTo(i * 225, 0);
+    }
+  });
+
+  test('obsidian: the capped note sits centered between the sidebars', async ({ page }) => {
+    await openPreset(page, 'obsidian-readable-line');
+    const zone = await boxOf(page.locator('[data-node-container="obsidian"]'));
+    const files = await boxOf(pane(page, 'ob-files'));
+    const note = await boxOf(pane(page, 'ob-note'));
+    const outline = await boxOf(pane(page, 'ob-outline'));
+    expect(files.x - zone.x).toBeCloseTo(0, 0);
+    expect(outline.x + outline.w - zone.x).toBeCloseTo(1920, 0);
+    expect(note.x - (files.x + files.w)).toBeCloseTo(outline.x - (note.x + note.w), 0);
+  });
+});
+
 test.describe('panes stored below their floor, capped, hinted or squeezed', () => {
   test('acme: dragging down from a tag-line window never shrinks it', async ({ page }) => {
     await openPreset(page, 'acme-column');

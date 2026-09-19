@@ -361,7 +361,7 @@ export const PRESETS: Preset[] = [
     id: 'emacs-balanced-past-min',
     source:
       'GNU Emacs C-x 3 eighteen times then balance-windows, window-min-width 10 columns at 8px',
-    stress: 'equal fill shares whose floors sum past the frame width',
+    stress: 'equal placement.share panes whose floors sum past the frame width',
     description:
       "GNU Emacs divides its frame (the operating system's window) into windows, each showing a buffer. C-x 3 splits the current window into two side by side, and M-x balance-windows makes them all the same width. Emacs will not make a window narrower than window-min-width columns, and refuses a split that would.",
     viewport: { w: 1366, h: 768 },
@@ -375,6 +375,7 @@ export const PRESETS: Preset[] = [
       children: {
         emacs: Array.from({ length: 18 }, (_, i) => ({
           id: `window-${i}`,
+          placement: { share: 1 },
           meta: { title: `*buffer-${i}*` },
         })),
       },
@@ -413,7 +414,7 @@ export const PRESETS: Preset[] = [
     mechanics: {
       id: 'firefox-few',
       strategy: 'strip',
-      config: { axis: 'x', resizable: false },
+      config: { axis: 'x', fill: true, justify: 'start', resizable: false },
       item: FIREFOX_TAB,
     },
     data: { children: { 'firefox-few': [1, 2, 3].map(firefoxTab) } },
@@ -421,14 +422,15 @@ export const PRESETS: Preset[] = [
   {
     id: 'obsidian-readable-line',
     source: 'Obsidian with both sidebars open and "Readable line length" capping the note at 700px',
-    stress: 'an auto pane capped by maxSize between two stored-size sidebars',
+    stress:
+      'an auto pane capped by maxSize between two stored-size sidebars, centered in the space it leaves',
     description:
       "Obsidian, a note-taking app, shows a file list in the left sidebar, the open note in the middle and a right sidebar for panels such as the note's outline. Users drag a sidebar's edge to resize it and collapse either sidebar with a button. With \"Readable line length\" on, the note's text stops widening at a comfortable reading width and sits centered, leaving empty margins on a wide screen.",
     viewport: { w: 1920, h: 1080 },
     mechanics: {
       id: 'obsidian',
       strategy: 'strip',
-      config: { axis: 'x', resizeMode: 'neighbor' },
+      config: { axis: 'x', resizeMode: 'neighbor', justify: 'between' },
       children: [
         {
           id: 'ob-files',
