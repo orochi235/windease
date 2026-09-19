@@ -3,13 +3,8 @@ export default { title: 'Exotic / Trees' };
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import { asNodeId, type NodeId } from '../../index.js';
-import { type Preset, presetToStore } from '../../test-utils/exotic/preset.js';
-import {
-  GOLDEN_PRESET,
-  I3_PRESET,
-  PRESETS,
-  TREE_STRATEGIES,
-} from '../../test-utils/exotic/tree-scenarios.js';
+import { type Preset, presetToStore } from '../../nuts/preset.js';
+import { GOLDEN_PRESET, I3_PRESET, PRESETS, TREE_STRATEGIES } from '../../nuts/tree-scenarios.js';
 import {
   type ChromeMap,
   Container,

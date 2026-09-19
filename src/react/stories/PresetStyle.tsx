@@ -1,5 +1,5 @@
 import type { Node } from '../../index.js';
-import type { Preset } from '../../test-utils/exotic/preset.js';
+import type { Preset } from '../../nuts/preset.js';
 
 /** The class an Exotic story puts on a preset's root element, which its `data.css` is scoped under. */
 export function presetClass(preset: Preset): string {

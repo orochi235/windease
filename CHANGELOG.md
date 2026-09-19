@@ -20,6 +20,18 @@ section below.
   shape. `wide` stays the default, so no existing grid moves; without a
   container `fit` falls back to it.
 
+- **`windease/nuts`, a third entry point: the Novel UI Torture Suite.** 62
+  layouts lifted from real software — Blender, i3, Mac OS 9, Photoshop, Excel,
+  a Flickr photo wall — as data, with the pathology corpora beside them (a
+  zero-size container, 150 tabs, 10,000 items). `presetToStore` turns a preset
+  into a live store; `presetScenario` and `runScenario` point one container's
+  case at a single strategy, your own included; `overlaps`, `outOfBounds`,
+  `malformedRects` and `dropped` are the checks the library's own suite runs
+  against the results. `fromI3Layout`, `fromGoldenLayout`, `fromDockview` and
+  `emacsFrame` convert those products' layout formats into presets. The corpus
+  moved out of `src/test-utils/exotic/`, where it was internal. See
+  [The torture suite](README.md#the-torture-suite-windeasenuts).
+
 - **`pageStrategy(inner)` shows one page of children at a time.** Under
   `mode: 'assigned'` each child's `placement.page` names its page — virtual
   desktops; under `mode: 'flowed'` children fill a page until `inner` runs out

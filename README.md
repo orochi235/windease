@@ -1,7 +1,8 @@
 # windease
 
-Browser-based window manager. One package, two entry points: a
-framework-agnostic core (`windease`) and React bindings (`windease/react`).
+Browser-based window manager. One package, three entry points: a
+framework-agnostic core (`windease`), React bindings (`windease/react`), and a
+corpus of layouts lifted from real software (`windease/nuts`).
 
 ```sh
 npm install windease
@@ -2194,6 +2195,55 @@ with a `membership` key. `deserialize()` still accepts `version: 2`
 snapshots and maps the old `slot` key across on read, so persisted state
 from 0.8.0 and earlier keeps loading. Only the write side changed; there is
 no migration step to run.
+
+## The torture suite (`windease/nuts`)
+
+`windease/nuts` — the Novel UI Torture Suite — is 62 layouts taken from real
+software, as data: Blender's workspace, i3's tiling, Mac OS 9's desktop,
+Photoshop's panels, Excel's frozen headers, a Flickr photo wall. It ships
+beside the core rather than in it, because most apps want the primitives, not
+somebody else's layout.
+
+Two shapes come out of it. A **preset** is a whole tree that `presetToStore`
+turns into a live store you can render:
+
+```ts
+import { TREE_PRESETS, presetToStore } from 'windease/nuts';
+
+const i3 = TREE_PRESETS.find((p) => p.id === 'i3-dev-workspace')!;
+const store = presetToStore(i3);   // register it, then render it as usual
+```
+
+A **scenario** is one container's flat case — items, container size and config —
+that `runScenario` feeds to a single strategy. That is how you point the corpus
+at a strategy of your own:
+
+```ts
+import { GRID_PRESETS, presetScenario, runScenario, overlaps, outOfBounds } from 'windease/nuts';
+
+for (const preset of GRID_PRESETS) {
+  const scenario = presetScenario(preset);
+  const result = runScenario(myStrategy, scenario);
+  expect(overlaps(result.placements)).toEqual([]);
+  expect(outOfBounds(result.placements, scenario.container)).toEqual([]);
+}
+```
+
+`overlaps`, `outOfBounds`, `malformedRects` and `dropped` are the checks the
+library's own suite runs: no two same-`z` rects overlapping, nothing outside
+the container, no NaN or negative extent, no item silently lost.
+
+The pathology corpora are the deliberately awful cases — `GRID_PATHOLOGY`,
+`STRIP_PATHOLOGY`, `DESKTOP_PATHOLOGY`, `FLOATING_PATHOLOGY`,
+`STACK_PATHOLOGY`, `PACK_PATHOLOGY_PRESETS` — a zero-size container, 150 tabs,
+a monitor unplugged mid-drag. `TEN_THOUSAND` and `PACK_HEAVY_PRESETS` are the
+big ones, for timing rather than correctness.
+
+Each preset carries its `source` (the product), its `stress` (what about it is
+hard, in one line) and a `description` written for someone who has never seen
+the product. `fromI3Layout`, `fromGoldenLayout`, `fromDockview` and
+`emacsFrame` convert those products' own layout formats into presets, so you
+can bring a layout of your own in the same way.
 
 ## Develop
 

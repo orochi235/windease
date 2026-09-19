@@ -17,9 +17,11 @@ the work is done when no story wires a behavior a product in the corpus has.
 
 Public, but not front and center: `windease/nuts` (Novel UI Torture Suite), a secondary entry point
 beside the core, the way D3DX sat beside Direct3D. Consumers who want a product's layout import it
-from there; the README and the core exports lead with the primitives, not the presets. They leave
-`src/test-utils/` for it once built (unbuilt as of 2026-09-18); the test-only parts (invariants,
-known-failure entries, viewports) stay behind.
+from there; the README and the core exports lead with the primitives, not the presets. Built
+2026-09-19: the corpus moved from `src/test-utils/exotic/` to `src/nuts/`, and the entry point ships
+the presets, the flat scenarios, the pathology corpora and the invariant checkers — running the
+corpus against a strategy of your own is the point of it. The known-failure lists stayed behind in
+the tests that own them.
 
 ## A preset is mechanics plus data
 

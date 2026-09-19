@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asNodeId } from '../../node.js';
+import { asNodeId } from '../node.js';
 import {
   type Preset,
   presetProperties,

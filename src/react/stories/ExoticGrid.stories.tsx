@@ -10,8 +10,8 @@ import {
   nodeToLayoutItem,
   stripStrategy,
 } from '../../index.js';
-import { PRESETS } from '../../test-utils/exotic/grid-scenarios.js';
-import { type Preset, presetNodes, presetToStore } from '../../test-utils/exotic/preset.js';
+import { PRESETS } from '../../nuts/grid-scenarios.js';
+import { type Preset, presetNodes, presetToStore } from '../../nuts/preset.js';
 import {
   type ChromeHandler,
   Container,

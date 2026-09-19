@@ -4,15 +4,8 @@ import { ContainerHost } from './container-host.js';
 import { CycleError, WindeaseError } from './errors.js';
 import type { LayoutStrategy, Rect, Size } from './layout-types.js';
 import { asNodeId, type NodeId } from './node.js';
-import { deserialize, serialize } from './snapshot.js';
-import type { Store } from './store.js';
-import { dropped, EPS, malformedRects } from './test-utils/exotic/invariants.js';
-import {
-  type Preset,
-  type PresetNode,
-  presetToStore,
-  presetTree,
-} from './test-utils/exotic/preset.js';
+import { dropped, EPS, malformedRects } from './nuts/invariants.js';
+import { type Preset, type PresetNode, presetToStore, presetTree } from './nuts/preset.js';
 import {
   type ContainerPass,
   DOCKVIEW_PRESET,
@@ -26,7 +19,9 @@ import {
   PRESETS,
   TRADING_DESK_PRESET,
   TREE_STRATEGIES,
-} from './test-utils/exotic/tree-scenarios.js';
+} from './nuts/tree-scenarios.js';
+import { deserialize, serialize } from './snapshot.js';
+import type { Store } from './store.js';
 
 const id = (s: string) => asNodeId(s);
 type Strategies = Record<string, LayoutStrategy<unknown, string, unknown>>;
@@ -550,7 +545,7 @@ const FIXTURE_FILES = [
 async function allPresets(): Promise<{ file: string; preset: Preset; strategies: Strategies }[]> {
   const out: { file: string; preset: Preset; strategies: Strategies }[] = [];
   for (const file of FIXTURE_FILES) {
-    const path = `./test-utils/exotic/${file}.js`;
+    const path = `./nuts/${file}.js`;
     const mod = (await import(/* @vite-ignore */ path)) as Record<string, unknown>;
     const registries = Object.entries(mod)
       .filter(([name, v]) => name.endsWith('_STRATEGIES') && v && typeof v === 'object')

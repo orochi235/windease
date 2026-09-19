@@ -1,15 +1,15 @@
-import { columnStrategy } from '../../layout/column.js';
-import { desktopStrategy } from '../../layout/desktop.js';
-import { floatingStrategy } from '../../layout/floating.js';
-import { gridStrategy } from '../../layout/grid.js';
-import { shelfStrategy } from '../../layout/shelf.js';
-import { skylineStrategy } from '../../layout/skyline.js';
-import { stackStrategy } from '../../layout/stack.js';
-import { stripStrategy } from '../../layout/strip.js';
-import { runStrategyForContainer } from '../../layout-node-adapter.js';
-import type { LayoutResult, LayoutStrategy, Rect, Size } from '../../layout-types.js';
-import { asNodeId, type NodeId } from '../../node.js';
-import type { Store } from '../../store.js';
+import { columnStrategy } from '../layout/column.js';
+import { desktopStrategy } from '../layout/desktop.js';
+import { floatingStrategy } from '../layout/floating.js';
+import { gridStrategy } from '../layout/grid.js';
+import { shelfStrategy } from '../layout/shelf.js';
+import { skylineStrategy } from '../layout/skyline.js';
+import { stackStrategy } from '../layout/stack.js';
+import { stripStrategy } from '../layout/strip.js';
+import { runStrategyForContainer } from '../layout-node-adapter.js';
+import type { LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
+import { asNodeId, type NodeId } from '../node.js';
+import type { Store } from '../store.js';
 import { type Preset, type PresetData, type PresetNode, styled, titles } from './preset.js';
 
 type PresetNodeData = NonNullable<PresetData['nodes']>;

@@ -1,4 +1,4 @@
-import type { LayoutItem } from '../../layout-types.js';
+import type { LayoutItem } from '../layout-types.js';
 import type { Scenario } from './invariants.js';
 import {
   type Preset,

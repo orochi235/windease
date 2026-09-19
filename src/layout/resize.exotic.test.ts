@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { prng } from '../test-utils/exotic/invariants.js';
+import { prng } from '../nuts/invariants.js';
 import { type ClampItem, clampExplicitSizes } from './resize.js';
 
 interface Case {

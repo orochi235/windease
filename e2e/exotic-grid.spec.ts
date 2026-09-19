@@ -1,10 +1,10 @@
 import { expect, type Page, test } from '@playwright/test';
-import { PRESETS } from '../src/test-utils/exotic/grid-scenarios.js';
-import { presetTree } from '../src/test-utils/exotic/preset.js';
+import { PRESETS } from '../src/nuts/grid-scenarios.js';
+import { presetTree } from '../src/nuts/preset.js';
 import { type Box, boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 /**
- * Grid presets reproduced from real software (`src/test-utils/exotic/grid-scenarios.ts`),
+ * Grid presets reproduced from real software (`src/nuts/grid-scenarios.ts`),
  * driven through the real React layer. The drop verdict is what the user sees
  * mid-gesture, so each drop asserts the frame's accept/reject class before
  * releasing — without it a "nothing moved" assertion also passes for a gesture

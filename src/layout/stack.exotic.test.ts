@@ -2,19 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { createNode } from '../constructors.js';
 import type { LayoutItem, Size } from '../layout-types.js';
 import { asNodeId } from '../node.js';
-import {
-  dropped,
-  malformedRects,
-  prng,
-  runScenario,
-  type Scenario,
-} from '../test-utils/exotic/invariants.js';
-import {
-  CHROME_150_TABS,
-  PHOTOSHOP_PANELS,
-  STACK_PATHOLOGY,
-} from '../test-utils/exotic/overlap-scenarios.js';
-import { type Preset, presetScenario, presetToStore } from '../test-utils/exotic/preset.js';
+import { dropped, malformedRects, prng, runScenario, type Scenario } from '../nuts/invariants.js';
+import { CHROME_150_TABS, PHOTOSHOP_PANELS, STACK_PATHOLOGY } from '../nuts/overlap-scenarios.js';
+import { type Preset, presetScenario, presetToStore } from '../nuts/preset.js';
 import { stackStrategy } from './stack.js';
 
 const run = (s: Pick<Scenario, 'items' | 'container' | 'options'>) => runScenario(stackStrategy, s);

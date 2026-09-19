@@ -8,7 +8,7 @@ import {
   overlaps,
   runScenario,
   type Scenario,
-} from '../test-utils/exotic/invariants.js';
+} from '../nuts/invariants.js';
 import {
   ALL_PRESETS,
   ownStrategy,
@@ -17,8 +17,8 @@ import {
   type PackerId,
   type PackStrategyId,
   packScenario,
-} from '../test-utils/exotic/pack-scenarios.js';
-import type { Preset } from '../test-utils/exotic/preset.js';
+} from '../nuts/pack-scenarios.js';
+import type { Preset } from '../nuts/preset.js';
 import { skylineStrategy } from './skyline.js';
 
 const STRATEGIES: Record<PackStrategyId, LayoutStrategy<void, string>> = PACK_STRATEGIES;

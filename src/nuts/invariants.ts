@@ -1,4 +1,4 @@
-import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../../layout-types.js';
+import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
 
 /**
  * One layout lifted from real software: where it comes from, the container it

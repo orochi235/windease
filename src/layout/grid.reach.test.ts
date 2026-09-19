@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LayoutItem } from '../layout-types.js';
-import { prng } from '../test-utils/exotic/invariants.js';
+import { prng } from '../nuts/invariants.js';
 import { spanReach } from './grid.js';
 
 // The non-compact `spanReach` as it stood before probes rolled back instead of

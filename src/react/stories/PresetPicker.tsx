@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Preset } from '../../test-utils/exotic/preset.js';
+import type { Preset } from '../../nuts/preset.js';
 
 /**
  * The chosen preset, starting at `initialId` (a story arg, so a URL can pick

@@ -9,7 +9,6 @@ import type {
   Size,
 } from '../layout-types.js';
 import { asNodeId, type NodeId } from '../node.js';
-import type { Store } from '../store.js';
 import {
   dropped,
   malformedRects,
@@ -17,15 +16,16 @@ import {
   overlaps,
   prng,
   runScenario,
-} from '../test-utils/exotic/invariants.js';
+} from '../nuts/invariants.js';
 import {
   FANCYZONES,
   FLOATING_PATHOLOGY,
   OVERLAP_STRATEGIES,
   PHOTOSHOP_PANELS,
   PRESETS,
-} from '../test-utils/exotic/overlap-scenarios.js';
-import { type Preset, presetScenario, presetToStore } from '../test-utils/exotic/preset.js';
+} from '../nuts/overlap-scenarios.js';
+import { type Preset, presetScenario, presetToStore } from '../nuts/preset.js';
+import type { Store } from '../store.js';
 import { type FloatingState, floatingStrategy } from './floating.js';
 import { gridStrategy } from './grid.js';
 

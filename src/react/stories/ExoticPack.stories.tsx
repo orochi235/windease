@@ -3,7 +3,7 @@ export default { title: 'Exotic / Pack' };
 import type { Story } from '@ladle/react';
 import { useMemo } from 'react';
 import { asNodeId } from '../../index.js';
-import { runScenario } from '../../test-utils/exotic/invariants.js';
+import { runScenario } from '../../nuts/invariants.js';
 import {
   ownStrategy,
   PACK_STRATEGIES,
@@ -12,8 +12,8 @@ import {
   packScenario,
   STORY_PRESETS,
   withStrategy,
-} from '../../test-utils/exotic/pack-scenarios.js';
-import { presetToStore } from '../../test-utils/exotic/preset.js';
+} from '../../nuts/pack-scenarios.js';
+import { presetToStore } from '../../nuts/preset.js';
 import {
   type ChromeMap,
   Container,

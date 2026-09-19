@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { Affordance, LayoutItem, LayoutResult, Rect, Size } from '../layout-types.js';
 import { asNodeId, type NodeId } from '../node.js';
-import type { Store } from '../store.js';
 import {
   dropped,
   EPS,
@@ -11,14 +10,10 @@ import {
   overlaps,
   runScenario,
   type Scenario,
-} from '../test-utils/exotic/invariants.js';
-import {
-  type Preset,
-  type PresetNode,
-  presetToStore,
-  presetTree,
-} from '../test-utils/exotic/preset.js';
-import { PATHOLOGICAL, PRESETS } from '../test-utils/exotic/strip-scenarios.js';
+} from '../nuts/invariants.js';
+import { type Preset, type PresetNode, presetToStore, presetTree } from '../nuts/preset.js';
+import { PATHOLOGICAL, PRESETS } from '../nuts/strip-scenarios.js';
+import type { Store } from '../store.js';
 import { captureSeam, commitJoin, trackJoin } from './seam-join.js';
 import { stripStrategy } from './strip.js';
 

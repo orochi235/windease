@@ -3,7 +3,6 @@ import { createNode } from '../constructors.js';
 import { nodeToLayoutItem, runStrategyForContainer } from '../layout-node-adapter.js';
 import type { LayoutEvent, LayoutResult, Rect } from '../layout-types.js';
 import { asNodeId, type NodeId } from '../node.js';
-import type { Store } from '../store.js';
 import {
   dropped,
   malformedRects,
@@ -11,7 +10,7 @@ import {
   overlaps,
   runScenario,
   type Scenario,
-} from '../test-utils/exotic/invariants.js';
+} from '../nuts/invariants.js';
 import {
   AMIGA_SCREENS,
   CASCADE_200,
@@ -24,8 +23,9 @@ import {
   TWM_ICON_MANAGER,
   UNPLUGGED_MONITOR,
   WIN31_ICONS,
-} from '../test-utils/exotic/overlap-scenarios.js';
-import { type Preset, presetScenario, presetToStore } from '../test-utils/exotic/preset.js';
+} from '../nuts/overlap-scenarios.js';
+import { type Preset, presetScenario, presetToStore } from '../nuts/preset.js';
+import type { Store } from '../store.js';
 
 const DESKTOP_PRESETS = PRESETS.filter((p) => p.mechanics.strategy?.startsWith('desktop'));
 
@@ -581,7 +581,7 @@ describe('desktop pathology', () => {
   });
 
   it('is deterministic over a seeded random desktop', async () => {
-    const { prng } = await import('../test-utils/exotic/invariants.js');
+    const { prng } = await import('../nuts/invariants.js');
     const rand = prng(1987);
     const items = Array.from({ length: 60 }, (_, i) => ({
       id: `w${i}`,

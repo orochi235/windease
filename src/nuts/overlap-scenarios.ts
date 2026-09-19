@@ -1,10 +1,10 @@
-import { desktopStrategy } from '../../layout/desktop.js';
-import { floatingStrategy } from '../../layout/floating.js';
-import { gridStrategy } from '../../layout/grid.js';
-import { shelfStrategy } from '../../layout/shelf.js';
-import { stackStrategy } from '../../layout/stack.js';
-import { stripStrategy } from '../../layout/strip.js';
-import type { LayoutItem, LayoutStrategy } from '../../layout-types.js';
+import { desktopStrategy } from '../layout/desktop.js';
+import { floatingStrategy } from '../layout/floating.js';
+import { gridStrategy } from '../layout/grid.js';
+import { shelfStrategy } from '../layout/shelf.js';
+import { stackStrategy } from '../layout/stack.js';
+import { stripStrategy } from '../layout/strip.js';
+import type { LayoutItem, LayoutStrategy } from '../layout-types.js';
 import type { Scenario } from './invariants.js';
 import { type Preset, type PresetNode, titles } from './preset.js';
 

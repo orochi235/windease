@@ -7,7 +7,7 @@ import {
   type PresetNode,
   presetProperties,
   presetTree,
-} from '../../test-utils/exotic/preset.js';
+} from '../../nuts/preset.js';
 import { Panel, Zone } from '../index.js';
 import { StrategyMap } from './StrategyMap.js';
 

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { columnStrategy, shelfStrategy, skylineStrategy } from '#windease/index.js';
 import type { LayoutItem, LayoutStrategy, Size } from '#windease/layout-types.js';
-import { dropped, malformedRects, overlaps } from '#windease/test-utils/exotic/invariants.js';
+import { dropped, malformedRects, overlaps } from '#windease/nuts/invariants.js';
 import {
   ALL_PRESETS,
   HEAVY_PRESETS,
   ownStrategy,
   PACKERS,
   packScenario,
-} from '#windease/test-utils/exotic/pack-scenarios.js';
+} from '#windease/nuts/pack-scenarios.js';
 import windease from '../../../datasets/windease.json';
 import { datasetsFromCapture } from '../capture.js';
 import { STORY_BOXES } from '../sample.js';

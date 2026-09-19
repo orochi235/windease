@@ -5,13 +5,12 @@ import { DragEngine } from '../dnd/DragEngine.js';
 import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { LayoutItem, LayoutResult, Rect } from '../layout-types.js';
 import { asNodeId } from '../node.js';
-import type { Store } from '../store.js';
 import {
   PATHOLOGICAL,
   PRESETS,
   presetGridScenarios,
   TEN_THOUSAND,
-} from '../test-utils/exotic/grid-scenarios.js';
+} from '../nuts/grid-scenarios.js';
 import {
   dropped,
   malformedRects,
@@ -19,8 +18,9 @@ import {
   overlaps,
   runScenario,
   type Scenario,
-} from '../test-utils/exotic/invariants.js';
-import { type Preset, presetScenario, presetToStore } from '../test-utils/exotic/preset.js';
+} from '../nuts/invariants.js';
+import { type Preset, presetScenario, presetToStore } from '../nuts/preset.js';
+import type { Store } from '../store.js';
 import { gridStrategy, gridTiling } from './grid.js';
 import { stripStrategy } from './strip.js';
 

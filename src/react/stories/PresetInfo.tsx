@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { Preset } from '../../test-utils/exotic/preset.js';
+import type { Preset } from '../../nuts/preset.js';
 import './preset-info.css';
 
 /**

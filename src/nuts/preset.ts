@@ -1,9 +1,9 @@
-import { createNode } from '../../constructors.js';
-import { nodeToLayoutItem } from '../../layout-node-adapter.js';
-import type { Size } from '../../layout-types.js';
-import type { LockSet } from '../../lock.js';
-import { asNodeId, type Node, type NodeHints, type NodeId } from '../../node.js';
-import { Store } from '../../store.js';
+import { createNode } from '../constructors.js';
+import { nodeToLayoutItem } from '../layout-node-adapter.js';
+import type { Size } from '../layout-types.js';
+import type { LockSet } from '../lock.js';
+import { asNodeId, type Node, type NodeHints, type NodeId } from '../node.js';
+import { Store } from '../store.js';
 import type { Scenario } from './invariants.js';
 
 /**

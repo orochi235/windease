@@ -9,7 +9,7 @@ import {
   HEAVY_PRESETS,
   ownStrategy,
   packScenario,
-} from '#windease/test-utils/exotic/pack-scenarios.js';
+} from '#windease/nuts/pack-scenarios.js';
 import { datasetsFromCapture } from '../src/core/capture.js';
 import { ENGINE_SORTS, type EngineSort } from '../src/core/engine/order.js';
 import { RECIPES } from '../src/core/engine/recipes.js';

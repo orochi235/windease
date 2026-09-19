@@ -1,12 +1,12 @@
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Node } from '../../node.js';
-import { PRESETS as GRID } from '../../test-utils/exotic/grid-scenarios.js';
-import { PRESETS as OVERLAP } from '../../test-utils/exotic/overlap-scenarios.js';
-import { STORY_PRESETS as PACK } from '../../test-utils/exotic/pack-scenarios.js';
-import type { Preset } from '../../test-utils/exotic/preset.js';
-import { PRESETS as STRIP } from '../../test-utils/exotic/strip-scenarios.js';
-import { PRESETS as TREES } from '../../test-utils/exotic/tree-scenarios.js';
+import { PRESETS as GRID } from '../../nuts/grid-scenarios.js';
+import { PRESETS as OVERLAP } from '../../nuts/overlap-scenarios.js';
+import { STORY_PRESETS as PACK } from '../../nuts/pack-scenarios.js';
+import type { Preset } from '../../nuts/preset.js';
+import { PRESETS as STRIP } from '../../nuts/strip-scenarios.js';
+import { PRESETS as TREES } from '../../nuts/tree-scenarios.js';
 import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 
 afterEach(cleanup);

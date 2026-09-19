@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { PRESETS } from '../src/test-utils/exotic/strip-scenarios.js';
+import { PRESETS } from '../src/nuts/strip-scenarios.js';
 import { boxOf, centerOf, openStory, settledBox } from './fixtures.js';
 
 /**

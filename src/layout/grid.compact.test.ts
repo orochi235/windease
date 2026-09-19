@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { LayoutItem } from '../layout-types.js';
 import { asNodeId } from '../node.js';
-import { PRESETS } from '../test-utils/exotic/grid-scenarios.js';
-import { type Preset, presetScenario, presetToStore } from '../test-utils/exotic/preset.js';
+import { PRESETS } from '../nuts/grid-scenarios.js';
+import { type Preset, presetScenario, presetToStore } from '../nuts/preset.js';
 import { checkStrategyConfig } from './config-check.js';
 import { gridStrategy, gridTiling } from './grid.js';
 

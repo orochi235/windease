@@ -3,8 +3,8 @@ export default { title: 'Exotic / Desktop' };
 import type { Story } from '@ladle/react';
 import { type ReactNode, useMemo, useRef } from 'react';
 import { asNodeId, type Node, type NodeId, type Store } from '../../index.js';
-import { OVERLAP_STRATEGIES, PRESETS } from '../../test-utils/exotic/overlap-scenarios.js';
-import { type Preset, presetToStore } from '../../test-utils/exotic/preset.js';
+import { OVERLAP_STRATEGIES, PRESETS } from '../../nuts/overlap-scenarios.js';
+import { type Preset, presetToStore } from '../../nuts/preset.js';
 import {
   type ChromeMap,
   Container,

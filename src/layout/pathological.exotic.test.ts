@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { WindeaseError } from '../errors.js';
 import type { LayoutItem, LayoutResult, LayoutStrategy, Size } from '../layout-types.js';
-import { dropped, malformedRects } from '../test-utils/exotic/invariants.js';
+import { dropped, malformedRects } from '../nuts/invariants.js';
 import { columnStrategy } from './column.js';
 import { desktopStrategy } from './desktop.js';
 import { floatingStrategy } from './floating.js';

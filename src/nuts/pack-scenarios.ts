@@ -1,8 +1,8 @@
-import { columnStrategy } from '../../layout/column.js';
-import { justifiedStrategy } from '../../layout/justified.js';
-import { shelfStrategy } from '../../layout/shelf.js';
-import { skylineStrategy } from '../../layout/skyline.js';
-import type { LayoutStrategy, Size } from '../../layout-types.js';
+import { columnStrategy } from '../layout/column.js';
+import { justifiedStrategy } from '../layout/justified.js';
+import { shelfStrategy } from '../layout/shelf.js';
+import { skylineStrategy } from '../layout/skyline.js';
+import type { LayoutStrategy, Size } from '../layout-types.js';
 import type { Scenario } from './invariants.js';
 import { prng } from './invariants.js';
 import { type Preset, type PresetNode, presetScenario } from './preset.js';

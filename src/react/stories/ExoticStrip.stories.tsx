@@ -3,8 +3,8 @@ export default { title: 'Exotic / Strip' };
 import type { Story } from '@ladle/react';
 import { useMemo, useRef, useSyncExternalStore } from 'react';
 import { asNodeId, type Node, stripStrategy } from '../../index.js';
-import { type Preset, presetNodes, presetToStore } from '../../test-utils/exotic/preset.js';
-import { PRESETS } from '../../test-utils/exotic/strip-scenarios.js';
+import { type Preset, presetNodes, presetToStore } from '../../nuts/preset.js';
+import { PRESETS } from '../../nuts/strip-scenarios.js';
 import {
   type ChromeMap,
   Container,
