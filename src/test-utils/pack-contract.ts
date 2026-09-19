@@ -48,8 +48,20 @@ function crowded(placements: Map<string, Rect>, gap: number): string[] {
   return found;
 }
 
+export interface PackContractOptions {
+  /**
+   * The packer resizes items, keeping each one's aspect instead of its size.
+   * The own-size clauses then check aspect, and the clause about an item wider
+   * than the container, which such a packer shrinks to fit, does not apply.
+   */
+  scales?: boolean;
+}
+
 /** What every packing strategy promises, whatever its algorithm. */
-export function describePackContract(strategy: LayoutStrategy<void, string>): void {
+export function describePackContract(
+  strategy: LayoutStrategy<void, string>,
+  { scales = false }: PackContractOptions = {},
+): void {
   describe(`${strategy.name}Strategy packing contract`, () => {
     const container = { w: 400, h: 300 };
     const boxes = assortedBoxes(40);
@@ -61,11 +73,13 @@ export function describePackContract(strategy: LayoutStrategy<void, string>): vo
         expect(crowded(placements, gap)).toEqual([]);
       });
 
-      it(`places every box at its own size inside the width, gap ${gap}`, () => {
+      it(`places every box at its own ${scales ? 'aspect' : 'size'} inside the width, gap ${gap}`, () => {
         const { placements } = runPack(strategy, boxes, container, { gap });
         for (const box of boxes) {
           const rect = placements.get(box.id)!;
-          expect({ w: rect.w, h: rect.h }).toEqual(box.hints?.preferredSize);
+          const own = box.hints!.preferredSize!;
+          if (scales) expect(rect.w / rect.h).toBeCloseTo(own.w / own.h, 9);
+          else expect({ w: rect.w, h: rect.h }).toEqual(own);
           expect(rect.x).toBeGreaterThanOrEqual(0);
           expect(rect.y).toBeGreaterThanOrEqual(0);
           expect(rect.x + rect.w).toBeLessThanOrEqual(container.w);
@@ -73,17 +87,29 @@ export function describePackContract(strategy: LayoutStrategy<void, string>): vo
       });
     }
 
-    it('places an item wider than the container at the left edge and reports width overflow', () => {
-      const items = [sized('a', 100, 50), sized('wide', 500, 40), sized('b', 100, 50)];
-      const result = runPack(strategy, items, { w: 400, h: 1000 }, { gap: 8 });
-      expect(result.placements.get('wide')).toMatchObject({ x: 0, w: 500 });
-      expect(result.overflow).toEqual({ w: 100, h: 0 });
-      expect(crowded(result.placements, 8)).toEqual([]);
-      for (const id of ['a', 'b']) {
-        const rect = result.placements.get(id)!;
-        expect(rect.x + rect.w).toBeLessThanOrEqual(400);
-      }
-    });
+    if (scales)
+      it('shrinks an item wider than the container to the width, with no width overflow', () => {
+        const items = [sized('a', 100, 50), sized('wide', 500, 40), sized('b', 100, 50)];
+        const result = runPack(strategy, items, { w: 400, h: 1000 }, { gap: 8 });
+        const wide = result.placements.get('wide')!;
+        expect(wide.x).toBeGreaterThanOrEqual(0);
+        expect(wide.x + wide.w).toBeLessThanOrEqual(400);
+        expect(wide.w / wide.h).toBeCloseTo(500 / 40, 9);
+        expect(result.overflow?.w ?? 0).toBe(0);
+        expect(crowded(result.placements, 8)).toEqual([]);
+      });
+    else
+      it('places an item wider than the container at the left edge and reports width overflow', () => {
+        const items = [sized('a', 100, 50), sized('wide', 500, 40), sized('b', 100, 50)];
+        const result = runPack(strategy, items, { w: 400, h: 1000 }, { gap: 8 });
+        expect(result.placements.get('wide')).toMatchObject({ x: 0, w: 500 });
+        expect(result.overflow).toEqual({ w: 100, h: 0 });
+        expect(crowded(result.placements, 8)).toEqual([]);
+        for (const id of ['a', 'b']) {
+          const rect = result.placements.get(id)!;
+          expect(rect.x + rect.w).toBeLessThanOrEqual(400);
+        }
+      });
 
     it('keeps a row that fills the width exactly on one row despite float drift', () => {
       // Six sixths of 100 sum to 100.00000000000001.
@@ -117,10 +143,9 @@ export function describePackContract(strategy: LayoutStrategy<void, string>): vo
         natural: { w: 30, h: 20 },
         hints: { preferredSize: { w: 90, h: 90 } },
       };
-      expect(runPack(strategy, [item], container).placements.get('m')).toMatchObject({
-        w: 30,
-        h: 20,
-      });
+      const rect = runPack(strategy, [item], container).placements.get('m')!;
+      if (scales) expect(rect.w / rect.h).toBeCloseTo(1.5, 9);
+      else expect(rect).toMatchObject({ w: 30, h: 20 });
     });
 
     it('packs past the container height, reporting overflow only when it does', () => {

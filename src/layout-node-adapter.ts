@@ -23,12 +23,14 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
     node.hints?.minSize ||
     node.hints?.maxSize ||
     node.hints?.preferredSize ||
+    node.hints?.aspect !== undefined ||
     node.hints?.sizing
   ) {
     item.hints = {};
     if (node.hints.minSize) item.hints.minSize = node.hints.minSize;
     if (node.hints.maxSize) item.hints.maxSize = node.hints.maxSize;
     if (node.hints.preferredSize) item.hints.preferredSize = node.hints.preferredSize;
+    if (node.hints.aspect !== undefined) item.hints.aspect = node.hints.aspect;
     if (node.hints.sizing) item.hints.sizing = node.hints.sizing;
   }
   const placement = node.membership?.placement;

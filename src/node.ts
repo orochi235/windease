@@ -38,6 +38,14 @@ export interface NodeHints {
   maxSize?: { w: number; h: number };
   preferredSize?: { w: number; h: number };
   /**
+   * Width ÷ height to keep when a strategy scales this node. Only
+   * `justifiedStrategy` honors it, and reads it before the node's measured or
+   * preferred size. `stripStrategy` stretches the cross axis and `gridStrategy`
+   * fills the cell, both ignoring it; the fixed-size packers and `desktop`
+   * never scale a node.
+   */
+  aspect?: number;
+  /**
    * Per-axis request to be sized by measured content rather than by a hint or
    * a share. The core never measures: an adapter reports the measurement as
    * `LayoutItem.natural` and a strategy that understands it obliges. An axis

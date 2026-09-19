@@ -113,6 +113,7 @@ export {
   floatingStrategy,
 } from './layout/floating.js';
 export { gridStrategy, gridTiling } from './layout/grid.js';
+export { justifiedStrategy } from './layout/justified.js';
 export { PLACEMENT_LAYERS } from './layout/layer.js';
 export {
   DEFAULT_JOIN_THRESHOLD,

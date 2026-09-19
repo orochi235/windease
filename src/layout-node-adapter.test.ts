@@ -62,6 +62,17 @@ describe('nodeToLayoutItem', () => {
     expect(item.hints?.maxSize).toEqual({ w: 200, h: 300 });
   });
 
+  it('propagates hints.aspect', () => {
+    const n = createNode({
+      kind: 'panel',
+      focus: true,
+      id: asNodeId('p'),
+      parentId: asNodeId('z'),
+      hints: { aspect: 1.5 },
+    });
+    expect(nodeToLayoutItem(n).hints).toEqual({ aspect: 1.5 });
+  });
+
   it('surfaces placement.size as item.placement.size', () => {
     const n = createNode({
       kind: 'panel',

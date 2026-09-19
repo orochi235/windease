@@ -1,0 +1,58 @@
+.justified-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 12px;
+  font:
+    13px system-ui,
+    sans-serif;
+}
+
+.justified-controls output {
+  display: inline-block;
+  min-width: 4ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.justified-photo {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border-radius: 3px;
+  font:
+    11px system-ui,
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 50%);
+  overflow: hidden;
+}
+
+.justified-photo--0 {
+  background: linear-gradient(160deg, #60a5fa, #1e3a8a);
+}
+.justified-photo--1 {
+  background: linear-gradient(160deg, #fbbf24, #b45309);
+}
+.justified-photo--2 {
+  background: linear-gradient(160deg, #34d399, #065f46);
+}
+.justified-photo--3 {
+  background: linear-gradient(160deg, #f472b6, #9d174d);
+}
+.justified-photo--4 {
+  background: linear-gradient(160deg, #a78bfa, #4c1d95);
+}
+.justified-photo--5 {
+  background: linear-gradient(160deg, #94a3b8, #334155);
+}
+
+/* The layout runs at the viewport width, so the zone's border goes outside it. */
+.windease-zone.justified-zone {
+  box-sizing: content-box;
+}
