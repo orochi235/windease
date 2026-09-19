@@ -238,6 +238,13 @@ section below.
 
 ### Fixed
 
+- **A resizable grid of celled items under a row cap lays out in milliseconds.**
+  Working out how far each item's seam can grow copied the whole grid for
+  every span it tried, and for a celled item recounted every cell each time.
+  A 200-panel dashboard (`placement.cell` on each, `resizable: true`,
+  `maxRows: 420`, no `compact`) took 27s per layout and now takes 5ms. The
+  seams' reported ranges are unchanged.
+
 - **Pressing a window's title bar or minimize box raises it under `raise`.**
   The desktop draws those controls in the affordance layer beside the window,
   so the window's own click-raise never saw the press; only a click on its body
