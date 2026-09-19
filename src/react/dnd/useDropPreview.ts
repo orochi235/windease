@@ -1,5 +1,12 @@
-import { type CSSProperties, useCallback, useContext, useSyncExternalStore } from 'react';
+import {
+  type CSSProperties,
+  type RefObject,
+  useCallback,
+  useContext,
+  useSyncExternalStore,
+} from 'react';
 import type { LayoutPreview, NodeId, Rect } from '../../index.js';
+import { elementScale, toLocalPoint } from '../../index.js';
 import { DragContext } from './DragProvider.js';
 
 /** What a prospective split draws. See `<Container splitPreview>`. */
@@ -37,7 +44,11 @@ const NOTHING: DropPreviewState = {
  * Both `<Container>` and the container presets run this, so a split aimed at a
  * preset previews exactly as one aimed at a `<Container>` does.
  */
-export function useDropPreview(parentId: NodeId, mode: SplitPreviewMode): DropPreviewState {
+export function useDropPreview(
+  parentId: NodeId,
+  mode: SplitPreviewMode,
+  boxRef?: RefObject<Element | null>,
+): DropPreviewState {
   const controller = useContext(DragContext);
   const dragState = useSyncExternalStore(
     useCallback((cb) => (controller ? controller.subscribe(cb) : () => {}), [controller]),
@@ -64,13 +75,24 @@ export function useDropPreview(parentId: NodeId, mode: SplitPreviewMode): DropPr
     preview: {
       insertId: dragState.draggingId,
       ...(hover.insertIndex !== undefined ? { insertIndex: hover.insertIndex } : {}),
-      cursor: dragState.cursor,
+      cursor: localCursor(dragState.cursor, boxRef?.current ?? null),
       ...(laidOut && split ? { split } : {}),
     },
     sourceId: dragState.draggingId,
     drawSplit: mode === 'none' ? null : split,
     laidOut,
   };
+}
+
+/**
+ * The drag cursor in the container's own layout pixels, which is what
+ * `LayoutPreview.cursor` promises a strategy. The drag samples screen pixels;
+ * under a view those differ by the box's offset and scale.
+ */
+function localCursor(cursor: { x: number; y: number }, box: Element | null) {
+  if (!box) return cursor;
+  const r = box.getBoundingClientRect();
+  return toLocalPoint(cursor, { x: r.left, y: r.top }, elementScale(box));
 }
 
 const CHILD_BASE: CSSProperties = { position: 'absolute' };

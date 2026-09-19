@@ -453,6 +453,28 @@ zone could never have a parent; see `TODO.md`. The generic `placement` prop
 throws if given a `pinned` key on either preset; use the dedicated prop, or
 `store.setPinned` directly on a parented zone.
 
+## View
+
+A container's **view** is `{ x, y, scale }`: where its laid-out box is drawn and
+at what zoom. It is a presentation transform, like scroll — placements stay in
+layout pixels and no strategy sees it. It lives on `ContainerHost` (`setView`,
+`layout().view`), not in `container.state`: that state is the strategy's, which
+`setStrategy` drops and `reduce` replaces, and a fitted view is a fact about the
+screen rather than the document, so no snapshot carries it.
+
+Two units meet at every pointer path. The pointer reports **screen pixels**;
+strategies and `placement` take **layout pixels**; one screen pixel is
+`1 / scale` layout pixels, with nested scales multiplied. Anything that turns a
+pointer into a layout value divides — affordance drags, the drop preview's
+cursor, published focus geometry. Anything that compares a pointer with a
+measured rect does not, because `getBoundingClientRect` is already in screen
+pixels — drop hit-tests and insertion indexes. `ResizeObserver` reports layout
+pixels, so a nested container's viewport and a content-sized pane's measurement
+are unaffected by a scale above them.
+
+`fit` on `<Container>` / `<Zone>` derives the view from a designed `viewport` and
+the measured frame, through the pure `fitView`.
+
 ## Events
 
 ```ts

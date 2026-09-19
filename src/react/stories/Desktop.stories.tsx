@@ -1,7 +1,14 @@
 export default { title: 'Desktop' };
 
 import type { Story } from '@ladle/react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  type WheelEvent as ReactWheelEvent,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   asNodeId,
   createNode,
@@ -9,10 +16,15 @@ import {
   type NodeId,
   Store,
   shelfStrategy,
+  stripStrategy,
+  type View,
+  zoomView,
 } from '../../index.js';
 import {
   type ChromeMap,
   Container,
+  DragHandle,
+  DragProvider,
   FocusProvider,
   Provider,
   StrategyRegistryProvider,
@@ -383,3 +395,153 @@ export const RaisePolicy: Story<{ raise: 'click' | 'focus' }> = (args) => (
 );
 RaisePolicy.args = { raise: 'click' };
 RaisePolicy.argTypes = { raise: { options: ['click', 'focus'], control: { type: 'radio' } } };
+
+const FIT_ZONE = asNodeId('fit-desktop');
+const FIT_VIEWPORT = { w: 1024, h: 768 };
+const FIT_STRIP = asNodeId('fit-strip');
+const FIT_PANES = ['pane-1', 'pane-2', 'pane-3'];
+
+const FIT_STRATEGIES = { desktop: desktopStrategy() as never, strip: stripStrategy as never };
+
+interface FitArgs {
+  fit: 'contain' | 'width' | 'pan';
+  frameWidth: number;
+}
+
+function useFitStore(): Store {
+  return useMemo(() => {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        id: FIT_ZONE,
+        container: {
+          strategyId: 'desktop',
+          config: { drag: true, handleSize: BAR_HEIGHT, raise: 'click' },
+        },
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'window',
+        focus: true,
+        id: asNodeId('fit-notes'),
+        parentId: FIT_ZONE,
+        placement: { x: 48, y: 48 },
+        hints: { preferredSize: { w: 320, h: 220 } },
+        meta: { title: 'Notes' },
+      }),
+    );
+    // A window that is itself a container: its panes sit in a strip whose seams
+    // and drags run inside the desktop's scale.
+    s.registerNode(
+      createNode({
+        kind: 'strip-window',
+        id: FIT_STRIP,
+        parentId: FIT_ZONE,
+        container: { strategyId: 'strip', config: { axis: 'x', fill: true } },
+        placement: { x: 400, y: 200 },
+        hints: { preferredSize: { w: 540, h: 320 } },
+        meta: { title: 'Panes' },
+      }),
+    );
+    for (const id of [asNodeId('fit-notes'), FIT_STRIP]) s.showNode(id);
+    for (const pane of FIT_PANES) {
+      s.registerNode(
+        createNode({
+          kind: 'pane',
+          focus: true,
+          id: asNodeId(pane),
+          parentId: FIT_STRIP,
+          meta: { title: pane },
+        }),
+      );
+      s.showNode(asNodeId(pane));
+    }
+    return s;
+  }, []);
+}
+
+const PANE_CHROME: ChromeMap = {
+  pane: ({ node }) => (
+    <DragHandle nodeId={node.id} className="fit-pane">
+      {String(node.meta?.title ?? node.id)}
+    </DragHandle>
+  ),
+};
+
+const FIT_CHROME: ChromeMap = {
+  window: ({ node }) => (
+    <div className="desktop-window">
+      <header className="desktop-window__bar">
+        <span>{String(node.meta?.title ?? node.id)}</span>
+      </header>
+      <div className="desktop-window__body">Drag my title bar.</div>
+    </div>
+  ),
+  'strip-window': ({ node }) => (
+    <div className="desktop-window">
+      <header className="desktop-window__bar">
+        <span>{String(node.meta?.title ?? node.id)}</span>
+      </header>
+      <div className="fit-strip-body">
+        <Container parentId={node.id} chrome={PANE_CHROME} affordances settleMs={0} />
+      </div>
+    </div>
+  ),
+};
+
+function FitDesktop({ fit, frameWidth }: FitArgs) {
+  const store = useFitStore();
+  const [view, setView] = useState<View>({ x: 0, y: 0, scale: 0.5 });
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  // Wheel pans; with Ctrl or Cmd held — a trackpad pinch arrives that way — it
+  // zooms about the pointer.
+  const onWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
+    if (fit !== 'pan' || !frameRef.current) return;
+    const r = frameRef.current.getBoundingClientRect();
+    if (e.ctrlKey || e.metaKey) {
+      const anchor = { x: e.clientX - r.left, y: e.clientY - r.top };
+      setView((v) => zoomView(v, anchor, Math.exp(-e.deltaY / 200)));
+    } else {
+      setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
+    }
+  };
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={FIT_STRATEGIES}>
+        <DragProvider>
+          <div
+            ref={frameRef}
+            className={`fit-frame fit-frame--${fit}`}
+            style={{ width: frameWidth }}
+            data-testid="fit-frame"
+            onWheel={onWheel}
+          >
+            <Container
+              parentId={FIT_ZONE}
+              chrome={FIT_CHROME}
+              viewport={FIT_VIEWPORT}
+              className="desktop-surface"
+              affordances
+              {...(fit === 'pan' ? { view } : { fit })}
+            />
+          </div>
+        </DragProvider>
+        <p className="desktop-hint">
+          A 1024×768 desktop scaled into a {frameWidth}px frame. Drag a window by its title bar, a
+          seam between the panes, or a pane by its label onto another spot: each follows the
+          pointer. Under <code>pan</code>, the wheel pans and Ctrl-wheel or a pinch zooms.
+        </p>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+}
+
+/** A designed-size desktop fitted into a smaller frame by `fit`; every gesture keeps working. */
+export const Fit: Story<FitArgs> = (args) => <FitDesktop {...args} />;
+Fit.args = { fit: 'contain', frameWidth: 512 };
+Fit.argTypes = {
+  fit: { options: ['contain', 'width', 'pan'], control: { type: 'radio' } },
+  frameWidth: { control: { type: 'range', min: 256, max: 1024, step: 16 } },
+};

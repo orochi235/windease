@@ -110,3 +110,39 @@
 .desktop-scroller--no-toggle .desktop-window__glyph {
   visibility: hidden;
 }
+
+.fit-frame {
+  box-sizing: content-box;
+  border: 1px solid #d4d4dc;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* 'width' sizes its own height; the other two need one from here. */
+.fit-frame--contain,
+.fit-frame--pan {
+  aspect-ratio: 4 / 3;
+}
+
+.fit-frame--pan {
+  position: relative;
+}
+
+.fit-strip-body {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+.fit-pane {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  border-right: 1px solid #cbd5e1;
+  cursor: grab;
+  user-select: none;
+}

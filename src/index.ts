@@ -220,6 +220,20 @@ export {
   type TraceCategory,
   trace,
 } from './trace.js';
+export {
+  type AxisScale,
+  type FitMode,
+  fitScale,
+  fitView,
+  IDENTITY_VIEW,
+  isIdentityView,
+  toLayoutDelta,
+  toLocalPoint,
+  type View,
+  viewTransform,
+  zoomView,
+} from './view.js';
+export { elementScale, observeFit } from './view-dom.js';
 
 /** The package version this build was published as. */
 export const VERSION = '2.0.0';

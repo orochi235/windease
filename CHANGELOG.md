@@ -121,7 +121,30 @@ section below.
 - **`ConfigSpec` accepts `'object'`** for a config key that holds a plain
   object, such as grid's `cell`.
 
+- **Pan and zoom a container with `view`, or fit a designed size with `fit`.**
+  `<Container view={{ x, y, scale }}>` and `<Zone view>` draw the laid-out box
+  translated and scaled; layout is unchanged. `fit="contain" | "width"` scales
+  the designed `viewport` to the space the container is shown in, so a
+  1024×768 desktop fits a 512px frame. Window drags, seams, resize handles and
+  drops all follow the pointer under a scale, nested scales included, and
+  arrow-key steps stay in layout pixels. Headless, `ContainerHost.setView` sets
+  it and `layout().view` reports it; `fitScale`, `fitView`, `zoomView`,
+  `toLayoutDelta` and `toLocalPoint` are the pure arithmetic, and
+  `elementScale` / `observeFit` the DOM helpers over them.
+
 ### Fixed
+
+- **A drop preview's cursor is in the container's own pixels.** `LayoutPreview.cursor`
+  promised container-relative coordinates and got the page's; a strategy
+  reading it was off by the container's offset, and by its scale under a view.
+  No built-in strategy reads it.
+
+- **Keyboard navigation sees panes where a scaled container draws them.** A
+  container shown under a `view` published its children's rects unscaled, so
+  directional navigation compared positions they no longer occupied.
+
+- **Drag auto-scroll runs at the same on-screen rate inside a scaled
+  container.** The ramp is in screen pixels and a scroller scrolls in its own.
 
 - **A grid's drop preview keeps its children's spans.** The fast preview path
   handed the strategy bare ids, so every child previewed as one cell while a

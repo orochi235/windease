@@ -14,7 +14,16 @@ import type { ChildSort } from '../child-sort.js';
 import { readDropConfig } from '../container-config.js';
 import type { AcceptContext } from '../dnd/DragEngine.js';
 import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
-import type { DropIntent, Node, NodeHints, NodeId, PlacementCommit, Store } from '../index.js';
+import type {
+  DropIntent,
+  FitMode,
+  Node,
+  NodeHints,
+  NodeId,
+  PlacementCommit,
+  Store,
+  View,
+} from '../index.js';
 import {
   accessibleName,
   createNode,
@@ -53,10 +62,14 @@ import { useStore } from './Provider.js';
 import { ResizeGestureContext } from './resize-gesture.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
 import {
+  FITTED_BOX,
+  fitFrameStyle,
   scrollExtentStyle,
   useContainerLayout,
   useOverflowOrigin,
   useScrollOffset,
+  useViewBinding,
+  viewStyle,
 } from './useContainerLayout.js';
 import { JSX_OWNER_META_KEY, useNodeBinding } from './useNodeBinding.js';
 
@@ -349,7 +362,7 @@ interface PanelWithLayoutProps extends PanelProps {
  */
 function PanelWithLayout(props: PanelWithLayoutProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const dropPreview = useDropPreview(props.id, props.splitPreview ?? 'layout');
+  const dropPreview = useDropPreview(props.id, props.splitPreview ?? 'layout', ref);
   const layout = useContainerLayout(props.id, ref, undefined, dropPreview.preview);
   usePublishGeometry(props.id, ref, layout);
   useScrollOffset(props.scrollRef, layout.observeScroll);
@@ -422,6 +435,11 @@ export interface ZoneProps extends CommonBindingProps, PresentationalProps, Affo
    *  a gesture wrote — a stack's `activeId` — is left alone. */
   config?: unknown;
   viewport?: { w: number; h: number };
+  /** Pan and zoom the laid-out box — the `<Container view>` contract. */
+  view?: View;
+  /** Scale the designed `viewport` to fit the space the zone is shown in —
+   *  the `<Container fit>` contract. Overrides `view`. */
+  fit?: FitMode;
   state?: unknown;
   sort?: ChildSort;
   /**
@@ -549,8 +567,10 @@ interface ZoneWithLayoutProps extends ZoneProps {
  */
 function ZoneWithLayout(props: ZoneWithLayoutProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const dropPreview = useDropPreview(props.id, props.splitPreview ?? 'layout');
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const dropPreview = useDropPreview(props.id, props.splitPreview ?? 'layout', ref);
   const layout = useContainerLayout(props.id, ref, props.viewport, dropPreview.preview);
+  useViewBinding(layout.setView, props.view, props.fit, frameRef, props.viewport);
   usePublishGeometry(props.id, ref, layout);
   useScrollOffset(props.scrollRef, layout.observeScroll);
   useOverflowOrigin(props.scrollRef, layout.overflow);
@@ -577,8 +597,10 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   // a root, the viewport prop (or style) sets its size.
   const zoneStyle: CSSProperties = {
     position: 'relative',
+    ...(props.fit ? FITTED_BOX : null),
     ...(props.viewport ? { width: props.viewport.w, height: props.viewport.h } : null),
     ...scrollExtentStyle(layout),
+    ...viewStyle(layout.view),
     ...props.style,
   };
 
@@ -622,6 +644,11 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         measure={props.measure}
         joinArmedId={joinArmedId}
         preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
+        frame={
+          props.fit
+            ? { ref: frameRef, style: fitFrameStyle(props.fit, props.viewport, layout.view) }
+            : undefined
+        }
       >
         {props.children}
         {imperativeRenders}
@@ -716,6 +743,9 @@ interface PresetShellProps {
    * children's map, find nothing, and render unplaced.
    */
   provide?: LayoutInfo | undefined;
+  /** A clipping frame around the wrapper, for a fitted zone: measured for the
+   *  fit, and placed where the wrapper would have been. */
+  frame?: { ref: RefObject<HTMLDivElement | null>; style: CSSProperties } | undefined;
 }
 
 /** Wrapper div + ChildRegistry host + ParentContext + sibling-order reconciliation. */
@@ -735,6 +765,7 @@ function PresetShell({
   joinArmedId,
   preview,
   provide,
+  frame,
 }: PresetShellProps) {
   // We need a single ref on the wrapper div that serves both layout
   // measurement (innerRef, when provided) and drop-target registration.
@@ -833,7 +864,7 @@ function PresetShell({
     );
   const content = provide ? <LayoutScope value={provide}>{armed}</LayoutScope> : armed;
 
-  const shell = (
+  const inner = (
     <ChildRegistryContext.Provider value={registry}>
       <ParentScope parentId={id}>
         {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label is set only alongside role="group", under the same condition; the rule cannot see through the conditional. */}
@@ -865,6 +896,13 @@ function PresetShell({
         </div>
       </ParentScope>
     </ChildRegistryContext.Provider>
+  );
+  const shell = frame ? (
+    <div ref={frame.ref} className="windease-view-frame" style={frame.style}>
+      {inner}
+    </div>
+  ) : (
+    inner
   );
 
   // A strategy ran and withheld us.

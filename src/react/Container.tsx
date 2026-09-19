@@ -11,7 +11,13 @@ import { readDropConfig } from '../container-config.js';
 import type { AcceptContext } from '../dnd/DragEngine.js';
 import type { DropIntent } from '../dnd/dropIntent.js';
 import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
-import { accessibleName, type ChildOrderCommit, type NodeId } from '../index.js';
+import {
+  accessibleName,
+  type ChildOrderCommit,
+  type FitMode,
+  type NodeId,
+  type View,
+} from '../index.js';
 
 export type { DropIntentContext } from './dnd/useDropIntentTarget.js';
 
@@ -29,10 +35,14 @@ import { useStore } from './Provider.js';
 import { ResizeGestureContext } from './resize-gesture.js';
 import {
   type ContainerLayout,
+  FITTED_BOX,
+  fitFrameStyle,
   scrollExtentStyle,
   useContainerLayout,
   useOverflowOrigin,
   useScrollOffset,
+  useViewBinding,
+  viewStyle,
 } from './useContainerLayout.js';
 
 /** Live layout snapshot passed to function-form `overlay` callbacks. */
@@ -58,6 +68,22 @@ export interface ContainerProps {
   children?: ReactNode;
   /** Fixed viewport; omit to auto-measure via ResizeObserver. */
   viewport?: { w: number; h: number };
+  /**
+   * Pan and zoom: the laid-out box is drawn translated by `x` / `y` and scaled
+   * by `scale` about its top-left. Layout is unchanged — placements stay in
+   * layout pixels — and every gesture inside divides its pointer deltas by the
+   * scale, so a drag follows the pointer. Clipping the transformed box is the
+   * consumer's, as with `scrollRef`.
+   */
+  view?: View;
+  /**
+   * Scale the designed `viewport` to fit the space the container is shown in:
+   * `'contain'` shows all of it, centered; `'width'` fills the width and sizes
+   * the frame's height to match. Renders a clipping frame that fills its parent
+   * around the box, measures it, and derives the `view` — which it overrides.
+   * Needs a `viewport`; without one there is no designed size to fit.
+   */
+  fit?: FitMode;
   /**
    * Let a drop onto the middle of a child stack the two into one tabbed
    * container rather than inserting beside it. Off by default: the gesture
@@ -231,6 +257,8 @@ function StoreContainer({
   parentId,
   chrome,
   viewport,
+  view,
+  fit,
   scrollRef,
   className,
   style,
@@ -249,6 +277,7 @@ function StoreContainer({
   edgeScroll,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const store = useStore();
   const parent = useNode(parentId);
   const children = useChildren(parentId);
@@ -257,9 +286,10 @@ function StoreContainer({
   const dragController = useContext(DragContext);
   // Only when this container is the hover target AND the hover is accepted;
   // otherwise the container lays out what the store says.
-  const dropPreview = useDropPreview(parentId, splitPreview);
+  const dropPreview = useDropPreview(parentId, splitPreview, ref);
 
   const layout = useContainerLayout(parentId, ref, viewport, dropPreview.preview);
+  useViewBinding(layout.setView, view, fit, frameRef, viewport);
 
   usePublishGeometry(parentId, ref, layout);
 
@@ -311,16 +341,37 @@ function StoreContainer({
   const containerStyle: CSSProperties = viewport
     ? {
         ...CONTAINER_BASE,
+        ...(fit ? FITTED_BOX : null),
         width: viewport.w,
         height: viewport.h,
         ...scrollExtentStyle(layout),
+        ...viewStyle(layout.view),
         ...style,
       }
-    : { ...CONTAINER_BASE, width: '100%', height: '100%', ...scrollExtentStyle(layout), ...style };
+    : {
+        ...CONTAINER_BASE,
+        width: '100%',
+        height: '100%',
+        ...scrollExtentStyle(layout),
+        ...viewStyle(layout.view),
+        ...style,
+      };
+  const framed = (box: ReactNode) =>
+    fit ? (
+      <div
+        ref={frameRef}
+        className="windease-view-frame"
+        style={fitFrameStyle(fit, viewport, layout.view)}
+      >
+        {box}
+      </div>
+    ) : (
+      box
+    );
 
   if (!parent?.container || !chrome) {
-    return (
-      <div ref={ref} className={className} style={containerStyle} data-node-container={parentId} />
+    return framed(
+      <div ref={ref} className={className} style={containerStyle} data-node-container={parentId} />,
     );
   }
 
@@ -333,7 +384,7 @@ function StoreContainer({
   // the consumer's CSS arranges them. No affordances, no settle transition,
   // and no `sizing` measurement — all three need the strategy pass.
   if (isFlow) {
-    return (
+    return framed(
       <ResizeGestureContext.Provider value={resizing}>
         <div ref={ref} className={className} style={containerStyle} data-node-container={parentId}>
           {children
@@ -354,7 +405,7 @@ function StoreContainer({
             ))}
           {renderedOverlay}
         </div>
-      </ResizeGestureContext.Provider>
+      </ResizeGestureContext.Provider>,
     );
   }
 
@@ -379,7 +430,7 @@ function StoreContainer({
 
   const splitStyle = splitPreviewStyle(layout.placements, dropPreview);
 
-  return (
+  return framed(
     <ResizeGestureContext.Provider value={resizing}>
       <div
         ref={ref}
@@ -474,6 +525,6 @@ function StoreContainer({
         ) : null}
         {renderedOverlay}
       </div>
-    </ResizeGestureContext.Provider>
+    </ResizeGestureContext.Provider>,
   );
 }
