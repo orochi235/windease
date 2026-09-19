@@ -1,6 +1,6 @@
 import type { LayoutResult, LayoutStrategy, Rect } from '../layout-types.js';
 import { trace } from '../trace.js';
-import { PACK_EPSILON, packGap, packResult, packSize } from './pack.js';
+import { PACK_EPSILON, PACK_SORTS, packGap, packQueue, packResult } from './pack.js';
 
 interface ColumnConfig {
   gap?: number;
@@ -15,22 +15,24 @@ interface ColumnConfig {
  * An item wider than one column spans as many as its width needs, capped at
  * the column count. The container's width sets the column count and is the
  * only bound; columns grow down past `container.h`, and the excess is
- * reported as `overflow`. Items are placed in the order given.
+ * reported as `overflow`.
  *
- * Size is `natural`, else `hints.preferredSize`; an item with neither goes to
- * `unplaced`. Config takes `gap` and `columnWidth`.
+ * Items are placed in the order given, or by `sort`, descending by that
+ * measure with ties kept in input order. Size is `natural`, else
+ * `hints.preferredSize`; an item with neither goes to `unplaced`. Config
+ * takes `gap`, `sort` and `columnWidth`.
  * @group Strategies
  */
 export const columnStrategy: LayoutStrategy<void, string> = {
   name: 'column',
-  configSpec: { gap: 'number', columnWidth: 'number' },
+  configSpec: { gap: 'number', sort: PACK_SORTS, columnWidth: 'number' },
   layout({ items, container, options }): LayoutResult<string> {
     const cfg = options as ColumnConfig;
     const gap = packGap(options);
-    const sizes = items.map((item) => packSize(item));
+    const { queue } = packQueue(items, options);
 
     let narrowest = Number.POSITIVE_INFINITY;
-    for (const size of sizes) if (size) narrowest = Math.min(narrowest, size.w);
+    for (const { size } of queue) narrowest = Math.min(narrowest, size.w);
     const columnWidth =
       typeof cfg.columnWidth === 'number' && Number.isFinite(cfg.columnWidth) && cfg.columnWidth > 0
         ? cfg.columnWidth
@@ -42,14 +44,8 @@ export const columnStrategy: LayoutStrategy<void, string> = {
       pitch > 0 ? Math.max(1, Math.floor((container.w + gap + PACK_EPSILON) / pitch)) : 1;
     const heights = new Array<number>(count).fill(0);
 
-    const placements = new Map<string, Rect>();
-    const unplaced: string[] = [];
-    items.forEach((item, i) => {
-      const size = sizes[i];
-      if (!size) {
-        unplaced.push(item.id);
-        return;
-      }
+    const placed = new Map<string, Rect>();
+    for (const { item, size } of queue) {
       const span = Math.min(count, Math.max(1, Math.ceil((size.w + gap - PACK_EPSILON) / pitch)));
       let first = 0;
       let top = Number.POSITIVE_INFINITY;
@@ -61,15 +57,15 @@ export const columnStrategy: LayoutStrategy<void, string> = {
           first = start;
         }
       }
-      placements.set(item.id, { x: first * pitch, y: top, z: 0, w: size.w, h: size.h });
+      placed.set(item.id, { x: first * pitch, y: top, z: 0, w: size.w, h: size.h });
       for (let c = first; c < first + span; c++) heights[c] = top + size.h + gap;
-    });
+    }
 
-    const result = packResult(placements, unplaced, container);
+    const result = packResult(items, placed, container);
     trace(
       'layout',
-      `column: ${placements.size} of ${items.length} in ${count} columns of ${columnWidth} at w=${container.w}, gap ${gap}`,
-      { unplaced, overflow: result.overflow },
+      `column: ${placed.size} of ${items.length} in ${count} columns of ${columnWidth} at w=${container.w}, gap ${gap}, sort ${String(options.sort ?? 'none')}`,
+      { unplaced: result.unplaced, overflow: result.overflow },
     );
     return result;
   },

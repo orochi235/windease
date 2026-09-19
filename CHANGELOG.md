@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **Packers can sort before they pack.** `shelfStrategy`, `skylineStrategy` and
+  `columnStrategy` take `sort: 'height' | 'width' | 'area' | 'max-side'`, which
+  places the largest item first by that measure, keeping the given order among
+  ties. The default `'none'` is the order given, as before. Sorting changes
+  where items land, not which are placed, and the result still lists them in
+  the order given.
+
 - **A container can refuse drops from its config.** Set `accepts` in any
   container's `config`: `false` refuses every drop, `{ kinds: ['panel'] }`
   refuses a dragged node whose `kind` is not listed, and `{ max: 3 }` refuses a

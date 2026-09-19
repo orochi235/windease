@@ -22,38 +22,39 @@ const STRATEGIES = {
 
 const ZONE_ID = asNodeId('pack');
 
-/** Tallest first, the order a caller packing for density would hand over. */
+/** In no particular order, so `sort` has something to do. */
 const BOXES: [number, number][] = [
-  [140, 220],
-  [90, 180],
-  [200, 150],
-  [70, 140],
-  [120, 120],
-  [160, 100],
-  [60, 90],
   [110, 80],
-  [80, 70],
-  [150, 60],
   [60, 50],
-  [100, 40],
-  [70, 40],
+  [200, 150],
   [90, 30],
+  [70, 140],
+  [150, 60],
+  [140, 220],
+  [80, 70],
+  [120, 120],
+  [100, 40],
+  [60, 90],
+  [160, 100],
+  [70, 40],
+  [90, 180],
 ];
 
 interface Args {
   strategy: 'shelf' | 'column' | 'skyline';
   width: number;
   gap: number;
+  sort: 'none' | 'height' | 'width' | 'area' | 'max-side';
 }
 
-export const PackedBoxes: Story<Args> = ({ strategy, width, gap }) => {
+export const PackedBoxes: Story<Args> = ({ strategy, width, gap, sort }) => {
   const store = useMemo(() => {
     const s = new Store();
     s.registerNode(
       createNode({
         kind: 'zone',
         id: ZONE_ID,
-        container: { strategyId: strategy, config: { gap } },
+        container: { strategyId: strategy, config: { gap, sort } },
       }),
     );
     BOXES.forEach(([w, h], i) => {
@@ -71,7 +72,7 @@ export const PackedBoxes: Story<Args> = ({ strategy, width, gap }) => {
       s.showNode(id);
     });
     return s;
-  }, [strategy, gap]);
+  }, [strategy, gap, sort]);
 
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -100,10 +101,14 @@ export const PackedBoxes: Story<Args> = ({ strategy, width, gap }) => {
   );
 };
 
-PackedBoxes.args = { strategy: 'skyline', width: 480, gap: 8 };
+PackedBoxes.args = { strategy: 'skyline', width: 480, gap: 8, sort: 'none' };
 
 PackedBoxes.argTypes = {
   strategy: { options: ['shelf', 'column', 'skyline'], control: { type: 'radio' } },
   width: { control: { type: 'range', min: 160, max: 900, step: 10 } },
   gap: { control: { type: 'range', min: 0, max: 32, step: 1 } },
+  sort: {
+    options: ['none', 'height', 'width', 'area', 'max-side'],
+    control: { type: 'radio' },
+  },
 };

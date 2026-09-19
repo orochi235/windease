@@ -143,5 +143,56 @@ export function describePackContract(strategy: LayoutStrategy<void, string>): vo
     it('places nothing for no items', () => {
       expect(runPack(strategy, [], container)).toEqual({ placements: new Map(), affordances: [] });
     });
+
+    it('lays out in the order given under sort none, the default', () => {
+      expect(runPack(strategy, boxes, container, { gap: 4, sort: 'none' })).toEqual(
+        runPack(strategy, boxes, container, { gap: 4 }),
+      );
+    });
+
+    for (const [sort, key] of SORT_CASES) {
+      describe(`sort '${sort}'`, () => {
+        const items = [{ id: 'bare' }, ...boxes];
+        const result = runPack(strategy, items, container, { gap: 8, sort });
+
+        it('never changes the set of placed ids, and keys the result in input order', () => {
+          expect([...result.placements.keys()]).toEqual(boxes.map((b) => b.id));
+          expect(result.unplaced).toEqual(['bare']);
+        });
+
+        it('keeps every box at its own size and every pair gap apart', () => {
+          for (const box of boxes) {
+            const rect = result.placements.get(box.id)!;
+            expect({ w: rect.w, h: rect.h }).toEqual(box.hints?.preferredSize);
+          }
+          expect(crowded(result.placements, 8)).toEqual([]);
+        });
+
+        it(`places the box with the greatest ${sort} first, at the origin`, () => {
+          const first = [...boxes].sort(
+            (a, b) => key(b.hints!.preferredSize!) - key(a.hints!.preferredSize!),
+          )[0]!;
+          expect(result.placements.get(first.id)).toMatchObject({ x: 0, y: 0 });
+        });
+
+        it('keeps input order among equal keys', () => {
+          const same = Array.from({ length: 30 }, (_, i) => sized(`s${i}`, 60, 60));
+          expect(runPack(strategy, same, container, { gap: 8, sort })).toEqual(
+            runPack(strategy, same, container, { gap: 8 }),
+          );
+        });
+
+        it('returns the same layout on every call', () => {
+          expect(runPack(strategy, items, container, { gap: 8, sort })).toEqual(result);
+        });
+      });
+    }
   });
 }
+
+const SORT_CASES: [string, (s: Size) => number][] = [
+  ['height', (s) => s.h],
+  ['width', (s) => s.w],
+  ['area', (s) => s.w * s.h],
+  ['max-side', (s) => Math.max(s.w, s.h)],
+];

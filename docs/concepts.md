@@ -387,8 +387,11 @@ Built-ins:
 - **`shelfStrategy`**, **`columnStrategy`**, **`skylineStrategy`** — pack items
   at their own size (`natural`, else `hints.preferredSize`) into the container's
   width, in rows, masonry columns, or the lowest free spot. They grow downward;
-  `container.h` only decides `overflow`. Config: `gap`, plus `columnWidth` on
-  `column`. Items with no size go to `unplaced`.
+  `container.h` only decides `overflow`. Config: `gap`, `sort` (`'height'`,
+  `'width'`, `'area'` or `'max-side'`, largest first and stable on ties; the
+  default `'none'` keeps the order given), plus `columnWidth` on `column`. Items
+  with no size go to `unplaced`. Sorting decides placement order only; the
+  result lists items in the order given.
 
 ## React layer
 

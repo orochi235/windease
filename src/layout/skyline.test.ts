@@ -33,6 +33,6 @@ describe('skylineStrategy', () => {
   });
 
   it('declares its config keys so a typo is reported, not silently defaulted', () => {
-    expect(Object.keys(skylineStrategy.configSpec ?? {})).toEqual(['gap']);
+    expect(Object.keys(skylineStrategy.configSpec ?? {})).toEqual(['gap', 'sort']);
   });
 });

@@ -7,8 +7,8 @@ describe('packers', () => {
   });
 
   it('offers the option keys each strategy declares', () => {
-    expect(optionKeys(packerById('column')).sort()).toEqual(['columnWidth', 'gap']);
-    expect(optionKeys(packerById('shelf'))).toEqual(['gap']);
+    expect(optionKeys(packerById('column')).sort()).toEqual(['columnWidth', 'gap', 'sort']);
+    expect(optionKeys(packerById('shelf'))).toEqual(['gap', 'sort']);
   });
 
   it('throws on an unknown packer', () => {

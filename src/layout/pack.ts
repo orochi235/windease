@@ -24,6 +24,45 @@ export function packSize(item: LayoutItem): Size | null {
   return usable(size.w) && usable(size.h) ? size : null;
 }
 
+/** The orders a packing strategy's `sort` config accepts. Every order but
+ *  `'none'` is descending and keeps input order among equal keys. */
+export const PACK_SORTS = ['none', 'height', 'width', 'area', 'max-side'] as const;
+export type PackSort = (typeof PACK_SORTS)[number];
+
+/** A sized item as a packer places it. */
+export interface PackEntry {
+  item: LayoutItem;
+  size: Size;
+}
+
+const SORT_KEYS: Record<Exclude<PackSort, 'none'>, (size: Size) => number> = {
+  height: (s) => s.h,
+  width: (s) => s.w,
+  area: (s) => s.w * s.h,
+  'max-side': (s) => Math.max(s.w, s.h),
+};
+
+/**
+ * `items` split into the sized ones, in the order `options.sort` places them,
+ * and the ids of those with no usable size. An unknown `sort` reads as
+ * `'none'`, the order given.
+ */
+export function packQueue(
+  items: LayoutItem[],
+  options: Record<string, unknown>,
+): { queue: PackEntry[]; unsized: string[] } {
+  const queue: PackEntry[] = [];
+  const unsized: string[] = [];
+  for (const item of items) {
+    const size = packSize(item);
+    if (size) queue.push({ item, size });
+    else unsized.push(item.id);
+  }
+  const key = SORT_KEYS[options.sort as Exclude<PackSort, 'none'>];
+  if (key) queue.sort((a, b) => key(b.size) - key(a.size));
+  return { queue, unsized };
+}
+
 /** A packing strategy's `gap`; anything but a positive finite number reads as 0. */
 export function packGap(options: Record<string, unknown>): number {
   const gap = options.gap;
@@ -32,17 +71,26 @@ export function packGap(options: Record<string, unknown>): number {
 
 /**
  * Wraps a packing pass's placements with `unplaced` and per-axis `overflow`,
- * each absent when empty. Overflow measures the placed rects' far edges, so a
- * trailing gap never counts toward it.
+ * each absent when empty. Placements and `unplaced` come back in `items`'
+ * order, whatever order the pass placed them in. Overflow measures the placed
+ * rects' far edges, so a trailing gap never counts toward it.
  */
 export function packResult(
-  placements: Map<string, Rect>,
-  unplaced: string[],
+  items: LayoutItem[],
+  placed: Map<string, Rect>,
   container: Size,
 ): LayoutResult<string> {
+  const placements = new Map<string, Rect>();
+  const unplaced: string[] = [];
   let right = 0;
   let bottom = 0;
-  for (const rect of placements.values()) {
+  for (const { id } of items) {
+    const rect = placed.get(id);
+    if (!rect) {
+      unplaced.push(id);
+      continue;
+    }
+    placements.set(id, rect);
     right = Math.max(right, rect.x + rect.w);
     bottom = Math.max(bottom, rect.y + rect.h);
   }

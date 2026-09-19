@@ -508,10 +508,19 @@ describe('float drift at the width boundary', () => {
 });
 
 describe.runIf(process.env.EXOTIC_DENSITY)('density table', () => {
-  it('prints fill % per preset and packer', () => {
-    const lines = [`${'preset'.padEnd(30)}${PACKERS.map((k) => k.padStart(9)).join('')}`];
+  const variants: [string, Record<string, unknown>][] = [
+    ['as given', {}],
+    ['sort: height', { sort: 'height' }],
+    ['sort: area', { sort: 'area' }],
+  ];
+
+  it.each(variants)('prints fill %% per preset and packer, %s', (label, extra) => {
+    const lines = [`${label.padEnd(30)}${PACKERS.map((k) => k.padStart(9)).join('')}`];
     for (const p of ALL_PRESETS) {
-      const cells = PACKERS.map((k) => (density(run(p, k).result) * 100).toFixed(1).padStart(9));
+      const cells = PACKERS.map((k) => {
+        const { result } = run(p, k, (s) => ({ ...s, options: { ...s.options, ...extra } }));
+        return (density(result) * 100).toFixed(1).padStart(9);
+      });
       lines.push(`${p.id.padEnd(30)}${cells.join('')}`);
     }
     process.stderr.write(`\n${lines.join('\n')}\n`);

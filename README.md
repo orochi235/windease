@@ -528,8 +528,8 @@ item with no size goes to `unplaced`.
   packed, so a short item drops in beside a tall one where `shelf` would leave
   a hole.
 
-All three take `gap`, place items in the order given, and never sort — ordering
-is the caller's. They run headless like any strategy:
+All three take `gap`, and place items in the order given unless `sort` says
+otherwise. They run headless like any strategy:
 
 ```ts
 const { placements, overflow } = skylineStrategy.layout({
@@ -539,6 +539,17 @@ const { placements, overflow } = skylineStrategy.layout({
   options: { gap: 8 },
 });
 ```
+
+### Sorting before packing
+
+`sort: 'height' | 'width' | 'area' | 'max-side'` places the largest first by
+that measure; `'none'`, the default, keeps the order given. Items that tie keep
+their order. Sorting changes where items land, never which ones are placed,
+and `placements` and `unplaced` still list items in the order given.
+
+Sorting usually packs tighter: `shelf` with `sort: 'height'` is the classic
+next-fit decreasing height packing, and `'max-side'` is a common choice for
+sprite sheets.
 
 ## Putting a grid child at a cell
 

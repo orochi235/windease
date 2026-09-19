@@ -34,6 +34,16 @@ describe('specFor', () => {
     expect(specFor(dataset, packerById('shelf'), settings).options).toEqual({ gap: 1 });
   });
 
+  it('passes a sort other than none, and nothing for none', () => {
+    expect(specFor(dataset, packerById('shelf'), { ...settings, sort: 'area' }).options).toEqual({
+      gap: 1,
+      sort: 'area',
+    });
+    expect(specFor(dataset, packerById('shelf'), { ...settings, sort: 'none' }).options).toEqual({
+      gap: 1,
+    });
+  });
+
   it('uses its own settings when hints are off', () => {
     const spec = specFor(dataset, packerById('column'), {
       ...settings,

@@ -58,6 +58,10 @@ describe('columnStrategy', () => {
   });
 
   it('declares its config keys so a typo is reported, not silently defaulted', () => {
-    expect(Object.keys(columnStrategy.configSpec ?? {}).sort()).toEqual(['columnWidth', 'gap']);
+    expect(Object.keys(columnStrategy.configSpec ?? {}).sort()).toEqual([
+      'columnWidth',
+      'gap',
+      'sort',
+    ]);
   });
 });
