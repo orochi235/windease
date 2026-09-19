@@ -11,9 +11,13 @@ import {
 } from 'react';
 import {
   type Affordance,
+  type AxisScale,
   accessibleName,
   destroyBlockedBy,
+  elementScale,
   type NodeId,
+  toLayoutDelta,
+  toLocalPoint,
   trace,
   trackJoin,
 } from '../index.js';
@@ -196,6 +200,9 @@ function AffordanceHandle({
   onJoinArmChange,
 }: AffordanceHandleProps) {
   const last = useRef<{ x: number; y: number } | null>(null);
+  // Screen pixels per layout pixel, read once per gesture: a view that zooms
+  // mid-drag is not something a pointer delta can be reconciled against.
+  const scale = useRef<AxisScale>({ x: 1, y: 1 });
   const overshoot = useRef<number | null>(null);
   const [armedId, setArmedId] = useState<NodeId | null>(null);
   const armedRef = useRef<NodeId | null>(null);
@@ -250,6 +257,7 @@ function AffordanceHandle({
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       last.current = { x: e.clientX, y: e.clientY };
+      scale.current = elementScale(e.currentTarget);
       overshoot.current = null;
       setDragging(true);
       try {
@@ -264,18 +272,26 @@ function AffordanceHandle({
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!last.current) return;
-      const dx = e.clientX - last.current.x;
-      const dy = e.clientY - last.current.y;
-      if (dx === 0 && dy === 0) return;
+      const sx = e.clientX - last.current.x;
+      const sy = e.clientY - last.current.y;
+      if (sx === 0 && sy === 0) return;
       last.current = { x: e.clientX, y: e.clientY };
+      // The pointer moves in screen pixels and the strategy in layout pixels;
+      // under a view they differ by the scale, nested views' included.
+      const { dx, dy } = toLayoutDelta(sx, sy, scale.current);
       // Container-relative pointer, for strategies whose extents are quantized
       // and cannot accumulate a few pixels at a time. Derived from this
       // handle's own box against the rect the strategy gave it, so no ancestor
       // needs measuring.
       const box = e.currentTarget.getBoundingClientRect();
+      const within = toLocalPoint(
+        { x: e.clientX, y: e.clientY },
+        { x: box.left, y: box.top },
+        scale.current,
+      );
       const point = {
-        x: affordance.rect.x - padXRef.current + (e.clientX - box.left),
-        y: affordance.rect.y - padYRef.current + (e.clientY - box.top),
+        x: affordance.rect.x - padXRef.current + within.x,
+        y: affordance.rect.y - padYRef.current + within.y,
       };
       dispatch({ affordanceId: affordance.id, kind: 'drag', payload: { dx, dy, point } });
       advanceJoin(affordance.bounds?.orientation === 'vertical' ? dy : dx);

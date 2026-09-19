@@ -14,6 +14,7 @@ import type {
 import type { ContainerCap, NodeId } from './node.js';
 import { SPLIT_STRATEGY_ID, type Store } from './store.js';
 import { trace } from './trace.js';
+import { IDENTITY_VIEW, type View } from './view.js';
 
 /**
  * One layout pass's result as a host consumes it: where each child goes, what
@@ -57,6 +58,15 @@ export interface ContainerLayout {
    * scroll and the composition of the chain gives one space for the tree.
    */
   scroll: { x: number; y: number };
+  /**
+   * The pan and zoom this container is shown at. Identity unless a host
+   * reports otherwise through `setView`.
+   *
+   * Like `scroll`, a presentation transform: placements are in layout pixels
+   * whatever the view, and a binding scales the box it draws them in. A pointer
+   * delta in screen pixels divides by `scale` before it reaches a strategy.
+   */
+  view: View;
 }
 
 /** What produced a controlled child's proposed placement. */
@@ -130,6 +140,7 @@ const EMPTY: ContainerLayout = {
   isPreview: false,
   mode: 'placed',
   scroll: NO_SCROLL,
+  view: IDENTITY_VIEW,
 };
 
 /**
@@ -151,6 +162,7 @@ export class ContainerHost {
 
   #viewport: { w: number; h: number } | null = null;
   #scroll: { x: number; y: number } = NO_SCROLL;
+  #view: View = IDENTITY_VIEW;
   #scrollTeardown: (() => void) | null = null;
   #checkedConfig: unknown = Symbol('unchecked');
   #preview: LayoutPreview | null = null;
@@ -360,12 +372,7 @@ export class ContainerHost {
     if (this.#scroll.x === s.x && this.#scroll.y === s.y) return;
     this.#scroll = s;
     trace('layout', `scroll: ${this.#parentId} → ${Math.round(s.x)},${Math.round(s.y)}`);
-    if (this.#cache && !this.#dirty) {
-      this.#cache = { ...this.#cache, scroll: s };
-      for (const fn of this.#listeners) fn();
-      return;
-    }
-    this.#invalidate();
+    this.#republish();
   }
 
   /**
@@ -386,6 +393,42 @@ export class ContainerHost {
     };
     this.#scrollTeardown = off;
     return off;
+  }
+
+  /**
+   * Set the pan and zoom this container is shown at. The headless path — a
+   * canvas host says what it draws at, and a DOM binding applies it as a CSS
+   * transform on the laid-out box.
+   *
+   * Does not re-run the strategy, for the reason `setScroll` does not. A scale
+   * that is not a positive finite number is refused with a `layout` trace.
+   */
+  setView(v: View): void {
+    if (!(Number.isFinite(v.scale) && v.scale > 0) || !Number.isFinite(v.x + v.y)) {
+      trace('layout', `view: ${this.#parentId} refused ${v.x},${v.y}@${v.scale}`);
+      return;
+    }
+    const cur = this.#view;
+    if (cur.x === v.x && cur.y === v.y && cur.scale === v.scale) return;
+    this.#view = { x: v.x, y: v.y, scale: v.scale };
+    trace('layout', `view: ${this.#parentId} → ${Math.round(v.x)},${Math.round(v.y)}@${v.scale}`);
+    this.#republish();
+  }
+
+  /** The view last set, the identity until then. */
+  view(): View {
+    return this.#view;
+  }
+
+  /** Hand listeners the cached layout with the current scroll and view, without
+   *  re-running the strategy — neither moves a placement. */
+  #republish(): void {
+    if (this.#cache && !this.#dirty) {
+      this.#cache = { ...this.#cache, scroll: this.#scroll, view: this.#view };
+      for (const fn of this.#listeners) fn();
+      return;
+    }
+    this.#invalidate();
   }
 
   setPreview(p: LayoutPreview | null): void {
@@ -634,14 +677,14 @@ export class ContainerHost {
     const node = this.#store.getNode(this.#parentId);
     const container = node?.container;
     const viewport = this.#viewport;
-    if (!container) return viewport ? { ...EMPTY, viewport } : EMPTY;
+    if (!container) return viewport ? { ...EMPTY, viewport, view: this.#view } : EMPTY;
     // Checked before the viewport guard: a flow container needs no measurement,
     // so waiting for one would leave its children unrendered forever.
     if (node?.hints?.render === 'flow')
-      return { ...EMPTY, viewport, mode: 'flow', scroll: this.#scroll };
-    if (!viewport) return EMPTY;
+      return { ...EMPTY, viewport, mode: 'flow', scroll: this.#scroll, view: this.#view };
+    if (!viewport) return this.#view === IDENTITY_VIEW ? EMPTY : { ...EMPTY, view: this.#view };
     const strategy = this.#registry.get(container.strategyId);
-    if (!strategy) return { ...EMPTY, viewport };
+    if (!strategy) return { ...EMPTY, viewport, view: this.#view };
     this.#checkConfig(strategy, container.config);
 
     const preview = this.#preview;
@@ -666,6 +709,7 @@ export class ContainerHost {
           isPreview: fast.accepted,
           mode: 'placed',
           scroll: this.#scroll,
+          view: this.#view,
         };
       }
     }
@@ -708,6 +752,7 @@ export class ContainerHost {
       isPreview: split ? (result.isPreview ?? false) : false,
       mode: 'placed',
       scroll: this.#scroll,
+      view: this.#view,
     };
     if (result.overflow) out.overflow = result.overflow;
     if (result.channels) out.channels = result.channels;

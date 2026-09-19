@@ -8,8 +8,23 @@ import {
   useRef,
   useSyncExternalStore,
 } from 'react';
-import type { LayoutEvent, LayoutPreview, NodeId, Overflow, PlacementCommit } from '../index.js';
-import { ContainerHost, type ContainerLayout as HostLayout } from '../index.js';
+import type {
+  FitMode,
+  LayoutEvent,
+  LayoutPreview,
+  NodeId,
+  Overflow,
+  PlacementCommit,
+  View,
+} from '../index.js';
+import {
+  ContainerHost,
+  type ContainerLayout as HostLayout,
+  IDENTITY_VIEW,
+  observeFit,
+  trace,
+  viewTransform,
+} from '../index.js';
 import { useStore } from './Provider.js';
 import { useStrategyRegistry } from './strategies.js';
 
@@ -40,6 +55,8 @@ export interface ContainerLayout extends HostLayout {
    * usually a wrapper around the container box rather than the box itself.
    */
   observeScroll: (el: Element) => () => void;
+  /** Set the pan and zoom this container is shown at. See `ContainerHost.setView`. */
+  setView: (view: View) => void;
 }
 
 /**
@@ -114,14 +131,85 @@ export function useContainerLayout(
 
   const observeScroll = useCallback((el: Element) => host.observeScroll(el), [host]);
 
+  const setView = useCallback((view: View) => host.setView(view), [host]);
+
   return {
     ...layout,
     dispatchAffordance,
     observeNatural,
     registerPlacementControl,
     observeScroll,
+    setView,
   };
 }
+
+/**
+ * Feed a container's view from its props: `fit` derives one from `frameRef`'s
+ * measured size and the designed `viewport`, otherwise `view` is used as given,
+ * and neither leaves the identity. `fit` wins when both are set.
+ *
+ * A layout effect, so the first paint is already at the fitted scale rather
+ * than a frame at full size.
+ */
+export function useViewBinding(
+  setView: (view: View) => void,
+  view: View | undefined,
+  fit: FitMode | undefined,
+  frameRef: RefObject<Element | null>,
+  viewport: { w: number; h: number } | undefined,
+): void {
+  const vx = view?.x;
+  const vy = view?.y;
+  const vs = view?.scale;
+  const vw = viewport?.w;
+  const vh = viewport?.h;
+  useLayoutEffect(() => {
+    if (fit) {
+      if (vw === undefined || vh === undefined) {
+        trace('layout', `fit="${fit}" ignored: no designed viewport to fit`);
+        setView(IDENTITY_VIEW);
+        return;
+      }
+      const el = frameRef.current;
+      if (!el) return;
+      return observeFit(el, { w: vw, h: vh }, fit, setView);
+    }
+    setView(
+      vx === undefined || vy === undefined || vs === undefined
+        ? IDENTITY_VIEW
+        : { x: vx, y: vy, scale: vs },
+    );
+  }, [setView, fit, frameRef, vw, vh, vx, vy, vs]);
+}
+
+/** The transform that shows a laid-out box at `view`, or nothing for the
+ *  identity so an unviewed container carries no transform at all. */
+export function viewStyle(view: View): CSSProperties | undefined {
+  const transform = viewTransform(view);
+  return transform ? { transform, transformOrigin: '0 0' } : undefined;
+}
+
+/**
+ * The frame a fitted container is shown in: it takes the space it is given
+ * and clips, and the scaled box sits at its top-left. Under `'width'` the
+ * height follows the scaled viewport, since nothing else would give it one.
+ */
+export function fitFrameStyle(
+  fit: FitMode,
+  viewport: { w: number; h: number } | undefined,
+  view: View,
+): CSSProperties {
+  return {
+    position: 'relative',
+    overflow: 'hidden',
+    width: '100%',
+    height: fit === 'width' && viewport ? viewport.h * view.scale : '100%',
+  };
+}
+
+/** Takes a fitted box out of the frame's flow, so the frame's size is the
+ *  space it was given rather than the unscaled box's. */
+export const FITTED_BOX: CSSProperties = { position: 'absolute', left: 0, top: 0 };
 
 /**
  * Report `scrollRef`'s offset to the container that laid these children out,

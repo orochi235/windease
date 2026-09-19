@@ -688,6 +688,45 @@ It is not on `ContainerHost` on purpose: nothing in `layout()` reads the ratio,
 and a ratio change and a placement change are independent triggers for the same
 resize.
 
+## Pan and zoom
+
+`view={{ x, y, scale }}` on `<Container>` or `<Zone>` draws the laid-out box
+moved by `x` / `y` and scaled by `scale` about its top-left — Figma's canvas.
+Layout does not change: placements stay in layout pixels, and what moves is the
+box they are drawn in. Clip the result yourself, as with `scrollRef`.
+
+A preset designed at one size usually needs to fit the space it is shown in
+rather than pan. `fit` derives the view from a designed `viewport`:
+
+```tsx
+<div className="frame">
+  <Container parentId={deskId} chrome={chrome} viewport={{ w: 1024, h: 768 }} fit="contain" affordances />
+</div>
+```
+
+`'contain'` shows all of the viewport, centered on the axis it does not fill;
+`'width'` fills the width and sizes its own height to match. Either renders a
+`.windease-view-frame` that fills its parent, clips, and is what gets measured.
+`fit` overrides `view`.
+
+Every gesture follows the pointer under a scale: a window dragged 100 screen
+pixels moves 100 screen pixels, and a seam stays under the cursor. The built-in
+handles divide pointer deltas by the scale they measure on themselves, which
+composes every transform above them — a scaled container nested in another, or
+a `transform` you applied. Arrow-key steps stay in layout pixels. A custom
+`affordances` renderer receives screen pixels; divide by `elementScale(el)`
+before calling `dispatch`.
+
+Headless, `ContainerHost.setView(view)` sets it and `layout().view` reports it;
+like `setScroll`, it never re-runs the strategy. The arithmetic is exported
+pure: `fitScale(viewport, available, mode)`, `fitView(…)`, `zoomView(view,
+anchor, factor)` for a wheel zoom that keeps the point under the cursor, and
+`toLayoutDelta` / `toLocalPoint`. `observeFit(frame, viewport, mode, onView)` is
+the DOM convenience over `fitView`.
+
+The view is not in a snapshot. A fitted view belongs to the screen it was
+measured on, and restoring one on another would show the wrong scale.
+
 ## Drag and drop
 
 DnD is opt-in. Wrap your panel chrome in `<DragHandle>`, register each

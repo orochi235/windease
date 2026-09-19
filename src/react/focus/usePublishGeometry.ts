@@ -1,5 +1,12 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
-import { type NodeId, type Rect, trace } from '../../index.js';
+import {
+  elementScale,
+  IDENTITY_VIEW,
+  type NodeId,
+  type Rect,
+  trace,
+  type View,
+} from '../../index.js';
 import { useNode } from '../hooks.js';
 import { useGeometryRegistry } from './useGeometrySource.js';
 
@@ -21,6 +28,8 @@ function sameOrigin(a: Rect, b: Rect): boolean {
 export interface PublishableLayout {
   placements: ReadonlyMap<NodeId, Rect>;
   scroll: { x: number; y: number };
+  /** The container's pan and zoom. Absent reads as the identity. */
+  view?: View;
 }
 
 /**
@@ -125,20 +134,30 @@ export function usePublishGeometry(
 
   const placements = layout.placements;
   const scroll = layout.scroll;
+  const view = layout.view ?? IDENTITY_VIEW;
   useEffect(() => {
     if (!registry) return;
-    // Placements are unscrolled; the visible position is what the resolver
-    // compares. Each container answers for its own offset, so the composed
-    // chain lands placed and flow children in the same space.
-    const originX = (selfRect?.x ?? 0) - scroll.x;
-    const originY = (selfRect?.y ?? 0) - scroll.y;
+    // Placements are unscrolled layout pixels; the resolver compares visible
+    // screen positions. Each container answers for its own offset and scale,
+    // so the composed chain lands placed and flow children in one space.
+    // `own` is every transform down to and including this box's view; `outer`
+    // stops above it, which is the space the box's translate and scroll run in.
+    const el = elementRef.current;
+    const own = el ? elementScale(el) : { x: 1, y: 1 };
+    const outer = { x: own.x / view.scale, y: own.y / view.scale };
+    // A root's origin is measured, translate included; a nested box sits at
+    // the slot its parent published, before its own translate.
+    const shiftX = isRoot ? 0 : view.x * outer.x;
+    const shiftY = isRoot ? 0 : view.y * outer.y;
+    const originX = (selfRect?.x ?? 0) + shiftX - scroll.x * outer.x;
+    const originY = (selfRect?.y ?? 0) + shiftY - scroll.y * outer.y;
     for (const [cid, r] of placements) {
       registry.rects.set(String(cid), {
-        x: originX + r.x,
-        y: originY + r.y,
+        x: originX + r.x * own.x,
+        y: originY + r.y * own.y,
         z: 0,
-        w: r.w,
-        h: r.h,
+        w: r.w * own.x,
+        h: r.h * own.y,
       });
     }
     registry.commit();
@@ -146,5 +165,5 @@ export function usePublishGeometry(
       for (const cid of placements.keys()) registry.rects.delete(String(cid));
       registry.commit();
     };
-  }, [registry, placements, scroll, selfRect?.x, selfRect?.y]);
+  }, [registry, placements, scroll, view, isRoot, elementRef, selfRect?.x, selfRect?.y]);
 }

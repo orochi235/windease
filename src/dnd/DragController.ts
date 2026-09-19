@@ -1,6 +1,8 @@
 import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
+import { toLayoutDelta } from '../view.js';
+import { elementScale } from '../view-dom.js';
 import {
   type AcceptContext,
   type ChildOrderCommit,
@@ -152,10 +154,13 @@ export class DragController {
         ? {
             scroll: {
               bounds: () => rectOf(options.scrollEl as Element),
+              // The ramp runs in screen pixels; a scroller inside a scaled view
+              // scrolls in its own, so the same rate on screen needs dividing.
               by: (dx: number, dy: number) => {
                 const box = options.scrollEl as Element;
-                box.scrollLeft += dx;
-                box.scrollTop += dy;
+                const local = toLayoutDelta(dx, dy, elementScale(box));
+                box.scrollLeft += local.dx;
+                box.scrollTop += local.dy;
               },
               ...(options.edgeScroll ? { options: options.edgeScroll } : {}),
             },
