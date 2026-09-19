@@ -18,6 +18,7 @@ import './exotic-pack.css';
 import './windease.css';
 import { PresetInfo } from './PresetInfo.js';
 import { PresetPicker, usePresetPick } from './PresetPicker.js';
+import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
 
 const PACK: Record<PackerId, LayoutStrategy<void, string>> = {
@@ -41,7 +42,7 @@ interface Args {
 
 const chrome: ChromeMap = {
   panel: ({ node }) => (
-    <div className="exotic-pack__box" data-testid="exotic-box">
+    <div className={withMetaClass('exotic-pack__box', node)} data-testid="exotic-box">
       {typeof node.meta?.title === 'string' ? (
         <span className="exotic-pack__label">{node.meta.title}</span>
       ) : null}
@@ -87,7 +88,8 @@ export const Scenarios: Story<Args> = ({ scenario, strategy, width }) => {
               </span>
             </p>
           </PresetInfo>
-          <div className="exotic-pack__viewport">
+          <PresetStyle preset={preset} />
+          <div className={`exotic-pack__viewport ${presetClass(preset)}`}>
             <Container
               key={`${preset.id}:${strategy}`}
               parentId={asNodeId(preset.mechanics.id)}

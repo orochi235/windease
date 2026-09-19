@@ -10,16 +10,22 @@ import '../styles.css';
 import './exotic-strip.css';
 import { PresetInfo } from './PresetInfo.js';
 import { PresetPicker, usePresetPick } from './PresetPicker.js';
+import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
 
 const STRATEGIES = { strip: stripStrategy as never };
 
 const chrome: ChromeMap = {
   group: ({ node }) => (
-    <Container parentId={node.id} chrome={chrome} affordances className="xs-group" />
+    <Container
+      parentId={node.id}
+      chrome={chrome}
+      affordances
+      className={withMetaClass('xs-group', node)}
+    />
   ),
   panel: ({ node }) => (
-    <div className="xs-pane" data-testid={`xs-pane-${node.id}`}>
+    <div className={withMetaClass('xs-pane', node)} data-testid={`xs-pane-${node.id}`}>
       <header className="xs-pane__title">{String(node.meta?.title ?? node.id)}</header>
     </div>
   ),
@@ -39,7 +45,8 @@ export const Presets: Story<Args> = ({ preset: presetId }) => {
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <PresetPicker presets={PRESETS} value={preset} onChange={pick} />
         <PresetInfo preset={preset} />
-        <div className="xs-frame">
+        <PresetStyle preset={preset} />
+        <div className={`xs-frame ${presetClass(preset)}`}>
           <Container
             parentId={asNodeId(preset.mechanics.id)}
             chrome={chrome}

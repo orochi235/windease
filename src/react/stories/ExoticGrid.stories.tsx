@@ -27,6 +27,7 @@ import '../styles.css';
 import './exotic-grid.css';
 import { PresetInfo } from './PresetInfo.js';
 import { PresetPicker, usePresetPick } from './PresetPicker.js';
+import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
 
 const STRATEGIES = { grid: gridStrategy as never, strip: stripStrategy as never };
@@ -47,7 +48,7 @@ function useVerdictClass(id: NodeId, base: string): string {
 }
 
 function GroupFrame({ node }: { node: Node }) {
-  const className = useVerdictClass(node.id, 'xg-group xg-frame');
+  const className = useVerdictClass(node.id, withMetaClass('xg-group xg-frame', node));
   return (
     <section className={className} data-testid={`frame-${node.id}`}>
       <header className="xg-group__title">{titleOf(node)}</header>
@@ -62,7 +63,7 @@ const chrome: ChromeHandler = ({ node }) => {
   if (node.container) return <GroupFrame node={node} />;
   const span = spanLabel(node);
   return (
-    <DragHandle nodeId={node.id} className="xg-tile">
+    <DragHandle nodeId={node.id} className={withMetaClass('xg-tile', node)}>
       <span className="xg-tile__title">{titleOf(node)}</span>
       {span ? <span className="xg-tile__span">{span}</span> : null}
     </DragHandle>
@@ -99,9 +100,21 @@ function Readout({ id, title }: { id: NodeId; title: string }) {
   );
 }
 
-function RootFrame({ id, children }: { id: NodeId; children: ReactNode }) {
+function RootFrame({
+  id,
+  className,
+  children,
+}: {
+  id: NodeId;
+  className: string;
+  children: ReactNode;
+}) {
+  const root = useNode(id);
   return (
-    <div className={useVerdictClass(id, 'xg-root xg-frame')} data-testid={`frame-${id}`}>
+    <div
+      className={useVerdictClass(id, withMetaClass(`xg-root xg-frame ${className}`, root))}
+      data-testid={`frame-${id}`}
+    >
       {children}
     </div>
   );
@@ -119,7 +132,8 @@ function PresetView({ preset }: { preset: Preset }) {
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <DragProvider>
           <PresetInfo preset={preset} />
-          <RootFrame id={rootId}>
+          <PresetStyle preset={preset} />
+          <RootFrame id={rootId} className={presetClass(preset)}>
             <Container parentId={rootId} chrome={chrome} viewport={preset.viewport} affordances />
           </RootFrame>
           <dl className="xg-readout">
