@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext } from 'react';
-import type { NodeId, PlacementCommit, Rect } from '../index.js';
+import type { NodeId, PlacementCommit, Rect, StickyInset } from '../index.js';
 
 export type { Rect };
 
@@ -10,6 +10,11 @@ export interface LayoutInfo {
   /** Per-placement values the strategy attached and the core never read; see
    *  `LayoutResult.channels`. Absent unless the strategy emitted some. */
   channels?: ReadonlyMap<NodeId, Record<string, number>>;
+  /** Placements held in view while the container scrolls, and the scroll they
+   *  are held against; see `ContainerLayout.sticky`. Absent unless the
+   *  strategy emitted some. */
+  sticky?: ReadonlyMap<NodeId, StickyInset>;
+  scroll?: { x: number; y: number };
   /** Children a strategy ran and deliberately withheld. Empty whenever no
    *  strategy ran — flow mode, and a zone whose strategy isn't registered —
    *  which is what lets membership here mean "render nothing" rather than

@@ -464,6 +464,31 @@ amount whenever the margin changes, which keeps the origin still on screen: the
 content past the edge opens scrolled out of view, one scroll away. The margin
 sits outside the box, so the box itself must not clip — the wrapper does.
 
+### Keeping panes in view while the rest scroll
+
+A strip pane whose placement sets `sticky: true` stays at the start of the
+row while the others scroll under it, like Firefox's pinned tabs. It only
+means anything under `overflowMode: 'scroll'`, and the container needs a
+`scrollRef` (below) to know how far it has scrolled:
+
+```tsx
+<Zone id={tabsId} strategyId="strip" config={{ axis: 'x', overflowMode: 'scroll' }} scrollRef={scrollRef}>
+  <Panel id={mail} placement={{ size: { w: 44 }, sticky: true }} />
+  <Panel id={page} placement={{ size: { w: 140 } }} />
+</Zone>
+```
+
+Sticky panes stack in row order: the second one sticks just after the first.
+A sticky pane sits where the row puts it until the scroll reaches it, and its
+seam moves with it. It draws above the panes that scroll under it, so give it
+an opaque background.
+
+The strategy never sees the scroll offset, so scrolling still doesn't re-run
+it. It reports each sticky pane's inset from the visible edge in
+`LayoutResult.sticky`, and the container shows the pane at
+`stuckRect(rect, inset, scroll)`. `placements` stay unscrolled. A host drawing
+its own panes calls `stuckRect` with the offset it passed to `setScroll`.
+
 ### Telling windease where the scroll got to
 
 The wrapper is yours, so the scroll offset is something windease has to be
@@ -1260,6 +1285,53 @@ share cleared rather than set to 0.
 Like `size`, a share is relative to the parent: `store.split` clears it from the
 panes it moves into a new group, and the group inherits the slot's share.
 
+### Sizing panes in steps
+
+`step` on a strip's config sizes every pane in whole multiples of it, the way
+tmux and Emacs size panes in character cells:
+
+```tsx
+<Zone id={zoneId} strategyId="strip" config={{ axis: 'x', fill: true, step: 12 }} />
+```
+
+Each pane rounds to the nearest step, never under a floor it wasn't already
+stored under. The rounding leaves a remainder: a 725px row of 12px cells is
+five pixels over. The last pane with no pixel `size` of its own takes it (the
+last pane, if every pane has one), so the row fills exactly as it would
+without a step.
+
+A seam drag lands on the whole step nearest the pointer, and its
+`aria-valuemin` / `aria-valuemax` narrow to whole steps. Each arrow press moves
+it one step, whatever `affordanceKeyStep` says. `gap` and `padding` are not
+stepped, so set them to multiples of the step if pane edges should sit on a
+cell grid. A step that is not a positive number is ignored and traced under
+`layout`.
+
+Without React, a stepped seam needs the pointer: a drag event's
+`payload.point` gives the seam's target, since a few pixels of `dx` round to
+nothing. An event with only `dx` still moves by `dx`, rounded to a step.
+
+### Zooming one pane
+
+`zoom` on a strip's or stack's config names a child that fills the container,
+the way tmux's prefix-z, Blender's Ctrl+Space and i3's fullscreen do. The
+other children go to `unplaced`, so they are not rendered, and they keep their
+`placement` untouched: clear `zoom` and the row comes back exactly as it was.
+
+```ts
+store.updateContainerConfig(zoneId, { zoom: editorId }); // zoom in
+store.updateContainerConfig(zoneId, { zoom: undefined }); // and back out
+```
+
+A zoomed strip child takes the container inside `padding` and emits no seams.
+A zoomed stack child covers the `headerSize` band as well, so hide or overlay
+your tab strip while `zoom` is set. `activeId` is left alone for when zoom
+clears. A `zoom` naming no visible child is ignored, and traced under
+`layout`; it stays in config, so a hidden child zooms again when shown.
+
+Zoom lives in config, like stack's `activeId`, so a snapshot or preset carries
+it and `lock.arrange` guards it.
+
 ### Seam join
 
 A neighbor seam can end in a destroy rather than a clamp. With
@@ -1303,7 +1375,34 @@ step.
 Without React, `trackJoin` is the whole decision: give it the affordance's
 `join` and `bounds`, this move's main-axis delta, and the overshoot it returned
 last time, and it answers whether the gesture is armed and on which node.
-`destroyBlockedBy(store, id)` is the lock check to pass it.
+`destroyBlockedBy(store, id)` is the lock check to pass it. `commitJoin(store,
+affordance, victimId)` carries out the release.
+
+#### Hiding instead of closing
+
+`overshoot: 'hide'` arms the same gesture but hides the pane on release
+instead of destroying it, the way VS Code closes a sidebar dragged shut.
+`overshoot: 'join'` is the same as `joinOnOvershoot: true`, and `overshoot`
+wins when both are set.
+
+```tsx
+<Zone
+  id={zoneId}
+  strategyId="strip"
+  config={{ axis: 'x', resizeMode: 'neighbor', fill: true, overshoot: 'hide' }}
+/>
+```
+
+The drag has already squeezed the pane to its floor by the time it arms, so a
+hide first puts every pane in the row back at the size it had when the gesture
+began, then hides the victim. The rest re-lay out without it, and
+`store.showNode(id)` brings it back with the row exactly as it was. Both
+happen in one transaction. Nothing is destroyed, so a `destroy` lock does not
+stop the gesture arming. The live region says the pane "will hide".
+
+A host driving seams itself calls `captureSeam(store, affordance)` when the
+gesture begins and passes the result to `commitJoin` as its fourth argument.
+Without it, the pane is hidden at the size the drag left it.
 
 ### Grid seams
 

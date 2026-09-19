@@ -71,6 +71,7 @@ describe('stackStrategy', () => {
       'show',
       'tear',
       'tearSize',
+      'zoom',
     ]);
   });
 });

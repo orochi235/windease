@@ -16,6 +16,8 @@ import {
   type ChildOrderCommit,
   type FitMode,
   type NodeId,
+  stuckRect,
+  toLayoutScroll,
   type View,
 } from '../index.js';
 
@@ -38,6 +40,7 @@ import {
   FITTED_BOX,
   fitFrameStyle,
   scrollExtentStyle,
+  settleTransition,
   useContainerLayout,
   useOverflowOrigin,
   useScrollOffset,
@@ -429,6 +432,8 @@ function StoreContainer({
   }
 
   const splitStyle = splitPreviewStyle(layout.placements, dropPreview);
+  // Children and affordances draw inside the view's transform, in layout pixels.
+  const layoutScroll = toLayoutScroll(layout.scroll, layout.view);
 
   return framed(
     <ResizeGestureContext.Provider value={resizing}>
@@ -441,8 +446,10 @@ function StoreContainer({
         data-split-preview={dropPreview.laidOut && layout.isPreview ? 'true' : undefined}
       >
         {Array.from(renderEntries.entries()).map(([id, { isReal }]) => {
-          const rect = layout.placements.get(id);
-          if (!rect) return null;
+          const placed = layout.placements.get(id);
+          if (!placed) return null;
+          const stick = layout.sticky?.get(id);
+          const rect = stuckRect(placed, stick, layoutScroll);
           const childStyle: CSSProperties = {
             ...CHILD_BASE,
             left: rect.x,
@@ -452,7 +459,7 @@ function StoreContainer({
           };
           if (rect.z !== 0) childStyle.zIndex = Math.round(rect.z);
           if (effectiveSettleMs > 0) {
-            childStyle.transition = `left ${effectiveSettleMs}ms ease, top ${effectiveSettleMs}ms ease, width ${effectiveSettleMs}ms ease, height ${effectiveSettleMs}ms ease`;
+            childStyle.transition = settleTransition(effectiveSettleMs, stick !== undefined);
           }
           // Source during preview: render the chrome with visibility:hidden so
           // it occupies its prospective rect (siblings reflow around it) and
@@ -519,6 +526,7 @@ function StoreContainer({
           tabStop={affordanceTabStops}
           onActiveChange={setDraggingAffordanceId}
           onJoinArmChange={setJoinArmedId}
+          scroll={layoutScroll}
         />
         {splitStyle ? (
           <div className="windease-split-preview" style={splitStyle} aria-hidden="true" />

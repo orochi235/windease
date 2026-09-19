@@ -67,6 +67,19 @@ export function toLocalPoint(
 }
 
 /**
+ * A scroll offset in the layout space `view` shows. The scroller sits outside
+ * the view's transform, so its offset is in the space the view is drawn in;
+ * the visible leading edge falls at this layout point.
+ */
+export function toLayoutScroll(
+  scroll: { x: number; y: number },
+  view: View,
+): { x: number; y: number } {
+  if (isIdentityView(view)) return scroll;
+  return { x: (scroll.x - view.x) / view.scale, y: (scroll.y - view.y) / view.scale };
+}
+
+/**
  * Zoom `view` by `factor` about `anchor`, a point in the space the view is
  * shown in, so the layout point under the anchor stays under it — a wheel
  * zoom that keeps the cursor on what it pointed at.

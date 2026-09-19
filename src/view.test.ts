@@ -4,6 +4,7 @@ import {
   fitView,
   IDENTITY_VIEW,
   toLayoutDelta,
+  toLayoutScroll,
   toLocalPoint,
   viewTransform,
   zoomView,
@@ -65,6 +66,15 @@ describe('delta math', () => {
     const layoutMove = 100;
     const screenMove = layoutMove * outer * inner;
     expect(toLayoutDelta(screenMove, 0, { x: outer * inner, y: 1 }).dx).toBeCloseTo(layoutMove);
+  });
+
+  it('a scroll offset is the layout point at the visible leading edge', () => {
+    expect(toLayoutScroll({ x: 30, y: 7 }, IDENTITY_VIEW)).toEqual({ x: 30, y: 7 });
+    // Layout y maps to 20 + y * 0.5 in the scroller; the edge at 120 is layout 200.
+    expect(toLayoutScroll({ x: 0, y: 120 }, { x: 0, y: 20, scale: 0.5 })).toEqual({
+      x: 0,
+      y: 200,
+    });
   });
 });
 

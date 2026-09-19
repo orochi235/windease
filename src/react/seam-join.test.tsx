@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createNode } from '../constructors.js';
@@ -485,5 +485,57 @@ describe('seam join — through the presets', () => {
     move(seam, -10, x);
     expect(armedPane(container)).toBeNull();
     expect(paneArmed(container, 'b')).toBe(false);
+  });
+});
+
+describe("seam join — overshoot: 'hide'", () => {
+  function seedHide(lockB = false) {
+    const store = seed(lockB);
+    store.updateContainerConfig(asNodeId('root'), {
+      joinOnOvershoot: undefined,
+      overshoot: 'hide',
+    });
+    return store;
+  }
+
+  it('releasing while armed hides the victim instead of destroying it', () => {
+    const store = seedHide();
+    const { seam } = mount(store);
+    down(seam);
+    up(seam, move(seam, 30, move(seam, TO_CLAMP)));
+    expect(store.getNode(asNodeId('b'))?.lifecycle.state).toBe('hidden');
+    expect(store.getNode(asNodeId('a'))?.lifecycle.state).toBe('visible');
+  });
+
+  it('puts back the sizes the gesture found, so showing the pane restores the row', () => {
+    const store = seedHide();
+    const { container, seam } = mount(store);
+    down(seam);
+    up(seam, move(seam, 30, move(seam, TO_CLAMP)));
+    expect(widthOf(store, 'a')).toBe(200);
+    expect(widthOf(store, 'b')).toBe(200);
+    act(() => store.showNode(asNodeId('b')));
+    const b = container.querySelector('[data-node="b"]') as HTMLElement;
+    expect(b.style.width).toBe('200px');
+  });
+
+  it('arms on a destroy-locked pane, since nothing is destroyed', () => {
+    const store = seedHide(true);
+    const { container, seam } = mount(store);
+    down(seam);
+    const x = move(seam, 30, move(seam, TO_CLAMP));
+    expect(armedPane(container)).toBe('b');
+    up(seam, x);
+    expect(store.getNode(asNodeId('b'))?.lifecycle.state).toBe('hidden');
+  });
+
+  it('hides from the keyboard, and says so', () => {
+    const store = seedHide();
+    const { container, seam } = mount(store);
+    press(seam, 'ArrowRight', KEYS_TO_ARM);
+    expect(liveText(container)).toContain('will hide');
+    press(seam, 'Enter');
+    expect(store.getNode(asNodeId('b'))?.lifecycle.state).toBe('hidden');
+    expect(widthOf(store, 'a')).toBe(200);
   });
 });

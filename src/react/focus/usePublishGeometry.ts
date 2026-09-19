@@ -4,6 +4,9 @@ import {
   IDENTITY_VIEW,
   type NodeId,
   type Rect,
+  type StickyInset,
+  stuckRect,
+  toLayoutScroll,
   trace,
   type View,
 } from '../../index.js';
@@ -30,6 +33,7 @@ export interface PublishableLayout {
   scroll: { x: number; y: number };
   /** The container's pan and zoom. Absent reads as the identity. */
   view?: View;
+  sticky?: ReadonlyMap<NodeId, StickyInset>;
 }
 
 /**
@@ -135,6 +139,7 @@ export function usePublishGeometry(
   const placements = layout.placements;
   const scroll = layout.scroll;
   const view = layout.view ?? IDENTITY_VIEW;
+  const sticky = layout.sticky;
   useEffect(() => {
     if (!registry) return;
     // Placements are unscrolled layout pixels; the resolver compares visible
@@ -151,7 +156,10 @@ export function usePublishGeometry(
     const shiftY = isRoot ? 0 : view.y * outer.y;
     const originX = (selfRect?.x ?? 0) + shiftX - scroll.x * outer.x;
     const originY = (selfRect?.y ?? 0) + shiftY - scroll.y * outer.y;
-    for (const [cid, r] of placements) {
+    // A sticky child is held in layout pixels, so it is stuck before scaling.
+    const held = toLayoutScroll(scroll, view);
+    for (const [cid, placed] of placements) {
+      const r = stuckRect(placed, sticky?.get(cid), held);
       registry.rects.set(String(cid), {
         x: originX + r.x * own.x,
         y: originY + r.y * own.y,
@@ -165,5 +173,5 @@ export function usePublishGeometry(
       for (const cid of placements.keys()) registry.rects.delete(String(cid));
       registry.commit();
     };
-  }, [registry, placements, scroll, view, isRoot, elementRef, selfRect?.x, selfRect?.y]);
+  }, [registry, placements, scroll, sticky, view, isRoot, elementRef, selfRect?.x, selfRect?.y]);
 }

@@ -13,9 +13,13 @@ import {
   type Affordance,
   type AxisScale,
   accessibleName,
+  captureSeam,
+  commitJoin,
   destroyBlockedBy,
   elementScale,
   type NodeId,
+  type SeamCapture,
+  stuckRect,
   toLayoutDelta,
   toLocalPoint,
   trace,
@@ -76,7 +80,12 @@ export interface AffordanceLayerProps {
   /** The node a release would destroy right now, or null. Optional: a host
    *  with no per-pane element to mark still gets the destroy. */
   onJoinArmChange?: (victimId: NodeId | null) => void;
+  /** The container's scroll in layout pixels (see `toLayoutScroll`), which a
+   *  sticky seam is held against. */
+  scroll?: { x: number; y: number };
 }
+
+const NO_SCROLL = { x: 0, y: 0 };
 
 /**
  * The strategy's affordances as DOM. Shared by `<Container>` and the
@@ -93,6 +102,7 @@ export function AffordanceLayer({
   tabStop,
   onActiveChange,
   onJoinArmChange = noJoinArmChange,
+  scroll = NO_SCROLL,
 }: AffordanceLayerProps) {
   // Each handle keeps the DOM slot it first rendered in; stacking comes from
   // its rect's `z`. Following the strategy's order instead would move a
@@ -105,8 +115,11 @@ export function AffordanceLayer({
   if (!render) return null;
   return (
     <>
-      {ordered.map((aff) =>
-        typeof render === 'function' ? (
+      {ordered.map((placed) => {
+        const aff = placed.sticky
+          ? { ...placed, rect: stuckRect(placed.rect, placed.sticky, scroll) }
+          : placed;
+        return typeof render === 'function' ? (
           <Fragment key={aff.id}>{render({ affordance: aff, dispatch, hitPad })}</Fragment>
         ) : aff.kind === 'click' ? (
           <ClickAffordance
@@ -130,8 +143,8 @@ export function AffordanceLayer({
             onActiveChange={(active) => onActiveChange(active ? aff.id : null)}
             onJoinArmChange={onJoinArmChange}
           />
-        ),
-      )}
+        );
+      })}
     </>
   );
 }
@@ -237,6 +250,13 @@ function AffordanceHandle({
   const [armedId, setArmedId] = useState<NodeId | null>(null);
   const armedRef = useRef<NodeId | null>(null);
   const [dragging, setDragging] = useState(false);
+  // What a hiding join restores. Taken when the gesture begins, before it
+  // writes anything.
+  const captured = useRef<SeamCapture | null>(null);
+  const hides = affordance.join?.action === 'hide';
+  const capture = useCallback(() => {
+    if (hides && captured.current === null) captured.current = captureSeam(store, affordance);
+  }, [hides, store, affordance]);
 
   const setArmed = useCallback(
     (victimId: NodeId | null) => {
@@ -255,14 +275,13 @@ function AffordanceHandle({
   const endGesture = useCallback(
     (commit: boolean) => {
       const victim = armedRef.current;
+      const before = captured.current ?? undefined;
       setArmed(null);
       overshoot.current = null;
-      if (commit && victim) {
-        trace('store', `join: ${affordance.id} destroys ${victim}`);
-        store.unregisterNode(victim);
-      }
+      captured.current = null;
+      if (commit && victim) commitJoin(store, affordance, victim, before);
     },
-    [setArmed, store, affordance.id],
+    [setArmed, store, affordance],
   );
 
   const advanceJoin = useCallback(
@@ -276,12 +295,13 @@ function AffordanceHandle({
         delta,
         atMin: b.atMin,
         atMax: b.atMax,
-        canDestroy: (id) => destroyBlockedBy(store, id as NodeId) === null,
+        // Hiding destroys nothing, so a destroy lock does not refuse it.
+        canDestroy: (id) => hides || destroyBlockedBy(store, id as NodeId) === null,
       });
       overshoot.current = state.overshoot;
       setArmed(state.armed ? ((state.candidateId as NodeId | undefined) ?? null) : null);
     },
-    [affordance.join, affordance.bounds, store, setArmed],
+    [affordance.join, affordance.bounds, store, setArmed, hides],
   );
 
   const onPointerDown = useCallback(
@@ -290,6 +310,8 @@ function AffordanceHandle({
       scale.current = elementScale(e.currentTarget);
       overshoot.current = null;
       raiseOnPress(store, affordance);
+      captured.current = null;
+      capture();
       setDragging(true);
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -298,7 +320,7 @@ function AffordanceHandle({
       }
       onActiveChange(true);
     },
-    [onActiveChange, store, affordance],
+    [onActiveChange, store, affordance, capture],
   );
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -415,6 +437,7 @@ function AffordanceHandle({
       else return;
       e.preventDefault();
       if (delta === 0) return;
+      capture();
       // The same event the pointer sends: the strategy clamps once, where it
       // already clamps.
       dispatch({
@@ -424,7 +447,7 @@ function AffordanceHandle({
       });
       advanceJoin(delta);
     },
-    [bounds, dispatch, affordance.id, keyStep, advanceJoin, endGesture],
+    [bounds, dispatch, affordance.id, keyStep, advanceJoin, endGesture, capture],
   );
 
   const onBlur = useCallback(() => {
@@ -518,7 +541,9 @@ function AffordanceHandle({
           aria-atomic="true"
           data-join-live=""
         >
-          {armedName ? `${armedName} will close. Press Enter to confirm, Escape to cancel.` : ''}
+          {armedName
+            ? `${armedName} will ${hides ? 'hide' : 'close'}. Press Enter to confirm, Escape to cancel.`
+            : ''}
         </div>
       ) : null}
     </>

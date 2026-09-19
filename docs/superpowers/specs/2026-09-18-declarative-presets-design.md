@@ -2,9 +2,9 @@
 
 For whoever extends windease's layout vocabulary, and for anyone turning the Exotic presets into
 canned presets a consumer can load.
-**Status, 2026-09-18: designed; phase 1 in progress on branch `exotic-layout-fixtures`. Of
-phases 2–4, `view`, `fit`, `tear`, `layer`, `resize`, `iconFrom` and `wrap` are built.** The phase
-table at the end is the record of what exists.
+**Status, 2026-09-18: designed; phase 1 in progress on branch `exotic-layout-fixtures`. Phase 2
+is built except grid `sticky`; of phases 3–4, `iconFrom`, `wrap`, `hints.aspect` and `justified`
+are built.** The phase table at the end is the record of what exists.
 
 An Exotic preset (`src/test-utils/exotic/`) reproduces a real product's layout: Blender, Grafana,
 Launchpad, Mac OS 9, i3, 75 in all. Today a preset states the layout as data and the story around
@@ -70,7 +70,7 @@ callback. Keys are short verbs.
 | `fallback: 'next' \| 'prev' \| 'first'` | stack config | Which tab shows after the active one closes | store `unregisterNode` | — (Chrome) |
 | `accepts: { kinds?, max? }` | container config | Refuses drops by kind or count, with no callback | DragEngine, before `acceptPolicy` | Grid (`refuseAtShell`) |
 | `tear: 'float'` | stack config | Dragging a tab out onto a floating ancestor floats it at its tab's size; dropping it on a stack docks it | DragEngine + store | Desktop (Photoshop tear-out) |
-| `zoom: id` | strip/stack state | One child fills the container; the rest keep their sizes to return to | strip, stack | — (tmux, Blender, i3) |
+| `zoom: id` | strip/stack config | One child fills the container; the rest keep their sizes to return to | strip, stack | — (tmux, Blender, i3) |
 | `view: { x, y, scale }` | ContainerHost, not container state | Pan and zoom, with pointer deltas divided by `scale`; `fit` derives it from a designed `viewport` | ContainerHost, affordances, drop preview, focus geometry | — (Figma; lets a desktop fit the Ladle frame) |
 
 ## Strategy capabilities the corpus needs
@@ -85,7 +85,7 @@ These are config or placement keys on one strategy each.
 | Leftover space placement | `justify: 'start' \| 'center' \| 'end' \| 'between'` | strip, grid, column | Firefox, Pinterest, iOS dock |
 | Size steps | `step` | strip | tmux, Emacs |
 | Overshoot hides instead of destroying | `overshoot: 'join' \| 'hide'` | strip | VS Code |
-| Sticky children while the rest scroll | `placement.sticky` | strip, grid | Excel, Firefox pinned tabs |
+| Sticky children while the rest scroll | `placement.sticky` | strip (built), grid | Excel, Firefox pinned tabs |
 | Track sizes | `rowSize`, `tracks` | grid | Grafana, Excel |
 | Gravity | `compact: 'up'` | grid | Grafana |
 | Pages | `pageStrategy(inner)`, a wrapper designed in another session: page by `placement.page` or by `inner`'s `unplaced` | wrapper over any strategy | Launchpad, Android, iOS |
@@ -107,7 +107,8 @@ These are config or placement keys on one strategy each.
 - Per-view state (page) lives in container `state`, which snapshots already carry. Scroll and
   pan/zoom are the exception: they live on `ContainerHost`, because `state` belongs to the
   strategy (`setStrategy` drops it, `reduce` replaces it) and a fitted view is a fact about the
-  screen, not the document.
+  screen, not the document. `zoom` is config instead, like stack's `activeId`: it names which
+  child shows.
 - Inner strategy config separates from the wrapper's: `desktop-shelf`'s `gap` belongs to shelf.
   Composite ids stay; their config nests under `inner`.
 
@@ -116,7 +117,7 @@ These are config or placement keys on one strategy each.
 | Phase | Contents | Status |
 |---|---|---|
 | 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `drop` config; `placement.share`; grid `cell`, fixed cells, `justify`; child templates | in progress: the split, tabs, `accepts` and `drop` config are built, the rest is not |
-| 2 | `tear`, `zoom`, `view` (pan/zoom, desktop fit), `sticky`, `step`, `overshoot`, `layer`, `resize` | `view`, `fit`, `tear`, `layer` (desktop, floating) and `resize` (desktop) built; the rest unbuilt |
+| 2 | `tear`, `zoom`, `view` (pan/zoom, desktop fit), `sticky`, `step`, `overshoot`, `layer`, `resize` | built: `view`, `fit`, `tear`, `layer` (desktop, floating), `resize` (desktop), `step`, `overshoot`, `zoom` and strip `sticky`; grid `sticky` unbuilt |
 | 3 | Grid tracks, `compact`; `reorder`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | `iconFrom` and `wrap` built; the rest unbuilt |
 | 4 | Packer `rotate`/`sort`/height bound; `hints.aspect`; `justified` strategy; product-look CSS for every preset | `hints.aspect` and `justified` built; the rest unbuilt |
 

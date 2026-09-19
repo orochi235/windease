@@ -116,14 +116,18 @@ export { gridStrategy, gridTiling } from './layout/grid.js';
 export { justifiedStrategy } from './layout/justified.js';
 export { PLACEMENT_LAYERS } from './layout/layer.js';
 export {
+  captureSeam,
+  commitJoin,
   DEFAULT_JOIN_THRESHOLD,
   type JoinState,
+  type SeamCapture,
   type TrackJoinInput,
   trackJoin,
 } from './layout/seam-join.js';
 export { shelfStrategy } from './layout/shelf.js';
 export { skylineStrategy } from './layout/skyline.js';
 export { stackStrategy } from './layout/stack.js';
+export { stuckRect } from './layout/sticky.js';
 export { stripStrategy } from './layout/strip.js';
 export {
   getLayoutNodes,
@@ -147,6 +151,7 @@ export type {
   Rect,
   Size,
   StatefulLayoutStrategy,
+  StickyInset,
   StrategyRegistry,
 } from './layout-types.js';
 export {
@@ -235,6 +240,7 @@ export {
   IDENTITY_VIEW,
   isIdentityView,
   toLayoutDelta,
+  toLayoutScroll,
   toLocalPoint,
   type View,
   viewTransform,

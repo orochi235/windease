@@ -9,6 +9,7 @@ import type {
   LayoutStrategy,
   Overflow,
   Rect,
+  StickyInset,
   StrategyRegistry,
 } from './layout-types.js';
 import type { ContainerCap, NodeId } from './node.js';
@@ -48,6 +49,12 @@ export interface ContainerLayout {
    * unless the strategy emitted some. See `LayoutResult.channels`.
    */
   channels?: Map<NodeId, Record<string, number>>;
+  /**
+   * Placements that stay in view while the container scrolls, with the inset
+   * each holds from the visible edge. Absent unless the strategy emitted some.
+   * A binding shows a listed child at `stuckRect(placement, inset, scroll)`.
+   */
+  sticky?: Map<NodeId, StickyInset>;
   /**
    * How far this container's content is scrolled away from its origin. Zero
    * unless a host reports otherwise through `setScroll`.
@@ -756,6 +763,7 @@ export class ContainerHost {
     };
     if (result.overflow) out.overflow = result.overflow;
     if (result.channels) out.channels = result.channels;
+    if (result.sticky) out.sticky = result.sticky;
     return out;
   }
 }

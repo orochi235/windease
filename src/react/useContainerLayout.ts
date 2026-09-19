@@ -228,6 +228,16 @@ export function useScrollOffset(
 }
 
 /**
+ * The CSS transition that animates a child between placements. A sticky child
+ * animates its size only: its position tracks the scroll every frame, and an
+ * eased `left` would trail behind it.
+ */
+export function settleTransition(ms: number, sticky: boolean): string {
+  const size = `width ${ms}ms ease, height ${ms}ms ease`;
+  return sticky ? size : `left ${ms}ms ease, top ${ms}ms ease, ${size}`;
+}
+
+/**
  * The box size a layout needs to hold content that exceeds its viewport, for
  * `overflowMode: 'scroll'`. Undefined when nothing overflows, so the common
  * case adds no style at all.

@@ -31,6 +31,38 @@ section below.
   `justifiedStrategy` reads it before the measured or preferred size; no other
   built-in strategy honors it yet.
 
+- **Strip `step` sizes panes in whole multiples of a number.** `step: 12` on a
+  strip's config rounds each pane to 12px, the way tmux and Emacs size panes in
+  character cells. The last pane without a pixel `size` takes the rounding
+  remainder, so the row still fills. Seam drags land on whole steps, each arrow
+  press moves a seam one step, and a seam's reported range narrows to whole
+  steps.
+
+- **Strip `overshoot: 'hide'` hides a pane pushed past its floor instead of
+  closing it.** The seam arms exactly as `joinOnOvershoot` does, but releasing
+  hides the pane, the way VS Code closes a sidebar dragged shut, and puts the
+  rest of the row back at the sizes the drag found. `store.showNode` returns
+  the pane at its old size. `overshoot: 'join'` is the same as
+  `joinOnOvershoot: true`, which keeps working. `AffordanceJoin` gains
+  `action: 'destroy' | 'hide'`, and `captureSeam` and `commitJoin` carry out a
+  release for hosts that drive seams without React.
+
+- **`zoom` on a strip's or stack's config fills the container with one
+  child.** Like tmux's prefix-z, the named child takes the whole container and
+  the rest go to `unplaced` with their placements untouched, so clearing
+  `zoom` restores the row. A zoomed strip emits no seams; a zoomed stack child
+  covers the `headerSize` band too. An id naming no visible child is ignored.
+
+- **`placement.sticky` keeps a strip pane in view while the rest scroll.**
+  Under `overflowMode: 'scroll'`, a pane whose placement sets `sticky: true`
+  holds at the start of the row once the scroll reaches it, like Firefox's
+  pinned tabs, and draws above what scrolls under it. The strategy reports
+  where each sticky pane sticks in `LayoutResult.sticky` (carried on
+  `ContainerLayout.sticky`) and never sees the scroll; `<Container>`, `<Zone>`
+  and `<Panel>` apply it with the new `stuckRect(rect, inset, scroll)`. That
+  scroll is in layout pixels; under a `view`, the new `toLayoutScroll(scroll,
+  view)` converts a scroller's offset to them.
+
 - **A container can refuse drops from its config.** Set `accepts` in any
   container's `config`: `false` refuses every drop, `{ kinds: ['panel'] }`
   refuses a dragged node whose `kind` is not listed, and `{ max: 3 }` refuses a

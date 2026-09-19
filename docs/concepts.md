@@ -116,6 +116,13 @@ Two paths for free-form data on a node; lifetimes differ:
   except to a pane that already asks for pixels. A share that is not a positive
   finite number is ignored, with a `layout` trace. `split` clears it with
   `size`.
+- `sticky: true` — holds a strip pane at the start of the row while the rest
+  scroll, under `overflowMode: 'scroll'` only. The strategy never sees the
+  scroll offset: it reports the inset each sticky pane holds in
+  `LayoutResult.sticky`, and the binding places it with `stuckRect`, so
+  `placements` stay unscrolled and scrolling never re-runs layout. `stuckRect`
+  takes the scroll in layout pixels; under a `view`, `toLayoutScroll` converts
+  the scroller's offset.
 - `span: { cols?, rows? }` — fixed **cell-count** extent honored by `grid`
   only. Kept separate from `size` (pixels) rather than reusing it, so the
   same key doesn't mean two different units depending on which strategy the
@@ -366,7 +373,12 @@ Built-ins:
   0.9.0 — not today's `stackStrategy`, which is unrelated. Honors child
   `hints.minSize` as a pixel floor and `hints.maxSize` as a ceiling, plus
   `placement.size` for a fixed-px pane and `placement.share` for a
-  proportional one.
+  proportional one. `step` rounds every pane to whole multiples of a number
+  (tmux's character cells); the last pane with no pixel `size` takes the
+  rounding remainder, so a filled row stays filled. Under
+  `resizeMode: 'neighbor'`, `overshoot` says what a seam pushed past a pane's
+  floor does on release: `'join'` destroys the pane, `'hide'` hides it with
+  the row's sizes put back as the drag found them, so `showNode` restores it.
   `store.split(id, input)` (see Store API) builds nested strip trees —
   workspace-level splits with draggable gutters — without a dedicated
   strategy of its own.
@@ -382,6 +394,11 @@ Built-ins:
   there at the drop point, sized by `tearSize` or the stack's body, and a
   floating child dropped on the stack docks as a tab. See
   [Tearing a tab out](#tearing-a-tab-out).
+- **`zoom`** — a config key on both `strip` and `stack` naming one child that
+  fills the container (a stack's header band included) while every other child
+  goes to `unplaced`, placement untouched. It is config rather than
+  `container.state` for the reason `activeId` is: it names which child shows,
+  a preset declares it, and `configSpec` checks it.
 - **`floatingStrategy(inner?)`** — wraps another strategy. Items whose
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
