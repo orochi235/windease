@@ -7,6 +7,9 @@ const node = (page: Page, id: string) => page.locator(`[data-node="${id}"]`);
 const root = (page: Page, id: string) => page.locator(`[data-node-container="${id}"]`);
 const handle = (page: Page, id: string) =>
   page.locator(`[data-affordance-hit="floating:drag:${id}"]`);
+/** The desktop's own minimize box over a window's title bar, or over its icon. */
+const toggle = (page: Page, id: string) =>
+  page.locator(`[data-affordance-hit="desktop:minimize:${id}"]`);
 
 async function pick(page: Page, presetId: string, rootId: string) {
   await openStory(page, STORY);
@@ -15,10 +18,12 @@ async function pick(page: Page, presetId: string, rootId: string) {
   await expect(root(page, rootId).locator('[data-node]').first()).toBeVisible();
 }
 
-/** The node a real pointer would land on at this point. */
+/** The node a real pointer would land on at this point, counting a window's title band as the window. */
 function hitAt(page: Page, p: { x: number; y: number }) {
   return page.evaluate(({ x, y }) => {
     const el = document.elementFromPoint(x, y);
+    const band = el?.closest('[data-affordance-hit]')?.getAttribute('data-affordance-hit');
+    if (band) return band.replace(/^\w+:\w+:/, '');
     return el?.closest('[data-node]')?.getAttribute('data-node') ?? null;
   }, p);
 }
@@ -37,13 +42,37 @@ test.describe('Mac OS 9 WindowShade', () => {
   test('shading rolls the Finder window up to its 20px bar in place', async ({ page }) => {
     await pick(page, 'macos9-windowshade', 'mac-desktop');
     const before = await boxOf(node(page, 'mac-finder'));
-    await page.getByTestId('minimize-mac-finder').click();
+    await toggle(page, 'mac-finder').click();
     expect(await settledBox(node(page, 'mac-finder'))).toMatchObject({
       x: before.x,
       y: before.y,
       w: before.w,
       h: 20,
     });
+    await toggle(page, 'mac-finder').click();
+    expect(await settledBox(node(page, 'mac-finder'))).toEqual(before);
+  });
+
+  test('dragging the title bar moves the window', async ({ page }) => {
+    await pick(page, 'macos9-windowshade', 'mac-desktop');
+    const before = await boxOf(node(page, 'mac-finder'));
+    const bar = await boxOf(page.getByTestId('bar-mac-finder'));
+    const from = { x: bar.x + 40, y: bar.y + bar.h / 2 };
+    await dragMouse(page, from, { x: from.x + 60, y: from.y + 30 });
+    const after = await settledBox(node(page, 'mac-finder'));
+    expect(after.x - before.x).toBeCloseTo(60, 0);
+    expect(after.y - before.y).toBeCloseTo(30, 0);
+  });
+
+  test('clicking a window under another brings it to the front', async ({ page }) => {
+    await pick(page, 'macos9-windowshade', 'mac-desktop');
+    const finder = await boxOf(node(page, 'mac-finder'));
+    const p = overlapCenter(finder, await boxOf(node(page, 'mac-notepad')));
+    expect(await hitAt(page, p)).toBe('mac-notepad');
+    // Its body's left edge, clear of Note Pad.
+    await page.mouse.click(finder.x + 20, finder.y + 60);
+    await expect(page.getByTestId('xd-top')).toHaveText('mac-finder');
+    await expect.poll(() => hitAt(page, p)).toBe('mac-finder');
   });
 });
 
@@ -51,7 +80,7 @@ test.describe('Windows 3.1 minimized icons', () => {
   test('restoring an icon brings the window back at its saved size, on top', async ({ page }) => {
     await pick(page, 'win31-minimized-icons', 'win31-desktop');
     expect(await boxOf(node(page, 'win31-app-3'))).toMatchObject({ w: 72, h: 56 });
-    await page.getByTestId('restore-win31-app-3').click();
+    await toggle(page, 'win31-app-3').click();
     const restored = await settledBox(node(page, 'win31-app-3'));
     expect(restored).toMatchObject({ w: 300, h: 200 });
     const progman = await boxOf(node(page, 'win31-progman'));
@@ -66,7 +95,8 @@ test.describe('GIMP multi-window', () => {
     const p = overlapCenter(photo, await boxOf(node(page, 'gimp-layers')));
     expect(await hitAt(page, p)).toBe('gimp-layers');
 
-    await page.getByTestId('bar-gimp-img-2').click({ position: { x: 8, y: 8 } });
+    // Its body, clear of every window above it: a press on the title bar does not raise.
+    await page.mouse.click(photo.x + 10, photo.y + 60);
     await expect(page.getByTestId('xd-top')).toHaveText('gimp-img-2');
     await expect.poll(() => hitAt(page, p)).toBe('gimp-img-2');
   });
@@ -89,6 +119,35 @@ test.describe('Amiga screens', () => {
     expect((await settledBox(node(page, 'amiga-term'))).y).toBeCloseTo(term.y + 50, 0);
     expect(await hitAt(page, probe)).toBe('amiga-dpaint');
   });
+
+  test('a screen slides only vertically, and stops with its title bar at the bottom', async ({
+    page,
+  }) => {
+    await pick(page, 'amiga-workbench-screens', 'amiga-display');
+    const display = await boxOf(root(page, 'amiga-display'));
+    const term = await boxOf(node(page, 'amiga-term'));
+    const bar = await boxOf(page.getByTestId('bar-amiga-term'));
+    const from = { x: bar.x + 40, y: bar.y + bar.h / 2 };
+    await dragMouse(page, from, { x: from.x + 120, y: from.y + 400 });
+
+    const after = await settledBox(node(page, 'amiga-term'));
+    expect(after.x).toBeCloseTo(term.x, 0);
+    expect(after.y).toBeCloseTo(display.y + display.h - 20, 0);
+  });
+
+  test('what hangs below the display is clipped, with nothing to scroll to', async ({ page }) => {
+    await pick(page, 'amiga-workbench-screens', 'amiga-display');
+    const frame = page.getByTestId('xd-frame');
+    const extent = await frame.evaluate((el) => ({
+      w: el.scrollWidth - el.clientWidth,
+      h: el.scrollHeight - el.clientHeight,
+    }));
+    expect(extent).toEqual({ w: 0, h: 0 });
+    const display = await boxOf(root(page, 'amiga-display'));
+    const term = await boxOf(node(page, 'amiga-term'));
+    expect(term.y + term.h).toBeGreaterThan(display.y + display.h);
+    expect(await hitAt(page, { x: term.x + 40, y: display.y + display.h + 10 })).toBeNull();
+  });
 });
 
 test.describe('cascade after 200 windows', () => {
@@ -104,13 +163,48 @@ test.describe('cascade after 200 windows', () => {
 });
 
 test.describe('unplugged second monitor', () => {
-  test('a window saved on the left-hand display renders wholly outside the laptop screen', async ({
+  test('windows saved on the lost displays are pulled back onto the laptop screen', async ({
     page,
   }) => {
     await pick(page, 'unplugged-second-monitor', 'laptop-display');
     const screen = await boxOf(root(page, 'laptop-display'));
     const xcode = await boxOf(node(page, 'mon-xcode'));
-    expect(xcode.x + xcode.w).toBeLessThan(screen.x);
+    expect(xcode.x).toBeCloseTo(screen.x, 0);
+    expect(xcode.y).toBeCloseTo(screen.y, 0);
+    // The root's box grows to reach Xcode, which is bigger than the screen; the screen is 1280 wide.
+    const slack = await boxOf(node(page, 'mon-slack'));
+    expect(slack.x + slack.w).toBeCloseTo(screen.x + 1280, 0);
+  });
+
+  test('a window dragged past the edge stops there', async ({ page }) => {
+    await pick(page, 'unplugged-second-monitor', 'laptop-display');
+    const screen = await boxOf(root(page, 'laptop-display'));
+    // Terminal is the front window, pulled back to the bottom-right corner.
+    const bar = await boxOf(page.getByTestId('bar-mon-terminal'));
+    const from = { x: bar.x + 40, y: bar.y + bar.h / 2 };
+    await dragMouse(page, from, { x: from.x - 620, y: from.y - 400 });
+    const terminal = await settledBox(node(page, 'mon-terminal'));
+    expect(terminal.x).toBeCloseTo(screen.x, 0);
+    expect(terminal.y).toBeCloseTo(screen.y, 0);
+  });
+});
+
+test.describe('Figma canvas', () => {
+  test('opens at the origin, and scrolls to the frames above and left of it', async ({ page }) => {
+    await pick(page, 'figma-canvas', 'figma-canvas');
+    const frame = page.getByTestId('xd-frame');
+    const view = await boxOf(frame);
+    const mobile = await boxOf(node(page, 'figma-mobile'));
+    expect(mobile.x).toBeCloseTo(view.x + 1 + 120, 0);
+    expect((await boxOf(node(page, 'figma-cover'))).x).toBeLessThan(view.x);
+
+    await frame.evaluate((el) => {
+      el.scrollLeft = 0;
+      el.scrollTop = 0;
+    });
+    const cover = await settledBox(node(page, 'figma-cover'));
+    expect(cover.x).toBeCloseTo(view.x + 1, 0);
+    expect(cover.y).toBeCloseTo(view.y + 1, 0);
   });
 });
 
