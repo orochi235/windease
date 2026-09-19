@@ -109,7 +109,7 @@ export {
   type FloatingState,
   floatingStrategy,
 } from './layout/floating.js';
-export { gridStrategy, gridTiling } from './layout/grid.js';
+export { gridStrategy, gridTiling, type TrackSize } from './layout/grid.js';
 export {
   DEFAULT_JOIN_THRESHOLD,
   type JoinState,

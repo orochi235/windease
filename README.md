@@ -603,6 +603,30 @@ short last row stays aligned under the first, and a span widens by the extra
 space between the columns it covers. `justify` is horizontal only, and content
 wider than the container stays at the start.
 
+### Tracks of different sizes
+
+Every column of a grid is one width and every row one height, unless `tracks`
+says otherwise. It lists sizes by index: a number is pixels, and `{ share: n }`
+takes a share of what the pixel tracks and gaps leave, as CSS `fr` does.
+
+```ts
+// A row-number column, two fixed columns, two that split the rest, a taller header row.
+{ strategyId: 'grid', config: {
+  cell: { h: 26 },
+  tracks: { cols: [40, 96, 96, { share: 1 }, { share: 1 }], rows: [28] },
+} }
+```
+
+`tracks.cols` sets the column count when `cols` is unset. `tracks.rows` only
+sizes rows: how many there are still comes from the children. A track past the
+end of its list takes the fixed `cell` size on that axis, or one share when
+there is none. Pixel tracks wider than the container are reported as
+`overflow`. `justify` places the width pixel tracks leave; once a share takes
+the rest there is none. Under `overflowMode` `'scroll'` or `'unplaced'`, share
+tracks are held at the children's `hints.minSize` floors, as uniform cells are.
+
+With `resizable`, a tracked axis gets track seams (see [Grid seams](#grid-seams)).
+
 ## Letting CSS do the layout
 
 A container that declares `hints.render: 'flow'` runs no strategy. Its children
@@ -1189,6 +1213,17 @@ with no `maxRows`, that means it grows a row rather than dropping anyone.
 A seam appears wherever a span can move in either direction, including on an
 item already spanning to the edge, so a grown item can always be brought back.
 `span` is gated by `lock.resize` exactly as `size` is.
+
+On an axis with [`tracks`](#tracks-of-different-sizes), `resizable` draws a seam
+after each track instead, as a spreadsheet does, and the item seams on that
+axis go. A pixel track's seam resizes it alone and the tracks after it move
+over; a seam between two share tracks trades width between them. A share
+track followed by a pixel track, or a share track that ends the list, has no
+seam. A drag writes the whole list back into the grid's config with
+`updateContainerConfig`, spelling out tracks before the dragged one that the
+list left implicit. The seam is named "resize column 2", counted from one, and
+is refused when the container's `lock.arrange` or any child in the track's
+`lock.resize` is set. A drag stops at 8px.
 
 ## Keyboard navigation
 

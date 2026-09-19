@@ -11,6 +11,7 @@ import {
   DragProvider,
   Provider,
   StrategyRegistryProvider,
+  useNode,
 } from '../index.js';
 import './windease.css';
 import './grid-cells.css';
@@ -475,4 +476,82 @@ Dock.args = { justify: 'evenly' };
 
 Dock.argTypes = {
   justify: { options: ['start', 'center', 'end', 'between', 'evenly'], control: { type: 'radio' } },
+};
+
+const SHEET = asNodeId('sheet');
+const SHEET_COLS = ['', 'A', 'B', 'C', 'D', 'E'];
+const SHEET_ROWS = 8;
+/** The row-number column and A–B hold pixels; C and D split what is left, so
+ *  the seam between them trades width; E holds pixels. */
+const SHEET_TRACKS = {
+  cols: [40, 96, 96, { share: 1 }, { share: 1 }, 72],
+  rows: [28],
+};
+
+function sheetStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: {
+        strategyId: 'grid',
+        config: { gap: 1, resizable: true, cell: { h: 26 }, tracks: SHEET_TRACKS },
+      },
+      id: SHEET,
+    }),
+  );
+  for (let row = 0; row <= SHEET_ROWS; row++) {
+    SHEET_COLS.forEach((letter, col) => {
+      const header = row === 0 || col === 0;
+      const title = row === 0 ? letter : col === 0 ? String(row) : `${letter}${row}`;
+      const id = asNodeId(row === 0 && col === 0 ? 'corner' : `cell-${title}`);
+      s.registerNode(
+        createNode({ kind: 'panel', focus: true, id, parentId: SHEET, meta: { title, header } }),
+      );
+      s.showNode(id);
+    });
+  }
+  return s;
+}
+
+const sheetChrome: ChromeMap = {
+  panel: ({ node }) => (
+    <div className={node.meta?.header ? 'gc-sheet-cell gc-sheet-cell--header' : 'gc-sheet-cell'}>
+      {String(node.meta?.title ?? '')}
+    </div>
+  ),
+};
+
+function TracksReadout({ id }: { id: NodeId }) {
+  const tracks = (useNode(id)?.container?.config as { tracks?: unknown } | undefined)?.tracks;
+  return (
+    <p className="gc-readout">
+      tracks: <code data-testid="tracks">{JSON.stringify(tracks)}</code>
+    </p>
+  );
+}
+
+/** A spreadsheet from `tracks`: pixel columns keep their width, the two share
+ *  columns split the rest, and the header row is taller than the 26px rows
+ *  `cell.h` gives the others. Drag the line after a column letter or a row
+ *  number, or Tab to it and press an arrow. The drag writes the new sizes back
+ *  into the grid's config, shown below the sheet. */
+export const Spreadsheet: Story = () => {
+  const store = useMemo(sheetStore, []);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <div className="gc-sheet">
+          <Container
+            parentId={SHEET}
+            chrome={sheetChrome}
+            viewport={{ w: 640, h: 280 }}
+            className="windease-zone gc-sheet__grid"
+            affordances
+          />
+        </div>
+        <TracksReadout id={SHEET} />
+      </StrategyRegistryProvider>
+    </Provider>
+  );
 };

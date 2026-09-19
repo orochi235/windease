@@ -352,7 +352,10 @@ Built-ins:
   of dividing the container; a fixed `w` with no `cols` fits as many columns as
   the width holds. `justify` (`'start'`, `'center'`, `'end'`, `'between'`,
   `'evenly'`) places the leftover width when the occupied columns don't span
-  the container. Reads child `placement.span` and `placement.cell`.
+  the container. `tracks: { cols?, rows? }` sizes each column or row by
+  index, in pixels or as `{ share }` of the rest; a seam drag on a tracked axis
+  writes the list back into config. Reads child `placement.span` and
+  `placement.cell`.
 - **`stripStrategy`** — children share one axis: `axis` ('x' or 'y'), `fill`,
   `defaultItemSize`, `gap`, `padding`, `maxItems`, and `justify` for where
   space the panes leave goes. Strip covers both axes, so
