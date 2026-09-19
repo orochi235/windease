@@ -26,9 +26,6 @@ import { PresetPicker, usePresetPick } from './PresetPicker.js';
 import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
 
-/** Every tree was saved for a bigger screen; its shares scale down in proportion. */
-const VIEWPORT = { w: 960, h: 540 };
-
 function TabStrip({ id, stacked }: { id: NodeId; stacked: boolean }) {
   const { tabs, activeId, activate } = useStack(id);
   return (
@@ -96,15 +93,16 @@ function Tree({ preset }: { preset: Preset }) {
           <PresetInfo preset={preset} />
           <PresetStyle preset={preset} />
           <div className={`xt-frame ${presetClass(preset)}`}>
+            {/* No viewport: a tree lays out at whatever size the frame has, its shares
+                scaling with it, where fitting a fixed size would only shrink the text. */}
             <Container
               parentId={asNodeId(preset.mechanics.id)}
               chrome={chrome}
-              viewport={VIEWPORT}
               affordances
               className="windease-zone xt-zone"
             />
           </div>
-          <PresetCode preset={preset} viewport={VIEWPORT} />
+          <PresetCode preset={preset} />
           <div className="xt-prose">
             <p>
               Drag a pane into a container of another kind: a horizontal split into a vertical one,
