@@ -80,7 +80,7 @@ These are config or placement keys on one strategy each.
 |---|---|---|---|
 | Explicit cell | `placement.cell: { col, row }` | grid | Grafana, Android, periodic table, iOS 18 |
 | Fixed-size cells, spaced out | `cell: { w, h }`, `justify` | grid | iOS dock, Win 8, Launchpad |
-| Fractional sizes that survive a resize | `placement.share` | strip | i3, Golden Layout, Emacs, trading desk |
+| Fractional sizes that survive a resize | `placement.share` — built as a bare number; should become `{ w?, h? }` like `size`, since a pane moved to a split on the other axis reads its width fraction as a height | strip | i3, Golden Layout, Emacs, trading desk |
 | Leftover space placement | `justify: 'start' \| 'center' \| 'end' \| 'between'` | strip, grid, column | Firefox, Pinterest, iOS dock |
 | Size steps | `step` | strip | tmux, Emacs |
 | Overshoot hides instead of destroying | `overshoot: 'join' \| 'hide'` | strip | VS Code |
