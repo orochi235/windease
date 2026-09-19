@@ -931,6 +931,30 @@ not an arrangement.
 
 See the **Tab stack / Stack on drop** story for the whole setup.
 
+#### Which edge the tabs sit on, and stacked title bars
+
+`side` puts the band on the `'top'` (the default), `'bottom'`, `'left'` or
+`'right'` edge, and the body moves to the other side of it. `headerSize` is the
+band's thickness whichever edge it is on.
+
+`tabs: 'stacked'` is i3's stacked layout: one title bar per child, stacked
+across the band, so the band is `tabSize × childCount` thick and grows as tabs
+arrive. `tabSize` defaults to `headerSize`. `tabs: 'strip'`, the default, is one
+band of `headerSize`.
+
+```ts
+config: { tabs: 'stacked', side: 'left', tabSize: 24 }
+```
+
+The strategy still draws nothing. It reports the band to every child, the
+withheld ones included, as channels: `bandX`, `bandY`, `bandW`, `bandH` in the
+stack's coordinates, and under `'stacked'` each child's own bar as `tabX`,
+`tabY`, `tabW`, `tabH`. Draw the tabs from a `<Container overlay>` function,
+whose context carries `channels`, or compute the same rects with
+`stackBands(config, size, childCount)`.
+
+See the **Tab stack / Tabs and side** story.
+
 ### Tearing a tab out
 
 Set `tear: 'float'` in a stack's config and a tab dragged out of the stack

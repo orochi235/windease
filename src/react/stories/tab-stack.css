@@ -129,3 +129,35 @@
   gap: 8px;
   margin: 8px 0 0;
 }
+
+/* Positioned from the band the stack strategy reports in channels. */
+.ts-band,
+.ts-bar {
+  z-index: 2;
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--w);
+  height: var(--h);
+  box-sizing: border-box;
+}
+
+.ts-band {
+  display: flex;
+  gap: 2px;
+  background: #0e1220;
+}
+
+.ts-band[data-vertical] {
+  flex-direction: column;
+}
+
+.ts-bar {
+  text-align: start;
+  background: #0e1220;
+  border-bottom: 1px solid #33405c;
+}
+
+.ts-bar[aria-selected="true"] {
+  background: #1f2a44;
+}

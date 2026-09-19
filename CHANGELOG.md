@@ -10,6 +10,15 @@ section below.
 
 ### Added
 
+- **A stack's tabs can sit on any edge, or stack as one title bar per tab.**
+  `side: 'top' | 'bottom' | 'left' | 'right'` in a stack's config puts the tab
+  band on that edge and the body beside it. `tabs: 'stacked'` is i3's stacked
+  layout: each child gets a `tabSize` title bar (default `headerSize`), so the
+  band grows with the child count. The stack still draws nothing; it reports
+  the band, and each stacked bar, to every child as channels, and
+  `stackBands` computes the same rects. See
+  [Which edge the tabs sit on](README.md#which-edge-the-tabs-sit-on-and-stacked-title-bars).
+
 - **A tab can be torn out of a stack and docked back, from config.** Set
   `tear: 'float'` in a stack's config: dragging a tab out onto the nearest
   container above it whose strategy floats children (`floatingStrategy`,

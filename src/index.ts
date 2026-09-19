@@ -126,7 +126,15 @@ export {
 } from './layout/seam-join.js';
 export { shelfStrategy } from './layout/shelf.js';
 export { skylineStrategy } from './layout/skyline.js';
-export { stackStrategy } from './layout/stack.js';
+export {
+  STACK_SIDES,
+  STACK_TABS,
+  type StackBands,
+  type StackSide,
+  type StackTabs,
+  stackBands,
+  stackStrategy,
+} from './layout/stack.js';
 export { stuckRect } from './layout/sticky.js';
 export { stripStrategy } from './layout/strip.js';
 export {
