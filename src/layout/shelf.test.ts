@@ -33,6 +33,7 @@ describe('shelfStrategy', () => {
       'sort',
       'rotate',
       'overflowMode',
+      'pocket',
     ]);
   });
 

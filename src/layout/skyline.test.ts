@@ -38,6 +38,7 @@ describe('skylineStrategy', () => {
       'sort',
       'rotate',
       'overflowMode',
+      'pocket',
     ]);
   });
 

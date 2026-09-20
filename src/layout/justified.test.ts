@@ -171,6 +171,7 @@ describe('justifiedStrategy', () => {
       'gap',
       'maxRowHeight',
       'justifyLast',
+      'pocket',
     ]);
   });
 });

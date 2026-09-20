@@ -10,6 +10,7 @@ import {
   packBounded,
   packGap,
   packLeast,
+  packPocketPass,
   packQueue,
   packResult,
   packRotate,
@@ -57,8 +58,12 @@ function fixedCount(cols: unknown): number | null {
  * Items are placed in the order given, or by `sort`, descending by that
  * measure with ties kept in input order. Size is `natural`, else
  * `hints.preferredSize`; an item with neither goes to `unplaced`. Config
- * takes `gap`, `sort`, `rotate`, `overflowMode`, `columnWidth`, `cols` and
- * `justify`.
+ * takes `gap`, `sort`, `rotate`, `overflowMode`, `columnWidth`, `cols`,
+ * `justify` and `pocket`.
+ *
+ * `pocket: { w, h }` holds back every item whose width and height are both
+ * under that size and packs them together into the largest empty rectangle
+ * this pass leaves, instead of each taking a spot in the flow.
  * @group Strategies
  */
 export const columnStrategy: LayoutStrategy<void, string> = {
@@ -71,12 +76,16 @@ export const columnStrategy: LayoutStrategy<void, string> = {
     columnWidth: 'number',
     cols: 'number',
     justify: ['start', 'center', 'end'],
+    pocket: 'object',
   },
   configConflicts: [
     { kind: 'exclusive', keys: ['cols', 'columnWidth'] },
     { kind: 'ignored', key: 'justify', when: ['cols'] },
   ],
   layout({ items, container, options }): LayoutResult<string> {
+    const pocket = packPocketPass(columnStrategy, { items, container, options });
+    if (pocket) return pocket;
+
     const cfg = options as ColumnConfig;
     const gap = packGap(options);
     const bounded = packBounded(options);

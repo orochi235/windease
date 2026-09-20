@@ -64,6 +64,7 @@ describe('columnStrategy', () => {
       'gap',
       'justify',
       'overflowMode',
+      'pocket',
       'rotate',
       'sort',
     ]);

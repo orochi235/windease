@@ -8,6 +8,7 @@ import {
   packBounded,
   packGap,
   packLeast,
+  packPocketPass,
   packQueue,
   packResult,
   packRotate,
@@ -88,7 +89,11 @@ function lowestSpot(
  * Items are placed in the order given, or by `sort`, descending by that
  * measure with ties kept in input order. Size is `natural`, else
  * `hints.preferredSize`; an item with neither goes to `unplaced`. Config
- * takes `gap`, `sort`, `rotate` and `overflowMode`.
+ * takes `gap`, `sort`, `rotate`, `overflowMode` and `pocket`.
+ *
+ * `pocket: { w, h }` holds back every item whose width and height are both
+ * under that size and packs them together into the largest empty rectangle
+ * this pass leaves, instead of each taking a spot in the flow.
  * @group Strategies
  */
 export const skylineStrategy: LayoutStrategy<void, string> = {
@@ -98,8 +103,12 @@ export const skylineStrategy: LayoutStrategy<void, string> = {
     sort: PACK_SORTS,
     rotate: 'boolean',
     overflowMode: PACK_OVERFLOW_MODES,
+    pocket: 'object',
   },
   layout({ items, container, options }): LayoutResult<string> {
+    const pocket = packPocketPass(skylineStrategy, { items, container, options });
+    if (pocket) return pocket;
+
     const gap = packGap(options);
     const bounded = packBounded(options);
     const rotate = packRotate(options);

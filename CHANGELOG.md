@@ -20,6 +20,18 @@ section below.
   shape. `wide` stays the default, so no existing grid moves; without a
   container `fit` falls back to it.
 
+- **A packer can gather its small items into a pocket.** `pocket: { w, h }` on
+  `shelfStrategy`, `columnStrategy`, `skylineStrategy` or `justifiedStrategy`
+  holds back every item whose width and height are both under that size, packs
+  the rest as usual, and then packs the held-back ones together into the
+  largest empty rectangle the pack left — instead of each taking a spot in the
+  flow and leaving a hole in the rows. Equal areas break toward the
+  bottom-right, and the pocket never sits closer than `gap` to what is placed.
+  Every item still gets a rect; each pocketed one carries a `pocket: 1`
+  channel. What the pocket cannot hold follows the container's own
+  `overflowMode`. See
+  [Gathering the small items into a pocket](README.md#gathering-the-small-items-into-a-pocket).
+
 - **`windease/nuts`, a third entry point: the Novel UI Torture Suite.** 62
   layouts lifted from real software — Blender, i3, Mac OS 9, Photoshop, Excel,
   a Flickr photo wall — as data, with the pathology corpora beside them (a

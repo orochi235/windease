@@ -1,7 +1,9 @@
 # The pocket: a leftover rectangle for items too small to place
 
 For whoever implements this in the packing strategies, and for anyone later reading why a small
-item landed somewhere other than the flow. **Status, 2026-09-19: designed, unbuilt.**
+item landed somewhere other than the flow. **Status, 2026-09-19: built.** `src/layout/empty-rect.ts`, `packPocketPass` in `src/layout/pack.ts`, the
+four strategies, the Pack story's `Pocket` and the README's "Gathering the small items into a
+pocket".
 
 A packing strategy places each item where it falls in the flow, whatever its size. A wall of
 photos with six thumbnails among them gets six holes in it; a dashboard of tiles with a handful of

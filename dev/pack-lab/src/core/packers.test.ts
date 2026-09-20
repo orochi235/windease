@@ -20,10 +20,17 @@ describe('packers', () => {
       'gap',
       'justify',
       'overflowMode',
+      'pocket',
       'rotate',
       'sort',
     ]);
-    expect(optionKeys(packerById('shelf'))).toEqual(['gap', 'sort', 'rotate', 'overflowMode']);
+    expect(optionKeys(packerById('shelf'))).toEqual([
+      'gap',
+      'sort',
+      'rotate',
+      'overflowMode',
+      'pocket',
+    ]);
   });
 
   it('throws on an unknown packer', () => {

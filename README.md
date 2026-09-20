@@ -652,6 +652,40 @@ const { placements, unplaced } = skylineStrategy.layout({
 });
 ```
 
+### Gathering the small items into a pocket
+
+A wall of boxes with a handful of tiny ones among them gets holes in it: each
+small box takes a spot in the flow and the rows never close up. `pocket` sends
+them somewhere else instead.
+
+```ts
+const { placements, channels } = shelfStrategy.layout({
+  items: boxes,
+  container: { w: 960, h: 600 },
+  state: undefined,
+  options: { gap: 8, pocket: { w: 40, h: 40 } },
+});
+```
+
+An item whose width **and** height are both under `pocket` is held back — a
+long thin item is long, not small, so it stays in the flow. The rest pack as
+they always did. Then the largest empty rectangle the pack left over becomes
+the pocket, and the held-back items are packed into it together, by the same
+strategy, with the same `gap`, `sort` and `rotate`. Equal-sized rectangles
+break toward the bottom-right, the direction the packers flow, so the pocket
+tends to sit after the content rather than above it, and it never comes closer
+than `gap` to anything placed.
+
+Every item still gets a rect of its own. Nothing is drawn for the pocket and no
+node stands in it; each pocketed placement carries a `pocket: 1` channel, so a
+host that wants to outline or tint the region can find it. What the pocket
+cannot hold follows the container's own `overflowMode`: `'unplaced'` bins the
+leftovers, `'scroll'` lets them spill and reports the excess as `overflow`.
+
+`shelfStrategy`, `columnStrategy`, `skylineStrategy` and `justifiedStrategy`
+all take it. Finding the rectangle costs O(n²) in the items placed, so the key
+is opt-in and absent by default.
+
 ## Putting a grid child at a cell
 
 `gridStrategy` normally flows its children into cells in order. A child whose

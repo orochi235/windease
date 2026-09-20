@@ -1,4 +1,6 @@
-import type { LayoutItem, LayoutResult, Rect, Size } from '../layout-types.js';
+import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
+import { trace } from '../trace.js';
+import { largestEmptyRect } from './empty-rect.js';
 
 /**
  * Tolerance, in pixels, for width comparisons. Tiles sized as a fraction of the
@@ -163,5 +165,100 @@ export function packResult(
   const w = fitsWithin(right, container.w) ? 0 : right - container.w;
   const h = fitsWithin(bottom, container.h) ? 0 : bottom - container.h;
   if (w > 0 || h > 0) result.overflow = { w, h };
+  return result;
+}
+
+/**
+ * A strategy's `pocket` config: the size under which an item is diverted, or
+ * null when the key is absent or holds no positive, finite `w` and `h`.
+ */
+export function packPocketSize(options: Record<string, unknown>): Size | null {
+  const pocket = options.pocket as { w?: unknown; h?: unknown } | undefined;
+  if (!pocket || typeof pocket !== 'object') return null;
+  const usable = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
+  return usable(pocket.w) && usable(pocket.h) ? { w: pocket.w, h: pocket.h } : null;
+}
+
+/** Whether `item` is small enough to be pocketed: both sides under `pocket`. */
+function pocketed(item: LayoutItem, pocket: Size): boolean {
+  const size = packSize(item);
+  return size !== null && size.w < pocket.w && size.h < pocket.h;
+}
+
+/** The ids `result` placed turned a quarter, by its `rotation` channels. */
+function turnedIn(result: LayoutResult<string>): string[] {
+  const out: string[] = [];
+  for (const [id, channels] of result.channels ?? []) {
+    if (channels.rotation === 90) out.push(id);
+  }
+  return out;
+}
+
+/**
+ * The pass behind a packing strategy's `pocket` config: items under that size
+ * are held back, the rest are packed as usual, and the held-back ones are then
+ * packed together into the largest empty rectangle the main pass left — the
+ * pocket — instead of each taking a spot in the flow.
+ *
+ * Returns null when `pocket` is absent or unusable, and the caller packs
+ * normally. The inner passes run with `pocket` removed, so neither can divert
+ * again.
+ *
+ * Every item still gets a rect of its own; nothing is drawn for the pocket and
+ * no node stands in it. Each pocketed placement carries a `pocket: 1` channel,
+ * for a host that wants to mark the region. What the pocket cannot hold obeys
+ * the container's own `overflowMode`, since the inner pass reads the same
+ * config the outer one did.
+ */
+export function packPocketPass(
+  strategy: LayoutStrategy<void, string>,
+  args: { items: LayoutItem[]; container: Size; options: Record<string, unknown> },
+): LayoutResult<string> | null {
+  const pocket = packPocketSize(args.options);
+  if (!pocket) return null;
+
+  const { pocket: _, ...rest } = args.options;
+  const flow = args.items.filter((item) => !pocketed(item, pocket));
+  const smalls = args.items.filter((item) => pocketed(item, pocket));
+  const main = strategy.layout({
+    items: flow,
+    container: args.container,
+    state: undefined,
+    options: rest,
+  });
+
+  const placed = new Map<string, Rect>(main.placements);
+  const turned = new Set<string>(turnedIn(main));
+  const inPocket = new Set<string>();
+  const rect =
+    smalls.length > 0
+      ? largestEmptyRect(main.placements.values(), args.container, packGap(args.options))
+      : null;
+  if (rect) {
+    const inner = strategy.layout({
+      items: smalls,
+      container: { w: rect.w, h: rect.h },
+      state: undefined,
+      options: rest,
+    });
+    for (const [id, r] of inner.placements) {
+      placed.set(id, { ...r, x: r.x + rect.x, y: r.y + rect.y });
+      inPocket.add(id);
+    }
+    for (const id of turnedIn(inner)) turned.add(id);
+  }
+
+  const rotate = packRotate(args.options);
+  const result = packResult(args.items, placed, args.container, rotate ? turned : null);
+  if (inPocket.size > 0) {
+    const channels = new Map(result.channels ?? []);
+    for (const id of inPocket) channels.set(id, { ...channels.get(id), pocket: 1 });
+    result.channels = channels;
+  }
+  trace(
+    'layout',
+    `${strategy.name}: pocket ${rect ? `${rect.w}×${rect.h} at ${rect.x},${rect.y}` : 'none'} for ${inPocket.size} of ${smalls.length} under ${pocket.w}×${pocket.h}`,
+    { unplaced: result.unplaced, overflow: result.overflow },
+  );
   return result;
 }

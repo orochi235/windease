@@ -1,6 +1,6 @@
 import type { LayoutItem, LayoutResult, LayoutStrategy, Rect } from '../layout-types.js';
 import { trace } from '../trace.js';
-import { packGap, packResult, packSize } from './pack.js';
+import { packGap, packPocketPass, packResult, packSize } from './pack.js';
 
 interface JustifiedConfig {
   rowHeight?: number;
@@ -35,7 +35,11 @@ function aspectOf(item: LayoutItem): number | null {
  *
  * Aspect is `hints.aspect`, else `natural` or `hints.preferredSize`; an item
  * with none goes to `unplaced`. Config takes `rowHeight` (default 200), `gap`,
- * `maxRowHeight` and `justifyLast`.
+ * `maxRowHeight`, `justifyLast` and `pocket`.
+ *
+ * `pocket: { w, h }` holds back every item whose width and height are both
+ * under that size and packs them together into the largest empty rectangle the
+ * rows leave, instead of each breaking up a row.
  * @group Strategies
  */
 export const justifiedStrategy: LayoutStrategy<void, string> = {
@@ -45,8 +49,12 @@ export const justifiedStrategy: LayoutStrategy<void, string> = {
     gap: 'number',
     maxRowHeight: 'number',
     justifyLast: 'boolean',
+    pocket: 'object',
   },
   layout({ items, container, options }): LayoutResult<string> {
+    const pocket = packPocketPass(justifiedStrategy, { items, container, options });
+    if (pocket) return pocket;
+
     const cfg = options as JustifiedConfig;
     const gap = packGap(options);
     const target = positive(cfg.rowHeight) ? cfg.rowHeight : DEFAULT_ROW_HEIGHT;
