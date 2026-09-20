@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gridStrategy } from './grid.js';
+import { gridStrategy, gridTiling } from './grid.js';
 
 const mkItem = (id: string) => ({ id: id });
 
@@ -61,6 +61,62 @@ describe('gridStrategy', () => {
     expect(result.placements.get('a')).toEqual({ x: 0, y: 0, z: 0, w: 100, h: 100 });
     expect(result.placements.get('b')).toEqual({ x: 0, y: 100, z: 0, w: 100, h: 100 });
     expect(result.placements.get('c')).toEqual({ x: 0, y: 200, z: 0, w: 100, h: 100 });
+  });
+
+  describe("orientation 'fit'", () => {
+    const colsOf = (n: number, w: number, h: number, options = {}) => {
+      const r = gridStrategy.layout({
+        items: Array.from({ length: n }, (_, i) => mkItem(`p${i}`)),
+        container: { w, h },
+        state: undefined as void,
+        options: { orientation: 'fit', ...options },
+      });
+      // One row's worth of placements share a y, so counting them counts the
+      // columns without the test having to know the cell size.
+      const top = r.placements.get('p0')?.y;
+      return [...r.placements.values()].filter((p) => p.y === top).length;
+    };
+
+    it('reads the container, where wide and tall read only the count', () => {
+      // Ten items: 'wide' answers ceil(sqrt(10)) = 4 whatever the shape is.
+      expect(colsOf(10, 300, 450)).toBe(3);
+      expect(colsOf(10, 450, 300)).toBe(4);
+      // A strip that wide takes one row: ten 120x200 cells score 120, where
+      // eight in two rows would score 100.
+      expect(colsOf(10, 1200, 200)).toBe(10);
+    });
+
+    it('scores a cell by its shorter side, so a long thin one never wins', () => {
+      // Six items across a strip: one row of six is the only way to keep the
+      // cells square-ish, and six 200x200 cells beat three 400x100 ones.
+      expect(colsOf(6, 1200, 200)).toBe(6);
+      expect(colsOf(6, 200, 1200)).toBe(1);
+    });
+
+    it('takes the narrower grid where two counts tie', () => {
+      expect(colsOf(12, 400, 400)).toBe(3);
+    });
+
+    it('spends the gap and the padding it is given', () => {
+      expect(colsOf(4, 400, 400, { gap: 0 })).toBe(2);
+      expect(colsOf(4, 400, 400, { gap: 20, padding: 10 })).toBe(2);
+    });
+
+    it('still lets a set cols or rows have the last word', () => {
+      expect(colsOf(10, 300, 450, { cols: 5 })).toBe(5);
+      expect(colsOf(10, 300, 450, { rows: 2 })).toBe(5);
+    });
+
+    it('falls back to wide where the caller has no container to give', () => {
+      // gridTiling is the entry that may be asked without one. ceil(sqrt(10))
+      // is 4, which is what 'wide' answers.
+      const items = Array.from({ length: 10 }, (_, i) => mkItem(`p${i}`));
+      expect(gridTiling(items, { orientation: 'fit' })).toEqual({ cols: 4, rows: 3 });
+      expect(gridTiling(items, { orientation: 'fit' }, { w: 300, h: 450 })).toEqual({
+        cols: 3,
+        rows: 4,
+      });
+    });
   });
 
   it('rows option derives cols from item count', () => {

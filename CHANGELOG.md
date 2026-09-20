@@ -10,6 +10,16 @@ section below.
 
 ### Added
 
+- **`gridStrategy` takes `orientation: 'fit'`, which reads the container.**
+  `wide` and `tall` auto-balance on the item count alone — `ceil(sqrt(n))` and
+  `floor(sqrt(n))` columns — keeping the grid square and saying nothing about
+  the shape it is squaring inside, so ten items in a container half again as
+  tall as it is wide take four columns and three short rows. `fit` picks the
+  count that makes the cells biggest and squarest for the container it is
+  given. Reach for it whenever the container is not roughly square or changes
+  shape. `wide` stays the default, so no existing grid moves; without a
+  container `fit` falls back to it.
+
 - **`pageStrategy(inner)` shows one page of children at a time.** Under
   `mode: 'assigned'` each child's `placement.page` names its page — virtual
   desktops; under `mode: 'flowed'` children fill a page until `inner` runs out

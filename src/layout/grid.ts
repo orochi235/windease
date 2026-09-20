@@ -36,11 +36,21 @@ interface GridConfig {
    */
   fill?: boolean;
   /**
-   * When neither cols nor rows is set, auto-balance the grid so it stays as
-   * square as possible. 'wide' (default) biases toward more columns when the
-   * count isn't a perfect square; 'tall' biases toward more rows.
+   * When neither cols nor rows is set, how the column count is chosen.
+   *
+   * 'wide' (default) and 'tall' auto-balance on the item count alone, keeping
+   * the *grid* as square as possible: `ceil(sqrt(n))` columns for 'wide',
+   * `floor(sqrt(n))` for 'tall'. They say nothing about the container they are
+   * squaring inside, so a non-square one leaves cells smaller than they had to
+   * be — ten items in a container half again as tall as it is wide take four
+   * columns and three short rows.
+   *
+   * 'fit' chooses the count that makes the *cells* biggest and squarest for
+   * the container it is given, which is the one to reach for whenever the
+   * container is not roughly square or changes shape. It needs a container;
+   * without one it falls back to 'wide'.
    */
-  orientation?: 'wide' | 'tall';
+  orientation?: 'wide' | 'tall' | 'fit';
   gap?: number;
   padding?: number;
   /**
@@ -272,11 +282,41 @@ function requestedArea(
  * or a lone `maxRows` — so a grid whose rows are full grows sideways instead
  * of dropping items.
  */
+/**
+ * The column count that makes the biggest square cell for `container`, which
+ * is what `orientation: 'fit'` asks for.
+ *
+ * The score is a cell's shorter side rather than its area: a 10x1 cell has the
+ * area of a 3x3 one and holds nothing. Strictly greater, so the fewest columns
+ * that reach the best cell win — a tie between 3x4 and 4x3 in a square
+ * container takes the narrower grid rather than letting the last pass decide.
+ */
+function fittedCols(count: number, container: Size, gap: number, padding: number): number {
+  const usableW = container.w - 2 * padding;
+  const usableH = container.h - 2 * padding;
+  let best = 1;
+  let bestSide = -Infinity;
+  for (let cols = 1; cols <= count; cols++) {
+    const rows = Math.ceil(count / cols);
+    const side = Math.min(
+      (usableW - gap * (cols - 1)) / cols,
+      (usableH - gap * (rows - 1)) / rows,
+    );
+    if (side > bestSide) {
+      bestSide = side;
+      best = cols;
+    }
+  }
+  return best;
+}
+
 function resolveDims(
   items: LayoutItem[],
   dims: GridDims,
   fill: boolean,
-  orientation: 'wide' | 'tall',
+  orientation: 'wide' | 'tall' | 'fit',
+  cfg: GridConfig,
+  container: Size | undefined,
 ): { cols: number; rowCap: number | undefined; colLimit: number } {
   if (dims.cols !== undefined) {
     return { cols: dims.cols, rowCap: dims.maxRows, colLimit: dims.cols };
@@ -287,8 +327,19 @@ function resolveDims(
   if (!fill && dims.maxCols !== undefined) return { cols: dims.maxCols, rowCap, colLimit };
   let cols = 1;
   if (dims.rows === undefined) {
-    const root = Math.sqrt(items.length);
-    cols = orientation === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
+    const fitting = orientation === 'fit' && container !== undefined && items.length > 0;
+    if (orientation === 'fit' && container === undefined) {
+      trace('layout', "grid: orientation 'fit' needs a container; auto-balancing wide");
+    }
+    if (fitting) {
+      cols = fittedCols(items.length, container, cfg.gap ?? 0, cfg.padding ?? 0);
+      trace('layout', `grid: fitted ${items.length} items to ${cols} cols`, {
+        container,
+      });
+    } else {
+      const root = Math.sqrt(items.length);
+      cols = orientation === 'tall' ? Math.floor(root) || 1 : Math.ceil(root);
+    }
   }
   if (rowCap !== undefined) {
     cols = Math.max(cols, Math.ceil(requestedArea(items, dims.maxCols, rowCap) / rowCap));
@@ -546,8 +597,9 @@ function explicitReach(items: LayoutItem[]): number {
 /**
  * Cols, rows and cell reservations — the whole tiling, which grid derives from
  * the item count, their spans and the config alone. The container enters only
- * to count how many fixed-width cells fit across it; otherwise it just divides
- * the result into cells. `layout`, `gridGeometry` and the
+ * to count how many fixed-width cells fit across it, and under
+ * `orientation: 'fit'` to choose the count that makes the cells biggest;
+ * otherwise it just divides the result into cells. `layout`, `gridGeometry` and the
  * public `gridTiling` all resolve dimensions through this, so the three cannot
  * disagree about which item is in which cell.
  */
@@ -568,7 +620,7 @@ function resolveTiling(
   const resolved =
     fit !== undefined
       ? { cols: fit, rowCap: dims.rows ?? dims.maxRows, colLimit: fit }
-      : resolveDims(items, dims, fill, cfg.orientation ?? 'wide');
+      : resolveDims(items, dims, fill, cfg.orientation ?? 'wide', cfg, container);
   const { rowCap, colLimit } = resolved;
   let cols = Math.min(colLimit, Math.max(resolved.cols, explicitReach(items)));
   const itemCap = dims.maxItems ?? Number.POSITIVE_INFINITY;

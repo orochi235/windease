@@ -640,3 +640,116 @@ export const Dashboard: Story = () => {
     </Provider>
   );
 };
+
+/** The column count that fits the container, rather than the one that squares
+ *  the count. Drag the container's width and height: under `wide` the tiling
+ *  never moves — it is `ceil(sqrt(n))` whatever shape it is squaring inside —
+ *  while under `fit` the columns follow the shape and the cells stay as square
+ *  and as large as the box allows. Switch between them at one narrow width to
+ *  see what `wide` leaves on the table. */
+const FIT_ZONE = asNodeId('grid-fitted');
+const FIT_GAP = 8;
+const FIT_PADDING = 8;
+
+function FitControls({ store, count, width, height }: {
+  store: Store;
+  count: number;
+  width: number;
+  height: number;
+}) {
+  const config = useNode(FIT_ZONE)?.container?.config as
+    | { orientation?: 'wide' | 'tall' | 'fit' }
+    | undefined;
+  const orientation = config?.orientation ?? 'fit';
+  const items: LayoutItem[] = Array.from({ length: count }, (_, i) => ({ id: `fit-${i + 1}` }));
+  const { cols, rows } = gridTiling(
+    items,
+    { orientation, gap: FIT_GAP, padding: FIT_PADDING },
+    { w: width, h: height },
+  );
+  return (
+    <>
+      <label className="gc-controls">
+        orientation
+        <select
+          data-testid="fit-orientation"
+          value={orientation}
+          onChange={(e) => store.updateContainerConfig(FIT_ZONE, { orientation: e.target.value })}
+        >
+          <option value="fit">fit</option>
+          <option value="wide">wide</option>
+          <option value="tall">tall</option>
+        </select>
+      </label>
+      <p data-testid="fit-tiling">
+        {cols} × {rows}
+      </p>
+    </>
+  );
+}
+
+export const FittedGrid: Story<{ tileCount: number; width: number; height: number }> = ({
+  tileCount,
+  width,
+  height,
+}) => {
+  const store = useMemo(() => {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: {
+          strategyId: 'grid',
+          config: { orientation: 'fit', gap: FIT_GAP, padding: FIT_PADDING },
+        },
+        id: FIT_ZONE,
+      }),
+    );
+    for (let i = 0; i < tileCount; i++) {
+      const id = asNodeId(`fit-${i + 1}`);
+      s.registerNode(
+        createNode({
+          kind: 'panel',
+          focus: true,
+          id,
+          parentId: FIT_ZONE,
+          meta: { title: String(i + 1) },
+        }),
+      );
+      s.showNode(id);
+    }
+    return s;
+  }, [tileCount]);
+
+  const chrome: ChromeMap = {
+    panel: ({ node }) => (
+      <div className="windease-panel">
+        <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
+      </div>
+    ),
+  };
+
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <FitControls store={store} count={tileCount} width={width} height={height} />
+        <div style={{ width, height }}>
+          <Container
+            parentId={FIT_ZONE}
+            chrome={chrome}
+            viewport={{ w: width, h: height }}
+            className="windease-zone"
+          />
+        </div>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+FittedGrid.args = { tileCount: 10, width: 300, height: 450 };
+
+FittedGrid.argTypes = {
+  tileCount: { control: { type: 'range', min: 1, max: 16, step: 1 } },
+  width: { control: { type: 'range', min: 160, max: 900, step: 20 } },
+  height: { control: { type: 'range', min: 160, max: 700, step: 20 } },
+};

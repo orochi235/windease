@@ -1,6 +1,6 @@
 import { Meta } from '@ladle/react';
 import { DraftBanner } from './Draft.tsx';
-import { Grid, ContentSizedGrid } from '../react/stories/Grid.stories.tsx';
+import { Grid, ContentSizedGrid, FittedGrid } from '../react/stories/Grid.stories.tsx';
 
 <Meta title="Guide/02 Layout/2.03 grid" />
 
@@ -23,7 +23,7 @@ Config, spans, and sizing a grid to its own rows.
 | --- | --- |
 | `cols`, `rows` | fixed counts |
 | `maxCols`, `maxRows` | caps for auto-balancing |
-| `orientation` | which axis fills first |
+| `orientation` | `wide` / `tall` square the count; `fit` fits the container |
 | `maxItems` | capacity cap — mutually exclusive with `maxCols`/`maxRows` |
 | `gap`, `padding` | pixels |
 | `resizable` | emit span seams |
@@ -33,6 +33,26 @@ Config, spans, and sizing a grid to its own rows.
 Setting `cols` makes `maxCols`, `rows` and `orientation` dead config. That used
 to be silent; grid now declares it through `configConflicts` and it surfaces as
 a `layout` trace.
+
+## Fitting the container
+
+`wide` (the default) and `tall` auto-balance on the item count alone —
+`ceil(sqrt(n))` columns and `floor(sqrt(n))` — which keeps the *grid* square
+and says nothing about the container it is squaring inside. Ten items in a
+container half again as tall as it is wide take four columns and three short
+rows, and every cell is smaller than it had to be.
+
+`orientation: 'fit'` picks the count that makes the *cells* biggest and
+squarest for the container it is given, scoring a cell by its shorter side —
+a 10×1 cell has the area of a 3×3 one and holds nothing. Reach for it whenever
+the container is not roughly square, or changes shape. A set `cols` or `rows`
+is an answer already given and still wins, and without a container `fit` falls
+back to `wide`.
+
+Drag the width and the height below, and switch between `fit` and `wide` at one
+narrow width to see what squaring the count leaves on the table.
+
+<FittedGrid />
 
 ## Spans
 
