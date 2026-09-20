@@ -29,6 +29,21 @@ export async function boxOf(locator: Locator): Promise<Box> {
 }
 
 /**
+ * Round a drop point to whole pixels, for a test that asserts where the drop
+ * landed. Firefox and WebKit truncate `clientX`/`clientY` to integers while
+ * Chromium keeps the fraction, so asking for x.6 puts the drop a pixel apart
+ * on two engines and exactly on one. Asking for a whole pixel gets the same
+ * point everywhere.
+ *
+ * Only the drop point. A drag's *start* is left alone: a seam reads the
+ * pointer's absolute position, so moving the grab by half a pixel moves the
+ * size it writes.
+ */
+export function dropAt(p: { x: number; y: number }): { x: number; y: number } {
+  return { x: Math.round(p.x), y: Math.round(p.y) };
+}
+
+/**
  * Press at `from`, move to `to` in steps, release. Stepping matters: a single
  * jump produces one pointermove, which cannot exercise the incremental dx/dy
  * accumulation a real drag depends on.

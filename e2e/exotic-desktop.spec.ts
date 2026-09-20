@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { type Box, boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { type Box, boxOf, centerOf, dragMouse, dropAt, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'exotic--desktop--presets';
 
@@ -194,7 +194,10 @@ test.describe('Amiga screens', () => {
     const term = await boxOf(node(page, 'amiga-term'));
     const bar = await boxOf(page.getByTestId('bar-amiga-term'));
     const from = { x: bar.x + 40, y: bar.y + bar.h / 2 };
-    await dragMouse(page, from, { x: from.x + 120, y: from.y + 400 });
+    // Far enough past the clamp to prove it holds, but inside the viewport:
+    // a target below it leaves the window, and Firefox then reports the
+    // pointer somewhere else entirely rather than at the point asked for.
+    await dragMouse(page, from, { x: from.x + 120, y: from.y + 250 });
 
     const after = await settledBox(node(page, 'amiga-term'));
     expect(after.x).toBeCloseTo(term.x, 0);
@@ -296,7 +299,7 @@ test.describe('Photoshop panel groups', () => {
   /** Drag `id`'s tab out of its group and let go over the canvas, at `frac` of its box. */
   async function tearOut(page: Page, id: string, frac = { x: 0.2, y: 0.1 }) {
     const canvas = await boxOf(node(page, 'ps-canvas'));
-    const to = { x: canvas.x + canvas.w * frac.x, y: canvas.y + canvas.h * frac.y };
+    const to = dropAt({ x: canvas.x + canvas.w * frac.x, y: canvas.y + canvas.h * frac.y });
     await dragMouse(page, centerOf(await boxOf(page.getByTestId(`tab-${id}`))), to, 16);
     return to;
   }

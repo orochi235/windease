@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, centerOf, openStory } from './fixtures.js';
+import { boxOf, centerOf, dropAt, openStory } from './fixtures.js';
 
 /**
  * Tear-out is a drop outside the stack onto its floating ancestor, and the
@@ -28,7 +28,7 @@ async function openFixed(page: Page) {
 /** Tear `id` out of the stack and let go at `frac` of the canvas's box. */
 async function tearOut(page: Page, id: string, frac = { x: 0.3, y: 0.3 }) {
   const canvas = await boxOf(page.getByTestId('canvas'));
-  const to = { x: canvas.x + canvas.w * frac.x, y: canvas.y + canvas.h * frac.y };
+  const to = dropAt({ x: canvas.x + canvas.w * frac.x, y: canvas.y + canvas.h * frac.y });
   await drag(page, centerOf(await boxOf(page.getByTestId(`tab-${id}`))), to);
   return to;
 }

@@ -145,15 +145,30 @@ test.describe('desktop behavior keys', () => {
     expect(shown.x).toBeCloseTo(view.x + 1, 0);
   });
 
+  /**
+   * Win-2 measured against win-3, the other window this drag never touches,
+   * plus its own size. Neither coordinate space holds still here: the grab
+   * point sits inside the auto-scroll margin on both axes, so the scroller
+   * moves under the windows by however many samples fit in the gesture — an
+   * engine-speed accident — and win-1 crossing the content origin re-bases
+   * every content coordinate. Both of those move win-2 and win-3 by the same
+   * amount, so the gap between them is what "left where they are" means.
+   */
+  async function othersGap(page: Page) {
+    const two = await settledBox(node(page, 'win-2'));
+    const three = await settledBox(node(page, 'win-3'));
+    return { x: three.x - two.x, y: three.y - two.y, w: two.w, h: two.h };
+  }
+
   test('dragging a window past the left edge leaves the others where they are', async ({
     page,
   }) => {
     await openStory(page, BEHAVIOR);
-    const two = await boxOf(node(page, 'win-2'));
+    const before = await othersGap(page);
     const { at } = await barOf(page, 'win-1');
     await dragMouse(page, at, { x: at.x - 150, y: at.y });
     await settledBox(node(page, 'win-1'));
-    expect(await settledBox(node(page, 'win-2'))).toEqual(two);
+    expect(await othersGap(page)).toEqual(before);
   });
 
   test("overflow: 'clip' leaves nothing to scroll to", async ({ page }) => {
