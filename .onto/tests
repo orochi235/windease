@@ -1,0 +1,15 @@
+# Both suites in one pass: vitest over the library and the pack lab, then
+# Playwright driving Ladle. onto runs one command per repository, so they are
+# one script here rather than two entries.
+plugin: node
+run: npm run test:all
+
+# Without CI, Playwright reuses whatever already answers on port 61000 — which
+# on a node running another tree's Ladle is the wrong app, silently. CI also
+# turns on the retry and refuses a stray .only.
+prelude: export CI=1
+
+# Playwright's browsers live outside the tree, so `npm ci` does not bring them
+# and a fresh node needs them once. macOS needs no system packages, so no
+# --with-deps.
+setup: npx playwright install chromium firefox webkit
