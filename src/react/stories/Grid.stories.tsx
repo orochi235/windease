@@ -651,7 +651,12 @@ const FIT_ZONE = asNodeId('grid-fitted');
 const FIT_GAP = 8;
 const FIT_PADDING = 8;
 
-function FitControls({ store, count, width, height }: {
+function FitControls({
+  store,
+  count,
+  width,
+  height,
+}: {
   store: Store;
   count: number;
   width: number;

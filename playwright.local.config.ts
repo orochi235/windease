@@ -9,7 +9,10 @@ export default defineConfig({
   workers: 4,
   use: { baseURL: 'http://localhost:61100', trace: 'retain-on-failure' },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1200, height: 800 } } },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1200, height: 800 } },
+    },
   ],
   webServer: {
     command: './node_modules/.bin/ladle serve --port 61100',

@@ -298,10 +298,7 @@ function fittedCols(count: number, container: Size, gap: number, padding: number
   let bestSide = -Infinity;
   for (let cols = 1; cols <= count; cols++) {
     const rows = Math.ceil(count / cols);
-    const side = Math.min(
-      (usableW - gap * (cols - 1)) / cols,
-      (usableH - gap * (rows - 1)) / rows,
-    );
+    const side = Math.min((usableW - gap * (cols - 1)) / cols, (usableH - gap * (rows - 1)) / rows);
     if (side > bestSide) {
       bestSide = side;
       best = cols;
