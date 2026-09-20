@@ -357,3 +357,78 @@ before something wants it.
 
 First consumer: klieg's corner lab, through a `FloatingPanel` in
 `@weasel-js/labkit`.
+
+## Exotic presets: open questions [MED]
+
+Rescued from the `exotic-layout-fixtures` handoff when that worktree was
+removed; the branch itself is merged. The build status of the preset schema
+lives in the phase table of
+[`docs/superpowers/specs/2026-09-18-declarative-presets-design.md`](docs/superpowers/specs/2026-09-18-declarative-presets-design.md),
+which the merges below have outrun — read it before trusting it.
+
+Decided in conversation and recorded nowhere else:
+
+- **The finish line** is that the schema expresses essentially every behavior
+  the presets' products have, with stories drawing chrome only. "A key needs 2+
+  presets" was rejected as the bar, though it is a fine order to start in.
+- Presets are meant to become canned presets. Whether they ship publicly, out
+  of `test-utils`, is undecided.
+- Sample data (titles, content sizes, generated items, CSS) stays separate from
+  mechanics, in code and in the story tabs.
+- Desktop `overflow` defaults to `'scroll'`, today's behavior; presets opt into
+  `'clip'`.
+- Excel's preset wants to be big enough to scroll with frozen headers, which
+  needs grid `sticky`.
+
+Unbuilt, named by the design doc: grid `sticky`; `share` taking an axis
+(`{ w?, h? }`, like `size`); a grid drop-to-cell hook; the Firefox, Chrome and
+Win 10 presets adopting `reorder`, which is built and merged with no preset
+using it.
+
+Open, grouped by what they touch:
+
+- **strip** — `squeeze` scales `preferredSize` down until floors bind (per the
+  docstring and README) vs renders as asked (`strip.test.ts` pins the latter);
+  KNOWN entry `vscode-hinted-sidebars@400-squeeze`. Under `justify` center/end,
+  drags don't follow the pointer, and `share` capped by `maxSize` leaves the
+  excess empty instead of redistributing.
+- **grid** — dropping onto a specific empty cell needs a strategy drop hook;
+  capacity by width under fixed cells; vertical align; pinned vs celled
+  priority. Flowed items under a row cap are still slow in resize reach; the
+  celled path is fixed (27s → 5ms).
+- **floating** — ignore an `Infinity` drag delta (only `NaN` is ignored now,
+  and a test expects the clamp); `floatingStrategy()` with no inner now floats
+  every item where it used to drop unmarked ones — confirm that is wanted;
+  floating items at `z` 0 should be 1.
+- **desktop** — resize capped at the container vs obeying the clamp; `iconFrom`
+  doesn't mirror inner bounds.
+- **accepts and locks** — `AcceptContext.items` should be `LayoutItem`-shaped,
+  as the runtime already passes full items. `accepts: false` and `lock.accept`
+  both stay (accepts is drag-only); stack/split drops count toward
+  `accepts.max` and honor `accepts.kinds`. `lock: true` does *not* include the
+  `hide` axis, which protects apps that lock with `true` and still hide via a
+  View menu — making `true` mean every axis needs a README breaking-change note.
+- **raise** — under `FocusProvider` a DOM reorder mid-press cancels the click;
+  the fix is stacking by z-index rather than DOM order. Declarative `<Zone>` JSX
+  reverts raises through `reconcileChildOrder`, `show` activates on initial
+  registration, and raise ignores a child's `lock.move`.
+- **reorder** — a `<Zone>` declaring `reorder` keeps the dropped order (acting
+  as `sort={preserveStoreOrder}`) unless `sort` is passed: keep that implicit or
+  make it opt-in? No `touch-action: none` on reorder wrappers, left to consumer
+  CSS.
+- **stack** — the tab band is exposed via channels (`bandX/Y/W/H`, `tabX/…`);
+  should `useStack` return it too? Stacked with `side` left/right gives vertical
+  columns, which i3 has no equivalent for. `strict` never applies to
+  drop-splits, since `DragProvider` carries no size.
+- **view, tear, step/zoom** — persist `view` in snapshots? `<Panel container>`
+  view/fit; pass scale to custom affordance renderers. The default body-size
+  tear is huge (`tearSize` is the practical answer); stale `preferredSize` /
+  `state.at` after a dock; a drag-start threshold. Hide-restore under controlled
+  placement; `zoom` naming a hidden child persists.
+- **packers** — per-box rotation greed can load less than upright (van 5/14 vs
+  7; pallets on column/shelf); `justified` has no minimum row height, so
+  Flickr's ±25% floor is unexpressible; stb's secondary sort (widest among equal
+  heights) is unexpressible.
+- **elsewhere** — a viewport vs border-box zone makes rows 2px wider than a
+  bordered zone; is that a library fix? `SerializedNode.hints` lacks `aspect`,
+  `maxSize` and `sizing`.
