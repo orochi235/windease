@@ -114,14 +114,14 @@ describe('rectOf', () => {
 
   it('resolves an anchored item against the corner, ignoring stored coordinates', () => {
     const rect = rectOf(item, { x: 999, y: 999, anchor: 'bottom-right' }, container, 12);
-    expect(rect).toEqual({ x: 288, y: 208, z: 0, w: 100, h: 80 });
+    expect(rect).toEqual({ x: 288, y: 208, z: 1, w: 100, h: 80 });
   });
 
   it('clamps a free item inside the container', () => {
     expect(rectOf(item, { x: -50, y: 999, anchor: null }, container, 12)).toEqual({
       x: 0,
       y: 220,
-      z: 0,
+      z: 1,
       w: 100,
       h: 80,
     });
@@ -145,7 +145,7 @@ describe('floatingStrategy.layout', () => {
     const s = floatingStrategy();
     const state = s.initialState([panel], {});
     const r = s.layout({ items: [panel], container, state, options: {} });
-    expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, z: 0, w: 100, h: 80 });
+    expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, z: 1, w: 100, h: 80 });
   });
 
   it('floats an unmarked item too when there is no inner strategy', () => {
@@ -157,7 +157,7 @@ describe('floatingStrategy.layout', () => {
       state: s.initialState([plain], {}),
       options: {},
     });
-    expect(r.placements.get('plain')).toEqual({ x: 12, y: 208, z: 0, w: 100, h: 80 });
+    expect(r.placements.get('plain')).toEqual({ x: 12, y: 208, z: 1, w: 100, h: 80 });
     expect(r.affordances.map((a) => a.id)).toEqual(['floating:drag:plain']);
   });
 
@@ -170,7 +170,7 @@ describe('floatingStrategy.layout', () => {
       state,
       options: { defaultAnchor: 'top-right' },
     });
-    expect(r.placements.get('legend')).toEqual({ x: 288, y: 12, z: 0, w: 100, h: 80 });
+    expect(r.placements.get('legend')).toEqual({ x: 288, y: 12, z: 1, w: 100, h: 80 });
   });
 
   it('gives the inner strategy the full container, unreduced by the panel', () => {
@@ -213,7 +213,7 @@ describe('floatingStrategy.layout', () => {
       kind: 'drag-xy',
       childId: 'legend',
       cursor: 'grab',
-      rect: { x: 12, y: 208, z: 0, w: 100, h: 80 },
+      rect: { x: 12, y: 208, z: 1, w: 100, h: 80 },
     });
   });
 
@@ -225,7 +225,7 @@ describe('floatingStrategy.layout', () => {
       state: s.initialState([panel], {}),
       options: { handleSize: 20 },
     });
-    expect(r.affordances[0]?.rect).toEqual({ x: 12, y: 208, z: 0, w: 100, h: 20 });
+    expect(r.affordances[0]?.rect).toEqual({ x: 12, y: 208, z: 1, w: 100, h: 20 });
   });
 
   it('withholds an item nothing has sized yet rather than placing it at 0x0', () => {
@@ -276,7 +276,7 @@ describe('floatingStrategy.layout', () => {
       state: { at: {}, inner: undefined },
       options: {},
     });
-    expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, z: 0, w: 100, h: 80 });
+    expect(r.placements.get('legend')).toEqual({ x: 12, y: 208, z: 1, w: 100, h: 80 });
   });
 
   it('declares every config key it reads', () => {
@@ -343,9 +343,9 @@ describe('floatingStrategy layer', () => {
     return ids.map((id) => r.placements.get(id)?.z);
   };
 
-  it('lifts a top-layer item above the rest, which stay at 0', () => {
+  it('lifts a top-layer item above the floating items, which sit above the tiles', () => {
     const items = [float('palette', { layer: 'top' }), float('legend'), pane];
-    expect(zs(items, ['palette', 'legend', 'main'])).toEqual([2, 0, 0]);
+    expect(zs(items, ['palette', 'legend', 'main'])).toEqual([2, 1, 0]);
   });
 
   it('keeps child order within the top layer', () => {

@@ -154,8 +154,8 @@ test.describe('floating layer', () => {
     expect(await hitAtLegend(page)).toBe('legend');
   });
 
-  test('without the layer, the panes after it cover it', async ({ page }) => {
+  test('a legend with no top layer still draws over the tiles under it', async ({ page }) => {
     await openStory(page, `${TOP_STORY}&arg-layer=false`);
-    expect(await hitAtLegend(page)).not.toBe('legend');
+    expect(await hitAtLegend(page)).toBe('legend');
   });
 });

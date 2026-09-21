@@ -154,6 +154,9 @@ export function resolveOrigin(
   return clampToContainer(cornerOrigin(place.anchor, size, within, inset), size, container);
 }
 
+/** Floating items sit a layer above whatever the inner strategy tiled. */
+const FLOATING_Z = 1;
+
 export function rectOf(
   item: LayoutItem,
   place: FloatingPlacement,
@@ -162,10 +165,10 @@ export function rectOf(
   panes?: ReadonlyMap<string, Rect>,
 ): Rect {
   const filled = place.fill === undefined ? undefined : panes?.get(place.fill);
-  if (filled) return { x: filled.x, y: filled.y, z: 0, w: filled.w, h: filled.h };
+  if (filled) return { x: filled.x, y: filled.y, z: FLOATING_Z, w: filled.w, h: filled.h };
   const size = sizeOf(item);
   const origin = resolveOrigin(place, size, container, inset, panes);
-  return { x: origin.x, y: origin.y, z: 0, w: size.w, h: size.h };
+  return { x: origin.x, y: origin.y, z: FLOATING_Z, w: size.w, h: size.h };
 }
 
 function paneAt(point: Point, panes: ReadonlyMap<string, Rect>): string | undefined {

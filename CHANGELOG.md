@@ -369,6 +369,14 @@ section below.
 
 ### Fixed
 
+- **A floating item draws over the tiles under it.** `floatingStrategy` gave
+  its floating items `z` 0, the same as the panes the inner strategy tiled, so
+  one stayed on top only by being rendered later — a legend registered before
+  the panes disappeared behind them. Floating items sit at `z` 1 now, and
+  `layer: 'top'` still lifts one to 2 and up, which is how one floating item
+  stays above another. A host that worked around this by registering floating
+  children last can stop.
+
 - **A filled strip under `step` no longer reports a phantom overflow.** The
   pane taking the rounding remainder could come out a float hair long (tmux's
   40-pane row ended 4.5e-13px past the edge), and the strip reported that as

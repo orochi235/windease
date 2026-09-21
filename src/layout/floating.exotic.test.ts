@@ -94,11 +94,10 @@ describe('floating presets: generic invariants', () => {
     },
   );
 
-  // Stacking is not in the contract (TODO: "Floating chrome: z-order"), so it falls to DOM order.
-  it('gives floating items the same z as the tiles under them', () => {
+  it('draws floating items a layer above the tiles under them', () => {
     const s = presetScenario(FANCYZONES);
     const r = runScenario(OVERLAP_STRATEGIES['floating-grid']!, s);
-    expect(r.placements.get('fz-edge')?.z).toBe(0);
+    expect(r.placements.get('fz-edge')?.z).toBe(1);
     expect(r.placements.get('fz-zone-left')?.z).toBe(0);
     expect(overlaps(r.placements).length).toBeGreaterThan(0);
   });

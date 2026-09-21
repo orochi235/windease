@@ -170,7 +170,7 @@ describe('floatingStrategy.reduce snapping to panes', () => {
       state,
       options: { snapToPanes: true },
     });
-    expect(r.placements.get('legend')).toEqual({ x: 12, y: 12, z: 0, w: 100, h: 80 });
+    expect(r.placements.get('legend')).toEqual({ x: 12, y: 12, z: 1, w: 100, h: 80 });
   });
 
   it('drops a pane-anchored item back to its free position when the pane is gone', () => {
@@ -185,6 +185,6 @@ describe('floatingStrategy.reduce snapping to panes', () => {
       state,
       options: { snapToPanes: true },
     });
-    expect(r.placements.get('legend')).toEqual({ x: 40, y: 60, z: 0, w: 100, h: 80 });
+    expect(r.placements.get('legend')).toEqual({ x: 40, y: 60, z: 1, w: 100, h: 80 });
   });
 });

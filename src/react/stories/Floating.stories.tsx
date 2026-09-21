@@ -89,7 +89,7 @@ function useZoneStore(
       );
       s.showNode(LEGEND_ID);
     };
-    // Registered first, it renders under the panes unless its layer lifts it.
+    // Registered first, so nothing but its z keeps it over the panes.
     if (layer !== undefined) registerLegend();
     for (let i = 0; i < 4; i++) {
       const id = asNodeId(`panel-${i + 1}`);
@@ -104,8 +104,6 @@ function useZoneStore(
       );
       s.showNode(id);
     }
-    // Registered last, it renders last: with no layer, DOM order is what puts
-    // it over the tiles.
     if (layer === undefined) registerLegend();
     return s;
   }, [handleSize, snapToPanes, corners, layer, snap]);
@@ -236,7 +234,7 @@ SnapToPanes.args = {
   bottomRight: true,
 };
 
-/** The legend comes before the panes in child order, so only `layer: 'top'` keeps it over them. */
+/** The legend comes before the panes in child order and draws over them anyway. */
 export const TopLayer: Story<Args> = (args) => <FloatingZone {...args} />;
 TopLayer.args = { ...HandleBand.args, layer: true };
 

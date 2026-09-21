@@ -52,7 +52,7 @@ describe("floating snap: 'fill'", () => {
 
   it('lays a bound item out as its zone', () => {
     const r = layout(state({ x: 270, y: 20, anchor: null, fill: 'right' }));
-    expect(r.placements.get('win')).toEqual({ x: 200, y: 0, z: 0, w: 200, h: 300 });
+    expect(r.placements.get('win')).toEqual({ x: 200, y: 0, z: 1, w: 200, h: 300 });
   });
 
   it('follows its zone when the layout changes', () => {
@@ -60,7 +60,7 @@ describe("floating snap: 'fill'", () => {
       w: 800,
       h: 300,
     });
-    expect(r.placements.get('win')).toEqual({ x: 400, y: 0, z: 0, w: 400, h: 300 });
+    expect(r.placements.get('win')).toEqual({ x: 400, y: 0, z: 1, w: 400, h: 300 });
   });
 
   it('keeps its free position and size while bound, to return to', () => {
@@ -115,7 +115,7 @@ describe("floating snap: 'fill'", () => {
 
   it('falls back to the free position when its zone goes away', () => {
     const st = state({ x: 40, y: 60, anchor: null, fill: 'gone' });
-    expect(layout(st).placements.get('win')).toEqual({ x: 40, y: 60, z: 0, w: 100, h: 80 });
+    expect(layout(st).placements.get('win')).toEqual({ x: 40, y: 60, z: 1, w: 100, h: 80 });
   });
 
   it("ignores the binding under snap: 'corner'", () => {

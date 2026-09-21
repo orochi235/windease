@@ -339,13 +339,6 @@ carries a hand-rolled balanced-tree builder (`tree.ts`) working around
 `initialState`. Deleting that is klieg's migration to do, not a windease item —
 but it means feedback from that lab is 0.8-shaped until the upgrade lands.
 
-## Floating chrome: z-order [MED]
-
-`desktopStrategy` settled how stacking is carried: `Rect.z`, which `<Container>`
-turns into `z-index`. `floatingStrategy` still emits `0` for its floating items,
-so one renders above a tile only by render order. Giving them `z = 1` is the
-whole fix.
-
 ## Floating chrome: no keyboard move [MED]
 
 `AffordanceLayer` binds its key handler only to an affordance carrying `bounds`,
@@ -398,8 +391,7 @@ Open, grouped by what they touch:
   celled path is fixed (27s → 5ms).
 - **floating** — ignore an `Infinity` drag delta (only `NaN` is ignored now,
   and a test expects the clamp); `floatingStrategy()` with no inner now floats
-  every item where it used to drop unmarked ones — confirm that is wanted;
-  floating items at `z` 0 should be 1.
+  every item where it used to drop unmarked ones — confirm that is wanted.
 - **desktop** — resize capped at the container vs obeying the clamp; `iconFrom`
   doesn't mirror inner bounds.
 - **accepts and locks** — `AcceptContext.items` should be `LayoutItem`-shaped,

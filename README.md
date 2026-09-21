@@ -1287,12 +1287,14 @@ layout.dispatchAffordance({
 });
 ```
 
-Two limits. An item with neither a measured `natural` size nor
+One limit: an item with neither a measured `natural` size nor
 `hints.preferredSize` is withheld into `unplaced` rather than placed at zero
-size. And a floating item sits at `z` 0 like the tiles, so it renders above a
-tiled one only if the host renders it later — register it last, or give it
-`layer: 'top'` in its placement, which lifts it to `z` 2 and up in child order.
-[`desktopStrategy`](#desktop-windows) stacks every window by `z`.
+size.
+
+A floating item sits at `z` 1 and the tiles under it at 0, so it draws over them
+whatever order the host renders them in. `layer: 'top'` in its placement lifts it
+further, to `z` 2 and up in child order, which is how one floating item stays
+above another. [`desktopStrategy`](#desktop-windows) stacks every window by `z`.
 
 See the **Floating** story for both handle modes.
 
