@@ -33,15 +33,15 @@ test.describe('strip placement.sticky', () => {
   test('a pinned tab draws over the page scrolled beneath it', async ({ page }) => {
     await openStory(page, STORY);
     await scrollBar(page, 300);
-    const chat = await boxOf(tab(page, 'chat'));
     await expect
-      .poll(() =>
-        page.evaluate(
+      .poll(async () => {
+        const chat = await boxOf(tab(page, 'chat'));
+        return page.evaluate(
           ({ x, y }) =>
             document.elementFromPoint(x, y)?.closest('[data-node]')?.getAttribute('data-node'),
           { x: chat.x + chat.w / 2, y: chat.y + chat.h / 2 },
-        ),
-      )
+        );
+      })
       .toBe('sticky-chat');
   });
 });
