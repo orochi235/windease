@@ -17,6 +17,11 @@
       "!**/.playwright-mcp",
       // Written by astv's capture script; a recapture would undo any reformatting.
       "!dev/pack-lab/datasets",
+      // Local tool output, all of it gitignored: astv's cache, semanticore's
+      // dumps, and what scripts/flake-census.mjs writes.
+      "!.astv",
+      "!.semanticore",
+      "!flake-census.json",
       // Root-anchored: "!**/.claude" would match the .claude segment of an
       // absolute path and exclude everything when run from inside a worktree.
       "!.claude"
