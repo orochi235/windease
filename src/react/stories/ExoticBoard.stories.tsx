@@ -26,6 +26,7 @@ import {
   useDragState,
   useStore,
 } from '../index.js';
+import { cardPool, type PoolCard } from './board-cards.js';
 import './windease.css';
 import './exotic-board.css';
 
@@ -42,19 +43,26 @@ import './exotic-board.css';
  */
 
 /** The camera the whole table shares, so the four bands agree on one horizon. */
-const CAMERA = { tilt: 0.55, horizon: 0.08 };
+/**
+ * A gentle camera on purpose. `tilt` is perspective strength, and `horizon`
+ * is how far the far edge converges: push the horizon up and the projection
+ * compresses height much harder than it scales width, which leaves each row
+ * fitted into a box far shorter than the one it was placed in, and the table
+ * grows gaps between its rows.
+ */
+const CAMERA = { tilt: 0.42, horizon: 0.45 };
 
 const STRATEGIES = {
   /**
-   * The table itself. The bands are its children, so projecting *here* is what
-   * makes the table converge: each band's own rect narrows and shortens with
-   * depth, and the cards inside it then lay out against the width it really
-   * has. Tilting each band separately only shrinks the cards within it, which
-   * looks like a mistake rather than a table.
+   * The table: one surface carrying every row, projected once. All four rows
+   * are children of it, so they converge together on a single plane. Each row
+   * then lays out in the same logical box (`BAND_W` × `BAND_H`) and is fitted
+   * uniformly into the width the projection left it, which is what makes a far
+   * card smaller than a near one without being a different shape.
    */
   tableau: warp(stripStrategy, [tilt(CAMERA)]) as never,
   /** The near player's hand: bent onto a curve, then parted under the cursor. */
-  hand: warp(stripStrategy, [bow(0.35), swell({ reach: 150, gain: 1.18, lift: 26 })]) as never,
+  hand: warp(stripStrategy, [bow(0.3), swell({ reach: 210, gain: 1.75, lift: 22 })]) as never,
   /** Bands, columns and the pile rail, which are ordinary strips. */
   strip: stripStrategy as never,
 };
@@ -74,45 +82,48 @@ const YOUR_HAND = asNodeId('your-hand');
 const YOURS: NodeId[] = [YOUR_FIELD, YOUR_LAND, YOUR_HAND];
 
 const CARD = { w: 86, h: 120 };
+/** A band's inner padding, and the height that gives its cards `CARD`'s aspect.
+ *  A strip fills its cross axis, so the band's height *is* the card height —
+ *  every band is this tall so no card is drawn to a different shape. */
+const BAND_PAD = 8;
+const BAND_H = CARD.h + 2 * BAND_PAD;
+/** The logical width every band lays out in, whatever width it is drawn at. */
+const BAND_W = 660;
 
-interface Card {
-  id: string;
-  name: string;
-  parent: NodeId;
-  land?: boolean;
-  power?: string;
-}
-
-/** Invented names for invented cards. Nothing here is anyone's property. */
-const CARDS: Card[] = [
-  { id: 'o1', name: 'Hollow Warden', parent: OPP_FIELD, power: '3/4' },
-  { id: 'o2', name: 'Silt Harrier', parent: OPP_FIELD, power: '2/1' },
-  { id: 'o3', name: 'Reed Diviner', parent: OPP_FIELD, power: '1/3' },
-  { id: 'ol1', name: 'Saltflat', parent: OPP_LAND, land: true },
-  { id: 'ol2', name: 'Deepwood', parent: OPP_LAND, land: true },
-  { id: 'ol3', name: 'Wellspring', parent: OPP_LAND, land: true },
-  { id: 'ol4', name: 'Ember Vent', parent: OPP_LAND, land: true },
-  { id: 'y1', name: 'Thornback Drake', parent: YOUR_FIELD, power: '4/4' },
-  { id: 'y2', name: 'Glass Sentinel', parent: YOUR_FIELD, power: '0/6' },
-  { id: 'yl1', name: 'Wellspring', parent: YOUR_LAND, land: true },
-  { id: 'yl2', name: 'Wellspring', parent: YOUR_LAND, land: true },
-  { id: 'yl3', name: 'Marshpath', parent: YOUR_LAND, land: true },
-  { id: 'yl4', name: 'Marshpath', parent: YOUR_LAND, land: true },
-  { id: 'yl5', name: 'Ember Vent', parent: YOUR_LAND, land: true },
-  { id: 'h1', name: 'Cinder Adept', parent: YOUR_HAND, power: '2/2' },
-  { id: 'h2', name: 'Gale Runner', parent: YOUR_HAND, power: '3/1' },
-  { id: 'h3', name: 'Ash Pilgrim', parent: YOUR_HAND, power: '1/1' },
-  { id: 'h4', name: 'Stone Vigil', parent: YOUR_HAND, power: '0/5' },
-  { id: 'h5', name: 'Tidecaller', parent: YOUR_HAND, power: '2/3' },
-  { id: 'h6', name: 'Marshpath', parent: YOUR_HAND, land: true },
-  { id: 'h7', name: 'Ember Sprite', parent: YOUR_HAND, power: '1/2' },
+/** How many cards each band is dealt, far to near. The rest stay in the deck,
+ *  which is what the library pile counts. */
+const DEAL: Array<[NodeId, number, 'unit' | 'land' | 'any']> = [
+  [OPP_FIELD, 3, 'unit'],
+  [OPP_LAND, 4, 'land'],
+  [YOUR_FIELD, 2, 'unit'],
+  [YOUR_LAND, 5, 'land'],
+  [YOUR_HAND, 7, 'any'],
 ];
+
+const POOL = cardPool();
+
+/** The deal: take from the pool in order, honoring each band's want. */
+function deal(): { hands: Map<NodeId, PoolCard[]>; left: number } {
+  const hands = new Map<NodeId, PoolCard[]>();
+  let next = 0;
+  for (const [band, n, want] of DEAL) {
+    const taken: PoolCard[] = [];
+    while (taken.length < n && next < POOL.length) {
+      const card = POOL[next++]!;
+      if (want === 'unit' && card.land) continue;
+      if (want === 'land' && !card.land) continue;
+      taken.push(card);
+    }
+    hands.set(band, taken);
+  }
+  return { hands, left: POOL.length - next };
+}
 
 /** A band of the table, wide enough for a row of cards and no taller. */
 const bandConfig = (extra: Record<string, unknown> = {}) => ({
   axis: 'x',
   gap: 10,
-  padding: 8,
+  padding: BAND_PAD,
   justify: 'center',
   resizable: false,
   overflowMode: 'overlap',
@@ -159,7 +170,7 @@ function makeStore(): Store {
       parentId: MAIN,
       container: {
         strategyId: 'tableau',
-        config: { axis: 'y', gap: 8, padding: 4, resizable: false },
+        config: { axis: 'y', gap: 12, padding: 6, resizable: false },
       },
       placement: { share: 1 },
     }),
@@ -170,23 +181,23 @@ function makeStore(): Store {
       kind: 'zone',
       id: YOUR_HAND,
       parentId: MAIN,
-      container: { strategyId: 'hand', config: bandConfig({ peek: 44, padding: 28 }) },
+      container: { strategyId: 'hand', config: bandConfig({ peek: 46 }) },
       meta: { title: 'Your hand' },
-      placement: { size: { h: 170 } },
+      placement: { size: { h: BAND_H } },
     }),
   );
   s.showNode(YOUR_HAND);
 
-  // Far to near, and each band is an ordinary strip: the convergence is the
-  // tableau's doing, not theirs.
-  const bands: Array<[NodeId, string, Record<string, unknown>]> = [
-    [OPP_HAND, "Opponent's hand", bandConfig({ peek: 26 })],
-    [OPP_LAND, "Opponent's lands", bandConfig()],
-    [OPP_FIELD, "Opponent's units", bandConfig()],
-    [YOUR_FIELD, 'Your units', bandConfig()],
-    [YOUR_LAND, 'Your lands', bandConfig()],
+  // Far to near on one surface, every row the same height so no card is
+  // drawn to a different shape than any other.
+  const bands: Array<[NodeId, string, Record<string, unknown>, number]> = [
+    [OPP_HAND, "Opponent's hand", bandConfig({ peek: 26 }), 78],
+    [OPP_LAND, "Opponent's lands", bandConfig(), BAND_H],
+    [OPP_FIELD, "Opponent's units", bandConfig(), BAND_H],
+    [YOUR_FIELD, 'Your units', bandConfig(), BAND_H],
+    [YOUR_LAND, 'Your lands', bandConfig(), BAND_H],
   ];
-  for (const [id, title, config] of bands) {
+  for (const [id, title, config, h] of bands) {
     s.registerNode(
       createNode({
         kind: 'zone',
@@ -194,16 +205,18 @@ function makeStore(): Store {
         parentId: TABLEAU,
         container: { strategyId: 'strip', config },
         meta: { title },
-        placement: { share: 1 },
+        placement: { size: { h } },
       }),
     );
     s.showNode(id);
   }
 
-  for (const [id, label] of [
-    ['library', 'Library'],
-    ['graveyard', 'Graveyard'],
-    ['exile', 'Exile'],
+  const { hands, left } = deal();
+
+  for (const [id, label, count] of [
+    ['library', 'Library', left],
+    ['graveyard', 'Graveyard', 0],
+    ['exile', 'Exile', 0],
   ] as const) {
     const nid = asNodeId(id);
     s.registerNode(
@@ -211,26 +224,40 @@ function makeStore(): Store {
         kind: 'pile',
         id: nid,
         parentId: RAIL,
-        meta: { title: label },
+        meta: { title: label, count },
         placement: { size: { h: 96 } },
       }),
     );
     s.showNode(nid);
   }
 
-  for (const card of CARDS) {
-    const nid = asNodeId(card.id);
-    s.registerNode(
-      createNode({
-        kind: 'card',
-        focus: true,
-        id: nid,
-        parentId: card.parent,
-        meta: { title: card.name, land: card.land === true, power: card.power ?? '' },
-        hints: { preferredSize: { ...CARD } },
-      }),
-    );
-    s.showNode(nid);
+  for (const [band, cards] of hands) {
+    // Positional ids rather than the pool's own, so a band's third card is
+    // addressable whatever the pool deals into it.
+    for (const [i, card] of cards.entries()) {
+      const nid = asNodeId(`${band}-${i}`);
+      s.registerNode(
+        createNode({
+          kind: 'card',
+          focus: true,
+          id: nid,
+          parentId: band,
+          meta: {
+            title: card.name,
+            land: card.land,
+            power: card.power,
+            cost: card.cost,
+            type: card.type,
+            text: card.text,
+            rarity: card.rarity,
+            foil: card.foil,
+            hue: card.hue,
+          },
+          hints: { preferredSize: { ...CARD } },
+        }),
+      );
+      s.showNode(nid);
+    }
   }
   // The far player's hand is a count, not a list: seven backs.
   for (let i = 0; i < 7; i++) {
@@ -259,10 +286,17 @@ function makeStore(): Store {
  * its keystone for a host that wants a true trapezoid, and how far the cursor
  * has singled it out.
  */
-function cardStyle(channels: Record<string, number> | undefined): CSSProperties {
-  if (!channels) return {};
+function cardStyle(channels: Record<string, number> | undefined, tapped: boolean): CSSProperties {
   const style: CSSProperties & Record<string, string | number> = {};
-  if (channels.angle) style.transform = `rotate(${channels.angle}deg)`;
+  // A turned card is centered in its box first, then rotated a quarter; the
+  // fan's own angle adds to that quarter rather than replacing it.
+  const angle = (channels?.angle ?? 0) + (tapped ? 90 : 0);
+  if (angle !== 0) {
+    style.transform = `${tapped ? 'translate(-50%, -50%) ' : ''}rotate(${angle}deg)`;
+  } else if (tapped) {
+    style.transform = 'translate(-50%, -50%)';
+  }
+  if (!channels) return style;
   // Distance shrank the card's box; shrink what is printed on it to match.
   if (channels.scale !== undefined) style['--xb-scale'] = channels.scale;
   if (channels.focus) style['--xb-focus'] = channels.focus;
@@ -287,7 +321,9 @@ function CardFace({ nodeId }: { nodeId: NodeId }) {
   const tapped = isTapped(size.w, size.h);
   const className = [
     'xb-card',
+    `xb-card--${String(node.meta?.rarity ?? 'common')}`,
     land ? 'xb-card--land' : '',
+    node.meta?.foil === true ? 'xb-card--foil' : '',
     tapped ? 'xb-card--tapped' : '',
     channels?.focus ? 'xb-card--focus' : '',
   ]
@@ -299,17 +335,35 @@ function CardFace({ nodeId }: { nodeId: NodeId }) {
       <button
         type="button"
         className={className}
-        style={cardStyle(channels)}
+        style={
+          {
+            ...cardStyle(channels, tapped),
+            '--xb-hue': String(node.meta?.hue ?? 200),
+          } as CSSProperties
+        }
         data-testid={`xb-card-${nodeId}`}
         data-tapped={tapped ? 'true' : undefined}
         onClick={() => store.setHints(nodeId, { preferredSize: { w: size.h, h: size.w } })}
       >
-        <span className="xb-card__name">{String(node.meta?.title ?? nodeId)}</span>
-        <span className="xb-card__art" aria-hidden="true" />
-        <span className="xb-card__foot">
-          <span>{land ? 'Land' : 'Unit'}</span>
-          <span>{String(node.meta?.power ?? '')}</span>
+        <span className="xb-card__title">
+          <span className="xb-card__name">{String(node.meta?.title ?? nodeId)}</span>
+          {node.meta?.cost ? <span className="xb-card__cost">{String(node.meta.cost)}</span> : null}
         </span>
+        <span className={`xb-card__art${land ? ' xb-card__art--land' : ''}`} aria-hidden="true">
+          <span className="xb-card__sky" />
+          <span className="xb-card__hills" />
+          <span className="xb-card__figure" />
+        </span>
+        <span className="xb-card__type">
+          <span>{String(node.meta?.type ?? (land ? 'Land' : 'Unit'))}</span>
+          <span className="xb-card__set" aria-hidden="true">
+            ◈
+          </span>
+        </span>
+        <span className="xb-card__rules">{String(node.meta?.text ?? '')}</span>
+        {node.meta?.power ? (
+          <span className="xb-card__power">{String(node.meta.power)}</span>
+        ) : null}
       </button>
     </DragHandle>
   );
@@ -318,11 +372,12 @@ function CardFace({ nodeId }: { nodeId: NodeId }) {
 function Band({ id }: { id: NodeId }) {
   const drag = useDragState();
   const store = useStore();
-  // The tableau projected this band and said by how much. A band sits at one
-  // depth, so its cards are uniformly smaller rather than each shrinking on
-  // its own — which is what a container `view` is for, and it keeps drags
-  // tracking because windease divides pointer deltas by the scale.
-  const scale = useChannelsForSelf(id)?.scale ?? 1;
+  // Every band lays out in the same logical box, so a card is the same shape
+  // wherever it sits, and `fit="width"` scales that box uniformly into the
+  // width the projection left this row. Reading the projected height instead
+  // would foreshorten the cards, since perspective compresses y harder than
+  // it scales x — a real table does that to a card lying on it, but it reads
+  // as a squashed card rather than a tilted one.
   const isTarget = drag?.hover?.targetId === id;
   const accepted = isTarget && drag?.hover?.accepted === true;
   const className = [
@@ -338,8 +393,13 @@ function Band({ id }: { id: NodeId }) {
       <Container
         parentId={id}
         chrome={CHROME}
-        view={{ x: 0, y: 0, scale }}
+        viewport={{ w: BAND_W, h: BAND_H }}
+        fit="width"
         pointer={id === YOUR_HAND}
+        // The hand re-lays out on every pointermove. A settle transition
+        // animates toward each new position and never arrives, which reads as
+        // jitter; the swell is already continuous, so it needs no easing.
+        settleMs={id === YOUR_HAND ? 0 : undefined}
         // `sourceId` is the card being dragged, so the side it belongs to is
         // its parent band, not the card itself.
         acceptPolicy={({ sourceId }) => {
@@ -352,11 +412,19 @@ function Band({ id }: { id: NodeId }) {
   );
 }
 
+/**
+ * A card belongs in a band, never in the scaffolding that arranges the bands.
+ * Without this the tableau, the column and the pile rail all accept by default,
+ * so a card could be dropped into the gap between two bands or onto the rail
+ * and would sit there as a sibling of the piles.
+ */
+const REFUSE = () => false;
+
 const CHROME: ChromeMap = {
   zone: ({ node }) =>
     node.id === TABLEAU || node.id === MAIN || node.id === RAIL ? (
       <div className="xb-nest">
-        <Container parentId={node.id} chrome={CHROME} />
+        <Container parentId={node.id} chrome={CHROME} acceptPolicy={REFUSE} />
       </div>
     ) : (
       <Band id={node.id} />
@@ -382,10 +450,10 @@ export const DuelBoard: Story = () => {
               <div className="xb-root" data-testid="xb-root">
                 <div className="xb-table">
                   <div className="xb-main">
-                    <Container parentId={MAIN} chrome={CHROME} />
+                    <Container parentId={MAIN} chrome={CHROME} acceptPolicy={REFUSE} />
                   </div>
                   <div className="xb-rail">
-                    <Container parentId={RAIL} chrome={CHROME} />
+                    <Container parentId={RAIL} chrome={CHROME} acceptPolicy={REFUSE} />
                   </div>
                 </div>
                 <p className="xb-hint">

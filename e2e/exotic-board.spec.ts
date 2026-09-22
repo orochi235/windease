@@ -50,51 +50,81 @@ test.describe('duel board', () => {
   test('the table recedes: a far band draws its cards smaller than a near one', async ({
     page,
   }) => {
-    const far = await card(page, 'o1').boundingBox();
-    const near = await card(page, 'y1').boundingBox();
+    const far = await card(page, 'opp-field-0').boundingBox();
+    const near = await card(page, 'your-field-0').boundingBox();
     expect(far!.width).toBeLessThan(near!.width);
   });
 
   // The test the CSS approach fails: under a transformed parent the drop
   // resolves against an inflated bounding box and lands in the wrong band.
   test('a card dropped on a band lands in the band under the cursor', async ({ page }) => {
-    await dragOnto(page, 'h1', 'your-field');
-    await expect.poll(() => bandUnder(page, 'h1')).toBe('your-field');
+    await dragOnto(page, 'your-hand-0', 'your-field');
+    await expect.poll(() => bandUnder(page, 'your-hand-0')).toBe('your-field');
   });
 
   test('a card can be dragged back to the hand', async ({ page }) => {
-    await dragOnto(page, 'h2', 'your-land');
-    await expect.poll(() => bandUnder(page, 'h2')).toBe('your-land');
-    await dragOnto(page, 'h2', 'your-hand');
-    await expect.poll(() => bandUnder(page, 'h2')).toBe('your-hand');
+    await dragOnto(page, 'your-hand-1', 'your-land');
+    await expect.poll(() => bandUnder(page, 'your-hand-1')).toBe('your-land');
+    await dragOnto(page, 'your-hand-1', 'your-hand');
+    await expect.poll(() => bandUnder(page, 'your-hand-1')).toBe('your-hand');
   });
 
   test("the opponent's half refuses your cards", async ({ page }) => {
-    await dragOnto(page, 'h3', 'opp-field');
-    await expect.poll(() => bandUnder(page, 'h3')).toBe('your-hand');
+    await dragOnto(page, 'your-hand-2', 'opp-field');
+    await expect.poll(() => bandUnder(page, 'your-hand-2')).toBe('your-hand');
+  });
+
+  test('the pile rail refuses cards; they belong in bands', async ({ page }) => {
+    const rail = await page.getByTestId('xb-pile-graveyard').boundingBox();
+    const src = await card(page, 'your-hand-2').boundingBox();
+    await page.mouse.move(src!.x + src!.width / 2, src!.y + src!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(rail!.x + rail!.width / 2, rail!.y + rail!.height / 2, { steps: 24 });
+    await page.mouse.up();
+    await expect.poll(() => bandUnder(page, 'your-hand-2')).toBe('your-hand');
+  });
+
+  test('a turned card is rotated, not just widened', async ({ page }) => {
+    const before = await card(page, 'your-field-0').boundingBox();
+    await card(page, 'your-field-0').click();
+    await expect(card(page, 'your-field-0')).toHaveAttribute('data-tapped', 'true');
+    // The face is the same portrait card on its side: its own width is now
+    // the box's height. A card merely reflowed into a wide box would not
+    // carry a rotation at all.
+    const turn = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="xb-card-your-field-0"]') as HTMLElement;
+      return getComputedStyle(el).transform;
+    });
+    expect(turn).not.toBe('none');
+    // The footprint widens; it does not also shorten, because a strip fills
+    // its cross axis and the row's height is the band's.
+    const after = await card(page, 'your-field-0').boundingBox();
+    expect(after!.width).toBeGreaterThan(before!.width);
   });
 
   test('clicking a card turns it a quarter and the band reflows', async ({ page }) => {
-    const before = await card(page, 'y1').boundingBox();
-    await card(page, 'y1').click();
-    await expect(card(page, 'y1')).toHaveAttribute('data-tapped', 'true');
+    const before = await card(page, 'your-field-0').boundingBox();
+    await card(page, 'your-field-0').click();
+    await expect(card(page, 'your-field-0')).toHaveAttribute('data-tapped', 'true');
     await expect
-      .poll(async () => (await card(page, 'y1').boundingBox())!.width)
+      .poll(async () => (await card(page, 'your-field-0').boundingBox())!.width)
       .toBeGreaterThan(before!.width);
   });
 
   test('the hand parts under the pointer', async ({ page }) => {
-    const still = await card(page, 'h4').boundingBox();
-    const box = await card(page, 'h4').boundingBox();
+    const still = await card(page, 'your-hand-3').boundingBox();
+    const box = await card(page, 'your-hand-3').boundingBox();
     await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-    await expect.poll(async () => (await card(page, 'h4').boundingBox())!.y).toBeLessThan(still!.y);
+    await expect
+      .poll(async () => (await card(page, 'your-hand-3').boundingBox())!.y)
+      .toBeLessThan(still!.y);
   });
 
   test('the hand overlaps rather than shrinking its cards', async ({ page }) => {
     // The placement boxes, not the cards': `bow` rotates each card, and a
     // rotated card's bounding box is wider than the box it was placed in.
     const boxes = await page.evaluate(() =>
-      ['h1', 'h2'].map((id) => {
+      ['your-hand-0', 'your-hand-1'].map((id) => {
         const el = document.querySelector(`[data-node="${id}"]`) as HTMLElement;
         return { x: el.offsetLeft, w: el.offsetWidth };
       }),
