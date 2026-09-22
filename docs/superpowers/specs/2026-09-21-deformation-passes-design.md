@@ -1,7 +1,19 @@
 # Deformation passes: perspective, swell and bow over any layout
 
-**Status, 2026-09-21: designed, unbuilt.** Nothing in this document exists in the
-tree yet.
+**Status, 2026-09-21: built.** `src/layout/warp.ts` (the passes and the
+composer), `pointer` on `layout()` with `ContainerHost.observePointer` and
+`<Container pointer>`, `overflowMode: 'overlap'` with `peek` in
+`src/layout/strip.ts`, the `Exotic / Board` story, `e2e/exotic-board.spec.ts`,
+and the README's "Deforming a layout".
+
+Two things the build changed. `PassArgs` carries `pointer` as well, since
+`swell` reads the cursor; and `warp` inverts a gesture's `dx`/`dy` as
+`invert(point) − invert(point − delta)` rather than inverting the delta alone,
+which a non-linear map gives no meaning to. `swell`'s falloff is triangular
+rather than raised-cosine, because that is what keeps the inverse closed-form.
+One gap turned up outside the plan: `<Container>` never published a
+`LayoutScope`, so `useChannelsForSelf` answered `undefined` inside it although
+its docstring promised otherwise. Fixed in the same change.
 
 For whoever implements this. It adds four small pieces of core surface that let a
 layout be drawn in perspective, magnify under the cursor, and bend onto a curve —
