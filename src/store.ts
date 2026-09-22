@@ -120,6 +120,11 @@ export interface StoreEvents {
   /** Closes a `transaction.begin`. Fires even when the callback threw. */
   'transaction.end': { label?: string };
   /**
+   * A turn was registered and is waiting for `tick`. A driver listens for this
+   * to know it has frames to schedule; nothing moves until it ticks.
+   */
+  'turn.started': { id: NodeId };
+  /**
    * A node started being withheld by throttling. Only ever emitted by a
    * store constructed with a `throttle` policy.
    */
@@ -151,6 +156,9 @@ export class Store {
   private readonly publisher: Publisher;
   private locksSuspended = 0;
   private txnDepth = 0;
+  /** Turns `turnTo` registered and `tick` has not finished. Transient: never
+   *  snapshotted, because a half-finished turn is not state worth restoring. */
+  private readonly turning = new Map<NodeId, PendingTurn>();
   /** Containers registered in the current synchronous task whose `activeId`
    *  nothing has written since: a child registered into one is part of the
    *  build, not an arrival, so `show: 'dropped'` leaves the declared tab. */
@@ -1040,6 +1048,74 @@ export class Store {
     this.replaceNode(id, (n) => ({ ...n, hints: next as NodeHints }));
     this.events.emit('node.hintsChanged', { id, changes });
     this.scheduleNotify();
+  }
+
+  /**
+   * Eases `hints.turn` to `deg` over `ms`, without owning a clock: nothing
+   * moves until someone calls {@link tick}. A consumer with its own loop drives
+   * it from there; `driveWithRaf(store)` is the DOM convenience over the same
+   * call.
+   *
+   * Brackets the whole turn in `transaction.begin`/`transaction.end` with the
+   * label `'turn'`, so a history integration records one undo step rather than
+   * one per frame.
+   *
+   * Re-targeting a turn already under way retimes it from where it is now, so
+   * a card tapped and untapped mid-turn does not jump.
+   */
+  turnTo(id: NodeId, deg: number, opts: TurnOptions = {}): void {
+    const node = this.requireNode(id);
+    if (!Number.isFinite(deg)) return;
+    const from = node.hints?.turn ?? 0;
+    const ms = Number.isFinite(opts.ms) && (opts.ms ?? 0) > 0 ? (opts.ms as number) : 0;
+    const existing = this.turning.get(id);
+    if (ms === 0) {
+      if (existing) this.endTurn(id);
+      this.setHints(id, { turn: deg });
+      return;
+    }
+    if (!existing) this.events.emit('transaction.begin', { label: 'turn' });
+    this.turning.set(id, {
+      from,
+      to: deg,
+      ms,
+      ease: opts.ease ?? easeInOutCubic,
+      start: undefined,
+    });
+    trace('store', `turnTo: ${id} ${from.toFixed(1)}° → ${deg.toFixed(1)}° over ${ms}ms`);
+    this.events.emit('turn.started', { id });
+  }
+
+  /**
+   * Advances every turn `turnTo` is holding, to the wall-clock `now` the caller
+   * supplies. Pure in the sense that matters: it reads no clock, so a test
+   * advances it with whatever numbers it likes.
+   *
+   * Returns whether any turn is still running, so a driver knows to schedule
+   * another frame.
+   */
+  tick(now: number): boolean {
+    if (this.turning.size === 0 || !Number.isFinite(now)) return false;
+    for (const [id, t] of [...this.turning]) {
+      // The first tick establishes the epoch, so a turn registered between
+      // frames still gets its whole duration.
+      if (t.start === undefined) t.start = now;
+      const elapsed = now - t.start;
+      if (elapsed >= t.ms) {
+        this.setHints(id, { turn: t.to });
+        this.endTurn(id);
+        continue;
+      }
+      const p = Math.max(0, elapsed / t.ms);
+      this.setHints(id, { turn: t.from + (t.to - t.from) * t.ease(p) });
+    }
+    return this.turning.size > 0;
+  }
+
+  /** Drops a running turn where it stands, closing its history bracket. */
+  private endTurn(id: NodeId): void {
+    if (!this.turning.delete(id)) return;
+    this.events.emit('transaction.end', { label: 'turn' });
   }
 
   setMeta(id: NodeId, patch: Record<string, unknown>): void {
@@ -1949,6 +2025,29 @@ export interface MutateOptions {
   /** Bypass lock guards for this call. */
   force?: boolean;
 }
+
+/** How a turn is eased. `t` and the return are both 0…1. */
+export type Ease = (t: number) => number;
+
+export interface TurnOptions {
+  /** Duration in ms. Absent, zero or unusable sets the angle outright. */
+  ms?: number;
+  /** Defaults to a cubic that starts and ends at rest. */
+  ease?: Ease;
+}
+
+interface PendingTurn {
+  from: number;
+  to: number;
+  ms: number;
+  ease: Ease;
+  /** Set by the first `tick`, so a turn registered between frames keeps its
+   *  whole duration however late the driver gets to it. */
+  start: number | undefined;
+}
+
+/** Starts and ends at rest, which is what a card turning on a table does. */
+const easeInOutCubic: Ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 /** A key from a container's config, when the config is an object. */
 function configKey(config: unknown, key: string): unknown {

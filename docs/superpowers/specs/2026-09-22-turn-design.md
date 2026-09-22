@@ -54,9 +54,12 @@ turnedExtent(w, h, deg) → { w: |w·cosθ| + |h·sinθ|,
 |  90 |         120.0 ×  86.0 |
 
 A turn animating 0 → 90 therefore grows its footprint as it goes and the row
-makes room for it continuously. The alternative — reserving the 45° hull once,
-so nothing reflows mid-turn — leaves every rotatable child sitting in permanent
-slack, and was rejected for that.
+makes room for it continuously. The alternative — reserving one box big enough
+for every angle, so nothing reflows mid-turn — leaves every rotatable child
+sitting in permanent slack, and was rejected for that. That box is the
+*diagonal* square, √(w²+h²) on a side (147.6 for an 86 × 120 card), not the 45°
+box: 45° is where the reserved box is squarest, and atan(h/w) is where it is
+widest.
 
 One shared helper, `src/layout/turn.ts`, so no two strategies disagree.
 **`stripStrategy` honors `turn`; `grid`, `justified`, the packers and `desktop`
@@ -68,28 +71,33 @@ ignore it** and say so in their docstrings, exactly as they already do for
 The placed rect stays the reserved box. The drawn box rides beside it:
 
 ```ts
-interface LayoutRect {
-  x: number; y: number; z: number; w: number; h: number;
-  /** Only when turned. The rect above is what the layout reserved; this is
-   *  the box the child is drawn at, centered in it and rotated about center. */
-  turn?: { deg: number; w: number; h: number };
+type PlacedRect = Rect & { turn?: Turn };
+
+interface Turn {
+  deg: number;
+  /** The box the child is drawn at, centered in the reserved rect and rotated
+   *  `deg` about its own center. */
+  w: number;
+  h: number;
 }
 ```
+
+`Rect` itself stays as it was — a viewport or an affordance never turns — so
+only `LayoutResult.placements` and `ContainerLayout.placements` widen.
 
 Everything that hit-tests — `insertionIndexByMidpoint`, `canAccept`, drop
 routing — keeps reading `x/y/w/h` and is correct without changing. A turned
 card's corners over-report; that is accepted and documented rather than fixed
 with polygon hit-testing.
 
-`view-dom` centers by arithmetic (`left = x + (w - turn.w) / 2`) and writes the
-two rotations as custom properties, summed once:
+`Container` centers by arithmetic — `left = x + (w - turn.w) / 2` — sizes the
+child to `turn.w`/`turn.h` and applies a bare `rotate(deg)`. No
+`translate(-50%, -50%)`, no `position: absolute` switch, no container queries.
 
-```css
-transform: rotate(calc(var(--wd-turn, 0deg) + var(--wd-angle, 0deg)));
-```
-
-`--wd-turn` comes from `rect.turn.deg`; a host sets `--wd-angle` from the
-`angle` channel. A tapped card in a bowed hand gets both.
+The two rotations compose by nesting rather than by summing: the turn goes on
+the wrapper `Container` already renders per child, and a host's decorative
+`angle` stays on its own element inside it, where it has always been. Neither
+layer has to know about the other, and no custom property is needed.
 
 ## Strip's cross axis
 

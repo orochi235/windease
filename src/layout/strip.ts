@@ -4,6 +4,7 @@ import type {
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
+  PlacedRect,
   Rect,
   Size,
   StickyInset,
@@ -13,6 +14,7 @@ import { selectByCapacity } from './capacity.js';
 import { PACK_EPSILON } from './pack.js';
 import { clampExplicitSizes } from './resize.js';
 import { DEFAULT_JOIN_THRESHOLD } from './seam-join.js';
+import { turnedExtent, turns } from './turn.js';
 import { zoomedOf, zoomLayout } from './zoom.js';
 
 interface StripConfig {
@@ -130,6 +132,17 @@ interface StripConfig {
    * child is ignored.
    */
   zoom?: string;
+  /**
+   * What a child that declares a shape does with the cross axis. A child
+   * declares one with `hints.aspect` or `hints.turn`; every other child fills
+   * the cross axis whatever this says.
+   *
+   * `'stretch'` (default) ignores the shape and fills, which is what the row
+   * has always done. The other three derive the child's cross extent from its
+   * shape and put the slack at the far edge (`'start'`), the near edge
+   * (`'end'`), or split it (`'center'`).
+   */
+  crossAlign?: 'stretch' | 'center' | 'start' | 'end';
 }
 
 /** A size input as the row may use it: finite and non-negative. Anything else
@@ -412,10 +425,82 @@ function sizedByHints(items: LayoutItem[], axis: 'x' | 'y'): boolean {
   );
 }
 
+/** The angle this child declares, or undefined when it does not turn. */
+function turnOf(item: LayoutItem): number | undefined {
+  const deg = item.hints?.turn;
+  return turns(deg) ? deg : undefined;
+}
+
+/** The box a child is drawn at, before any turn — its preferredSize, else what
+ *  the adapter measured. Undefined when it states neither, which is what makes
+ *  a turn inert on a child whose size the row decides. */
+function drawnBox(item: LayoutItem): Size | undefined {
+  const p = item.hints?.preferredSize;
+  const w = sane(p?.w, item, 'preferredSize') ?? item.natural?.w;
+  const h = sane(p?.h, item, 'preferredSize') ?? item.natural?.h;
+  if (w === undefined || h === undefined || w <= 0 || h <= 0) return undefined;
+  return { w, h };
+}
+
+/** What a child asks for along `axis` — its preferredSize, grown to the box a
+ *  turn needs. A turned child reserves the rotated extent on both axes, which
+ *  is why the row makes room for a card as it turns rather than after. */
 function preferredAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
+  const deg = turnOf(item);
+  const box = deg === undefined ? undefined : drawnBox(item);
+  if (box !== undefined && deg !== undefined) {
+    const turned = turnedExtent(box.w, box.h, deg);
+    return axis === 'x' ? turned.w : turned.h;
+  }
   const p = item.hints?.preferredSize;
   const v = sane(axis === 'x' ? p?.w : p?.h, item, 'preferredSize');
   return v !== undefined && v > 0 ? v : undefined;
+}
+
+/** A child's cross extent and the offset that aligns it, given the row's full
+ *  cross extent and the main extent the row settled on.
+ *
+ *  A child fills the cross axis unless it declares a shape — a `turn`, whose
+ *  rotated box is concrete, or an `aspect`, which derives the cross from the
+ *  main the row just decided. `'stretch'` declines to read either. */
+function crossOf(
+  item: LayoutItem,
+  cfg: StripConfig,
+  axis: 'x' | 'y',
+  mainExtent: number,
+  fullCross: number,
+): { extent: number; offset: number } {
+  const align = cfg.crossAlign ?? 'stretch';
+  const fill = { extent: fullCross, offset: 0 };
+  if (align === 'stretch') return fill;
+
+  let wanted: number | undefined;
+  const deg = turnOf(item);
+  const box = deg === undefined ? undefined : drawnBox(item);
+  if (box !== undefined && deg !== undefined) {
+    const turned = turnedExtent(box.w, box.h, deg);
+    wanted = axis === 'x' ? turned.h : turned.w;
+  } else {
+    const aspect = sane(item.hints?.aspect, item, 'aspect');
+    if (aspect !== undefined && aspect > 0) {
+      wanted = axis === 'x' ? mainExtent / aspect : mainExtent * aspect;
+    }
+  }
+  if (wanted === undefined) return fill;
+
+  const extent = Math.min(wanted, fullCross);
+  const slack = fullCross - extent;
+  const offset = align === 'center' ? slack / 2 : align === 'end' ? slack : 0;
+  return { extent, offset };
+}
+
+/** The rect a child is placed at, carrying the box it is drawn at when the row
+ *  reserved more than that for a turn. */
+function placedRect(item: LayoutItem, rect: Rect): PlacedRect {
+  const deg = turnOf(item);
+  const box = deg === undefined ? undefined : drawnBox(item);
+  if (box === undefined || deg === undefined) return rect;
+  return { ...rect, turn: { deg, w: box.w, h: box.h } };
 }
 
 /** What a child of a hint-sized row asks for: its preferredSize, else the
@@ -836,7 +921,11 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
         const w = sizes[i]!;
-        placements.set(item.id, { x, y, z: 0, w, h });
+        const cross = crossOf(item, cfg, 'x', w, h);
+        placements.set(
+          item.id,
+          placedRect(item, { x, y: y + cross.offset, z: 0, w, h: cross.extent }),
+        );
         if (resizable && i < placedItems.length - 1) {
           const join = joinFor(cfg, item, placedItems[i + 1]);
           affordances.push({
@@ -872,7 +961,11 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
         const h = sizes[i]!;
-        placements.set(item.id, { x, y, z: 0, w, h });
+        const cross = crossOf(item, cfg, 'y', h, w);
+        placements.set(
+          item.id,
+          placedRect(item, { x: x + cross.offset, y, z: 0, w: cross.extent, h }),
+        );
         if (resizable && i < placedItems.length - 1) {
           const join = joinFor(cfg, item, placedItems[i + 1]);
           affordances.push({

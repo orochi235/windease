@@ -9,7 +9,7 @@ import type {
   LayoutResult,
   LayoutStrategy,
   Overflow,
-  Rect,
+  PlacedRect,
   StickyInset,
   StrategyCommand,
   StrategyRegistry,
@@ -26,7 +26,7 @@ import { IDENTITY_VIEW, type View } from './view.js';
  * is empty rather than guessed.
  */
 export interface ContainerLayout {
-  placements: Map<NodeId, Rect>;
+  placements: Map<NodeId, PlacedRect>;
   affordances: Affordance[];
   unplaced: NodeId[];
   viewport: { w: number; h: number } | null;
@@ -763,7 +763,7 @@ export class ContainerHost {
    * place, leaves the un-split layout alone rather than a half-applied one.
    */
   #applySplitPreview(
-    placements: Map<NodeId, Rect>,
+    placements: Map<NodeId, PlacedRect>,
     sourceId: string,
     split: NonNullable<LayoutPreview['split']>,
   ): boolean {
@@ -818,7 +818,7 @@ export class ContainerHost {
       });
       if (fast) {
         return {
-          placements: fast.placements as Map<NodeId, Rect>,
+          placements: fast.placements as Map<NodeId, PlacedRect>,
           affordances: [],
           unplaced: [],
           viewport,

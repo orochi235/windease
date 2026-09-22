@@ -84,31 +84,89 @@ test.describe('duel board', () => {
     await expect.poll(() => bandUnder(page, 'your-hand-2')).toBe('your-hand');
   });
 
-  test('a turned card is rotated, not just widened', async ({ page }) => {
+  test('a turned card swaps its footprint rather than growing square', async ({ page }) => {
     const before = await card(page, 'your-field-0').boundingBox();
     await card(page, 'your-field-0').click();
     await expect(card(page, 'your-field-0')).toHaveAttribute('data-tapped', 'true');
-    // The face is the same portrait card on its side: its own width is now
-    // the box's height. A card merely reflowed into a wide box would not
-    // carry a rotation at all.
-    const turn = await page.evaluate(() => {
-      const el = document.querySelector('[data-testid="xb-card-your-field-0"]') as HTMLElement;
-      return getComputedStyle(el).transform;
-    });
-    expect(turn).not.toBe('none');
-    // The footprint widens; it does not also shorten, because a strip fills
-    // its cross axis and the row's height is the band's.
-    const after = await card(page, 'your-field-0').boundingBox();
-    expect(after!.width).toBeGreaterThan(before!.width);
-  });
 
-  test('clicking a card turns it a quarter and the band reflows', async ({ page }) => {
-    const before = await card(page, 'your-field-0').boundingBox();
-    await card(page, 'your-field-0').click();
-    await expect(card(page, 'your-field-0')).toHaveAttribute('data-tapped', 'true');
     await expect
       .poll(async () => (await card(page, 'your-field-0').boundingBox())!.width)
       .toBeGreaterThan(before!.width);
+    const after = (await card(page, 'your-field-0').boundingBox())!;
+    // The extents swap: the same card lying down, not a card reflowed into a
+    // wide box and not the square the cross-axis stretch used to produce.
+    expect(after.width).toBeCloseTo(before!.height, 0);
+    expect(after.height).toBeCloseTo(before!.width, 0);
+  });
+
+  test('the card keeps its own size and is rotated to lie down', async ({ page }) => {
+    await card(page, 'your-field-0').click();
+    await expect(card(page, 'your-field-0')).toHaveAttribute('data-tapped', 'true');
+    const drawn = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="xb-card-your-field-0"]');
+      const wrapper = el?.closest('.xb-card-drag')?.parentElement as HTMLElement;
+      return {
+        transform: getComputedStyle(wrapper).transform,
+        width: wrapper.style.width,
+        height: wrapper.style.height,
+      };
+    });
+    // Drawn at its portrait box and rotated — the library reserved the wider
+    // box for it, so nothing here had to resize the card to fake the turn.
+    expect(drawn.transform).not.toBe('none');
+    expect(Number.parseFloat(drawn.width)).toBeLessThan(Number.parseFloat(drawn.height));
+  });
+
+  test('the band reflows around a turn as it happens', async ({ page }) => {
+    const before = (await card(page, 'your-land-1').boundingBox())!;
+    await card(page, 'your-land-0').click();
+    // The neighbor slides over by the width the turn added, rather than being
+    // overlapped by a card that grew outside its slot.
+    await expect
+      .poll(async () => (await card(page, 'your-land-1').boundingBox())!.x)
+      .toBeGreaterThan(before.x);
+  });
+
+  test('a turn can be undone by turning it back', async ({ page }) => {
+    const upright = (await card(page, 'your-field-0').boundingBox())!;
+    await card(page, 'your-field-0').click();
+    await expect(card(page, 'your-field-0')).toHaveAttribute('data-tapped', 'true');
+    await card(page, 'your-field-0').click();
+    await expect(card(page, 'your-field-0')).not.toHaveAttribute('data-tapped', 'true');
+    await expect
+      .poll(async () => Math.round((await card(page, 'your-field-0').boundingBox())!.width))
+      .toBe(Math.round(upright.width));
+  });
+
+  test('every card on the table is drawn to the same shape', async ({ page }) => {
+    const ratios = await page.evaluate(() =>
+      [...document.querySelectorAll('.xb-card-drag')]
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          return r.height > 0 ? r.width / r.height : 0;
+        })
+        .filter((v) => v > 0),
+    );
+    expect(ratios.length).toBeGreaterThan(8);
+    for (const r of ratios) expect(r).toBeCloseTo(ratios[0]!, 2);
+  });
+
+  test('no band draws its cards taller than itself', async ({ page }) => {
+    const overflowing = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-testid^="xb-band-"]')]
+        .map((b) => {
+          const box = b.getBoundingClientRect();
+          const tallest = Math.max(
+            0,
+            ...[...b.querySelectorAll('.xb-card-drag')].map(
+              (c) => c.getBoundingClientRect().height,
+            ),
+          );
+          return { id: b.getAttribute('data-testid'), band: box.height, card: tallest };
+        })
+        .filter((r) => r.card > r.band + 1),
+    );
+    expect(overflowing).toEqual([]);
   });
 
   test('the hand parts under the pointer', async ({ page }) => {

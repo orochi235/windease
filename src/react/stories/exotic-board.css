@@ -23,9 +23,10 @@
   position: relative;
   display: flex;
   gap: 12px;
-  /* Tall enough for both halves plus the hand at their natural heights: a
-     squeezed band is a squashed card, since a strip fills its cross axis. */
-  height: 660px;
+  /* Tall enough for five bands plus the hand at their natural heights, gaps
+     included. Short of this the tableau squeezes every band, and a band
+     shorter than a card is what makes `fit` shrink the card to reach it. */
+  height: 672px;
 }
 
 .xb-main {
@@ -36,7 +37,7 @@
 
 .xb-rail {
   position: relative;
-  flex: 0 0 96px;
+  flex: 0 0 84px;
 }
 
 /* A band is one row of the table: a player's lands, their creatures, a hand.
@@ -56,15 +57,13 @@
   height: 100%;
 }
 
-/* The placement box. `container-type: size` makes its width and height
-   available as `cqw`/`cqh`, which is how a turned card takes its own
-   dimensions from the box it was given, sideways. */
+/* The placement box, which is now simply the card's own box: the strategy
+   sizes it and the Container rotates it. */
 .xb-card-drag {
   display: block;
   position: relative;
   width: 100%;
   height: 100%;
-  container-type: size;
 }
 
 /* No per-row box: under `fit` a row is drawn at the scale its depth earned,
@@ -285,16 +284,11 @@
   z-index: 2;
 }
 
-/* A turned card is the same portrait card lying on its side, not a card
-   reflowed into a wide box: it takes the box's height as its width and the
-   box's width as its height, then rotates about its center. The rotation
-   itself is inline, because `bow` may also have an angle to contribute. */
+/* A turned card needs no geometry here at all: `hints.turn` made the strategy
+   reserve the rotated box, and the Container draws the card at its own size,
+   centered in that box and rotated. All that is left is the look of a card
+   that has been used. */
 .xb-card--tapped {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 100cqh;
-  height: 100cqw;
   filter: saturate(0.62) brightness(0.86);
 }
 

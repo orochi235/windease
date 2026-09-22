@@ -1,11 +1,12 @@
 export default { title: 'Exotic / Board' };
 
 import type { Story } from '@ladle/react';
-import { type CSSProperties, useMemo, useSyncExternalStore } from 'react';
+import { type CSSProperties, useEffect, useMemo, useSyncExternalStore } from 'react';
 import {
   asNodeId,
   bow,
   createNode,
+  driveWithRaf,
   type NodeId,
   Store,
   stripStrategy,
@@ -81,14 +82,14 @@ const YOUR_HAND = asNodeId('your-hand');
 /** The bands a card of yours may be dropped into. */
 const YOURS: NodeId[] = [YOUR_FIELD, YOUR_LAND, YOUR_HAND];
 
-const CARD = { w: 86, h: 120 };
+const CARD = { w: 60, h: 84 };
 /** A band's inner padding, and the height that gives its cards `CARD`'s aspect.
  *  A strip fills its cross axis, so the band's height *is* the card height —
  *  every band is this tall so no card is drawn to a different shape. */
 const BAND_PAD = 8;
 const BAND_H = CARD.h + 2 * BAND_PAD;
 /** The logical width every band lays out in, whatever width it is drawn at. */
-const BAND_W = 660;
+const BAND_W = 462;
 
 /** How many cards each band is dealt, far to near. The rest stay in the deck,
  *  which is what the library pile counts. */
@@ -125,6 +126,9 @@ const bandConfig = (extra: Record<string, unknown> = {}) => ({
   gap: 10,
   padding: BAND_PAD,
   justify: 'center',
+  // A card that declares a turn takes the box the turn needs rather than the
+  // band's full height, and sits centered in the slack the rest of the time.
+  crossAlign: 'center',
   resizable: false,
   overflowMode: 'overlap',
   peek: 34,
@@ -191,7 +195,7 @@ function makeStore(): Store {
   // Far to near on one surface, every row the same height so no card is
   // drawn to a different shape than any other.
   const bands: Array<[NodeId, string, Record<string, unknown>, number]> = [
-    [OPP_HAND, "Opponent's hand", bandConfig({ peek: 26 }), 78],
+    [OPP_HAND, "Opponent's hand", bandConfig({ peek: 26 }), 62],
     [OPP_LAND, "Opponent's lands", bandConfig(), BAND_H],
     [OPP_FIELD, "Opponent's units", bandConfig(), BAND_H],
     [YOUR_FIELD, 'Your units', bandConfig(), BAND_H],
@@ -225,7 +229,7 @@ function makeStore(): Store {
         id: nid,
         parentId: RAIL,
         meta: { title: label, count },
-        placement: { size: { h: 96 } },
+        placement: { size: { h: 80 } },
       }),
     );
     s.showNode(nid);
@@ -267,7 +271,7 @@ function makeStore(): Store {
         kind: 'back',
         id: nid,
         parentId: OPP_HAND,
-        hints: { preferredSize: { w: 58, h: 80 } },
+        hints: { preferredSize: { w: 40, h: 56 } },
       }),
     );
     s.showNode(nid);
@@ -286,16 +290,13 @@ function makeStore(): Store {
  * its keystone for a host that wants a true trapezoid, and how far the cursor
  * has singled it out.
  */
-function cardStyle(channels: Record<string, number> | undefined, tapped: boolean): CSSProperties {
+function cardStyle(channels: Record<string, number> | undefined): CSSProperties {
   const style: CSSProperties & Record<string, string | number> = {};
-  // A turned card is centered in its box first, then rotated a quarter; the
-  // fan's own angle adds to that quarter rather than replacing it.
-  const angle = (channels?.angle ?? 0) + (tapped ? 90 : 0);
-  if (angle !== 0) {
-    style.transform = `${tapped ? 'translate(-50%, -50%) ' : ''}rotate(${angle}deg)`;
-  } else if (tapped) {
-    style.transform = 'translate(-50%, -50%)';
-  }
+  // Only the fan's own angle. A tapped card's quarter is `hints.turn`, which
+  // the strategy reserved a box for and the Container rotates the wrapper by,
+  // so the two rotations compose without this having to add them.
+  const angle = channels?.angle ?? 0;
+  if (angle !== 0) style.transform = `rotate(${angle}deg)`;
   if (!channels) return style;
   // Distance shrank the card's box; shrink what is printed on it to match.
   if (channels.scale !== undefined) style['--xb-scale'] = channels.scale;
@@ -303,9 +304,10 @@ function cardStyle(channels: Record<string, number> | undefined, tapped: boolean
   return style;
 }
 
-/** A card turned a quarter is a card whose preferred size is on its side. */
-function isTapped(w: number, h: number): boolean {
-  return w > h;
+/** Tapped past the halfway point of its turn, for the styling that should flip
+ *  once rather than ease — the desaturation, and the test hook. */
+function isTapped(turn: number | undefined): boolean {
+  return (turn ?? 0) >= 45;
 }
 
 function CardFace({ nodeId }: { nodeId: NodeId }) {
@@ -317,8 +319,7 @@ function CardFace({ nodeId }: { nodeId: NodeId }) {
   const channels = useChannelsForSelf(nodeId);
   if (!node) return null;
   const land = node.meta?.land === true;
-  const size = node.hints?.preferredSize ?? CARD;
-  const tapped = isTapped(size.w, size.h);
+  const tapped = isTapped(node.hints?.turn);
   const className = [
     'xb-card',
     `xb-card--${String(node.meta?.rarity ?? 'common')}`,
@@ -337,13 +338,13 @@ function CardFace({ nodeId }: { nodeId: NodeId }) {
         className={className}
         style={
           {
-            ...cardStyle(channels, tapped),
+            ...cardStyle(channels),
             '--xb-hue': String(node.meta?.hue ?? 200),
           } as CSSProperties
         }
         data-testid={`xb-card-${nodeId}`}
         data-tapped={tapped ? 'true' : undefined}
-        onClick={() => store.setHints(nodeId, { preferredSize: { w: size.h, h: size.w } })}
+        onClick={() => store.turnTo(nodeId, tapped ? 0 : 90, { ms: 220 })}
       >
         <span className="xb-card__title">
           <span className="xb-card__name">{String(node.meta?.title ?? nodeId)}</span>
@@ -394,7 +395,7 @@ function Band({ id }: { id: NodeId }) {
         parentId={id}
         chrome={CHROME}
         viewport={{ w: BAND_W, h: BAND_H }}
-        fit="width"
+        fit="contain"
         pointer={id === YOUR_HAND}
         // The hand re-lays out on every pointermove. A settle transition
         // animates toward each new position and never arrives, which reads as
@@ -441,6 +442,9 @@ const CHROME: ChromeMap = {
 
 export const DuelBoard: Story = () => {
   const store = useMemo(() => makeStore(), []);
+  // The library interpolates a turn; something has to give it frames. A host
+  // with its own loop calls `store.tick(now)` from there instead.
+  useEffect(() => driveWithRaf(store), [store]);
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
@@ -459,8 +463,9 @@ export const DuelBoard: Story = () => {
                 <p className="xb-hint">
                   Drag a card out of your hand onto one of your two bands, or back. The far half of
                   the table refuses your cards, and so does the opponent's hand. Click any card to
-                  turn it a quarter — its preferred size swaps, and the band reflows around the new
-                  footprint. Sweep the pointer across your hand and the fan parts under it.
+                  turn it a quarter — the band reserves the box the rotation needs and reflows
+                  around it as the card turns. Sweep the pointer across your hand and the fan parts
+                  under it.
                 </p>
               </div>
             </FocusProvider>

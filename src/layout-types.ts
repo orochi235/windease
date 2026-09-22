@@ -15,6 +15,20 @@ export type ItemId = string;
 export type Rect = { x: number; y: number; z: number; w: number; h: number };
 /** A width/height pair with no position. */
 export type Size = { w: number; h: number };
+/** The drawn box of a turned child, carried beside the rect reserved for it. */
+export type Turn = { deg: number; w: number; h: number };
+/**
+ * A rect a strategy placed a child at. `turn` is present only when the child
+ * declared `hints.turn` and the strategy honors it: the rect is then the
+ * axis-aligned box *reserved* for the rotation, and `turn` is the smaller box
+ * the child is actually drawn at, centered in that rect and rotated `deg` about
+ * its center.
+ *
+ * Hit-testing reads `x`/`y`/`w`/`h` as always. That over-reports a turned
+ * child's corners, which is accepted: a drop near the corner of a tilted card
+ * lands on the card.
+ */
+export type PlacedRect = Rect & { turn?: Turn };
 
 /**
  * One child as a strategy sees it: an id plus the hints, measurements and
@@ -31,6 +45,9 @@ export interface LayoutItem {
     preferredSize?: Size;
     /** Width ÷ height to keep when scaled. See `NodeHints`. */
     aspect?: number;
+    /** Degrees the child is rotated about its center, which a strategy that
+     *  honors it reserves the rotated box for. See `NodeHints`. */
+    turn?: number;
     /** Per-axis request to be sized by measured content. See `NodeHints`. */
     sizing?: { w?: 'content'; h?: 'content' };
   };
@@ -279,7 +296,7 @@ export interface Overflow {
  * strategy that drops an item should also report it in `unplaced`.
  */
 export interface LayoutResult<TId extends string = string, TMeta = unknown> {
-  placements: Map<TId, Rect>;
+  placements: Map<TId, PlacedRect>;
   affordances: Affordance<TMeta>[];
   /**
    * Items the strategy chose not to place (e.g. grid overflow when capacity

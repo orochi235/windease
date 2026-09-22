@@ -46,6 +46,17 @@ export interface NodeHints {
    */
   aspect?: number;
   /**
+   * Degrees this node is rotated about its own center. Unlike the `angle`
+   * channel a pass such as `bow` emits, a turn *bears a footprint*: a strategy
+   * that honors it reserves the rotated axis-aligned box, so siblings flow
+   * around the turn. Any angle, not just quarter turns.
+   *
+   * Only `stripStrategy` honors it. `gridStrategy` fills the cell, `justified`
+   * scales to its own shape, and the packers and `desktop` place a node at the
+   * size it asked for — all four ignore a turn, as they ignore `aspect`.
+   */
+  turn?: number;
+  /**
    * Per-axis request to be sized by measured content rather than by a hint or
    * a share. The core never measures: an adapter reports the measurement as
    * `LayoutItem.natural` and a strategy that understands it obliges. An axis

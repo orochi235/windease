@@ -8,11 +8,11 @@ import type { Rect, StickyInset } from '../layout-types.js';
  *
  * @group Layout
  */
-export function stuckRect(
-  rect: Rect,
+export function stuckRect<T extends Rect>(
+  rect: T,
   inset: StickyInset | undefined,
   scroll: { x: number; y: number },
-): Rect {
+): T {
   if (!inset) return rect;
   const x = inset.x === undefined ? rect.x : Math.max(rect.x, scroll.x + inset.x);
   const y = inset.y === undefined ? rect.y : Math.max(rect.y, scroll.y + inset.y);

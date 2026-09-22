@@ -10,6 +10,29 @@ section below.
 
 ### Added
 
+- **A node can be turned, and the layout reserves the room it needs.** A new
+  `hints.turn`, in degrees, rotates a node about its own center *and* makes a
+  strategy that honors it reserve the rotated axis-aligned box, so siblings
+  flow around the turn as it happens rather than being overlapped by it — a
+  card tapped sideways on a table. The placed rect is that reserved box and
+  carries `turn: { deg, w, h }`, the box the child is drawn at, which the React
+  `Container` centers in the rect and rotates. This is the counterpart to the
+  `angle` channel `bow` emits: an `angle` is decoration the layout reserves
+  nothing for, a `turn` is a footprint. `stripStrategy` honors `turn`; the
+  other strategies ignore it, as they already ignore `aspect`.
+- **`stripStrategy` learned a cross axis.** A new `crossAlign` config —
+  `'stretch'` (the default, unchanged), `'center'`, `'start'`, `'end'` — lets a
+  child that declares a shape, via `hints.aspect` or `hints.turn`, take its
+  cross extent from that shape instead of being stretched to fill the row.
+  This closes a gap `hints.aspect`'s own documentation admitted.
+- **A turn can be eased without the library owning a clock.**
+  `store.turnTo(id, deg, { ms, ease })` registers a turn and `store.tick(now)`
+  advances it, taking the time as an argument so a consumer's own loop — or a
+  test's fake clock — drives it. `driveWithRaf(store)` is the DOM convenience
+  over `tick`. A whole turn is bracketed in `transaction.begin`/`end` labelled
+  `'turn'`, so a history integration records one undo step, not one per frame.
+  New `turn.started` event; new `turnedExtent(w, h, deg)` helper.
+
 - **`gridStrategy` takes `orientation: 'fit'`, which reads the container.**
   `wide` and `tall` auto-balance on the item count alone — `ceil(sqrt(n))` and
   `floor(sqrt(n))` columns — keeping the grid square and saying nothing about

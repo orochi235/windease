@@ -85,7 +85,7 @@ Two paths for free-form data on a node; lifetimes differ:
 | `node.meta`            | Intrinsic; survives `moveNode`                 | Window-intrinsic consumer data (title, URL, etc.)       |
 | `node.membership.placement`  | Per-membership, but carried across `moveNode`  | State that exists *because of this placement* — the held pin index, placement-specific UI state |
 | `node.container.config` | Container-strategy options                    | Strategy options (`cols`, `gap`, etc.)                  |
-| `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `aspect`, `sizing`, `order` |
+| `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `aspect`, `turn`, `sizing`, `order` |
 
 **Reserved keys on `membership.placement`:**
 
@@ -473,9 +473,43 @@ Built-ins:
   item keeps its aspect (`hints.aspect`, else `natural` or `preferredSize`
   width ÷ height) and every row but the last is scaled to fill the width.
   Config: `rowHeight` (the target, default 200), `gap`, `maxRowHeight`,
-  `justifyLast`. It is the only strategy that honors `hints.aspect`; strip's
-  cross axis and grid's cells stretch an item regardless. Items with no aspect
-  go to `unplaced`.
+  `justifyLast`. Grid's cells stretch an item regardless of its aspect, and
+  strip's cross axis does unless `crossAlign` says otherwise (see
+  [Two rotations](#two-rotations)). Items with no aspect go to `unplaced`.
+
+### Two rotations
+
+A node can be rotated two different ways, and the difference is whether the
+layout reserves room for it.
+
+**`hints.turn`**, in degrees, *bears a footprint*. A strategy that honors it
+reserves the rotated axis-aligned box — `|w·cosθ| + |h·sinθ|` by
+`|w·sinθ| + |h·cosθ|` — so siblings flow around the turn instead of through it.
+The rect a strategy places is that reserved box, and it carries `turn:
+{ deg, w, h }`, the smaller box the child is drawn at, centered in the rect and
+rotated about its own center. Hit-testing reads the reserved box as always,
+which over-reports a turned child's corners; a drop near the corner of a tilted
+card lands on the card.
+
+**The `angle` channel** a pass such as `bow` emits is *decoration*. The layout
+reserves nothing for it, because a bowed child covers the same area centered on
+the same point. A host applies it to its own element, where it composes with a
+turn by nesting.
+
+`turn` is node-intrinsic, so a turned node stays turned wherever it is dragged.
+Only `stripStrategy` honors it; `grid` fills its cell, `justified` scales to its
+own shape, and the packers and `desktop` place a node at the size it asked for.
+
+Strip gives every child the full cross extent unless the child declares a
+shape — a `turn` or an `aspect` — and the row's `crossAlign` is something other
+than the default `'stretch'`. `'center'`, `'start'` and `'end'` derive the
+child's cross extent from its shape and put the slack accordingly.
+
+Nothing moves a turn over time by itself. `store.turnTo(id, deg, { ms, ease })`
+registers one and `store.tick(now)` advances it, taking the time rather than
+reading a clock; `driveWithRaf(store)` is the DOM convenience that calls `tick`
+from a frame loop. A turn is bracketed in `transaction.begin`/`end` labelled
+`'turn'`, so history records one step rather than one per frame.
 
 ### Tearing a tab out
 

@@ -148,6 +148,7 @@ export {
 } from './layout/stack.js';
 export { stuckRect } from './layout/sticky.js';
 export { stripStrategy } from './layout/strip.js';
+export { turnedExtent } from './layout/turn.js';
 export {
   bow,
   type Camera,
@@ -181,12 +182,14 @@ export type {
   LayoutResult,
   LayoutStrategy,
   Overflow,
+  PlacedRect,
   Rect,
   Size,
   StatefulLayoutStrategy,
   StickyInset,
   StrategyCommand,
   StrategyRegistry,
+  Turn,
 } from './layout-types.js';
 export {
   destroyBlockedBy,
@@ -246,7 +249,13 @@ export {
   serialize,
 } from './snapshot.js';
 export type { SplitInput, SplitStrict } from './split-types.js';
-export { type MutateOptions, Store, type StoreEvents } from './store.js';
+export {
+  type Ease,
+  type MutateOptions,
+  Store,
+  type StoreEvents,
+  type TurnOptions,
+} from './store.js';
 export { dockNode, type FloatInput, floatAncestor, floatNode } from './tear.js';
 export {
   type Clock,
@@ -266,6 +275,7 @@ export {
   type TraceCategory,
   trace,
 } from './trace.js';
+export { driveWithRaf } from './turn-dom.js';
 export {
   type AxisScale,
   type FitMode,

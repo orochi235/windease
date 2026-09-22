@@ -24,6 +24,7 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
     node.hints?.maxSize ||
     node.hints?.preferredSize ||
     node.hints?.aspect !== undefined ||
+    node.hints?.turn !== undefined ||
     node.hints?.sizing
   ) {
     item.hints = {};
@@ -31,6 +32,7 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
     if (node.hints.maxSize) item.hints.maxSize = node.hints.maxSize;
     if (node.hints.preferredSize) item.hints.preferredSize = node.hints.preferredSize;
     if (node.hints.aspect !== undefined) item.hints.aspect = node.hints.aspect;
+    if (node.hints.turn !== undefined) item.hints.turn = node.hints.turn;
     if (node.hints.sizing) item.hints.sizing = node.hints.sizing;
   }
   const placement = node.membership?.placement;

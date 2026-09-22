@@ -479,13 +479,27 @@ function StoreContainer({
             if (!placed) return null;
             const stick = layout.sticky?.get(id);
             const rect = stuckRect(placed, stick, layoutScroll);
-            const childStyle: CSSProperties = {
-              ...CHILD_BASE,
-              left: rect.x,
-              top: rect.y,
-              width: rect.w,
-              height: rect.h,
-            };
+            // A turned child is drawn at its own box, centered in the larger
+            // one the strategy reserved for the rotation. A decorative `angle`
+            // the host applies to its own element inside this one composes by
+            // nesting, so neither layer has to know about the other.
+            const turn = rect.turn;
+            const childStyle: CSSProperties = turn
+              ? {
+                  ...CHILD_BASE,
+                  left: rect.x + (rect.w - turn.w) / 2,
+                  top: rect.y + (rect.h - turn.h) / 2,
+                  width: turn.w,
+                  height: turn.h,
+                  transform: `rotate(${turn.deg}deg)`,
+                }
+              : {
+                  ...CHILD_BASE,
+                  left: rect.x,
+                  top: rect.y,
+                  width: rect.w,
+                  height: rect.h,
+                };
             if (rect.z !== 0) childStyle.zIndex = Math.round(rect.z);
             if (effectiveSettleMs > 0) {
               childStyle.transition = settleTransition(effectiveSettleMs, stick !== undefined);
