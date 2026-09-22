@@ -96,6 +96,7 @@ export function runStrategyForContainer<TState>(
   state: TState,
   preview?: LayoutPreview,
   natural?: ReadonlyMap<string, Size>,
+  pointer?: { x: number; y: number },
 ): LayoutResult<NodeId, unknown> {
   const parent = store.getNode(parentId);
   const config = (parent?.container?.config ?? {}) as Record<string, unknown>;
@@ -146,8 +147,10 @@ export function runStrategyForContainer<TState>(
     state: TState;
     options: Record<string, unknown>;
     preview?: LayoutPreview;
+    pointer?: { x: number; y: number };
   } = { items, container: viewport, state, options: config };
   if (preview) input.preview = preview;
+  if (pointer) input.pointer = pointer;
   const result = strategy.layout(input);
   return result as LayoutResult<NodeId, unknown>;
 }

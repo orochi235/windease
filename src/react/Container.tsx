@@ -32,6 +32,7 @@ import { useFocusBinding } from './focus/FocusProvider.js';
 import { useFlowGeometry } from './focus/useFlowGeometry.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
 import { useChildren, useFocusedNode, useNode } from './hooks.js';
+import { type LayoutInfo, LayoutScope } from './LayoutContext.js';
 import { MeasuredContent } from './measure.js';
 import { type Chrome, NodeRenderer } from './NodeRenderer.js';
 import { useStore } from './Provider.js';
@@ -184,6 +185,13 @@ export interface ContainerProps {
    */
   affordances?: boolean | AffordanceRenderer;
   /**
+   * Feed the strategy where the pointer is, so a layout can deform around it —
+   * a dock that magnifies, a hand of cards that parts. Off by default, because
+   * it re-runs the layout on every pointermove; turn it on only for a
+   * container whose strategy reads the `pointer` input.
+   */
+  pointer?: boolean;
+  /**
    * When `affordances={true}`, pad the hit area by this many pixels in the
    * perpendicular direction so a 4px gutter becomes a wider grab target.
    * Visual placement (via `data-affordance` styling) is not affected.
@@ -279,6 +287,7 @@ function StoreContainer({
   dropIntent,
   acceptPolicy,
   edgeScroll,
+  pointer,
 }: ContainerProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -292,7 +301,7 @@ function StoreContainer({
   // otherwise the container lays out what the store says.
   const dropPreview = useDropPreview(parentId, splitPreview, ref);
 
-  const layout = useContainerLayout(parentId, ref, viewport, dropPreview.preview);
+  const layout = useContainerLayout(parentId, ref, viewport, dropPreview.preview, pointer);
   useViewBinding(layout.setView, view, fit, frameRef, viewport);
 
   usePublishGeometry(parentId, ref, layout);
@@ -438,106 +447,124 @@ function StoreContainer({
   // Children and affordances draw inside the view's transform, in layout pixels.
   const layoutScroll = toLayoutScroll(layout.scroll, layout.view);
 
+  // `useChannelsForSelf` and `useLayoutForSelf` read "the enclosing
+  // container's last layout pass", which only the presets used to publish.
+  // A child rendered by chrome is inside a container too.
+  const layoutInfo: LayoutInfo = {
+    placements: layout.placements,
+    unplaced: layout.unplaced,
+    settleMs: effectiveSettleMs,
+    registerPlacementControl: layout.registerPlacementControl,
+    observeNatural: layout.observeNatural,
+  };
+  if (layout.channels) layoutInfo.channels = layout.channels;
+  if (layout.sticky) {
+    layoutInfo.sticky = layout.sticky;
+    layoutInfo.scroll = layoutScroll;
+  }
+
   return framed(
-    <ResizeGestureContext.Provider value={resizing}>
-      <div
-        ref={ref}
-        className={className}
-        style={containerStyle}
-        data-node-container={parentId}
-        data-preview={layout.isPreview ? 'true' : undefined}
-        data-split-preview={dropPreview.laidOut && layout.isPreview ? 'true' : undefined}
-      >
-        {Array.from(renderEntries.entries()).map(([id, { isReal }]) => {
-          const placed = layout.placements.get(id);
-          if (!placed) return null;
-          const stick = layout.sticky?.get(id);
-          const rect = stuckRect(placed, stick, layoutScroll);
-          const childStyle: CSSProperties = {
-            ...CHILD_BASE,
-            left: rect.x,
-            top: rect.y,
-            width: rect.w,
-            height: rect.h,
-          };
-          if (rect.z !== 0) childStyle.zIndex = Math.round(rect.z);
-          if (effectiveSettleMs > 0) {
-            childStyle.transition = settleTransition(effectiveSettleMs, stick !== undefined);
-          }
-          // Source during preview: render the chrome with visibility:hidden so
-          // it occupies its prospective rect (siblings reflow around it) and
-          // the ghost overlay is what the user sees — but the DOM stays alive
-          // so the DragHandle's pointer capture isn't broken mid-drag.
-          // (Cross-parent previews fall through to the !isReal branch below
-          // because the source isn't yet a real child of this container.)
-          if (id === previewSourceId && isReal) {
-            // Source during preview: render the chrome with opacity:0 so the
-            // ghost overlay is what the user "sees" — but the DOM and pointer
-            // event flow stay alive (visibility:hidden disables pointer events
-            // even on captured elements in some browsers, which freezes the drag).
+    <LayoutScope value={layoutInfo}>
+      <ResizeGestureContext.Provider value={resizing}>
+        <div
+          ref={ref}
+          className={className}
+          style={containerStyle}
+          data-node-container={parentId}
+          data-preview={layout.isPreview ? 'true' : undefined}
+          data-split-preview={dropPreview.laidOut && layout.isPreview ? 'true' : undefined}
+        >
+          {Array.from(renderEntries.entries()).map(([id, { isReal }]) => {
+            const placed = layout.placements.get(id);
+            if (!placed) return null;
+            const stick = layout.sticky?.get(id);
+            const rect = stuckRect(placed, stick, layoutScroll);
+            const childStyle: CSSProperties = {
+              ...CHILD_BASE,
+              left: rect.x,
+              top: rect.y,
+              width: rect.w,
+              height: rect.h,
+            };
+            if (rect.z !== 0) childStyle.zIndex = Math.round(rect.z);
+            if (effectiveSettleMs > 0) {
+              childStyle.transition = settleTransition(effectiveSettleMs, stick !== undefined);
+            }
+            // Source during preview: render the chrome with visibility:hidden so
+            // it occupies its prospective rect (siblings reflow around it) and
+            // the ghost overlay is what the user sees — but the DOM stays alive
+            // so the DragHandle's pointer capture isn't broken mid-drag.
+            // (Cross-parent previews fall through to the !isReal branch below
+            // because the source isn't yet a real child of this container.)
+            if (id === previewSourceId && isReal) {
+              // Source during preview: render the chrome with opacity:0 so the
+              // ghost overlay is what the user "sees" — but the DOM and pointer
+              // event flow stay alive (visibility:hidden disables pointer events
+              // even on captured elements in some browsers, which freezes the drag).
+              return (
+                <div
+                  key={id}
+                  {...reorderSource(id)}
+                  style={{ ...childStyle, opacity: 0 }}
+                  data-node={id}
+                  data-preview-source="true"
+                >
+                  <NodeRenderer id={id} chrome={chrome} />
+                </div>
+              );
+            }
+            if (id === previewSourceId) {
+              // Cross-parent preview placeholder — source isn't here yet, just
+              // reserve the slot.
+              return <div key={id} style={childStyle} data-node={id} data-preview-source="true" />;
+            }
+            if (!isReal) return null;
             return (
+              // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
+              // biome-ignore lint/a11y/useKeyWithClickEvents: a click-raise is the pointer path; the keyboard path raises on focus.
               <div
                 key={id}
                 {...reorderSource(id)}
-                style={{ ...childStyle, opacity: 0 }}
+                style={childStyle}
+                onClick={raiseOnClick?.(id)}
                 data-node={id}
-                data-preview-source="true"
+                data-join-armed={joinArmedId === id ? 'true' : undefined}
+                tabIndex={rovingId === id ? 0 : -1}
+                role="group"
+                aria-label={accessibleName(store, id)}
               >
-                <NodeRenderer id={id} chrome={chrome} />
+                {store.getNode(id)?.hints?.sizing ? (
+                  <MeasuredContent
+                    id={id}
+                    widthByContent={store.getNode(id)?.hints?.sizing?.w === 'content'}
+                    observe={layout.observeNatural}
+                  >
+                    <NodeRenderer id={id} chrome={chrome} />
+                  </MeasuredContent>
+                ) : (
+                  <NodeRenderer id={id} chrome={chrome} />
+                )}
               </div>
             );
-          }
-          if (id === previewSourceId) {
-            // Cross-parent preview placeholder — source isn't here yet, just
-            // reserve the slot.
-            return <div key={id} style={childStyle} data-node={id} data-preview-source="true" />;
-          }
-          if (!isReal) return null;
-          return (
-            // biome-ignore lint/a11y/useSemanticElements: <fieldset> carries form semantics and UA styling; this is a layout pane.
-            // biome-ignore lint/a11y/useKeyWithClickEvents: a click-raise is the pointer path; the keyboard path raises on focus.
-            <div
-              key={id}
-              {...reorderSource(id)}
-              style={childStyle}
-              onClick={raiseOnClick?.(id)}
-              data-node={id}
-              data-join-armed={joinArmedId === id ? 'true' : undefined}
-              tabIndex={rovingId === id ? 0 : -1}
-              role="group"
-              aria-label={accessibleName(store, id)}
-            >
-              {store.getNode(id)?.hints?.sizing ? (
-                <MeasuredContent
-                  id={id}
-                  widthByContent={store.getNode(id)?.hints?.sizing?.w === 'content'}
-                  observe={layout.observeNatural}
-                >
-                  <NodeRenderer id={id} chrome={chrome} />
-                </MeasuredContent>
-              ) : (
-                <NodeRenderer id={id} chrome={chrome} />
-              )}
-            </div>
-          );
-        })}
-        <AffordanceLayer
-          render={affordances}
-          affordances={layout.affordances}
-          dispatch={layout.dispatchAffordance}
-          store={store}
-          hitPad={affordanceHitPad}
-          keyStep={affordanceKeyStep}
-          tabStop={affordanceTabStops}
-          onActiveChange={setDraggingAffordanceId}
-          onJoinArmChange={setJoinArmedId}
-          scroll={layoutScroll}
-        />
-        {splitStyle ? (
-          <div className="windease-split-preview" style={splitStyle} aria-hidden="true" />
-        ) : null}
-        {renderedOverlay}
-      </div>
-    </ResizeGestureContext.Provider>,
+          })}
+          <AffordanceLayer
+            render={affordances}
+            affordances={layout.affordances}
+            dispatch={layout.dispatchAffordance}
+            store={store}
+            hitPad={affordanceHitPad}
+            keyStep={affordanceKeyStep}
+            tabStop={affordanceTabStops}
+            onActiveChange={setDraggingAffordanceId}
+            onJoinArmChange={setJoinArmedId}
+            scroll={layoutScroll}
+          />
+          {splitStyle ? (
+            <div className="windease-split-preview" style={splitStyle} aria-hidden="true" />
+          ) : null}
+          {renderedOverlay}
+        </div>
+      </ResizeGestureContext.Provider>
+    </LayoutScope>,
   );
 }

@@ -415,7 +415,7 @@ start. It does nothing when the panes fill or overflow the row.
 
 ## When panes don't fit
 
-A strip whose panes ask for more than the container has resolves it three ways,
+A strip whose panes ask for more than the container has resolves it four ways,
 set by `overflowMode` on the zone's config.
 
 `'squeeze'` (default) scales the panes down until their floors bind, then
@@ -446,7 +446,27 @@ Under `scroll` each pane holds at its measurement.
 count cap — the two compose. When even the first pane doesn't fit it is placed
 anyway, clamped to the container, so an overflowing dock never renders empty.
 
-`gridStrategy` takes the same three, with one difference in what triggers
+`'overlap'` keeps every pane at its full extent and shortens the step between
+them until the row fits, so the panes slide over each other instead of getting
+smaller. A hand of cards does this, and so does a dock that has run out of
+dock: a card at 60% is unreadable, where a tab at 60% is merely narrow.
+
+```tsx
+<Zone id={handId} strategyId="strip" config={{ axis: 'x', overflowMode: 'overlap', peek: 32 }}>
+```
+
+`peek` is how much of each covered pane stays showing, defaulting to 24px. It
+is the analogue of `squeeze`'s `minSize` floor and it is there for the same
+reason: below it a pane stops being separately clickable. What the floor will
+not absorb is reported as `overflow`, exactly as `squeeze` reports what its
+floors would not. The last pane in the row is never covered, and panes overlap
+in child order, so paint in that order and the last-painted takes the pointer.
+
+Reach for `overlap` rather than a negative `gap` whenever the count changes. A
+negative gap is the static version — you choose the overlap up front, and it is
+wrong at every count but one.
+
+`gridStrategy` takes the first three, with one difference in what triggers
 them. A grid derives its cells from the container, so it can always divide the
 space and only overflows once an item states a `hints.minSize` floor. Under
 `'squeeze'` the floors are ignored, as they always were; under `'scroll'` the
@@ -914,6 +934,97 @@ the DOM convenience over `fitView`.
 
 The view is not in a snapshot. A fitted view belongs to the screen it was
 measured on, and restoring one on another would show the wrong scale.
+
+## Deforming a layout: perspective, swell and bow
+
+A board drawn in perspective, a dock that magnifies under the cursor, a hand of
+cards fanned on a curve. Each is an ordinary strategy with a **pass** over its
+result — a pure function from one `LayoutResult` to another, composed onto any
+strategy with `warp`:
+
+```tsx
+import { bow, stripStrategy, swell, tilt, warp } from 'windease';
+
+const tableau = warp(stripStrategy, [tilt({ tilt: 0.55, horizon: 0.08 })]);
+const hand = warp(stripStrategy, [bow(0.35), swell({ reach: 150, gain: 1.18, lift: 26 })]);
+```
+
+`warp` returns a `LayoutStrategy`, so it registers and behaves like any other:
+it merges the base's `configSpec` with each pass's, forwards `initialState`,
+`canAccept` and `command`, and runs gesture coordinates back through each pass's
+inverse before the base strategy sees them.
+
+**Do this rather than a CSS `perspective` on the container.** Drag and drop
+measures elements with `getBoundingClientRect()`, which on a 3D-transformed
+element returns the axis-aligned bounding box of the projected quad: every drop
+target inflates, targets overlap, and a card dropped on one row lands in
+another. Pointer deltas stop matching container coordinates by a factor that
+varies with depth. And a strip fitting nine children into 900px is really
+fitting them into a trapezoid, so `overflow` is computed against a width that
+does not exist. A pass avoids all three by emitting rects that are already in
+screen space.
+
+### What each pass does
+
+`tilt(camera)` projects a container's children through a one-point perspective.
+`tilt` is a dimensionless strength, not an angle — screen scale at depth `d` is
+`1 / (1 + tilt · d)`, so `tilt: 1` draws the far edge at half size. `horizon`
+(default 0.25) is where the far edge converges as a fraction of container
+height, and `vanishX` defaults to the midline. The near edge never moves: a
+child sitting on `y = container.h` comes back untouched.
+
+`swell(options)` reads the [`pointer` input](#feeding-the-pointer-to-a-layout)
+and magnifies and parts the run around the cursor. `reach` is the falloff radius
+in px (default 120), `gain` the peak scale, and `lift` a cross-axis displacement
+at the peak. Displacement sums to zero across a symmetric run, and the cursor is
+a fixed point, so the child under the pointer stays under it. With no pointer
+the pass is the identity, which is what a keyboard-only session sees.
+
+`bow(amount, axis)` bends a run onto a curve. `amount` is a fraction of a
+quarter turn across the whole sweep, so `bow(0.4)` fans a run through 36°.
+
+### Rect or channel
+
+**A pass writes to the rect when it changes where a child is or how big it is,
+and to a channel when it only changes how the child looks.** `tilt` and `swell`
+move and resize, so they rewrite rects — do not also translate or scale in CSS
+or you apply the deformation twice. `bow` only reorients, and a rotated child
+covers the same area centered on the same point, so it writes an `angle` and
+leaves the rect alone.
+
+The channel keys are `scale` and `keystone` from `tilt`, `focus` and `lift` from
+`swell`, and `angle` (in degrees) from `bow`. Nothing in the library reads them:
+`LayoutResult.channels` commits to the transport and not to a vocabulary, so
+mapping them onto a transform is yours to write, and it is short:
+
+```tsx
+const channels = useChannelsForSelf(node.id);
+const style: CSSProperties = {};
+if (channels?.angle) style.transform = `rotate(${channels.angle}deg)`;
+if (channels?.scale !== undefined) style['--scale'] = channels.scale;
+```
+
+A container whose children sit at one depth can scale them all together with a
+[`view`](#pan-and-zoom) instead, taken from the `scale` the parent's `tilt`
+reported for it — gestures keep tracking, because the built-in handles already
+divide pointer deltas by the view scale.
+
+### Feeding the pointer to a layout
+
+`layout()` takes an optional `pointer`, container-relative, present only while
+the pointer is over the container. It is transient: never persisted, never
+written to the store, absent as soon as the pointer leaves. A strategy that
+ignores it still works.
+
+```tsx
+<Container parentId={handId} chrome={chrome} pointer />
+```
+
+Opt in per container, because binding it re-runs the layout on every
+pointermove. `ContainerHost.observePointer(el)` is the same thing without React,
+over `setPointer`.
+
+The `Exotic / Board` story puts all of this together.
 
 ## Drag and drop
 

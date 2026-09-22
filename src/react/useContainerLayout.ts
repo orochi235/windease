@@ -78,6 +78,7 @@ export function useContainerLayout(
   viewportRef: RefObject<Element | null> | null,
   fixedViewport?: { w: number; h: number },
   preview?: LayoutPreview,
+  pointer?: boolean,
 ): ContainerLayout {
   const store = useStore();
   const registry = useStrategyRegistry();
@@ -114,6 +115,15 @@ export function useContainerLayout(
   useEffect(() => {
     host.setPreview(preview ?? null);
   }, [host, previewKey]);
+
+  // Opt-in: binding this re-runs the layout on every pointermove, so a
+  // container whose strategy does not read `pointer` never pays for it.
+  useEffect(() => {
+    if (!pointer) return;
+    const el = viewportRef?.current;
+    if (!el) return;
+    return host.observePointer(el);
+  }, [host, viewportRef, pointer]);
 
   const layout = useSyncExternalStore(host.subscribe, host.layout, host.layout);
 

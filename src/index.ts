@@ -149,6 +149,20 @@ export {
 export { stuckRect } from './layout/sticky.js';
 export { stripStrategy } from './layout/strip.js';
 export {
+  bow,
+  type Camera,
+  DEFAULT_HORIZON,
+  DEFAULT_REACH,
+  mergeChannels,
+  type Pass,
+  type PassArgs,
+  type Point as WarpPoint,
+  type SwellOptions,
+  swell,
+  tilt,
+  warp,
+} from './layout/warp.js';
+export {
   getLayoutNodes,
   nodeToLayoutItem,
   nodeToLayoutNode,

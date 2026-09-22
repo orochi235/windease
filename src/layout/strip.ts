@@ -90,8 +90,23 @@ interface StripConfig {
    *
    * `'unplaced'` places what fits at full extent and sends the rest to
    * `unplaced`. Composes with `maxItems`, which caps by count instead.
+   *
+   * `'overlap'` keeps every pane at full extent and shortens the step between
+   * them until the row fits, so panes slide over each other — a hand of cards,
+   * a dock that has run out of dock. `peek` floors the step; what the floor
+   * will not absorb is reported as `overflow`, as under `'squeeze'`. Panes
+   * overlap in child order, so a host paints in that order and the
+   * last-painted takes the pointer.
    */
-  overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
+  overflowMode?: 'squeeze' | 'scroll' | 'unplaced' | 'overlap';
+  /**
+   * Under `overflowMode: 'overlap'`, how much of each covered pane stays
+   * visible, in px. Defaults to 24. The analogue of `squeeze`'s `minSize`
+   * floor and for the same reason: below it a pane stops being separately
+   * clickable. Read as absent when it is not a positive finite number, or
+   * when it exceeds the pane it would floor.
+   */
+  peek?: number;
   /**
    * Where main-axis space the panes leave goes: `'start'` (default) packs them
    * at the leading edge, `'center'` and `'end'` shift the row, and `'between'`
@@ -362,8 +377,12 @@ function resolveRow(
   );
   // A hint-sized row has never scaled preferredSize under `squeeze` either,
   // despite that mode's docstring; which one is right is an open question.
+  // `overlap` shortens the step rather than the panes, so like `scroll` it
+  // sizes against what the row asked for.
   const budget =
-    cfg.overflowMode === 'scroll' || hinted ? Math.max(usableMain, intrinsicMain) : usableMain;
+    cfg.overflowMode === 'scroll' || cfg.overflowMode === 'overlap' || hinted
+      ? Math.max(usableMain, intrinsicMain)
+      : usableMain;
 
   // Once any child states a size, every child without one shares the rest and
   // preferredSize is not consulted; otherwise preferredSize (or, under
@@ -605,6 +624,37 @@ function justified(
   }
 }
 
+/** The default px of a covered pane left showing under `overflowMode: 'overlap'`. */
+const DEFAULT_PEEK = 24;
+
+/**
+ * The step `overflowMode: 'overlap'` puts between panes so `sizes` fit `main`,
+ * or undefined when the row already fits and nothing needs to slide. Negative
+ * by construction: it is what `justified` would have called `spacing`.
+ *
+ * The floor is per pane rather than per row — a pane must keep `peek` of
+ * itself showing, and the tightest pane is the one that binds.
+ */
+function overlapSpacing(cfg: StripConfig, sizes: number[], usableMain: number): number | undefined {
+  if (cfg.overflowMode !== 'overlap' || sizes.length < 2) return undefined;
+  const total = sizes.reduce((sum, v) => sum + v, 0);
+  if (total <= usableMain + PACK_EPSILON) return undefined;
+  // The last pane is never covered, so only the first n-1 steps can shrink.
+  const fit = (usableMain - total) / (sizes.length - 1);
+  const smallest = Math.min(...sizes.slice(0, -1));
+  const asked = cfg.peek;
+  const peek =
+    typeof asked === 'number' && Number.isFinite(asked) && asked > 0 && asked <= smallest
+      ? asked
+      : DEFAULT_PEEK;
+  const floor = Math.min(peek, smallest) - smallest;
+  trace(
+    'layout',
+    `strip: overlap ${sizes.length} panes, step ${Math.max(fit, floor).toFixed(1)}, peek ${peek}${fit < floor ? ' (floored)' : ''}`,
+  );
+  return Math.max(fit, floor);
+}
+
 /** Depth of a sticky pane and its seam: above the panes that scroll under
  *  it, and above their seams, which a host draws at depth 1. */
 const STICKY_Z = 2;
@@ -723,7 +773,8 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     maxItems: 'number',
     step: 'number',
     zoom: 'string',
-    overflowMode: ['squeeze', 'scroll', 'unplaced'],
+    overflowMode: ['squeeze', 'scroll', 'unplaced', 'overlap'],
+    peek: 'number',
     justify: ['start', 'center', 'end', 'between'],
   },
   canAccept(items, options): boolean {
@@ -770,12 +821,13 @@ export const stripStrategy: LayoutStrategy<void, string> = {
 
     const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
     const sizes = mainSizes(placedItems, cfg, axis, usableMain);
-    const { lead, spacing } = justified(
-      cfg,
-      usableMain - sizes.reduce((s, v) => s + v, 0),
-      gap,
-      placedItems.length,
-    );
+    const overlapped = overlapSpacing(cfg, sizes, usableMain);
+    const { lead, spacing } =
+      overlapped === undefined
+        ? justified(cfg, usableMain - sizes.reduce((s, v) => s + v, 0), gap, placedItems.length)
+        : // An overlapping row consumes the whole extent it was given, so
+          // there is no free space left for `justify` to place.
+          { lead: 0, spacing: overlapped };
 
     if (axis === 'x') {
       const y = padding;
@@ -858,7 +910,9 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     // Children hold their constraints and the row grows past the container
     // rather than crushing them; say so instead of leaving it to be noticed.
     const consumed =
-      sizes.reduce((sum, v) => sum + v, 0) + gap * (placedItems.length - 1) + 2 * padding;
+      sizes.reduce((sum, v) => sum + v, 0) +
+      (overlapped ?? gap) * (placedItems.length - 1) +
+      2 * padding;
     const excess = consumed - main;
     if (excess > PACK_EPSILON)
       result.overflow = axis === 'x' ? { w: excess, h: 0 } : { w: 0, h: excess };

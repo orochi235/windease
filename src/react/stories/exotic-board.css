@@ -1,0 +1,211 @@
+/* A duel board: a tilted table, two players' bands, a hand at the near edge.
+   The perspective is arithmetic in the layout, not a transform on this box —
+   every card's rect arrives already in screen space. What is left here is the
+   look, plus the per-card transform the channels ask for. */
+
+.xb-root {
+  --xb-felt: #1d2b24;
+  --xb-felt-far: #16211c;
+  --xb-line: #3c5348;
+  --xb-card: #e8e2d4;
+  --xb-card-ink: #23201a;
+  --xb-card-back: #4a3b2f;
+  --xb-gold: #c8a35a;
+  background: radial-gradient(ellipse at 50% 120%, var(--xb-felt) 0%, var(--xb-felt-far) 70%);
+  color: #cfd8d2;
+  font:
+    13px / 1.4 system-ui,
+    sans-serif;
+  padding: 16px;
+}
+
+.xb-table {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  height: 620px;
+}
+
+.xb-main {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.xb-rail {
+  position: relative;
+  flex: 0 0 96px;
+}
+
+/* A band is one row of the table: a player's lands, their creatures, a hand.
+   It fills the node box windease placed it in — without that the container
+   inside measures zero and every card lays out zero-tall. */
+.xb-band {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+}
+
+/* The drag handle wrapping each card is a box in the layout, not a shim. */
+.xb-nest {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.xb-card-drag {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.xb-band--field {
+  background: linear-gradient(to bottom, #ffffff06, #ffffff02);
+  box-shadow: inset 0 0 0 1px var(--xb-line);
+}
+
+.xb-band--hand {
+  background: none;
+}
+
+/* The near edge of the table, where the two halves meet. */
+.xb-midline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--xb-gold), transparent);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.xb-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(160deg, var(--xb-card), #d6cdb8);
+  color: var(--xb-card-ink);
+  box-shadow:
+    0 1px 2px #0006,
+    0 6px 14px #0004;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  cursor: grab;
+  /* Cards are drawn at a scale the layout chose, so the transform origin has
+     to be the card's own center or a scaled card drifts off its rect. */
+  transform-origin: 50% 50%;
+}
+
+.xb-card:active {
+  cursor: grabbing;
+}
+
+.xb-card--back {
+  background: repeating-linear-gradient(45deg, var(--xb-card-back) 0 4px, #3d3027 4px 8px);
+  box-shadow: inset 0 0 0 2px var(--xb-gold3, #6b5638);
+  cursor: default;
+}
+
+.xb-card--land {
+  background: linear-gradient(160deg, #cfd8c2, #b6c2a4);
+}
+
+.xb-card--focus {
+  /* The cursor has singled this card out; `swell` already lifted its box. */
+  box-shadow:
+    0 2px 4px #0008,
+    0 10px 24px #0006,
+    0 0 0 calc(1px * var(--xb-focus, 0)) var(--xb-gold);
+  z-index: 2;
+}
+
+.xb-card--tapped {
+  filter: saturate(0.6) brightness(0.88);
+}
+
+.xb-card__name {
+  /* Scaled with the card's own distance, so a far card's name shrinks with
+     its box instead of overflowing it. */
+  font-size: calc(9px * var(--xb-scale, 1));
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 3px 4px 2px;
+  background: #0000000f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.xb-card__art {
+  flex: 1 1 auto;
+  margin: 2px 3px;
+  border-radius: 2px;
+  background: linear-gradient(200deg, #8fa3b8, #5c6f80);
+  box-shadow: inset 0 0 0 1px #0000001a;
+}
+
+.xb-card__art--land {
+  background: linear-gradient(200deg, #9db08a, #6d7f5d);
+}
+
+.xb-card__foot {
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+  font-size: calc(9px * var(--xb-scale, 1));
+  padding: 1px 4px 3px;
+}
+
+/* A pile: the library, the graveyard, the exile. A stack of one visible card
+   with a count, which is what a pile is. */
+.xb-pile {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--xb-line);
+  background: #ffffff08;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 10px;
+}
+
+.xb-pile__count {
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--xb-gold);
+}
+
+/* Drop feedback, driven by the drag state rather than :hover, since the
+   pointer is over the dragged card and not over the band. */
+.xb-band--accept {
+  box-shadow: inset 0 0 0 2px #7ec49a;
+}
+
+.xb-band--reject {
+  box-shadow: inset 0 0 0 2px #c4707a;
+}
+
+.xb-hint {
+  margin: 12px 0 0;
+  max-width: 62ch;
+  color: #9fb0a7;
+}
+
+.xb-hint kbd {
+  background: #ffffff14;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.xb-readout {
+  font-variant-numeric: tabular-nums;
+  color: var(--xb-gold);
+}

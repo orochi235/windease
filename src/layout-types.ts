@@ -409,6 +409,20 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
      * `result.isPreview = true`.
      */
     preview?: LayoutPreview;
+    /**
+     * Where the pointer is, container-relative, while it is over the
+     * container. Transient: never persisted, never written to the store, and
+     * absent as soon as the pointer leaves. A strategy that ignores it still
+     * works — the host degrades to the static layout, which is also what a
+     * keyboard-only session sees.
+     *
+     * It is not container state, because state is snapshotted and a hover
+     * position in a saved workspace is junk; and it is not declared config,
+     * because config is diffed against what the last render declared, so a
+     * value that moved with the pointer would rewrite `container.config` at
+     * pointer rate.
+     */
+    pointer?: { x: number; y: number };
   }): LayoutResult<TId, TMeta>;
   reduce?(
     state: TState,

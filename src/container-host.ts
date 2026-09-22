@@ -175,6 +175,7 @@ export class ContainerHost {
   #scrollTeardown: (() => void) | null = null;
   #checkedConfig: unknown = Symbol('unchecked');
   #preview: LayoutPreview | null = null;
+  #pointer: { x: number; y: number } | null = null;
   #observer: ResizeObserver | null = null;
   readonly #natural = new Map<string, { w: number; h: number }>();
   #naturalObserver: ResizeObserver | null = null;
@@ -470,6 +471,45 @@ export class ContainerHost {
     if (same) return;
     this.#preview = p;
     this.#invalidate();
+  }
+
+  /**
+   * Where the pointer is over this container, in container-relative px, or
+   * `null` once it leaves. A strategy reads it as the `pointer` input.
+   *
+   * A host only calls this when its strategy reads the input: every change
+   * re-runs the layout, which is the point and also the cost. `observePointer`
+   * is the DOM convenience over it.
+   */
+  setPointer(p: { x: number; y: number } | null): void {
+    const a = this.#pointer;
+    if (a === p) return;
+    if (a !== null && p !== null && a.x === p.x && a.y === p.y) return;
+    this.#pointer = p;
+    this.#invalidate();
+  }
+
+  /**
+   * Feed {@link setPointer} from `el`'s own pointer events. Returns the
+   * unsubscribe. The pure API is `setPointer`; this is the adapter over it,
+   * the way `observe` is the adapter over `setViewport`.
+   */
+  observePointer(el: Element): () => void {
+    const move = (e: Event) => {
+      const ev = e as PointerEvent;
+      const box = (el as HTMLElement).getBoundingClientRect();
+      this.setPointer({ x: ev.clientX - box.left, y: ev.clientY - box.top });
+    };
+    const leave = () => this.setPointer(null);
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerleave', leave);
+    el.addEventListener('pointercancel', leave);
+    return () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerleave', leave);
+      el.removeEventListener('pointercancel', leave);
+      this.setPointer(null);
+    };
   }
 
   /**
@@ -810,6 +850,7 @@ export class ContainerHost {
       state as never,
       preview ?? undefined,
       this.#natural,
+      this.#pointer ?? undefined,
     );
     // Suppress affordances the lock forbids so a gutter the user can see but
     // not drag never renders. Complements the dispatch guard, which also
