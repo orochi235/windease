@@ -33,6 +33,26 @@ section below.
   `'turn'`, so a history integration records one undo step, not one per frame.
   New `turn.started` event; new `turnedExtent(w, h, deg)` helper.
 
+- **A layout can deform around the pointer, and a strip can overlap instead of
+  shrinking.** Four pieces that compose into a board drawn in perspective, and
+  separately into a dock that magnifies under the cursor. `layout()` takes a
+  new transient `pointer` input, container-relative and never persisted, which
+  a strategy or pass reads to deform around the cursor; `<Container pointer>`
+  and `ContainerHost.observePointer(el)` feed it, and both are opt-in because
+  binding one re-runs the layout on every pointermove. `stripStrategy` takes a
+  fourth `overflowMode`, `'overlap'`, which keeps every pane at full extent and
+  shortens the step between them until the row fits — a hand of cards rather
+  than a tab strip — floored by a new `peek` (default 24px) so a covered pane
+  stays clickable, with what the floor cannot absorb reported as `overflow` as
+  under `'squeeze'`. And `warp(strategy, passes)` composes a strategy with pure
+  deformation passes: `tilt` for a one-point perspective, `swell` for
+  cursor-driven magnification, `bow` for bending a run onto a curve. A pass
+  writes to the rect when it changes where a child is or how big it is, and to
+  a channel when it only changes how the child looks, so hit-testing, midpoint
+  insertion and affordances keep working against screen-space rects. `warp`
+  runs gesture coordinates back through each pass's inverse, which is the part
+  a CSS `perspective` gets silently wrong. See the `Exotic / Board` story.
+
 - **`gridStrategy` takes `orientation: 'fit'`, which reads the container.**
   `wide` and `tall` auto-balance on the item count alone — `ceil(sqrt(n))` and
   `floor(sqrt(n))` columns — keeping the grid square and saying nothing about

@@ -178,18 +178,145 @@ test.describe('duel board', () => {
       .toBeLessThan(still!.y);
   });
 
-  test('the hand overlaps rather than shrinking its cards', async ({ page }) => {
-    // The placement boxes, not the cards': `bow` rotates each card, and a
-    // rotated card's bounding box is wider than the box it was placed in.
-    const boxes = await page.evaluate(() =>
-      ['your-hand-0', 'your-hand-1'].map((id) => {
-        const el = document.querySelector(`[data-node="${id}"]`) as HTMLElement;
-        return { x: el.offsetLeft, w: el.offsetWidth };
-      }),
+  test('a dealt hand sits side by side, whole', async ({ page }) => {
+    const boxes = await handBoxes(page);
+    for (let i = 1; i < boxes.length; i++) {
+      // No card's right edge is under the next one's left.
+      expect(boxes[i]!.x).toBeGreaterThanOrEqual(boxes[i - 1]!.x + boxes[i - 1]!.w);
+    }
+  });
+
+  test('the hand fans rather than shrinking once it outgrows the band', async ({ page }) => {
+    const before = await handBoxes(page);
+    for (let i = 0; i < 12; i++) await page.getByTestId('xb-draw').click();
+    const after = await handBoxes(page);
+
+    expect(after.length).toBeGreaterThan(before.length);
+    // Full size kept, and the next card now starts before this one ends.
+    expect(after[1]!.w).toBeCloseTo(before[1]!.w, 0);
+    expect(after[1]!.x).toBeLessThan(after[0]!.x + after[0]!.w);
+  });
+
+  test('drawing stops at what the band can show, rather than spilling', async ({ page }) => {
+    for (let i = 0; i < 45; i++) {
+      const draw = page.getByTestId('xb-draw');
+      if (await draw.isDisabled()) break;
+      await draw.click();
+    }
+    await expect(page.getByTestId('xb-draw')).toBeDisabled();
+
+    const spill = await page.evaluate(() => {
+      const frame = document.querySelector(
+        '[data-testid="xb-band-your-hand"] .windease-view-frame',
+      ) as HTMLElement;
+      const fr = frame.getBoundingClientRect();
+      const cards = [
+        ...document.querySelectorAll('[data-testid="xb-band-your-hand"] .xb-card-drag'),
+      ].map((c) => c.getBoundingClientRect());
+      return {
+        right: Math.max(...cards.map((c) => c.right)) - fr.right,
+        left: fr.left - Math.min(...cards.map((c) => c.left)),
+      };
+    });
+    expect(spill.right).toBeLessThanOrEqual(1);
+    expect(spill.left).toBeLessThanOrEqual(1);
+  });
+
+  test('turning a land pays mana, and turning it back takes it away', async ({ page }) => {
+    const total = page.getByTestId('xb-mana-total');
+    await expect(total).toHaveText('0');
+    await card(page, 'your-land-0').click();
+    await expect(total).toHaveText('1');
+    await card(page, 'your-land-1').click();
+    await expect(total).toHaveText('2');
+    await card(page, 'your-land-0').click();
+    await expect(total).toHaveText('1');
+  });
+
+  test('playing a card from hand spends its cost', async ({ page }) => {
+    for (const id of ['your-land-0', 'your-land-1', 'your-land-2', 'your-land-3']) {
+      await card(page, id).click();
+    }
+    const before = Number(await page.getByTestId('xb-mana-total').innerText());
+    const cost = Number(
+      await card(page, 'your-hand-1')
+        .locator('.xb-card__pips')
+        .innerText()
+        .catch(() => '0'),
     );
-    const [a, b] = boxes;
-    // Full size kept, and the next card starts before this one ends.
-    expect(b!.w).toBeCloseTo(a!.w, 0);
-    expect(b!.x).toBeLessThan(a!.x + a!.w);
+    await dragOnto(page, 'your-hand-1', 'your-field');
+    await expect.poll(() => bandUnder(page, 'your-hand-1')).toBe('your-field');
+    await expect
+      .poll(async () => Number(await page.getByTestId('xb-mana-total').innerText()))
+      .toBe(before - cost);
+  });
+
+  test('an aura is played onto a unit, not into a row', async ({ page }) => {
+    // The stacked opening hand puts the aura third.
+    const aura = card(page, 'your-hand-2');
+    await expect(aura).toHaveAttribute('data-kind', 'aura');
+
+    const host = await card(page, 'your-field-0').boundingBox();
+    const src = await aura.boundingBox();
+    await page.mouse.move(src!.x + src!.width / 2, src!.y + src!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(host!.x + host!.width / 2, host!.y + host!.height / 2, { steps: 24 });
+    await page.mouse.up();
+
+    // It now belongs to the creature, and is drawn as a tab rather than a card.
+    await expect(page.getByTestId('xb-aura-your-hand-2')).toBeVisible();
+    // It is inside the creature's own box, not the row's.
+    const onHost = await page.evaluate(() => {
+      const tab = document.querySelector('[data-testid="xb-aura-your-hand-2"]');
+      const host = document.querySelector('[data-node="your-field-0"]');
+      return !!tab && !!host && host.contains(tab);
+    });
+    expect(onHost).toBe(true);
+
+    // And it is no longer a card in the hand.
+    await expect(page.getByTestId('xb-card-your-hand-2')).toHaveCount(0);
+  });
+
+  test('a unit does not swallow a drop meant for the row it stands in', async ({ page }) => {
+    // The aura slot is only a target while an aura is in the air; a unit
+    // dropped onto an occupied row must still reach the row.
+    await dragOnto(page, 'your-hand-1', 'your-field');
+    await expect.poll(() => bandUnder(page, 'your-hand-1')).toBe('your-field');
+  });
+
+  test('right-clicking a card opens it in the lightbox', async ({ page }) => {
+    await expect(page.getByTestId('xb-lightbox')).toHaveCount(0);
+    await card(page, 'your-hand-0').click({ button: 'right' });
+    await expect(page.getByTestId('xb-lightbox-card')).toBeVisible();
+
+    // The big card is the same card.
+    const name = await page.getByTestId('xb-lightbox-card').locator('.xb-card__name').innerText();
+    const onTable = await card(page, 'your-hand-0').locator('.xb-card__name').innerText();
+    expect(name).toBe(onTable);
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('xb-lightbox')).toHaveCount(0);
+  });
+
+  test('every card is drawn to Magic proportions, turned or not', async ({ page }) => {
+    await card(page, 'your-land-0').click();
+    const ratios = await page.evaluate(() =>
+      [...document.querySelectorAll('.xb-card')]
+        .filter((el) => (el as HTMLElement).offsetHeight > 0)
+        .map((el) => (el as HTMLElement).offsetWidth / (el as HTMLElement).offsetHeight),
+    );
+    expect(ratios.length).toBeGreaterThan(10);
+    for (const r of ratios) expect(r).toBeCloseTo(63 / 88, 1);
   });
 });
+
+/** The hand's placement boxes, not the cards': `bow` rotates each card, and a
+ *  rotated card's bounding box is wider than the box it was placed in. */
+async function handBoxes(page: Page): Promise<Array<{ x: number; w: number }>> {
+  return page.evaluate(() =>
+    [...document.querySelectorAll('[data-testid="xb-band-your-hand"] [data-node]')].map((el) => ({
+      x: (el as HTMLElement).offsetLeft,
+      w: (el as HTMLElement).offsetWidth,
+    })),
+  );
+}

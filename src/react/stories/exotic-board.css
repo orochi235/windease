@@ -4,6 +4,7 @@
    look, plus the per-card transform the channels ask for. */
 
 .xb-root {
+  --xb-card-ratio: 63 / 88;
   --xb-felt: #1d2b24;
   --xb-felt-far: #16211c;
   --xb-line: #3c5348;
@@ -23,10 +24,14 @@
   position: relative;
   display: flex;
   gap: 12px;
-  /* Tall enough for five bands plus the hand at their natural heights, gaps
-     included. Short of this the tableau squeezes every band, and a band
-     shorter than a card is what makes `fit` shrink the card to reach it. */
-  height: 672px;
+  /* The board is drawn at 1040px when the window can spare it — tall enough
+     for five bands plus the hand at their natural heights — and shrinks to
+     whatever the window has otherwise. It has to fit: every band is a `fit`
+     frame, so a board taller than the viewport does not scroll into view, it
+     puts your hand under the bottom edge. Shrinking is safe where cropping is
+     not, because `fit="contain"` scales a band's whole logical box and every
+     card keeps its 63:88. */
+  height: clamp(520px, calc(100dvh - 132px), 1040px);
 }
 
 .xb-main {
@@ -37,7 +42,7 @@
 
 .xb-rail {
   position: relative;
-  flex: 0 0 84px;
+  flex: 0 0 116px;
 }
 
 /* A band is one row of the table: a player's lands, their creatures, a hand.
@@ -98,8 +103,15 @@
 
 .xb-card {
   position: relative;
+  /* The card derives its own height from its width and Magic's 63:88, rather
+     than filling whatever box it was given. The layout already sizes the box
+     to that ratio — `hints.aspect` plus the band's `crossAlign` — so this
+     changes nothing while both agree, and makes a disagreement show up as a
+     card that does not fill its slot instead of a card drawn to the wrong
+     shape. A squashed card is the one thing this board must never render. */
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: var(--xb-card-ratio);
   border-radius: 6px;
   /* A printed card is a dark frame with a lighter panel inset into it. */
   background: linear-gradient(168deg, #2a241c, #16120d 60%, #241d15);
@@ -136,6 +148,13 @@
   cursor: default;
 }
 
+/* Grid items default to `min-width: auto` just as flex items do, so without
+   this the row grows to its longest word and the card crops it — the name
+   inside never gets the chance to ellipsize. */
+.xb-card > * {
+  min-width: 0;
+}
+
 .xb-card__title,
 .xb-card__type {
   display: flex;
@@ -151,6 +170,10 @@
 }
 
 .xb-card__name {
+  /* A flex child will not shrink below its content without this, so the
+     ellipsis never gets a chance and the card crops the name instead. */
+  min-width: 0;
+  flex: 1 1 auto;
   font-weight: 650;
   letter-spacing: 0.005em;
   white-space: nowrap;
@@ -243,15 +266,21 @@
 }
 
 .xb-card__rules {
-  /* Right padding keeps the text clear of the power box, which is positioned
-     over this panel's bottom-right corner. */
-  padding: 2px 26px 2px 4px;
+  /* Symmetric, so centered text is centered. The power box is cleared below
+     rather than beside: a right gutter would have to be paid by every card,
+     and only a unit has a box to clear. */
+  padding: 2px 4px;
   border-radius: 3px;
   background: linear-gradient(to bottom, #efe9db, #ded6c2);
   box-shadow: inset 0 0 0 1px #00000020;
   font-size: calc(7.5px * var(--xb-scale, 1));
   line-height: 1.3;
   overflow: hidden;
+}
+
+/* Only a unit prints power, so only a unit pays for the room it takes. */
+.xb-card[data-kind="unit"] .xb-card__rules {
+  padding-bottom: calc(11px * var(--xb-scale, 1));
 }
 
 /* Bottom-right, the way a printed card puts it, and out of the text's flow. */
@@ -272,6 +301,14 @@
 .xb-card--land .xb-card__title,
 .xb-card--land .xb-card__type {
   background: linear-gradient(to bottom, #dfe4cc, #c6cfae);
+}
+
+/* The panel takes the mana type's paper, so a Love card reads pink under its
+   text and a Clubs card reads grey, without either losing the printed look. */
+.xb-card[data-mana] .xb-card__title,
+.xb-card[data-mana] .xb-card__type,
+.xb-card[data-mana] .xb-card__rules {
+  background: var(--xb-panel);
 }
 
 .xb-card--focus {
@@ -413,4 +450,375 @@
 .xb-readout {
   font-variant-numeric: tabular-nums;
   color: var(--xb-gold);
+}
+
+/* ---------------------------------------------------------------------------
+   Mana: the frames, the pips, and the rail readout.
+
+   Eight types, none of them the same kind of thing, so the frames are allowed
+   to disagree with each other. Each sets `--xb-frame` (the border), `--xb-panel`
+   (the paper under the text) and `--xb-ink` (the art). The per-card `--xb-hue`
+   still shifts the art, so two Peat cards are not the same picture.
+   --------------------------------------------------------------------------- */
+
+.xb-card[data-mana] {
+  background: linear-gradient(
+    168deg,
+    var(--xb-frame-lit),
+    var(--xb-frame) 58%,
+    var(--xb-frame-lit)
+  );
+}
+
+.xb-card--clubs {
+  --xb-frame: #2b2f33;
+  --xb-frame-lit: #454b52;
+  --xb-panel: #d9dcd8;
+  --xb-ink: #15181b;
+}
+.xb-card--america {
+  --xb-frame: #2f4570;
+  --xb-frame-lit: #4a6698;
+  --xb-panel: #dfe3ee;
+  --xb-ink: #8c2b33;
+}
+.xb-card--garlic {
+  --xb-frame: #7a6f86;
+  --xb-frame-lit: #9b91a6;
+  --xb-panel: #efe9dd;
+  --xb-ink: #584a63;
+}
+.xb-card--peat {
+  --xb-frame: #4a3a29;
+  --xb-frame-lit: #6b5540;
+  --xb-panel: #e3d9c6;
+  --xb-ink: #2c2015;
+}
+.xb-card--hush {
+  --xb-frame: #5d5f72;
+  --xb-frame-lit: #7c7e93;
+  --xb-panel: #dfe0e6;
+  --xb-ink: #3b3d4d;
+}
+.xb-card--bees {
+  --xb-frame: #8a6a1c;
+  --xb-frame-lit: #b8922f;
+  --xb-panel: #f0e4c2;
+  --xb-ink: #3b2c08;
+}
+.xb-card--love {
+  --xb-frame: #8c2f4a;
+  --xb-frame-lit: #b04a68;
+  --xb-panel: #f2dde3;
+  --xb-ink: #5e1a2e;
+}
+.xb-card--hole {
+  --xb-frame: #6e6a63;
+  --xb-frame-lit: #8d887f;
+  --xb-panel: #e2e0da;
+  --xb-ink: #3a3833;
+}
+
+/* Bees get their stripe in the frame rather than a flat fill. */
+.xb-card--bees[data-mana] {
+  background:
+    repeating-linear-gradient(-52deg, #00000038 0 6px, #0000 6px 13px),
+    linear-gradient(168deg, var(--xb-frame-lit), var(--xb-frame) 58%, var(--xb-frame-lit));
+}
+
+/* A Hole card is printed with a hole in it. The mask takes a real bite out of
+   the card, so the felt shows through and anything behind it does too — which
+   is also why the rules text has to dodge around the middle of the art. */
+.xb-card--hole {
+  mask-image: radial-gradient(circle at 50% 40%, #0000 0 11%, #000 11.6%);
+  mask-mode: alpha;
+}
+
+.xb-card__mana {
+  display: inline-grid;
+  place-items: center;
+  min-width: 12px;
+  height: 12px;
+  margin-left: 3px;
+  border-radius: 50%;
+  background: var(--xb-frame);
+  color: var(--xb-panel);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.xb-card__pips {
+  display: inline-grid;
+  place-items: center;
+  min-width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #00000024;
+  color: var(--xb-card-ink);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* --- the rail --------------------------------------------------------- */
+
+.xb-mana {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  padding: 6px;
+  border-radius: 8px;
+  background: #ffffff08;
+  box-shadow: inset 0 0 0 1px var(--xb-line);
+}
+
+.xb-mana__total {
+  color: var(--xb-gold);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.xb-mana__list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.xb-mana__pip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #00000038;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.xb-mana__glyph {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.xb-mana__n {
+  font-weight: 700;
+}
+
+.xb-mana__pip--empty {
+  opacity: 0.32;
+}
+
+.xb-mana__pip--clubs {
+  color: #c8cdd2;
+}
+.xb-mana__pip--america {
+  color: #8fb0e0;
+}
+.xb-mana__pip--garlic {
+  color: #d3c8dd;
+}
+.xb-mana__pip--peat {
+  color: #c9a878;
+}
+.xb-mana__pip--hush {
+  color: #b6b8c8;
+}
+.xb-mana__pip--bees {
+  color: #e2be5a;
+}
+.xb-mana__pip--love {
+  color: #e08aa2;
+}
+.xb-mana__pip--hole {
+  color: #b0aca4;
+}
+
+.xb-draw {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(#3e5b4c, #2a4034);
+  box-shadow: inset 0 0 0 1px var(--xb-gold);
+  color: #e8e2d4;
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+}
+
+.xb-draw:hover:not(:disabled) {
+  background: linear-gradient(#4a6c5a, #33503f);
+}
+
+.xb-draw:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* A card held up close. The scrim takes the click that closes it, and the card
+   is drawn at a size where the rules text is meant to be read rather than
+   recognized. */
+.xb-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: #06100bd9;
+  backdrop-filter: blur(2px);
+  cursor: zoom-out;
+}
+
+/* The scrim is the close button, sitting behind the card it dims. */
+.xb-lightbox__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: zoom-out;
+}
+
+.xb-card--zoomed {
+  position: relative;
+  width: min(42vh, 330px);
+  cursor: default;
+  box-shadow:
+    0 8px 20px #000a,
+    0 30px 70px #0009,
+    inset 0 0 0 1px #00000060;
+  --xb-scale: 2.6;
+}
+
+/* The printed areas grow with the card rather than staying at table size. */
+.xb-card--zoomed .xb-card__rules {
+  padding: 6px 7px;
+}
+
+/* The card picture. The sky and the ground take the card's own hue so two
+   Peat cards are not the same picture; the motif takes the mana type's ink. */
+.xb-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.xb-art__sky {
+  fill: hsl(var(--xb-hue, 200) 26% 74%);
+}
+
+.xb-art__ground {
+  fill: hsl(calc(var(--xb-hue, 200) + 40) 22% 42%);
+}
+
+.xb-art__ink {
+  fill: var(--xb-ink, #2b2b2b);
+}
+
+.xb-art__cut {
+  fill: hsl(var(--xb-hue, 200) 34% 82%);
+  opacity: 0.85;
+}
+
+/* A land's picture is the place, so it gets more sky and a softer ground. */
+.xb-card--land .xb-art__sky {
+  fill: hsl(var(--xb-hue, 90) 30% 78%);
+}
+
+/* An aura riding on a unit. The host card holds a strip of these along its
+   bottom edge, which is a real windease container — the drop that puts one
+   there resolves against the creature, not the row it is standing in. */
+.xb-card__auras {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  display: flex;
+  gap: 2px;
+  height: 26px;
+  pointer-events: none;
+}
+
+/* While an aura is in the air, the whole card is the target. */
+.xb-card__auras--live {
+  inset: 0;
+  height: auto;
+  box-shadow: inset 0 0 0 2px var(--xb-gold);
+  border-radius: 6px;
+  pointer-events: auto;
+}
+
+.xb-card__auras > * {
+  pointer-events: auto;
+}
+
+.xb-aura-drag {
+  display: block;
+  width: 20px;
+  height: 100%;
+}
+
+.xb-card__auras--live .xb-aura-drag {
+  width: 100%;
+}
+
+.xb-aura {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--xb-frame, #3a3a3a);
+  box-shadow:
+    0 1px 3px #0008,
+    inset 0 0 0 1px #ffffff2e;
+  color: var(--xb-panel, #eee);
+  font-size: 11px;
+  cursor: grab;
+}
+
+.xb-aura--clubs {
+  --xb-frame: #2b2f33;
+  --xb-panel: #d9dcd8;
+}
+.xb-aura--america {
+  --xb-frame: #2f4570;
+  --xb-panel: #dfe3ee;
+}
+.xb-aura--garlic {
+  --xb-frame: #7a6f86;
+  --xb-panel: #efe9dd;
+}
+.xb-aura--peat {
+  --xb-frame: #4a3a29;
+  --xb-panel: #e3d9c6;
+}
+.xb-aura--hush {
+  --xb-frame: #5d5f72;
+  --xb-panel: #dfe0e6;
+}
+.xb-aura--bees {
+  --xb-frame: #8a6a1c;
+  --xb-panel: #f0e4c2;
+}
+.xb-aura--love {
+  --xb-frame: #8c2f4a;
+  --xb-panel: #f2dde3;
+}
+.xb-aura--hole {
+  --xb-frame: #6e6a63;
+  --xb-panel: #e2e0da;
+}
+
+/* A unit that will take the aura you are dragging says so. */
+.xb-card__auras[data-accepts="true"] {
+  box-shadow: inset 0 0 0 2px var(--xb-gold);
+  border-radius: 4px;
 }

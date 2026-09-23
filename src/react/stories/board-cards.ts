@@ -11,12 +11,48 @@
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'mythic';
 
+/**
+ * What a card is, which decides where it may be played. `aura` is the one that
+ * does not go to a band at all: it attaches to a unit already on the table.
+ */
+export type CardKind = 'land' | 'unit' | 'artifact' | 'enchantment' | 'aura' | 'spell';
+
+/**
+ * The set's eight mana types. No two of them are the same kind of thing — a
+ * suit, a country, an allium, a fuel, a silence, an insect, a feeling and an
+ * absence — which is the joke, and also why nobody has ever agreed on the
+ * order to print them in. `frame` is the card border it takes, `panel` the tint under its
+ * text, `ink` the color its art is drawn in.
+ */
+export const MANA = {
+  clubs: { label: 'Clubs', glyph: '♣', frame: '#2b2f33', panel: '#d9dcd8', ink: '#15181b' },
+  america: { label: 'America', glyph: '★', frame: '#2f4570', panel: '#dfe3ee', ink: '#8c2b33' },
+  garlic: { label: 'Garlic', glyph: '✿', frame: '#7a6f86', panel: '#efe9dd', ink: '#584a63' },
+  peat: { label: 'Peat', glyph: '●', frame: '#4a3a29', panel: '#e3d9c6', ink: '#2c2015' },
+  hush: { label: 'Hush', glyph: '◐', frame: '#5d5f72', panel: '#dfe0e6', ink: '#3b3d4d' },
+  bees: { label: 'Bees', glyph: '⬣', frame: '#8a6a1c', panel: '#f0e4c2', ink: '#3b2c08' },
+  love: { label: 'Love', glyph: '♥', frame: '#8c2f4a', panel: '#f2dde3', ink: '#5e1a2e' },
+  /** Not a color at all. A Hole card is printed with one punched through it,
+   *  and you pay for it with what you can see of the table underneath. */
+  hole: { label: 'Hole', glyph: '○', frame: '#6e6a63', panel: '#e2e0da', ink: '#3a3833' },
+} as const;
+
+export type Mana = keyof typeof MANA;
+export const MANA_TYPES = Object.keys(MANA) as Mana[];
+
 export interface PoolCard {
   id: string;
   name: string;
+  kind: CardKind;
+  /** `kind === 'land'`, kept as its own field because almost everything that
+   *  reads a card asks this one question. */
   land: boolean;
+  mana: Mana;
+  /** Empty for anything without a fight in it. */
   power: string;
-  cost: string;
+  /** What it costs to play. Zero for a land, which is the thing you play to
+   *  afford the rest. */
+  cost: number;
   type: string;
   text: string;
   rarity: Rarity;
@@ -196,6 +232,22 @@ const TYPES = [
   'Drover',
 ];
 
+/** A fifth of the lands are cities. */
+const CITY_LANDS = [
+  'Mumbai',
+  'Nairobi',
+  'Lagos',
+  'Manila',
+  'Rio de Janeiro',
+  'Cape Town',
+  'Karachi',
+  'Mexico City',
+  'Caracas',
+  'Port-au-Prince',
+  'Jakarta',
+  'Dhaka',
+];
+
 const LAND_NAMES = [
   'Fallow Acre',
   'Deepwood',
@@ -296,23 +348,119 @@ function textOf(r: () => number): string {
   return pick(r, ABSURD_LINES);
 }
 
+/** How often each kind comes up, cumulative. Lands are a third of the deck
+ *  because nothing else can be played without them. */
+const KIND_WEIGHTS: Array<[CardKind, number]> = [
+  ['land', 0.32],
+  ['unit', 0.6],
+  ['artifact', 0.76],
+  ['enchantment', 0.86],
+  ['aura', 0.94],
+  ['spell', 1],
+];
+
+function kindOf(r: () => number): CardKind {
+  const roll = r();
+  for (const [kind, upto] of KIND_WEIGHTS) if (roll < upto) return kind;
+  return 'spell';
+}
+
+/** An artifact is a household object with a demonym or a portent on it, which
+ *  is the whole reason the household list is as long as it is. */
+function artifactName(r: () => number): string {
+  return r() < 0.5
+    ? `${pick(r, DEMONYMS)} ${pick(r, HOUSEHOLD)}`
+    : `${pick(r, FANTASY_ADJ)} ${pick(r, HOUSEHOLD)}`;
+}
+
+/** Enchantments, auras and one-shots lean on the invented half of the bank. */
+function spellName(r: () => number): string {
+  switch (Math.floor(r() * 3)) {
+    case 0:
+      return `${pick(r, FANTASY_ADJ)} ${pick(r, FANTASY_NOUN)}`;
+    case 1:
+      return `${pick(r, HOUSEHOLD)} of ${pick(r, FANTASY_NOUN)}s`;
+    default:
+      return `${pick(r, DEMONYMS)} ${pick(r, FANTASY_NOUN)}`;
+  }
+}
+
+const AURA_LINES = [
+  'Attached unit gets +2/+2 and a draft it cannot place.',
+  'Attached unit cannot be turned while the kettle is on.',
+  'Attached unit gets +1/+3 and answers to a different name.',
+  'Attached unit taps for one of any type, badly.',
+  'Attached unit gains reach, which nobody asked it to.',
+  'Attached unit is, for rules purposes, a chair.',
+];
+
+const ENCHANT_LINES = [
+  'Lands you control turn for one extra on a clear morning.',
+  'Whenever anything enters, somebody sighs.',
+  'Units cost one less if you have already read the manual.',
+  'At the start of each turn, the hallway is longer.',
+  'Nobody may mention the thing in the loft.',
+];
+
+function nameFor(r: () => number, kind: CardKind): string {
+  if (kind === 'land') return r() < 0.2 ? pick(r, CITY_LANDS) : pick(r, LAND_NAMES);
+  if (kind === 'artifact') return artifactName(r);
+  if (kind === 'unit') return nameOf(r);
+  return spellName(r);
+}
+
+function typeLineFor(r: () => number, kind: CardKind): string {
+  switch (kind) {
+    case 'land':
+      return 'Land';
+    case 'unit':
+      return pick(r, TYPES);
+    case 'artifact':
+      return r() < 0.3 ? 'Artifact — Fixture' : 'Artifact';
+    case 'enchantment':
+      return 'Enchantment';
+    case 'aura':
+      return 'Enchantment — Aura';
+    default:
+      return r() < 0.5 ? 'Sorcery' : 'Instant';
+  }
+}
+
+function textFor(r: () => number, kind: CardKind): string {
+  switch (kind) {
+    case 'land':
+      return `Turn for one. ${pick(r, FARM_LINES)}`;
+    case 'aura':
+      return pick(r, AURA_LINES);
+    case 'enchantment':
+      return pick(r, ENCHANT_LINES);
+    case 'artifact':
+      return r() < 0.6 ? pick(r, MUNDANE_LINES) : pick(r, ABSURD_LINES);
+    default:
+      return textOf(r);
+  }
+}
+
 /** `count` cards, the same ones every time for a given `seed`. */
 export function cardPool(count = 320, seed = 20260921): PoolCard[] {
   const r = rng(seed);
   const out: PoolCard[] = [];
   for (let i = 0; i < count; i++) {
-    const land = r() < 0.36;
+    const kind = kindOf(r);
+    const land = kind === 'land';
     const rarity = land ? 'common' : pick(r, RARITIES);
     const p = 1 + Math.floor(r() * 6);
     const t = 1 + Math.floor(r() * 6);
     out.push({
       id: `c${i}`,
+      kind,
       land,
-      name: land ? pick(r, LAND_NAMES) : nameOf(r),
-      power: land ? '' : `${p}/${t}`,
-      cost: land ? '' : String(1 + Math.floor(r() * 7)),
-      type: land ? 'Land' : pick(r, TYPES),
-      text: land ? `Turn for one. ${pick(r, FARM_LINES)}` : textOf(r),
+      mana: pick(r, MANA_TYPES),
+      name: nameFor(r, kind),
+      power: kind === 'unit' ? `${p}/${t}` : '',
+      cost: land ? 0 : 1 + Math.floor(r() * 6),
+      type: typeLineFor(r, kind),
+      text: textFor(r, kind),
       rarity,
       foil: r() < 0.04,
       hue: Math.floor(r() * 360),
