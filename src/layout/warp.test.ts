@@ -315,6 +315,42 @@ describe('warp', () => {
     ).toBeUndefined();
   });
 
+  it('reports what a moving pass pushed past the container as overflow', () => {
+    // Two rects filling the row exactly, so the base strategy reports nothing.
+    const base = fixedStrategy({ a: rect(0, 0, 200, 40), b: rect(200, 0, 200, 40) });
+    const composed = warp(base, [swell({ reach: 100, gain: 2 })]);
+    const flat = composed.layout({
+      items: [],
+      container: CONTAINER,
+      state: undefined,
+      options: {},
+    });
+    expect(flat.overflow).toBeUndefined();
+
+    const swelled = composed.layout({
+      items: [],
+      container: CONTAINER,
+      state: undefined,
+      options: {},
+      pointer: { x: 200, y: 20 },
+    });
+    // The run parts around the cursor: past the right edge, and to the left of
+    // the origin, which a host can only reach by moving it.
+    expect(swelled.overflow?.w).toBeGreaterThan(0);
+    expect(swelled.overflow?.left).toBeGreaterThan(0);
+  });
+
+  it('keeps the overflow the base reported when no pass adds to it', () => {
+    const base = fixedStrategy({ a: rect(0, 0, 100, 40) });
+    const withOverflow: LayoutStrategy<void, string> = {
+      ...base,
+      layout: (input) => ({ ...base.layout(input), overflow: { w: 500, h: 0 } }),
+    };
+    const composed = warp(withOverflow, [bow(0.4)]);
+    const out = composed.layout({ items: [], container: CONTAINER, state: undefined, options: {} });
+    expect(out.overflow?.w).toBe(500);
+  });
+
   it('runs passes in order over the base result', () => {
     const base = fixedStrategy({ a: rect(0, 0, 100, 40), b: rect(0, 160, 100, 40) });
     const composed = warp(base, [tilt({ tilt: 1.5 })]);

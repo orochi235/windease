@@ -18,6 +18,7 @@ import type {
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
+  Overflow,
   Rect,
   Size,
 } from '../layout-types.js';
@@ -529,6 +530,49 @@ function invertEvent(passes: Pass[], event: LayoutEvent, args: PassArgs): Layout
  *
  * @group Layout
  */
+/**
+ * Fold the extent the passes deformed into over whatever the base strategy
+ * reported. A pass that moves rects can put a child past an edge the base had
+ * no reason to mention — `swell` parts a run by `(gain - 1) · reach / 2` on
+ * each side — and a host that scrolls sizes its extent from `overflow`, so
+ * without this there is nothing for it to scroll to.
+ *
+ * Takes the larger of the two per edge rather than replacing: the base's
+ * number can describe children a rect union cannot see, like a strip that
+ * squeezed past its floor.
+ */
+function withDeformedOverflow(result: LayoutResult<string>, container: Size): LayoutResult<string> {
+  if (result.placements.size === 0) return result;
+  let right = 0;
+  let bottom = 0;
+  let left = 0;
+  let top = 0;
+  for (const rect of result.placements.values()) {
+    right = Math.max(right, rect.x + rect.w - container.w);
+    bottom = Math.max(bottom, rect.y + rect.h - container.h);
+    left = Math.max(left, -rect.x);
+    top = Math.max(top, -rect.y);
+  }
+  const base = result.overflow;
+  const w = Math.max(right, base?.w ?? 0);
+  const h = Math.max(bottom, base?.h ?? 0);
+  left = Math.max(left, base?.left ?? 0);
+  top = Math.max(top, base?.top ?? 0);
+  if (w <= 0 && h <= 0 && left <= 0 && top <= 0) {
+    if (!base) return result;
+    const { overflow: _dropped, ...rest } = result;
+    return rest;
+  }
+  const overflow: Overflow = { w: Math.max(0, w), h: Math.max(0, h) };
+  if (left > 0) overflow.left = left;
+  if (top > 0) overflow.top = top;
+  trace(
+    'layout',
+    `warp: overflow w=${overflow.w} h=${overflow.h} left=${overflow.left ?? 0} top=${overflow.top ?? 0}`,
+  );
+  return { ...result, overflow };
+}
+
 export function warp<TState, TMeta = unknown>(
   strategy: LayoutStrategy<TState, string, TMeta>,
   passes: Pass[],
@@ -545,6 +589,7 @@ export function warp<TState, TMeta = unknown>(
   const configSpec: Record<string, ConfigSpec[string]> = { ...strategy.configSpec };
   for (const pass of passes) Object.assign(configSpec, pass.configSpec);
 
+  const movesRects = passes.some((pass) => pass.moves === true);
   const name = `warp(${[strategy.name, ...passes.map((p) => p.name)].join(', ')})`;
   trace('layout', `${name}: composed over ${passes.length} pass(es)`);
 
@@ -573,7 +618,12 @@ export function warp<TState, TMeta = unknown>(
           pointer: pointers[i],
         }) as LayoutResult<string, TMeta>;
       });
-      return result;
+      return movesRects
+        ? (withDeformedOverflow(result as LayoutResult<string>, input.container) as LayoutResult<
+            string,
+            TMeta
+          >)
+        : result;
     },
   };
 
