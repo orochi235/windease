@@ -6,31 +6,114 @@ const STORY = 'exotic--board--duel-board';
 const card = (page: Page, id: string) => page.getByTestId(`xb-card-${id}`);
 const band = (page: Page, id: string) => page.getByTestId(`xb-band-${id}`);
 
-/** Which band a card's center currently sits inside, by geometry rather than
- *  by the DOM — the point being that the two agree under the projection. */
+/** Which band a card is in, read off the container that rendered it.
+ *
+ *  Structural rather than geometric: the hand draws on a surface spanning the
+ *  whole board, so a hand card's center sits inside every band's box and a
+ *  hit-test answers whichever one it checks first. */
 async function bandUnder(page: Page, cardId: string): Promise<string | null> {
   return page.evaluate((id) => {
     const el = document.querySelector(`[data-testid="xb-card-${id}"]`);
+    return el?.closest('[data-node-container]')?.getAttribute('data-node-container') ?? null;
+  }, cardId);
+}
+
+/** Turn every land on your side, so the hand is affordable.
+ *
+ *  A costed card dropped with no mana is refused — the board is a game, not a
+ *  free-move surface — so a spec about where a card lands has to pay for it
+ *  first. What each card costs moves with the pool, so this pays the maximum
+ *  rather than naming a number. */
+async function tapAllLands(page: Page): Promise<number> {
+  const lands = await page.locator('[data-testid^="xb-card-your-land-"]').count();
+  for (let i = 0; i < lands; i++) await card(page, `your-land-${i}`).click();
+  return Number(await page.getByTestId('xb-mana-total').innerText());
+}
+
+/** A hand card of this kind, by id. Hunting for one rather than naming a slot:
+ *  what the deal puts third moves whenever the pool changes. */
+async function handCardOfKind(page: Page, kind: string): Promise<string> {
+  const id = await page.evaluate((k) => {
+    for (const el of document.querySelectorAll('[data-testid^="xb-card-your-hand-"]')) {
+      if (el.getAttribute('data-kind') === k) {
+        return (el.getAttribute('data-testid') ?? '').replace('xb-card-', '');
+      }
+    }
+    return null;
+  }, kind);
+  if (!id) throw new Error(`no ${kind} in the opening hand`);
+  return id;
+}
+
+/**
+ * A hand card this much mana can pay for that a row will actually take.
+ *
+ * Defaults to a unit, because the row it is being played into takes units:
+ * every other kind belongs somewhere else and a row refuses it, which reads
+ * as a failure to pay rather than the refusal it is.
+ */
+async function affordableInHand(
+  page: Page,
+  mana: number,
+  kind = 'unit',
+): Promise<{ id: string; cost: number }> {
+  const found = await page.evaluate(
+    ({ budget, want }) => {
+      for (const el of document.querySelectorAll('[data-testid^="xb-card-your-hand-"]')) {
+        if (el.getAttribute('data-kind') !== want) continue;
+        const cost = Number(el.querySelector('.xb-card__pips')?.textContent ?? '0');
+        if (cost > 0 && cost <= budget) {
+          return { id: (el.getAttribute('data-testid') ?? '').replace('xb-card-', ''), cost };
+        }
+      }
+      return null;
+    },
+    { budget: mana, want: kind },
+  );
+  if (!found) throw new Error(`no ${kind} in hand costs ${mana} or less`);
+  return found;
+}
+
+/**
+ * A point that really presses this card.
+ *
+ * Neither its centre nor its edges will do: the hand fans, so a card's middle
+ * is under the one after it, and `bow` rotates each card, so the corners of
+ * its bounding box are outside the card itself. The only reliable answer is
+ * the one the browser gives — scan the box and take the first point where the
+ * card is what is actually on top.
+ */
+async function grabPoint(page: Page, cardId: string): Promise<{ x: number; y: number }> {
+  const point = await page.evaluate((id) => {
+    const el = document.querySelector(`[data-testid="xb-card-${id}"]`);
     if (!el) return null;
-    const r = el.getBoundingClientRect();
-    const cx = r.x + r.width / 2;
-    const cy = r.y + r.height / 2;
-    for (const b of document.querySelectorAll('[data-testid^="xb-band-"]')) {
-      const box = b.getBoundingClientRect();
-      if (cx >= box.x && cx <= box.x + box.width && cy >= box.y && cy <= box.y + box.height) {
-        return (b.getAttribute('data-testid') ?? '').replace('xb-band-', '');
+    const b = el.getBoundingClientRect();
+    for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85]) {
+      for (let fx = 0.06; fx < 1; fx += 0.04) {
+        const x = b.x + b.width * fx;
+        const y = b.y + b.height * fy;
+        const hit = document.elementFromPoint(x, y);
+        if (hit && el.contains(hit)) return { x, y };
       }
     }
     return null;
   }, cardId);
+  if (!point) throw new Error(`no pressable point on ${cardId}`);
+  return point;
 }
 
 /** Drag `from` onto the middle of `to`, in steps so the hit-test samples. */
 async function dragOnto(page: Page, cardId: string, bandId: string): Promise<void> {
   const src = await card(page, cardId).boundingBox();
-  const dst = await band(page, bandId).boundingBox();
+  // The hand's drop target is the dock at the bottom of its surface, not the
+  // surface, which spans the whole board and would aim this at the table.
+  const dst = await (bandId === 'your-hand'
+    ? page.getByTestId('xb-hand-dock')
+    : band(page, bandId)
+  ).boundingBox();
   if (!src || !dst) throw new Error(`missing geometry for ${cardId} → ${bandId}`);
-  await page.mouse.move(src.x + src.width / 2, src.y + src.height / 2);
+  const from = await grabPoint(page, cardId);
+  await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(dst.x + dst.width / 2, dst.y + dst.height / 2, { steps: 24 });
   await page.mouse.up();
@@ -63,6 +146,7 @@ test.describe('duel board', () => {
   });
 
   test('a card can be dragged back to the hand', async ({ page }) => {
+    await tapAllLands(page);
     await dragOnto(page, 'your-hand-1', 'your-land');
     await expect.poll(() => bandUnder(page, 'your-hand-1')).toBe('your-land');
     await dragOnto(page, 'your-hand-1', 'your-hand');
@@ -70,6 +154,7 @@ test.describe('duel board', () => {
   });
 
   test("the opponent's half refuses your cards", async ({ page }) => {
+    await tapAllLands(page);
     await dragOnto(page, 'your-hand-2', 'opp-field');
     await expect.poll(() => bandUnder(page, 'your-hand-2')).toBe('your-hand');
   });
@@ -178,11 +263,15 @@ test.describe('duel board', () => {
       .toBeLessThan(still!.y);
   });
 
-  test('a dealt hand sits side by side, whole', async ({ page }) => {
+  test('a dealt hand fans in order, each card clear of the one before', async ({ page }) => {
     const boxes = await handBoxes(page);
+    expect(boxes.length).toBeGreaterThan(4);
     for (let i = 1; i < boxes.length; i++) {
-      // No card's right edge is under the next one's left.
-      expect(boxes[i]!.x).toBeGreaterThanOrEqual(boxes[i - 1]!.x + boxes[i - 1]!.w);
+      // Each card starts after the last one did, and leaves enough of it to
+      // click: the step is the fan's, not zero and not the full card.
+      const step = boxes[i]!.x - boxes[i - 1]!.x;
+      expect(step).toBeGreaterThan(8);
+      expect(step).toBeLessThanOrEqual(boxes[i - 1]!.w + 1);
     }
   });
 
@@ -198,7 +287,7 @@ test.describe('duel board', () => {
   });
 
   test('the hand scrolls once fanning runs out of room', async ({ page }) => {
-    const scroller = page.getByTestId('xb-hand-scroll');
+    const scroller = page.getByTestId('xb-hand-surface');
     const fits = async () =>
       scroller.evaluate((el) => ({ client: el.clientWidth, scroll: el.scrollWidth }));
 
@@ -225,17 +314,19 @@ test.describe('duel board', () => {
     await expect(page.getByTestId('xb-draw')).toHaveText('Draw');
   });
 
-  test('a magnified card stays inside the band it is drawn in', async ({ page }) => {
+  test('a magnified card stays inside the surface it is drawn on', async ({ page }) => {
     for (let i = 0; i < 20; i++) await page.getByTestId('xb-draw').click();
-    const box = await page.getByTestId('xb-hand-scroll').boundingBox();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2, { steps: 20 });
+    // Aim at the row the cards rest in, not the middle of the surface — the
+    // surface is the whole board and its centre is well above the hand.
+    const box = await page.getByTestId('xb-hand-dock').boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height - 40, { steps: 20 });
 
     const out = await page.evaluate(() => {
-      const el = document.querySelector('[data-testid="xb-hand-scroll"]') as HTMLElement;
+      const el = document.querySelector('[data-testid="xb-hand-surface"]') as HTMLElement;
       const b = el.getBoundingClientRect();
       let over = 0;
       let tallest = 0;
-      for (const c of document.querySelectorAll('[data-testid="xb-hand-scroll"] .xb-card-drag')) {
+      for (const c of document.querySelectorAll('[data-testid="xb-hand-surface"] .xb-card-drag')) {
         const r = c.getBoundingClientRect();
         over = Math.max(over, b.top - r.top, r.bottom - b.bottom);
         tallest = Math.max(tallest, r.height);
@@ -261,54 +352,46 @@ test.describe('duel board', () => {
   });
 
   test('playing a card from hand spends its cost', async ({ page }) => {
-    for (const id of ['your-land-0', 'your-land-1', 'your-land-2', 'your-land-3']) {
-      await card(page, id).click();
-    }
-    const before = Number(await page.getByTestId('xb-mana-total').innerText());
-    const cost = Number(
-      await card(page, 'your-hand-1')
-        .locator('.xb-card__pips')
-        .innerText()
-        .catch(() => '0'),
-    );
-    await dragOnto(page, 'your-hand-1', 'your-field');
-    await expect.poll(() => bandUnder(page, 'your-hand-1')).toBe('your-field');
+    const before = await tapAllLands(page);
+    const { id, cost } = await affordableInHand(page, before);
+    await dragOnto(page, id, 'your-field');
+    await expect.poll(() => bandUnder(page, id)).toBe('your-field');
     await expect
       .poll(async () => Number(await page.getByTestId('xb-mana-total').innerText()))
       .toBe(before - cost);
   });
 
   test('an aura is played onto a unit, not into a row', async ({ page }) => {
-    // The stacked opening hand puts the aura third.
-    const aura = card(page, 'your-hand-2');
-    await expect(aura).toHaveAttribute('data-kind', 'aura');
-
+    await tapAllLands(page);
+    const auraId = await handCardOfKind(page, 'aura');
     const host = await card(page, 'your-field-0').boundingBox();
-    const src = await aura.boundingBox();
-    await page.mouse.move(src!.x + src!.width / 2, src!.y + src!.height / 2);
+    const from = await grabPoint(page, auraId);
+    await page.mouse.move(from.x, from.y);
     await page.mouse.down();
     await page.mouse.move(host!.x + host!.width / 2, host!.y + host!.height / 2, { steps: 24 });
     await page.mouse.up();
 
     // It now belongs to the creature, and is drawn as a tab rather than a card.
-    await expect(page.getByTestId('xb-aura-your-hand-2')).toBeVisible();
+    await expect(page.getByTestId(`xb-aura-${auraId}`)).toBeVisible();
     // It is inside the creature's own box, not the row's.
-    const onHost = await page.evaluate(() => {
-      const tab = document.querySelector('[data-testid="xb-aura-your-hand-2"]');
+    const onHost = await page.evaluate((id) => {
+      const tab = document.querySelector(`[data-testid="xb-aura-${id}"]`);
       const host = document.querySelector('[data-node="your-field-0"]');
       return !!tab && !!host && host.contains(tab);
-    });
+    }, auraId);
     expect(onHost).toBe(true);
 
     // And it is no longer a card in the hand.
-    await expect(page.getByTestId('xb-card-your-hand-2')).toHaveCount(0);
+    await expect(page.getByTestId(`xb-card-${auraId}`)).toHaveCount(0);
   });
 
   test('a unit does not swallow a drop meant for the row it stands in', async ({ page }) => {
     // The aura slot is only a target while an aura is in the air; a unit
     // dropped onto an occupied row must still reach the row.
-    await dragOnto(page, 'your-hand-1', 'your-field');
-    await expect.poll(() => bandUnder(page, 'your-hand-1')).toBe('your-field');
+    const mana = await tapAllLands(page);
+    const { id } = await affordableInHand(page, mana);
+    await dragOnto(page, id, 'your-field');
+    await expect.poll(() => bandUnder(page, id)).toBe('your-field');
   });
 
   test('right-clicking a card opens it in the lightbox', async ({ page }) => {
@@ -341,7 +424,7 @@ test.describe('duel board', () => {
  *  rotated card's bounding box is wider than the box it was placed in. */
 async function handBoxes(page: Page): Promise<Array<{ x: number; w: number }>> {
   return page.evaluate(() =>
-    [...document.querySelectorAll('[data-testid="xb-hand-scroll"] [data-node]')].map((el) => ({
+    [...document.querySelectorAll('[data-testid="xb-hand-surface"] [data-node]')].map((el) => ({
       x: (el as HTMLElement).offsetLeft,
       w: (el as HTMLElement).offsetWidth,
     })),
