@@ -126,3 +126,19 @@ test.describe('the Pack story drives the packers from config', () => {
     await expect.poll(left).toBe(56);
   });
 });
+
+test('changing a control repacks the boxes', async ({ page }) => {
+  // Every other spec here opens a fresh URL, which mounts a Provider for the first time and so
+  // never exercises a store swapped under a live one.
+  await openStory(page, `${STORY}&arg-strategy=shelf&arg-sort=none`);
+  const before = await placed(page);
+
+  await page.getByRole('button', { name: /Explore different versions/ }).click();
+  await page.getByRole('radio', { name: 'area', exact: true }).check();
+
+  await expect
+    .poll(async () =>
+      (await placed(page)).map((b) => `${b.id}@${Math.round(b.x)},${Math.round(b.y)}`).join(' '),
+    )
+    .not.toBe(before.map((b) => `${b.id}@${Math.round(b.x)},${Math.round(b.y)}`).join(' '));
+});

@@ -94,10 +94,12 @@ export const Scenarios: Story<Args> = ({ scenario, strategy: pick, width }) => {
   }, [preset, strategy, vw, vh]);
 
   return (
-    <Provider store={store}>
-      <StrategyRegistryProvider strategies={STRATEGIES}>
-        <section className="exotic-pack" aria-label="Exotic pack scenario">
-          <PresetPicker presets={STORY_PRESETS} value={preset} onChange={pickPreset} />
+    <section className="exotic-pack" aria-label="Exotic pack scenario">
+      <PresetPicker presets={STORY_PRESETS} value={preset} onChange={pickPreset} />
+      {/* A Provider captures its store on first render, so the key is what swaps it. The picker
+          stays outside, or every pick would remount the select the user just used. */}
+      <Provider key={`${preset.id}:${strategy}`} store={store}>
+        <StrategyRegistryProvider strategies={STRATEGIES}>
           <PresetInfo preset={preset}>
             <p className="preset-info__live">
               <strong>Packed by {strategy}:</strong>{' '}
@@ -110,7 +112,6 @@ export const Scenarios: Story<Args> = ({ scenario, strategy: pick, width }) => {
           <PresetStyle preset={preset} />
           <div className={`exotic-pack__viewport ${presetClass(preset)}`}>
             <Container
-              key={`${preset.id}:${strategy}`}
               parentId={asNodeId(preset.mechanics.id)}
               chrome={chrome}
               viewport={{ w: vw, h: vh }}
@@ -120,9 +121,9 @@ export const Scenarios: Story<Args> = ({ scenario, strategy: pick, width }) => {
             />
           </div>
           <PresetCode preset={preset} viewport={{ w: vw, h: vh }} />
-        </section>
-      </StrategyRegistryProvider>
-    </Provider>
+        </StrategyRegistryProvider>
+      </Provider>
+    </section>
   );
 };
 

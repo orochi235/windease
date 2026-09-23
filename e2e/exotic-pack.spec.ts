@@ -200,3 +200,20 @@ test('the story reports the packing it shows', async ({ page }) => {
     '20 placed, 10 unplaced, 0 turned, 800px wide',
   );
 });
+
+test('picking another preset from the dropdown packs it', async ({ page }) => {
+  await open(page, 'pinterest-home-feed', 'preset');
+  await expect(
+    page.locator('[data-node-container="pinterest-home-feed:root"] > [data-node]'),
+  ).toHaveCount(49);
+
+  await page.getByTestId('preset-picker').selectOption('flickr-justified-rows');
+  await expect(
+    page.locator('[data-node-container="flickr-justified-rows:root"] > [data-node]'),
+  ).toHaveCount(40);
+
+  await page.getByTestId('preset-picker').selectOption('google-keep-notes');
+  await expect(
+    page.locator('[data-node-container="google-keep-notes:root"] > [data-node]'),
+  ).not.toHaveCount(0);
+});

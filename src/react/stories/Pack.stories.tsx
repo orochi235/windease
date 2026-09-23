@@ -144,6 +144,11 @@ export const PackedBoxes: Story<Args> = ({
     });
     return s;
   }, [strategy, gap, sort, rotate, overflowMode, cols, columnWidth, justify]);
+  // A Provider captures its store on first render, so without this key every control above
+  // builds a store nothing reads and the zone keeps showing the first one.
+  const storeKey = [strategy, gap, sort, rotate, overflowMode, cols, columnWidth, justify].join(
+    ':',
+  );
 
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -157,7 +162,7 @@ export const PackedBoxes: Story<Args> = ({
   );
 
   return (
-    <Provider store={store}>
+    <Provider key={storeKey} store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <div className="pack-demo">
           <Container
@@ -300,6 +305,7 @@ export const Pocket: Story<PocketArgs> = ({
     });
     return s;
   }, [strategy, gap, pocketUnder, smalls]);
+  const storeKey = [strategy, gap, pocketUnder, smalls].join(':');
 
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -313,7 +319,7 @@ export const Pocket: Story<PocketArgs> = ({
   );
 
   return (
-    <Provider store={store}>
+    <Provider key={storeKey} store={store}>
       <StrategyRegistryProvider strategies={POCKET_STRATEGIES}>
         <div className="pack-demo">
           <Container
