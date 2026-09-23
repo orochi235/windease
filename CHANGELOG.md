@@ -53,6 +53,10 @@ section below.
   runs gesture coordinates back through each pass's inverse, which is the part
   a CSS `perspective` gets silently wrong. See the `Exotic / Board` story.
 
+## 2.1.0
+
+### Added
+
 - **`gridStrategy` takes `orientation: 'fit'`, which reads the container.**
   `wide` and `tall` auto-balance on the item count alone — `ceil(sqrt(n))` and
   `floor(sqrt(n))` columns — keeping the grid square and saying nothing about

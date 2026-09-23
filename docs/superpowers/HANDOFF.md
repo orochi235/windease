@@ -1,4 +1,4 @@
-# Handoff: 1.3.0 is ready to cut
+# Handoff: 2.1.0 is committed but not tagged
 
 For whoever picks up windease next. Repo state, what the next task is, and the
 traps that cost time and are recorded nowhere else. The durable documents are
@@ -8,29 +8,54 @@ repeating them.
 
 ## Repo state
 
-On **`main`**, clean, no other branches and no worktrees. `main` is **unpushed**,
-well ahead of `origin/main` — pre-existing — and `package.json` still says 1.2.1.
+On **`main`**, clean, no other branches and no worktrees.
 
-Green: 1347 unit tests, 261 e2e specs across Chromium/Firefox/WebKit, lint,
-typecheck, build. `scripts/check-changelog.sh` exits 1, as it does on every
-unreleased `main` — it is the release gate, and a populated `## Unreleased` is
-exactly the pre-release state.
+The release cut is committed: `package.json` and `package-lock.json` at 2.1.0,
+and the `## Unreleased` section that held 2.1.0's entries retitled to `## 2.1.0`.
+Nothing is tagged, so nothing has published.
+
+**`v2.1.0` is not this commit's to carry.** The turn, deformation and board work
+landed on top of the cut, so tagging `HEAD` would publish those features as
+2.1.0. `scripts/check-changelog.sh` says so directly — it fails while a
+populated `## Unreleased` sits above the version section, which is the state
+`main` is in. Either tag the commit the bump was made against, or roll the whole
+of `## Unreleased` into 2.2.0 and cut that instead.
+
+Green on 2026-09-20, run on `studio` through `onto test`: 5224 unit tests across
+202 files, then 1024 Playwright specs across Chromium, Firefox and WebKit. Five
+webkit specs needed their retry, all of them `openStory` timing out under load.
+
+The suite runs on the fleet now: `.onto/tests` runs `npm run test:all` — vitest
+over the library and the pack lab, then Playwright over Ladle — as one job.
 
 ## What is next
 
-**Cut 1.3.0.** `## Unreleased` is full and nothing in `TODO.md` is `[HIGH]`. The
-bump is a minor: the section is additive except three documented behavior
-changes, one of which — a destroy-locked descendant now refusing the whole
-cascade — has its own note under the README's **Breaking changes**. Retitle
-`## Unreleased` to `## 1.3.0`, bump `package.json`, and let
-`scripts/check-changelog.sh` gate it.
+**Decide what 2.1.0 means, then tag it** — see the repo state above.
+Everything else is behind it.
 
-Behind the release, `TODO.md` is `[MED]` features and questions waiting on a
-second consumer — plus the ~1% keyboard-spec flake under parallel load, which
-still has no diagnosis and is the one thing worth chasing that nobody has.
+Then `TODO.md`, which is `[MED]` items and questions waiting on a second
+consumer. The three specified well enough to start cold:
+
+- **Grid `sticky`** — the one unbuilt phase-2 preset key, and what Excel's
+  preset needs to scroll with frozen headers. Strip already has it.
+- **No preset declares `reorder`** though it is built and shipped; Firefox,
+  Chrome and Win 10 are the three named as wanting it.
+- **A wrap drop is asked about the wrong child list.**
+  `DragEngine.checkAccept` (`src/dnd/DragEngine.ts:349`) falls through to the
+  acceptance block for a `stack` or `split` intent, which does not change the
+  parent's child count, so a full `strip` refuses a stack that would have left
+  it as it was.
+
+Plus the e2e suite's behavior under machine load, which still has no diagnosis:
+failures wander between runs once the load average passes roughly twice the core
+count. `scripts/flake-census.mjs` measures it rather than reasoning about it.
+The five webkit retries above are the story-load mode it describes.
 
 ## Traps that cost time, so you do not pay twice
 
+- **`npm version` pushes.** The `postversion` script is `git push
+  --follow-tags`, and npm runs it even under `--no-git-tag-version`. A bump
+  meant to stay local sent three commits to `origin/main`.
 - **The store notifies on a microtask**, so the synchronous form of `act()`
   returns before React has re-rendered. Use `await act(async () => …)`.
 - **Any node the store creates needs `showNode`.** `split` calls it seven times
@@ -44,7 +69,13 @@ still has no diagnosis and is the one thing worth chasing that nobody has.
   The story fixes it with one `z-index`; the README says so now.
 - **Ladle serves port 61000 per checkout.** A second checkout running its own
   dev server means `npm run test:e2e` can drive the other one and lie about what
-  is in the tree.
+  is in the tree. `.onto/tests` sets `CI=1` for exactly this reason.
+- **`onto test` refuses a sync that would delete files the node holds**, and it
+  counts files that are tracked at `HEAD` and byte-identical. It named 19 on
+  `studio`. `--force` is the answer; check what actually differs with
+  `onto fetch studio:windease/<path>` before reaching for it.
+- **Read `onto test`'s exit code from a file, never from the harness summary.**
+  A run that reported success had failed: `EXIT=1` was in the redirected output.
 
 ## Practices this repo earned, not just prefers
 
@@ -54,3 +85,7 @@ still has no diagnosis and is the one thing worth chasing that nobody has.
 - **A story has to be operable, not a demo.** Two defects in tab-stacking
   survived a green headless suite and were visible on first render; the same
   round trip caught a content-sized pane that never re-measured.
+- **A story that demonstrates a workaround outlives the defect.** The Floating
+  top-layer story registered its legend last so DOM order would keep it visible;
+  when `z` finally did that job, the story's premise and its spec were both
+  asserting the bug.
