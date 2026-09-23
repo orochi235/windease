@@ -25,7 +25,9 @@ const REGISTRY = new Map([['probe', probe as never]]);
 
 function host(): { host: ContainerHost; store: Store } {
   const store = new Store();
-  store.registerNode(createNode({ kind: 'zone', container: { strategyId: 'probe' }, id: Z }));
+  store.registerNode(
+    createNode({ kind: 'zone', container: { strategyId: 'probe', config: {} }, id: Z }),
+  );
   store.registerNode(createNode({ kind: 'panel', id: C1, parentId: Z }));
   store.showNode(C1);
   const h = new ContainerHost(store, Z, REGISTRY);
