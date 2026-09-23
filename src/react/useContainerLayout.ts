@@ -209,15 +209,19 @@ export function viewStyle(view: View): CSSProperties | undefined {
  * The frame a fitted container is shown in: it takes the space it is given
  * and clips, and the scaled box sits at its top-left. Under `'width'` the
  * height follows the scaled viewport, since nothing else would give it one.
+ *
+ * `unclipped` drops the crop and keeps everything else. The frame still
+ * measures the space it was given, so the `view` it derives is unchanged.
  */
 export function fitFrameStyle(
   fit: FitMode,
   viewport: { w: number; h: number } | undefined,
   view: View,
+  unclipped = false,
 ): CSSProperties {
   return {
     position: 'relative',
-    overflow: 'hidden',
+    overflow: unclipped ? 'visible' : 'hidden',
     width: '100%',
     height: fit === 'width' && viewport ? viewport.h * view.scale : '100%',
   };
@@ -265,7 +269,13 @@ export function settleTransition(ms: number, sticky: boolean): string {
  */
 export function scrollExtentStyle(
   layout: Pick<ContainerLayout, 'overflow' | 'viewport'>,
+  fit?: FitMode,
 ): CSSProperties | undefined {
+  // A fitted container scales its designed viewport into the frame it
+  // measures, so growing the box to the overflow extent moves what the scale
+  // is computed against and the content resizes whenever a child leaves the
+  // box. Fitting and scrolling are alternatives: `fit` wins where both are on.
+  if (fit) return undefined;
   const { overflow, viewport } = layout;
   if (!overflow || !viewport) return undefined;
   const out: CSSProperties = {};

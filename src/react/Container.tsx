@@ -90,6 +90,21 @@ export interface ContainerProps {
    */
   fit?: FitMode;
   /**
+   * Let the `fit` frame show what the fitted box puts outside it, instead of
+   * cropping to the designed `viewport`. The counterpart to
+   * `.windease-zone--unclipped`, which the frame's own inline `overflow` would
+   * otherwise override.
+   *
+   * A layout that deliberately leaves the box wants this: `swell` magnifies a
+   * child and parts the run around it, so the ends of a full strip travel past
+   * the edge, and a lifted child rises above the top. Sizing the viewport for
+   * the deformation instead would shrink every child to buy room only one of
+   * them ever uses.
+   *
+   * Ignored without `fit` — an unfitted container renders no frame.
+   */
+  unclipped?: boolean;
+  /**
    * Let a drop onto the middle of a child stack the two into one tabbed
    * container rather than inserting beside it. Off by default: the gesture
    * restructures the tree, and a consumer with no tab strip drawn would end up
@@ -271,6 +286,7 @@ function StoreContainer({
   viewport,
   view,
   fit,
+  unclipped,
   scrollRef,
   className,
   style,
@@ -358,7 +374,7 @@ function StoreContainer({
         ...(fit ? FITTED_BOX : null),
         width: viewport.w,
         height: viewport.h,
-        ...scrollExtentStyle(layout),
+        ...scrollExtentStyle(layout, fit),
         ...viewStyle(layout.view),
         ...style,
       }
@@ -366,7 +382,7 @@ function StoreContainer({
         ...CONTAINER_BASE,
         width: '100%',
         height: '100%',
-        ...scrollExtentStyle(layout),
+        ...scrollExtentStyle(layout, fit),
         ...viewStyle(layout.view),
         ...style,
       };
@@ -375,7 +391,7 @@ function StoreContainer({
       <div
         ref={frameRef}
         className="windease-view-frame"
-        style={fitFrameStyle(fit, viewport, layout.view)}
+        style={fitFrameStyle(fit, viewport, layout.view, unclipped)}
       >
         {box}
       </div>

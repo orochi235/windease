@@ -451,6 +451,9 @@ export interface ZoneProps extends CommonBindingProps, PresentationalProps, Affo
   /** Scale the designed `viewport` to fit the space the zone is shown in —
    *  the `<Container fit>` contract. Overrides `view`. */
   fit?: FitMode;
+  /** Let the `fit` frame show what the fitted box puts outside it — the
+   *  `<Container unclipped>` contract. */
+  unclipped?: boolean;
   state?: unknown;
   sort?: ChildSort;
   /**
@@ -616,7 +619,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
     position: 'relative',
     ...(props.fit ? FITTED_BOX : null),
     ...(props.viewport ? { width: props.viewport.w, height: props.viewport.h } : null),
-    ...scrollExtentStyle(layout),
+    ...scrollExtentStyle(layout, props.fit),
     ...viewStyle(layout.view),
     ...props.style,
   };
@@ -669,7 +672,10 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
         frame={
           props.fit
-            ? { ref: frameRef, style: fitFrameStyle(props.fit, props.viewport, layout.view) }
+            ? {
+                ref: frameRef,
+                style: fitFrameStyle(props.fit, props.viewport, layout.view, props.unclipped),
+              }
             : undefined
         }
       >

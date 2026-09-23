@@ -21,7 +21,22 @@ afterEach(() => {
 
 const ZONE = asNodeId('z');
 const CHROME: ChromeMap = { window: ({ node }) => <div>{String(node.id)}</div> };
-const STRATEGIES = { desktop: desktopStrategy() as never, strip: stripStrategy as never };
+/** Places one child well past the container and says so. */
+const overflowingStrategy = {
+  name: 'overflowing',
+  configSpec: {},
+  layout: ({ items }: { items: Array<{ id: string }> }) => ({
+    placements: new Map(items.map((i) => [i.id, { x: 0, y: 0, z: 0, w: 900, h: 400 }])),
+    affordances: [],
+    overflow: { w: 600, h: 300 },
+  }),
+};
+
+const STRATEGIES = {
+  desktop: desktopStrategy() as never,
+  strip: stripStrategy as never,
+  overflowing: overflowingStrategy as never,
+};
 
 /**
  * jsdom lays nothing out, so a CSS transform changes nothing it reports. Give
@@ -233,6 +248,54 @@ describe('<Zone view>', () => {
     const frame = box.parentElement as HTMLElement;
     expect(frame.className).toBe('windease-view-frame');
     expect(frame.style.overflow).toBe('hidden');
+    expect(box.style.position).toBe('absolute');
+  });
+
+  it('does not grow a fitted box to its overflow extent', () => {
+    // `fit` scales the designed viewport into the frame it measures. Sizing the
+    // box to `viewport + overflow` as well moves what the fit is computed
+    // against, so the content changes size whenever a child leaves the box —
+    // which, with a deforming pass, is every time one is turned.
+    const store = new Store();
+    const out = render(
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={STRATEGIES}>
+          <Zone
+            id={asNodeId('zz')}
+            strategyId="overflowing"
+            config={{}}
+            viewport={{ w: 300, h: 100 }}
+            fit="contain"
+          />
+        </StrategyRegistryProvider>
+      </Provider>,
+    );
+    const box = out.container.querySelector('[data-node-container="zz"]') as HTMLElement;
+    expect(box.style.width).toBe('300px');
+    expect(box.style.height).toBe('100px');
+  });
+
+  it('unclipped lets the frame show what the fitted box puts outside it', () => {
+    const store = new Store();
+    const out = render(
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={STRATEGIES}>
+          <Zone
+            id={asNodeId('zz')}
+            strategyId="strip"
+            config={{ axis: 'x', fill: true }}
+            viewport={{ w: 300, h: 100 }}
+            fit="contain"
+            unclipped
+          />
+        </StrategyRegistryProvider>
+      </Provider>,
+    );
+    const box = out.container.querySelector('[data-node-container="zz"]') as HTMLElement;
+    const frame = box.parentElement as HTMLElement;
+    expect(frame.style.overflow).toBe('visible');
+    // The frame still measures the space it was given, so the view it derives
+    // is unchanged — this drops the crop, not the fit.
     expect(box.style.position).toBe('absolute');
   });
 });
