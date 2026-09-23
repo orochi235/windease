@@ -41,6 +41,7 @@ import { motifFor } from './board-art.js';
 import {
   type CardKind,
   cardPool,
+  EXPANSIONS,
   MANA,
   MANA_TYPES,
   type Mana,
@@ -81,7 +82,15 @@ const STRATEGIES = {
    */
   tableau: warp(stripStrategy, [tilt(CAMERA)]) as never,
   /** The near player's hand: bent onto a curve, then parted under the cursor. */
-  hand: warp(stripStrategy, [bow(0.3), swell({ reach: 210, gain: 1.75, lift: 22 })]) as never,
+  /**
+   * The near player's hand: bent onto a curve, then magnified under the cursor.
+   * Measured, not guessed — `reach` is what decides how many cards the cursor
+   * touches at once, and at 260 it lifted fifteen of seventeen and covered the
+   * table. At 80 it takes five, and `gain` puts the one under the cursor at
+   * about 500px. `lift` is half the growth, which pins the grown card's bottom
+   * edge to the surface instead of letting it hang below.
+   */
+  hand: warp(stripStrategy, [bow(0.3), swell({ reach: 80, gain: 3.4, lift: 178 })]) as never,
   /** Bands, columns and the pile rail, which are ordinary strips. */
   strip: stripStrategy as never,
 };
@@ -115,7 +124,7 @@ const CARD = card(150);
  * `HAND_BAND_H` leaves `(216 - 22) / (1.139 · 1.75)`. Raise `gain` or the band
  * and this can grow with it; the three move together.
  */
-const HAND_CARD = card(96);
+const HAND_CARD = card(150);
 /** The opponent's hand, seen across the table. */
 const BACK = card(62);
 
@@ -245,6 +254,7 @@ function cardNode(id: NodeId, parentId: NodeId, card: PoolCard) {
       type: card.type,
       text: card.text,
       rarity: card.rarity,
+      expansion: card.expansion,
       foil: card.foil,
       hue: card.hue,
     },
@@ -327,7 +337,10 @@ function makeStore(): Store {
       kind: 'zone',
       id: YOUR_HAND,
       parentId: MAIN,
-      container: { strategyId: 'hand', config: bandConfig({ peek: HAND_PEEK }) },
+      container: {
+        strategyId: 'hand',
+        config: bandConfig({ peek: HAND_PEEK, crossAlign: 'end' }),
+      },
       meta: { title: 'Your hand' },
       placement: { size: { h: HAND_BAND_H } },
     }),
@@ -440,8 +453,9 @@ function cardStyle(channels: Record<string, number> | undefined): CSSProperties 
   const angle = channels?.angle ?? 0;
   if (angle !== 0) style.transform = `rotate(${angle}deg)`;
   if (!channels) return style;
-  // Distance shrank the card's box; shrink what is printed on it to match.
-  if (channels.scale !== undefined) style['--xb-scale'] = channels.scale;
+  // `scale` is not forwarded: the card sizes everything it prints in `cqh`,
+  // off its own box, so a box the projection shrank carries its printing down
+  // with it and nothing has to be told twice.
   if (channels.focus) style['--xb-focus'] = channels.focus;
   return style;
 }
@@ -460,10 +474,18 @@ function isTapped(turn: number | undefined): boolean {
 function CardArt({ meta, land }: { meta: Record<string, unknown>; land: boolean }) {
   const motif = motifFor(String(meta.title ?? ''), String(meta.type ?? ''), land);
   return (
-    <svg className="xb-art" viewBox="0 0 100 100" preserveAspectRatio="xMidYMax meet">
+    // A motif is drawn in a 100-wide box but the art window is landscape, so
+    // the viewBox is widened around it and sliced rather than fitted: `meet`
+    // on a square box letterboxes, and the bands either side of the scene are
+    // the window's own background showing through. `slice` fills, the scene
+    // spans the full width, and only surplus sky is ever cropped.
+    <svg className="xb-art" viewBox="-30 0 160 100" preserveAspectRatio="xMidYMax slice">
       <title>{String(meta.title ?? '')}</title>
-      <rect className="xb-art__sky" x="0" y="0" width="100" height="100" />
-      <path className="xb-art__ground" d="M0 78 Q26 70 52 76 Q78 82 100 74 L100 100 L0 100 Z" />
+      <rect className="xb-art__sky" x="-30" y="0" width="160" height="100" />
+      <path
+        className="xb-art__ground"
+        d="M-30 78 Q 6 70 32 76 Q 58 82 88 74 Q 110 70 130 75 L130 100 L-30 100 Z"
+      />
       {motif?.ink.map((d) => (
         <path key={d} className="xb-art__ink" d={d} />
       ))}
@@ -476,18 +498,89 @@ function CardArt({ meta, land }: { meta: Record<string, unknown>; land: boolean 
 
 /** The printed face, with no drag handle and no store behind it, so the table
  *  and the lightbox draw exactly the same card. */
+/** The size a short name is set at, and the count that fits one line at it. */
+const NAME_CQH = 7.6;
+/* Measured: 19 average characters fill the line, so 17 is the margin a name
+   of wide letters needs — the count cannot know an M from an i. */
+const NAME_FITS = 17;
+/** Half height. A name still too long at this wraps instead of shrinking on. */
+const NAME_FLOOR = NAME_CQH / 2;
+
+/**
+ * How large to set a name, and whether it takes two lines.
+ *
+ * A character count rather than a measurement: the title's box and its type
+ * size are both proportions of the same card, so whether a name fits does not
+ * change with the size the card is drawn at, and nothing has to be measured on
+ * a box that resizes under the cursor every frame.
+ */
+function nameFit(title: string): { nameSize: number; wrapped: boolean } {
+  const ideal = (NAME_CQH * NAME_FITS) / Math.max(title.length, 1);
+  const nameSize = Math.min(NAME_CQH, ideal);
+  // Shrinking has run out before the name has: two lines at the floor.
+  if (nameSize >= NAME_FLOOR) return { nameSize, wrapped: false };
+  return { nameSize: NAME_FLOOR, wrapped: true };
+}
+
+/**
+ * The set's mark on the type line. A glyph where a font draws one, a filled
+ * path where none does; either way it takes `currentColor`, which the rarity
+ * sets — so a mythic's mark is orange the way a printed one is. An emoji
+ * ignores that and stays its own colors, which is the point of the few that
+ * are emoji.
+ */
+function SetSymbol({ id }: { id: string }) {
+  const set = EXPANSIONS.find((e) => e.id === id) ?? EXPANSIONS[0];
+  if (!set) return null;
+  return (
+    <span className="xb-card__set" title={set.label}>
+      {set.marks ? (
+        <svg className="xb-card__set-mark" viewBox="0 0 100 100" role="img">
+          <title>{set.label}</title>
+          {set.marks.map((m) => (
+            <path key={m.d} d={m.d} fill={m.fill ?? 'currentColor'} />
+          ))}
+          {set.letters?.map((l) => (
+            <text
+              key={l.s}
+              x={l.x}
+              y={l.y}
+              fontSize={l.size}
+              fill={l.fill ?? 'currentColor'}
+              fontWeight="700"
+              textAnchor="middle"
+              fontFamily="Helvetica, Arial, sans-serif"
+            >
+              {l.s}
+            </text>
+          ))}
+        </svg>
+      ) : (
+        set.glyph
+      )}
+    </span>
+  );
+}
+
 function CardPrint({ meta, mana }: { meta: Record<string, unknown>; mana: Mana }) {
   const land = meta.land === true;
   const cost = Number(meta.cost ?? 0);
+  const title = String(meta.title ?? '');
+  const { nameSize, wrapped } = nameFit(title);
   return (
     <>
       <span className="xb-card__title">
-        <span className="xb-card__name">{String(meta.title ?? '')}</span>
         <span className="xb-card__cost">
           {cost > 0 ? <span className="xb-card__pips">{String(cost)}</span> : null}
           <span className={`xb-card__mana xb-card__mana--${mana}`} title={MANA[mana].label}>
             {MANA[mana].glyph}
           </span>
+        </span>
+        <span
+          className={`xb-card__name${wrapped ? ' xb-card__name--wrapped' : ''}`}
+          style={{ '--xb-name-size': `${nameSize}cqh` } as CSSProperties}
+        >
+          {title}
         </span>
       </span>
       <span className={`xb-card__art${land ? ' xb-card__art--land' : ''}`} aria-hidden="true">
@@ -495,9 +588,7 @@ function CardPrint({ meta, mana }: { meta: Record<string, unknown>; mana: Mana }
       </span>
       <span className="xb-card__type">
         <span>{String(meta.type ?? (land ? 'Land' : 'Unit'))}</span>
-        <span className="xb-card__set" aria-hidden="true">
-          ◈
-        </span>
+        <SetSymbol id={String(meta.expansion ?? '')} />
       </span>
       <span className="xb-card__rules">{String(meta.text ?? '')}</span>
       {meta.power ? <span className="xb-card__power">{String(meta.power)}</span> : null}
@@ -679,7 +770,9 @@ function Band({ id }: { id: NodeId }) {
   ]
     .filter(Boolean)
     .join(' ');
-  if (hand) return <YourHand className={className} />;
+  // Your hand draws on its own surface across the board; the band it would
+  // have filled still reserves the space its cards rest in.
+  if (hand) return <div className={className} data-testid={`xb-band-${id}`} />;
   return (
     <div className={className} data-testid={`xb-band-${id}`}>
       <Container
@@ -712,33 +805,34 @@ function Band({ id }: { id: NodeId }) {
  * step shortens to `peek` before anything is reported as overflow, so the
  * scrollbar appears only once fanning has run out of room.
  */
-function YourHand({ className }: { className: string }) {
+function YourHand() {
   const store = useStore();
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [viewport, setViewport] = useState<{ w: number; h: number } | null>(null);
+  const dockRef = useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState<number | null>(null);
 
-  // The box the Container renders grows to `viewport + overflow`, so measuring
-  // the Container itself would feed its own growth back in. The scroller's
-  // width is what the board gave the band, and does not move with its content.
+  // The surface's own width is what the board gave it, and does not move with
+  // its content — unlike the Container's box, which grows to
+  // `viewport + overflow` and would feed its own growth back in.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
       const box = entry?.contentRect;
-      if (box) setViewport({ w: Math.round(box.width), h: Math.round(box.height) });
+      if (box) setWidth(Math.round(box.width));
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
   return (
-    <div className={className} data-testid={`xb-band-${YOUR_HAND}`}>
-      <div className="xb-hand-scroll" ref={scrollRef} data-testid="xb-hand-scroll">
-        {viewport && (
+    <div className="xb-hand-surface" ref={scrollRef} data-testid="xb-hand-surface">
+      <div className="xb-hand-dock" ref={dockRef} data-testid="xb-hand-dock">
+        {width !== null && (
           <Container
             parentId={YOUR_HAND}
             chrome={CHROME}
-            viewport={viewport}
+            viewport={{ w: width, h: HAND_BAND_H }}
             pointer
             scrollRef={scrollRef}
             // The hand re-lays out on every pointermove. A settle transition
@@ -922,13 +1016,20 @@ function Lightbox() {
           zoom(null);
         }}
       />
-      <div
-        className={`${cardClass(meta, mana)} xb-card--zoomed`}
-        style={{ '--xb-hue': String(meta.hue ?? 200) } as CSSProperties}
-        data-mana={mana}
-        data-testid="xb-lightbox-card"
-      >
-        <CardPrint meta={meta} mana={mana} />
+      {/* The sized box is the wrapper, never the card: a card's frame is a
+          percentage of its own width, and a percentage padding resolves
+          against its containing block, so a card sized directly inside a wide
+          parent takes that parent's width as its frame. Every card on this
+          board fills a box sized to it, and the big one is no exception. */}
+      <div className="xb-lightbox-frame">
+        <div
+          className={`${cardClass(meta, mana)} xb-card--zoomed`}
+          style={{ '--xb-hue': String(meta.hue ?? 200) } as CSSProperties}
+          data-mana={mana}
+          data-testid="xb-lightbox-card"
+        >
+          <CardPrint meta={meta} mana={mana} />
+        </div>
       </div>
     </div>
   );
@@ -996,6 +1097,7 @@ export const DuelBoard: Story = () => {
                   <div className="xb-table">
                     <div className="xb-main">
                       <Container parentId={MAIN} chrome={CHROME} acceptPolicy={REFUSE} />
+                      <YourHand />
                     </div>
                     <div className="xb-rail">
                       <Container parentId={RAIL} chrome={CHROME} acceptPolicy={REFUSE} />
