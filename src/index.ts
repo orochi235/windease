@@ -293,4 +293,4 @@ export {
 export { elementScale, observeFit } from './view-dom.js';
 
 /** The package version this build was published as. */
-export const VERSION = '2.0.0';
+export const VERSION = '2.1.0';
