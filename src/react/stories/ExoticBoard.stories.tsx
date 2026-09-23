@@ -109,8 +109,13 @@ const card = (h: number) => ({ w: Math.round(h * CARD_RATIO), h });
 
 /** On the table. */
 const CARD = card(150);
-/** In your hand, held close to you and so the largest thing on the board. */
-const HAND_CARD = card(158);
+/**
+ * In your hand. Sized so the card the cursor magnifies still fits the band:
+ * `bow` turns it ~13.5° and `swell` grows it by `gain` and lifts it, which at
+ * `HAND_BAND_H` leaves `(216 - 22) / (1.139 · 1.75)`. Raise `gain` or the band
+ * and this can grow with it; the three move together.
+ */
+const HAND_CARD = card(96);
 /** The opponent's hand, seen across the table. */
 const BACK = card(62);
 
@@ -119,35 +124,22 @@ const BAND_PAD = 8;
 const BAND_H = CARD.h + 2 * BAND_PAD;
 const OPP_HAND_H = BACK.h + 2 * BAND_PAD;
 /**
- * Your hand needs headroom the table rows do not. `bow` turns the outermost
- * cards about 13.5° and `swell` lifts whichever one the cursor is under, so a
- * band sized to the card itself would clip both — the `fit` frame crops
- * anything outside the logical box. This is the rotated card's own height
- * (`126·sin13.5 + 176·cos13.5`) plus the lift, rounded up.
+ * Your hand needs headroom the table rows do not, and it is drawn at this
+ * height rather than scaled into it: `bow` turns the outermost cards about
+ * 13.5°, and `swell` magnifies and lifts whichever one the cursor is under.
+ * Room for the card that grew, not just the one at rest.
  */
 const HAND_BAND_H = 216;
 
 /** The logical width a table row lays out in, whatever width it is drawn at. */
 const BAND_W = 700;
 /**
- * Your hand's logical width. Wide enough that the seven you are dealt sit side
- * by side whole — 7·126 + 6·10 + padding, plus the ~19px each outermost card
- * gains when `bow` turns it — so no card loses its right edge under the next.
- * Draw past that and `overflowMode: 'overlap'` starts shortening the step,
- * which is the point at which a hand becomes a fan.
- */
-const HAND_BAND_W = 1020;
-/**
  * How much of a covered card stays showing once the hand is fanning. It is the
  * floor `overflowMode: 'overlap'` will not shorten the step past, so it is also
- * what decides how many cards the band can show at all: past that the row
- * reports overflow and the `fit` frame crops it, with no scrollbar to rescue
- * it, because a hand is not a scrolling list.
+ * the point at which the hand stops fanning and starts scrolling: past it the
+ * row reports overflow and the wrapper has something to scroll.
  */
 const HAND_PEEK = 26;
-
-/** The most cards the hand can fan without spilling out of its own box. */
-const HAND_MAX = 1 + Math.floor((HAND_BAND_W - 2 * BAND_PAD - HAND_CARD.w) / HAND_PEEK);
 
 /** How many cards each band is dealt, far to near. The rest stay in the deck,
  *  which is what the library pile counts. */
@@ -687,18 +679,14 @@ function Band({ id }: { id: NodeId }) {
   ]
     .filter(Boolean)
     .join(' ');
+  if (hand) return <YourHand className={className} />;
   return (
     <div className={className} data-testid={`xb-band-${id}`}>
       <Container
         parentId={id}
         chrome={CHROME}
-        viewport={hand ? { w: HAND_BAND_W, h: HAND_BAND_H } : { w: BAND_W, h: BAND_H }}
+        viewport={{ w: BAND_W, h: BAND_H }}
         fit="contain"
-        pointer={id === YOUR_HAND}
-        // The hand re-lays out on every pointermove. A settle transition
-        // animates toward each new position and never arrives, which reads as
-        // jitter; the swell is already continuous, so it needs no easing.
-        {...(hand ? { settleMs: 0 } : {})}
         // `sourceId` is the card being dragged, so the side it belongs to is
         // its parent band, not the card itself.
         acceptPolicy={({ sourceId }) => {
@@ -707,6 +695,63 @@ function Band({ id }: { id: NodeId }) {
           return from !== undefined && YOURS.includes(from);
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * Your hand is the one band that scrolls. Every other band is `fit="contain"`:
+ * a fixed logical box scaled into the row the projection left it, so a card is
+ * the same shape wherever it sits. The hand cannot be, because `swell` parts
+ * the run around the cursor and a fitted frame would crop what it pushed out —
+ * and a frame cannot both scroll on one axis and spill on the other, since an
+ * `overflow-y: visible` beside an `overflow-x: auto` computes to `auto`.
+ *
+ * So it lays out at natural size in the width it is actually drawn at, and the
+ * wrapper scrolls. `overflowMode: 'overlap'` still fans the cards first: the
+ * step shortens to `peek` before anything is reported as overflow, so the
+ * scrollbar appears only once fanning has run out of room.
+ */
+function YourHand({ className }: { className: string }) {
+  const store = useStore();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [viewport, setViewport] = useState<{ w: number; h: number } | null>(null);
+
+  // The box the Container renders grows to `viewport + overflow`, so measuring
+  // the Container itself would feed its own growth back in. The scroller's
+  // width is what the board gave the band, and does not move with its content.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const box = entry?.contentRect;
+      if (box) setViewport({ w: Math.round(box.width), h: Math.round(box.height) });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div className={className} data-testid={`xb-band-${YOUR_HAND}`}>
+      <div className="xb-hand-scroll" ref={scrollRef} data-testid="xb-hand-scroll">
+        {viewport && (
+          <Container
+            parentId={YOUR_HAND}
+            chrome={CHROME}
+            viewport={viewport}
+            pointer
+            scrollRef={scrollRef}
+            // The hand re-lays out on every pointermove. A settle transition
+            // animates toward each new position and never arrives, which reads
+            // as jitter; the swell is already continuous, so it needs no easing.
+            settleMs={0}
+            acceptPolicy={({ sourceId }) => {
+              const from = store.getNode(sourceId)?.membership?.parentId;
+              return from !== undefined && YOURS.includes(from);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -778,7 +823,6 @@ function useGameState(store: Store): Game {
   const draw = useCallback(() => {
     const card = POOL[drawn.current];
     if (!card) return;
-    if ((store.getNode(YOUR_HAND)?.container?.childOrder.length ?? 0) >= HAND_MAX) return;
     drawn.current += 1;
     setLibrary((n) => Math.max(0, n - 1));
     const nid = asNodeId(`drawn-${drawn.current}`);
@@ -891,23 +935,16 @@ function Lightbox() {
 }
 
 function DrawButton() {
-  const store = useStore();
   const { draw, library } = useGame();
-  const held = useSyncExternalStore(
-    (cb) => store.subscribe(cb),
-    () => store.getNode(YOUR_HAND)?.container?.childOrder.length ?? 0,
-  );
-  const full = held >= HAND_MAX;
   return (
     <button
       type="button"
       className="xb-draw"
       data-testid="xb-draw"
       onClick={draw}
-      disabled={library === 0 || full}
-      title={full ? `A hand holds ${HAND_MAX}` : undefined}
+      disabled={library === 0}
     >
-      {full ? 'Hand full' : 'Draw'}
+      Draw
     </button>
   );
 }

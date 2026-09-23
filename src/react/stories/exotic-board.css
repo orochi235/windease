@@ -822,3 +822,17 @@
   box-shadow: inset 0 0 0 2px var(--xb-gold);
   border-radius: 4px;
 }
+
+/* Your hand is the one band that scrolls. The Container inside is sized to
+   `viewport + overflow`, so this is what has something to scroll; every other
+   band is `fit="contain"` and has nothing. One axis only — an `overflow-y`
+   of `visible` beside an `overflow-x` of `auto` computes to `auto`, so asking
+   for a vertical spill here would silently buy a second scrollbar instead. */
+.xb-hand-scroll {
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff30 transparent;
+}

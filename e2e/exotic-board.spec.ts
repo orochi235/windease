@@ -197,29 +197,56 @@ test.describe('duel board', () => {
     expect(after[1]!.x).toBeLessThan(after[0]!.x + after[0]!.w);
   });
 
-  test('drawing stops at what the band can show, rather than spilling', async ({ page }) => {
-    for (let i = 0; i < 45; i++) {
-      const draw = page.getByTestId('xb-draw');
-      if (await draw.isDisabled()) break;
-      await draw.click();
-    }
-    await expect(page.getByTestId('xb-draw')).toBeDisabled();
+  test('the hand scrolls once fanning runs out of room', async ({ page }) => {
+    const scroller = page.getByTestId('xb-hand-scroll');
+    const fits = async () =>
+      scroller.evaluate((el) => ({ client: el.clientWidth, scroll: el.scrollWidth }));
 
-    const spill = await page.evaluate(() => {
-      const frame = document.querySelector(
-        '[data-testid="xb-band-your-hand"] .windease-view-frame',
-      ) as HTMLElement;
-      const fr = frame.getBoundingClientRect();
-      const cards = [
-        ...document.querySelectorAll('[data-testid="xb-band-your-hand"] .xb-card-drag'),
-      ].map((c) => c.getBoundingClientRect());
-      return {
-        right: Math.max(...cards.map((c) => c.right)) - fr.right,
-        left: fr.left - Math.min(...cards.map((c) => c.left)),
-      };
+    // The dealt hand fans inside the band, with nothing to scroll.
+    const dealt = await fits();
+    expect(dealt.scroll).toBeLessThanOrEqual(dealt.client + 1);
+
+    for (let i = 0; i < 30; i++) await page.getByTestId('xb-draw').click();
+
+    // Past the peek floor the row reports overflow, and the wrapper grows.
+    const full = await fits();
+    expect(full.scroll).toBeGreaterThan(full.client);
+
+    // And it really scrolls, rather than reporting an extent nothing reaches.
+    await scroller.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth;
     });
-    expect(spill.right).toBeLessThanOrEqual(1);
-    expect(spill.left).toBeLessThanOrEqual(1);
+    expect(await scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+  });
+
+  test('drawing never stops, because the hand is no longer capped', async ({ page }) => {
+    for (let i = 0; i < 30; i++) await page.getByTestId('xb-draw').click();
+    await expect(page.getByTestId('xb-draw')).toBeEnabled();
+    await expect(page.getByTestId('xb-draw')).toHaveText('Draw');
+  });
+
+  test('a magnified card stays inside the band it is drawn in', async ({ page }) => {
+    for (let i = 0; i < 20; i++) await page.getByTestId('xb-draw').click();
+    const box = await page.getByTestId('xb-hand-scroll').boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2, { steps: 20 });
+
+    const out = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="xb-hand-scroll"]') as HTMLElement;
+      const b = el.getBoundingClientRect();
+      let over = 0;
+      let tallest = 0;
+      for (const c of document.querySelectorAll('[data-testid="xb-hand-scroll"] .xb-card-drag')) {
+        const r = c.getBoundingClientRect();
+        over = Math.max(over, b.top - r.top, r.bottom - b.bottom);
+        tallest = Math.max(tallest, r.height);
+      }
+      return { over, tallest, rest: el.clientHeight };
+    });
+
+    // Something under the cursor really did grow, and the band still holds it:
+    // a scroller cannot spill on its cross axis, so this has to fit by sizing.
+    expect(out.tallest).toBeGreaterThan(out.rest * 0.55);
+    expect(out.over).toBeLessThanOrEqual(1);
   });
 
   test('turning a land pays mana, and turning it back takes it away', async ({ page }) => {
@@ -314,7 +341,7 @@ test.describe('duel board', () => {
  *  rotated card's bounding box is wider than the box it was placed in. */
 async function handBoxes(page: Page): Promise<Array<{ x: number; w: number }>> {
   return page.evaluate(() =>
-    [...document.querySelectorAll('[data-testid="xb-band-your-hand"] [data-node]')].map((el) => ({
+    [...document.querySelectorAll('[data-testid="xb-hand-scroll"] [data-node]')].map((el) => ({
       x: (el as HTMLElement).offsetLeft,
       w: (el as HTMLElement).offsetWidth,
     })),

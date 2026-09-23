@@ -53,6 +53,30 @@ section below.
   runs gesture coordinates back through each pass's inverse, which is the part
   a CSS `perspective` gets silently wrong. See the `Exotic / Board` story.
 
+- **`warp` reports what its passes deformed past the container as `overflow`.**
+  A pass that moves rects can put a child outside an edge the base strategy had
+  no reason to mention — `swell` parts a run by `(gain - 1) · reach / 2` on each
+  side — and a host sizes its scroll extent from `overflow`, so until now there
+  was nothing for it to scroll to. The reported value is the larger of the two
+  per edge, never a replacement, since a strategy's own number can describe
+  children a union of rects cannot see.
+
+- **`<Container unclipped>` / `<Zone unclipped>` let a `fit` frame show what
+  the fitted box puts outside it.** The counterpart to
+  `.windease-zone--unclipped`, which the frame's own inline `overflow` would
+  otherwise win against. Note that a frame cannot both scroll on one axis and
+  spill on the other: CSS resolves an `overflow-y: visible` beside an
+  `overflow-x: auto` to `auto` on both.
+
+### Fixed
+
+- **A fitted container no longer grows its box to the overflow extent.** `fit`
+  scales the designed viewport into the frame it measures, so sizing the box to
+  `viewport + overflow` as well moved what the scale was computed against: the
+  content resized whenever a child left the box, which with a deforming pass is
+  every time one is turned. Fitting and scrolling are alternatives, and `fit`
+  now wins where both are asked for.
+
 ## 2.1.0
 
 ### Added
