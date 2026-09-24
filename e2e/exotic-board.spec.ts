@@ -75,31 +75,56 @@ async function affordableInHand(
 }
 
 /**
- * A point that really presses this card.
+ * Put the cursor on this card and leave it there, pressable.
  *
- * Neither its centre nor its edges will do: the hand fans, so a card's middle
- * is under the one after it, and `bow` rotates each card, so the corners of
- * its bounding box are outside the card itself. The only reliable answer is
- * the one the browser gives — scan the box and take the first point where the
- * card is what is actually on top.
+ * Not a point computed once and moved to: the hand re-lays out on every
+ * pointermove, so `swell` shifts the fan while the cursor is travelling and
+ * the card measured is not the card underneath when the button goes down. It
+ * settles instead — move, look at what is actually under the cursor, move
+ * again — which is what a hand does too.
+ *
+ * The scan itself cannot use the card's centre, which the fan puts under the
+ * next card, nor its bounding box's edges, which `bow` rotates out from under
+ * the pointer. Only the browser can say where the card really is.
  */
-async function grabPoint(page: Page, cardId: string): Promise<{ x: number; y: number }> {
-  const point = await page.evaluate((id) => {
-    const el = document.querySelector(`[data-testid="xb-card-${id}"]`);
-    if (!el) return null;
-    const b = el.getBoundingClientRect();
-    for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85]) {
-      for (let fx = 0.06; fx < 1; fx += 0.04) {
-        const x = b.x + b.width * fx;
-        const y = b.y + b.height * fy;
-        const hit = document.elementFromPoint(x, y);
-        if (hit && el.contains(hit)) return { x, y };
+async function hoverCard(page: Page, cardId: string): Promise<{ x: number; y: number }> {
+  const spot = (id: string) =>
+    page.evaluate((cid) => {
+      const el = document.querySelector(`[data-testid="xb-card-${cid}"]`);
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      for (const fy of [0.5, 0.35, 0.65, 0.25, 0.75, 0.45, 0.55]) {
+        for (let fx = 0.04; fx < 0.99; fx += 0.02) {
+          const x = b.x + b.width * fx;
+          const y = b.y + b.height * fy;
+          if (el.contains(document.elementFromPoint(x, y))) return { x, y };
+        }
       }
-    }
-    return null;
-  }, cardId);
-  if (!point) throw new Error(`no pressable point on ${cardId}`);
-  return point;
+      return null;
+    }, id);
+
+  // Park the cursor off the board first. A card held up in the hand is 500px
+  // tall and takes its own clicks, so it covers the table it is being played
+  // onto — leaving the pointer where the last drop ended hides whatever is
+  // under it. A real cursor arrives from somewhere else too.
+  await page.mouse.move(4, 4);
+  let at = await spot(cardId);
+  if (!at) throw new Error(`no pressable point on ${cardId}`);
+  for (let i = 0; i < 8; i++) {
+    await page.mouse.move(at.x, at.y);
+    const settled = await page.evaluate(
+      ({ cid, x, y }) => {
+        const el = document.querySelector(`[data-testid="xb-card-${cid}"]`);
+        return !!el && el.contains(document.elementFromPoint(x, y));
+      },
+      { cid: cardId, x: at.x, y: at.y },
+    );
+    if (settled) return at;
+    const next = await spot(cardId);
+    if (!next) throw new Error(`${cardId} moved out from under the cursor`);
+    at = next;
+  }
+  throw new Error(`${cardId} never settled under the cursor`);
 }
 
 /** Drag `from` onto the middle of `to`, in steps so the hit-test samples. */
@@ -112,8 +137,7 @@ async function dragOnto(page: Page, cardId: string, bandId: string): Promise<voi
     : band(page, bandId)
   ).boundingBox();
   if (!src || !dst) throw new Error(`missing geometry for ${cardId} → ${bandId}`);
-  const from = await grabPoint(page, cardId);
-  await page.mouse.move(from.x, from.y);
+  await hoverCard(page, cardId);
   await page.mouse.down();
   await page.mouse.move(dst.x + dst.width / 2, dst.y + dst.height / 2, { steps: 24 });
   await page.mouse.up();
@@ -364,9 +388,10 @@ test.describe('duel board', () => {
   test('an aura is played onto a unit, not into a row', async ({ page }) => {
     await tapAllLands(page);
     const auraId = await handCardOfKind(page, 'aura');
+    await hoverCard(page, auraId);
+    // Measured with the cursor already on the aura: picking the host up front
+    // reads a box the held card was covering, and the drag lands beside it.
     const host = await card(page, 'your-field-0').boundingBox();
-    const from = await grabPoint(page, auraId);
-    await page.mouse.move(from.x, from.y);
     await page.mouse.down();
     await page.mouse.move(host!.x + host!.width / 2, host!.y + host!.height / 2, { steps: 24 });
     await page.mouse.up();

@@ -981,7 +981,10 @@
  */
 .xb-hand-dock {
   position: absolute;
-  inset: auto 0 0 0;
+  /* Held off the floor by the depth `bow` dips the outer cards to. Sitting on
+     it, the ends of the fan hang below the surface and are clipped by the one
+     edge a scroller cannot spill past. */
+  inset: auto 0 var(--xb-hand-dip, 22px) 0;
   height: var(--xb-hand-dock-h, 216px);
   pointer-events: auto;
 }

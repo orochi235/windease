@@ -835,6 +835,13 @@ function YourHand() {
             viewport={{ w: width, h: HAND_BAND_H }}
             pointer
             scrollRef={scrollRef}
+            // Only the fan's width is something to scroll. `warp` reports what
+            // its passes deformed past the container, and the cross-axis half
+            // of that is the magnified card rising — which the box would
+            // otherwise answer with a top margin that shoves the whole hand
+            // down and a height that hangs it below the surface's one clipping
+            // edge. Height and top margin are pinned; the width still grows.
+            style={{ height: '100%', marginTop: 0 }}
             // The hand re-lays out on every pointermove. A settle transition
             // animates toward each new position and never arrives, which reads
             // as jitter; the swell is already continuous, so it needs no easing.
