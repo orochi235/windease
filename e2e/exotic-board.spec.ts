@@ -30,6 +30,22 @@ async function tapAllLands(page: Page): Promise<number> {
   return Number(await page.getByTestId('xb-mana-total').innerText());
 }
 
+/** A unit on your field, which is the only thing an aura can be played onto:
+ *  only a unit is a container, and what the deal puts first is whatever the
+ *  pool handed it. */
+async function unitOnField(page: Page): Promise<string> {
+  const id = await page.evaluate(() => {
+    for (const el of document.querySelectorAll('[data-testid^="xb-card-your-field-"]')) {
+      if (el.getAttribute('data-kind') === 'unit') {
+        return (el.getAttribute('data-testid') ?? '').replace('xb-card-', '');
+      }
+    }
+    return null;
+  });
+  if (!id) throw new Error('no unit on your field to enchant');
+  return id;
+}
+
 /** A hand card of this kind, by id. Hunting for one rather than naming a slot:
  *  what the deal puts third moves whenever the pool changes. */
 async function handCardOfKind(page: Page, kind: string): Promise<string> {
@@ -388,10 +404,11 @@ test.describe('duel board', () => {
   test('an aura is played onto a unit, not into a row', async ({ page }) => {
     await tapAllLands(page);
     const auraId = await handCardOfKind(page, 'aura');
+    const hostId = await unitOnField(page);
     await hoverCard(page, auraId);
     // Measured with the cursor already on the aura: picking the host up front
     // reads a box the held card was covering, and the drag lands beside it.
-    const host = await card(page, 'your-field-0').boundingBox();
+    const host = await card(page, hostId).boundingBox();
     await page.mouse.down();
     await page.mouse.move(host!.x + host!.width / 2, host!.y + host!.height / 2, { steps: 24 });
     await page.mouse.up();
@@ -399,11 +416,14 @@ test.describe('duel board', () => {
     // It now belongs to the creature, and is drawn as a tab rather than a card.
     await expect(page.getByTestId(`xb-aura-${auraId}`)).toBeVisible();
     // It is inside the creature's own box, not the row's.
-    const onHost = await page.evaluate((id) => {
-      const tab = document.querySelector(`[data-testid="xb-aura-${id}"]`);
-      const host = document.querySelector('[data-node="your-field-0"]');
-      return !!tab && !!host && host.contains(tab);
-    }, auraId);
+    const onHost = await page.evaluate(
+      ({ id, on }) => {
+        const tab = document.querySelector(`[data-testid="xb-aura-${id}"]`);
+        const host = document.querySelector(`[data-node="${on}"]`);
+        return !!tab && !!host && host.contains(tab);
+      },
+      { id: auraId, on: hostId },
+    );
     expect(onHost).toBe(true);
 
     // And it is no longer a card in the hand.
