@@ -4,6 +4,7 @@ import {
   type RefObject,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -182,7 +183,8 @@ export interface ContainerProps {
   /**
    * Settle animation duration in ms for children moving between placements.
    * Set to 0 to disable. Default 150. The library only animates position
-   * (left/top/width/height); chrome handlers can layer their own.
+   * (left/top/width/height); chrome handlers can layer their own. A render
+   * whose viewport changed does not animate, so tiles follow a resize at once.
    */
   settleMs?: number;
   /**
@@ -280,6 +282,21 @@ function DeclarativeContainer({
   );
 }
 
+/**
+ * Whether this render's viewport differs from the last committed one. A resize
+ * moves every placement at once and keeps moving it while the edge is dragged,
+ * so easing toward each new rect only makes the tiles trail the edge. A
+ * rearrange landing in the same render as a resize goes unanimated too.
+ */
+function useViewportResized(viewport: { w: number; h: number } | null): boolean {
+  const committed = useRef(viewport);
+  useLayoutEffect(() => {
+    committed.current = viewport;
+  });
+  const prev = committed.current;
+  return prev !== null && viewport !== null && (prev.w !== viewport.w || prev.h !== viewport.h);
+}
+
 function StoreContainer({
   parentId,
   chrome,
@@ -366,7 +383,8 @@ function StoreContainer({
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ancestorResizing = useContext(ResizeGestureContext);
   const resizing = draggingAffordanceId !== null || ancestorResizing;
-  const effectiveSettleMs = resizing || reducedMotion ? 0 : settleMs;
+  const viewportResized = useViewportResized(layout.viewport);
+  const effectiveSettleMs = resizing || reducedMotion || viewportResized ? 0 : settleMs;
 
   const containerStyle: CSSProperties = viewport
     ? {
