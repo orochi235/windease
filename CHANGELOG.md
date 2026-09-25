@@ -70,6 +70,13 @@ section below.
 
 ### Fixed
 
+- **Tiles no longer trail a resize.** `Container`'s settle animation eased every
+  child toward its new rect whenever the viewport changed, so while a window
+  edge was dragged the tiles chased a moving target and visibly lagged behind
+  it. A render whose viewport differs from the last one now places children
+  without the transition; rearranges at a steady size still animate. A
+  rearrange that lands in the same render as a resize is not animated.
+
 - **A fitted container no longer grows its box to the overflow extent.** `fit`
   scales the designed viewport into the frame it measures, so sizing the box to
   `viewport + overflow` as well moved what the scale was computed against: the
