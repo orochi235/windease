@@ -172,8 +172,12 @@ test.describe('vscode at its minimum width with every sidebar open', () => {
   }) => {
     await openPreset(page, 'vscode-every-sidebar');
     await expect(seam(page, 'resize-x-vs-sidebar')).toHaveAttribute('aria-disabled', 'true');
-    const before = await boxOf(pane(page, 'vs-sidebar'));
+    // Focus scrolls the seam into view, which moves every page box under it —
+    // so take the reference after focusing, leaving the arrow key as the only
+    // thing that could move the pane. The preset only overflows where the
+    // scrollbars take layout space, which is why this passes on macOS.
     await seam(page, 'resize-x-vs-sidebar').focus();
+    const before = await settledBox(pane(page, 'vs-sidebar'));
     await page.keyboard.press('ArrowLeft');
     expect(await settledBox(pane(page, 'vs-sidebar'))).toEqual(before);
   });

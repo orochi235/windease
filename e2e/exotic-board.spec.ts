@@ -30,6 +30,19 @@ async function tapAllLands(page: Page): Promise<number> {
   return Number(await page.getByTestId('xb-mana-total').innerText());
 }
 
+/** Draw `n` cards.
+ *
+ *  Dispatched in the page rather than as `n` Playwright clicks: each click
+ *  re-fans a hand that grows every time, and the actionability wait in front
+ *  of it costs more with every card on the surface — thirty of them ran past
+ *  the 30s test budget on WebKit in CI. The button's own behavior is asserted
+ *  where it is the subject; here drawing is setup. */
+async function draw(page: Page, n: number): Promise<void> {
+  await page.getByTestId('xb-draw').evaluate((el, times) => {
+    for (let i = 0; i < times; i++) (el as HTMLButtonElement).click();
+  }, n);
+}
+
 /** A unit on your field, which is the only thing an aura can be played onto:
  *  only a unit is a container, and what the deal puts first is whatever the
  *  pool handed it. */
@@ -214,13 +227,15 @@ test.describe('duel board', () => {
     await card(page, 'your-field-0').click();
     await expect(card(page, 'your-field-0')).toHaveAttribute('data-tapped', 'true');
 
-    await expect
-      .poll(async () => (await card(page, 'your-field-0').boundingBox())!.width)
-      .toBeGreaterThan(before!.width);
-    const after = (await card(page, 'your-field-0').boundingBox())!;
     // The extents swap: the same card lying down, not a card reflowed into a
     // wide box and not the square the cross-axis stretch used to produce.
-    expect(after.width).toBeCloseTo(before!.height, 0);
+    // Polled to the end value rather than measured once past the start one:
+    // the turn is animated, and a card caught at 80° has a box wider than
+    // either extent (`w·cosθ + h·sinθ`), which is a frame, not a footprint.
+    await expect
+      .poll(async () => (await card(page, 'your-field-0').boundingBox())!.width)
+      .toBeCloseTo(before!.height, 0);
+    const after = (await card(page, 'your-field-0').boundingBox())!;
     expect(after.height).toBeCloseTo(before!.width, 0);
   });
 
@@ -317,7 +332,7 @@ test.describe('duel board', () => {
 
   test('the hand fans rather than shrinking once it outgrows the band', async ({ page }) => {
     const before = await handBoxes(page);
-    for (let i = 0; i < 12; i++) await page.getByTestId('xb-draw').click();
+    await draw(page, 12);
     const after = await handBoxes(page);
 
     expect(after.length).toBeGreaterThan(before.length);
@@ -335,7 +350,7 @@ test.describe('duel board', () => {
     const dealt = await fits();
     expect(dealt.scroll).toBeLessThanOrEqual(dealt.client + 1);
 
-    for (let i = 0; i < 30; i++) await page.getByTestId('xb-draw').click();
+    await draw(page, 30);
 
     // Past the peek floor the row reports overflow, and the wrapper grows.
     const full = await fits();
@@ -349,13 +364,13 @@ test.describe('duel board', () => {
   });
 
   test('drawing never stops, because the hand is no longer capped', async ({ page }) => {
-    for (let i = 0; i < 30; i++) await page.getByTestId('xb-draw').click();
+    await draw(page, 30);
     await expect(page.getByTestId('xb-draw')).toBeEnabled();
     await expect(page.getByTestId('xb-draw')).toHaveText('Draw');
   });
 
   test('a magnified card stays inside the surface it is drawn on', async ({ page }) => {
-    for (let i = 0; i < 20; i++) await page.getByTestId('xb-draw').click();
+    await draw(page, 20);
     // Aim at the row the cards rest in, not the middle of the surface — the
     // surface is the whole board and its centre is well above the hand.
     const box = await page.getByTestId('xb-hand-dock').boundingBox();
