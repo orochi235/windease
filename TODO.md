@@ -273,8 +273,12 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
 - Strip strategy returns zero width/height when a panel has no
   `preferredSize` — intentional for fixed-size toolbars but worth a doc
   comment.
-- TypeScript is held at 6.x because typedoc 0.28's peer range stops at
-  `6.0.x`. Revisit TS 7 (the Go port) once typedoc ships support.
+- typedoc runs from a pinned `npx` install carrying TypeScript 6.0.3
+  (`docs:api`), because it needs the compiler API that TypeScript 7 dropped.
+  Move it back to a devDependency once typedoc supports TS 7.
+- `scripts/strip-ladle-tsx.sh` (run from `prepare`) works around Ladle shipping
+  raw `.tsx` in its typings, which fails typecheck under TS 7. Drop it once
+  Ladle ships only `.d.ts` there.
 - **Every `REJECT` trace in `DragEngine.checkAccept` fires per pointermove
   sample**, not per hover transition — the per-frame chatter the tracing tenet
   in `CLAUDE.md` warns against. Left as is: those lines are the whole record of

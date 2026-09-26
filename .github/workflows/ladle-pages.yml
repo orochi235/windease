@@ -35,7 +35,7 @@ jobs:
         run: npx ladle build --base /windease/ --outDir build
 
       - name: Build API docs
-        run: npx typedoc
+        run: npm run docs:api
 
       - name: Place API docs under /api/
         run: mv docs-api build/api
