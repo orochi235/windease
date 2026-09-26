@@ -275,10 +275,6 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
   comment.
 - TypeScript is held at 6.x because typedoc 0.28's peer range stops at
   `6.0.x`. Revisit TS 7 (the Go port) once typedoc ships support.
-- `@vitejs/plugin-react` is held at 5.2 because Ladle 5.1.1 depends on
-  plugin-react `^4`, and npm won't install that beside plugin-react 6, which
-  requires vite `^8`. Only the pack lab uses it. Move to 6 once Ladle drops
-  the `^4` dependency.
 - **Every `REJECT` trace in `DragEngine.checkAccept` fires per pointermove
   sample**, not per hover transition — the per-frame chatter the tracing tenet
   in `CLAUDE.md` warns against. Left as is: those lines are the whole record of
