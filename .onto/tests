@@ -1,8 +1,11 @@
+enlist: 2
 # Both suites in one pass: vitest over the library and the pack lab, then
 # Playwright driving Ladle. onto runs one command per repository, so they are
 # one script here rather than two entries.
 plugin: node
 run: npm run test:all
+# No `runner:`. test:all chains vitest into Playwright, and a reporter added to
+# the end of it would reach Playwright only.
 
 # Without CI, Playwright reuses whatever already answers on port 61000 — which
 # on a node running another tree's Ladle is the wrong app, silently. CI also
