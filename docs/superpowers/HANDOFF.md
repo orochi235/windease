@@ -21,9 +21,11 @@ populated `## Unreleased` sits above the version section, which is the state
 `main` is in. Either tag the commit the bump was made against, or roll the whole
 of `## Unreleased` into 2.2.0 and cut that instead.
 
-Green on 2026-09-20, run on `studio` through `onto test`: 5224 unit tests across
-202 files, then 1024 Playwright specs across Chromium, Firefox and WebKit. Five
-webkit specs needed their retry, all of them `openStory` timing out under load.
+Green on 2026-09-27, run on `msb-uai` through `onto test`: 5376 unit tests
+across 214 files, then 1123 Playwright specs across Chromium, Firefox and
+WebKit. Two specs needed their retry, `floating-snap-fill.spec.ts:29` on
+Chromium and `exotic-strip.spec.ts:224` on Firefox, both asserting on a
+`settledBox` read taken before the reflow had started.
 
 The suite runs on the fleet now: `.onto/tests` runs `npm run test:all` — vitest
 over the library and the pack lab, then Playwright over Ladle — as one job.
@@ -41,7 +43,7 @@ consumer. The three specified well enough to start cold:
 - **No preset declares `reorder`** though it is built and shipped; Firefox,
   Chrome and Win 10 are the three named as wanting it.
 - **A wrap drop is asked about the wrong child list.**
-  `DragEngine.checkAccept` (`src/dnd/DragEngine.ts:349`) falls through to the
+  `DragEngine.checkAccept` (`src/dnd/DragEngine.ts`) falls through to the
   acceptance block for a `stack` or `split` intent, which does not change the
   parent's child count, so a full `strip` refuses a stack that would have left
   it as it was.
@@ -49,7 +51,6 @@ consumer. The three specified well enough to start cold:
 Plus the e2e suite's behavior under machine load, which still has no diagnosis:
 failures wander between runs once the load average passes roughly twice the core
 count. `scripts/flake-census.mjs` measures it rather than reasoning about it.
-The five webkit retries above are the story-load mode it describes.
 
 ## Traps that cost time, so you do not pay twice
 

@@ -33,7 +33,9 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   - The specs that already polled in places had each remaining `boxOf` swapped
     for `settledBox` without being reread, so an assertion there reads a
     settled box where it should poll. That can still return the old layout if
-    a change takes longer to start than the settle window. The specs with no
+    a change takes longer to start than the settle window, and has:
+    `floating-snap-fill.spec.ts:29` on Chromium and `exotic-strip.spec.ts:224`
+    on Firefox each needed a retry for it on 2026-09-27. The specs with no
     polls at all, and `content-sizing` and `declarative-drop`, were converted
     by hand and do poll.
   - Nothing stops a new raw read.
@@ -151,7 +153,7 @@ Still open:
   **Declarative / Drop intent** story's `splitPreview` toggle.
 
 - **A wrap drop is asked about the wrong child list [MED].**
-  `DragEngine.checkAccept` (`src/dnd/DragEngine.ts:349`) gates on `checkIntent`
+  `DragEngine.checkAccept` (`src/dnd/DragEngine.ts`) gates on `checkIntent`
   and then falls through to the acceptance block regardless, so a `stack` or
   `split` intent is asked about `[...children, dragged]` — but a wrap drop does
   not change the parent's child count: stacking `p` onto `a` in `[a, b]` yields
