@@ -1,3 +1,4 @@
+import type { CollapsePolicy } from './collapse.js';
 import { createNode } from './constructors.js';
 import {
   CapabilityMissingError,
@@ -171,10 +172,18 @@ export class Store {
    * @internal
    */
   readonly navigationPolicy: NavigationPolicy | undefined;
+  /**
+   * The collapse policy this store was constructed with, read by
+   * `resolveCollapse`.
+   *
+   * @internal
+   */
+  readonly collapsePolicy: CollapsePolicy | undefined;
 
   constructor(options: StoreOptions = {}) {
     this.successorPolicy = options.chooseSuccessor;
     this.navigationPolicy = options.resolveNavigation;
+    this.collapsePolicy = options.collapsePolicy;
     this.publisher = new Publisher({
       truth: this.nodesMap,
       policy: options.throttle,

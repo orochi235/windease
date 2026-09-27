@@ -10,7 +10,7 @@ async function dropAt(
   gripId: string,
   target: { x: number; y: number },
 ): Promise<void> {
-  const g = await boxOf(page.getByTestId(gripId));
+  const g = await settledBox(page.getByTestId(gripId));
   await page.mouse.move(g.x + g.w / 2, g.y + g.h / 2);
   await page.mouse.down();
   await page.mouse.move(target.x, target.y, { steps: 12 });
@@ -22,7 +22,7 @@ test.describe('a drop on a preset resolves where the cursor is', () => {
     await openStory(page, STORY);
     const readout = page.getByTestId('dd-readout');
     await expect(readout).toHaveText('shelf:alpha,bravo,charlie');
-    const alpha = await boxOf(page.locator('[data-node="alpha"]'));
+    const alpha = await settledBox(page.locator('[data-node="alpha"]'));
     // The left edge of the leftmost pane: index 0. Appending — what a preset
     // did before it had a hit-test — would leave the order unchanged.
     await dropAt(page, 'grip-charlie', { x: alpha.x + 3, y: alpha.y + alpha.h / 2 });
@@ -31,7 +31,7 @@ test.describe('a drop on a preset resolves where the cursor is', () => {
 
   test('a drop in the middle of a pane stacks the two into tabs', async ({ page }) => {
     await openStory(page, STORY);
-    const alpha = await boxOf(page.locator('[data-node="alpha"]'));
+    const alpha = await settledBox(page.locator('[data-node="alpha"]'));
     await dropAt(page, 'grip-charlie', { x: alpha.x + alpha.w / 2, y: alpha.y + alpha.h / 2 });
     await expect(page.getByTestId('dd-readout')).toHaveText(
       /shelf:stack-\d+,bravo stack-\d+:alpha,charlie/,
@@ -44,17 +44,20 @@ test.describe('a drop on a preset resolves where the cursor is', () => {
 
   test('a drop on a pane’s cross-axis edge splits its slot', async ({ page }) => {
     await openStory(page, STORY);
-    const alpha = await boxOf(page.locator('[data-node="alpha"]'));
+    const alpha = await settledBox(page.locator('[data-node="alpha"]'));
     // The top band of a pane in a horizontal strip is the cross axis.
     await dropAt(page, 'grip-charlie', { x: alpha.x + alpha.w / 2, y: alpha.y + 6 });
     await expect(page.getByTestId('dd-readout')).toHaveText(
       /shelf:split-\d+,bravo split-\d+:charlie,alpha/,
     );
     // Dropped on the top edge, so it takes the top half.
-    const moved = await boxOf(page.locator('[data-node="charlie"]'));
-    const target = await boxOf(page.locator('[data-node="alpha"]'));
-    expect(moved.y).toBeLessThan(target.y);
-    expect(Math.abs(moved.x - target.x)).toBeLessThanOrEqual(1);
+    await expect
+      .poll(async () => {
+        const moved = await boxOf(page.locator('[data-node="charlie"]'));
+        const target = await boxOf(page.locator('[data-node="alpha"]'));
+        return { above: moved.y < target.y, inLine: Math.abs(moved.x - target.x) <= 1 };
+      })
+      .toEqual({ above: true, inLine: true });
   });
 });
 
@@ -63,7 +66,7 @@ test.describe('a custom dropIntent replaces the hit-test', () => {
 
   test('a wide pane still stacks, as the shipped resolver would', async ({ page }) => {
     await openStory(page, STORY);
-    const bravo = await boxOf(page.locator('[data-node="bravo"]'));
+    const bravo = await settledBox(page.locator('[data-node="bravo"]'));
     await dropAt(page, 'grip-alpha', { x: bravo.x + bravo.w / 2, y: bravo.y + bravo.h / 2 });
     await expect(page.getByTestId('dd-readout')).toHaveText(
       /shelf:stack-\d+,charlie stack-\d+:bravo,alpha/,
@@ -72,7 +75,7 @@ test.describe('a custom dropIntent replaces the hit-test', () => {
 
   test('the sliver refuses the stack and takes an insert instead', async ({ page }) => {
     await openStory(page, STORY);
-    const sliver = await boxOf(page.locator('[data-node="charlie"]'));
+    const sliver = await settledBox(page.locator('[data-node="charlie"]'));
     expect(Math.round(sliver.w)).toBeLessThan(160);
 
     // The same gesture, on a pane the rule protects: dead centre, which is
@@ -103,8 +106,8 @@ test.describe('a preset shows the drop before it commits', () => {
     fx: number,
     fy: number,
   ): Promise<void> {
-    const grip = await boxOf(page.getByTestId(`grip-${sourceId}`));
-    const box = await boxOf(pane(page, ontoId));
+    const grip = await settledBox(page.getByTestId(`grip-${sourceId}`));
+    const box = await settledBox(pane(page, ontoId));
     const to = { x: box.x + box.w * fx, y: box.y + box.h * fy };
     await page.mouse.move(grip.x + grip.w / 2, grip.y + grip.h / 2);
     await page.mouse.down();

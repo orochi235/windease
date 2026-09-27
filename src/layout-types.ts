@@ -28,7 +28,15 @@ export type Turn = { deg: number; w: number; h: number };
  * child's corners, which is accepted: a drop near the corner of a tilted card
  * lands on the card.
  */
-export type PlacedRect = Rect & { turn?: Turn };
+export type PlacedRect = Rect & {
+  turn?: Turn;
+  /**
+   * The child is an empty container the collapse policy holds at this extent.
+   * A host clips what it draws to the rect: chrome made for a full pane has
+   * borders and padding that a box this small cannot hold.
+   */
+  collapsed?: true;
+};
 
 /**
  * One child as a strategy sees it: an id plus the hints, measurements and
@@ -92,6 +100,14 @@ export interface LayoutItem {
   /** The node's `lock`, projected by `nodeToLayoutItem` when any axis is set.
    *  `stripStrategy` reads `hide` to keep a pane out of an `overshoot: 'hide'` join. */
   lock?: LockSet;
+  /**
+   * Set when this item is an empty container the store's `collapsePolicy`
+   * chose an extent for. A strategy that honors it gives the item exactly
+   * `extent` main-axis pixels, over `placement.size`, `share` and both size
+   * hints, and leaves all of those as it found them. `stripStrategy` honors
+   * it; the others ignore it, as they ignore `turn`.
+   */
+  collapse?: { extent: number };
 }
 
 /**

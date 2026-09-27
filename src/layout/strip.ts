@@ -155,6 +155,11 @@ function sane(v: unknown, item: LayoutItem, field: string): number | undefined {
   return undefined;
 }
 
+/** The extent a collapse policy chose for this item, when it chose one. */
+function collapseOf(item: LayoutItem): number | undefined {
+  return sane(item.collapse?.extent, item, 'collapse.extent');
+}
+
 function explicitAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
   const size = item.placement?.size;
   return sane(axis === 'x' ? size?.w : size?.h, item, `placement.size.${axis === 'x' ? 'w' : 'h'}`);
@@ -179,7 +184,7 @@ function naturalAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
  *  is a stated size like any other: it scales under pressure and it loses to
  *  an explicit `placement.size`, which is how a gutter drag pins a pane. */
 function requestedAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
-  return explicitAxis(item, axis) ?? naturalAxis(item, axis);
+  return collapseOf(item) ?? explicitAxis(item, axis) ?? naturalAxis(item, axis);
 }
 
 /** The fraction of the row this item asks for, when it states one and no
@@ -195,11 +200,15 @@ function shareAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
 }
 
 function effectiveMinAxis(item: LayoutItem, axis: 'x' | 'y'): number {
+  const held = collapseOf(item);
+  if (held !== undefined) return held;
   const m = item.hints?.minSize;
   return sane(axis === 'x' ? m?.w : m?.h, item, 'minSize') ?? 0;
 }
 
 function effectiveMaxAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
+  const held = collapseOf(item);
+  if (held !== undefined) return held;
   const m = item.hints?.maxSize;
   return sane(axis === 'x' ? m?.w : m?.h, item, 'maxSize');
 }
@@ -418,15 +427,20 @@ function resolveRow(
   return { sizes, shareSpace: Math.max(0, budget - pixels) };
 }
 
-/** Whether the row is sized by hints, because no child states a size. */
+/** Whether the row is sized by hints, because no child states a size. A
+ *  collapsed child states none: its extent is the policy's, and must not move
+ *  its siblings off their preferredSize. */
 function sizedByHints(items: LayoutItem[], axis: 'x' | 'y'): boolean {
   return !items.some(
-    (it) => requestedAxis(it, axis) !== undefined || shareAxis(it, axis) !== undefined,
+    (it) =>
+      collapseOf(it) === undefined &&
+      (requestedAxis(it, axis) !== undefined || shareAxis(it, axis) !== undefined),
   );
 }
 
 /** The angle this child declares, or undefined when it does not turn. */
 function turnOf(item: LayoutItem): number | undefined {
+  if (collapseOf(item) !== undefined) return undefined;
   const deg = item.hints?.turn;
   return turns(deg) ? deg : undefined;
 }
@@ -497,6 +511,7 @@ function crossOf(
 /** The rect a child is placed at, carrying the box it is drawn at when the row
  *  reserved more than that for a turn. */
 function placedRect(item: LayoutItem, rect: Rect): PlacedRect {
+  if (collapseOf(item) !== undefined) return { ...rect, collapsed: true };
   const deg = turnOf(item);
   const box = deg === undefined ? undefined : drawnBox(item);
   if (box === undefined || deg === undefined) return rect;
@@ -507,6 +522,8 @@ function placedRect(item: LayoutItem, rect: Rect): PlacedRect {
  *  row's defaultItemSize under `fill: false`, floored at its min. Undefined for
  *  a child that shares whatever the others leave. */
 function hintedAxis(item: LayoutItem, axis: 'x' | 'y', cfg: StripConfig): number | undefined {
+  const held = collapseOf(item);
+  if (held !== undefined) return held;
   const fallback = (cfg.fill ?? false) ? undefined : (cfg.defaultItemSize ?? 0);
   const v = preferredAxis(item, axis) ?? fallback;
   return v === undefined ? undefined : Math.max(v, effectiveMinAxis(item, axis));
@@ -557,6 +574,22 @@ function writeStored(store: unknown, id: string, axis: 'x' | 'y', value: Stored)
   s.patchPlacement(id, {
     size: axis === 'x' ? { ...existing, w: value.size } : { ...existing, h: value.size },
   });
+}
+
+/** Store what `writes` asks for, skipping every collapsed pane: its stored size
+ *  is what it returns to once it holds a child again. */
+function storeWrites(
+  store: unknown,
+  items: LayoutItem[],
+  writes: ReadonlyMap<string, number>,
+  cfg: StripConfig,
+  axis: 'x' | 'y',
+  usableMain: number,
+): void {
+  const held = new Set(items.filter((it) => collapseOf(it) !== undefined).map((it) => it.id));
+  for (const [id, v] of toStored(items, writes, cfg, axis, usableMain)) {
+    if (!held.has(id)) writeStored(store, id, axis, v);
+  }
 }
 
 /**
@@ -798,6 +831,20 @@ function steppedTarget(
   return (axis === 'x' ? point.x : point.y) - start;
 }
 
+/** A child collapsed to nothing, and how many placed panes precede it. It is
+ *  out of the row — no extent, no gap, no seam — and placed at the seam it
+ *  would otherwise open. */
+interface Shut {
+  item: LayoutItem;
+  before: number;
+}
+
+/** Whether a seam may be drawn after `item`. A collapsed pane's extent is the
+ *  policy's, so a drag on either side of one would store a size nothing reads. */
+function seamed(item: LayoutItem, next: LayoutItem | undefined): boolean {
+  return next !== undefined && collapseOf(item) === undefined && collapseOf(next) === undefined;
+}
+
 /** Capacity-selected subset both `layout` and `dispatchAffordance` must agree
  *  on — the two drifting apart is the whole class of bug this closes. So the
  *  size budget under `overflowMode: 'unplaced'` is resolved here too, not at
@@ -807,10 +854,17 @@ function placedOf(
   cfg: StripConfig,
   axis: 'x' | 'y',
   main: number,
-): { placed: LayoutItem[]; unplaced: string[] } {
+): { placed: LayoutItem[]; unplaced: string[]; shut: Shut[] } {
   const cap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
-  const byCount = selectByCapacity(items, Math.min(items.length, cap));
-  if (cfg.overflowMode !== 'unplaced') return byCount;
+  const counted = selectByCapacity(items, Math.min(items.length, cap));
+  const shut: Shut[] = [];
+  const open: LayoutItem[] = [];
+  for (const item of counted.placed) {
+    if (collapseOf(item) === 0) shut.push({ item, before: open.length });
+    else open.push(item);
+  }
+  const byCount = { placed: open, unplaced: counted.unplaced };
+  if (cfg.overflowMode !== 'unplaced') return { ...byCount, shut };
 
   const gap = cfg.gap ?? 0;
   const padding = cfg.padding ?? 0;
@@ -829,7 +883,7 @@ function placedOf(
     used += need;
     placed.push(item);
   }
-  return { placed, unplaced };
+  return { placed, unplaced, shut };
 }
 
 /**
@@ -886,7 +940,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const resizable = cfg.resizable ?? true;
     const step = stepOf(cfg);
 
-    const placements = new Map<string, Rect>();
+    const placements = new Map<string, PlacedRect>();
     const affordances: Affordance[] = [];
     if (items.length === 0) {
       const empty: LayoutResult<string> = { placements, affordances };
@@ -902,10 +956,11 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     }
 
     const main = axis === 'x' ? container.w : container.h;
-    const { placed: placedItems, unplaced } = placedOf(items, cfg, axis, main);
+    const { placed: placedItems, unplaced, shut } = placedOf(items, cfg, axis, main);
 
-    const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
+    const usableMain = main - 2 * padding - gap * Math.max(0, placedItems.length - 1);
     const sizes = mainSizes(placedItems, cfg, axis, usableMain);
+    const starts: number[] = [];
     const overlapped = overlapSpacing(cfg, sizes, usableMain);
     const { lead, spacing } =
       overlapped === undefined
@@ -921,12 +976,13 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
         const w = sizes[i]!;
+        starts.push(x);
         const cross = crossOf(item, cfg, 'x', w, h);
         placements.set(
           item.id,
           placedRect(item, { x, y: y + cross.offset, z: 0, w, h: cross.extent }),
         );
-        if (resizable && i < placedItems.length - 1) {
+        if (resizable && seamed(item, placedItems[i + 1])) {
           const join = joinFor(cfg, item, placedItems[i + 1]);
           affordances.push({
             id: `resize-x-${item.id}`,
@@ -961,12 +1017,13 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       for (let i = 0; i < placedItems.length; i++) {
         const item = placedItems[i]!;
         const h = sizes[i]!;
+        starts.push(y);
         const cross = crossOf(item, cfg, 'y', h, w);
         placements.set(
           item.id,
           placedRect(item, { x: x + cross.offset, y, z: 0, w: cross.extent, h }),
         );
-        if (resizable && i < placedItems.length - 1) {
+        if (resizable && seamed(item, placedItems[i + 1])) {
           const join = joinFor(cfg, item, placedItems[i + 1]);
           affordances.push({
             id: `resize-y-${item.id}`,
@@ -995,6 +1052,21 @@ export const stripStrategy: LayoutStrategy<void, string> = {
         y += h + spacing;
       }
     }
+    const last = placedItems.length - 1;
+    const end = last < 0 ? padding + lead : starts[last]! + sizes[last]!;
+    for (const { item, before } of shut) {
+      const at = starts[before] ?? end;
+      const cross = Math.max(0, (axis === 'x' ? container.h : container.w) - 2 * padding);
+      placements.set(
+        item.id,
+        placedRect(
+          item,
+          axis === 'x'
+            ? { x: at, y: padding, z: 0, w: 0, h: cross }
+            : { x: padding, y: at, z: 0, w: cross, h: 0 },
+        ),
+      );
+    }
     const result: LayoutResult<string> = { placements, affordances };
     if (cfg.overflowMode === 'scroll') {
       const sticky = stickTo(placedItems, sizes, axis, padding, spacing, placements, affordances);
@@ -1004,7 +1076,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     // rather than crushing them; say so instead of leaving it to be noticed.
     const consumed =
       sizes.reduce((sum, v) => sum + v, 0) +
-      (overlapped ?? gap) * (placedItems.length - 1) +
+      (overlapped ?? gap) * Math.max(0, placedItems.length - 1) +
       2 * padding;
     const excess = consumed - main;
     if (excess > PACK_EPSILON)
@@ -1033,7 +1105,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const item = placedItems.find((it) => it.id === childId);
     if (!item) return;
 
-    const usableMain = main - 2 * padding - gap * (placedItems.length - 1);
+    const usableMain = main - 2 * padding - gap * Math.max(0, placedItems.length - 1);
     const sizes = mainSizes(placedItems, cfg, axis, usableMain);
     const index = placedItems.indexOf(item);
     const step = stepOf(cfg);
@@ -1084,8 +1156,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       }
       if (writes.size > 2)
         trace('layout', `strip: pinned ${writes.size - 2} panes beside ${childId}`);
-      for (const [id, v] of toStored(placedItems, writes, cfg, axis, usableMain))
-        writeStored(store, id, axis, v);
+      storeWrites(store, placedItems, writes, cfg, axis, usableMain);
       return;
     }
 
@@ -1127,7 +1198,6 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       }
       trace('layout', `strip: ${childId} took ${next - base} from ${writes.size - 1} panes`);
     }
-    for (const [id, v] of toStored(placedItems, writes, cfg, axis, usableMain))
-      writeStored(store, id, axis, v);
+    storeWrites(store, placedItems, writes, cfg, axis, usableMain);
   },
 };

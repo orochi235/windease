@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { type Box, boxOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { type Box, dragMouse, openStory, settledBox } from './fixtures.js';
 
 const SHADE = 'desktop--shade';
 const ICON = 'desktop--icon-minimize';
@@ -29,20 +29,26 @@ function overlapCenter(a: Box, b: Box): { x: number; y: number } {
 test.describe('desktop stacking', () => {
   test('a window draws over the icon beneath it', async ({ page }) => {
     await openStory(page, SHADE);
-    const p = overlapCenter(await boxOf(node(page, 'icon-2')), await boxOf(node(page, 'win-3')));
+    const p = overlapCenter(
+      await settledBox(node(page, 'icon-2')),
+      await settledBox(node(page, 'win-3')),
+    );
     expect(await hitAt(page, p)).toBe('win-3');
   });
 
   test('the later window is on top where two overlap', async ({ page }) => {
     await openStory(page, SHADE);
-    const p = overlapCenter(await boxOf(node(page, 'win-1')), await boxOf(node(page, 'win-2')));
+    const p = overlapCenter(
+      await settledBox(node(page, 'win-1')),
+      await settledBox(node(page, 'win-2')),
+    );
     expect(await hitAt(page, p)).toBe('win-2');
   });
 
   test('pressing a window raises it', async ({ page }) => {
     await openStory(page, SHADE);
-    const one = await boxOf(node(page, 'win-1'));
-    const p = overlapCenter(one, await boxOf(node(page, 'win-2')));
+    const one = await settledBox(node(page, 'win-1'));
+    const p = overlapCenter(one, await settledBox(node(page, 'win-2')));
     // Its left edge, clear of both other windows.
     await page.mouse.click(one.x + 12, one.y + one.h / 2);
     await expect.poll(() => hitAt(page, p)).toBe('win-1');
@@ -52,7 +58,7 @@ test.describe('desktop stacking', () => {
 test.describe('desktop minimize', () => {
   test('shade rolls a window up where it stands', async ({ page }) => {
     await openStory(page, SHADE);
-    const before = await boxOf(node(page, 'win-2'));
+    const before = await settledBox(node(page, 'win-2'));
     await page.getByTestId('minimize-win-2').click();
     const after = await settledBox(node(page, 'win-2'));
     expect(after).toMatchObject({ x: before.x, y: before.y, w: before.w, h: 28 });
@@ -62,8 +68,8 @@ test.describe('desktop minimize', () => {
     page,
   }) => {
     await openStory(page, ICON);
-    const before = await boxOf(node(page, 'win-2'));
-    const lastIcon = await boxOf(node(page, 'icon-3'));
+    const before = await settledBox(node(page, 'win-2'));
+    const lastIcon = await settledBox(node(page, 'icon-3'));
 
     await page.getByTestId('minimize-win-2').click();
     const iconified = await settledBox(node(page, 'win-2'));
@@ -85,7 +91,7 @@ function deskOf(page: Page): Promise<{ x: number; y: number }> {
 
 /** A point on `id`'s title bar, clear of its right-hand corner. */
 async function barOf(page: Page, id: string) {
-  const b = await boxOf(node(page, id));
+  const b = await settledBox(node(page, id));
   return { box: b, at: { x: b.x + 40, y: b.y + 12 } };
 }
 
@@ -133,10 +139,10 @@ test.describe('desktop behavior keys', () => {
   }) => {
     await openStory(page, BEHAVIOR);
     const scroller = page.getByTestId('desktop-scroller');
-    const view = await boxOf(scroller);
+    const view = await settledBox(scroller);
     // The desktop's origin stays at the scroller's left edge.
     expect((await deskOf(page)).x).toBeCloseTo(view.x + 1, 0);
-    expect((await boxOf(node(page, 'win-3'))).x).toBeLessThan(view.x);
+    expect((await settledBox(node(page, 'win-3'))).x).toBeLessThan(view.x);
 
     await scroller.evaluate((el) => {
       el.scrollLeft = 0;
@@ -183,7 +189,7 @@ test.describe('desktop behavior keys', () => {
 
   test('the minimize box rolls a window up and back down', async ({ page }) => {
     await openStory(page, BEHAVIOR);
-    const before = await boxOf(node(page, 'win-1'));
+    const before = await settledBox(node(page, 'win-1'));
     const toggle = page.getByRole('button', { name: 'minimize win-1' });
     await toggle.click();
     expect(await settledBox(node(page, 'win-1'))).toMatchObject({ ...before, h: 28 });
@@ -208,7 +214,7 @@ test.describe('desktop resize', () => {
   test('dragging the bottom-right corner resizes a window in place', async ({ page }) => {
     await openStory(page, BEHAVIOR);
     // win-2 is on top, so its corner is clear of the others.
-    const before = await boxOf(node(page, 'win-2'));
+    const before = await settledBox(node(page, 'win-2'));
     const corner = { x: before.x + before.w - 3, y: before.y + before.h - 3 };
     await dragMouse(page, corner, { x: corner.x + 40, y: corner.y + 30 });
     const after = await settledBox(node(page, 'win-2'));
@@ -222,7 +228,7 @@ test.describe('desktop resize', () => {
     page,
   }) => {
     await openStory(page, BEHAVIOR);
-    const before = await boxOf(node(page, 'win-1'));
+    const before = await settledBox(node(page, 'win-1'));
     const edge = { x: before.x + 3, y: before.y + before.h / 2 };
     await dragMouse(page, edge, { x: edge.x - 20, y: edge.y });
     const after = await settledBox(node(page, 'win-1'));
@@ -245,7 +251,10 @@ test.describe('desktop layer', () => {
 
   test('a window on the top layer stays over a window raised after it', async ({ page }) => {
     await openStory(page, BEHAVIOR);
-    const p = overlapCenter(await boxOf(node(page, 'palette')), await boxOf(node(page, 'win-2')));
+    const p = overlapCenter(
+      await settledBox(node(page, 'palette')),
+      await settledBox(node(page, 'win-2')),
+    );
     expect(await hitAt(page, p)).toBe('palette');
     await raiseWin2(page);
     await expect(node(page, 'win-2')).toHaveCSS('z-index', '3');
@@ -254,7 +263,10 @@ test.describe('desktop layer', () => {
 
   test('without the layer, raising a window covers the palette', async ({ page }) => {
     await openStory(page, `${BEHAVIOR}&arg-layer=false`);
-    const p = overlapCenter(await boxOf(node(page, 'palette')), await boxOf(node(page, 'win-2')));
+    const p = overlapCenter(
+      await settledBox(node(page, 'palette')),
+      await settledBox(node(page, 'win-2')),
+    );
     await raiseWin2(page);
     await expect.poll(() => hitAt(page, p)).toBe('win-2');
   });
@@ -266,8 +278,8 @@ test.describe('desktop iconFrom', () => {
   }) => {
     await openStory(page, BEHAVIOR);
     const desk = await deskOf(page);
-    const disk = await boxOf(node(page, 'disk'));
-    const trash = await boxOf(node(page, 'trash'));
+    const disk = await settledBox(node(page, 'disk'));
+    const trash = await settledBox(node(page, 'trash'));
     expect(disk.x).toBeCloseTo(desk.x, 0);
     expect(disk.y + disk.h).toBeCloseTo(desk.y + 360, 0);
     expect(trash.x).toBeCloseTo(disk.x + disk.w + 8, 0);
@@ -276,7 +288,7 @@ test.describe('desktop iconFrom', () => {
 
   test('a window minimized to an icon joins the row at the bottom', async ({ page }) => {
     await openStory(page, `${BEHAVIOR}&arg-minimize=icon`);
-    const trash = await boxOf(node(page, 'trash'));
+    const trash = await settledBox(node(page, 'trash'));
     await page.getByRole('button', { name: 'minimize win-1' }).click();
     const icon = await settledBox(node(page, 'win-1'));
     expect(icon).toMatchObject({ y: trash.y, w: 72, h: 64 });
@@ -286,7 +298,7 @@ test.describe('desktop iconFrom', () => {
   test("iconFrom: 'top-right' lines them up from the top-right", async ({ page }) => {
     await openStory(page, `${BEHAVIOR}&arg-iconFrom=top-right`);
     const desk = await deskOf(page);
-    const disk = await boxOf(node(page, 'disk'));
+    const disk = await settledBox(node(page, 'disk'));
     expect(disk.x + disk.w).toBeCloseTo(desk.x + 480, 0);
     expect(disk.y).toBeCloseTo(desk.y, 0);
   });
@@ -326,8 +338,8 @@ test.describe('desktop raise policy', () => {
   for (const mode of ['click', 'focus'] as const) {
     test(`raise: '${mode}' brings a pressed window to the top`, async ({ page }) => {
       await openStory(page, `${RAISE}&arg-raise=${mode}`);
-      const one = await boxOf(node(page, 'win-1'));
-      const p = overlapCenter(one, await boxOf(node(page, 'win-2')));
+      const one = await settledBox(node(page, 'win-1'));
+      const p = overlapCenter(one, await settledBox(node(page, 'win-2')));
       expect(await hitAt(page, p)).toBe('win-2');
       await page.mouse.click(one.x + 12, one.y + one.h / 2);
       await expect.poll(() => hitAt(page, p)).toBe('win-1');

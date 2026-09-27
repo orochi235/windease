@@ -15,13 +15,13 @@ const stack = (page: Page) => page.locator('[data-testid="stack-sided"]');
 test.describe('stack tab band', () => {
   test('stacked title bars push the body down one bar per pane', async ({ page }) => {
     await open(page, 'stacked', 'top');
-    const frame = await boxOf(stack(page));
+    const frame = await settledBox(stack(page));
     const b = await settledBox(body(page, 'editor'));
     expect(Math.round(b.y - frame.y)).toBeGreaterThanOrEqual(3 * TAB);
     expect(Math.round(b.y - frame.y)).toBeLessThanOrEqual(3 * TAB + 2);
 
-    const editor = await boxOf(tab(page, 'editor'));
-    const preview = await boxOf(tab(page, 'preview'));
+    const editor = await settledBox(tab(page, 'editor'));
+    const preview = await settledBox(tab(page, 'preview'));
     expect(Math.round(preview.y - editor.y)).toBe(TAB);
   });
 
@@ -40,19 +40,19 @@ test.describe('stack tab band', () => {
     await tab(page, 'console').click();
     await expect(body(page, 'console')).toBeVisible();
     await expect(body(page, 'editor')).toHaveCount(0);
-    const frame = await boxOf(stack(page));
+    const frame = await settledBox(stack(page));
     const b = await settledBox(body(page, 'console'));
     // The band is at the bottom, so the body starts at the top.
     expect(Math.round(b.y - frame.y)).toBeLessThanOrEqual(2);
-    expect((await boxOf(tab(page, 'editor'))).y).toBeGreaterThanOrEqual(b.y + b.h - 2);
+    expect((await settledBox(tab(page, 'editor'))).y).toBeGreaterThanOrEqual(b.y + b.h - 2);
   });
 
   test('a left strip band puts the tabs in a column and the body to its right', async ({
     page,
   }) => {
     await open(page, 'strip', 'left');
-    const editor = await boxOf(tab(page, 'editor'));
-    const preview = await boxOf(tab(page, 'preview'));
+    const editor = await settledBox(tab(page, 'editor'));
+    const preview = await settledBox(tab(page, 'preview'));
     expect(preview.y).toBeGreaterThan(editor.y);
     const b = await settledBox(body(page, 'editor'));
     expect(b.x).toBeGreaterThanOrEqual(editor.x + editor.w - 1);
@@ -63,7 +63,7 @@ test.describe('stack tab band', () => {
   test('a right strip band puts the body to its left', async ({ page }) => {
     await open(page, 'strip', 'right');
     const b = await settledBox(body(page, 'editor'));
-    const editor = await boxOf(tab(page, 'editor'));
+    const editor = await settledBox(tab(page, 'editor'));
     expect(editor.x).toBeGreaterThanOrEqual(b.x + b.w - 1);
   });
 });

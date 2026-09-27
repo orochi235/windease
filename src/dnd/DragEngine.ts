@@ -1,3 +1,4 @@
+import { type CollapseDrag, resolveCollapse } from '../collapse.js';
 import type { AcceptsConfig } from '../container-config.js';
 import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { LayoutItem, LayoutStrategy, Rect, Size } from '../layout-types.js';
@@ -199,6 +200,7 @@ function sameHover(a: DragState['hover'], b: DragState['hover']): boolean {
  */
 export class DragEngine {
   private active: DragState | null = null;
+  private inFlight: CollapseDrag | null = null;
   private readonly listeners = new Set<Listener>();
   private readonly dropTargets = new Map<NodeId, DropTarget>();
   private readonly orderControls = new Map<NodeId, ChildOrderCommit>();
@@ -268,6 +270,24 @@ export class DragEngine {
     };
   }
 
+  /**
+   * The drag in flight as a collapse policy is told about it, or `null` when
+   * nothing is being dragged. One object per drag, so `ContainerHost.setDrag`
+   * can be handed it on every hover sample and re-run nothing.
+   */
+  collapseDrag(): CollapseDrag | null {
+    return this.inFlight;
+  }
+
+  /** Whether the store's collapse policy holds `id` at no extent for this drag.
+   *  Such a target has bounds, a line, and nothing to drop on. */
+  private shut(id: NodeId): boolean {
+    if (!this.store.collapsePolicy) return false;
+    const input = { store: this.store, id };
+    const drag = this.inFlight;
+    return resolveCollapse(drag ? { ...input, drag } : input)?.extent === 0;
+  }
+
   tryBegin(sourceId: NodeId): boolean {
     if (this.active) {
       trace(
@@ -290,6 +310,7 @@ export class DragEngine {
       return false;
     }
     this.active = { draggingId: sourceId, cursor: { x: 0, y: 0 }, hover: null };
+    this.inFlight = { ids: [sourceId], accepts: (targetId) => this.checkAccept(targetId) };
     trace(
       'dnd',
       `drag start: ${sourceId} (from parent ${node.membership.parentId}; ${this.dropTargets.size} drop targets registered)`,
@@ -323,7 +344,7 @@ export class DragEngine {
     let best: { id: NodeId; depth: number } | null = null;
     for (const [id, target] of this.dropTargets) {
       const r = target.bounds();
-      if (!r || !contains(r, x, y)) continue;
+      if (!r || !contains(r, x, y) || this.shut(id)) continue;
       const depth = target.depth?.() ?? 0;
       if (!best || depth > best.depth) best = { id, depth };
     }
@@ -868,6 +889,7 @@ export class DragEngine {
 
   private clear(): void {
     this.active = null;
+    this.inFlight = null;
     this.emit();
   }
 

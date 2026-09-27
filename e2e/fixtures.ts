@@ -22,6 +22,11 @@ export interface Box {
   h: number;
 }
 
+/**
+ * One read, now. Right inside an `expect.poll`, which retries it. Anywhere
+ * else the layout may still be arriving, so a read that feeds a gesture or
+ * stands as a baseline wants {@link settledBox}.
+ */
 export async function boxOf(locator: Locator): Promise<Box> {
   const b = await locator.boundingBox();
   if (!b) throw new Error('element has no box');

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { boxOf, centerOf, openStory } from './fixtures.js';
+import { centerOf, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'playground--playground';
 
@@ -37,8 +37,12 @@ function focusModel(page: Page, nodeId: string) {
 }
 
 async function dragTo(page: Page, handleFor: string, targetContainer: string) {
-  const handle = centerOf(await boxOf(page.locator(`[data-windease-drag-handle="${handleFor}"]`)));
-  const target = centerOf(await boxOf(page.locator(`[data-node-container="${targetContainer}"]`)));
+  const handle = centerOf(
+    await settledBox(page.locator(`[data-windease-drag-handle="${handleFor}"]`)),
+  );
+  const target = centerOf(
+    await settledBox(page.locator(`[data-node-container="${targetContainer}"]`)),
+  );
   await page.mouse.move(handle.x, handle.y);
   await page.mouse.down();
   await page.mouse.move(target.x, target.y, { steps: 15 });
@@ -72,8 +76,10 @@ test.describe('focus across a drag', () => {
 
   test('a cancelled drag leaves the node and the tab stop where they were', async ({ page }) => {
     await openStory(page, STORY);
-    const handle = centerOf(await boxOf(page.locator('[data-windease-drag-handle="panel-1"]')));
-    const target = centerOf(await boxOf(page.locator('[data-node-container="sidebar"]')));
+    const handle = centerOf(
+      await settledBox(page.locator('[data-windease-drag-handle="panel-1"]')),
+    );
+    const target = centerOf(await settledBox(page.locator('[data-node-container="sidebar"]')));
     await page.mouse.move(handle.x, handle.y);
     await page.mouse.down();
     await page.mouse.move(target.x, target.y, { steps: 15 });

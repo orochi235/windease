@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { boxOf, centerOf, openStory } from './fixtures.js';
+import { centerOf, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'parallel-zones--drag-between';
 
@@ -31,8 +31,8 @@ test.describe('drag between zones', () => {
     await openStory(page, STORY);
     expect(await zoneOf(page, 'left-a')).toBe('left-zone');
 
-    const handle = centerOf(await boxOf(page.locator('[data-windease-drag-handle="left-a"]')));
-    const target = centerOf(await boxOf(page.locator('[data-node-container="right-zone"]')));
+    const handle = centerOf(await settledBox(page.locator('[data-windease-drag-handle="left-a"]')));
+    const target = centerOf(await settledBox(page.locator('[data-node-container="right-zone"]')));
 
     await page.mouse.move(handle.x, handle.y);
     await page.mouse.down();
@@ -44,8 +44,8 @@ test.describe('drag between zones', () => {
 
   test('escape mid-drag cancels without moving the node', async ({ page }) => {
     await openStory(page, STORY);
-    const handle = centerOf(await boxOf(page.locator('[data-windease-drag-handle="left-a"]')));
-    const target = centerOf(await boxOf(page.locator('[data-node-container="right-zone"]')));
+    const handle = centerOf(await settledBox(page.locator('[data-windease-drag-handle="left-a"]')));
+    const target = centerOf(await settledBox(page.locator('[data-node-container="right-zone"]')));
 
     await page.mouse.move(handle.x, handle.y);
     await page.mouse.down();
@@ -58,7 +58,7 @@ test.describe('drag between zones', () => {
 
   test('releasing outside every drop target leaves the node put', async ({ page }) => {
     await openStory(page, STORY);
-    const handle = centerOf(await boxOf(page.locator('[data-windease-drag-handle="left-b"]')));
+    const handle = centerOf(await settledBox(page.locator('[data-windease-drag-handle="left-b"]')));
 
     await page.mouse.move(handle.x, handle.y);
     await page.mouse.down();
@@ -72,8 +72,8 @@ test.describe('drag between zones', () => {
     await openStory(page, STORY);
     expect(await orderIn(page, 'right-zone')).toEqual(['right-a', 'right-b']);
 
-    const handle = centerOf(await boxOf(page.locator('[data-windease-drag-handle="left-a"]')));
-    const first = await boxOf(page.locator('[data-node="right-a"]'));
+    const handle = centerOf(await settledBox(page.locator('[data-windease-drag-handle="left-a"]')));
+    const first = await settledBox(page.locator('[data-node="right-a"]'));
 
     await page.mouse.move(handle.x, handle.y);
     await page.mouse.down();

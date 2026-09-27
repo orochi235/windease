@@ -1,0 +1,85 @@
+import { Meta } from '@ladle/react';
+import { DraftBanner } from './Draft.tsx';
+import { SidebarThatShuts } from '../react/stories/CollapsePolicy.stories.tsx';
+
+<Meta title="Guide/07 Customization/7.12 collapsePolicy" />
+
+<DraftBanner />
+
+# `collapsePolicy`
+
+A container collapses when it gives up the room it held in its parent's row
+because it has nothing left to show. `collapsePolicy` is the policy that decides
+whether it does, and how far. This chapter covers what the policy is asked, the
+two built-ins, and how a pane gets back into a container that shut.
+
+```ts
+const shut = collapse({ dragTo: 240 });
+
+const store = new Store({
+  collapsePolicy: (input) => (input.id === SIDEBAR ? shut(input) : undefined),
+});
+```
+
+<SidebarThatShuts />
+
+## What it is asked
+
+Each time a parent is laid out, the policy is asked about every child that is a
+container with nothing to lay out: no children, or every child hidden. It gets
+`{ store, id, drag }` and answers with one of three things.
+
+| Answer | The container |
+| --- | --- |
+| `{ extent }` | is held at that many main-axis pixels |
+| `null` | keeps the extent it has |
+| `undefined` | is the built-in's to decide, which keeps the extent it has |
+
+A root is never asked about. No parent lays it out, so there is no row to give
+room back to.
+
+## The built-ins
+
+`stay` never collapses. `collapse({ to, dragTo })` takes every empty container
+to `to` pixels, zero unless you say otherwise.
+
+Handed to the store as it is, `collapse()` answers for every container, so a
+main column that empties shuts as well. Wrap it, as above, to name the ones it
+applies to.
+
+## Getting back in
+
+A container at no extent has no box to drop on. `dragTo` opens it to that many
+pixels while a drag it would accept is in flight, and it shuts again if the
+pane lands somewhere else.
+
+"Would accept" is the drag's own answer, in the order a drop is checked: locks,
+`config.accepts`, `acceptPolicy`, `strategy.canAccept`
+([7.5](/?story=guide--07-customization--7-05-accept-policy)). A custom policy
+reads the same answer from `input.drag?.accepts(input.id)`.
+
+## Nothing is stored
+
+There is no collapsed state. The container's `placement.size` stays where it
+was, the policy's answer outranks it while the container is empty, and it takes
+over again when a pane arrives. A sidebar dragged to 300px and then emptied
+reopens at 300px.
+
+So the policy has to decide from its input. Layout runs again when the store
+changes or a drag starts or ends, and a policy that reads a toggle kept
+elsewhere is not asked again when the toggle flips. For a sidebar the user
+opens and shuts by hand, write the size yourself
+([4.5](/?story=guide--04-resize--4-05-collapsing-a-pane)).
+
+## What a collapsed container loses
+
+It has no seam on either side: a drag there would store a size nothing reads.
+At no extent it is out of the row altogether, so no gap is held for it, a drag
+passes over it, and keyboard navigation skips it.
+
+Its rect carries `collapsed: true`. The React layer clips the child to that
+rect, so borders and padding drawn for a full pane cannot show past it; a
+custom host does the same.
+
+Only `stripStrategy` honors the answer, which covers every tree `store.split`
+builds.

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { type Box, boxOf, centerOf, openStory, settledBox } from './fixtures.js';
+import { type Box, centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
  * A pane saved with a `placement.share` in one kind of container, dragged
@@ -18,7 +18,7 @@ const landedIn = (page: Page, id: string, groupId: string) =>
   expect(group(page, groupId).locator(`[data-node="${id}"]`)).toHaveCount(1);
 
 async function drag(page: Page, sourceId: string, to: { x: number; y: number }) {
-  const from = centerOf(await boxOf(handle(page, sourceId)));
+  const from = centerOf(await settledBox(handle(page, sourceId)));
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps: 12 });
@@ -100,7 +100,7 @@ test.describe('a seam drag resizing a group of nested panes', () => {
     await expect(page.locator('[data-node]').first()).toBeVisible({ timeout: 30_000 });
     await page.getByTestId('preset-picker').selectOption('emacs-side-windows');
     const seam = page.locator('[data-affordance-hit="resize-x-init-el"]');
-    const from = centerOf(await boxOf(seam));
+    const from = centerOf(await settledBox(seam));
 
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
@@ -116,8 +116,8 @@ test.describe('a seam drag resizing a group of nested panes', () => {
       ),
     );
     expect(durations.every((d) => d === 0)).toBe(true);
-    const outer = await boxOf(node(page, 'main-right'));
-    const inner = await boxOf(node(page, 'help'));
+    const outer = await settledBox(node(page, 'main-right'));
+    const inner = await settledBox(node(page, 'help'));
     expect(Math.abs(outer.w - inner.w)).toBeLessThanOrEqual(4);
 
     await page.mouse.up();

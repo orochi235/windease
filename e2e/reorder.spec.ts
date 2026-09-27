@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, centerOf, openStory, settledBox } from './fixtures.js';
+import { centerOf, openStory, settledBox } from './fixtures.js';
 
 /** Rendered child order inside a container, per the DOM's placements. */
 function orderIn(page: Page, containerId: string) {
@@ -36,7 +36,7 @@ test.describe('reorder: true — Firefox-like tabs', () => {
     await openStory(page, STORY);
     await expect.poll(() => orderIn(page, 'top-strip')).toEqual(['news', 'mail', 'docs', 'maps']);
     const mail = centerOf(await settledBox(page.getByTestId('tab-mail')));
-    const maps = await boxOf(page.getByTestId('tab-maps'));
+    const maps = await settledBox(page.getByTestId('tab-maps'));
     await drag(page, mail, { x: maps.x + maps.w * 0.75, y: mail.y });
     await expect.poll(() => orderIn(page, 'top-strip')).toEqual(['news', 'docs', 'maps', 'mail']);
     await expect(page.getByTestId('selected')).toHaveText('news');
@@ -53,7 +53,7 @@ test.describe('reorder: true — Firefox-like tabs', () => {
   test('dragging a tab into the other window moves it there', async ({ page }) => {
     await openStory(page, STORY);
     const music = centerOf(await settledBox(page.getByTestId('tab-music')));
-    const maps = await boxOf(page.getByTestId('tab-maps'));
+    const maps = await settledBox(page.getByTestId('tab-maps'));
     await drag(page, music, { x: maps.x + maps.w * 0.75, y: maps.y + maps.h / 2 });
     await expect
       .poll(() => orderIn(page, 'top-strip'))
@@ -71,7 +71,7 @@ test.describe("reorder: 'handle' — presets", () => {
     await expect.poll(() => orderIn(page, 'folders')).toEqual(initial);
 
     const label = centerOf(await settledBox(page.getByTestId('row-inbox')));
-    const sent = await boxOf(page.getByTestId('row-sent'));
+    const sent = await settledBox(page.getByTestId('row-sent'));
     await drag(page, label, { x: label.x, y: sent.y + sent.h * 0.9 });
     expect(await orderIn(page, 'folders')).toEqual(initial);
 
@@ -79,8 +79,8 @@ test.describe("reorder: 'handle' — presets", () => {
     await expect(page.getByTestId('selected')).toHaveText('drafts');
     expect(await orderIn(page, 'folders')).toEqual(initial);
 
-    const grip = centerOf(await boxOf(page.getByTestId('grip-inbox')));
-    const archive = await boxOf(page.locator('[data-node="archive"]'));
+    const grip = centerOf(await settledBox(page.getByTestId('grip-inbox')));
+    const archive = await settledBox(page.locator('[data-node="archive"]'));
     await drag(page, grip, { x: grip.x, y: archive.y + archive.h * 0.8 });
     await expect
       .poll(() => orderIn(page, 'folders'))

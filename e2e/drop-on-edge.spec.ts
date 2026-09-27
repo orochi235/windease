@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, centerOf, openStory, settledBox } from './fixtures.js';
+import { centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
  * Drop-on-edge is a drop *intent* gesture: where inside a pane the cursor lands
@@ -23,8 +23,8 @@ async function dragOver(
   fx: number,
   fy: number,
 ): Promise<void> {
-  const from = centerOf(await boxOf(handle(page, sourceId)));
-  const box = await boxOf(pane(page, ontoId));
+  const from = centerOf(await settledBox(handle(page, sourceId)));
+  const box = await settledBox(pane(page, ontoId));
   const to = { x: box.x + box.w * fx, y: box.y + box.h * fy };
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
@@ -72,12 +72,12 @@ test.describe('drop on edge', () => {
 
   test('the preview covers the half the drop would take', async ({ page }) => {
     await openStory(page, STORY);
-    const box = await boxOf(pane(page, 'b'));
+    const box = await settledBox(pane(page, 'b'));
     await dragOver(page, 'a', 'b', 0.5, 0.08);
 
     const preview = page.locator('.windease-split-preview');
     await expect(preview).toBeVisible();
-    const pb = await boxOf(preview);
+    const pb = await settledBox(preview);
     // The top half of `b`, not the whole pane and not the other half.
     expect(pb.h).toBeLessThan(box.h * 0.75);
     expect(pb.y).toBeLessThan(box.y + box.h * 0.5);
@@ -96,16 +96,16 @@ test.describe('drop on edge', () => {
     await dropOn(page, 'a', 'b', 0.5, 0.08);
     await expect(readout(page)).toContainText('split-1:a,b');
 
-    const before = await boxOf(pane(page, 'a'));
+    const before = await settledBox(pane(page, 'a'));
     const seam = page.locator('[data-affordance]').first();
     await expect(seam).toBeVisible();
-    const s = centerOf(await boxOf(seam));
+    const s = centerOf(await settledBox(seam));
     await page.mouse.move(s.x, s.y);
     await page.mouse.down();
     await page.mouse.move(s.x, s.y + 40, { steps: 10 });
     await page.mouse.up();
 
-    const after = await boxOf(pane(page, 'a'));
+    const after = await settledBox(pane(page, 'a'));
     expect(after.h).toBeGreaterThan(before.h + 10);
   });
 

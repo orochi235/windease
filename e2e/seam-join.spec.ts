@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, centerOf, openStory } from './fixtures.js';
+import { centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
  * Seam-join drives a real pointer past a clamp, which is the one thing jsdom
@@ -29,7 +29,7 @@ async function pushPast(
 ): Promise<{ x: number; y: number }> {
   const travel =
     (await attr(page, after, 'aria-valuemax')) - (await attr(page, after, 'aria-valuenow'));
-  const from = centerOf(await boxOf(seam(page, after)));
+  const from = centerOf(await settledBox(seam(page, after)));
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(from.x + travel, from.y, { steps: 8 });

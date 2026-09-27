@@ -10,6 +10,24 @@ section below.
 
 ### Added
 
+- **An empty container can give its room back.** A new `collapsePolicy` store
+  option is asked, each time a parent is laid out, about every child that is a
+  container with nothing to show, and answers with the extent to hold it at.
+  Two built-ins are exported: `stay`, which is what a store with no policy
+  does, and `collapse({ to, dragTo })`, which takes an empty container to `to`
+  pixels (zero by default) and, with `dragTo`, opens it while a drag it would
+  accept is in flight. Nothing is stored, so the container's own
+  `placement.size` is what it returns to when a pane arrives. `stripStrategy`
+  honors the answer; a collapsed child has no seam beside it, and at no extent
+  holds no gap, takes no drop and is skipped by keyboard navigation. Headless
+  callers describe the drag through `ContainerHost.setDrag` or the last
+  argument of `runStrategyForContainer`. See the README's
+  [Collapsing a container that empties](README.md#collapsing-a-container-that-empties)
+  and the `Policies / Collapse` story.
+- **`PlacedRect` carries `collapsed: true`** for a child the collapse policy
+  holds, and `LayoutItem` carries the `collapse: { extent }` a strategy reads.
+  `<Container>`, `<Zone>` and `<Panel>` clip a collapsed child to its rect.
+
 - **A node can be turned, and the layout reserves the room it needs.** A new
   `hints.turn`, in degrees, rotates a node about its own center *and* makes a
   strategy that honors it reserve the rotated axis-aligned box, so siblings

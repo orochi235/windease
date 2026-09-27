@@ -49,7 +49,7 @@ test.describe('flow mode', () => {
   }) => {
     await openStory(page, STORY);
     const pane = page.locator('[data-node="alpha"]');
-    const inFlow = await boxOf(pane);
+    const inFlow = await settledBox(pane);
     await page.locator('[data-testid="flow-toggle"]').uncheck();
     await expect.poll(async () => Math.round((await boxOf(pane)).h)).not.toBe(Math.round(inFlow.h));
   });
@@ -193,7 +193,7 @@ test.describe('scrolling containers', () => {
   test('a scrolled pane reports where it is, not where it was placed', async ({ page }) => {
     await openStory(page, 'scrolling--scroll-aware-navigation');
     const pane = page.locator('[data-node="pane-1"]');
-    const before = await boxOf(pane);
+    const before = await settledBox(pane);
     await page.locator('.cap-scroller').evaluate((el) => {
       el.scrollTop = 200;
     });

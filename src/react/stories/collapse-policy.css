@@ -1,0 +1,43 @@
+.cp-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font:
+    13px / 1.2 system-ui,
+    sans-serif;
+  color: #334155;
+}
+
+.cp-frame {
+  padding: 4px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  width: fit-content;
+}
+
+.cp-group {
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.cp-group[data-drop-target] {
+  background: #d1fae5;
+}
+
+.cp-readout {
+  margin: 10px 0 0;
+  font:
+    12px / 1.5 system-ui,
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+}
+
+.cp-readout__value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #0f172a;
+}

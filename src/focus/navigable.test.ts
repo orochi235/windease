@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { type CollapsePolicy, collapse } from '../collapse.js';
 import { createNode } from '../constructors.js';
 import { asNodeId, type NodeId } from '../node.js';
 import { Store } from '../store.js';
@@ -98,5 +99,37 @@ describe('navigableLeaves', () => {
     const s = row(['a', 'b']);
     const g = rects({ a: [0, 0, 10, 10] });
     expect(navigableLeaves(s, g)).toEqual([id('a')]);
+  });
+
+  describe('with a collapse policy', () => {
+    /** z ▸ [a, side], where `side` is an empty focusable group. */
+    const withSide = (policy: CollapsePolicy): Store => {
+      const s = new Store({ collapsePolicy: policy });
+      s.registerNode(
+        createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('z') }),
+      );
+      s.registerNode(createNode({ kind: 'panel', focus: true, id: id('a'), parentId: id('z') }));
+      s.registerNode(
+        createNode({
+          kind: 'group',
+          focus: true,
+          id: id('side'),
+          parentId: id('z'),
+          container: { strategyId: 'strip', config: {} },
+        }),
+      );
+      for (const n of ['z', 'a', 'side']) s.showNode(id(n));
+      return s;
+    };
+    // The rect a host still holds from before `side` shut.
+    const stale = rects({ a: [0, 0, 10, 10], side: [20, 0, 10, 10] });
+
+    it('skips a container collapsed to nothing, whatever rect is reported', () => {
+      expect(navigableLeaves(withSide(collapse()), stale)).toEqual([id('a')]);
+    });
+
+    it('keeps a container collapsed to a rail', () => {
+      expect(navigableLeaves(withSide(collapse({ to: 24 })), stale)).toEqual([id('a'), id('side')]);
+    });
   });
 });

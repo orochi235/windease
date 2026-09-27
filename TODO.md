@@ -15,20 +15,28 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   mutation returns. The one live instance has been fixed; nothing
   prevents a new one, so this stays on the list as a review item.
 
-- **A geometry read straight after `openStory` can catch a preset tree
-  mid-layout.** Fixed for `declarative-keyboard.spec.ts`, which read the left
-  column's pane boxes before the column had measured itself and placed them —
-  the panes render in flow at full height until then, and `openStory` cannot
-  wait that out, because every preset stamps `data-node` and the zone above them
-  satisfies it on the first paint. That spec polls now.
+- **A geometry read outside a poll can catch a layout that is still arriving.**
+  Panes render in flow until their container has measured itself, and animate
+  between placements after that, so a box read the instant a story opens or a
+  gesture ends is a frame on the way to the layout. It reads as "the gesture
+  did nothing". `openStory` cannot wait it out: every preset stamps
+  `data-node`, and the zone above them satisfies it on the first paint.
 
-  `settledBox` (`e2e/fixtures.ts`) is the poll to reach for — a box read the
-  instant a gesture changes the layout is a frame of the settle animation
-  rather than the layout, which reads as "the gesture did nothing". Still
-  exposed, worst first by ratio of geometry reads to polls:
-  `floating.spec.ts` (18 reads, none), `resize.spec.ts` (10, none),
-  `content-sizing.spec.ts` (17, 4 — and it has actually failed this way),
-  `stacking.spec.ts` and `declarative-drop.spec.ts` (6, none).
+  The rule, stated on `boxOf` in `e2e/fixtures.ts`: a read that feeds a gesture
+  or stands as a baseline uses `settledBox`, and an assertion about where
+  something ended up goes through `expect.poll`.
+
+  Still short of it:
+
+  - `exotic-board.spec.ts` reads `boundingBox()` directly. Its layout deforms
+    under the pointer, and the reads were left as they were tuned.
+  - The specs that already polled in places had each remaining `boxOf` swapped
+    for `settledBox` without being reread, so an assertion there reads a
+    settled box where it should poll. That can still return the old layout if
+    a change takes longer to start than the settle window. The specs with no
+    polls at all, and `content-sizing` and `declarative-drop`, were converted
+    by hand and do poll.
+  - Nothing stops a new raw read.
 
 - **The suite fails under machine load, and the failing specs move between
   runs.** Reproduces readily once the load average passes roughly twice the
@@ -102,31 +110,15 @@ contents**; the second is `hints.maxSize`. Neither is an arrangement primitive
 
 Still open, waiting for a consumer to ask:
 
-- The arrangement itself — a gutter *between* separate roots, a collapsible
-  sidebar, full-screen takeover of one zone.
-- **`collapsePolicy`: a sidebar that collapses when its last panel leaves.**
-  Decided so far: it is a policy in the 7.4 sense (choose / refuse / `undefined`
-  defers to today's behavior), and the collapse itself is a reflow — the empty
-  child reaches the strategy flagged as empty and is allocated zero, so it draws
-  nothing. It is a query, not an event: anything that must handle an empty
-  container (layout, drop hit-testing, navigation) asks one core resolver, which
-  consults the policy and falls back to the built-in — the `resolveNavigation`
-  shape, so it lives in `StoreOptions`, must be pure and cheap, and stores no
-  collapsed state. Its answer outranks a dragged `placement.size` at read time
-  and leaves the size in place, so a refill restores it. The answer is an
-  object (`{ extent, … }`) so a custom callback can return the same shape as
-  the built-ins, which are `stay` (today's behavior) and
-  `collapse({ to = 0, dragTo? })` — `dragTo` opens it while a drag it would
-  accept is in flight, which is how a panel gets back in. That needs the
-  resolver's context to carry drag state and layout to re-run on drag start and
-  end; the store has neither today, so the caller passes it in. Remembering a
-  width across reloads stays in userland (`serialize` to wherever the app keeps
-  state) — no per-zone storage in the library. "Collapse" already titles guides 4.05 and 4.06, which
-  would want retitling.
+- The arrangement itself — a gutter *between* separate roots, full-screen
+  takeover of one zone.
+- `collapsePolicy` is honored by `stripStrategy` only. `grid` is the next
+  candidate, where an empty celled child would give its track back; nothing
+  has asked for it.
 - Rename the `chooseSuccessor` / `resolveNavigation` store options to
-  `successorPolicy` / `navigationPolicy`, matching `acceptPolicy` and their own
-  types, with the old keys deprecated for a minor. The exported built-in
-  functions keep their names.
+  `successorPolicy` / `navigationPolicy`, matching `acceptPolicy`,
+  `collapsePolicy` and their own types, with the old keys deprecated for a
+  minor. The exported built-in functions keep their names.
 - Should zones know about each other for purposes like "dock at the bottom of
   whichever zone has focus" or "promote selected window to main zone"?
 - Dynamic zone creation/teardown: brainhouse's worktree grouping might want

@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import {
   type RefObject,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -14,6 +15,7 @@ import type {
   LayoutPreview,
   NodeId,
   Overflow,
+  PlacedRect,
   PlacementCommit,
   StrategyCommand,
   View,
@@ -26,6 +28,7 @@ import {
   trace,
   viewTransform,
 } from '../index.js';
+import { DragContext } from './dnd/DragProvider.js';
 import { useStore } from './Provider.js';
 import { useStrategyRegistry } from './strategies.js';
 
@@ -115,6 +118,20 @@ export function useContainerLayout(
   useEffect(() => {
     host.setPreview(preview ?? null);
   }, [host, previewKey]);
+
+  // A collapse policy may open an empty child for a drag, which only the drag
+  // controller knows about. The host compares by identity and the controller
+  // holds one object per drag, so the hover samples in between cost nothing.
+  const dragController = useContext(DragContext);
+  useEffect(() => {
+    if (!dragController || !store.collapsePolicy) return;
+    host.setDrag(dragController.collapseDrag());
+    const off = dragController.subscribe(() => host.setDrag(dragController.collapseDrag()));
+    return () => {
+      off();
+      host.setDrag(null);
+    };
+  }, [host, store, dragController]);
 
   // Opt-in: binding this re-runs the layout on every pointermove, so a
   // container whose strategy does not read `pointer` never pays for it.
@@ -245,6 +262,11 @@ export function useScrollOffset(
     if (!el) return;
     return observeScroll(el);
   }, [scrollRef, observeScroll]);
+}
+
+/** Clips a child the collapse policy holds to its rect. See `PlacedRect.collapsed`. */
+export function collapsedStyle(rect: PlacedRect): CSSProperties | undefined {
+  return rect.collapsed ? { overflow: 'hidden' } : undefined;
 }
 
 /**

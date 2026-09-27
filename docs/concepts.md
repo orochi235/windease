@@ -154,6 +154,13 @@ Two paths for free-form data on a node; lifetimes differ:
   kind plus its one-based sibling index, which changes when a sibling is
   added. Set a title on anything a keyboard user has to tell apart.
 
+None of these is written when a container collapses. A store built with a
+`collapsePolicy` asks it, on every layout, about each child that is an empty
+container, and the answer reaches the strategy as `LayoutItem.collapse`,
+outranking `size`, `share` and both size hints for as long as the container
+stays empty. The placement is left as it was, which is what a refilled
+container returns to.
+
 `setAllowsPinning(id, false)` opts a container out of the pin invariant
 entirely (a tool strip, a tabbed group) — children can no longer hold an
 index in it.
@@ -687,6 +694,27 @@ Class hierarchy under `WindeaseError`:
 - `InvariantViolationError` (free-form `code` + `context`)
 
 Catch on `instanceof` or `.code`, not message text.
+
+## Policies
+
+A policy is a decision the library makes that a consumer can replace: return a
+value to choose it, `null` or `false` to refuse, `undefined` to defer to the
+built-in. One that throws or answers unusably is traced and read as
+`undefined`.
+
+| Policy | Set on | Read by |
+| --- | --- | --- |
+| `chooseSuccessor` | `StoreOptions` | `Store.succeedFocus` |
+| `resolveNavigation` | `StoreOptions` | `resolveNavigation` |
+| `collapsePolicy` | `StoreOptions` | `resolveCollapse` |
+| `acceptPolicy` | a drop target | `DragEngine.checkAccept` |
+
+`resolveCollapse({ store, id, drag? })` is the one place the collapse question
+is answered. Layout (`childToLayoutItem`), the drag engine's hit-test and
+`navigableLeaves` all ask it, so the three cannot disagree about whether a
+container is shut. The store holds no drag state, so `drag` is an input: the
+drag engine builds one per drag (`DragEngine.collapseDrag()`), and a host hands
+it to `ContainerHost.setDrag`.
 
 ## Tracing
 

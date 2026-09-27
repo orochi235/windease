@@ -4,6 +4,16 @@ export {
   defaultChildSort,
   preserveStoreOrder,
 } from './child-sort.js';
+export {
+  type CollapseAnswer,
+  type CollapseDrag,
+  type CollapseInput,
+  type CollapsePolicy,
+  collapse,
+  isEmptyContainer,
+  resolveCollapse,
+  stay,
+} from './collapse.js';
 export { type CreateNodeInput, createNode } from './constructors.js';
 export type {
   AcceptsConfig,
@@ -164,6 +174,7 @@ export {
   warp,
 } from './layout/warp.js';
 export {
+  childToLayoutItem,
   getLayoutNodes,
   nodeToLayoutItem,
   nodeToLayoutNode,

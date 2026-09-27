@@ -65,6 +65,7 @@ import { useStore } from './Provider.js';
 import { ResizeGestureContext } from './resize-gesture.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
 import {
+  collapsedStyle,
   FITTED_BOX,
   fitFrameStyle,
   scrollExtentStyle,
@@ -1019,6 +1020,7 @@ function AbsoluteWrapper({
     top: rect.y,
     width: rect.w,
     height: rect.h,
+    ...collapsedStyle(rect),
   };
   if (rect.z !== 0) style.zIndex = Math.round(rect.z);
   if (settleMs > 0) style.transition = settleTransition(settleMs, stick !== undefined);

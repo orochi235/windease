@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, centerOf, openStory } from './fixtures.js';
+import { centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
  * Tab-stacking is a drop *intent* gesture: where in a pane the cursor lands
@@ -15,8 +15,8 @@ const pane = (page: Page, id: string) => page.locator(`[data-testid="pane-${id}"
 
 /** Drag `sourceId` to a point inside `ontoId`, at `frac` across its width. */
 async function dragOnto(page: Page, sourceId: string, ontoId: string, frac: number) {
-  const from = centerOf(await boxOf(handle(page, sourceId)));
-  const box = await boxOf(pane(page, ontoId).locator('xpath=ancestor::*[@data-node][1]'));
+  const from = centerOf(await settledBox(handle(page, sourceId)));
+  const box = await settledBox(pane(page, ontoId).locator('xpath=ancestor::*[@data-node][1]'));
   const to = { x: box.x + box.w * frac, y: box.y + box.h / 2 };
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
@@ -95,8 +95,8 @@ test.describe('stack config show and fallback', () => {
 
   /** Drag `sourceId` by its header into the middle of the stack's body. */
   async function dragIntoStack(page: Page, sourceId: string) {
-    const from = centerOf(await boxOf(handle(page, sourceId)));
-    const to = centerOf(await boxOf(page.locator('[data-testid="stack-docs"]')));
+    const from = centerOf(await settledBox(handle(page, sourceId)));
+    const to = centerOf(await settledBox(page.locator('[data-testid="stack-docs"]')));
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
     await page.mouse.move(to.x, to.y, { steps: 12 });
