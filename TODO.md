@@ -113,9 +113,15 @@ Still open, waiting for a consumer to ask:
   consults the policy and falls back to the built-in — the `resolveNavigation`
   shape, so it lives in `StoreOptions`, must be pure and cheap, and stores no
   collapsed state. Its answer outranks a dragged `placement.size` at read time
-  and leaves the size in place, so a refill restores it. Open: how a panel gets
-  back into a zero-size container (a thin drop strip answered by the same
-  policy?). "Collapse" already titles guides 4.05 and 4.06, which
+  and leaves the size in place, so a refill restores it. The answer is an
+  object (`{ extent, … }`) so a custom callback can return the same shape as
+  the built-ins, which are `keep` (today's behavior) and
+  `collapse({ to = 0, dragTo? })` — `dragTo` opens it while a drag it would
+  accept is in flight, which is how a panel gets back in. That needs the
+  resolver's context to carry drag state and layout to re-run on drag start and
+  end; the store has neither today, so the caller passes it in. Remembering a
+  width across reloads stays in userland (`serialize` to wherever the app keeps
+  state) — no per-zone storage in the library. "Collapse" already titles guides 4.05 and 4.06, which
   would want retitling.
 - Rename the `chooseSuccessor` / `resolveNavigation` store options to
   `successorPolicy` / `navigationPolicy`, matching `acceptPolicy` and their own
