@@ -108,10 +108,14 @@ Still open, waiting for a consumer to ask:
   Decided so far: it is a policy in the 7.4 sense (choose / refuse / `undefined`
   defers to today's behavior), and the collapse itself is a reflow — the empty
   child reaches the strategy flagged as empty and is allocated zero, so it draws
-  nothing. Open: prop (like `acceptPolicy`) or `StoreOptions`; asked once on the
-  1→0 transition or on every layout; whether emptiness outranks a dragged
-  `placement.size` (keeping it for refill); how a panel gets back into a
-  zero-size container. "Collapse" already titles guides 4.05 and 4.06, which
+  nothing. It is a query, not an event: anything that must handle an empty
+  container (layout, drop hit-testing, navigation) asks one core resolver, which
+  consults the policy and falls back to the built-in — the `resolveNavigation`
+  shape, so it lives in `StoreOptions`, must be pure and cheap, and stores no
+  collapsed state. Its answer outranks a dragged `placement.size` at read time
+  and leaves the size in place, so a refill restores it. Open: how a panel gets
+  back into a zero-size container (a thin drop strip answered by the same
+  policy?). "Collapse" already titles guides 4.05 and 4.06, which
   would want retitling.
 - Rename the `chooseSuccessor` / `resolveNavigation` store options to
   `successorPolicy` / `navigationPolicy`, matching `acceptPolicy` and their own
