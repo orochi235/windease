@@ -104,6 +104,19 @@ Still open, waiting for a consumer to ask:
 
 - The arrangement itself — a gutter *between* separate roots, a collapsible
   sidebar, full-screen takeover of one zone.
+- **`collapsePolicy`: a sidebar that collapses when its last panel leaves.**
+  Decided so far: it is a policy in the 7.4 sense (choose / refuse / `undefined`
+  defers to today's behavior), and the collapse itself is a reflow — the empty
+  child reaches the strategy flagged as empty and is allocated zero, so it draws
+  nothing. Open: prop (like `acceptPolicy`) or `StoreOptions`; asked once on the
+  1→0 transition or on every layout; whether emptiness outranks a dragged
+  `placement.size` (keeping it for refill); how a panel gets back into a
+  zero-size container. "Collapse" already titles guides 4.05 and 4.06, which
+  would want retitling.
+- Rename the `chooseSuccessor` / `resolveNavigation` store options to
+  `successorPolicy` / `navigationPolicy`, matching `acceptPolicy` and their own
+  types, with the old keys deprecated for a minor. The exported built-in
+  functions keep their names.
 - Should zones know about each other for purposes like "dock at the bottom of
   whichever zone has focus" or "promote selected window to main zone"?
 - Dynamic zone creation/teardown: brainhouse's worktree grouping might want
