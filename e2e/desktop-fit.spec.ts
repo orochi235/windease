@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 const FIT = 'desktop--fit';
 
@@ -33,9 +33,9 @@ test.describe('a desktop fitted into a smaller frame', () => {
     const before = await settledBox(node(page, 'fit-notes'));
     const from = { x: before.x + 40, y: before.y + 6 };
     await dragMouse(page, from, { x: from.x + 100, y: from.y + 60 });
-    const after = await settledBox(node(page, 'fit-notes'));
-    expect(after.x - before.x).toBeCloseTo(100, 0);
-    expect(after.y - before.y).toBeCloseTo(60, 0);
+    const notes = () => boxOf(node(page, 'fit-notes'));
+    await expect.poll(async () => (await notes()).x - before.x).toBeCloseTo(100, 0);
+    await expect.poll(async () => (await notes()).y - before.y).toBeCloseTo(60, 0);
   });
 
   test('a strip seam inside the scaled desktop follows the pointer', async ({ page }) => {
@@ -44,14 +44,17 @@ test.describe('a desktop fitted into a smaller frame', () => {
     const before = centerOf(await settledBox(seam));
     const pane = await settledBox(node(page, 'pane-1'));
     await dragMouse(page, before, { x: before.x + 60, y: before.y });
-    const after = centerOf(await settledBox(seam));
-    expect(after.x - before.x).toBeCloseTo(60, 0);
-    expect((await settledBox(node(page, 'pane-1'))).w - pane.w).toBeCloseTo(60, 0);
+    await expect.poll(async () => centerOf(await boxOf(seam)).x - before.x).toBeCloseTo(60, 0);
+    await expect
+      .poll(async () => (await boxOf(node(page, 'pane-1'))).w - pane.w)
+      .toBeCloseTo(60, 0);
   });
 
   test('a pane dropped past the last one lands last', async ({ page }) => {
     await openStory(page, FIT);
-    expect(await orderOnScreen(page, 'fit-strip')).toEqual(['pane-1', 'pane-2', 'pane-3']);
+    await expect
+      .poll(() => orderOnScreen(page, 'fit-strip'))
+      .toEqual(['pane-1', 'pane-2', 'pane-3']);
     const handle = centerOf(await settledBox(page.locator('[data-windease-drag-handle="pane-1"]')));
     const last = await settledBox(node(page, 'pane-3'));
     // The right quarter of the last pane: past its midpoint on screen.
