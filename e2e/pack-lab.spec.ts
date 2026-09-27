@@ -9,11 +9,14 @@ async function openLab(page: Page): Promise<void> {
   await expect(page.locator('canvas[role="img"]').first()).toBeVisible({ timeout: 30_000 });
 }
 
+/** labkit draws an enum as a button opening a listbox, named by the chosen label and then the field's. */
+const datasetPicker = (page: Page) => page.getByRole('button', { name: /^(?!Pin ).+ Dataset$/ });
+
 test.describe('the pack lab compares packers on a dataset', () => {
   test('a packer turned off drops its canvas and its row', async ({ page }) => {
     await openLab(page);
     const runs = page.getByRole('table', { name: 'Runs' });
-    await expect(page.getByRole('combobox', { name: 'Dataset' })).toHaveValue(/story-boxes/);
+    await expect(datasetPicker(page)).toHaveText('Pack story boxes');
     const tiles = page.getByRole('img', { name: / packed by / });
     await expect(tiles).toHaveCount(3);
     await expect(page.getByRole('img', { name: /^Pack story boxes packed by / })).toHaveCount(3);
@@ -28,8 +31,9 @@ test.describe('the pack lab compares packers on a dataset', () => {
   test('a capture plate packs with its own gap', async ({ page }) => {
     await openLab(page);
     const plate = 'dir:docs/superpowers/plans';
-    await page.getByRole('combobox', { name: 'Dataset' }).selectOption({ label: plate });
-    await expect(page.getByRole('combobox', { name: 'Dataset' })).toHaveValue(`windease:${plate}`);
+    await datasetPicker(page).click();
+    await page.getByRole('option', { name: plate, exact: true }).click();
+    await expect(datasetPicker(page)).toHaveText(plate);
     const tiles = page.getByRole('img', { name: new RegExp(`^${plate} packed by `) });
     await expect(tiles).toHaveCount(3);
 
