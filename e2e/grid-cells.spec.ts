@@ -47,9 +47,9 @@ test.describe('grid placement.cell — periodic table', () => {
     await openStory(page, TABLE);
     const be = await settledBox(element(page, 'be'));
     await place(page, 'mg', 5, 1);
-    const mg = await settledBox(element(page, 'mg'));
-    expect(Math.abs(mg.y - be.y)).toBeLessThan(1);
-    expect(mg.x).toBeGreaterThan(be.x + 3 * be.w);
+    const mg = () => boxOf(element(page, 'mg'));
+    await expect.poll(async () => Math.abs((await mg()).y - be.y)).toBeLessThan(1);
+    await expect.poll(async () => (await mg()).x).toBeGreaterThan(be.x + 3 * be.w);
     await expect(page.getByTestId('unplaced')).toHaveText('Unplaced: none');
   });
 

@@ -121,16 +121,24 @@ test.describe('a preset shows the drop before it commits', () => {
     await dragOver(page, 'charlie', 'alpha', 0.5, 0.08);
 
     await expect(page.locator('.windease-split-preview')).toBeVisible();
-    const during = await settledBox(pane(page, 'alpha'));
-    expect(during.h).toBeLessThan(before.h * 0.6);
+    await expect
+      .poll(async () => (await boxOf(pane(page, 'alpha'))).h)
+      .toBeLessThan(before.h * 0.6);
     // Bottom half, because the drop lands on the start edge.
-    expect(during.y).toBeGreaterThan(before.y + before.h * 0.4);
+    await expect
+      .poll(async () => (await boxOf(pane(page, 'alpha'))).y)
+      .toBeGreaterThan(before.y + before.h * 0.4);
     await page.mouse.up();
   });
 
   test('what the preview showed is what the drop produces', async ({ page }) => {
     await openStory(page, STORY);
+    const before = await settledBox(pane(page, 'alpha'));
     await dragOver(page, 'charlie', 'alpha', 0.5, 0.08);
+    // The preview has to have arrived before a box that holds still is its box.
+    await expect
+      .poll(async () => (await boxOf(pane(page, 'alpha'))).h)
+      .toBeLessThan(before.h * 0.6);
     const previewed = await settledBox(pane(page, 'alpha'));
     await page.mouse.up();
     await expect(page.getByTestId('dd-readout')).toContainText(/split-\d+:charlie,alpha/);
@@ -148,8 +156,9 @@ test.describe('a preset shows the drop before it commits', () => {
     // The leading seam of the leftmost pane: charlie would head the row.
     await dragOver(page, 'charlie', 'alpha', 0.03, 0.5);
 
-    const during = await settledBox(pane(page, 'alpha'));
-    expect(during.x).toBeGreaterThan(before.x + 20);
+    await expect
+      .poll(async () => (await boxOf(pane(page, 'alpha'))).x)
+      .toBeGreaterThan(before.x + 20);
     await page.mouse.up();
   });
 
