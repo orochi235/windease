@@ -115,7 +115,7 @@ Still open, waiting for a consumer to ask:
   collapsed state. Its answer outranks a dragged `placement.size` at read time
   and leaves the size in place, so a refill restores it. The answer is an
   object (`{ extent, … }`) so a custom callback can return the same shape as
-  the built-ins, which are `keep` (today's behavior) and
+  the built-ins, which are `stay` (today's behavior) and
   `collapse({ to = 0, dragTo? })` — `dragTo` opens it while a drag it would
   accept is in flight, which is how a panel gets back in. That needs the
   resolver's context to carry drag state and layout to re-run on drag start and
