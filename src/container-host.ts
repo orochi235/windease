@@ -1,6 +1,7 @@
+import { type CollapseDrag, resolveCollapse } from './collapse.js';
 import { checkStrategyConfig } from './layout/config-check.js';
 import { splitPreviewPlacements } from './layout/split-preview.js';
-import { nodeToLayoutItem, runStrategyForContainer } from './layout-node-adapter.js';
+import { childToLayoutItem, runStrategyForContainer } from './layout-node-adapter.js';
 import type {
   Affordance,
   LayoutEvent,
@@ -176,6 +177,8 @@ export class ContainerHost {
   #checkedConfig: unknown = Symbol('unchecked');
   #preview: LayoutPreview | null = null;
   #pointer: { x: number; y: number } | null = null;
+  #drag: CollapseDrag | null = null;
+  #collapsed = '';
   #observer: ResizeObserver | null = null;
   readonly #natural = new Map<string, { w: number; h: number }>();
   #naturalObserver: ResizeObserver | null = null;
@@ -220,8 +223,20 @@ export class ContainerHost {
           this.#containerRef = next;
           this.#invalidate();
         }
+        this.#recollapse();
       }),
     );
+    // A child empties or fills through its own children, which no listener
+    // below hears about: they watch this container and its children only.
+    for (const name of [
+      'node.registered',
+      'node.unregistered',
+      'node.moved',
+      'node.transitioned',
+      'node.cascadeDestroyed',
+    ] as const) {
+      this.#unsubs.push(store.events.on(name, () => this.#recollapse()));
+    }
     // `store.subscribe` above notifies on a later tick, so on its own it
     // leaves a window where a read taken right after a mutation sees the old
     // snapshot. These events fire synchronously and close it. The catch-all
@@ -471,6 +486,37 @@ export class ContainerHost {
     if (same) return;
     this.#preview = p;
     this.#invalidate();
+  }
+
+  /**
+   * The drag in flight, or `null` once it ends, for a collapse policy that
+   * opens an empty child to take one. Re-runs the layout only when it changes
+   * what the policy answers.
+   */
+  setDrag(drag: CollapseDrag | null): void {
+    if (this.#drag === drag) return;
+    this.#drag = drag;
+    this.#recollapse();
+  }
+
+  /** Which children the collapse policy holds, and at what extent. */
+  #collapseKey(): string {
+    if (!this.#store.collapsePolicy) return '';
+    const drag = this.#drag;
+    let key = '';
+    for (const child of this.#store.getChildren(this.#parentId)) {
+      const input = { store: this.#store, id: child.id };
+      const held = resolveCollapse(drag ? { ...input, drag } : input);
+      if (held) key += `${child.id}:${held.extent};`;
+    }
+    return key;
+  }
+
+  /** Invalidate when the collapse policy's answers have moved since the last
+   *  layout. Cheap to call often: with no policy it does nothing. */
+  #recollapse(): void {
+    if (!this.#store.collapsePolicy || this.#dirty) return;
+    if (this.#collapseKey() !== this.#collapsed) this.#invalidate();
   }
 
   /**
@@ -724,7 +770,7 @@ export class ContainerHost {
       .getChildren(this.#parentId)
       .filter((c) => c.lifecycle.state === 'visible')
       .map((c) => {
-        const item = nodeToLayoutItem(c);
+        const item = childToLayoutItem(this.#store, c, this.#drag ?? undefined);
         const measured = this.#natural.get(String(c.id));
         if (measured && item.hints?.sizing) item.natural = measured;
         return item;
@@ -790,6 +836,7 @@ export class ContainerHost {
   }
 
   #compute(): ContainerLayout {
+    this.#collapsed = this.#collapseKey();
     const node = this.#store.getNode(this.#parentId);
     const container = node?.container;
     const viewport = this.#viewport;
@@ -809,7 +856,7 @@ export class ContainerHost {
         items: this.#store
           .getChildren(this.#parentId)
           .filter((c) => c.lifecycle.state === 'visible')
-          .map(nodeToLayoutItem),
+          .map((c) => childToLayoutItem(this.#store, c, this.#drag ?? undefined)),
         container: viewport,
         options: (container.config ?? {}) as Record<string, unknown>,
         insertId: preview.insertId,
@@ -851,6 +898,7 @@ export class ContainerHost {
       preview ?? undefined,
       this.#natural,
       this.#pointer ?? undefined,
+      this.#drag ?? undefined,
     );
     // Suppress affordances the lock forbids so a gutter the user can see but
     // not drag never renders. Complements the dispatch guard, which also

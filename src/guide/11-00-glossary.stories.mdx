@@ -142,9 +142,9 @@ strip), `span` (cell counts, grid). ([7.2](/?story=guide--07-customization--7-02
 
 **policy** <span className="gd-tag">interaction</span> — a replaceable decision
 with a tri-state contract: a value to choose, a deliberate negative to refuse,
-`undefined` to defer to the built-in. Three exist: `acceptPolicy`,
-`chooseSuccessor`, `resolveNavigation`. One that throws is traced and treated as
-`undefined`. ([7.4](/?story=guide--07-customization--7-04-the-policy-contract))
+`undefined` to defer to the built-in: `acceptPolicy`, `chooseSuccessor`,
+`resolveNavigation` and `collapsePolicy`. One that throws is traced and treated
+as `undefined`. ([7.4](/?story=guide--07-customization--7-04-the-policy-contract))
 
 **provenance** <span className="gd-tag">interaction</span> — whether a node was
 created by JSX or registered on the store. Determines whether a preset will
@@ -155,7 +155,7 @@ container's own coordinate space rather than the viewport's. What a strategy
 returns per child, and what geometry reports for navigation. ([2.1](/?story=guide--02-layout--2-01-what-a-strategy-is))
 
 **root** <span className="gd-tag gd-tag--support">supporting</span> — a node with no parent: children, no membership. The store lists
-them in `rootIds`, and a root never auto-collapses, because there is no
+them in `rootIds`, and a root never auto-unsplits, because there is no
 grandparent to lift its survivor into. ([3.3](/?story=guide--03-building-the-tree--3-03-imperative))
 
 **seam** <span className="gd-tag">layout</span> — the general word for a

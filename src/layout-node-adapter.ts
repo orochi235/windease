@@ -1,3 +1,4 @@
+import { type CollapseDrag, resolveCollapse } from './collapse.js';
 import type {
   LayoutItem,
   LayoutNode,
@@ -53,6 +54,18 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
   return item;
 }
 
+/**
+ * `nodeToLayoutItem`, plus what only the store can say about a child: whether
+ * the collapse policy holds it at an extent. `drag` is the drag in flight, for
+ * a policy that opens a container to take one.
+ */
+export function childToLayoutItem(store: Store, child: Node, drag?: CollapseDrag): LayoutItem {
+  const item = nodeToLayoutItem(child);
+  const held = resolveCollapse(drag ? { store, id: child.id, drag } : { store, id: child.id });
+  if (held) item.collapse = held;
+  return item;
+}
+
 /** Convert a Node into the LayoutNode shape. */
 export function nodeToLayoutNode(node: Node): LayoutNode {
   const out: LayoutNode = {
@@ -89,6 +102,9 @@ export function getLayoutNodes(store: Store, parentId: NodeId): LayoutNode[] {
  * `natural` carries measured content extents keyed by child id, and reaches
  * only children that asked for them via `hints.sizing`. Supplying nothing is
  * the headless path and behaves as it did before content sizing existed.
+ *
+ * `drag` describes a drag in flight to the store's collapse policy, which the
+ * store cannot know about by itself.
  */
 export function runStrategyForContainer<TState>(
   store: Store,
@@ -99,6 +115,7 @@ export function runStrategyForContainer<TState>(
   preview?: LayoutPreview,
   natural?: ReadonlyMap<string, Size>,
   pointer?: { x: number; y: number },
+  drag?: CollapseDrag,
 ): LayoutResult<NodeId, unknown> {
   const parent = store.getNode(parentId);
   const config = (parent?.container?.config ?? {}) as Record<string, unknown>;
@@ -106,7 +123,7 @@ export function runStrategyForContainer<TState>(
   const items: LayoutItem[] = [];
   for (const child of children) {
     if (child.lifecycle.state === 'hidden' || child.lifecycle.state === 'destroyed') continue;
-    const item = nodeToLayoutItem(child);
+    const item = childToLayoutItem(store, child, drag);
     const measured = natural?.get(String(child.id));
     if (measured && item.hints?.sizing) item.natural = measured;
     items.push(item);

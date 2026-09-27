@@ -1,3 +1,4 @@
+import type { CollapseDrag } from '../collapse.js';
 import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
@@ -175,6 +176,12 @@ export class DragController {
 
   tryBegin(sourceId: NodeId): boolean {
     return this.engine.tryBegin(sourceId);
+  }
+
+  /** The drag in flight as a collapse policy is told about it. See
+   *  `DragEngine.collapseDrag`. */
+  collapseDrag(): CollapseDrag | null {
+    return this.engine.collapseDrag();
   }
 
   /** Hand this container's child order to the host. See

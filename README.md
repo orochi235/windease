@@ -166,7 +166,7 @@ stateDiagram-v2
 
 ## Replacing the built-in rules
 
-Three of the library's decisions are replaceable policies, and share one
+Some of the library's decisions are replaceable policies, and share one
 contract: return a value to choose it, `null` or `false` to refuse
 deliberately, `undefined` to defer to the built-in. A policy that throws, or
 answers with something the library cannot use, is traced and treated as
@@ -179,6 +179,8 @@ gesture.
   a direction or intent resolves to a pane.
 - [`<Container acceptPolicy>`](#drag-and-drop) — whether a container takes a
   drop. The same prop is on `<Zone>` and `<Panel>`.
+- [`new Store({ collapsePolicy })`](#collapsing-a-container-that-empties) —
+  what a container does with its room once it has nothing to show.
 
 [`<Container edgeScroll>`](#telling-windease-where-the-scroll-got-to) is
 adjacent but not a policy: a tuning bag for the auto-scroll ramp, with nothing
@@ -370,11 +372,11 @@ name, and keep its expand control reachable from the keyboard in whatever
 still renders. A pane that can be collapsed and not reopened without a mouse
 is worse than one that never collapsed.
 
-## Collapsing a group that empties out
+## Unsplitting a group left with one pane
 
 A group that started with two panes and lost one is a wrapper around nothing:
 one child, one extra layout level, one extra level of nesting in every
-snapshot. `store.setAutoUnsplit(groupId, true)` collapses it when that
+snapshot. `store.setAutoUnsplit(groupId, true)` unsplits it when that
 happens — the survivor is lifted into the grandparent at the group's index,
 inheriting the group's placement and pinned position, and the group is
 destroyed.
@@ -387,7 +389,7 @@ store.unregisterNode(paneA); // paneB takes the group's place; the group is gone
 Opt-in per container, because a zone you created on purpose has to survive
 being emptied — the trigger cannot live in `unregisterNode` itself. It fires
 only on the transition, not on any container that happens to hold one child,
-so you can still build a group up a pane at a time. A root never collapses:
+so you can still build a group up a pane at a time. A root never unsplits:
 there is no grandparent to lift into. And a `destroy` or `dragOut` lock on the
 group, or `arrange` on its parent, quietly leaves the tree alone rather than
 failing the removal that triggered it.
@@ -395,9 +397,71 @@ failing the removal that triggered it.
 It does not cascade, and does not need to: lifting the survivor swaps it for
 the group in the grandparent, so the grandparent's child count is unchanged.
 
-Removals are now bracketed in a transaction so the collapse is one undo step
+Removals are now bracketed in a transaction so the unsplit is one undo step
 with the removal that caused it. If you bracket history on `transaction.begin`
-/ `transaction.end`, every `unregisterNode` emits that pair, collapse or not.
+/ `transaction.end`, every `unregisterNode` emits that pair, unsplit or not.
+
+## Collapsing a container that empties
+
+A sidebar whose last pane was dragged out is an empty box still holding its
+share of the row. `collapsePolicy` on the store says what it does with that
+room.
+
+```ts
+import { collapse, Store } from 'windease';
+
+const shut = collapse({ dragTo: 240 });
+
+const store = new Store({
+  collapsePolicy: (input) => (input.id === sidebarId ? shut(input) : undefined),
+});
+```
+
+The policy is asked about a child each time its parent is laid out, and only
+about a child that is a container with nothing to lay out: no children, or
+every child hidden. It returns `{ extent }` to hold the container at that many
+main-axis pixels, `null` to leave it as it is, or `undefined` to defer to the
+built-in, which leaves it as it is too.
+
+The two built-ins are policies themselves:
+
+| Policy | An empty container |
+| --- | --- |
+| `stay` | keeps its extent, as with no policy |
+| `collapse()` | takes no room at all |
+| `collapse({ to: 24 })` | becomes a 24px rail |
+| `collapse({ dragTo: 240 })` | takes no room, and opens to 240px for as long as a drag it would accept is in flight |
+
+`dragTo` is how a pane gets back into a container that shut to nothing, which
+has no box to drop on. "Would accept" is the drag's own answer: the locks,
+`config.accepts`, `acceptPolicy` and `strategy.canAccept`, in that order.
+
+Handed to the store as it is, `collapse()` answers for every container, so a
+main column that empties shuts as well. Wrap it, as above, to name the ones it
+applies to.
+
+Nothing is stored. The container's `placement.size` stays where it was, the
+policy's answer outranks it while the container is empty, and it takes over
+again when a pane arrives. So a sidebar dragged to 300px and then emptied
+reopens at 300px. Keeping that width across a reload is `serialize`'s job, as
+for any other placement.
+
+A collapsed container has no seam on either side, since a drag there would
+store a size nothing reads. At no extent it is out of the row altogether: no
+gap is held for it, a drag passes over it, and keyboard navigation skips it.
+Its placed rect carries `collapsed: true`, and the React layer clips the child
+to that rect so borders and padding drawn for a full pane cannot show past it.
+
+Only `stripStrategy` honors the answer, which covers every tree `store.split`
+builds. A root is never asked about: no parent lays it out.
+
+Layout runs again when the store changes or a drag starts or ends, so a policy
+has to decide from its input. One that reads a toggle kept elsewhere will not
+be asked again when the toggle flips; for a sidebar the user opens and shuts by
+hand, use [Collapsing a pane](#collapsing-a-pane).
+
+Headless, the drag is an input like any other: `host.setDrag({ ids, accepts })`
+on a `ContainerHost`, or the last argument of `runStrategyForContainer`.
 
 ## When panes leave room
 

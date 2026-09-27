@@ -102,31 +102,15 @@ contents**; the second is `hints.maxSize`. Neither is an arrangement primitive
 
 Still open, waiting for a consumer to ask:
 
-- The arrangement itself — a gutter *between* separate roots, a collapsible
-  sidebar, full-screen takeover of one zone.
-- **`collapsePolicy`: a sidebar that collapses when its last panel leaves.**
-  Decided so far: it is a policy in the 7.4 sense (choose / refuse / `undefined`
-  defers to today's behavior), and the collapse itself is a reflow — the empty
-  child reaches the strategy flagged as empty and is allocated zero, so it draws
-  nothing. It is a query, not an event: anything that must handle an empty
-  container (layout, drop hit-testing, navigation) asks one core resolver, which
-  consults the policy and falls back to the built-in — the `resolveNavigation`
-  shape, so it lives in `StoreOptions`, must be pure and cheap, and stores no
-  collapsed state. Its answer outranks a dragged `placement.size` at read time
-  and leaves the size in place, so a refill restores it. The answer is an
-  object (`{ extent, … }`) so a custom callback can return the same shape as
-  the built-ins, which are `stay` (today's behavior) and
-  `collapse({ to = 0, dragTo? })` — `dragTo` opens it while a drag it would
-  accept is in flight, which is how a panel gets back in. That needs the
-  resolver's context to carry drag state and layout to re-run on drag start and
-  end; the store has neither today, so the caller passes it in. Remembering a
-  width across reloads stays in userland (`serialize` to wherever the app keeps
-  state) — no per-zone storage in the library. "Collapse" already titles guides 4.05 and 4.06, which
-  would want retitling.
+- The arrangement itself — a gutter *between* separate roots, full-screen
+  takeover of one zone.
+- `collapsePolicy` is honored by `stripStrategy` only. `grid` is the next
+  candidate, where an empty celled child would give its track back; nothing
+  has asked for it.
 - Rename the `chooseSuccessor` / `resolveNavigation` store options to
-  `successorPolicy` / `navigationPolicy`, matching `acceptPolicy` and their own
-  types, with the old keys deprecated for a minor. The exported built-in
-  functions keep their names.
+  `successorPolicy` / `navigationPolicy`, matching `acceptPolicy`,
+  `collapsePolicy` and their own types, with the old keys deprecated for a
+  minor. The exported built-in functions keep their names.
 - Should zones know about each other for purposes like "dock at the bottom of
   whichever zone has focus" or "promote selected window to main zone"?
 - Dynamic zone creation/teardown: brainhouse's worktree grouping might want

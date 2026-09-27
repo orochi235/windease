@@ -40,6 +40,7 @@ import { useStore } from './Provider.js';
 import { ResizeGestureContext } from './resize-gesture.js';
 import {
   type ContainerLayout,
+  collapsedStyle,
   FITTED_BOX,
   fitFrameStyle,
   scrollExtentStyle,
@@ -533,6 +534,7 @@ function StoreContainer({
                   top: rect.y,
                   width: rect.w,
                   height: rect.h,
+                  ...collapsedStyle(rect),
                 };
             if (rect.z !== 0) childStyle.zIndex = Math.round(rect.z);
             if (effectiveSettleMs > 0) {

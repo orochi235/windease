@@ -6,6 +6,7 @@
  * `Store` constructor; the un-throttled path stays identity-equal to truth.
  */
 
+import type { CollapsePolicy } from './collapse.js';
 import { InvalidThrottlePolicyError } from './errors.js';
 import type { NavigationPolicy } from './focus/resolve.js';
 import type { SuccessorPolicy } from './focus/successor.js';
@@ -132,6 +133,8 @@ export interface StoreOptions {
   chooseSuccessor?: SuccessorPolicy;
   /** Replaces the built-in navigation resolution. See {@link NavigationPolicy}. */
   resolveNavigation?: NavigationPolicy;
+  /** Decides what an empty container collapses to. See {@link CollapsePolicy}. */
+  collapsePolicy?: CollapsePolicy;
 }
 
 /**

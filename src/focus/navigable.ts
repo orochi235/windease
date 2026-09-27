@@ -1,3 +1,4 @@
+import { resolveCollapse } from '../collapse.js';
 import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import type { GeometrySource } from './types.js';
@@ -28,6 +29,10 @@ export function navigableLeaves(store: Store, geometry: GeometrySource): NodeId[
       }
       if (node.lifecycle.state !== 'visible') continue;
       if (!node.focus) continue;
+      // Asked before the rect, which a host may still be reporting from the
+      // layout before the container shut.
+      const held = resolveCollapse({ store, id: nid });
+      if (held && held.extent < MIN_NAVIGABLE_PX) continue;
       const r = geometry.rectOf(nid);
       if (!r || r.w < MIN_NAVIGABLE_PX || r.h < MIN_NAVIGABLE_PX) continue;
       out.push(nid);
