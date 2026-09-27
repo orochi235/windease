@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { boxOf, centerOf, dragMouse, openStory } from './fixtures.js';
+import { boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 const BAND_STORY = 'floating--handle-band';
 const WHOLE_STORY = 'floating--whole-panel-handle';
@@ -12,6 +12,8 @@ const ZONE = '.windease-zone';
  * The legend's offset inside the zone's content box — the container the
  * strategy lays out against. The zone has a 1px border, so the bounding box
  * alone is a pixel off on every edge.
+ *
+ * Read as it stands, so assert on it through `expect.poll`.
  */
 async function offsetInZone(page: import('@playwright/test').Page) {
   const zone = await boxOf(page.locator(ZONE));
@@ -37,47 +39,46 @@ async function offsetInZone(page: import('@playwright/test').Page) {
 test.describe('floating panel', () => {
   test('seeds at the default anchor, 12px in from the bottom left', async ({ page }) => {
     await openStory(page, BAND_STORY);
-    expect(await offsetInZone(page)).toMatchObject({ left: 12, bottom: 12 });
+    await expect.poll(() => offsetInZone(page)).toMatchObject({ left: 12, bottom: 12 });
   });
 
   test('a drag toward the bottom-right corner snaps it to a 12px inset', async ({ page }) => {
     await openStory(page, BAND_STORY);
-    const zone = await boxOf(page.locator(ZONE));
-    const handle = await boxOf(page.locator(HANDLE));
+    const zone = await settledBox(page.locator(ZONE));
+    const handle = await settledBox(page.locator(HANDLE));
 
     // Aim past the corner: the clamp stops the panel at the edge and the
     // per-axis threshold captures it from there.
     await dragMouse(page, centerOf(handle), { x: zone.x + zone.w + 40, y: zone.y + zone.h + 40 });
 
-    expect(await offsetInZone(page)).toMatchObject({ right: 12, bottom: 12 });
+    await expect.poll(() => offsetInZone(page)).toMatchObject({ right: 12, bottom: 12 });
   });
 
   test('dragging back off the corner leaves it free', async ({ page }) => {
     await openStory(page, BAND_STORY);
-    const zone = await boxOf(page.locator(ZONE));
-    let handle = await boxOf(page.locator(HANDLE));
+    const zone = await settledBox(page.locator(ZONE));
+    let handle = await settledBox(page.locator(HANDLE));
     await dragMouse(page, centerOf(handle), { x: zone.x + zone.w + 40, y: zone.y + zone.h + 40 });
-    expect(await offsetInZone(page)).toMatchObject({ right: 12, bottom: 12 });
+    await expect.poll(() => offsetInZone(page)).toMatchObject({ right: 12, bottom: 12 });
 
-    handle = await boxOf(page.locator(HANDLE));
+    handle = await settledBox(page.locator(HANDLE));
     const from = centerOf(handle);
     await dragMouse(page, from, { x: from.x - 80, y: from.y - 80 });
 
-    const after = await offsetInZone(page);
-    expect(after.right).toBeGreaterThan(60);
-    expect(after.bottom).toBeGreaterThan(60);
+    await expect.poll(async () => (await offsetInZone(page)).right).toBeGreaterThan(60);
+    await expect.poll(async () => (await offsetInZone(page)).bottom).toBeGreaterThan(60);
   });
 
   test('never snaps to top-left, which the item excludes', async ({ page }) => {
     await openStory(page, BAND_STORY);
-    const zone = await boxOf(page.locator(ZONE));
-    const handle = await boxOf(page.locator(HANDLE));
+    const zone = await settledBox(page.locator(ZONE));
+    const handle = await settledBox(page.locator(HANDLE));
 
     await dragMouse(page, centerOf(handle), { x: zone.x - 40, y: zone.y - 40 });
 
     // Clamped into the corner, but resting at 0 rather than the 12px inset a
     // snap would give it.
-    expect(await offsetInZone(page)).toMatchObject({ left: 0, top: 0 });
+    await expect.poll(() => offsetInZone(page)).toMatchObject({ left: 0, top: 0 });
   });
 
   test('the band leaves the rest of the panel clickable', async ({ page }) => {
@@ -88,7 +89,7 @@ test.describe('floating panel', () => {
 
   test('a whole-panel handle swallows the click', async ({ page }) => {
     await openStory(page, WHOLE_STORY);
-    const button = await boxOf(page.locator('[data-testid="legend-button"]'));
+    const button = await settledBox(page.locator('[data-testid="legend-button"]'));
     const at = centerOf(button);
     await page.mouse.click(at.x, at.y);
     await expect(page.locator('[data-testid="legend-clicks"]')).toHaveText('0');
@@ -98,11 +99,17 @@ test.describe('floating panel', () => {
 test.describe('floating panel snapping to panes', () => {
   const STORY = 'floating--snap-to-panes';
 
+  /** How far the legend's corner sits in from `pane`'s, in whole pixels. */
+  async function insetFrom(page: import('@playwright/test').Page, pane: { x: number; y: number }) {
+    const legend = await boxOf(page.locator(LEGEND));
+    return { x: Math.round(legend.x - pane.x), y: Math.round(legend.y - pane.y) };
+  }
+
   test('captures the corner of a tiled pane, not just the zone', async ({ page }) => {
     await openStory(page, STORY);
-    const pane = await boxOf(page.locator('[data-node="panel-4"]'));
-    const legend = await boxOf(page.locator(LEGEND));
-    const handle = await boxOf(page.locator(HANDLE));
+    const pane = await settledBox(page.locator('[data-node="panel-4"]'));
+    const legend = await settledBox(page.locator(LEGEND));
+    const handle = await settledBox(page.locator(HANDLE));
     const from = centerOf(handle);
 
     // Aim the legend's top-left a few px off the pane's top-left resting origin.
@@ -111,16 +118,14 @@ test.describe('floating panel snapping to panes', () => {
       y: from.y + (pane.y + 12 - legend.y) + 5,
     });
 
-    const after = await boxOf(page.locator(LEGEND));
-    expect(Math.round(after.x - pane.x)).toBe(12);
-    expect(Math.round(after.y - pane.y)).toBe(12);
+    await expect.poll(() => insetFrom(page, pane)).toEqual({ x: 12, y: 12 });
   });
 
   test('a pane corner captures nothing when snapToPanes is off', async ({ page }) => {
     await openStory(page, 'floating--handle-band');
-    const pane = await boxOf(page.locator('[data-node="panel-4"]'));
-    const legend = await boxOf(page.locator(LEGEND));
-    const handle = await boxOf(page.locator(HANDLE));
+    const pane = await settledBox(page.locator('[data-node="panel-4"]'));
+    const legend = await settledBox(page.locator(LEGEND));
+    const handle = await settledBox(page.locator(HANDLE));
     const from = centerOf(handle);
 
     await dragMouse(page, from, {
@@ -128,9 +133,7 @@ test.describe('floating panel snapping to panes', () => {
       y: from.y + (pane.y + 12 - legend.y) + 5,
     });
 
-    const after = await boxOf(page.locator(LEGEND));
-    expect(Math.round(after.x - pane.x)).toBe(17);
-    expect(Math.round(after.y - pane.y)).toBe(17);
+    await expect.poll(() => insetFrom(page, pane)).toEqual({ x: 17, y: 17 });
   });
 });
 
@@ -139,7 +142,7 @@ test.describe('floating layer', () => {
 
   /** The node a real pointer lands on at the legend's center. */
   async function hitAtLegend(page: import('@playwright/test').Page) {
-    const c = centerOf(await boxOf(page.locator(LEGEND)));
+    const c = centerOf(await settledBox(page.locator(LEGEND)));
     return page.evaluate(
       ({ x, y }) =>
         document.elementFromPoint(x, y)?.closest('[data-node]')?.getAttribute('data-node') ?? null,

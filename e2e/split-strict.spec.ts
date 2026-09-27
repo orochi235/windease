@@ -20,9 +20,13 @@ test.describe('strict split', () => {
     await page.getByTestId('split-y').click();
     await expect(refused(page)).toContainText('No space for new pane');
     await expect(panels(page)).toHaveCount(2);
-    for (const box of await Promise.all((await panels(page).all()).map((l) => l.boundingBox()))) {
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(120);
-    }
+    // Polled: the panes of the split that went through may still be settling.
+    await expect
+      .poll(async () => {
+        const boxes = await Promise.all((await panels(page).all()).map((l) => l.boundingBox()));
+        return Math.min(...boxes.map((box) => box?.height ?? 0));
+      })
+      .toBeGreaterThanOrEqual(120);
   });
 
   test('without strict, the same split goes through', async ({ page }) => {

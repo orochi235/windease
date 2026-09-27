@@ -37,7 +37,7 @@ test.describe("grid compact: 'up' — dashboard", () => {
     const disk = await settledBox(panel(page, 'disk'));
     const net = await settledBox(panel(page, 'net'));
     const uptime = await settledBox(panel(page, 'uptime'));
-    const edge = centerOf(await boxOf(seam(page, 'resize-y-disk')));
+    const edge = centerOf(await settledBox(seam(page, 'resize-y-disk')));
 
     await dragMouse(page, edge, { x: edge.x, y: edge.y + ROW });
 

@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { PRESETS } from '../src/nuts/grid-scenarios.js';
 import { presetTree } from '../src/nuts/preset.js';
-import { type Box, boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { type Box, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 /**
  * Grid presets reproduced from real software (`src/nuts/grid-scenarios.ts`),
@@ -190,7 +190,7 @@ test.describe('Windows 10 Start tiles', () => {
   test('dragging a small tile’s right seam widens it by a cell', async ({ page }) => {
     await pick(page, 'win10-start-6', 'calc');
     const before = await settledBox(node(page, 'calc'));
-    const edge = centerOf(await boxOf(seam(page, 'resize-x-calc')));
+    const edge = centerOf(await settledBox(seam(page, 'resize-x-calc')));
 
     await dragMouse(page, edge, { x: edge.x + before.w + 4, y: edge.y });
 
@@ -222,7 +222,7 @@ test.describe('Grafana dashboard (24 columns)', () => {
     const net = await settledBox(node(page, 'net-basic'));
     const wide = await settledBox(node(page, 'imported-w30'));
     const mem = await settledBox(node(page, 'mem-basic'));
-    const edge = centerOf(await boxOf(seam(page, 'resize-y-cpu-basic')));
+    const edge = centerOf(await settledBox(seam(page, 'resize-y-cpu-basic')));
 
     // One 30px row and its 8px gap.
     await dragMouse(page, edge, { x: edge.x, y: edge.y + 38 });
@@ -310,7 +310,7 @@ test.describe('Excel frozen panes', () => {
     expect(a.w).toBeCloseTo(64, 0);
     expect(a.h).toBeCloseTo(20, 0);
     // In the header row, clear of the row seams that cross the column seam lower down.
-    const seamBox = await boxOf(seam(page, 'track-x-1'));
+    const seamBox = await settledBox(seam(page, 'track-x-1'));
     const edge = { x: seamBox.x + seamBox.w / 2, y: a.y + a.h * 0.4 };
 
     await dragMouse(page, edge, { x: edge.x + 16, y: edge.y });

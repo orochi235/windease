@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 /** `snap: 'fill'`: a floating legend dropped on a pane fills it, FancyZones-style. */
 
@@ -14,8 +14,8 @@ function sameBox(a: { x: number; y: number; w: number; h: number }, b: typeof a)
 }
 
 async function dropOnPane(page: Page, n: number) {
-  const handle = await boxOf(page.locator(HANDLE));
-  await dragMouse(page, centerOf(handle), centerOf(await boxOf(pane(page, n))));
+  const handle = await settledBox(page.locator(HANDLE));
+  await dragMouse(page, centerOf(handle), centerOf(await settledBox(pane(page, n))));
 }
 
 test.describe("floating snap: 'fill'", () => {
@@ -44,9 +44,9 @@ test.describe("floating snap: 'fill'", () => {
     expect((await settledBox(page.locator(LEGEND))).w).toBeGreaterThan(own.w);
 
     // The gap between the panes belongs to none of them.
-    const p1 = await boxOf(pane(page, 1));
-    const p2 = await boxOf(pane(page, 2));
-    const handle = await boxOf(page.locator(HANDLE));
+    const p1 = await settledBox(pane(page, 1));
+    const p2 = await settledBox(pane(page, 2));
+    const handle = await settledBox(page.locator(HANDLE));
     await dragMouse(page, centerOf(handle), { x: (p1.x + p1.w + p2.x) / 2, y: p1.y + 20 });
     const freed = await settledBox(page.locator(LEGEND));
     expect(Math.round(freed.w)).toBe(Math.round(own.w));

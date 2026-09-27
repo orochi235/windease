@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { boxOf, centerOf, dragMouse, openStory } from './fixtures.js';
+import { centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 const DESKTOPS = 'pages--desktops';
 const FLOWED = 'pages--flowed';
@@ -55,8 +55,11 @@ test.describe('pages — desktops', () => {
     await pageButton(page, 2, 4).click();
     await expect.poll(() => shown(page, 'desk')).toEqual(['music']);
     const bar = node(page, 'photos').locator('.pages-window__bar');
-    const desk = await boxOf(page.locator('[data-node-container="desk"]'));
-    await dragMouse(page, centerOf(await boxOf(bar)), { x: desk.x + desk.w - 60, y: desk.y + 60 });
+    const desk = await settledBox(page.locator('[data-node-container="desk"]'));
+    await dragMouse(page, centerOf(await settledBox(bar)), {
+      x: desk.x + desk.w - 60,
+      y: desk.y + 60,
+    });
     await expect.poll(() => shown(page, 'desk')).toContain('photos');
     await pageButton(page, 1, 4).click();
     await expect.poll(() => shown(page, 'desk')).toEqual(['mail', 'editor']);

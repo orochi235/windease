@@ -59,7 +59,7 @@ test.describe('grid placement.cell — periodic table', () => {
     await openStory(page, TABLE);
     const h = await settledBox(element(page, 'h'));
     const be = await settledBox(element(page, 'be'));
-    const from = centerOf(await boxOf(element(page, 'o')));
+    const from = centerOf(await settledBox(element(page, 'o')));
     // An empty stretch of period 2.
     const to = { x: be.x + 6 * be.w, y: be.y + be.h / 2 };
     await dragMouse(page, from, to);
@@ -88,8 +88,8 @@ function zoneOf(page: Page, nodeId: string) {
 }
 
 async function dragInto(page: Page, id: string, zone: string): Promise<void> {
-  const from = centerOf(await boxOf(element(page, id)));
-  const to = await boxOf(page.locator(`[data-node-container="${zone}"]`));
+  const from = centerOf(await settledBox(element(page, id)));
+  const to = await settledBox(page.locator(`[data-node-container="${zone}"]`));
   await dragMouse(page, from, { x: to.x + to.w - 20, y: to.y + to.h / 2 });
 }
 
@@ -127,7 +127,7 @@ test.describe('grid fixed cells — dock', () => {
   test('justify evenly spaces the dock icons, and respaces them after a drop', async ({ page }) => {
     await openStory(page, DOCK);
     const spaces = async (ids: string[]) => {
-      const zone = await boxOf(page.locator('[data-node-container="dock"]'));
+      const zone = await settledBox(page.locator('[data-node-container="dock"]'));
       const boxes = (await Promise.all(ids.map((id) => settledBox(element(page, id))))).sort(
         (a, b) => a.x - b.x,
       );
@@ -158,7 +158,7 @@ test.describe('grid fixed cells — dock', () => {
   test('justify start keeps the icons at the left, one gap apart', async ({ page }) => {
     await page.goto(`/?story=${DOCK}&arg-justify=start`);
     await expect(element(page, 'phone')).toBeVisible({ timeout: 30_000 });
-    const zone = await boxOf(page.locator('[data-node-container="dock"]'));
+    const zone = await settledBox(page.locator('[data-node-container="dock"]'));
     const phone = await settledBox(element(page, 'phone'));
     const safari = await settledBox(element(page, 'safari'));
     // The zone's 1px border, then its 12px padding.

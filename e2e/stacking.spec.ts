@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { boxOf, centerOf, openStory } from './fixtures.js';
+import { centerOf, openStory, settledBox } from './fixtures.js';
 
 const SPLIT = 'recursive-zones--split-resize';
 const PLAYGROUND = 'playground--playground';
@@ -32,19 +32,19 @@ function hitAt(page: Page, x: number, y: number) {
 test.describe('affordance hit areas and what is under them', () => {
   test('a gutter wins at its own center', async ({ page }) => {
     await openStory(page, SPLIT);
-    const c = centerOf(await boxOf(page.locator(ROOT_GUTTER)));
+    const c = centerOf(await settledBox(page.locator(ROOT_GUTTER)));
     expect(await hitAt(page, c.x, c.y)).toBe('affordance:resize-x-a');
   });
 
   test('a nested gutter is not covered by its parent layer', async ({ page }) => {
     await openStory(page, SPLIT);
-    const c = centerOf(await boxOf(page.locator(MID_GUTTER)));
+    const c = centerOf(await settledBox(page.locator(MID_GUTTER)));
     expect(await hitAt(page, c.x, c.y)).toBe('affordance:resize-y-b');
   });
 
   test('pane content is reachable just past the hit area', async ({ page }) => {
     await openStory(page, SPLIT);
-    const g = await boxOf(page.locator(ROOT_GUTTER));
+    const g = await settledBox(page.locator(ROOT_GUTTER));
     const y = g.y + g.h / 2;
 
     expect(await hitAt(page, g.x - 6, y)).toBe('node:a');
@@ -53,7 +53,7 @@ test.describe('affordance hit areas and what is under them', () => {
 
   test('the hit area is wider than the painted seam, and bounded', async ({ page }) => {
     await openStory(page, SPLIT);
-    const g = await boxOf(page.locator(ROOT_GUTTER));
+    const g = await settledBox(page.locator(ROOT_GUTTER));
     // Wide enough to be grabbable by an imprecise pointer...
     expect(g.w).toBeGreaterThanOrEqual(8);
     // ...and not so wide it swallows a pane edge a user means to click.
@@ -63,7 +63,7 @@ test.describe('affordance hit areas and what is under them', () => {
   test('consumer chrome inside a pane stays clickable', async ({ page }) => {
     await openStory(page, PLAYGROUND);
     const btn = page.locator('[data-node="panel-1"] .pg-panel-btn--close');
-    const c = centerOf(await boxOf(btn));
+    const c = centerOf(await settledBox(btn));
 
     expect(await hitAt(page, c.x, c.y)).toBe('node:panel-1');
 
@@ -73,7 +73,7 @@ test.describe('affordance hit areas and what is under them', () => {
 
   test('a drag handle is not shadowed by the zone gutter beside it', async ({ page }) => {
     await openStory(page, PLAYGROUND);
-    const handle = await boxOf(page.locator('[data-windease-drag-handle="tool-2"]'));
+    const handle = await settledBox(page.locator('[data-windease-drag-handle="tool-2"]'));
     // The right edge of the last dock tool, where the zone gutter runs.
     const probe = { x: handle.x + handle.w - 3, y: handle.y + handle.h / 2 };
     const hit = await hitAt(page, probe.x, probe.y);

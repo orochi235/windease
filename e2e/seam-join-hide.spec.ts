@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, centerOf, openStory, settledBox } from './fixtures.js';
+import { centerOf, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'seam-join--hide-on-overshoot';
 
@@ -18,7 +18,7 @@ async function pushSidebarShut(page: Page, past: number): Promise<void> {
   const s = seam(page, 'sidebar');
   const travel =
     Number(await s.getAttribute('aria-valuenow')) - Number(await s.getAttribute('aria-valuemin'));
-  const from = centerOf(await boxOf(s));
+  const from = centerOf(await settledBox(s));
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(from.x - travel, from.y, { steps: 8 });

@@ -37,7 +37,7 @@ async function dragSeam(
   grab = 0,
 ): Promise<{ x: number; y: number }> {
   await seam(page, id).scrollIntoViewIfNeeded();
-  const c = centerOf(await boxOf(seam(page, id)));
+  const c = centerOf(await settledBox(seam(page, id)));
   const from = axis === 'x' ? { x: c.x + grab, y: c.y } : { x: c.x, y: c.y + grab };
   const hit = await page.evaluate(
     ({ x, y }) =>
@@ -102,11 +102,11 @@ test.describe('blender layout workspace', () => {
 
   test('a nested outliner seam resizes inside its own column', async ({ page }) => {
     await openPreset(page, 'blender-layout-workspace');
-    const before = await boxOf(pane(page, 'bl-outliner'));
-    const viewport = await boxOf(pane(page, 'bl-viewport'));
+    const before = await settledBox(pane(page, 'bl-outliner'));
+    const viewport = await settledBox(pane(page, 'bl-viewport'));
     await dragSeam(page, 'resize-y-bl-outliner', 40, 'y');
     expect((await settledBox(pane(page, 'bl-outliner'))).h).toBeCloseTo(before.h + 40, 0);
-    expect(await boxOf(pane(page, 'bl-viewport'))).toEqual(viewport);
+    expect(await settledBox(pane(page, 'bl-viewport'))).toEqual(viewport);
   });
 });
 
@@ -116,7 +116,7 @@ test.describe('blender recursive split', () => {
   }) => {
     await openPreset(page, 'blender-recursive-split');
     await expect(seam(page, 'resize-y-area-9')).toHaveAttribute('aria-disabled', 'true');
-    const before = await boxOf(pane(page, 'area-0'));
+    const before = await settledBox(pane(page, 'area-0'));
     await dragSeam(page, 'resize-x-area-0', 40, 'x');
     expect((await settledBox(pane(page, 'area-0'))).w).toBeCloseTo(before.w + 40, 0);
   });
@@ -130,7 +130,7 @@ test.describe('bloomberg four-panel', () => {
     for (const id of ['resize-y-bbg-row-1', 'resize-x-bbg-1', 'resize-x-bbg-3']) {
       await expect(seam(page, id)).toHaveAttribute('aria-disabled', 'true');
     }
-    const before = await boxOf(pane(page, 'bbg-1'));
+    const before = await settledBox(pane(page, 'bbg-1'));
     await dragSeam(page, 'resize-x-bbg-1', 120, 'x', false);
     await expect(page.locator('[data-node][data-join-armed]')).toHaveCount(0);
     await page.mouse.up();
@@ -141,8 +141,8 @@ test.describe('bloomberg four-panel', () => {
 test.describe('tmux even-horizontal, 40 panes', () => {
   test('forty panes and thirty-nine borders end at the right edge', async ({ page }) => {
     await openPreset(page, 'tmux-even-horizontal-40');
-    const zone = await boxOf(page.locator('[data-node-container="tmux"]'));
-    const last = await boxOf(pane(page, 'pane-39'));
+    const zone = await settledBox(page.locator('[data-node-container="tmux"]'));
+    const last = await settledBox(pane(page, 'pane-39'));
     expect(last.x + last.w).toBeCloseTo(zone.x + zone.w, 0);
   });
 
@@ -153,7 +153,7 @@ test.describe('tmux even-horizontal, 40 panes', () => {
     const zone = page.locator('[data-node-container="tmux"]');
     // Pressing the seam scrolls it into view, so compare offsets within the zone, not page boxes.
     const relative = async (id: string) => {
-      const [p, z] = [await settledBox(pane(page, id)), await boxOf(zone)];
+      const [p, z] = [await settledBox(pane(page, id)), await settledBox(zone)];
       return { x: Math.round(p.x - z.x), w: Math.round(p.w) };
     };
     expect(await relative('pane-0')).toEqual({ x: 0, w: 24 });
@@ -195,7 +195,7 @@ test.describe('firefox with 100 tabs', () => {
       el.scrollLeft = el.scrollWidth;
     });
     await expect(pane(page, 'tab-97')).toBeInViewport();
-    expect((await boxOf(pane(page, 'tab-97'))).w).toBeCloseTo(76, 0);
+    expect((await settledBox(pane(page, 'tab-97'))).w).toBeCloseTo(76, 0);
   });
 });
 
@@ -205,7 +205,7 @@ test.describe('firefox pinned tabs', () => {
   }) => {
     await openPreset(page, 'firefox-100-tabs');
     const frame = page.getByTestId('xs-frame');
-    const origin = (await boxOf(frame)).x;
+    const origin = (await settledBox(frame)).x;
     const at = async (id: string) => Math.round((await boxOf(pane(page, id))).x - origin);
     const pinned = [await at('pinned-1'), await at('pinned-3')];
     const tab = await at('tab-1');
@@ -239,7 +239,7 @@ test.describe('vscode: a sidebar dragged shut hides', () => {
     await expect
       .poll(async () => Math.round((await boxOf(pane(page, 'vh-editor'))).w))
       .toBe(1600 - 48 - 300);
-    expect((await boxOf(pane(page, 'vh-aux'))).w).toBeCloseTo(300, 0);
+    expect((await settledBox(pane(page, 'vh-aux'))).w).toBeCloseTo(300, 0);
 
     await page.getByTestId('xs-show-vh-sidebar').click();
     await expect(page.getByTestId('xs-hidden')).toHaveText('(nothing)');
@@ -254,9 +254,9 @@ test.describe('leftover space placed by justify', () => {
     page,
   }) => {
     await openPreset(page, 'firefox-3-tabs');
-    const zone = await boxOf(page.locator('[data-node-container="firefox-few"]'));
+    const zone = await settledBox(page.locator('[data-node-container="firefox-few"]'));
     for (const [i, id] of ['tab-1', 'tab-2', 'tab-3'].entries()) {
-      const tab = await boxOf(pane(page, id));
+      const tab = await settledBox(pane(page, id));
       expect(tab.w).toBeCloseTo(225, 0);
       expect(tab.x - zone.x).toBeCloseTo(i * 225, 0);
     }
@@ -264,10 +264,10 @@ test.describe('leftover space placed by justify', () => {
 
   test('obsidian: the capped note sits centered between the sidebars', async ({ page }) => {
     await openPreset(page, 'obsidian-readable-line');
-    const zone = await boxOf(page.locator('[data-node-container="obsidian"]'));
-    const files = await boxOf(pane(page, 'ob-files'));
-    const note = await boxOf(pane(page, 'ob-note'));
-    const outline = await boxOf(pane(page, 'ob-outline'));
+    const zone = await settledBox(page.locator('[data-node-container="obsidian"]'));
+    const files = await settledBox(pane(page, 'ob-files'));
+    const note = await settledBox(pane(page, 'ob-note'));
+    const outline = await settledBox(pane(page, 'ob-outline'));
     expect(files.x - zone.x).toBeCloseTo(0, 0);
     expect(outline.x + outline.w - zone.x).toBeCloseTo(1920, 0);
     expect(note.x - (files.x + files.w)).toBeCloseTo(outline.x - (note.x + note.w), 0);
@@ -277,7 +277,7 @@ test.describe('leftover space placed by justify', () => {
 test.describe('panes stored below their floor, capped, hinted or squeezed', () => {
   test('acme: dragging down from a tag-line window never shrinks it', async ({ page }) => {
     await openPreset(page, 'acme-column');
-    const before = await boxOf(pane(page, 'mkfile'));
+    const before = await settledBox(pane(page, 'mkfile'));
     // dat.h and fns.h are 2px slivers, so their seams' hit areas cover the lower
     // part of this one; only its top 3px is reachable.
     await dragSeam(page, 'resize-y-mkfile', 16, 'y', true, -4.5);
@@ -292,7 +292,7 @@ test.describe('panes stored below their floor, capped, hinted or squeezed', () =
 
   test('xcode: dragging the navigator seam leaves the inspector alone', async ({ page }) => {
     await openPreset(page, 'xcode-restored-on-laptop');
-    const inspector = await boxOf(pane(page, 'xc-inspector'));
+    const inspector = await settledBox(pane(page, 'xc-inspector'));
     await dragSeam(page, 'resize-x-xc-navigator', 40, 'x');
     expect((await settledBox(pane(page, 'xc-inspector'))).w).toBeCloseTo(inspector.w, 0);
   });
@@ -301,15 +301,15 @@ test.describe('panes stored below their floor, capped, hinted or squeezed', () =
     page,
   }) => {
     await openPreset(page, 'obsidian-readable-line');
-    expect((await boxOf(pane(page, 'ob-note'))).w).toBeLessThanOrEqual(700.5);
-    const files = await boxOf(pane(page, 'ob-files'));
+    expect((await settledBox(pane(page, 'ob-note'))).w).toBeLessThanOrEqual(700.5);
+    const files = await settledBox(pane(page, 'ob-files'));
     await dragSeam(page, 'resize-x-ob-files', -16, 'x');
     expect((await settledBox(pane(page, 'ob-files'))).w).toBeLessThanOrEqual(files.w);
   });
 
   test('photoshop: dragging a minimized group smaller never grows it', async ({ page }) => {
     await openPreset(page, 'photoshop-minimized-group');
-    const before = await boxOf(pane(page, 'ps-properties'));
+    const before = await settledBox(pane(page, 'ps-properties'));
     await dragSeam(page, 'resize-y-ps-properties', -16, 'y');
     expect((await settledBox(pane(page, 'ps-properties'))).h).toBeLessThanOrEqual(before.h + 0.5);
   });
@@ -317,8 +317,8 @@ test.describe('panes stored below their floor, capped, hinted or squeezed', () =
   test('slack: channel and thread both fit inside the window', async ({ page }) => {
     await openPreset(page, 'slack-thread-open');
     // The zone widens itself by any reported overflow, so measure against the window.
-    const zone = await boxOf(page.locator('[data-node-container="slack"]'));
-    const thread = await boxOf(pane(page, 'sl-thread'));
+    const zone = await settledBox(page.locator('[data-node-container="slack"]'));
+    const thread = await settledBox(pane(page, 'sl-thread'));
     expect(thread.x + thread.w).toBeLessThanOrEqual(zone.x + 1100 + 0.5);
   });
 });

@@ -1,13 +1,19 @@
 import { expect, test } from '@playwright/test';
-import { boxOf, centerOf, dragMouse, openStory } from './fixtures.js';
+import { boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'split-operation--split-and-unsplit';
 
 const panels = (page: import('@playwright/test').Page) => page.locator('[data-node^="p"]');
 
-/** Every panel's box, left to right. Panels are the leaves — groups render
+/** Every panel's box once it has settled. Panels are the leaves — groups render
  *  nothing of their own, so `[data-node]` on a panel is the visible rect. */
 async function panelBoxes(page: import('@playwright/test').Page) {
+  const locators = await panels(page).all();
+  return Promise.all(locators.map((l) => settledBox(l)));
+}
+
+/** The same boxes as they stand, for a poll to retry. */
+async function panelBoxesNow(page: import('@playwright/test').Page) {
   const locators = await panels(page).all();
   return Promise.all(locators.map((l) => boxOf(l)));
 }
@@ -53,13 +59,15 @@ test.describe('split operation', () => {
     const before = (await panelBoxes(page)).sort((a, b) => a.x - b.x);
     const totalBefore = before.reduce((sum, b) => sum + b.w, 0);
     // strip emits a trailing-edge affordance on every non-last child.
-    const gutter = await boxOf(page.locator('[data-affordance-hit^="resize-x-"]').first());
+    const gutter = await settledBox(page.locator('[data-affordance-hit^="resize-x-"]').first());
     const start = centerOf(gutter);
 
     await dragMouse(page, start, { x: start.x + 100, y: start.y });
 
-    const after = (await panelBoxes(page)).sort((a, b) => a.x - b.x);
-    expect(after[0]!.w).toBeGreaterThan(before[0]!.w + 60);
+    await expect
+      .poll(async () => (await panelBoxesNow(page)).sort((a, b) => a.x - b.x)[0]?.w)
+      .toBeGreaterThan(before[0]!.w + 60);
+    const after = await panelBoxes(page);
     expect(after.reduce((sum, b) => sum + b.w, 0)).toBeCloseTo(totalBefore, 0);
   });
 
@@ -73,9 +81,13 @@ test.describe('split operation', () => {
     await page.getByTestId('unsplit').click();
     await expect(panels(page)).toHaveCount(2);
 
-    const after = await panelBoxes(page);
     // unsplit dissolves the group, it does not destroy children — both panels
     // come back up to the root strip, now side by side on its x axis.
-    expect(Math.round(after[0]!.y)).toBe(Math.round(after[1]!.y));
+    await expect
+      .poll(async () => {
+        const [first, second] = await panelBoxesNow(page);
+        return Math.round(first?.y ?? Number.NaN) - Math.round(second?.y ?? Number.NaN);
+      })
+      .toBe(0);
   });
 });

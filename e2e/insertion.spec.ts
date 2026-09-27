@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { boxOf, centerOf, openStory } from './fixtures.js';
+import { centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
  * Insertion ordering is only observable where `<Container>`'s own drop-target
@@ -24,8 +24,10 @@ test.describe('drop insertion index', () => {
     await openStory(page, STORY);
     expect(await orderIn(page, 'main')).toEqual(['main-controls', 'panel-1', 'panel-2']);
 
-    const handle = centerOf(await boxOf(page.locator('[data-windease-drag-handle="panel-2"]')));
-    const first = await boxOf(page.locator('[data-node="main-controls"]'));
+    const handle = centerOf(
+      await settledBox(page.locator('[data-windease-drag-handle="panel-2"]')),
+    );
+    const first = await settledBox(page.locator('[data-node="main-controls"]'));
 
     await page.mouse.move(handle.x, handle.y);
     await page.mouse.down();
@@ -40,8 +42,10 @@ test.describe('drop insertion index', () => {
 
   test('dragging a panel into another zone lands it there', async ({ page }) => {
     await openStory(page, STORY);
-    const handle = centerOf(await boxOf(page.locator('[data-windease-drag-handle="panel-1"]')));
-    const sidebar = centerOf(await boxOf(page.locator('[data-node-container="sidebar"]')));
+    const handle = centerOf(
+      await settledBox(page.locator('[data-windease-drag-handle="panel-1"]')),
+    );
+    const sidebar = centerOf(await settledBox(page.locator('[data-node-container="sidebar"]')));
 
     await page.mouse.move(handle.x, handle.y);
     await page.mouse.down();

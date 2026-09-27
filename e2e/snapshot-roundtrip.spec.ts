@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { boxOf, centerOf, dragMouse, openStory } from './fixtures.js';
+import { boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'recursive-zones--split-resize';
 const ROOT_GUTTER = '[data-affordance-hit="resize-x-a"]';
@@ -42,13 +42,13 @@ const heightOf = (page: Page, id: string) =>
 test.describe('snapshot round-trip through the DOM', () => {
   test('a hydrated snapshot restores the pane widths it captured', async ({ page }) => {
     await openStory(page, STORY);
-    const gutter = centerOf(await boxOf(page.locator(ROOT_GUTTER)));
+    const gutter = centerOf(await settledBox(page.locator(ROOT_GUTTER)));
     await dragMouse(page, gutter, { x: gutter.x + 120, y: gutter.y });
 
     const captured = await widthOf(page, 'a');
     const snap = await snapshot(page);
 
-    const moved = centerOf(await boxOf(page.locator(ROOT_GUTTER)));
+    const moved = centerOf(await settledBox(page.locator(ROOT_GUTTER)));
     await dragMouse(page, moved, { x: moved.x - 90, y: moved.y });
     expect(await widthOf(page, 'a')).toBeLessThan(captured - 40);
 
@@ -59,13 +59,13 @@ test.describe('snapshot round-trip through the DOM', () => {
 
   test('it restores a nested container too, not just the root', async ({ page }) => {
     await openStory(page, STORY);
-    const gutter = centerOf(await boxOf(page.locator(MID_GUTTER)));
+    const gutter = centerOf(await settledBox(page.locator(MID_GUTTER)));
     await dragMouse(page, gutter, { x: gutter.x, y: gutter.y + 90 });
 
     const captured = await heightOf(page, 'b');
     const snap = await snapshot(page);
 
-    const moved = centerOf(await boxOf(page.locator(MID_GUTTER)));
+    const moved = centerOf(await settledBox(page.locator(MID_GUTTER)));
     await dragMouse(page, moved, { x: moved.x, y: moved.y - 70 });
     expect(await heightOf(page, 'b')).toBeLessThan(captured - 30);
 

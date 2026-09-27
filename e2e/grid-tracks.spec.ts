@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 const SHEET = 'grid--spreadsheet';
 
@@ -25,7 +25,7 @@ test.describe('grid tracks — spreadsheet', () => {
     await openStory(page, SHEET);
     const before = await settledBox(cell(page, 'cell-B1'));
     const c = await settledBox(cell(page, 'cell-C1'));
-    const edge = centerOf(await boxOf(seam(page, 'track-x-2')));
+    const edge = centerOf(await settledBox(seam(page, 'track-x-2')));
 
     await dragMouse(page, edge, { x: edge.x + 40, y: edge.y });
 
@@ -42,7 +42,7 @@ test.describe('grid tracks — spreadsheet', () => {
     await openStory(page, SHEET);
     const c = await settledBox(cell(page, 'cell-C1'));
     const d = await settledBox(cell(page, 'cell-D1'));
-    const edge = centerOf(await boxOf(seam(page, 'track-x-3')));
+    const edge = centerOf(await settledBox(seam(page, 'track-x-3')));
 
     await dragMouse(page, edge, { x: edge.x - 30, y: edge.y });
 
@@ -60,7 +60,7 @@ test.describe('grid tracks — spreadsheet', () => {
   }) => {
     await openStory(page, SHEET);
     const before = await settledBox(cell(page, 'cell-A2'));
-    const edge = centerOf(await boxOf(seam(page, 'track-y-2')));
+    const edge = centerOf(await settledBox(seam(page, 'track-y-2')));
 
     await dragMouse(page, edge, { x: edge.x, y: edge.y + 14 });
 
