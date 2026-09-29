@@ -15,6 +15,7 @@ import {
   accessibleName,
   captureSeam,
   commitJoin,
+  commitReveal,
   destroyBlockedBy,
   elementScale,
   type NodeId,
@@ -24,6 +25,7 @@ import {
   toLocalPoint,
   trace,
   trackJoin,
+  trackReveal,
 } from '../index.js';
 import type { Store } from '../store.js';
 import { preventNativeDrag } from './dnd/nativeDrag.js';
@@ -131,6 +133,16 @@ export function AffordanceLayer({
             tabStop={tabStop}
             label={affordanceLabel(store, aff)}
           />
+        ) : aff.reveal ? (
+          <RevealHandle
+            key={aff.id}
+            affordance={aff}
+            store={store}
+            hitPad={hitPad}
+            tabStop={tabStop}
+            label={affordanceLabel(store, aff)}
+            onActiveChange={(active) => onActiveChange(active ? aff.id : null)}
+          />
         ) : (
           <AffordanceHandle
             key={aff.id}
@@ -217,6 +229,219 @@ function ClickAffordance({ affordance, dispatch, store, tabStop, label }: ClickA
       draggable={false}
       onDragStart={preventNativeDrag}
     />
+  );
+}
+
+/**
+ * Expands the hit area perpendicular to the gutter so a 4px line is easier to
+ * grab. The outer box catches pointer events; the inner one is the visible
+ * rect at the strategy's reported size and carries `data-affordance`, so
+ * consumer CSS styles it and not the invisible padding.
+ */
+function hitArea(affordance: Affordance, hitPad: number, toward?: 1 | -1) {
+  const isXish =
+    affordance.kind === 'drag-x' ||
+    affordance.kind === 'drag-xy' ||
+    affordance.kind === 'resize-x' ||
+    affordance.kind === 'resize-xy';
+  const isYish =
+    affordance.kind === 'drag-y' ||
+    affordance.kind === 'drag-xy' ||
+    affordance.kind === 'resize-y' ||
+    affordance.kind === 'resize-xy';
+  // With `toward`, the slack goes on that side alone: the other is a row's
+  // edge or the seam before the slot.
+  const before = toward === 1 ? 0 : 1;
+  const sides = toward === undefined ? 2 : 1;
+  const padX = isXish ? hitPad * before : 0;
+  const padY = isYish ? hitPad * before : 0;
+  const outerStyle: CSSProperties = {
+    ...AFFORDANCE_BASE,
+    left: affordance.rect.x - padX,
+    top: affordance.rect.y - padY,
+    width: affordance.rect.w + (isXish ? hitPad * sides : 0),
+    height: affordance.rect.h + (isYish ? hitPad * sides : 0),
+  };
+  if (affordance.cursor) outerStyle.cursor = affordance.cursor;
+  // A handle over a stacked child sits at that child's depth; later in the DOM,
+  // it wins over its own child and loses to the ones above.
+  if (affordance.rect.z > 1) outerStyle.zIndex = Math.round(affordance.rect.z);
+  const innerStyle: CSSProperties = {
+    position: 'absolute',
+    left: padX,
+    top: padY,
+    width: affordance.rect.w,
+    height: affordance.rect.h,
+    pointerEvents: 'none',
+  };
+  return { padX, padY, outerStyle, innerStyle };
+}
+
+interface RevealHandleProps {
+  affordance: Affordance;
+  store: Store;
+  hitPad: number;
+  tabStop: boolean;
+  label: string | undefined;
+  onActiveChange: (active: boolean) => void;
+}
+
+/**
+ * The handle over a hidden pane's slot. Dragged the way the pane opens it arms,
+ * and releasing there shows the pane; Enter or Space shows it outright. A
+ * pointer click does nothing, so it listens for the keys rather than `click`.
+ * It sends the strategy nothing: there is no size to write until the pane is
+ * back.
+ */
+function RevealHandle({
+  affordance,
+  store,
+  hitPad,
+  tabStop,
+  label,
+  onActiveChange,
+}: RevealHandleProps) {
+  const reveal = affordance.reveal;
+  const last = useRef<{ x: number; y: number } | null>(null);
+  const scale = useRef<AxisScale>({ x: 1, y: 1 });
+  const travel = useRef(0);
+  const armedRef = useRef(false);
+  const [armed, setArmedState] = useState(false);
+  const [dragging, setDragging] = useState(false);
+
+  const setArmed = useCallback(
+    (next: boolean) => {
+      if (armedRef.current === next) return;
+      trace('dnd', `reveal ${next ? 'armed' : 'disarmed'}: ${affordance.id} → ${reveal?.id}`);
+      armedRef.current = next;
+      setArmedState(next);
+    },
+    [affordance.id, reveal?.id],
+  );
+
+  const endGesture = useCallback(
+    (commit: boolean) => {
+      const show = commit && armedRef.current;
+      setArmed(false);
+      travel.current = 0;
+      last.current = null;
+      setDragging(false);
+      if (show) commitReveal(store, affordance);
+    },
+    [setArmed, store, affordance],
+  );
+
+  const onPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      last.current = { x: e.clientX, y: e.clientY };
+      scale.current = elementScale(e.currentTarget);
+      travel.current = 0;
+      setDragging(true);
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // jsdom or unsupported — ignore.
+      }
+      onActiveChange(true);
+    },
+    [onActiveChange],
+  );
+  const onPointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!last.current || !reveal) return;
+      const sx = e.clientX - last.current.x;
+      const sy = e.clientY - last.current.y;
+      if (sx === 0 && sy === 0) return;
+      last.current = { x: e.clientX, y: e.clientY };
+      const { dx, dy } = toLayoutDelta(sx, sy, scale.current);
+      const state = trackReveal({
+        reveal,
+        travel: travel.current,
+        delta: affordance.kind === 'resize-y' ? dy : dx,
+      });
+      travel.current = state.travel;
+      setArmed(state.armed);
+    },
+    [reveal, affordance.kind, setArmed],
+  );
+  const finish = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>, commit: boolean) => {
+      const wasDragging = last.current !== null;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      endGesture(commit);
+      if (wasDragging) onActiveChange(false);
+    },
+    [onActiveChange, endGesture],
+  );
+  const onPointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => finish(e, true),
+    [finish],
+  );
+  const onPointerCancel = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => finish(e, false),
+    [finish],
+  );
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      endGesture(false);
+      onActiveChange(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dragging, endGesture, onActiveChange]);
+
+  const onKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      commitReveal(store, affordance);
+    },
+    [store, affordance],
+  );
+
+  const { outerStyle, innerStyle } = hitArea(affordance, hitPad, reveal?.direction);
+  const name = reveal ? accessibleName(store, reveal.id as NodeId) : '';
+
+  return (
+    <>
+      <button
+        type="button"
+        className="windease-affordance-hit"
+        style={{ ...CLICK_RESET, ...outerStyle }}
+        data-affordance-hit={affordance.id}
+        data-reveal-armed={armed ? 'true' : undefined}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+        draggable={false}
+        onDragStart={preventNativeDrag}
+        onKeyDown={onKeyDown}
+        tabIndex={tabStop ? 0 : -1}
+        aria-label={label}
+      >
+        <span
+          style={innerStyle}
+          data-affordance={affordance.id}
+          data-affordance-kind={affordance.kind}
+        />
+      </button>
+      <div
+        className="windease-live-region"
+        aria-live="polite"
+        aria-atomic="true"
+        data-reveal-live=""
+      >
+        {armed ? `${name} will show. Release to confirm, Escape to cancel.` : ''}
+      </div>
+    </>
   );
 }
 
@@ -461,43 +686,9 @@ function AffordanceHandle({
     endGesture(false);
   }, [endGesture]);
 
-  // Expand the hit area perpendicular to the gutter so a 4px line is easier
-  // to grab. The outer div catches pointer events; the inner div is the
-  // visible rect at the strategy's reported size and carries `data-affordance`
-  // so consumer CSS styles it (not the invisible padding).
-  const isXish =
-    affordance.kind === 'drag-x' ||
-    affordance.kind === 'drag-xy' ||
-    affordance.kind === 'resize-x' ||
-    affordance.kind === 'resize-xy';
-  const isYish =
-    affordance.kind === 'drag-y' ||
-    affordance.kind === 'drag-xy' ||
-    affordance.kind === 'resize-y' ||
-    affordance.kind === 'resize-xy';
-  const padX = isXish ? hitPad : 0;
-  const padY = isYish ? hitPad : 0;
+  const { padX, padY, outerStyle, innerStyle } = hitArea(affordance, hitPad);
   padXRef.current = padX;
   padYRef.current = padY;
-  const outerStyle: CSSProperties = {
-    ...AFFORDANCE_BASE,
-    left: affordance.rect.x - padX,
-    top: affordance.rect.y - padY,
-    width: affordance.rect.w + 2 * padX,
-    height: affordance.rect.h + 2 * padY,
-  };
-  if (affordance.cursor) outerStyle.cursor = affordance.cursor;
-  // A handle over a stacked child sits at that child's depth; later in the DOM,
-  // it wins over its own child and loses to the ones above.
-  if (affordance.rect.z > 1) outerStyle.zIndex = Math.round(affordance.rect.z);
-  const innerStyle: CSSProperties = {
-    position: 'absolute',
-    left: padX,
-    top: padY,
-    width: affordance.rect.w,
-    height: affordance.rect.h,
-    pointerEvents: 'none',
-  };
 
   const armedName = armedId !== null ? accessibleName(store, armedId) : null;
 

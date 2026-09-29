@@ -248,12 +248,18 @@ function PresetView({ preset }: { preset: Preset }) {
 
 /** Each preset reproduces one real product's layout; pick one and operate it. */
 export const Presets: Story = () => {
-  const [preset, pick] = usePresetPick(PRESETS);
+  const [preset, pick, run] = usePresetPick(PRESETS);
   return (
     <StrategyRegistryProvider strategies={OVERLAP_STRATEGIES}>
-      <PresetPicker presets={PRESETS} value={preset} onChange={pick} testId="xd-preset" />
+      <PresetPicker
+        presets={PRESETS}
+        value={preset}
+        onChange={pick}
+        onReset={run.reset}
+        testId="xd-preset"
+      />
       <PresetInfo preset={preset} />
-      <PresetView key={preset.id} preset={preset} />
+      <PresetView key={run.key} preset={preset} />
     </StrategyRegistryProvider>
   );
 };

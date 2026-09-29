@@ -221,10 +221,8 @@ test.describe('firefox pinned tabs', () => {
 });
 
 test.describe('vscode: a sidebar dragged shut hides', () => {
-  test('pushing the Explorer past its floor hides it, and Show brings the row back', async ({
-    page,
-  }) => {
-    await openPreset(page, 'vscode-hinted-sidebars');
+  /** Pushes the Explorer's seam left past its floor and lets go, which hides it. */
+  async function hideExplorer(page: Page): Promise<void> {
     const id = 'resize-x-vh-sidebar';
     const travel =
       (await valueAttr(page, id, 'aria-valuenow')) - (await valueAttr(page, id, 'aria-valuemin'));
@@ -232,20 +230,76 @@ test.describe('vscode: a sidebar dragged shut hides', () => {
     await page.mouse.move(at.x - 40, at.y, { steps: 5 });
     await expect(pane(page, 'vh-sidebar')).toHaveAttribute('data-join-armed', 'true');
     await page.mouse.up();
-
     await expect(pane(page, 'vh-sidebar')).toHaveCount(0);
     await expect(page.getByTestId('xs-hidden')).toHaveText('vh-sidebar');
-    // The rest of the row goes back as the drag found it, and the editor takes the space.
-    await expect
-      .poll(async () => Math.round((await boxOf(pane(page, 'vh-editor'))).w))
-      .toBe(1600 - 48 - 300);
-    expect((await settledBox(pane(page, 'vh-aux'))).w).toBeCloseTo(300, 0);
+  }
 
-    await page.getByTestId('xs-show-vh-sidebar').click();
+  const width = (page: Page, id: string) => async () => Math.round((await boxOf(pane(page, id))).w);
+
+  test('pushing the Explorer past its floor hides it, and dragging its handle out brings the row back', async ({
+    page,
+  }) => {
+    await openPreset(page, 'vscode-hinted-sidebars');
+    await hideExplorer(page);
+    // The rest of the row goes back as the drag found it, and the editor takes the space.
+    await expect.poll(width(page, 'vh-editor')).toBe(1600 - 48 - 300);
+    await expect.poll(width(page, 'vh-aux')).toBe(300);
+
+    await dragSeam(page, 'reveal-x-vh-sidebar', 40, 'x', false);
+    await expect(seam(page, 'reveal-x-vh-sidebar')).toHaveAttribute('data-reveal-armed', 'true');
+    await page.mouse.up();
     await expect(page.getByTestId('xs-hidden')).toHaveText('(nothing)');
-    const width = async (id: string) => Math.round((await settledBox(pane(page, id))).w);
-    await expect.poll(() => width('vh-sidebar')).toBe(300);
-    expect(await width('vh-editor')).toBe(1600 - 48 - 300 - 300);
+    await expect(seam(page, 'reveal-x-vh-sidebar')).toHaveCount(0);
+    await expect.poll(width(page, 'vh-sidebar')).toBe(300);
+    await expect.poll(width(page, 'vh-editor')).toBe(1600 - 48 - 300 - 300);
+  });
+
+  test('a handle let go inside its threshold leaves the Explorer hidden', async ({ page }) => {
+    await openPreset(page, 'vscode-hinted-sidebars');
+    await hideExplorer(page);
+    await dragSeam(page, 'reveal-x-vh-sidebar', 12, 'x');
+    await expect(page.getByTestId('xs-hidden')).toHaveText('vh-sidebar');
+  });
+
+  test('the secondary sidebar, hidden at the right edge, drags back out to the left', async ({
+    page,
+  }) => {
+    // Wider than the workbench: WebKit gives a press on the window's right edge to the scrollbar.
+    await page.setViewportSize({ width: 1700, height: 1000 });
+    await openPreset(page, 'vscode-hinted-sidebars');
+    const id = 'resize-x-vh-editor';
+    const travel =
+      (await valueAttr(page, id, 'aria-valuemax')) - (await valueAttr(page, id, 'aria-valuenow'));
+    const at = await dragSeam(page, id, travel, 'x', false);
+    await page.mouse.move(at.x + 40, at.y, { steps: 5 });
+    await expect(pane(page, 'vh-aux')).toHaveAttribute('data-join-armed', 'true');
+    await page.mouse.up();
+    await expect(page.getByTestId('xs-hidden')).toHaveText('vh-aux');
+
+    await dragSeam(page, 'reveal-x-vh-aux', -40, 'x');
+    await expect(page.getByTestId('xs-hidden')).toHaveText('(nothing)');
+    await expect.poll(width(page, 'vh-aux')).toBe(300);
+  });
+
+  test('Enter on the handle shows the Explorer', async ({ page }) => {
+    await openPreset(page, 'vscode-hinted-sidebars');
+    await hideExplorer(page);
+    await seam(page, 'reveal-x-vh-sidebar').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('xs-hidden')).toHaveText('(nothing)');
+    await expect.poll(width(page, 'vh-sidebar')).toBe(300);
+  });
+
+  test('Reset puts the workbench back as it opened', async ({ page }) => {
+    await openPreset(page, 'vscode-hinted-sidebars');
+    await dragSeam(page, 'resize-x-vh-sidebar', 60, 'x');
+    await expect.poll(width(page, 'vh-sidebar')).toBe(360);
+    await hideExplorer(page);
+
+    await page.getByTestId('preset-reset').click();
+    await expect(page.getByTestId('xs-hidden')).toHaveText('(nothing)');
+    await expect.poll(width(page, 'vh-sidebar')).toBe(300);
+    await expect.poll(width(page, 'vh-editor')).toBe(1600 - 48 - 300 - 300);
   });
 });
 

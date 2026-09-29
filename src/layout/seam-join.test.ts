@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { NodeId } from '../node.js';
-import { DEFAULT_JOIN_THRESHOLD, trackJoin } from './seam-join.js';
+import { DEFAULT_JOIN_THRESHOLD, trackJoin, trackReveal } from './seam-join.js';
 
 const JOIN = { atMin: 'a' as NodeId, atMax: 'b' as NodeId, threshold: 24 };
 const yes = () => true;
@@ -190,5 +190,50 @@ describe('trackJoin — the candidate', () => {
 describe('trackJoin — constants', () => {
   it('publishes the default threshold strategies fall back to', () => {
     expect(DEFAULT_JOIN_THRESHOLD).toBe(24);
+  });
+});
+
+describe('trackReveal — a handle over a hidden pane', () => {
+  const REVEAL = { id: 'side' as NodeId, threshold: 24, direction: 1 as const };
+
+  it('does not arm inside the threshold', () => {
+    expect(trackReveal({ reveal: REVEAL, travel: 0, delta: 24 })).toEqual({
+      armed: false,
+      travel: 24,
+    });
+  });
+
+  it('arms once travel the way the pane opens passes the threshold', () => {
+    const first = trackReveal({ reveal: REVEAL, travel: 0, delta: 20 });
+    expect(trackReveal({ reveal: REVEAL, travel: first.travel, delta: 5 })).toEqual({
+      armed: true,
+      travel: 25,
+    });
+  });
+
+  it('disarms when the pointer comes back inside the threshold', () => {
+    expect(trackReveal({ reveal: REVEAL, travel: 40, delta: -30 })).toEqual({
+      armed: false,
+      travel: 10,
+    });
+  });
+
+  it('counts nothing for travel away from where the pane opens', () => {
+    expect(trackReveal({ reveal: REVEAL, travel: 0, delta: -200 })).toEqual({
+      armed: false,
+      travel: 0,
+    });
+  });
+
+  it('reads a pane that opens toward the start of the axis the other way round', () => {
+    const left = { ...REVEAL, direction: -1 as const };
+    expect(trackReveal({ reveal: left, travel: 0, delta: -30 })).toEqual({
+      armed: true,
+      travel: -30,
+    });
+    expect(trackReveal({ reveal: left, travel: 0, delta: 30 })).toEqual({
+      armed: false,
+      travel: 0,
+    });
   });
 });

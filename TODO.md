@@ -34,11 +34,18 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
     for `settledBox` without being reread, so an assertion there reads a
     settled box where it should poll. That can still return the old layout if
     a change takes longer to start than the settle window, and has:
-    `floating-snap-fill.spec.ts:29` on Chromium and `exotic-strip.spec.ts:224`
-    on Firefox each needed a retry for it on 2026-09-27. The specs with no
+    `floating-snap-fill.spec.ts:29` needed a retry for it on Chromium on
+    2026-09-27. The specs with no
     polls at all, and `content-sizing` and `declarative-drop`, were converted
     by hand and do poll.
   - Nothing stops a new raw read.
+
+- **WebKit gives a press on the window's right edge to the scrollbar.** A
+  reveal handle for a pane hidden at the end of a row sits on the container's
+  last 4px; where that is also the window's edge and the page scrolls, WebKit
+  sends `pointerdown` to the handle and no `pointermove` after it, so the drag
+  never arms. `exotic-strip.spec.ts` widens the window to get clear of it.
+  Enter on the handle still works. Nothing in the library works around it.
 
 - **The suite fails under machine load, and the failing specs move between
   runs.** Reproduces readily once the load average passes roughly twice the

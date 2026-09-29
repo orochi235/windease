@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createNode } from '../constructors.js';
 import { nodeToLayoutItem, runStrategyForContainer } from '../layout-node-adapter.js';
-import type { Affordance, LayoutItem } from '../layout-types.js';
+import type { Affordance, HiddenItem, LayoutItem } from '../layout-types.js';
 import { asNodeId } from '../node.js';
 import { Store } from '../store.js';
-import { captureSeam, commitJoin } from './seam-join.js';
+import { captureSeam, commitJoin, commitReveal } from './seam-join.js';
 import { stripStrategy } from './strip.js';
 
 const items: LayoutItem[] = [
@@ -170,6 +170,146 @@ describe('commitJoin', () => {
     const store = seed('hide');
     store.setLock(asNodeId('side'), { destroy: true });
     commitJoin(store, seamAfter(store, 'side'), asNodeId('side'));
+    expect(store.getNode(asNodeId('side'))?.lifecycle.state).toBe('hidden');
+  });
+});
+
+/** `a` and `c` filling 600px, with whatever is hidden around them. */
+function withHidden(hidden: HiddenItem[], options: Record<string, unknown> = {}) {
+  return stripStrategy.layout({
+    items: [items[0]!, items[2]!],
+    container: { w: 600, h: 200 },
+    state: undefined,
+    options: { resizeMode: 'neighbor', fill: true, overshoot: 'hide', ...options },
+    hidden,
+  });
+}
+
+const handles = (affordances: Affordance[]) => affordances.filter((a) => a.reveal);
+
+describe('strip reveal handles', () => {
+  it('puts a handle where a hidden middle pane would open, beside the seam before it', () => {
+    const { affordances, placements } = withHidden([{ id: 'b', before: 1 }]);
+    expect(handles(affordances)).toEqual([
+      {
+        id: 'reveal-x-b',
+        kind: 'resize-x',
+        rect: { x: placements.get('c')!.x + 2, y: 0, z: 0, w: 4, h: 200 },
+        cursor: 'ew-resize',
+        label: 'show',
+        childId: 'b',
+        affects: ['b'],
+        reveal: { id: 'b', threshold: 24, direction: 1 },
+      },
+    ]);
+  });
+
+  it('starts a hidden first pane at the head of the row', () => {
+    const [handle] = handles(withHidden([{ id: 'z', before: 0 }]).affordances);
+    expect(handle?.rect.x).toBe(0);
+    expect(handle?.reveal?.direction).toBe(1);
+  });
+
+  it('opens a hidden last pane back from the end of a full row', () => {
+    const [handle] = handles(withHidden([{ id: 'z', before: 2 }]).affordances);
+    expect(handle?.rect.x).toBe(596);
+    expect(handle?.reveal?.direction).toBe(-1);
+  });
+
+  it('opens a hidden last pane forward when the row stops short of the container', () => {
+    const { affordances, placements } = withHidden([{ id: 'z', before: 2 }], {
+      fill: false,
+      defaultItemSize: 100,
+    });
+    const c = placements.get('c')!;
+    const [handle] = handles(affordances);
+    expect(handle?.rect.x).toBe(c.x + c.w);
+    expect(handle?.reveal?.direction).toBe(1);
+  });
+
+  it('sets two panes hidden in the same slot side by side', () => {
+    const { affordances, placements } = withHidden([
+      { id: 'b1', before: 1 },
+      { id: 'b2', before: 1 },
+    ]);
+    const at = placements.get('c')!.x;
+    expect(handles(affordances).map((a) => [a.id, a.rect.x])).toEqual([
+      ['reveal-x-b1', at + 2],
+      ['reveal-x-b2', at + 6],
+    ]);
+  });
+
+  it('runs down a column as reveal-y', () => {
+    const { affordances, placements } = withHidden([{ id: 'b', before: 1 }], { axis: 'y' });
+    const [handle] = handles(affordances);
+    expect(handle?.id).toBe('reveal-y-b');
+    expect(handle?.kind).toBe('resize-y');
+    expect(handle?.cursor).toBe('ns-resize');
+    expect(handle?.rect).toEqual({ x: 0, y: placements.get('c')!.y + 2, z: 0, w: 600, h: 4 });
+  });
+
+  it('uses the join threshold', () => {
+    const [handle] = handles(
+      withHidden([{ id: 'b', before: 1 }], { joinThreshold: 40 }).affordances,
+    );
+    expect(handle?.reveal?.threshold).toBe(40);
+  });
+
+  it('offers a way back when every pane is hidden', () => {
+    const result = stripStrategy.layout({
+      items: [],
+      container: { w: 600, h: 200 },
+      state: undefined,
+      options: { resizeMode: 'neighbor', overshoot: 'hide' },
+      hidden: [{ id: 'b', before: 0 }],
+    });
+    expect(handles(result.affordances).map((a) => [a.rect.x, a.reveal?.direction])).toEqual([
+      [0, 1],
+    ]);
+  });
+
+  it('leaves the seams between visible panes as they were', () => {
+    const plain = withHidden([]).affordances;
+    const seamsOnly = withHidden([{ id: 'b', before: 1 }]).affordances.filter((a) => !a.reveal);
+    expect(seamsOnly).toEqual(plain);
+  });
+
+  it.each([
+    ['a join that destroys', { overshoot: 'join' }],
+    ['no overshoot at all', { overshoot: undefined }],
+    ['redistribute', { resizeMode: 'redistribute' }],
+    ['resizable: false', { resizable: false }],
+  ])('emits none under %s', (_, options) => {
+    expect(handles(withHidden([{ id: 'b', before: 1 }], options).affordances)).toEqual([]);
+  });
+});
+
+describe('a hidden pane in a store', () => {
+  it('reaches the strip through the adapter, in child order', () => {
+    const store = seed('hide');
+    store.hideNode(asNodeId('editor'));
+    const [handle] = handles(layoutOf(store).affordances);
+    expect(handle?.reveal).toEqual({ id: 'editor', threshold: 24, direction: 1 });
+    expect(handle?.rect.x).toBe(layoutOf(store).placements.get(asNodeId('panel'))!.x + 2);
+  });
+
+  it('comes back at the size it had when a committed reveal shows it', () => {
+    const store = seed('hide');
+    const aff = seamAfter(store, 'side');
+    const before = captureSeam(store, aff);
+    dragToFloor(store);
+    commitJoin(store, aff, asNodeId('side'), before);
+    const [handle] = handles(layoutOf(store).affordances);
+    commitReveal(store, handle!);
+    expect(store.getNode(asNodeId('side'))?.lifecycle.state).toBe('visible');
+    expect(widths(store).side).toBe(200);
+    expect(handles(layoutOf(store).affordances)).toEqual([]);
+  });
+
+  it('shows nothing for a seam that reveals nothing', () => {
+    const store = seed('hide');
+    store.hideNode(asNodeId('side'));
+    commitReveal(store, seamAfter(store, 'editor'));
     expect(store.getNode(asNodeId('side'))?.lifecycle.state).toBe('hidden');
   });
 });

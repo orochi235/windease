@@ -10,6 +10,17 @@ section below.
 
 ### Added
 
+- **A pane hidden by `overshoot: 'hide'` can be dragged back.** Every hidden
+  child of such a strip leaves a handle over the place it would open,
+  `reveal-x-<id>` or `reveal-y-<id>`. Dragging it past `joinThreshold` the way
+  the pane opens and releasing shows the pane at the size it was hidden with;
+  Enter or Space on the handle does the same. This changes what an existing
+  `overshoot: 'hide'` strip draws: a hidden child now has a handle, whatever
+  hid it. `Affordance` gains `reveal`, a strategy's `layout` input gains
+  `hidden`, and `trackReveal` and `commitReveal` drive the gesture for hosts
+  without React. See
+  [Dragging a hidden pane back](README.md#dragging-a-hidden-pane-back).
+
 - **An empty container can give its room back.** A new `collapsePolicy` store
   option is asked, each time a parent is laid out, about every child that is a
   container with nothing to show, and answers with the extent to hold it at.

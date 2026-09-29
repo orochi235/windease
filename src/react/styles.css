@@ -13,7 +13,8 @@
  *     prospective split would take.
  *   - [data-join-armed] gets a visible default: releasing an armed seam-join
  *     destroys a pane with no confirmation step, so the point of no return
- *     cannot wait on consumer CSS.
+ *     cannot wait on consumer CSS. [data-reveal-armed], on the handle that
+ *     shows a hidden pane, thickens the same way.
  *   - .windease-measure wraps a content-sized pane's children so `hints.sizing`
  *     measures the content rather than the extent the layout just wrote.
  *   - .windease-focus-root exists only to catch bubbled focusin/keydown, so
@@ -112,7 +113,8 @@
 /* Two signals, not one: an armed victim sits at its floor and may be a sliver,
  * so the thickened seam is what stays visible and the hatch names the pane. */
 
-.windease-affordance-hit[data-join-armed] > [data-affordance]::after {
+.windease-affordance-hit[data-join-armed] > [data-affordance]::after,
+.windease-affordance-hit[data-reveal-armed] > [data-affordance]::after {
   content: "";
   position: absolute;
   inset: -4px;

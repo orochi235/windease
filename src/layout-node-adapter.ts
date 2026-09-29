@@ -1,5 +1,6 @@
 import { type CollapseDrag, resolveCollapse } from './collapse.js';
 import type {
+  HiddenItem,
   LayoutItem,
   LayoutNode,
   LayoutPreview,
@@ -121,7 +122,9 @@ export function runStrategyForContainer<TState>(
   const config = (parent?.container?.config ?? {}) as Record<string, unknown>;
   const children = store.getChildren(parentId);
   const items: LayoutItem[] = [];
+  const hidden: HiddenItem[] = [];
   for (const child of children) {
+    if (child.lifecycle.state === 'hidden') hidden.push({ id: child.id, before: items.length });
     if (child.lifecycle.state === 'hidden' || child.lifecycle.state === 'destroyed') continue;
     const item = childToLayoutItem(store, child, drag);
     const measured = natural?.get(String(child.id));
@@ -167,7 +170,10 @@ export function runStrategyForContainer<TState>(
     options: Record<string, unknown>;
     preview?: LayoutPreview;
     pointer?: { x: number; y: number };
+    hidden?: HiddenItem[];
   } = { items, container: viewport, state, options: config };
+  // A preview moves `items` around, so `before` would count the wrong panes.
+  if (hidden.length > 0 && !preview) input.hidden = hidden;
   if (preview) input.preview = preview;
   if (pointer) input.pointer = pointer;
   const result = strategy.layout(input);

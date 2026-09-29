@@ -155,11 +155,11 @@ function PresetView({ preset }: { preset: Preset }) {
  * the drop verdict before you release.
  */
 export const Presets: Story = () => {
-  const [preset, pick] = usePresetPick(PRESETS);
+  const [preset, pick, run] = usePresetPick(PRESETS);
   return (
     <div className="xg-story">
-      <PresetPicker presets={PRESETS} value={preset} onChange={pick} />
-      <PresetView key={preset.id} preset={preset} />
+      <PresetPicker presets={PRESETS} value={preset} onChange={pick} onReset={run.reset} />
+      <PresetView key={run.key} preset={preset} />
     </div>
   );
 };

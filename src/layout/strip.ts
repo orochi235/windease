@@ -1,6 +1,7 @@
 import type {
   Affordance,
   AffordanceJoin,
+  HiddenItem,
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
@@ -558,6 +559,74 @@ function joinFor(
   };
 }
 
+/** Main-axis thickness of a seam, and of the handle over a hidden pane. */
+const SEAM = 4;
+
+/**
+ * A handle over each hidden child's slot, under `overshoot: 'hide'`: what a
+ * seam dragged shut leaves behind to drag open again. One sits just past the
+ * seam before its slot, so that seam can still be grabbed; a pane hidden at the
+ * end of a full row opens back from the end instead.
+ */
+function revealHandles(
+  cfg: StripConfig,
+  axis: 'x' | 'y',
+  container: Size,
+  hidden: HiddenItem[] | undefined,
+  items: LayoutItem[],
+  placed: LayoutItem[],
+  starts: number[],
+  end: number,
+): Affordance[] {
+  if (!hidden || hidden.length === 0) return [];
+  if (cfg.overshoot !== 'hide' || cfg.resizeMode !== 'neighbor') return [];
+  if (!(cfg.resizable ?? true)) return [];
+  const padding = cfg.padding ?? 0;
+  const gap = cfg.gap ?? 0;
+  const main = axis === 'x' ? container.w : container.h;
+  const cross = Math.max(0, (axis === 'x' ? container.h : container.w) - 2 * padding);
+  const threshold = cfg.joinThreshold ?? DEFAULT_JOIN_THRESHOLD;
+
+  const slotOf = (h: HiddenItem): number => {
+    for (let i = Math.max(0, h.before); i < items.length; i++) {
+      const at = placed.indexOf(items[i]!);
+      if (at !== -1) return at;
+    }
+    return -1;
+  };
+  const slots = hidden.map(slotOf);
+  const out: Affordance[] = [];
+  hidden.forEach((h, i) => {
+    const slot = slots[i]!;
+    const peers = slots.filter((s) => s === slot).length;
+    const nth = slots.slice(0, i).filter((s) => s === slot).length;
+    let at: number;
+    let direction: 1 | -1 = 1;
+    if (slot !== -1) {
+      at = starts[slot]! + (slot > 0 ? Math.max(0, SEAM / 2 - gap) : 0) + SEAM * nth;
+    } else if (end + SEAM * peers <= main - padding) {
+      at = end + SEAM * nth;
+    } else {
+      at = end - SEAM * (peers - nth);
+      direction = -1;
+    }
+    out.push({
+      id: `reveal-${axis}-${h.id}`,
+      kind: axis === 'x' ? 'resize-x' : 'resize-y',
+      rect:
+        axis === 'x'
+          ? { x: at, y: padding, z: 0, w: SEAM, h: cross }
+          : { x: padding, y: at, z: 0, w: cross, h: SEAM },
+      cursor: axis === 'x' ? 'ew-resize' : 'ns-resize',
+      label: 'show',
+      childId: h.id,
+      affects: [h.id],
+      reveal: { id: h.id, threshold, direction },
+    });
+  });
+  return out;
+}
+
 /** What a drag stores for one pane: a pixel size, or a share of the row. */
 type Stored = { size: number } | { share: number | undefined };
 
@@ -926,12 +995,14 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     container,
     options,
     preview,
+    hidden,
   }: {
     items: LayoutItem[];
     container: Size;
     state: void;
     options: Record<string, unknown>;
     preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } };
+    hidden?: HiddenItem[];
   }): LayoutResult<string> {
     const cfg = options as StripConfig;
     const axis = cfg.axis ?? 'x';
@@ -943,6 +1014,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const placements = new Map<string, PlacedRect>();
     const affordances: Affordance[] = [];
     if (items.length === 0) {
+      affordances.push(...revealHandles(cfg, axis, container, hidden, items, [], [], padding));
       const empty: LayoutResult<string> = { placements, affordances };
       if (preview) empty.isPreview = true;
       return empty;
@@ -987,7 +1059,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
           affordances.push({
             id: `resize-x-${item.id}`,
             kind: 'resize-x',
-            rect: { x: x + w - 2, y, z: 0, w: 4, h },
+            rect: { x: x + w - SEAM / 2, y, z: 0, w: SEAM, h },
             cursor: 'ew-resize',
             childId: item.id,
             affects:
@@ -1028,7 +1100,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
           affordances.push({
             id: `resize-y-${item.id}`,
             kind: 'resize-y',
-            rect: { x, y: y + h - 2, z: 0, w, h: 4 },
+            rect: { x, y: y + h - SEAM / 2, z: 0, w, h: SEAM },
             cursor: 'ns-resize',
             childId: item.id,
             affects:
@@ -1072,6 +1144,9 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       const sticky = stickTo(placedItems, sizes, axis, padding, spacing, placements, affordances);
       if (sticky.size > 0) result.sticky = sticky;
     }
+    affordances.push(
+      ...revealHandles(cfg, axis, container, hidden, items, placedItems, starts, end),
+    );
     // Children hold their constraints and the row grows past the container
     // rather than crushing them; say so instead of leaving it to be noticed.
     const consumed =

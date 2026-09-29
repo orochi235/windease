@@ -113,9 +113,18 @@
   color: #475569;
 }
 
+/* Pinned, so the picker and Reset stay in reach over a preset taller than the window. */
 .preset-picker {
-  display: block;
-  margin-bottom: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+  margin-bottom: 4px;
+  background: #fff;
   font:
     13px / 1.5 system-ui,
     -apple-system,

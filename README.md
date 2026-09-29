@@ -1888,6 +1888,34 @@ A host driving seams itself calls `captureSeam(store, affordance)` when the
 gesture begins and passes the result to `commitJoin` as its fourth argument.
 Without it, the pane is hidden at the size the drag left it.
 
+#### Dragging a hidden pane back
+
+Under `overshoot: 'hide'`, every hidden child of the strip leaves a handle in
+the row, `reveal-x-<id>` or `reveal-y-<id>`, over the place the pane would
+open. Dragging it 24px the way the pane opens arms it, and releasing there
+shows the pane at the size it was hidden with. `joinThreshold` sets the
+distance. `Escape` cancels, and so does dragging back inside the threshold.
+
+The handle is a button named "show" and the pane's name. Enter or Space shows
+the pane outright; a pointer click does nothing. While armed it carries
+`data-reveal-armed`, which `styles.css` thickens the way it thickens an armed
+seam, and a polite live region says the pane "will show".
+
+A handle sits just past the seam before its slot, so that seam can still be
+grabbed. A pane hidden at the end of a row that fills its container has no
+room to open into, so its handle sits inside the end and opens backward.
+
+The handle appears for any hidden child, whatever hid it. A pane the host
+hides with a declared `hidden` prop is shown by the drag and hidden again by
+the next render, so leave `overshoot: 'hide'` off a strip whose hidden panes
+are not the user's to bring back.
+
+Without React, a strategy receives the hidden children as `hidden` beside
+`items`, each with the count of visible items `before` it, and
+`runStrategyForContainer` fills that in. `trackReveal` is the decision, fed
+`affordance.reveal`, this move's delta and the travel it returned last time;
+`commitReveal(store, affordance)` carries out the release.
+
 ### Grid seams
 
 `gridStrategy` takes `resizable: true` and emits the same affordances, except

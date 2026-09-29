@@ -139,11 +139,15 @@ export {
 export {
   captureSeam,
   commitJoin,
+  commitReveal,
   DEFAULT_JOIN_THRESHOLD,
   type JoinState,
+  type RevealState,
   type SeamCapture,
   type TrackJoinInput,
+  type TrackRevealInput,
   trackJoin,
+  trackReveal,
 } from './layout/seam-join.js';
 export { shelfStrategy } from './layout/shelf.js';
 export { skylineStrategy } from './layout/skyline.js';
@@ -183,8 +187,10 @@ export {
 export type {
   Affordance,
   AffordanceJoin,
+  AffordanceReveal,
   BuiltinAffordanceKind,
   FloatHook,
+  HiddenItem,
   ItemId,
   LayoutEvent,
   LayoutItem,

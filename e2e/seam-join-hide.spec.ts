@@ -53,6 +53,28 @@ test.describe("seam join overshoot: 'hide'", () => {
     expect(await width(page, 'editor')).toBe(388);
   });
 
+  test('dragging the handle it leaves behind brings the pane back at that width', async ({
+    page,
+  }) => {
+    await openStory(page, STORY);
+    await pushSidebarShut(page, 40);
+    await page.mouse.up();
+    await expect(hidden(page)).toHaveText('hide-sidebar');
+
+    const handle = page.locator('[data-affordance-hit="reveal-x-hide-sidebar"]');
+    const from = centerOf(await settledBox(handle));
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 40, from.y, { steps: 8 });
+    await expect(handle).toHaveAttribute('data-reveal-armed', 'true');
+    await expect(page.locator('[data-reveal-live]')).toContainText('Sidebar will show');
+    await page.mouse.up();
+
+    await expect(hidden(page)).toHaveText('(nothing)');
+    await expect.poll(() => width(page, 'sidebar')).toBe(200);
+    await expect.poll(() => width(page, 'editor')).toBe(388);
+  });
+
   test('Escape while armed hides nothing', async ({ page }) => {
     await openStory(page, STORY);
     await pushSidebarShut(page, 40);

@@ -171,6 +171,30 @@ export interface AffordanceJoin {
 }
 
 /**
+ * The hidden node a handle brings back. A strategy emits one over the slot a
+ * hidden child would take; dragging it the way the pane opens arms the gesture,
+ * and releasing there shows the pane. The host reads it through `trackReveal`.
+ */
+export interface AffordanceReveal {
+  id: NodeId | string;
+  /** Main-axis pixels of travel before the gesture arms. */
+  threshold: number;
+  /** Which way the pane opens: 1 toward the end of the main axis, -1 toward
+   *  its start. Travel the other way counts for nothing. */
+  direction: 1 | -1;
+}
+
+/**
+ * A hidden child of the container being laid out. Hidden children are never
+ * among `items`; a strategy reads this list only to offer a way back to them.
+ */
+export interface HiddenItem {
+  id: string;
+  /** How many of `items` precede it in the container's child order. */
+  before: number;
+}
+
+/**
  * Where a sticky placement sticks: its inset from the visible leading edge, per
  * axis, once scrolling would carry it past. See `LayoutResult.sticky`.
  */
@@ -262,6 +286,8 @@ export interface Affordance<TMeta = unknown> {
    * it through `trackJoin`; absent means the seam only ever resizes.
    */
   join?: AffordanceJoin;
+  /** Present on a handle that shows a hidden node rather than resizing one. */
+  reveal?: AffordanceReveal;
 }
 
 /**
@@ -456,6 +482,9 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
      * pointer rate.
      */
     pointer?: { x: number; y: number };
+    /** The container's hidden children, in child order; absent when it has
+     *  none. A strategy that ignores it lays out exactly as before. */
+    hidden?: HiddenItem[];
   }): LayoutResult<TId, TMeta>;
   reduce?(
     state: TState,

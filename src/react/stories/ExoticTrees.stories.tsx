@@ -122,11 +122,11 @@ export const GoldenLayout: Story = () => <Tree preset={GOLDEN_PRESET} />;
 
 /** Every tree preset, from i3 and Golden Layout to Emacs side windows and the trading desk. */
 export const Presets: Story = () => {
-  const [preset, pick] = usePresetPick(PRESETS);
+  const [preset, pick, run] = usePresetPick(PRESETS);
   return (
     <>
-      <PresetPicker presets={PRESETS} value={preset} onChange={pick} />
-      <Tree key={preset.id} preset={preset} />
+      <PresetPicker presets={PRESETS} value={preset} onChange={pick} onReset={run.reset} />
+      <Tree key={run.key} preset={preset} />
     </>
   );
 };

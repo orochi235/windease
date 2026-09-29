@@ -39,7 +39,7 @@ const chrome: ChromeMap = {
   ),
 };
 
-/** Panes a seam hid under `overshoot: 'hide'`, each with the toggle a View menu gives it. */
+/** Panes a seam hid under `overshoot: 'hide'`. The handle each one leaves in the row shows it again. */
 function Hidden({ preset }: { preset: Preset }) {
   const store = useStore();
   const ids = useMemo(() => presetNodes(preset).map(({ node }) => asNodeId(node.id)), [preset]);
@@ -47,21 +47,32 @@ function Hidden({ preset }: { preset: Preset }) {
     (cb) => store.subscribe(cb),
     () => ids.filter((id) => store.getNode(id)?.lifecycle.state === 'hidden').join(' '),
   );
-  const hidden = key === '' ? [] : key.split(' ').map((id) => store.getNode(asNodeId(id))!);
   return (
     <p className="xs-hidden">
       Hidden: <output data-testid="xs-hidden">{key || '(nothing)'}</output>
-      {hidden.map((n) => (
-        <button
-          key={n.id}
-          type="button"
-          data-testid={`xs-show-${n.id}`}
-          onClick={() => store.showNode(n.id)}
-        >
-          Show {titleOf(n)}
-        </button>
-      ))}
     </p>
+  );
+}
+
+function PresetView({ preset }: { preset: Preset }) {
+  const store = useMemo(() => presetToStore(preset), [preset]);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  return (
+    <Provider store={store}>
+      <PresetStyle preset={preset} />
+      <div ref={frameRef} className={`xs-frame ${presetClass(preset)}`} data-testid="xs-frame">
+        <Container
+          parentId={asNodeId(preset.mechanics.id)}
+          chrome={chrome}
+          viewport={preset.viewport}
+          scrollRef={frameRef}
+          affordances
+          className="windease-zone xs-zone"
+        />
+      </div>
+      <Hidden preset={preset} />
+      <PresetCode preset={preset} />
+    </Provider>
   );
 }
 
@@ -72,29 +83,13 @@ interface Args {
 /** Each pick is one real-software layout from `strip-scenarios.ts`, built into
  *  a store and rendered with draggable seams. */
 export const Presets: Story<Args> = ({ preset: presetId }) => {
-  const [preset, pick] = usePresetPick(PRESETS, presetId);
-  const store = useMemo(() => presetToStore(preset), [preset]);
-  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [preset, pick, run] = usePresetPick(PRESETS, presetId);
   return (
-    <Provider key={preset.id} store={store}>
-      <StrategyRegistryProvider strategies={STRATEGIES}>
-        <PresetPicker presets={PRESETS} value={preset} onChange={pick} />
-        <PresetInfo preset={preset} />
-        <PresetStyle preset={preset} />
-        <div ref={frameRef} className={`xs-frame ${presetClass(preset)}`} data-testid="xs-frame">
-          <Container
-            parentId={asNodeId(preset.mechanics.id)}
-            chrome={chrome}
-            viewport={preset.viewport}
-            scrollRef={frameRef}
-            affordances
-            className="windease-zone xs-zone"
-          />
-        </div>
-        <Hidden preset={preset} />
-        <PresetCode preset={preset} />
-      </StrategyRegistryProvider>
-    </Provider>
+    <StrategyRegistryProvider strategies={STRATEGIES}>
+      <PresetPicker presets={PRESETS} value={preset} onChange={pick} onReset={run.reset} />
+      <PresetInfo preset={preset} />
+      <PresetView key={run.key} preset={preset} />
+    </StrategyRegistryProvider>
   );
 };
 
