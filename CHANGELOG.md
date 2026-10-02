@@ -6,12 +6,12 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
-## Unreleased
+## 2.1.0
 
 ### Added
 
 - **`repelStrategy`: items placed where they ask, kept apart.** Each item's
-  `meta.x` / `meta.y` is the spot it wants. Items place in order, later ones
+  placement `x` / `y` is the spot it wants. Items place in order, later ones
   nearer; one that would overlap a placed item moves to the nearest free spot
   `gap` off the placed items' edges, and stays put and overlaps when none is
   within `drift`. Deterministic: the same items always give the same rects.
@@ -24,9 +24,8 @@ section below.
   child of such a strip leaves a handle over the place it would open,
   `reveal-x-<id>` or `reveal-y-<id>`. Dragging it past `joinThreshold` the way
   the pane opens and releasing shows the pane at the size it was hidden with;
-  Enter or Space on the handle does the same. This changes what an existing
-  `overshoot: 'hide'` strip draws: a hidden child now has a handle, whatever
-  hid it. `Affordance` gains `reveal`, a strategy's `layout` input gains
+  Enter or Space on the handle does the same. A hidden child has a handle
+  whatever hid it. `Affordance` gains `reveal`, a strategy's `layout` input gains
   `hidden`, and `trackReveal` and `commitReveal` drive the gesture for hosts
   without React. See
   [Dragging a hidden pane back](README.md#dragging-a-hidden-pane-back).
@@ -106,26 +105,6 @@ section below.
   otherwise win against. Note that a frame cannot both scroll on one axis and
   spill on the other: CSS resolves an `overflow-y: visible` beside an
   `overflow-x: auto` to `auto` on both.
-
-### Fixed
-
-- **Tiles no longer trail a resize.** `Container`'s settle animation eased every
-  child toward its new rect whenever the viewport changed, so while a window
-  edge was dragged the tiles chased a moving target and visibly lagged behind
-  it. A render whose viewport differs from the last one now places children
-  without the transition; rearranges at a steady size still animate. A
-  rearrange that lands in the same render as a resize is not animated.
-
-- **A fitted container no longer grows its box to the overflow extent.** `fit`
-  scales the designed viewport into the frame it measures, so sizing the box to
-  `viewport + overflow` as well moved what the scale was computed against: the
-  content resized whenever a child left the box, which with a deforming pass is
-  every time one is turned. Fitting and scrolling are alternatives, and `fit`
-  now wins where both are asked for.
-
-## 2.1.0
-
-### Added
 
 - **`gridStrategy` takes `orientation: 'fit'`, which reads the container.**
   `wide` and `tall` auto-balance on the item count alone — `ceil(sqrt(n))` and
@@ -485,6 +464,20 @@ section below.
   A secondary-button press no longer starts a drag.
 
 ### Fixed
+
+- **Tiles no longer trail a resize.** `Container`'s settle animation eased every
+  child toward its new rect whenever the viewport changed, so while a window
+  edge was dragged the tiles chased a moving target and visibly lagged behind
+  it. A render whose viewport differs from the last one now places children
+  without the transition; rearranges at a steady size still animate. A
+  rearrange that lands in the same render as a resize is not animated.
+
+- **A fitted container no longer grows its box to the overflow extent.** `fit`
+  scales the designed viewport into the frame it measures, so sizing the box to
+  `viewport + overflow` as well moved what the scale was computed against: the
+  content resized whenever a child left the box, which with a deforming pass is
+  every time one is turned. Fitting and scrolling are alternatives, and `fit`
+  now wins where both are asked for.
 
 - **A floating item draws over the tiles under it.** `floatingStrategy` gave
   its floating items `z` 0, the same as the panes the inner strategy tiled, so
