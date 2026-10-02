@@ -75,8 +75,9 @@ describe('repelStrategy', () => {
   });
 
   it('does not let rounding turn a spot gap away into an overlap', () => {
-    const r = run([at('a', 0, 0), at('b', 100.1, 0)], { gap: 0.1 });
-    expect(r.placements.get('b')).toMatchObject({ x: 100.1, y: 0 });
+    const r = run([at('a', 0.1, 0), at('b', -100.1, 0, 100.1, 50)], { gap: 0.2 });
+    expect(r.placements.get('b')?.x).toBeCloseTo(-100.2);
+    expect(r.placements.get('b')?.y).toBe(0);
   });
 
   it('gives an unplaced item no z, so later items stay nearer in order', () => {

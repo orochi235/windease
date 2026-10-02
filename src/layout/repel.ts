@@ -4,10 +4,11 @@ import { itemSize, itemWant } from './item-place.js';
 
 /** `container.config` keys {@link repelStrategy} reads. */
 export interface RepelConfig {
-  /** The space kept between two items. Default {@link DEFAULT_REPEL_GAP}; a negative or non-finite value reads as the default. */
+  /** The space kept between two items. Default {@link DEFAULT_REPEL_GAP}; a negative or
+   *  non-finite value reads as the default. */
   gap?: number;
   /** The furthest an item is moved from where it wants to be, in a straight line. Past it, it
-   *  stays and overlaps. Default unbounded; a negative value reads as unbounded. */
+   *  stays and overlaps. Default unbounded; a negative or NaN value reads as unbounded. */
   drift?: number;
 }
 
