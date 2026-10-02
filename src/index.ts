@@ -139,6 +139,7 @@ export {
   type PageState,
   pageStrategy,
 } from './layout/page.js';
+export { DEFAULT_REPEL_GAP, type RepelConfig, repelStrategy } from './layout/repel.js';
 export {
   captureSeam,
   commitJoin,
