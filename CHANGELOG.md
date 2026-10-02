@@ -10,6 +10,14 @@ section below.
 
 ### Added
 
+- **`repelStrategy`: items placed where they ask, kept apart.** Each item's
+  `meta.x` / `meta.y` is the spot it wants. Items place in order, later ones
+  nearer; one that would overlap a placed item moves to the nearest free spot
+  `gap` off the placed items' edges, and stays put and overlaps when none is
+  within `drift`. Deterministic: the same items always give the same rects.
+- **`anchorOrigin`: `cornerOrigin` with a `center` anchor.** `ANCHORS` and
+  `Anchor` name the five; the corners behave exactly as `cornerOrigin`.
+
 - **A pane hidden by `overshoot: 'hide'` can be dragged back.** Every hidden
   child of such a strip leaves a handle over the place it would open,
   `reveal-x-<id>` or `reveal-y-<id>`. Dragging it past `joinThreshold` the way
