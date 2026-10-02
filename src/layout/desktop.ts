@@ -11,6 +11,7 @@ import type {
 import { asNodeId } from '../node.js';
 import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
+import { itemSize, itemWant } from './item-place.js';
 import { onTopLayer } from './layer.js';
 
 /** The values `container.config.minimize` accepts. */
@@ -338,14 +339,6 @@ function layers(
   return out;
 }
 
-function windowSize(item: LayoutItem): Size | null {
-  const w = item.placement?.size?.w ?? item.natural?.w ?? item.hints?.preferredSize?.w;
-  const h = item.placement?.size?.h ?? item.natural?.h ?? item.hints?.preferredSize?.h;
-  const usable = (n: number | undefined): n is number =>
-    typeof n === 'number' && Number.isFinite(n) && n > 0;
-  return usable(w) && usable(h) ? { w, h } : null;
-}
-
 interface PlacedWindow {
   item: LayoutItem;
   rect: Rect;
@@ -366,7 +359,7 @@ function placeWindows(
   const unplaced: string[] = [];
   let slot = 0;
   for (const item of windows) {
-    const size = windowSize(item);
+    const size = itemSize(item);
     if (!size) {
       trace('layout', `desktop: ${item.id} has no size, unplaced`);
       unplaced.push(item.id);
@@ -377,10 +370,11 @@ function placeWindows(
       trace('layout', `desktop: ${item.id} minimized to an icon with no icon layer, shaded`);
     }
     const h = minimized ? shadeHeight : size.h;
-    const { x, y } = item.meta ?? {};
+    const wanted = itemWant(item);
     let at: Point;
-    if (Number.isFinite(x) && Number.isFinite(y)) at = { x: x as number, y: y as number };
+    if (wanted) at = wanted;
     else {
+      const { x, y } = item.meta ?? {};
       const bad = (n: unknown) => typeof n === 'number' && !Number.isFinite(n);
       if (bad(x) || bad(y)) {
         trace('layout', `desktop: ${item.id} at non-finite (${x}, ${y}), cascaded`);
@@ -634,7 +628,7 @@ export function desktopStrategy<TInner>(
       let next = { x: affordance.rect.x + dx, y: affordance.rect.y + dy };
       const cfg = ctx.options as DesktopConfig;
       const item = ctx.items.find((i) => i.id === id);
-      const size = item && windowSize(item);
+      const size = item && itemSize(item);
       if (cfg.clamp && size) {
         const h =
           item.meta?.minimized === true ? (cfg.shadeHeight ?? DEFAULT_SHADE_HEIGHT) : size.h;
