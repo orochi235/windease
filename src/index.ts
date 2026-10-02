@@ -114,6 +114,9 @@ export {
   desktopStrategy,
 } from './layout/desktop.js';
 export {
+  ANCHORS,
+  type Anchor,
+  anchorOrigin,
   type Corner,
   DEFAULT_ANCHOR,
   DEFAULT_INSET,

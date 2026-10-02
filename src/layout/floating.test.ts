@@ -5,6 +5,7 @@ import type { LayoutItem, Rect } from '../layout-types.js';
 import { asNodeId } from '../node.js';
 import { Store } from '../store.js';
 import {
+  anchorOrigin,
   containerTarget,
   cornerOrigin,
   eligibleCorners,
@@ -388,5 +389,22 @@ describe('floatingStrategy layer', () => {
     const s = floatingStrategy();
     const r = s.layout({ items, container, state: s.initialState(items, {}), options: {} });
     expect(r.placements.get('palette')?.z).toBeGreaterThan(r.placements.get('legend')?.z ?? 0);
+  });
+});
+
+describe('anchorOrigin', () => {
+  it('is cornerOrigin at every corner', () => {
+    for (const c of FLOATING_CORNERS) {
+      expect(anchorOrigin(c, size, whole.rect, 12)).toEqual(cornerOrigin(c, size, whole.rect, 12));
+    }
+  });
+
+  it('centers on the target and ignores the inset', () => {
+    expect(anchorOrigin('center', size, whole.rect, 12)).toEqual({ x: 150, y: 110 });
+  });
+
+  it('centers on a target away from the origin', () => {
+    const within = { x: 50, y: 20, z: 0, w: 200, h: 100 };
+    expect(anchorOrigin('center', size, within, 0)).toEqual({ x: 100, y: 30 });
   });
 });

@@ -51,6 +51,17 @@ export function cornerOrigin(corner: Corner, size: Size, within: Rect, inset: nu
   };
 }
 
+/** What a block can be anchored to: a corner, or the middle of its target. */
+export const ANCHORS = [...FLOATING_CORNERS, 'center'] as const;
+/** One of {@link ANCHORS}. */
+export type Anchor = (typeof ANCHORS)[number];
+
+/** {@link cornerOrigin}, with `center` as well: centered on `within`, where the inset means nothing. */
+export function anchorOrigin(anchor: Anchor, size: Size, within: Rect, inset: number): Point {
+  if (anchor !== 'center') return cornerOrigin(anchor, size, within, inset);
+  return { x: within.x + (within.w - size.w) / 2, y: within.y + (within.h - size.h) / 2 };
+}
+
 /**
  * Nearest eligible corner of any target whose resting origin is within
  * `threshold` of `at` on BOTH axes, or null. Per-axis rather than by radius:
