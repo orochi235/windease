@@ -46,7 +46,8 @@ See [`docs/concepts.md`](docs/concepts.md) for the canonical vocabulary
   `stackStrategy` (one child visible, you draw the tab strip),
   `floatingStrategy(inner?)`, which wraps another strategy so items marked
   `floating` sit free over what it tiles, `desktopStrategy(inner?)` for
-  overlapping, stacked, minimizable windows over an icon layer, three packers — `shelfStrategy`,
+  overlapping, stacked, minimizable windows over an icon layer, `repelStrategy` for items
+  that ask for a spot and are pushed apart when they collide, three packers — `shelfStrategy`,
   `columnStrategy`, `skylineStrategy` — for boxes of fixed, varied sizes, `justifiedStrategy`
   for photo-gallery rows that keep each item's aspect, and `pageStrategy(inner)`, which shows
   one page of children at a time: virtual desktops, or pagination. Strategies work unchanged on
@@ -1577,6 +1578,32 @@ left or top edge, and a shaded window has no edges. A window's own
 reported as `overflow.left`, so a scrolling wrapper can reach it (see
 [When panes don't fit](#when-panes-dont-fit) for how the box makes room). `'clip'` reports nothing and
 leaves clipping to the host's CSS.
+
+## Repelled windows
+
+`repelStrategy` places each item at the placement `x` / `y` it asks for, in child
+order. An item that would come within `gap` of one already placed moves to the
+nearest spot that keeps `gap` from all of them; with none within `drift`, it stays
+where it asked and overlaps. The same items always land in the same places, so a
+host that lays out on every change sees nothing jitter. The container is not
+consulted: a pushed item can land outside it.
+
+```ts
+import { anchorOrigin, repelStrategy } from 'windease';
+
+const strategies = { repel: repelStrategy };
+store.updateContainerConfig(zoneId, { gap: 8, drift: 120 });
+
+// Ask for the middle of a 480×360 area; a second one asking the same is pushed clear.
+const at = anchorOrigin('center', { w: 120, h: 72 }, { x: 0, y: 0, z: 0, w: 480, h: 360 }, 12);
+store.patchPlacement(toastId, { x: at.x, y: at.y });
+```
+
+`anchorOrigin(anchor, size, within, inset)` is where a block of `size` rests at one
+of `ANCHORS` — the four corners, `inset` px in, or `center`, where the inset is
+ignored. The corners match `cornerOrigin`. Size comes from `placement.size`, else
+`natural`, else `hints.preferredSize`, as on the desktop; an item missing a size or
+a position is unplaced.
 
 ## Pages
 

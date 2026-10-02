@@ -10,7 +10,7 @@ export function itemSize(item: LayoutItem): Size | null {
   return usable(w) && usable(h) ? { w, h } : null;
 }
 
-/** The spot an item asks for in `meta.x` / `meta.y`. Null unless both are finite numbers. */
+/** The spot an item asks for in its placement `x` / `y`. Null unless both are finite numbers. */
 export function itemWant(item: LayoutItem): { x: number; y: number } | null {
   const { x, y } = item.meta ?? {};
   return Number.isFinite(x) && Number.isFinite(y) ? { x: x as number, y: y as number } : null;

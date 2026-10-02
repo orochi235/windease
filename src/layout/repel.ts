@@ -49,12 +49,12 @@ function driftOf(options: Record<string, unknown>): number {
 }
 
 /**
- * Places each item where its `meta.x` / `meta.y` asks, in item order, later ones nearer. An item
- * that would come within `gap` of one already placed moves to the nearest spot that keeps `gap`
- * from every placed item, choosing among the spots `gap` off the placed items' edges. Nearest is
- * by straight-line distance. A tie goes to the first spot tried: rows in turn, the wanted row, then
- * each placed item's rows in placement order, above before below; within a row, columns the same
- * way, left before right. With no such spot within `drift` it keeps the spot it asked for and
+ * Places each item at the `x` / `y` its placement asks for, in item order, later ones nearer. An
+ * item that would come within `gap` of one already placed moves to the nearest spot that keeps
+ * `gap` from every placed item, choosing among the spots `gap` off the placed items' edges. Nearest
+ * is by straight-line distance. A tie goes to the first spot tried: rows in turn, the wanted row,
+ * then each placed item's rows in placement order, above before below; within a row, columns the
+ * same way, left before right. With no such spot within `drift` it keeps the spot it asked for and
  * draws above.
  *
  * The container is not consulted: a moved item can land outside it, and the host decides what
