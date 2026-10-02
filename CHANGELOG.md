@@ -15,6 +15,8 @@ section below.
   nearer; one that would overlap a placed item moves to the nearest free spot
   `gap` off the placed items' edges, and stays put and overlaps when none is
   within `drift`. Deterministic: the same items always give the same rects.
+  The container is not consulted; the host decides what bounds apply.
+
 - **`anchorOrigin`: `cornerOrigin` with a `center` anchor.** `ANCHORS` and
   `Anchor` name the five; the corners behave exactly as `cornerOrigin`.
 
