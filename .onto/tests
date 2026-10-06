@@ -1,4 +1,4 @@
-enlist: 2
+enlist: 3
 # Both suites in one pass: vitest over the library and the pack lab, then
 # Playwright driving Ladle. onto runs one command per repository, so they are
 # one script here rather than two entries.
