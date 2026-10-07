@@ -90,11 +90,17 @@ function readInitialConfig(): void {
   // Read `process` off globalThis rather than as a bare global: this is a
   // browser-targeted lib (`lib` is DOM-only, no @types/node), and depending on
   // @types/node here would make every Node API typecheck across all of src/.
-  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  const proc = (
+    globalThis as {
+      process?: { env?: Record<string, string | undefined>; versions?: { node?: string } };
+    }
+  ).process;
   if (proc?.env) {
     raw = proc.env.WINDEASE_TRACE;
   }
-  if (!raw && typeof globalThis !== 'undefined') {
+  // Node 25+ defines `localStorage` and warns on every thread that reads it without
+  // `--localstorage-file`; under Node the env var is the switch.
+  if (!raw && !proc?.versions?.node && typeof globalThis !== 'undefined') {
     const g = globalThis as { localStorage?: Storage; WINDEASE_TRACE?: string };
     if (typeof g.WINDEASE_TRACE === 'string') {
       raw = g.WINDEASE_TRACE;

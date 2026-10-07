@@ -6,6 +6,15 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
+## Unreleased
+
+### Fixed
+
+- **No `localStorage` warning under Node.** Loading windease no longer reads
+  `localStorage` when `process.versions.node` is set, so Node 25+ stops printing
+  its "localStorage is not available" warning on every thread that imports it.
+  Under Node, `WINDEASE_TRACE` is the only switch.
+
 ## 2.1.0
 
 ### Added
