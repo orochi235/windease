@@ -2042,7 +2042,10 @@ following the pointer.
 The drag stops at both roots' `hints.minSize` and `hints.maxSize`, and the seam
 is the same `role="separator"` a strip's is, with the same arrow, Home and End
 keys. The size is stored as `hints.size` on the root, per axis, so a snapshot
-carries it. Set it yourself, with `store.setHints`, to open at a saved size.
+carries it. Set it yourself, with `store.setHints`, to open at a saved size —
+not through a `<Zone hints>` prop, which is re-applied on every render and
+would undo the next drag. The prop's other keys, `minSize` and `maxSize`, are
+safe to declare there.
 When the window shrinks, a stored size is held to the room there is without
 being rewritten, so it comes back when the room does.
 

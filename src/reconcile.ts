@@ -61,8 +61,9 @@ export function reconcilePinned(store: Store, id: NodeId, pinned: number | boole
   else store.setPinned(id, pinned === true ? undefined : pinned);
 }
 
-/** Reconcile declared layout hints. Forces: nothing but the binding writes
- *  hints, so there is no gesture to clobber. */
+/** Reconcile declared layout hints. Forces, as a merge-patch: a key the prop
+ *  does not name is left alone, which is what keeps the `size` a workspace seam
+ *  wrote. A declared `size` is re-asserted on every render and reverts a drag. */
 export function reconcileHints(store: Store, id: NodeId, hints: NodeHints): void {
   store.setHints(id, hints as Record<string, unknown>);
 }

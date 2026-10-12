@@ -2,6 +2,7 @@ import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asNodeId, createNode, type NodeId, Store, type WorkspaceSeam } from '../index.js';
 import { Provider } from './Provider.js';
+import { Zone } from './presets.js';
 import { Workspace, WorkspaceRoot } from './Workspace.js';
 
 const SIDE = asNodeId('side');
@@ -153,6 +154,35 @@ describe('<Workspace>', () => {
     press('Enter');
     expect(store.getNode(SIDE)?.lifecycle.state).toBe('hidden');
     expect(store.getNode(SIDE)?.hints?.size).toBeUndefined();
+  });
+
+  it('keeps a dragged size when a root zone re-declares its other hints', () => {
+    const store = new Store();
+    stubRects();
+    const tree = (
+      <Provider store={store}>
+        <Workspace seams={SEAMS}>
+          <WorkspaceRoot id={SIDE}>
+            <Zone id={SIDE} strategyId="strip" hints={{ minSize: { w: 120, h: 0 } }} />
+          </WorkspaceRoot>
+          <WorkspaceRoot id={MAIN}>
+            <Zone id={MAIN} strategyId="strip" />
+          </WorkspaceRoot>
+        </Workspace>
+      </Provider>
+    );
+    const { container, rerender } = render(tree);
+    act(() => store.flushNow());
+    act(() => {
+      fireEvent.keyDown(container.querySelector<HTMLElement>('[role="separator"]')!, {
+        key: 'ArrowRight',
+      });
+      store.flushNow();
+    });
+    expect(store.getNode(SIDE)?.hints?.size).toEqual({ w: 208 });
+    rerender(tree);
+    act(() => store.flushNow());
+    expect(store.getNode(SIDE)?.hints).toEqual({ minSize: { w: 120, h: 0 }, size: { w: 208 } });
   });
 
   it('lays a zoomed root over the rest and draws no seams', () => {
