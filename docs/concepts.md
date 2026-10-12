@@ -622,11 +622,10 @@ without a control, a drag is reverted on the next one.
 `placement`. A pane whose `hints.sizing` asks to be measured is wrapped in a
 measurement box by whichever of `<Container>` / `<Zone>` / `<Panel>` renders
 it, against the *parent's* layout scope — a nested container measures against
-what sizes it, not against itself. `<Zone>` accepts `lock` but not `pinned` at all — even with a
-`parentId`, where `store.setPinned` would work fine — a leftover from when a
-zone could never have a parent; see `TODO.md`. The generic `placement` prop
-throws if given a `pinned` key on either preset; use the dedicated prop, or
-`store.setPinned` directly on a parented zone.
+what sizes it, not against itself. `<Zone>` accepts `lock` and `pinned` too;
+`pinned` holds a slot for a zone with a parent and does nothing on a root. The
+generic `placement` prop throws if given a `pinned` key on either preset; use
+the dedicated prop.
 
 ## Workspace
 
