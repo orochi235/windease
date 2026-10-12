@@ -370,7 +370,7 @@ Rescued from the `exotic-layout-fixtures` handoff when that worktree was
 removed; the branch itself is merged. The build status of the preset schema
 lives in the phase table of
 [`docs/superpowers/specs/2026-09-18-declarative-presets-design.md`](docs/superpowers/specs/2026-09-18-declarative-presets-design.md),
-which the merges below have outrun — read it before trusting it.
+checked against the code on 2026-10-12.
 
 Decided in conversation and recorded nowhere else:
 
@@ -387,9 +387,11 @@ Decided in conversation and recorded nowhere else:
   needs grid `sticky`.
 
 Unbuilt, named by the design doc: grid `sticky`; `share` taking an axis
-(`{ w?, h? }`, like `size`); a grid drop-to-cell hook; the Firefox, Chrome and
-Win 10 presets adopting `reorder`, which is built and merged with no preset
-using it.
+(`{ w?, h? }`, like `size`); a grid drop-to-cell hook; `allowsPinning` and
+`autoUnsplit` on a preset node; composite config nested under `inner`. Built
+with no preset using it: `reorder` (the Firefox, Chrome and Win 10 presets
+were to adopt it), `zoom`, `drop`, pages, stack `tabs: 'stacked'` and floating
+`snap: 'fill'`.
 
 Open, grouped by what they touch:
 
