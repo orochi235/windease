@@ -9,7 +9,7 @@ import { type LockSet, resolveLock } from './lock.js';
 import { createFocusMachine } from './machines/focus.js';
 import { createLifecycleMachine } from './machines/lifecycle.js';
 import { createTransitMachine } from './machines/transit.js';
-import { asNodeId, type Node, type NodeId, type NodeKind } from './node.js';
+import { asNodeId, type Node, type NodeHints, type NodeId, type NodeKind } from './node.js';
 import { type MutateOptions, Store } from './store.js';
 import { trace } from './trace.js';
 
@@ -24,11 +24,7 @@ export interface SerializedNode {
   kind?: NodeKind;
   meta?: Record<string, unknown>;
   activity?: Record<string, unknown>;
-  hints?: {
-    minSize?: { w: number; h: number };
-    preferredSize?: { w: number; h: number };
-    order?: number;
-  };
+  hints?: NodeHints;
   /** See `Node.order`. */
   order?: number;
   lifecycle: 'mounted' | 'visible' | 'hidden';

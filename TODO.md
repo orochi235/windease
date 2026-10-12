@@ -435,5 +435,4 @@ Open, grouped by what they touch:
   Flickr's ±25% floor is unexpressible; stb's secondary sort (widest among equal
   heights) is unexpressible.
 - **elsewhere** — a viewport vs border-box zone makes rows 2px wider than a
-  bordered zone; is that a library fix? `SerializedNode.hints` lacks `aspect`,
-  `maxSize` and `sizing`.
+  bordered zone; is that a library fix?

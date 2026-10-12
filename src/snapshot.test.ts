@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createNode } from './constructors.js';
 import { WindeaseError } from './errors.js';
-import { asNodeId } from './node.js';
+import { asNodeId, type NodeHints } from './node.js';
 import { deserialize, type SerializedStore, serialize } from './snapshot.js';
 import { Store } from './store.js';
 
@@ -373,6 +373,32 @@ describe('snapshot — placement.size and hints.maxSize', () => {
     const snap = serialize(store);
     const restored = deserialize(snap);
     expect(restored.getNode(asNodeId('a'))?.hints?.maxSize).toEqual({ w: 400, h: 400 });
+  });
+
+  it('round-trips every hint through JSON, and types them on SerializedNode', () => {
+    const hints: NodeHints = {
+      minSize: { w: 10, h: 10 },
+      maxSize: { w: 400, h: 400 },
+      preferredSize: { w: 200, h: 100 },
+      aspect: 1.5,
+      turn: 30,
+      sizing: { w: 'content' },
+      render: 'flow',
+      order: 2,
+    };
+    const store = new Store();
+    store.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+        hints,
+      }),
+    );
+    const snap: SerializedStore = JSON.parse(JSON.stringify(serialize(store)));
+    const serialized: NodeHints | undefined = snap.nodes.find((n) => n.id === 'z')?.hints;
+    expect(serialized).toEqual(hints);
+    expect(deserialize(snap).getNode(asNodeId('z'))?.hints).toEqual(hints);
   });
 });
 

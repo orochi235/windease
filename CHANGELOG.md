@@ -10,6 +10,10 @@ section below.
 
 ### Changed
 
+- **`SerializedNode.hints` is typed as `NodeHints`.** A snapshot already carried
+  every hint; the type listed `minSize` and `preferredSize` only, so reading
+  `maxSize`, `aspect`, `turn`, `sizing` or `render` off one needed a cast.
+
 - **`new Store({ successorPolicy, navigationPolicy })`** are the names for the
   options that were `chooseSuccessor` and `resolveNavigation`, matching
   `collapsePolicy`, `acceptPolicy` and their own `SuccessorPolicy` /
