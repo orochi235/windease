@@ -41,6 +41,7 @@ import { ResizeGestureContext } from './resize-gesture.js';
 import {
   type ContainerLayout,
   collapsedStyle,
+  DEFAULT_SETTLE_MS,
   FITTED_BOX,
   fitFrameStyle,
   scrollExtentStyle,
@@ -243,8 +244,6 @@ export interface ContainerProps {
 
 const CONTAINER_BASE: CSSProperties = { position: 'relative' };
 const CHILD_BASE: CSSProperties = { position: 'absolute' };
-
-const DEFAULT_SETTLE_MS = 150;
 
 /**
  * Renders a container node's visible children at the placements produced by

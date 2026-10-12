@@ -66,6 +66,7 @@ import { ResizeGestureContext } from './resize-gesture.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
 import {
   collapsedStyle,
+  DEFAULT_SETTLE_MS,
   FITTED_BOX,
   fitFrameStyle,
   scrollExtentStyle,
@@ -141,8 +142,6 @@ interface PresentationalProps {
   children?: ReactNode;
   'data-testid'?: string;
 }
-
-const DEFAULT_SETTLE_MS = 150;
 
 /** The pane an armed seam-join would destroy, published by the preset that owns
  *  the affordance layer and read by that pane's own shell. Internal — a preset's

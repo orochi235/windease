@@ -269,6 +269,9 @@ export function collapsedStyle(rect: PlacedRect): CSSProperties | undefined {
   return rect.collapsed ? { overflow: 'hidden' } : undefined;
 }
 
+/** How long a child takes to move between placements unless `settleMs` says otherwise. */
+export const DEFAULT_SETTLE_MS = 150;
+
 /**
  * The CSS transition that animates a child between placements. A sticky child
  * animates its size only: its position tracks the scroll every frame, and an
