@@ -187,6 +187,27 @@ test.describe('vscode at its minimum width with every sidebar open', () => {
   });
 });
 
+test.describe('firefox tabs reorder by drag', () => {
+  // The preset declares `reorder: true`; the story draws a tab as a plain
+  // element with no drag handle of its own.
+  test('a tab dragged past its neighbor takes the slot after it', async ({ page }) => {
+    await openPreset(page, 'firefox-3-tabs');
+    const first = await settledBox(pane(page, 'tab-1'));
+    const second = await settledBox(pane(page, 'tab-2'));
+    expect(first.x).toBeLessThan(second.x);
+
+    const from = centerOf(first);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(second.x + second.w * 0.75, from.y, { steps: 15 });
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => (await boxOf(pane(page, 'tab-1'))).x - (await boxOf(pane(page, 'tab-2'))).x)
+      .toBeGreaterThan(0);
+  });
+});
+
 test.describe('firefox with 100 tabs', () => {
   test('the tab run overflows into a scrolling frame, and the last tab scrolls into view', async ({
     page,

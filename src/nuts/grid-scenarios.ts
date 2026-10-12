@@ -73,7 +73,7 @@ function win10Start(groupCols: 6 | 8): Halves {
     id,
     kind: 'group',
     strategy: 'grid',
-    config: { cols: groupCols, gap: WIN10_TILE_GAP, resizable: true },
+    config: { cols: groupCols, gap: WIN10_TILE_GAP, resizable: true, reorder: true },
   });
   return {
     mechanics: {

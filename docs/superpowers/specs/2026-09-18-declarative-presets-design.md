@@ -5,9 +5,9 @@ canned presets a consumer can load.
 **Status, 2026-10-12, read from the code: every key in the phase table is built except grid
 `sticky`. Also unbuilt: `placement.share` taking an axis, dropping a child onto a chosen grid cell,
 `allowsPinning` and `autoUnsplit` on a preset node, and inner config nested under `inner`. No
-preset sets `reorder`, `zoom`, `drop`, pages, stack `tabs: 'stacked'` or floating `snap: 'fill'`
-yet, and the Exotic grid, tree and desktop stories still wrap their tiles, panes and palette tabs
-in `DragHandle`.** The phase table at the end is the record of what exists.
+preset sets `zoom`, `drop`, pages, stack `tabs: 'stacked'` or floating `snap: 'fill'` yet. The
+Firefox and Win 10 presets set `reorder`; every other grid preset, and the Exotic tree and desktop
+stories, still wrap their tiles, panes and palette tabs in `DragHandle`.** The phase table at the end is the record of what exists.
 
 An Exotic preset (`src/nuts/`) reproduces a real product's layout: Blender, Grafana,
 Launchpad, Mac OS 9, i3, 75 in all. Today a preset states the layout as data and the story around
@@ -110,7 +110,7 @@ These are config or placement keys on one strategy each.
 | Keep aspect; fluid columns | `hints.aspect`; column `cols` | hints, column | Unsplash, newspaper |
 | Justified rows | new `justified` strategy | — | Flickr, Google Photos |
 | Refuse a split below the floors | `strict: { size, minSize? }`, an option on the call, since the store holds no geometry (built) | `store.split`, `splitInto` | tmux, Emacs, Blender |
-| Children reorder by drag, declared rather than wrapped in `DragHandle` | container `reorder: true \| 'handle'` (built); `'handle'` reads a `data-windease-handle` element. No preset sets it | React layer + DragEngine | Firefox tabs, Chrome tabs, Win 10 tiles |
+| Children reorder by drag, declared rather than wrapped in `DragHandle` | container `reorder: true \| 'handle'` (built); `'handle'` reads a `data-windease-handle` element. The Firefox and Win 10 presets set it; Chrome's does not, because its tabs are a stack's band, which the story draws, rather than children of a strip | React layer + DragEngine | Firefox tabs, Chrome tabs, Win 10 tiles |
 
 ## What the schema carries beyond today's
 
@@ -133,7 +133,7 @@ These are config or placement keys on one strategy each.
 |---|---|---|
 | 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `drop` config; `placement.share`; grid `cell`, fixed cells, `justify`; child templates | built. `placement.share` is a bare number, not yet `{ w?, h? }`. Grid `cell` is read by layout only: a move or reorder clears it, and nothing drops a child onto a chosen cell. No preset sets `drop` |
 | 2 | `tear`, `zoom`, `view` (pan/zoom, desktop fit), `sticky`, `step`, `overshoot`, `layer`, `resize` | built: `view`, `fit`, `tear`, `layer` (desktop, floating), `resize` (desktop), `step`, `overshoot`, `zoom` and strip `sticky`; grid `sticky` unbuilt. No preset sets `zoom` |
-| 3 | Grid tracks, `compact`; `reorder`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | built. No preset sets `reorder`, stack `tabs: 'stacked'` or `side`, or `snap: 'fill'`; the Firefox, Chrome and Win 10 presets have not adopted `reorder` |
+| 3 | Grid tracks, `compact`; `reorder`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | built. The Firefox and Win 10 presets set `reorder`. No preset sets stack `tabs: 'stacked'` or `side`, or `snap: 'fill'` |
 | 4 | Packer `rotate`/`sort`/height bound; `hints.aspect`; `justified` strategy; product-look CSS for every preset | built: packer `rotate`, `sort`, height bound (`overflowMode: 'unplaced'`), column `cols`/`justify`, `hints.aspect`, `justified`, product-look CSS for every preset |
 
 Each key ships with its tests, a changelog entry, and the story code it replaces deleted in the

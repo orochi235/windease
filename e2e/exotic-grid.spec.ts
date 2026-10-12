@@ -17,7 +17,6 @@ const STORY = 'exotic--grid--presets';
 // at the suite's 1200×800 their lower rows sit off-screen or under Ladle's sidebar.
 test.use({ viewport: { width: 1800, height: 1300 } });
 
-const handle = (page: Page, id: string) => page.locator(`[data-windease-drag-handle="${id}"]`);
 const frame = (page: Page, id: string) => page.locator(`[data-testid="frame-${id}"]`);
 const node = (page: Page, id: string) => page.locator(`[data-node="${id}"]`);
 const seam = (page: Page, id: string) => page.locator(`[data-affordance-hit="${id}"]`);
@@ -44,7 +43,8 @@ async function dragOnto(
   zoneId: string,
   verdict: 'accept' | 'reject',
 ) {
-  const from = centerOf(await settledBox(handle(page, sourceId)));
+  // The tile's own box: a preset that declares `reorder` has no drag handle.
+  const from = centerOf(await settledBox(node(page, sourceId)));
   const over = target.node ? node(page, target.node) : frame(page, target.frame ?? zoneId);
   const to = centerOf(await settledBox(over));
   await page.mouse.move(from.x, from.y);

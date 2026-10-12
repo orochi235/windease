@@ -8,6 +8,7 @@ import { PRESETS } from '../../nuts/strip-scenarios.js';
 import {
   type ChromeMap,
   Container,
+  DragProvider,
   Provider,
   StrategyRegistryProvider,
   useStore,
@@ -60,16 +61,19 @@ function PresetView({ preset }: { preset: Preset }) {
   return (
     <Provider store={store}>
       <PresetStyle preset={preset} />
-      <div ref={frameRef} className={`xs-frame ${presetClass(preset)}`} data-testid="xs-frame">
-        <Container
-          parentId={asNodeId(preset.mechanics.id)}
-          chrome={chrome}
-          viewport={preset.viewport}
-          scrollRef={frameRef}
-          affordances
-          className="windease-zone xs-zone"
-        />
-      </div>
+      {/* Inert unless the preset's config declares `reorder`. */}
+      <DragProvider>
+        <div ref={frameRef} className={`xs-frame ${presetClass(preset)}`} data-testid="xs-frame">
+          <Container
+            parentId={asNodeId(preset.mechanics.id)}
+            chrome={chrome}
+            viewport={preset.viewport}
+            scrollRef={frameRef}
+            affordances
+            className="windease-zone xs-zone"
+          />
+        </div>
+      </DragProvider>
       <Hidden preset={preset} />
       <PresetCode preset={preset} />
     </Provider>

@@ -2,6 +2,7 @@ export default { title: 'Exotic / Grid' };
 
 import type { Story } from '@ladle/react';
 import { type ReactNode, useMemo } from 'react';
+import { readReorderConfig } from '../../container-config.js';
 import {
   asNodeId,
   gridStrategy,
@@ -59,16 +60,28 @@ function GroupFrame({ node }: { node: Node }) {
   );
 }
 
-const chrome: ChromeHandler = ({ node }) => {
-  if (node.container) return <GroupFrame node={node} />;
+/** A tile drags by a `DragHandle` unless its container declares `reorder`,
+ *  which makes the wrapper the library renders the drag source instead. */
+function Tile({ node }: { node: Node }) {
+  const parent = useNode(node.membership?.parentId ?? node.id);
   const span = spanLabel(node);
-  return (
-    <DragHandle nodeId={node.id} className={withMetaClass('xg-tile', node)}>
+  const className = withMetaClass('xg-tile', node);
+  const body = (
+    <>
       <span className="xg-tile__title">{titleOf(node)}</span>
       {span ? <span className="xg-tile__span">{span}</span> : null}
+    </>
+  );
+  if (readReorderConfig(parent?.container?.config)) return <div className={className}>{body}</div>;
+  return (
+    <DragHandle nodeId={node.id} className={className}>
+      {body}
     </DragHandle>
   );
-};
+}
+
+const chrome: ChromeHandler = ({ node }) =>
+  node.container ? <GroupFrame node={node} /> : <Tile node={node} />;
 
 /** childOrder and grid's `unplaced` for one container — what a drop changes
  *  that the canvas cannot show, since unplaced children render nowhere. */

@@ -608,7 +608,7 @@ export const PRESETS: Preset[] = [
       mechanics: {
         id: 'firefox',
         strategy: 'strip',
-        config: { axis: 'x', overflowMode: 'scroll', resizable: false },
+        config: { axis: 'x', overflowMode: 'scroll', resizable: false, reorder: true },
         item: FIREFOX_TAB,
       },
       data: {
@@ -640,7 +640,7 @@ export const PRESETS: Preset[] = [
       mechanics: {
         id: 'firefox-few',
         strategy: 'strip',
-        config: { axis: 'x', fill: true, justify: 'start', resizable: false },
+        config: { axis: 'x', fill: true, justify: 'start', resizable: false, reorder: true },
         item: FIREFOX_TAB,
       },
       data: { children: { 'firefox-few': [1, 2, 3].map(firefoxTab) } },
