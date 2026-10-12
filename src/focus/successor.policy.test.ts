@@ -10,7 +10,7 @@ function id(s: string): NodeId {
 }
 
 function row(children: string[], policy?: (ctx: SuccessorInput) => NodeId | null | undefined) {
-  const s = new Store(policy ? { chooseSuccessor: policy } : {});
+  const s = new Store(policy ? { successorPolicy: policy } : {});
   s.registerNode(
     createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('z') }),
   );
@@ -98,5 +98,33 @@ describe('successor policy', () => {
     expect(rec.of('focus.successor')).toEqual([
       { from: id('b'), to: id('c'), reason: 'destroyed' },
     ]);
+  });
+
+  it('the deprecated chooseSuccessor key still sets the policy', () => {
+    const s = new Store({ chooseSuccessor: () => null });
+    s.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('z') }),
+    );
+    for (const c of ['a', 'b']) {
+      s.registerNode(createNode({ kind: 'panel', focus: true, id: id(c), parentId: id('z') }));
+      s.showNode(id(c));
+    }
+    s.focusNode(id('a'));
+    s.unregisterNode(id('a'));
+    expect(s.focusedId).toBeNull();
+  });
+
+  it('successorPolicy wins over the deprecated key', () => {
+    const s = new Store({ successorPolicy: () => id('a'), chooseSuccessor: () => null });
+    s.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('z') }),
+    );
+    for (const c of ['a', 'b', 'c']) {
+      s.registerNode(createNode({ kind: 'panel', focus: true, id: id(c), parentId: id('z') }));
+      s.showNode(id(c));
+    }
+    s.focusNode(id('b'));
+    s.unregisterNode(id('b'));
+    expect(s.focusedId).toBe(id('a'));
   });
 });

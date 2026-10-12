@@ -130,8 +130,12 @@ export interface StoreOptions {
   throttle?: ThrottlePolicy;
   clock?: Clock;
   /** Replaces the built-in focus-successor rule. See {@link SuccessorPolicy}. */
-  chooseSuccessor?: SuccessorPolicy;
+  successorPolicy?: SuccessorPolicy;
   /** Replaces the built-in navigation resolution. See {@link NavigationPolicy}. */
+  navigationPolicy?: NavigationPolicy;
+  /** @deprecated Use `successorPolicy`, which wins when both are set. */
+  chooseSuccessor?: SuccessorPolicy;
+  /** @deprecated Use `navigationPolicy`, which wins when both are set. */
   resolveNavigation?: NavigationPolicy;
   /** Decides what an empty container collapses to. See {@link CollapsePolicy}. */
   collapsePolicy?: CollapsePolicy;

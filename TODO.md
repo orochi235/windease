@@ -124,10 +124,6 @@ Still open, waiting for a consumer to ask:
 - `collapsePolicy` is honored by `stripStrategy` only. `grid` is the next
   candidate, where an empty celled child would give its track back; nothing
   has asked for it.
-- Rename the `chooseSuccessor` / `resolveNavigation` store options to
-  `successorPolicy` / `navigationPolicy`, matching `acceptPolicy`,
-  `collapsePolicy` and their own types, with the old keys deprecated for a
-  minor. The exported built-in functions keep their names.
 - Should zones know about each other for purposes like "dock at the bottom of
   whichever zone has focus" or "promote selected window to main zone"?
 - Dynamic zone creation/teardown: brainhouse's worktree grouping might want

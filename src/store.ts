@@ -181,8 +181,8 @@ export class Store {
   readonly collapsePolicy: CollapsePolicy | undefined;
 
   constructor(options: StoreOptions = {}) {
-    this.successorPolicy = options.chooseSuccessor;
-    this.navigationPolicy = options.resolveNavigation;
+    this.successorPolicy = options.successorPolicy ?? options.chooseSuccessor;
+    this.navigationPolicy = options.navigationPolicy ?? options.resolveNavigation;
     this.collapsePolicy = options.collapsePolicy;
     this.publisher = new Publisher({
       truth: this.nodesMap,

@@ -35,8 +35,8 @@ const SEED: Array<[NodeId, string]> = [
   [asNodeId('charlie'), 'Charlie'],
 ];
 
-function makeStore(chooseSuccessor?: (ctx: SuccessorInput) => NodeId | null | undefined): Store {
-  const s = new Store(chooseSuccessor ? { chooseSuccessor } : {});
+function makeStore(successorPolicy?: (ctx: SuccessorInput) => NodeId | null | undefined): Store {
+  const s = new Store(successorPolicy ? { successorPolicy } : {});
   s.registerNode(
     createNode({
       kind: 'zone',
@@ -136,14 +136,14 @@ export const SendingFocusHome: Story = () => {
         <Provider store={builtin}>
           <GeometryProvider>
             <FocusProvider>
-              <Board label="Built-in" note="no chooseSuccessor" />
+              <Board label="Built-in" note="no successorPolicy" />
             </FocusProvider>
           </GeometryProvider>
         </Provider>
         <Provider store={custom}>
           <GeometryProvider>
             <FocusProvider>
-              <Board label="Custom" note="chooseSuccessor: Home on destroy" />
+              <Board label="Custom" note="successorPolicy: Home on destroy" />
             </FocusProvider>
           </GeometryProvider>
         </Provider>
@@ -152,7 +152,7 @@ export const SendingFocusHome: Story = () => {
         <p>
           Both boards start with focus on <code>Bravo</code>. Close it with the ✕. The built-in rule
           walks to the next visible sibling, so focus lands on <code>Charlie</code>; the custom{' '}
-          <code>chooseSuccessor</code> returns <code>Home</code> instead, which is the pattern an
+          <code>successorPolicy</code> returns <code>Home</code> instead, which is the pattern an
           editor uses when closing a tab should return you to the file tree.
         </p>
         <p>

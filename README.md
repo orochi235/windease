@@ -174,9 +174,9 @@ answers with something the library cannot use, is traced and treated as
 `undefined` — a bad policy degrades to the built-in rather than breaking the
 gesture.
 
-- [`new Store({ chooseSuccessor })`](#moving-a-pane-without-a-pointer) — who
+- [`new Store({ successorPolicy })`](#moving-a-pane-without-a-pointer) — who
   takes focus when the focused pane is destroyed or hidden.
-- [`new Store({ resolveNavigation })`](#moving-a-pane-without-a-pointer) — how
+- [`new Store({ navigationPolicy })`](#moving-a-pane-without-a-pointer) — how
   a direction or intent resolves to a pane.
 - [`<Container acceptPolicy>`](#drag-and-drop) — whether a container takes a
   drop. The same prop is on `<Zone>` and `<Panel>`.
@@ -2052,7 +2052,7 @@ it wins with must name a focusable, visible node; an id that doesn't, and a
 `navigate?` that throws, are traced and the geometric search answers instead.
 
 A consumer wanting a rule no strategy owns replaces the resolution outright with
-`new Store({ resolveNavigation })`, which is asked first — ahead of `navigate?`
+`new Store({ navigationPolicy })`, which is asked first — ahead of `navigate?`
 and the geometry — and answers the same three ways. It receives the
 `ResolveInput` bag (`store`, `from`, `intent`, `geometry`, `strategies`), and
 the id it returns must name a focusable, visible node; anything else is traced
@@ -2062,7 +2062,7 @@ gets the built-in rather than recursing.
 When the focused pane is destroyed or hidden, the store picks a successor
 rather than dropping focus to the document, and reports the choice on
 `focus.successor` with a `reason` of `destroyed` or `hidden`. `to` is null
-only when nothing focusable is left. `new Store({ chooseSuccessor })` replaces
+only when nothing focusable is left. `new Store({ successorPolicy })` replaces
 that choice: it receives `{ store, departing, reason }` and returns an id,
 `null` to focus nobody, or `undefined` for the built-in order.
 

@@ -162,7 +162,7 @@ let consultingPolicy = false;
 
 /**
  * Resolve a navigation intent to the node that should take focus, or `null`
- * when the intent is dead. Consults the store's `resolveNavigation` policy
+ * when the intent is dead. Consults the store's `navigationPolicy`
  * when one is set, then the target container's strategy, then geometry.
  *
  * A policy or a `strategy.navigate` that throws, or answers with something

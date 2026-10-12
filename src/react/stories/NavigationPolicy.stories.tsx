@@ -35,8 +35,8 @@ const SEED: Array<[NodeId, string]> = [
 
 const ORDER = SEED.map(([id]) => id);
 
-function makeStore(resolveNavigation?: (i: ResolveInput) => NodeId | null | undefined): Store {
-  const s = new Store(resolveNavigation ? { resolveNavigation } : {});
+function makeStore(navigationPolicy?: (i: ResolveInput) => NodeId | null | undefined): Store {
+  const s = new Store(navigationPolicy ? { navigationPolicy } : {});
   s.registerNode(
     createNode({
       kind: 'zone',
@@ -112,14 +112,14 @@ export const WrappingAtTheEnds: Story = () => {
         <Provider store={builtin}>
           <GeometryProvider>
             <FocusProvider>
-              <Board label="Built-in" note="no resolveNavigation" />
+              <Board label="Built-in" note="no navigationPolicy" />
             </FocusProvider>
           </GeometryProvider>
         </Provider>
         <Provider store={custom}>
           <GeometryProvider>
             <FocusProvider>
-              <Board label="Custom" note="resolveNavigation: wraps, refuses ↑↓" />
+              <Board label="Custom" note="navigationPolicy: wraps, refuses ↑↓" />
             </FocusProvider>
           </GeometryProvider>
         </Provider>
@@ -129,7 +129,7 @@ export const WrappingAtTheEnds: Story = () => {
           Tab into either board and walk across with <kbd>←</kbd> <kbd>→</kbd>. Both start on{' '}
           <code>Alpha</code>. Press <kbd>←</kbd> on the left board and nothing happens — the
           built-in resolves by geometry and there is nothing to the left. The right board's{' '}
-          <code>resolveNavigation</code> wraps to <code>Delta</code> instead.
+          <code>navigationPolicy</code> wraps to <code>Delta</code> instead.
         </p>
         <p>
           Press <kbd>↑</kbd> on the right board and nothing happens either, but for a different

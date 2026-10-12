@@ -2,7 +2,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { openStory } from './fixtures.js';
 
 /**
- * `chooseSuccessor` and `resolveNavigation` both decide where the caret goes,
+ * `successorPolicy` and `navigationPolicy` both decide where the caret goes,
  * and both are only observable once a real focus move has happened — the store
  * consults them on destroy and on a key, not on render.
  */
@@ -18,7 +18,7 @@ const board = (page: Page, which: 'builtin' | 'custom') =>
 const focused = (page: Page, which: 'builtin' | 'custom') =>
   board(page, which).locator('.pol-readout code');
 
-test.describe('chooseSuccessor', () => {
+test.describe('successorPolicy', () => {
   test('a policy claims the destroy the built-in would answer differently', async ({ page }) => {
     await openStory(page, SUCCESSOR);
     await expect(focused(page, 'builtin')).toHaveText('Bravo');
@@ -45,7 +45,7 @@ test.describe('chooseSuccessor', () => {
   });
 });
 
-test.describe('resolveNavigation', () => {
+test.describe('navigationPolicy', () => {
   test('a policy reaches where geometry finds nothing', async ({ page }) => {
     await openStory(page, NAVIGATION);
 

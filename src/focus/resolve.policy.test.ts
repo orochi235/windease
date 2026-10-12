@@ -14,7 +14,7 @@ function id(s: string): NodeId {
 
 /** Three panels in a row: a | b | c. The strategy always answers 'c'. */
 function scene(policy?: NavigationPolicy) {
-  const store = new Store(policy ? { resolveNavigation: policy } : {});
+  const store = new Store(policy ? { navigationPolicy: policy } : {});
   store.registerNode(
     createNode({ kind: 'zone', container: { strategyId: 'custom', config: {} }, id: id('z') }),
   );
@@ -39,6 +39,16 @@ function scene(policy?: NavigationPolicy) {
 }
 
 describe('resolveNavigation — consumer policy', () => {
+  it('the deprecated resolveNavigation key still sets the policy', () => {
+    const store = new Store({ resolveNavigation: () => null });
+    expect(store.navigationPolicy?.({} as never)).toBeNull();
+  });
+
+  it('navigationPolicy wins over the deprecated key', () => {
+    const store = new Store({ navigationPolicy: () => id('a'), resolveNavigation: () => null });
+    expect(store.navigationPolicy?.({} as never)).toBe(id('a'));
+  });
+
   it('pre-empts strategy.navigate', () => {
     const { store, geometry, strategies } = scene(() => id('a'));
     expect(resolveNavigation({ store, from: id('a'), intent: 'right', geometry, strategies })).toBe(

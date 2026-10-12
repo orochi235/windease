@@ -704,8 +704,8 @@ built-in. One that throws or answers unusably is traced and read as
 
 | Policy | Set on | Read by |
 | --- | --- | --- |
-| `chooseSuccessor` | `StoreOptions` | `Store.succeedFocus` |
-| `resolveNavigation` | `StoreOptions` | `resolveNavigation` |
+| `successorPolicy` | `StoreOptions` | `Store.succeedFocus` |
+| `navigationPolicy` | `StoreOptions` | `resolveNavigation` |
 | `collapsePolicy` | `StoreOptions` | `resolveCollapse` |
 | `acceptPolicy` | a drop target | `DragEngine.checkAccept` |
 

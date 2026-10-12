@@ -8,6 +8,15 @@ section below.
 
 ## Unreleased
 
+### Changed
+
+- **`new Store({ successorPolicy, navigationPolicy })`** are the names for the
+  options that were `chooseSuccessor` and `resolveNavigation`, matching
+  `collapsePolicy`, `acceptPolicy` and their own `SuccessorPolicy` /
+  `NavigationPolicy` types. The old keys are deprecated and still work; the new
+  one wins where both are set. The exported `chooseSuccessor` and
+  `resolveNavigation` functions keep their names.
+
 ### Fixed
 
 - **A full container takes a stack or split drop.** A drop that wraps one of a
