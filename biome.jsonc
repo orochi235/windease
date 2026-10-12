@@ -27,6 +27,7 @@
       "!.claude"
     ]
   },
+  "plugins": ["./scripts/expect-in-listener.grit"],
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
   "linter": {
     "enabled": true,

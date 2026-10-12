@@ -7,14 +7,6 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
 
 ## Test-harness gaps
 
-- **An `expect` inside a `store.events` handler can never fail a test.**
-  `TypedEmitter.emit` catches and logs listener throws
-  (`src/events.ts:22-25`), so a failing assertion there prints
-  `[windease] event listener threw` and the test still passes. Use
-  `recordEvents` (`src/test-utils/record-events.ts`) and assert after the
-  mutation returns. The one live instance has been fixed; nothing
-  prevents a new one, so this stays on the list as a review item.
-
 - **A geometry read outside a poll can catch a layout that is still arriving.**
   Panes render in flow until their container has measured itself, and animate
   between placements after that, so a box read the instant a story opens or a
@@ -274,9 +266,6 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
 
 ## Loose ends
 
-- Strip strategy returns zero width/height when a panel has no
-  `preferredSize` — intentional for fixed-size toolbars but worth a doc
-  comment.
 - typedoc runs from a pinned `npx` install carrying TypeScript 6.0.3
   (`docs:api`), because it needs the compiler API that TypeScript 7 dropped.
   Move it back to a devDependency once typedoc supports TS 7.

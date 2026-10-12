@@ -29,7 +29,9 @@ interface StripConfig {
   fill?: boolean;
   /**
    * Main-axis size assigned to items without preferredSize when fill=false.
-   * Defaults to 0. Ignored when fill=true.
+   * Defaults to 0, so such an item is placed with no extent: right for a
+   * toolbar whose every item states a size, and an invisible pane otherwise.
+   * Ignored when fill=true.
    */
   defaultItemSize?: number;
   /**

@@ -1,0 +1,7 @@
+language js
+
+`$emitter.on($event, $listener)` where {
+  $emitter <: r".*events$",
+  $listener <: contains `expect($value)` as $assertion,
+  register_diagnostic(span=$assertion, message="TypedEmitter.emit catches a listener's throw, so an expect in one can never fail the test. Record with recordEvents and assert after the mutation returns.", severity="error")
+}
