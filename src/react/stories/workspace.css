@@ -63,9 +63,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #94a3b8;
+  border: 1px solid var(--ws-edge);
   border-radius: 4px;
-  background: #fff;
+  background: var(--ws-tint);
   font:
     13px / 1.4 system-ui,
     sans-serif;
@@ -104,4 +104,26 @@
     13px / 1.5 system-ui,
     sans-serif;
   color: #444;
+}
+
+/* One hue per root, on the root and on whatever panels are in it now, so a
+   panel dragged across takes the color of where it landed. */
+.ws-side {
+  --ws-tint: #dbeafe;
+  --ws-edge: #2563eb;
+}
+
+.ws-main {
+  --ws-tint: #fef3c7;
+  --ws-edge: #d97706;
+}
+
+.ws-dock {
+  --ws-tint: #dcfce7;
+  --ws-edge: #16a34a;
+}
+
+.ws-shell .windease-workspace-root {
+  background: var(--ws-edge);
+  border-radius: 6px;
 }
