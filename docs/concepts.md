@@ -85,7 +85,7 @@ Two paths for free-form data on a node; lifetimes differ:
 | `node.meta`            | Intrinsic; survives `moveNode`                 | Window-intrinsic consumer data (title, URL, etc.)       |
 | `node.membership.placement`  | Per-membership, but carried across `moveNode`  | State that exists *because of this placement* — the held pin index, placement-specific UI state |
 | `node.container.config` | Container-strategy options                    | Strategy options (`cols`, `gap`, etc.)                  |
-| `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `aspect`, `turn`, `sizing`, `order` |
+| `NodeHints`            | Layout-only soft prefs                         | `minSize`, `maxSize`, `preferredSize`, `aspect`, `turn`, `sizing`, `size`, `order` |
 
 **Reserved keys on `membership.placement`:**
 
@@ -627,6 +627,28 @@ what sizes it, not against itself. `<Zone>` accepts `lock` but not `pinned` at a
 zone could never have a parent; see `TODO.md`. The generic `placement` prop
 throws if given a `pinned` key on either preset; use the dedicated prop, or
 `store.setPinned` directly on a parented zone.
+
+## Workspace
+
+A **workspace** is a set of roots the host arranges itself, plus the seams
+declared between them. It is not a node and not a container: its roots stay
+roots, `store.rootIds` is unchanged, and nothing about it is stored except the
+size a seam drag writes.
+
+That size is `hints.size: { w?, h? }` on the root. A root has no `membership`,
+so it has no `placement.size`; `hints.size` is the same statement for a node
+nobody tiles, and `arrangeWorkspace` is its only reader. No strategy honors it.
+
+`arrangeWorkspace` is pure over `{ store, roots, seams, rects, zoom }`, where
+`rects` is the host's measurement of each root. It returns, per root, a state —
+`placed`, `hidden` (the root's own lifecycle), `zoomed`, or `withheld` (shown,
+but out of view under another's zoom) — and the seams as `Affordance`s, so the
+handle, its keys and its hide and reveal gestures are the ones a strip's seam
+has. `<Workspace>` / `<WorkspaceRoot>` are the DOM adapter: they measure, and
+apply the state and size to each root's box.
+
+`zoom` is an input, not state, for the reason `view` is: it is a fact about the
+screen, and no snapshot carries it.
 
 ## View
 

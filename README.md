@@ -1978,6 +1978,100 @@ list left implicit. The seam is named "resize column 2", counted from one, and
 is refused when the container's `lock.arrange` or any child in the track's
 `lock.resize` is set. A drag stops at 8px.
 
+## Workspace: seams between separate roots
+
+Zones nested under one root already tile, with a seam between them: that is a
+strip, and everything under [Resize](#resize) applies. `<Workspace>` is for
+zones that are **separate roots**, placed by your own CSS — a sidebar in one
+flex column and the main area in another, with whatever else your page puts
+between them. Nothing in the store relates those roots, so no strategy can
+draw a seam for them.
+
+| You want | Nested under one root | Separate roots |
+| --- | --- | --- |
+| A seam between two zones | the parent strip emits it | a `seams` entry on `<Workspace>` |
+| A zone that closes | `overshoot: 'hide'` on the strip | `overshoot: 'hide'` on the seam |
+| One zone over the rest | `zoom` in the strip's config | the `zoom` prop |
+| Where a dragged size lives | `placement.size` | `hints.size` on the root |
+
+```tsx
+import { Workspace, WorkspaceRoot } from 'windease/react';
+
+<Workspace
+  className="shell"
+  seams={[
+    { before: sidebarId, after: mainId, axis: 'x', overshoot: 'hide' },
+    { before: mainId, after: dockId, axis: 'y', sizes: 'after' },
+  ]}
+  zoom={zoomedId}
+>
+  <div className="shell-top">
+    <WorkspaceRoot id={sidebarId} className="shell-sidebar">
+      <Zone id={sidebarId} strategyId="strip" />
+    </WorkspaceRoot>
+    <WorkspaceRoot id={mainId} className="shell-main">
+      <Zone id={mainId} strategyId="strip" />
+    </WorkspaceRoot>
+  </div>
+  <WorkspaceRoot id={dockId} className="shell-dock">
+    <Zone id={dockId} strategyId="strip" />
+  </WorkspaceRoot>
+</Workspace>
+```
+
+```css
+.shell { display: flex; flex-direction: column; height: 100vh; }
+.shell-top { display: flex; flex: 1 1 0; min-height: 0; }
+.shell-sidebar { flex: none; width: 240px; } /* the size it opens at */
+.shell-main { flex: 1 1 0; min-width: 0; }
+.shell-dock { flex: none; height: 160px; }
+```
+
+`<Workspace>` renders one element and arranges nothing. It measures each
+`<WorkspaceRoot>`, draws each seam in the gap between the two roots it names,
+and writes a dragged size onto the root's box as an inline `width` or `height`.
+The roots need not be its direct children.
+
+A seam sizes one root and expects the other to take what is left. `sizes` says
+which: `'before'`, the default, or `'after'` for a root on the far side of its
+seam, like a dock under the main area or a sidebar on the right. Give the sized
+root a CSS size to open at and keep it from flexing, as `.shell-sidebar` does —
+a root that flexes treats the written size as a suggestion, and the seam stops
+following the pointer.
+
+The drag stops at both roots' `hints.minSize` and `hints.maxSize`, and the seam
+is the same `role="separator"` a strip's is, with the same arrow, Home and End
+keys. The size is stored as `hints.size` on the root, per axis, so a snapshot
+carries it. Set it yourself, with `store.setHints`, to open at a saved size.
+When the window shrinks, a stored size is held to the room there is without
+being rewritten, so it comes back when the room does.
+
+`overshoot: 'hide'` works as it does on a strip: push the seam past a root's
+floor, keep pushing `joinThreshold` pixels, and release to hide that root, with
+its size put back as the drag found it. A hidden root leaves a handle on its
+neighbor's edge that drags it open again; `store.hideNode(rootId)` and
+`showNode` do the same from a button. `lock.hide` on a root keeps a seam from
+hiding it, which is what you want on the area that should be left when the
+rest close.
+
+`zoom` names one root to lay over the whole workspace. The others stay mounted
+and keep their sizes, they are only out of view, and arrow-key navigation does
+not reach into them. It is a prop rather than stored state: nothing in the
+library sets it, and a snapshot does not carry it. The zoomed root fills its
+nearest positioned ancestor, which is the workspace unless an element between
+them is positioned.
+
+Roots in a workspace are still ordinary roots. Panels drag between them, and
+under a `GeometryProvider` the arrow keys cross from one to the next, as in
+[Keyboard navigation](#keyboard-navigation).
+
+Without React, `arrangeWorkspace({ store, roots, seams, rects, zoom })` is the
+whole of it: you measure each root's box and pass the map, and it returns each
+root's state and size plus the seams as affordances in the same space.
+`dispatchWorkspaceSeam(input, event)` applies a drag, and `trackJoin`,
+`commitJoin`, `trackReveal` and `commitReveal` drive hiding and showing exactly
+as they do for a strip.
+
 ## Keyboard navigation
 
 Wrap the tree in two providers to make the layout reachable by keyboard.

@@ -7,6 +7,9 @@ import { trace } from '../trace.js';
  *  no threshold of its own. */
 export const DEFAULT_JOIN_THRESHOLD = 24;
 
+/** Main-axis thickness of a seam, and of the handle over a hidden pane. */
+export const SEAM_SIZE = 4;
+
 /** Input to {@link trackJoin}: the seam's current overshoot and the rules for
  *  whether the node it would destroy may be destroyed.
  *  @group Layout */
@@ -121,13 +124,23 @@ const SIZE_KEYS = ['size', 'share'] as const;
  * comes back as it was when that pane is shown again. Take one when the gesture
  * begins: on pointer down, or on the first key press of a keyboard gesture.
  *
+ * A workspace seam lies between roots, which have no row and no placement; for
+ * those the capture holds each root's `hints.size` under `size`.
+ *
  * @group Layout
  */
 export function captureSeam(store: Store, affordance: Affordance): SeamCapture {
   const out = new Map<NodeId, { size?: unknown; share?: unknown }>();
   const first = affordance.affects?.[0] ?? affordance.childId;
   const parentId = first ? store.getParent(first as NodeId)?.id : undefined;
-  if (!parentId) return out;
+  if (!parentId) {
+    for (const id of affordance.affects ?? []) {
+      const node = store.getNode(id as NodeId);
+      if (!node || node.membership) continue;
+      out.set(node.id, node.hints?.size === undefined ? {} : { size: node.hints.size });
+    }
+    return out;
+  }
   for (const child of store.getChildren(parentId)) {
     const placement = child.membership?.placement ?? {};
     const kept: { size?: unknown; share?: unknown } = {};
@@ -161,7 +174,12 @@ export function commitJoin(
   }
   store.transact(() => {
     for (const [id, was] of before ?? []) {
-      const now = store.getNode(id)?.membership?.placement;
+      const node = store.getNode(id);
+      if (node && !node.membership) {
+        store.setHints(id, { size: was.size });
+        continue;
+      }
+      const now = node?.membership?.placement;
       if (!now) continue;
       const patch: Record<string, unknown> = {};
       for (const k of SIZE_KEYS) {

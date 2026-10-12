@@ -87,3 +87,9 @@ export {
   useStrategyRegistry,
 } from './strategies.js';
 export { type ContainerLayout, useContainerLayout } from './useContainerLayout.js';
+export {
+  Workspace,
+  type WorkspaceProps,
+  WorkspaceRoot,
+  type WorkspaceRootProps,
+} from './Workspace.js';

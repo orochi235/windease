@@ -14,7 +14,7 @@ import { trace } from '../trace.js';
 import { selectByCapacity } from './capacity.js';
 import { PACK_EPSILON } from './pack.js';
 import { clampExplicitSizes } from './resize.js';
-import { DEFAULT_JOIN_THRESHOLD } from './seam-join.js';
+import { DEFAULT_JOIN_THRESHOLD, SEAM_SIZE } from './seam-join.js';
 import { turnedExtent, turns } from './turn.js';
 import { zoomedOf, zoomLayout } from './zoom.js';
 
@@ -559,9 +559,6 @@ function joinFor(
   };
 }
 
-/** Main-axis thickness of a seam, and of the handle over a hidden pane. */
-const SEAM = 4;
-
 /**
  * A handle over each hidden child's slot, under `overshoot: 'hide'`: what a
  * seam dragged shut leaves behind to drag open again. One sits just past the
@@ -603,11 +600,11 @@ function revealHandles(
     let at: number;
     let direction: 1 | -1 = 1;
     if (slot !== -1) {
-      at = starts[slot]! + (slot > 0 ? Math.max(0, SEAM / 2 - gap) : 0) + SEAM * nth;
-    } else if (end + SEAM * peers <= main - padding) {
-      at = end + SEAM * nth;
+      at = starts[slot]! + (slot > 0 ? Math.max(0, SEAM_SIZE / 2 - gap) : 0) + SEAM_SIZE * nth;
+    } else if (end + SEAM_SIZE * peers <= main - padding) {
+      at = end + SEAM_SIZE * nth;
     } else {
-      at = end - SEAM * (peers - nth);
+      at = end - SEAM_SIZE * (peers - nth);
       direction = -1;
     }
     out.push({
@@ -615,8 +612,8 @@ function revealHandles(
       kind: axis === 'x' ? 'resize-x' : 'resize-y',
       rect:
         axis === 'x'
-          ? { x: at, y: padding, z: 0, w: SEAM, h: cross }
-          : { x: padding, y: at, z: 0, w: cross, h: SEAM },
+          ? { x: at, y: padding, z: 0, w: SEAM_SIZE, h: cross }
+          : { x: padding, y: at, z: 0, w: cross, h: SEAM_SIZE },
       cursor: axis === 'x' ? 'ew-resize' : 'ns-resize',
       label: 'show',
       childId: h.id,
@@ -1059,7 +1056,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
           affordances.push({
             id: `resize-x-${item.id}`,
             kind: 'resize-x',
-            rect: { x: x + w - SEAM / 2, y, z: 0, w: SEAM, h },
+            rect: { x: x + w - SEAM_SIZE / 2, y, z: 0, w: SEAM_SIZE, h },
             cursor: 'ew-resize',
             childId: item.id,
             affects:
@@ -1100,7 +1097,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
           affordances.push({
             id: `resize-y-${item.id}`,
             kind: 'resize-y',
-            rect: { x, y: y + h - SEAM / 2, z: 0, w, h: SEAM },
+            rect: { x, y: y + h - SEAM_SIZE / 2, z: 0, w, h: SEAM_SIZE },
             cursor: 'ns-resize',
             childId: item.id,
             affects:

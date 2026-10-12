@@ -65,6 +65,13 @@ export interface NodeHints {
    */
   sizing?: { w?: 'content'; h?: 'content' };
   /**
+   * Pixel extent a root asks of whoever arranges it, per axis. A root has no
+   * parent and so no `placement.size`; a workspace seam writes the size it is
+   * dragged to here, and `arrangeWorkspace` is the only reader. No strategy
+   * honors it: a node with a parent states its size in `placement.size`.
+   */
+  size?: { w?: number; h?: number };
+  /**
    * How this container arranges its children. `'placed'` (the default) runs the
    * registered strategy and produces a rect per child. `'flow'` runs no
    * strategy: children render as ordinary in-flow elements and the consumer's

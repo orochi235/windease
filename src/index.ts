@@ -312,6 +312,14 @@ export {
   zoomView,
 } from './view.js';
 export { elementScale, observeFit } from './view-dom.js';
+export {
+  arrangeWorkspace,
+  dispatchWorkspaceSeam,
+  type WorkspaceInput,
+  type WorkspaceLayout,
+  type WorkspaceRootLayout,
+  type WorkspaceSeam,
+} from './workspace.js';
 
 /** The package version this build was published as. */
 export const VERSION = '2.1.0';

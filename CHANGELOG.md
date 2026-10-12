@@ -8,6 +8,19 @@ section below.
 
 ## Unreleased
 
+### Added
+
+- **`<Workspace>`: seams, hiding and zoom for zones that are separate roots.**
+  Root zones placed by your own CSS could already trade panels and keyboard
+  focus; now a `seams` entry draws a draggable seam between two of them,
+  `overshoot: 'hide'` on it hides a root pushed past its floor and leaves a
+  handle to drag it back, and the `zoom` prop lays one root over the rest. Each
+  root sits in a `<WorkspaceRoot>`, which takes the dragged size as an inline
+  `width` or `height`. The size is stored on the root as the new
+  `hints.size: { w?, h? }`. `arrangeWorkspace` and `dispatchWorkspaceSeam` are
+  the same thing without React, over boxes the host measures. See
+  [Workspace: seams between separate roots](README.md#workspace-seams-between-separate-roots).
+
 ### Changed
 
 - **`SerializedNode.hints` is typed as `NodeHints`.** A snapshot already carried

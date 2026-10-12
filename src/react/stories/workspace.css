@@ -1,0 +1,107 @@
+/* The arrangement is this file's, not the library's: a row holding the sidebar
+   and the main area, with the dock under it. */
+.ws-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 800px;
+  height: 480px;
+}
+
+.ws-top {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* A seam-sized root states its opening size here and must not flex, or the
+   size the seam writes is only a suggestion. */
+.ws-side {
+  flex: none;
+  width: 200px;
+}
+
+.ws-main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ws-dock {
+  flex: none;
+  height: 120px;
+}
+
+.ws-zone {
+  width: 100%;
+  height: 100%;
+}
+
+.ws-shell [data-affordance-kind="resize-x"],
+.ws-shell [data-affordance-kind="resize-y"] {
+  background: #94a3b8;
+  border-radius: 2px;
+}
+
+.ws-shell .windease-affordance-hit {
+  color: #dc2626;
+}
+
+.ws-shell .windease-affordance-hit:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.ws-shell .windease-workspace-root[data-join-armed] {
+  color: #dc2626;
+}
+
+.ws-panel {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  background: #fff;
+  font:
+    13px / 1.4 system-ui,
+    sans-serif;
+  color: #1e293b;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.ws-shell [data-node]:focus > .ws-panel {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.ws-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ws-readout {
+  margin-top: 8px;
+  font:
+    13px / 1.4 system-ui,
+    sans-serif;
+  color: #334155;
+}
+
+.ws-readout code {
+  font-variant-numeric: tabular-nums;
+}
+
+.ws-prose {
+  max-width: 640px;
+  font:
+    13px / 1.5 system-ui,
+    sans-serif;
+  color: #444;
+}

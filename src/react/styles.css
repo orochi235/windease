@@ -15,6 +15,8 @@
  *     destroys a pane with no confirmation step, so the point of no return
  *     cannot wait on consumer CSS. [data-reveal-armed], on the handle that
  *     shows a hidden pane, thickens the same way.
+ *   - .windease-workspace and .windease-workspace-root position a workspace's
+ *     seams and take a hidden, withheld or zoomed root out of the host's flow.
  *   - .windease-measure wraps a content-sized pane's children so `hints.sizing`
  *     measures the content rather than the extent the layout just wrote.
  *   - .windease-focus-root exists only to catch bubbled focusin/keydown, so
@@ -126,13 +128,40 @@
   position: relative;
 }
 
-[data-node][data-join-armed]::after {
+[data-node][data-join-armed]::after,
+.windease-workspace-root[data-join-armed]::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   opacity: 0.3;
   background: repeating-linear-gradient(45deg, currentColor 0 6px, transparent 6px 14px);
+}
+
+/*
+ * <Workspace> arranges nothing: the host's own CSS places each root. These
+ * rules are the three things it does to a root — hold the seams over them,
+ * take one out of view, and lay a zoomed one over the rest. The zoomed rule
+ * clears the size the host gave the root, which would otherwise outrank
+ * `inset`.
+ */
+.windease-workspace,
+.windease-workspace-root {
+  position: relative;
+}
+
+.windease-workspace-root[data-workspace-state="hidden"],
+.windease-workspace-root[data-workspace-state="withheld"] {
+  display: none;
+}
+
+.windease-workspace-root[data-workspace-state="zoomed"] {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
 }
 
 /*

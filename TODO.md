@@ -94,31 +94,29 @@ Followups:
   ignores it; verify this matches user expectations once a real consumer
   ships pinning UI.
 
-## Strategy for partitioning workspace [MED]
+## Workspace
 
-Zones nested under one root container already tile, with draggable gutters
-between them: the Ladle Playground builds a single root `strip` and derives
-`main`, `sidebar` and `dock` from it through `store.split`. Zones a consumer
-composes as *separate roots* in its own CSS share one coordinate space too —
-each root `<Container>` measures itself into the geometry registry
-([design](docs/superpowers/specs/2026-08-22-root-origin-geometry-design.md)) —
-so directional navigation and `Shift`-arrow moves cross between them. What the
-library has no opinion about is the arrangement itself: collapsible sidebars,
-gutters *between* roots, full-screen takeover.
+Zones nested under one root container tile, with draggable gutters between
+them: the Ladle Playground builds a single root `strip` and derives `main`,
+`sidebar` and `dock` from it through `store.split`. Zones a consumer composes
+as *separate roots* in its own CSS share one coordinate space
+([design](docs/superpowers/specs/2026-08-22-root-origin-geometry-design.md)),
+and `<Workspace>` gives them seams, a root that hides when its seam is pushed
+past the floor, and one root zoomed over the rest — documented in the README's
+**Workspace: seams between separate roots**, with `arrangeWorkspace`
+(`src/workspace.ts`) underneath.
 
-**A `<Workspace>` primitive is not what a consumer is asking for.**
-`brainhouse/client`, the only application consumer, composes its shell from one
-root container plus its own CSS, and both things it hand-rolls against the
-library are *sizing*: a loop fitting a section to its content until a gutter
-drag stops it, and a clamp capping a sidebar's width. The first is
-`hints.sizing` plus the release recipe in the README's **Sizing a pane to its
-contents**; the second is `hints.maxSize`. Neither is an arrangement primitive
-([design](docs/superpowers/specs/2026-08-24-content-size-rearm-design.md)).
+No consumer has used it yet: `brainhouse/client` and `@weasel-js/labkit` both
+build their shells as nested strips.
 
 Still open, waiting for a consumer to ask:
 
-- The arrangement itself — a gutter *between* separate roots, full-screen
-  takeover of one zone.
+- A workspace seam has no lock. A root cannot carry `lock.resize`, which needs
+  `membership`, so the only way to freeze a seam is to leave it out of `seams`.
+- `zoom` is a prop and is not snapshotted. A consumer that wants it saved
+  keeps it beside its own state.
+- A stored `hints.size` on a root whose sized neighbor is hidden is applied as
+  written; nothing redistributes the room.
 - `collapsePolicy` is honored by `stripStrategy` only. `grid` is the next
   candidate, where an empty celled child would give its track back; nothing
   has asked for it.
@@ -140,9 +138,6 @@ shipped in 0.5.0 via `placement.size`; `resizeMode: 'neighbor'` makes a seam
 behave like a splitter rather than pushing panes down the stack.
 
 Still open:
-
-- **Inter-zone resize** — dragging the gutter *between* zones is a
-  workspace-level concern; see "Strategy for partitioning workspace".
 
 - **A preset drop draws a split preview — shipped.** `<Zone>` and
   `<Panel container>` build the same `LayoutPreview` `<Container>` does from the
@@ -172,7 +167,8 @@ Still open:
   point to extract a shared gesture lifecycle is when a third copy appears, and
   the seam to watch is `trackJoin` (`src/layout/seam-join.ts`), which is already
   shaped for it. Tab-stacking did not add one: drop intent rides
-  `DragController`, which already owns all six.
+  `DragController`, which already owns all six. Workspace seams did not add
+  one either: they are `Affordance`s drawn by the same `AffordanceLayer`.
 
 - **Open question, nothing decided: should input binding come from
   `@weasel-js/gestures`?** That package (1.0.4, zero dependencies, no React or
@@ -242,7 +238,7 @@ sibling leaves.
 Shipped. `npm run test:e2e` drives the Ladle stories in Chromium, Firefox and
 WebKit; the config starts Ladle itself, so there is nothing to run first. A tag
 cannot publish without a green run of it (`scripts/require-green-ci.sh`, called
-from `release.yml`). 87 specs across eighteen files cover the gestures jsdom
+from `release.yml`). The specs cover the gestures jsdom
 cannot: gutter resize including pointer-capture tracking after the cursor leaves
 the handle, cross-zone drag with escape-cancel and drop-outside, ResizeObserver
 relayout on viewport change, insertion index against a pinned head, a seam
@@ -287,6 +283,11 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
 - `scripts/strip-ladle-tsx.sh` (run from `prepare`) works around Ladle shipping
   raw `.tsx` in its typings, which fails typecheck under TS 7. Drop it once
   Ladle ships only `.d.ts` there.
+- `scripts/check-doc-hashes.sh` fails on three citations it cannot resolve:
+  `f441b90` in this file, which is a klieg commit rather than one of this
+  repo's, and the placeholder hashes `abc1234` / `def5678` in
+  `docs/superpowers/specs/2026-09-13-pack-lab-design.md`. It has no way to
+  mark a hash as belonging to another repository.
 - **Every `REJECT` trace in `DragEngine.checkAccept` fires per pointermove
   sample**, not per hover transition — the per-frame chatter the tracing tenet
   in `CLAUDE.md` warns against. Left as is: those lines are the whole record of
