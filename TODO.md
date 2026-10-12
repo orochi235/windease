@@ -205,7 +205,7 @@ Still open:
 
   So the trigger that would justify the dependency is a consumer asking to
   *rebind* a gesture, not the semantics catalog growing. Nobody has asked.
-  Weigh against it: `@weasel-js/labkit` already depends on `windease ^1.2.1`,
+  Weigh against it: `@weasel-js/labkit` already depends on `windease ^2.0.0`,
   so taking the dependency puts both directions across one repo boundary and
   makes a coordinated change a two-release sequence. Worth stealing regardless
   of the outcome: the `GESTURE_DESCRIPTORS` shape, one table every consumer
@@ -237,8 +237,8 @@ would earn it a place in the library.
 
 Not built yet because there is no second consumer and no way to test it: there
 is no WebGL in windease's dev dependencies, and the one WebGL consumer
-(`blitsklieg`, `packages/core/dev/tube-lab`) is a React DOM app drawing into a
-canvas from `placements`, so it uses the DOM adapter unchanged. Ships as a
+(klieg, `packages/core/dev/tube-lab`) is a React DOM app drawing into a canvas
+over DOM tiles, so it uses the DOM adapter unchanged. Ships as a
 documented recipe first; promote when a host actually needs it.
 
 Depends on the adapter seam in
@@ -357,15 +357,14 @@ All three have shipped. Drop-on-edge is what the intent hit-test was built for.
 
 Raised by klieg's tube lab (`packages/core/dev/tube-lab`), the WebGL consumer
 already described under "DOM-proxy focus adapter for canvas hosts". It draws
-sixteen panels as scissor rects on one `WebGLRenderer`, positioning them from
-placements, so the canvas is one element spanning the whole zone rather than
-one per window. Both ergonomics it asked for shipped —
+its panels as scissor rects on one `WebGLRenderer`, so the canvas is one element
+spanning the whole zone rather than one per window. Both ergonomics it asked for shipped —
 `.windease-zone--unclipped` and `observePixelRatio`.
 
-Note the consumer is pinned at `^0.8.0` and has not taken 1.0 yet, so it still
-carries a hand-rolled balanced-tree builder (`tree.ts`) working around
-`initialState`. Deleting that is klieg's migration to do, not a windease item —
-but it means feedback from that lab is 0.8-shaped until the upgrade lands.
+The lab no longer imports windease. Since klieg `f441b90` (2026-08-22) it tiles
+through `@weasel-js/labkit`'s `<Workspace>`, which brings windease in as its own
+dependency, and reads each tile's rect back from the DOM instead of from
+`placements`. Anything it asks for now arrives by way of labkit.
 
 ## Floating chrome: no keyboard move [MED]
 
