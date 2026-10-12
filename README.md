@@ -1123,7 +1123,10 @@ store.registerNode(createNode({
 }));
 ```
 
-`max` exempts a reorder within the container, as `canAccept` does. `accepts:
+`max` exempts a reorder within the container, as `canAccept` does. A drop that
+stacks or splits one of the container's children adds no child to it — the new
+group takes that child's slot — so `max`, `canAccept` and `acceptPolicy` all see
+a list without the dragged node. `accepts:
 false` refuses the drag only; `lock.accept` also refuses `moveNode` from host
 code.
 

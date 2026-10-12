@@ -9,6 +9,7 @@ import {
   Store,
 } from '../index.js';
 import { type AcceptContext, DragEngine, type DropTarget } from './DragEngine.js';
+import type { DropIntent } from './dropIntent.js';
 
 /** Refuses anything past 2 items — stands in for a strip at its maxItems cap. */
 const exactlyTwoStrategy: LayoutStrategy<unknown, string, unknown> = {
@@ -265,6 +266,73 @@ describe('DragEngine — the items canAccept sees', () => {
     s.hideNode(asNodeId('b'));
     const [items] = probe(s, 'p');
     expect(items?.map((i) => i.id)).toEqual(['a', 'p']);
+  });
+});
+
+describe('DragEngine — wrap drops', () => {
+  const seenBy = (intent: DropIntent, s: Store, sourceId = 'p') => {
+    let seen: string[] | undefined;
+    const e = new DragEngine(s, { getStrategy: () => exactlyTwoStrategy });
+    e.addDropTarget(
+      asNodeId('z2'),
+      at(SQUARE, {
+        getDropIntent: () => intent,
+        acceptPolicy: (ctx) => {
+          seen = ctx.items.map((i) => i.id);
+          return undefined;
+        },
+      }),
+    );
+    e.tryBegin(asNodeId(sourceId));
+    e.updateHoverByPoint(50, 50);
+    return { seen, accepted: e.state()?.hover?.accepted };
+  };
+
+  it('a stack onto a child of a full container is accepted', () => {
+    const { seen, accepted } = seenBy({ kind: 'stack', ontoId: 'a' }, fullStore());
+    expect(seen).toEqual(['a', 'b']);
+    expect(accepted).toBe(true);
+  });
+
+  it('a split onto a child of a full container is accepted', () => {
+    const { seen, accepted } = seenBy(
+      { kind: 'split', ontoId: 'b', edge: 'start', axis: 'y' },
+      fullStore(),
+    );
+    expect(seen).toEqual(['a', 'b']);
+    expect(accepted).toBe(true);
+  });
+
+  it('an insert into a full container is still refused', () => {
+    const { seen, accepted } = seenBy({ kind: 'insert', index: 1 }, fullStore());
+    expect(seen).toEqual(['a', 'b', 'p']);
+    expect(accepted).toBe(false);
+  });
+
+  it('a wrap of two siblings takes the source out of the list', () => {
+    const { seen } = seenBy({ kind: 'stack', ontoId: 'b' }, fullStore(), 'a');
+    expect(seen).toEqual(['b']);
+  });
+
+  it('a stack intent on a container that is itself a stack adds a child', () => {
+    const s = fullStore();
+    s.setStrategy(asNodeId('z2'), 'stack');
+    const { seen, accepted } = seenBy({ kind: 'stack', ontoId: 'a' }, s);
+    expect(seen).toEqual(['a', 'b', 'p']);
+    expect(accepted).toBe(false);
+  });
+
+  it('accepts.max counts a wrap drop as no new child', () => {
+    const s = fullStore();
+    s.updateContainerConfig(asNodeId('z2'), { accepts: { max: 2 } });
+    const e = new DragEngine(s);
+    e.addDropTarget(
+      asNodeId('z2'),
+      at(SQUARE, { getDropIntent: () => ({ kind: 'stack', ontoId: 'a' }) }),
+    );
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(true);
   });
 });
 

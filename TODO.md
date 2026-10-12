@@ -159,16 +159,6 @@ Still open:
   block in `e2e/declarative-drop.spec.ts` cover it, driving the
   **Declarative / Drop intent** story's `splitPreview` toggle.
 
-- **A wrap drop is asked about the wrong child list [MED].**
-  `DragEngine.checkAccept` (`src/dnd/DragEngine.ts`) gates on `checkIntent`
-  and then falls through to the acceptance block regardless, so a `stack` or
-  `split` intent is asked about `[...children, dragged]` — but a wrap drop does
-  not change the parent's child count: stacking `p` onto `a` in `[a, b]` yields
-  `[stack-1, b]`. A `strip` at `maxItems: 2` therefore refuses a stack that
-  would have left it at two. This already governed `strategy.canAccept`;
-  `acceptPolicy` now inherits it. The fix is a prospective list that knows the
-  intent, with its own tests.
-
 - **The presets edge-scroll — shipped.** `scrollRef` and `edgeScroll` are
   preset props, so a `<Zone>` reports its wrapper's offset to the geometry
   registry and registers the scroll bag `DragController` ramps against.
@@ -423,8 +413,8 @@ Open, grouped by what they touch:
   doesn't mirror inner bounds.
 - **accepts and locks** — `AcceptContext.items` should be `LayoutItem`-shaped,
   as the runtime already passes full items. `accepts: false` and `lock.accept`
-  both stay (accepts is drag-only); stack/split drops count toward
-  `accepts.max` and honor `accepts.kinds`. `lock: true` does *not* include the
+  both stay (accepts is drag-only); stack/split drops honor
+  `accepts.kinds`, and count toward `accepts.max` only where they add a child. `lock: true` does *not* include the
   `hide` axis, which protects apps that lock with `true` and still hide via a
   View menu — making `true` mean every axis needs a README breaking-change note.
 - **raise** — under `FocusProvider` a DOM reorder mid-press cancels the click;

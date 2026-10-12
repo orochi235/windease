@@ -10,6 +10,14 @@ section below.
 
 ### Fixed
 
+- **A full container takes a stack or split drop.** A drop that wraps one of a
+  container's children in a new group leaves its child count where it was, but
+  `accepts.max`, `strategy.canAccept` and `acceptPolicy` were asked about a list
+  with the dragged node added, so a `strip` at `maxItems: 2` refused a stack
+  that would have left it at two. They now see the list without the dragged
+  node, the wrapped child standing for the group that takes its slot. A stack
+  drop onto a child of a container that is itself a stack still adds a child.
+
 - **No `localStorage` warning under Node.** Loading windease no longer reads
   `localStorage` when `process.versions.node` is set, so Node 25+ stops printing
   its "localStorage is not available" warning on every thread that imports it.

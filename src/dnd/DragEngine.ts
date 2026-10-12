@@ -4,7 +4,7 @@ import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { LayoutItem, LayoutStrategy, Rect, Size } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import { placeRespectingPins } from '../pinning.js';
-import type { Store } from '../store.js';
+import { STACK_STRATEGY_ID, type Store } from '../store.js';
 import { containerStateFor, dockNode, floatAncestor, floatNode } from '../tear.js';
 import { trace } from '../trace.js';
 import type { DropIntent } from './dropIntent.js';
@@ -56,8 +56,8 @@ export interface DragState {
 
 /** What a drop target's `acceptPolicy` is asked about: the child list
  *  `strategy.canAccept` would see for this drop, plus who is being dropped.
- *  A stack or split intent still shows the source as a new child, though a
- *  wrap drop leaves the parent's child count unchanged. */
+ *  A stack or split intent that wraps the onto-child shows no new child: the
+ *  source is absent, and the onto-child stands for the group taking its slot. */
 export interface AcceptContext {
   items: { id: NodeId }[];
   options: Record<string, unknown>;
@@ -450,7 +450,7 @@ export class DragEngine {
     // path, so only pay for it when something will actually read it, and once.
     let items: AcceptItem[] | undefined;
     const prospective = (): AcceptItem[] => {
-      items ??= this.prospectiveItems(targetId, draggingId, tear);
+      items ??= this.prospectiveItems(targetId, draggingId, tear, intent);
       return items;
     };
 
@@ -506,7 +506,7 @@ export class DragEngine {
   }
 
   /** Whether the target's `config.accepts` admits this drop. `max` counts the
-   *  same list `canAccept` sees, so a stack or split drop counts as a new child. */
+   *  same list `canAccept` sees, so a drop that wraps a child adds nothing. */
   private checkAcceptsConfig(
     targetId: NodeId,
     draggingId: NodeId,
@@ -549,12 +549,23 @@ export class DragEngine {
   /** The children `targetId` would hold after the drop, as layout sees them:
    *  spans and placement carried, the source appended if it is new here. A
    *  torn-out source carries the placement its float would write, so a
-   *  strategy that tiles some children does not count it among them. */
-  private prospectiveItems(targetId: NodeId, draggingId: NodeId, tear = false): AcceptItem[] {
+   *  strategy that tiles some children does not count it among them. A drop
+   *  that wraps the onto-child leaves the source out: it lands in the new
+   *  group, which takes the onto-child's slot and placement. */
+  private prospectiveItems(
+    targetId: NodeId,
+    draggingId: NodeId,
+    tear = false,
+    intent?: DropIntent,
+  ): AcceptItem[] {
     const items: AcceptItem[] = [];
-    let alreadyChild = false;
+    const wrap = intent !== undefined && this.wraps(intent);
+    let alreadyChild = wrap;
     for (const child of this.store.getChildren(targetId)) {
-      if (child.id === draggingId) alreadyChild = true;
+      if (child.id === draggingId) {
+        if (wrap) continue;
+        alreadyChild = true;
+      }
       const state = child.lifecycle.state;
       if (state === 'hidden' || state === 'destroyed') continue;
       items.push(nodeToLayoutItem(child) as AcceptItem);
@@ -579,6 +590,18 @@ export class DragEngine {
       items.push(item);
     }
     return items;
+  }
+
+  /** Whether committing `intent` wraps the onto-child in a new group, rather
+   *  than adding the source to the hovered target's own children. A stack onto
+   *  a child of a stack is the exception: `stackNodes` moves the source in. */
+  private wraps(intent: DropIntent): boolean {
+    if (intent.kind === 'insert') return false;
+    if (intent.kind === 'split') return true;
+    const parentId = this.store.getNode(intent.ontoId as NodeId)?.membership?.parentId;
+    const strategyId =
+      parentId === undefined ? undefined : this.store.getNode(parentId)?.container?.strategyId;
+    return strategyId !== STACK_STRATEGY_ID;
   }
 
   /**
