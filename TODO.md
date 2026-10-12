@@ -26,19 +26,17 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   or stands as a baseline uses `settledBox`, and an assertion about where
   something ended up goes through `expect.poll`.
 
+  `e2e/raw-geometry.grit`, a Biome plugin, fails the lint on a `boundingBox()`
+  outside `fixtures.ts` and on an awaited `boxOf` in a test body outside
+  `expect.poll`.
+
   Still short of it:
 
-  - `exotic-board.spec.ts` reads `boundingBox()` directly. Its layout deforms
-    under the pointer, and the reads were left as they were tuned.
-  - The specs that already polled in places had each remaining `boxOf` swapped
-    for `settledBox` without being reread, so an assertion there reads a
-    settled box where it should poll. That can still return the old layout if
-    a change takes longer to start than the settle window, and has:
-    `floating-snap-fill.spec.ts:29` needed a retry for it on Chromium on
-    2026-09-27. The specs with no
-    polls at all, and `content-sizing` and `declarative-drop`, were converted
-    by hand and do poll.
-  - Nothing stops a new raw read.
+  - Assertions about the layout a story opens with read `settledBox` and then
+    `expect`. The lint cannot tell one from a baseline.
+  - An assertion that a gesture moved nothing reads a settled box, since a poll
+    would pass at once. It still passes on a read taken before a wrong change
+    starts; only a separate signal that the gesture landed would close that.
 
 - **WebKit gives a press on the window's right edge to the scrollbar.** A
   reveal handle for a pane hidden at the end of a row sits on the container's
