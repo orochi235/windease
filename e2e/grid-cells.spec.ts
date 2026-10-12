@@ -126,9 +126,9 @@ test.describe('grid fixed cells — dock', () => {
 
   test('justify evenly spaces the dock icons, and respaces them after a drop', async ({ page }) => {
     await openStory(page, DOCK);
-    const spaces = async (ids: string[]) => {
-      const zone = await settledBox(page.locator('[data-node-container="dock"]'));
-      const boxes = (await Promise.all(ids.map((id) => settledBox(element(page, id))))).sort(
+    const spaces = async (ids: string[], read = settledBox) => {
+      const zone = await read(page.locator('[data-node-container="dock"]'));
+      const boxes = (await Promise.all(ids.map((id) => read(element(page, id))))).sort(
         (a, b) => a.x - b.x,
       );
       // Children sit inside the zone's 1px border, in the 480px viewport the
@@ -151,8 +151,12 @@ test.describe('grid fixed cells — dock', () => {
     await dragInto(page, 'mail', 'dock');
     await expect.poll(() => zoneOf(page, 'mail')).toBe('dock');
     // 5 × 56 + 4 × 12 occupied: 128 / 6 ≈ 21.3 each.
-    const five = await spaces(['phone', 'safari', 'messages', 'camera', 'mail']);
-    for (const v of five) expect(Math.abs(v - 21)).toBeLessThanOrEqual(1);
+    await expect
+      .poll(async () => {
+        const five = await spaces(['phone', 'safari', 'messages', 'camera', 'mail'], boxOf);
+        return five.filter((v) => Math.abs(v - 21) > 1);
+      })
+      .toEqual([]);
   });
 
   test('justify start keeps the icons at the left, one gap apart', async ({ page }) => {

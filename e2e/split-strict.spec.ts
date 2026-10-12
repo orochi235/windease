@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { openStory } from './fixtures.js';
+import { boxOf, openStory } from './fixtures.js';
 
 /** A strict split refuses to leave a pane under its floor, as tmux says "no space for new pane". */
 
@@ -23,8 +23,10 @@ test.describe('strict split', () => {
     // Polled: the panes of the split that went through may still be settling.
     await expect
       .poll(async () => {
-        const boxes = await Promise.all((await panels(page).all()).map((l) => l.boundingBox()));
-        return Math.min(...boxes.map((box) => box?.height ?? 0));
+        const boxes = await Promise.all(
+          (await panels(page).all()).map((l) => boxOf(l).catch(() => null)),
+        );
+        return Math.min(...boxes.map((box) => box?.h ?? 0));
       })
       .toBeGreaterThanOrEqual(120);
   });

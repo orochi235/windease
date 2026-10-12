@@ -1,0 +1,13 @@
+language js
+
+or {
+  `$locator.boundingBox($args)` as $read where {
+    $filename <: not r".*fixtures\.ts$",
+    register_diagnostic(span=$read, message="Read geometry through fixtures.ts: settledBox for a baseline or a gesture's input, boxOf inside expect.poll for where something ended up.", severity="error")
+  },
+  `await boxOf($locator)` as $read where {
+    $read <: within `test($name, $body)` ,
+    $read <: not within `expect.poll($poll)` ,
+    register_diagnostic(span=$read, message="boxOf reads one frame, so in a test it belongs inside expect.poll. Outside one, settledBox.", severity="error")
+  }
+}

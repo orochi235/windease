@@ -25,14 +25,18 @@ test.describe('split operation', () => {
     await page.getByTestId('split-x').click();
     await expect(panels(page)).toHaveCount(3);
 
-    const boxes = (await panelBoxes(page)).sort((a, b) => a.x - b.x);
     // splitStrategy's buildTree gave panel k a width of W / 2^k, so the third
     // pane collapsed. Every pane must have real width now.
-    for (const b of boxes) expect(b.w).toBeGreaterThan(20);
+    await expect
+      .poll(async () => Math.min(...(await panelBoxesNow(page)).map((b) => b.w)))
+      .toBeGreaterThan(20);
     // And they must not overlap.
-    for (let i = 1; i < boxes.length; i += 1) {
-      expect(boxes[i]!.x).toBeGreaterThanOrEqual(boxes[i - 1]!.x + boxes[i - 1]!.w - 1);
-    }
+    await expect
+      .poll(async () => {
+        const boxes = (await panelBoxesNow(page)).sort((a, b) => a.x - b.x);
+        return Math.max(...boxes.slice(1).map((b, i) => boxes[i]!.x + boxes[i]!.w - b.x));
+      })
+      .toBeLessThanOrEqual(1);
   });
 
   test("direction 'both' produces a 2x2", async ({ page }) => {
@@ -40,15 +44,14 @@ test.describe('split operation', () => {
     await page.getByTestId('split-both').click();
     await expect(panels(page)).toHaveCount(4);
 
-    const boxes = await panelBoxes(page);
-    const xs = new Set(boxes.map((b) => Math.round(b.x)));
-    const ys = new Set(boxes.map((b) => Math.round(b.y)));
-    expect(xs.size).toBe(2);
-    expect(ys.size).toBe(2);
-    for (const b of boxes) {
-      expect(b.w).toBeGreaterThan(20);
-      expect(b.h).toBeGreaterThan(20);
-    }
+    const distinct = async (key: 'x' | 'y') =>
+      new Set((await panelBoxesNow(page)).map((b) => Math.round(b[key]))).size;
+    const smallest = async (key: 'w' | 'h') =>
+      Math.min(...(await panelBoxesNow(page)).map((b) => b[key]));
+    await expect.poll(() => distinct('x')).toBe(2);
+    await expect.poll(() => distinct('y')).toBe(2);
+    await expect.poll(() => smallest('w')).toBeGreaterThan(20);
+    await expect.poll(() => smallest('h')).toBeGreaterThan(20);
   });
 
   test('dragging a gutter moves space between panes and conserves the total', async ({ page }) => {

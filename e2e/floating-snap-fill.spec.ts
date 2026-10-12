@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 /** `snap: 'fill'`: a floating legend dropped on a pane fills it, FancyZones-style. */
 
@@ -23,7 +23,7 @@ test.describe("floating snap: 'fill'", () => {
     await openStory(page, STORY);
     await dropOnPane(page, 2);
     const target = await settledBox(pane(page, 2));
-    expect(sameBox(await settledBox(page.locator(LEGEND)), target)).toBe(true);
+    await expect.poll(async () => sameBox(await boxOf(page.locator(LEGEND)), target)).toBe(true);
   });
 
   test('the legend follows its pane when the grid reflows', async ({ page }) => {
@@ -32,24 +32,25 @@ test.describe("floating snap: 'fill'", () => {
     const before = await settledBox(pane(page, 1));
     await page.locator('[data-testid="add-pane"]').click();
     await expect(pane(page, 5)).toBeVisible();
-    const after = await settledBox(pane(page, 1));
-    expect(after.h).toBeLessThan(before.h - 10);
-    expect(sameBox(await settledBox(page.locator(LEGEND)), after)).toBe(true);
+    await expect.poll(async () => (await boxOf(pane(page, 1))).h).toBeLessThan(before.h - 10);
+    await expect
+      .poll(async () => sameBox(await boxOf(page.locator(LEGEND)), await boxOf(pane(page, 1))))
+      .toBe(true);
   });
 
   test('dragging it off the pane frees it back to its own size', async ({ page }) => {
     await openStory(page, STORY);
     const own = await settledBox(page.locator(LEGEND));
     await dropOnPane(page, 4);
-    expect((await settledBox(page.locator(LEGEND))).w).toBeGreaterThan(own.w);
+    await expect.poll(async () => (await boxOf(page.locator(LEGEND))).w).toBeGreaterThan(own.w);
 
     // The gap between the panes belongs to none of them.
     const p1 = await settledBox(pane(page, 1));
     const p2 = await settledBox(pane(page, 2));
     const handle = await settledBox(page.locator(HANDLE));
     await dragMouse(page, centerOf(handle), { x: (p1.x + p1.w + p2.x) / 2, y: p1.y + 20 });
-    const freed = await settledBox(page.locator(LEGEND));
-    expect(Math.round(freed.w)).toBe(Math.round(own.w));
-    expect(Math.round(freed.h)).toBe(Math.round(own.h));
+    const freed = () => boxOf(page.locator(LEGEND));
+    await expect.poll(async () => Math.round((await freed()).w)).toBe(Math.round(own.w));
+    await expect.poll(async () => Math.round((await freed()).h)).toBe(Math.round(own.h));
   });
 });

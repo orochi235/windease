@@ -1,5 +1,5 @@
-import { expect, type Page, test } from '@playwright/test';
-import { type Box, centerOf, dragMouse, dropAt, openStory, settledBox } from './fixtures.js';
+import { expect, type Locator, type Page, test } from '@playwright/test';
+import { type Box, boxOf, centerOf, dragMouse, dropAt, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'exotic--desktop--presets';
 
@@ -45,6 +45,18 @@ function expectBox(actual: Box, want: Partial<Box>) {
   for (const [k, v] of Object.entries(want)) expect(actual[k as keyof Box], k).toBeCloseTo(v, 0);
 }
 
+/** `expectBox` for where a gesture leaves a pane: polled, the whole box at once. */
+async function expectBoxSoon(locator: Locator, want: Partial<Box>) {
+  await expect
+    .poll(async () => {
+      const actual = await boxOf(locator);
+      return Object.entries(want)
+        .filter(([k, v]) => Math.abs(v - actual[k as keyof Box]) >= 0.5)
+        .map(([k, v]) => `${k}: ${actual[k as keyof Box]}, want ${v}`);
+    })
+    .toEqual([]);
+}
+
 test.describe('a desktop fitted to the story frame', () => {
   test('scales the 1024px twm screen to the frame width', async ({ page }) => {
     const scale = await pick(page, 'twm-icon-manager', 'twm-root');
@@ -62,9 +74,7 @@ test.describe('a desktop fitted to the story frame', () => {
     const bar = await settledBox(page.getByTestId('bar-twm-xterm-10'));
     const from = { x: bar.x + 60, y: bar.y + bar.h / 2 };
     await dragMouse(page, from, { x: from.x + 100, y: from.y + 60 });
-    const after = await settledBox(node(page, 'twm-xterm-10'));
-    expect(after.x - before.x).toBeCloseTo(100, 0);
-    expect(after.y - before.y).toBeCloseTo(60, 0);
+    await expectBoxSoon(node(page, 'twm-xterm-10'), { x: before.x + 100, y: before.y + 60 });
   });
 });
 
@@ -73,14 +83,14 @@ test.describe('Mac OS 9 WindowShade', () => {
     const scale = await pick(page, 'macos9-windowshade', 'mac-desktop');
     const before = await settledBox(node(page, 'mac-finder'));
     await toggle(page, 'mac-finder').click();
-    expectBox(await settledBox(node(page, 'mac-finder')), {
+    await expectBoxSoon(node(page, 'mac-finder'), {
       x: before.x,
       y: before.y,
       w: before.w,
       h: 20 * scale,
     });
     await toggle(page, 'mac-finder').click();
-    expectBox(await settledBox(node(page, 'mac-finder')), before);
+    await expectBoxSoon(node(page, 'mac-finder'), before);
   });
 
   test('dragging the title bar moves the window', async ({ page }) => {
@@ -89,9 +99,7 @@ test.describe('Mac OS 9 WindowShade', () => {
     const bar = await settledBox(page.getByTestId('bar-mac-finder'));
     const from = { x: bar.x + 40, y: bar.y + bar.h / 2 };
     await dragMouse(page, from, { x: from.x + 60, y: from.y + 30 });
-    const after = await settledBox(node(page, 'mac-finder'));
-    expect(after.x - before.x).toBeCloseTo(60, 0);
-    expect(after.y - before.y).toBeCloseTo(30, 0);
+    await expectBoxSoon(node(page, 'mac-finder'), { x: before.x + 60, y: before.y + 30 });
   });
 
   test('dragging the bottom-right corner resizes the window, its top-left staying put', async ({
@@ -101,8 +109,12 @@ test.describe('Mac OS 9 WindowShade', () => {
     const before = await settledBox(node(page, 'mac-finder'));
     const corner = centerOf(await settledBox(hit(page, 'desktop:resize:se:mac-finder')));
     await dragMouse(page, corner, { x: corner.x + 50, y: corner.y + 40 });
-    const after = await settledBox(node(page, 'mac-finder'));
-    expectBox(after, { x: before.x, y: before.y, w: before.w + 50, h: before.h + 40 });
+    await expectBoxSoon(node(page, 'mac-finder'), {
+      x: before.x,
+      y: before.y,
+      w: before.w + 50,
+      h: before.h + 40,
+    });
   });
 
   test('the disk and Trash icons line up down the right edge', async ({ page }) => {
@@ -142,8 +154,8 @@ test.describe('Windows 3.1 minimized icons', () => {
     expectBox(icon, { w: 72 * scale, h: 56 * scale });
     // Its right end, past File Manager, which covers the rest of the row.
     await page.mouse.click(icon.x + icon.w - 4, icon.y + icon.h / 2);
+    await expectBoxSoon(node(page, 'win31-app-7'), { w: 300 * scale, h: 200 * scale });
     const restored = await settledBox(node(page, 'win31-app-7'));
-    expectBox(restored, { w: 300 * scale, h: 200 * scale });
     const progman = await settledBox(node(page, 'win31-progman'));
     expect(await hitAt(page, overlapCenter(restored, progman))).toBe('win31-app-7');
   });
@@ -182,7 +194,7 @@ test.describe('Amiga screens', () => {
       { x: bar.x + 40, y: bar.y + bar.h / 2 + 50 },
     );
 
-    expect((await settledBox(node(page, 'amiga-term'))).y).toBeCloseTo(term.y + 50, 0);
+    await expectBoxSoon(node(page, 'amiga-term'), { y: term.y + 50 });
     expect(await hitAt(page, probe)).toBe('amiga-dpaint');
   });
 
@@ -199,9 +211,10 @@ test.describe('Amiga screens', () => {
     // pointer somewhere else entirely rather than at the point asked for.
     await dragMouse(page, from, { x: from.x + 120, y: from.y + 250 });
 
-    const after = await settledBox(node(page, 'amiga-term'));
-    expect(after.x).toBeCloseTo(term.x, 0);
-    expect(after.y).toBeCloseTo(display.y + display.h - 20 * scale, 0);
+    await expectBoxSoon(node(page, 'amiga-term'), {
+      x: term.x,
+      y: display.y + display.h - 20 * scale,
+    });
   });
 
   test('what hangs below the display is clipped, with nothing to scroll to', async ({ page }) => {
@@ -255,9 +268,7 @@ test.describe('unplugged second monitor', () => {
     const bar = await settledBox(page.getByTestId('bar-mon-terminal'));
     const from = { x: bar.x + 40, y: bar.y + bar.h / 2 };
     await dragMouse(page, from, { x: from.x - 1200, y: from.y - 800 });
-    const terminal = await settledBox(node(page, 'mon-terminal'));
-    expect(terminal.x).toBeCloseTo(screen.x, 0);
-    expect(terminal.y).toBeCloseTo(screen.y, 0);
+    await expectBoxSoon(node(page, 'mon-terminal'), { x: screen.x, y: screen.y });
   });
 });
 
@@ -274,9 +285,7 @@ test.describe('Figma canvas', () => {
       el.scrollLeft = 0;
       el.scrollTop = 0;
     });
-    const cover = await settledBox(node(page, 'figma-cover'));
-    expect(cover.x).toBeCloseTo(view.x + 1, 0);
-    expect(cover.y).toBeCloseTo(view.y + 1, 0);
+    await expectBoxSoon(node(page, 'figma-cover'), { x: view.x + 1, y: view.y + 1 });
   });
 });
 
@@ -311,7 +320,7 @@ test.describe('Photoshop panel groups', () => {
     await expect(page.getByTestId('xd-floating')).toHaveText(/ps-layers/);
     await expect(page.getByTestId('tab-ps-layers')).toHaveCount(0);
     await expect(page.getByTestId('tab-ps-channels')).toHaveAttribute('aria-selected', 'true');
-    expectBox(await settledBox(node(page, 'ps-layers')), {
+    await expectBoxSoon(node(page, 'ps-layers'), {
       x: to.x,
       y: to.y,
       w: 240 * scale,
@@ -346,9 +355,14 @@ test.describe('Photoshop panel groups', () => {
     // Aim just inside the corner: the clamp stops the palette at the edges and the threshold captures it.
     await dragMouse(page, from, { x: workspace.x + 2, y: workspace.y + workspace.h - 2 });
 
-    const palette = await settledBox(node(page, 'ps-layers'));
-    expect(palette.x - workspace.x).toBeCloseTo(12 * scale, 0);
-    expect(workspace.y + workspace.h - (palette.y + palette.h)).toBeCloseTo(12 * scale, 0);
+    const palette = () => boxOf(node(page, 'ps-layers'));
+    await expect.poll(async () => (await palette()).x - workspace.x).toBeCloseTo(12 * scale, 0);
+    await expect
+      .poll(async () => {
+        const p = await palette();
+        return workspace.y + workspace.h - (p.y + p.h);
+      })
+      .toBeCloseTo(12 * scale, 0);
   });
 });
 
@@ -366,8 +380,6 @@ test.describe('FancyZones', () => {
       y: from.y + (zone.y + inset - win.y) + 10,
     });
 
-    const after = await settledBox(node(page, 'fz-edge'));
-    expect(after.x - zone.x).toBeCloseTo(inset, 0);
-    expect(after.y - zone.y).toBeCloseTo(inset, 0);
+    await expectBoxSoon(node(page, 'fz-edge'), { x: zone.x + inset, y: zone.y + inset });
   });
 });

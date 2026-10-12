@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { type Box, centerOf, openStory, settledBox } from './fixtures.js';
+import { type Box, boxOf, centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
  * A pane saved with a `placement.share` in one kind of container, dragged
@@ -50,12 +50,14 @@ test.describe('exotic trees', () => {
 
     await landedIn(page, 'nvim', 'tabbed-0-2');
     await expect(page.getByTestId('xt-tab-nvim')).toHaveAttribute('aria-selected', 'true');
+    // The whole body under the 20px tab band, less the 1px border each side.
+    await expect.poll(async () => (await boxOf(node(page, 'nvim'))).w).toBeGreaterThan(tabs.w - 4);
+    await expect
+      .poll(async () => (await boxOf(node(page, 'nvim'))).h)
+      .toBeGreaterThan(tabs.h - 20 - 4);
     const pane = await settledBox(node(page, 'nvim'));
     expectFinite(pane);
     expectInside(pane, tabs);
-    // The whole body under the 20px tab band, less the 1px border each side.
-    expect(pane.w).toBeGreaterThan(tabs.w - 4);
-    expect(pane.h).toBeGreaterThan(tabs.h - 20 - 4);
   });
 
   test('a shared pane from a horizontal split lands inside a vertical one', async ({ page }) => {
@@ -67,12 +69,14 @@ test.describe('exotic trees', () => {
     await drag(page, 'nvim', { x: htop.x + htop.w / 2, y: htop.y + htop.h * 0.75 });
 
     await landedIn(page, 'nvim', 'splitv-0-0');
+    // It spans the column, and its share of a width is now a share of the height.
+    await expect
+      .poll(async () => (await boxOf(node(page, 'nvim'))).w)
+      .toBeGreaterThan(column.w - 4);
+    await expect.poll(async () => (await boxOf(node(page, 'nvim'))).h).toBeGreaterThan(20);
     const pane = await settledBox(node(page, 'nvim'));
     expectFinite(pane);
     expectInside(pane, column);
-    // It spans the column, and its share of a width is now a share of the height.
-    expect(pane.w).toBeGreaterThan(column.w - 4);
-    expect(pane.h).toBeGreaterThan(20);
     // htop and the stacked group still share the column between them.
     const after = await settledBox(node(page, 'htop'));
     expectInside(after, column);
@@ -87,10 +91,12 @@ test.describe('exotic trees', () => {
 
     await landedIn(page, 'terminal', 'stack-chat');
     await expect(page.getByTestId('xt-tab-terminal')).toHaveAttribute('aria-selected', 'true');
+    await expect
+      .poll(async () => (await boxOf(node(page, 'terminal'))).w)
+      .toBeGreaterThan(chat.w - 4);
     const pane = await settledBox(node(page, 'terminal'));
     expectFinite(pane);
     expectInside(pane, chat);
-    expect(pane.w).toBeGreaterThan(chat.w - 4);
   });
 });
 
@@ -116,8 +122,8 @@ test.describe('a seam drag resizing a group of nested panes', () => {
       ),
     );
     expect(durations.every((d) => d === 0)).toBe(true);
-    const outer = await settledBox(node(page, 'main-right'));
-    const inner = await settledBox(node(page, 'help'));
+    // biome-ignore lint/plugin: read with the button down; a settle would let an eased pane catch up
+    const [outer, inner] = [await boxOf(node(page, 'main-right')), await boxOf(node(page, 'help'))];
     expect(Math.abs(outer.w - inner.w)).toBeLessThanOrEqual(4);
 
     await page.mouse.up();
@@ -140,9 +146,13 @@ test.describe('a squeezed layout, saved bigger than the screen it is shown on', 
         steps: 8,
       });
       await page.mouse.up();
-      const end = await settledBox(seam);
-      const moved = vertical ? end.x - start.x : end.y - start.y;
-      expect(Math.abs(moved - 40)).toBeLessThanOrEqual(1);
+      await expect
+        .poll(async () => {
+          const end = await boxOf(seam);
+          const moved = vertical ? end.x - start.x : end.y - start.y;
+          return Math.abs(moved - 40);
+        })
+        .toBeLessThanOrEqual(1);
     });
   }
 });

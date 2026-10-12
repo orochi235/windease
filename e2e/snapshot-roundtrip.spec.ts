@@ -28,10 +28,10 @@ function hydrate(page: Page, snap: string) {
   }, snap);
 }
 
-const widthOf = (page: Page, id: string) =>
-  boxOf(page.locator(`[data-node="${id}"]`)).then((b) => Math.round(b.w));
-const heightOf = (page: Page, id: string) =>
-  boxOf(page.locator(`[data-node="${id}"]`)).then((b) => Math.round(b.h));
+const widthOf = (page: Page, id: string, read = boxOf) =>
+  read(page.locator(`[data-node="${id}"]`)).then((b) => Math.round(b.w));
+const heightOf = (page: Page, id: string, read = boxOf) =>
+  read(page.locator(`[data-node="${id}"]`)).then((b) => Math.round(b.h));
 
 /**
  * Resize state round-trips through `serialize` headlessly — that is unit
@@ -45,12 +45,12 @@ test.describe('snapshot round-trip through the DOM', () => {
     const gutter = centerOf(await settledBox(page.locator(ROOT_GUTTER)));
     await dragMouse(page, gutter, { x: gutter.x + 120, y: gutter.y });
 
-    const captured = await widthOf(page, 'a');
+    const captured = await widthOf(page, 'a', settledBox);
     const snap = await snapshot(page);
 
     const moved = centerOf(await settledBox(page.locator(ROOT_GUTTER)));
     await dragMouse(page, moved, { x: moved.x - 90, y: moved.y });
-    expect(await widthOf(page, 'a')).toBeLessThan(captured - 40);
+    await expect.poll(() => widthOf(page, 'a')).toBeLessThan(captured - 40);
 
     await hydrate(page, snap);
 
@@ -62,12 +62,12 @@ test.describe('snapshot round-trip through the DOM', () => {
     const gutter = centerOf(await settledBox(page.locator(MID_GUTTER)));
     await dragMouse(page, gutter, { x: gutter.x, y: gutter.y + 90 });
 
-    const captured = await heightOf(page, 'b');
+    const captured = await heightOf(page, 'b', settledBox);
     const snap = await snapshot(page);
 
     const moved = centerOf(await settledBox(page.locator(MID_GUTTER)));
     await dragMouse(page, moved, { x: moved.x, y: moved.y - 70 });
-    expect(await heightOf(page, 'b')).toBeLessThan(captured - 30);
+    await expect.poll(() => heightOf(page, 'b')).toBeLessThan(captured - 30);
 
     await hydrate(page, snap);
 

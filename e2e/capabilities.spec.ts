@@ -100,7 +100,7 @@ test.describe('grid overflowMode', () => {
 
   test('scroll grows the box past its viewport', async ({ page }) => {
     await openStory(page, STORY);
-    const squeezed = (await gridBox(page)).h;
+    const squeezed = (await settledBox(page.locator('[data-node-container="grid"]'))).h;
     await page.locator('[data-testid="mode-scroll"]').check();
     await expect.poll(async () => (await gridBox(page)).h).toBeGreaterThan(squeezed);
   });

@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { PRESETS } from '../src/nuts/grid-scenarios.js';
 import { presetTree } from '../src/nuts/preset.js';
-import { type Box, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { type Box, boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 /**
  * Grid presets reproduced from real software (`src/nuts/grid-scenarios.ts`),
@@ -85,11 +85,11 @@ test.describe('Android home screen (Pixel Launcher 4×5)', () => {
 
 test.describe('iPhone dock (fixed icon cells, spaced evenly)', () => {
   /** The docked icons left to right, and the space between each pair. */
-  async function dock(page: Page, ids: string[]) {
-    const boxes = await Promise.all(ids.map((id) => settledBox(node(page, id))));
+  async function dock(page: Page, ids: string[], read = settledBox) {
+    const boxes = await Promise.all(ids.map((id) => read(node(page, id))));
     boxes.sort((a, b) => a.x - b.x);
     const between = boxes.slice(1).map((b, i) => b.x - (boxes[i]!.x + boxes[i]!.w));
-    const frameBox = await settledBox(frame(page, 'ios-dock'));
+    const frameBox = await read(frame(page, 'ios-dock'));
     const left = boxes[0]!.x - frameBox.x;
     const right = frameBox.x + frameBox.w - (boxes.at(-1)!.x + boxes.at(-1)!.w);
     return { boxes, between, left, right };
@@ -122,15 +122,17 @@ test.describe('iPhone dock (fixed icon cells, spaced evenly)', () => {
     await dragOnto(page, 'ios-app-1', { frame: 'ios-dock' }, 'ios-dock', 'accept');
 
     await expect.poll(() => order(page, 'ios-dock')).toContain('ios-app-1');
-    const { boxes, between, left, right } = await dock(page, [
-      'ios-dock-app-1',
-      'ios-dock-app-2',
-      'ios-dock-app-3',
-      'ios-app-1',
-    ]);
-    for (const b of boxes) expect(b.w).toBe(60);
-    for (const gap of between) expect(gap).toBeCloseTo(between[0]!, 0);
-    expect(left).toBeCloseTo(right, 0);
+    const ids = ['ios-dock-app-1', 'ios-dock-app-2', 'ios-dock-app-3', 'ios-app-1'];
+    await expect
+      .poll(async () => {
+        const { boxes, between, left, right } = await dock(page, ids, boxOf);
+        return {
+          widths: boxes.map((b) => b.w),
+          evenGaps: between.every((gap) => Math.abs(gap - between[0]!) < 0.5),
+          centered: Math.abs(left - right) < 0.5,
+        };
+      })
+      .toEqual({ widths: [60, 60, 60, 60], evenGaps: true, centered: true });
   });
 });
 
@@ -194,8 +196,9 @@ test.describe('Windows 10 Start tiles', () => {
 
     await dragMouse(page, edge, { x: edge.x + before.w + 4, y: edge.y });
 
-    const after = await settledBox(node(page, 'calc'));
-    expect(after.w).toBeGreaterThan(before.w * 1.5);
+    await expect
+      .poll(async () => (await boxOf(node(page, 'calc'))).w)
+      .toBeGreaterThan(before.w * 1.5);
   });
 
   test('a tile dragged into another group lands there', async ({ page }) => {
@@ -227,9 +230,15 @@ test.describe('Grafana dashboard (24 columns)', () => {
     // One 30px row and its 8px gap.
     await dragMouse(page, edge, { x: edge.x, y: edge.y + 38 });
 
-    expect((await settledBox(node(page, 'cpu-basic'))).h).toBeCloseTo(cpu.h + 38, 0);
-    expect((await settledBox(node(page, 'net-basic'))).y).toBeCloseTo(net.y + 38, 0);
-    expect((await settledBox(node(page, 'imported-w30'))).y).toBeCloseTo(wide.y + 38, 0);
+    await expect
+      .poll(async () => (await boxOf(node(page, 'cpu-basic'))).h)
+      .toBeCloseTo(cpu.h + 38, 0);
+    await expect
+      .poll(async () => (await boxOf(node(page, 'net-basic'))).y)
+      .toBeCloseTo(net.y + 38, 0);
+    await expect
+      .poll(async () => (await boxOf(node(page, 'imported-w30'))).y)
+      .toBeCloseTo(wide.y + 38, 0);
     expect(await settledBox(node(page, 'mem-basic'))).toEqual(mem);
   });
 
@@ -315,9 +324,8 @@ test.describe('Excel frozen panes', () => {
 
     await dragMouse(page, edge, { x: edge.x + 16, y: edge.y });
 
-    expect((await settledBox(node(page, 'cell-A'))).w).toBeCloseTo(a.w + 16, 0);
-    const after = await settledBox(node(page, 'cell-B'));
-    expect(after.x).toBeCloseTo(b.x + 16, 0);
-    expect(after.w).toBeCloseTo(b.w, 0);
+    await expect.poll(async () => (await boxOf(node(page, 'cell-A'))).w).toBeCloseTo(a.w + 16, 0);
+    await expect.poll(async () => (await boxOf(node(page, 'cell-B'))).x).toBeCloseTo(b.x + 16, 0);
+    expect((await settledBox(node(page, 'cell-B'))).w).toBeCloseTo(b.w, 0);
   });
 });

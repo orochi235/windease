@@ -105,7 +105,9 @@ test.describe('blender layout workspace', () => {
     const before = await settledBox(pane(page, 'bl-outliner'));
     const viewport = await settledBox(pane(page, 'bl-viewport'));
     await dragSeam(page, 'resize-y-bl-outliner', 40, 'y');
-    expect((await settledBox(pane(page, 'bl-outliner'))).h).toBeCloseTo(before.h + 40, 0);
+    await expect
+      .poll(async () => (await boxOf(pane(page, 'bl-outliner'))).h)
+      .toBeCloseTo(before.h + 40, 0);
     expect(await settledBox(pane(page, 'bl-viewport'))).toEqual(viewport);
   });
 });
@@ -118,7 +120,9 @@ test.describe('blender recursive split', () => {
     await expect(seam(page, 'resize-y-area-9')).toHaveAttribute('aria-disabled', 'true');
     const before = await settledBox(pane(page, 'area-0'));
     await dragSeam(page, 'resize-x-area-0', 40, 'x');
-    expect((await settledBox(pane(page, 'area-0'))).w).toBeCloseTo(before.w + 40, 0);
+    await expect
+      .poll(async () => (await boxOf(pane(page, 'area-0'))).w)
+      .toBeCloseTo(before.w + 40, 0);
   });
 });
 
@@ -152,16 +156,16 @@ test.describe('tmux even-horizontal, 40 panes', () => {
     await openPreset(page, 'tmux-even-horizontal-40');
     const zone = page.locator('[data-node-container="tmux"]');
     // Pressing the seam scrolls it into view, so compare offsets within the zone, not page boxes.
-    const relative = async (id: string) => {
-      const [p, z] = [await settledBox(pane(page, id)), await settledBox(zone)];
+    const relative = async (id: string, read = settledBox) => {
+      const [p, z] = [await read(pane(page, id)), await read(zone)];
       return { x: Math.round(p.x - z.x), w: Math.round(p.w) };
     };
     expect(await relative('pane-0')).toEqual({ x: 0, w: 24 });
     const c = await relative('pane-2');
     await dragSeam(page, 'resize-x-pane-0', 13, 'x');
     // 24 + 13 = 37 is nearest five cells.
-    expect((await relative('pane-0')).w).toBe(40);
-    expect((await relative('pane-1')).w).toBe(8);
+    await expect.poll(async () => (await relative('pane-0', boxOf)).w).toBe(40);
+    await expect.poll(async () => (await relative('pane-1', boxOf)).w).toBe(8);
     expect(await relative('pane-2')).toEqual(c);
   });
 });
@@ -206,9 +210,10 @@ test.describe('firefox pinned tabs', () => {
     await openPreset(page, 'firefox-100-tabs');
     const frame = page.getByTestId('xs-frame');
     const origin = (await settledBox(frame)).x;
-    const at = async (id: string) => Math.round((await boxOf(pane(page, id))).x - origin);
-    const pinned = [await at('pinned-1'), await at('pinned-3')];
-    const tab = await at('tab-1');
+    const at = async (id: string, read = boxOf) =>
+      Math.round((await read(pane(page, id))).x - origin);
+    const pinned = [await at('pinned-1', settledBox), await at('pinned-3', settledBox)];
+    const tab = await at('tab-1', settledBox);
 
     await frame.evaluate((el) => {
       el.scrollLeft = 600;
@@ -216,7 +221,7 @@ test.describe('firefox pinned tabs', () => {
 
     await expect.poll(() => at('tab-1')).toBe(tab - 600);
     await expect.poll(() => at('pinned-1')).toBe(pinned[0]);
-    expect(await at('pinned-3')).toBe(pinned[1]);
+    expect(await at('pinned-3', settledBox)).toBe(pinned[1]);
   });
 });
 

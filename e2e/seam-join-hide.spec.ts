@@ -50,7 +50,7 @@ test.describe("seam join overshoot: 'hide'", () => {
     await page.getByTestId('sj-show-hide-sidebar').click();
     await expect(hidden(page)).toHaveText('(nothing)');
     await expect.poll(() => width(page, 'sidebar')).toBe(200);
-    expect(await width(page, 'editor')).toBe(388);
+    await expect.poll(() => width(page, 'editor')).toBe(388);
   });
 
   test('dragging the handle it leaves behind brings the pane back at that width', async ({

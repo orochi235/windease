@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { openStory } from './fixtures.js';
+import { boxOf, openStory } from './fixtures.js';
 
 const STORY = 'declarative--keyboard-nav';
 
@@ -34,7 +34,7 @@ async function leftColumnOrder(page: Page): Promise<string[] | null> {
   const ids = ['kb-a', 'kb-b', 'kb-c'];
   const withTops: Array<{ id: string; top: number }> = [];
   for (const id of ids) {
-    const box = await page.locator(`[data-node="${id}"]`).boundingBox();
+    const box = await boxOf(page.locator(`[data-node="${id}"]`)).catch(() => null);
     if (!box) return null;
     withTops.push({ id, top: box.y });
   }

@@ -41,9 +41,13 @@ test.describe("grid compact: 'up' — dashboard", () => {
 
     await dragMouse(page, edge, { x: edge.x, y: edge.y + ROW });
 
-    expect((await settledBox(panel(page, 'disk'))).h).toBeCloseTo(disk.h + ROW, 0);
-    expect((await settledBox(panel(page, 'net'))).y).toBeCloseTo(net.y + ROW, 0);
-    expect((await settledBox(panel(page, 'uptime'))).y).toBeCloseTo(uptime.y + ROW, 0);
+    await expect
+      .poll(async () => (await boxOf(panel(page, 'disk'))).h)
+      .toBeCloseTo(disk.h + ROW, 0);
+    await expect.poll(async () => (await boxOf(panel(page, 'net'))).y).toBeCloseTo(net.y + ROW, 0);
+    await expect
+      .poll(async () => (await boxOf(panel(page, 'uptime'))).y)
+      .toBeCloseTo(uptime.y + ROW, 0);
   });
 
   test('without compact the panel below stops the growth', async ({ page }) => {

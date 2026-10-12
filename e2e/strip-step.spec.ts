@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { centerOf, openStory, settledBox } from './fixtures.js';
+import { boxOf, centerOf, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'strip--steps';
 const CELL = 12;
@@ -33,9 +33,11 @@ test.describe('strip step', () => {
     await page.mouse.move(grip.x + 41, grip.y, { steps: 20 });
     await page.mouse.up();
 
+    await expect
+      .poll(async () => Math.abs(Math.round((await boxOf(pane(page, 'shell'))).w) - 281))
+      .toBeLessThanOrEqual(CELL / 2);
     const w = await widths(page);
     expect(w.shell! % CELL).toBe(0);
-    expect(Math.abs(w.shell! - 281)).toBeLessThanOrEqual(CELL / 2);
     expect(w.shell! + w.editor!).toBe(480);
     expect(w.logs).toBe(245);
     expect(w.shell! + w.editor! + w.logs!).toBe(ROW);

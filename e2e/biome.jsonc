@@ -1,0 +1,5 @@
+{
+  "root": false,
+  "extends": "//",
+  "plugins": ["./raw-geometry.grit"]
+}

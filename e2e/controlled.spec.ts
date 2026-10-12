@@ -31,8 +31,12 @@ test.describe('onPlacementChange', () => {
 
     await expect.poll(() => hostWidth(page)).toBeGreaterThan(280);
     // The pane renders what the host holds, not what the gesture wanted.
-    const paneW = Math.round((await settledBox(page.locator('[data-node="left"]'))).w);
-    expect(paneW).toBe(await hostWidth(page));
+    await expect
+      .poll(
+        async () =>
+          Math.round((await boxOf(page.locator('[data-node="left"]'))).w) - (await hostWidth(page)),
+      )
+      .toBe(0);
   });
 
   test('a host that refuses leaves the pane where it was', async ({ page }) => {

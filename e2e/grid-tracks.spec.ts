@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 const SHEET = 'grid--spreadsheet';
 
@@ -29,10 +29,11 @@ test.describe('grid tracks — spreadsheet', () => {
 
     await dragMouse(page, edge, { x: edge.x + 40, y: edge.y });
 
-    const after = await settledBox(cell(page, 'cell-B1'));
-    expect(after.w).toBeCloseTo(before.w + 40, 0);
+    await expect
+      .poll(async () => (await boxOf(cell(page, 'cell-B1'))).w)
+      .toBeCloseTo(before.w + 40, 0);
     // The shares give up the width B took.
-    expect((await settledBox(cell(page, 'cell-C1'))).w).toBeCloseTo(c.w - 20, 0);
+    await expect.poll(async () => (await boxOf(cell(page, 'cell-C1'))).w).toBeCloseTo(c.w - 20, 0);
     expect((await tracks(page)).cols[2]).toBe(136);
   });
 
@@ -46,10 +47,8 @@ test.describe('grid tracks — spreadsheet', () => {
 
     await dragMouse(page, edge, { x: edge.x - 30, y: edge.y });
 
-    const c2 = await settledBox(cell(page, 'cell-C1'));
-    const d2 = await settledBox(cell(page, 'cell-D1'));
-    expect(c2.w).toBeCloseTo(c.w - 30, 0);
-    expect(d2.w).toBeCloseTo(d.w + 30, 0);
+    await expect.poll(async () => (await boxOf(cell(page, 'cell-C1'))).w).toBeCloseTo(c.w - 30, 0);
+    await expect.poll(async () => (await boxOf(cell(page, 'cell-D1'))).w).toBeCloseTo(d.w + 30, 0);
     const [shareC, shareD] = (await tracks(page)).cols.slice(3, 5);
     expect(shareC.share + shareD.share).toBeCloseTo(2, 3);
     expect(shareC.share).toBeLessThan(1);
@@ -64,7 +63,9 @@ test.describe('grid tracks — spreadsheet', () => {
 
     await dragMouse(page, edge, { x: edge.x, y: edge.y + 14 });
 
-    expect((await settledBox(cell(page, 'cell-A2'))).h).toBeCloseTo(before.h + 14, 0);
+    await expect
+      .poll(async () => (await boxOf(cell(page, 'cell-A2'))).h)
+      .toBeCloseTo(before.h + 14, 0);
     expect((await tracks(page)).rows).toEqual([28, 26, 40]);
   });
 

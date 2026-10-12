@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { centerOf, openStory, settledBox } from './fixtures.js';
+import { boxOf, centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
  * Drop-on-edge is a drop *intent* gesture: where inside a pane the cursor lands
@@ -77,10 +77,9 @@ test.describe('drop on edge', () => {
 
     const preview = page.locator('.windease-split-preview');
     await expect(preview).toBeVisible();
-    const pb = await settledBox(preview);
     // The top half of `b`, not the whole pane and not the other half.
-    expect(pb.h).toBeLessThan(box.h * 0.75);
-    expect(pb.y).toBeLessThan(box.y + box.h * 0.5);
+    await expect.poll(async () => (await boxOf(preview)).h).toBeLessThan(box.h * 0.75);
+    await expect.poll(async () => (await boxOf(preview)).y).toBeLessThan(box.y + box.h * 0.5);
     await page.mouse.up();
   });
 
@@ -105,8 +104,7 @@ test.describe('drop on edge', () => {
     await page.mouse.move(s.x, s.y + 40, { steps: 10 });
     await page.mouse.up();
 
-    const after = await settledBox(pane(page, 'a'));
-    expect(after.h).toBeGreaterThan(before.h + 10);
+    await expect.poll(async () => (await boxOf(pane(page, 'a'))).h).toBeGreaterThan(before.h + 10);
   });
 
   test('dragging a pane back out dissolves the group', async ({ page }) => {
@@ -127,16 +125,20 @@ test.describe("splitPreview 'layout'", () => {
     const before = await settledBox(pane(page, 'b'));
     await dragOver(page, 'a', 'b', 0.5, 0.08);
 
-    const during = await settledBox(pane(page, 'b'));
-    expect(during.h).toBeLessThan(before.h * 0.6);
+    await expect.poll(async () => (await boxOf(pane(page, 'b'))).h).toBeLessThan(before.h * 0.6);
     // Bottom half, because the drop lands on the start edge.
-    expect(during.y).toBeGreaterThan(before.y + before.h * 0.4);
+    await expect
+      .poll(async () => (await boxOf(pane(page, 'b'))).y)
+      .toBeGreaterThan(before.y + before.h * 0.4);
     await page.mouse.up();
   });
 
   test('what the preview showed is what the drop produces', async ({ page }) => {
     await openStory(page, STORY);
+    const before = await settledBox(pane(page, 'b'));
     await dragOver(page, 'a', 'b', 0.5, 0.08);
+    // The preview has to have arrived before a box that holds still is its box.
+    await expect.poll(async () => (await boxOf(pane(page, 'b'))).h).toBeLessThan(before.h * 0.6);
     const previewed = await settledBox(pane(page, 'b'));
     await page.mouse.up();
     await expect(readout(page)).toContainText('split-1:a,b');
@@ -152,13 +154,13 @@ test.describe("splitPreview 'layout'", () => {
     await openStory(page, STORY);
     const before = await settledBox(pane(page, 'b'));
     await dragOver(page, 'a', 'b', 0.5, 0.08);
-    expect((await settledBox(pane(page, 'b'))).h).toBeLessThan(before.h * 0.6);
+    await expect.poll(async () => (await boxOf(pane(page, 'b'))).h).toBeLessThan(before.h * 0.6);
 
     await page.keyboard.press('Escape');
     await page.mouse.up();
 
     await expect(readout(page)).not.toContainText('split-1');
-    expect(near((await settledBox(pane(page, 'b'))).h, before.h)).toBe(true);
+    await expect.poll(async () => near((await boxOf(pane(page, 'b'))).h, before.h)).toBe(true);
   });
 
   test("'element' leaves the hovered pane at full size", async ({ page }) => {

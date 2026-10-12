@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { boxOf, openStory } from './fixtures.js';
+import { boxOf, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'strip--sticky-tabs';
 const tab = (page: Page, name: string) => page.locator(`[data-node="sticky-${name}"]`);
@@ -12,22 +12,22 @@ async function scrollBar(page: Page, x: number): Promise<void> {
 }
 
 /** Left edge relative to the scroller's visible box. */
-async function visibleX(page: Page, name: string): Promise<number> {
-  const origin = (await boxOf(scroller(page))).x;
-  return Math.round((await boxOf(tab(page, name))).x - origin);
+async function visibleX(page: Page, name: string, read = boxOf): Promise<number> {
+  const origin = (await read(scroller(page))).x;
+  return Math.round((await read(tab(page, name))).x - origin);
 }
 
 test.describe('strip placement.sticky', () => {
   test('pinned tabs hold at the start while the pages scroll under them', async ({ page }) => {
     await openStory(page, STORY);
-    const mail = await visibleX(page, 'mail');
-    const chat = await visibleX(page, 'chat');
-    const first = await visibleX(page, 'page-1');
+    const mail = await visibleX(page, 'mail', settledBox);
+    const chat = await visibleX(page, 'chat', settledBox);
+    const first = await visibleX(page, 'page-1', settledBox);
 
     await scrollBar(page, 300);
     await expect.poll(() => visibleX(page, 'page-1')).toBe(first - 300);
     await expect.poll(() => visibleX(page, 'mail')).toBe(mail);
-    expect(await visibleX(page, 'chat')).toBe(chat);
+    expect(await visibleX(page, 'chat', settledBox)).toBe(chat);
   });
 
   test('a pinned tab draws over the page scrolled beneath it', async ({ page }) => {

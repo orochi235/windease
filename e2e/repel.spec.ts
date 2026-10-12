@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { type Box, settledBox } from './fixtures.js';
+import { type Box, boxOf, settledBox } from './fixtures.js';
 
 /** `repelStrategy` with spots from `anchorOrigin`: windows asking for one spot are pushed apart. */
 
@@ -35,12 +35,22 @@ test.describe('repel', () => {
     await open(page, 'repel--repel');
     await add(page, 'center', 1);
     const s = await stage(page);
+    await expect
+      .poll(async () => {
+        const b = await boxOf(win(page, 1));
+        return near(b.x + b.w / 2, s.x + s.w / 2);
+      })
+      .toBe(true);
+    await expect
+      .poll(async () => {
+        const b = await boxOf(win(page, 1));
+        return near(b.y + b.h / 2, s.y + s.h / 2);
+      })
+      .toBe(true);
     const first = await settledBox(win(page, 1));
-    expect(near(first.x + first.w / 2, s.x + s.w / 2)).toBe(true);
-    expect(near(first.y + first.h / 2, s.y + s.h / 2)).toBe(true);
 
     await add(page, 'center', 2);
-    expect(apart(first, await settledBox(win(page, 2)), 8)).toBe(true);
+    await expect.poll(async () => apart(first, await boxOf(win(page, 2)), 8)).toBe(true);
     // Placing the second never moves the first.
     expect(await settledBox(win(page, 1))).toEqual(first);
   });
@@ -49,15 +59,29 @@ test.describe('repel', () => {
     await open(page, 'repel--repel');
     await add(page, 'bottom-right', 1);
     const s = await stage(page);
-    const w = await settledBox(win(page, 1));
-    expect(near(w.x + w.w, s.x + s.w - 12)).toBe(true);
-    expect(near(w.y + w.h, s.y + s.h - 12)).toBe(true);
+    await expect
+      .poll(async () => {
+        const w = await boxOf(win(page, 1));
+        return near(w.x + w.w, s.x + s.w - 12);
+      })
+      .toBe(true);
+    await expect
+      .poll(async () => {
+        const w = await boxOf(win(page, 1));
+        return near(w.y + w.h, s.y + s.h - 12);
+      })
+      .toBe(true);
   });
 
   test('with no drift, a second window stacks on the first', async ({ page }) => {
     await open(page, 'repel--no-drift');
     await add(page, 'top-left', 1);
     await add(page, 'top-left', 2);
-    expect(await settledBox(win(page, 2))).toEqual(await settledBox(win(page, 1)));
+    await expect
+      .poll(async () => {
+        const [one, two] = [await boxOf(win(page, 1)), await boxOf(win(page, 2))];
+        return { x: two.x - one.x, y: two.y - one.y, w: two.w - one.w, h: two.h - one.h };
+      })
+      .toEqual({ x: 0, y: 0, w: 0, h: 0 });
   });
 });

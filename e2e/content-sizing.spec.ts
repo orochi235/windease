@@ -9,17 +9,18 @@ test.describe('content-driven sizing', () => {
     // Three panes with 2, 3 and 1 rows. An equal share would make them equal;
     // jsdom cannot tell the difference because it measures nothing.
     // Sizing is two-pass, and the first pass is the equal share.
-    const tallestFirst = async () => {
-      const ids = ['palette-1', 'palette-2', 'palette-3'];
-      const hs = await Promise.all(
-        ids.map(async (id) => (await boxOf(page.locator(`[data-node="${id}"]`))).h),
-      );
-      return ids
-        .map((id, i) => ({ id, h: hs[i] ?? 0 }))
-        .sort((a, b) => b.h - a.h)
-        .map((p, i, all) => (i > 0 && all[i - 1]?.h === p.h ? `${p.id} (tied)` : p.id));
-    };
-    await expect.poll(tallestFirst).toEqual(['palette-2', 'palette-1', 'palette-3']);
+    await expect
+      .poll(async () => {
+        const ids = ['palette-1', 'palette-2', 'palette-3'];
+        const hs = await Promise.all(
+          ids.map(async (id) => (await boxOf(page.locator(`[data-node="${id}"]`))).h),
+        );
+        return ids
+          .map((id, i) => ({ id, h: hs[i] ?? 0 }))
+          .sort((a, b) => b.h - a.h)
+          .map((p, i, all) => (i > 0 && all[i - 1]?.h === p.h ? `${p.id} (tied)` : p.id));
+      })
+      .toEqual(['palette-2', 'palette-1', 'palette-3']);
   });
 
   test('adding content grows the pane with no size written', async ({ page }) => {
@@ -44,7 +45,7 @@ test.describe('content-driven sizing', () => {
 
     // And it stays there: a cycle that re-triggered itself would move again.
     await page.waitForTimeout(400);
-    expect((await boxOf(pane)).h).toBe(settled);
+    expect((await settledBox(pane)).h).toBe(settled);
   });
 
   test('dragging a gutter pins the pane against further measurement', async ({ page }) => {
@@ -59,7 +60,7 @@ test.describe('content-driven sizing', () => {
     const pinned = (await settledBox(pane)).h;
     await page.getByTestId('add-row').click();
     await page.waitForTimeout(300);
-    expect((await boxOf(pane)).h).toBe(pinned);
+    expect((await settledBox(pane)).h).toBe(pinned);
   });
 
   test('releasing the size hands the pane back to measurement', async ({ page }) => {
@@ -73,12 +74,12 @@ test.describe('content-driven sizing', () => {
     await page.mouse.down();
     await page.mouse.move(g.x + g.w / 2, g.y + g.h / 2 + 60, { steps: 10 });
     await page.mouse.up();
+    await expect.poll(async () => (await boxOf(pane)).h).toBeGreaterThan(content);
     const pinned = (await settledBox(pane)).h;
-    expect(pinned).toBeGreaterThan(content);
 
     await page.getByTestId('add-row').click();
     await page.waitForTimeout(300);
-    expect((await boxOf(pane)).h).toBe(pinned);
+    expect((await settledBox(pane)).h).toBe(pinned);
 
     // Back on measurement, and measuring what it holds now — the row added
     // while pinned counts, so this is taller than the height it started at.

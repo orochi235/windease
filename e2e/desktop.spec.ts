@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { type Box, dragMouse, openStory, settledBox } from './fixtures.js';
+import { type Box, boxOf, dragMouse, openStory, settledBox } from './fixtures.js';
 
 const SHADE = 'desktop--shade';
 const ICON = 'desktop--icon-minimize';
@@ -60,8 +60,9 @@ test.describe('desktop minimize', () => {
     await openStory(page, SHADE);
     const before = await settledBox(node(page, 'win-2'));
     await page.getByTestId('minimize-win-2').click();
-    const after = await settledBox(node(page, 'win-2'));
-    expect(after).toMatchObject({ x: before.x, y: before.y, w: before.w, h: 28 });
+    await expect
+      .poll(() => boxOf(node(page, 'win-2')))
+      .toMatchObject({ x: before.x, y: before.y, w: before.w, h: 28 });
   });
 
   test('icon mode sends a window to the icon row, and pressing it restores it', async ({
@@ -72,12 +73,12 @@ test.describe('desktop minimize', () => {
     const lastIcon = await settledBox(node(page, 'icon-3'));
 
     await page.getByTestId('minimize-win-2').click();
-    const iconified = await settledBox(node(page, 'win-2'));
-    expect(iconified).toMatchObject({ y: lastIcon.y, w: 72, h: 64 });
-    expect(iconified.x).toBeGreaterThan(lastIcon.x);
+    const win = () => boxOf(node(page, 'win-2'));
+    await expect.poll(win).toMatchObject({ y: lastIcon.y, w: 72, h: 64 });
+    await expect.poll(async () => (await win()).x).toBeGreaterThan(lastIcon.x);
 
     await page.getByTestId('restore-win-2').click();
-    expect(await settledBox(node(page, 'win-2'))).toEqual(before);
+    await expect.poll(win).toEqual(before);
   });
 });
 
@@ -100,18 +101,17 @@ test.describe('desktop behavior keys', () => {
     await openStory(page, BEHAVIOR);
     const { box, at } = await barOf(page, 'win-1');
     await dragMouse(page, at, { x: at.x + 60, y: at.y + 40 });
-    const after = await settledBox(node(page, 'win-1'));
-    expect(after.x - box.x).toBeCloseTo(60, 0);
-    expect(after.y - box.y).toBeCloseTo(40, 0);
+    const win = () => boxOf(node(page, 'win-1'));
+    await expect.poll(async () => (await win()).x - box.x).toBeCloseTo(60, 0);
+    await expect.poll(async () => (await win()).y - box.y).toBeCloseTo(40, 0);
   });
 
   test("drag: 'y' moves a window vertically only", async ({ page }) => {
     await openStory(page, `${BEHAVIOR}&arg-drag=y`);
     const { box, at } = await barOf(page, 'win-1');
     await dragMouse(page, at, { x: at.x + 60, y: at.y + 40 });
-    const after = await settledBox(node(page, 'win-1'));
-    expect(after.x).toBeCloseTo(box.x, 0);
-    expect(after.y - box.y).toBeCloseTo(40, 0);
+    await expect.poll(async () => (await boxOf(node(page, 'win-1'))).y - box.y).toBeCloseTo(40, 0);
+    expect((await settledBox(node(page, 'win-1'))).x).toBeCloseTo(box.x, 0);
   });
 
   test("clamp: 'all' stops a dragged window at the desktop's edge", async ({ page }) => {
@@ -119,9 +119,9 @@ test.describe('desktop behavior keys', () => {
     const desk = await deskOf(page);
     const { at } = await barOf(page, 'win-1');
     await dragMouse(page, at, { x: at.x - 200, y: at.y - 100 });
-    const after = await settledBox(node(page, 'win-1'));
-    expect(after.x).toBeCloseTo(desk.x, 0);
-    expect(after.y).toBeCloseTo(desk.y, 0);
+    const win = () => boxOf(node(page, 'win-1'));
+    await expect.poll(async () => (await win()).x).toBeCloseTo(desk.x, 0);
+    await expect.poll(async () => (await win()).y).toBeCloseTo(desk.y, 0);
   });
 
   test("clamp: 'bar' keeps the title bar on the desktop, body hanging below", async ({ page }) => {
@@ -129,9 +129,10 @@ test.describe('desktop behavior keys', () => {
     const desk = await deskOf(page);
     const { at } = await barOf(page, 'win-2');
     await dragMouse(page, at, { x: at.x, y: at.y + 400 });
-    const after = await settledBox(node(page, 'win-2'));
     // The story lays out against a 360px viewport, which its border-box does not shrink.
-    expect(after.y).toBeCloseTo(desk.y + 360 - 26, 0);
+    await expect
+      .poll(async () => (await boxOf(node(page, 'win-2'))).y)
+      .toBeCloseTo(desk.y + 360 - 26, 0);
   });
 
   test('a window past the left edge opens scrolled out of view and scrolls into it', async ({
@@ -147,8 +148,7 @@ test.describe('desktop behavior keys', () => {
     await scroller.evaluate((el) => {
       el.scrollLeft = 0;
     });
-    const shown = await settledBox(node(page, 'win-3'));
-    expect(shown.x).toBeCloseTo(view.x + 1, 0);
+    await expect.poll(async () => (await boxOf(node(page, 'win-3'))).x).toBeCloseTo(view.x + 1, 0);
   });
 
   /**
@@ -192,10 +192,10 @@ test.describe('desktop behavior keys', () => {
     const before = await settledBox(node(page, 'win-1'));
     const toggle = page.getByRole('button', { name: 'minimize win-1' });
     await toggle.click();
-    expect(await settledBox(node(page, 'win-1'))).toMatchObject({ ...before, h: 28 });
+    await expect.poll(() => boxOf(node(page, 'win-1'))).toMatchObject({ ...before, h: 28 });
 
     await page.getByRole('button', { name: 'restore win-1' }).press('Enter');
-    expect(await settledBox(node(page, 'win-1'))).toEqual(before);
+    await expect.poll(() => boxOf(node(page, 'win-1'))).toEqual(before);
   });
 
   test('there is no minimize box unless minimizable is set', async ({ page }) => {
@@ -217,11 +217,15 @@ test.describe('desktop resize', () => {
     const before = await settledBox(node(page, 'win-2'));
     const corner = { x: before.x + before.w - 3, y: before.y + before.h - 3 };
     await dragMouse(page, corner, { x: corner.x + 40, y: corner.y + 30 });
+    await expect
+      .poll(async () => (await boxOf(node(page, 'win-2'))).w - before.w)
+      .toBeCloseTo(40, 0);
+    await expect
+      .poll(async () => (await boxOf(node(page, 'win-2'))).h - before.h)
+      .toBeCloseTo(30, 0);
     const after = await settledBox(node(page, 'win-2'));
     expect(after.x).toBeCloseTo(before.x, 0);
     expect(after.y).toBeCloseTo(before.y, 0);
-    expect(after.w - before.w).toBeCloseTo(40, 0);
-    expect(after.h - before.h).toBeCloseTo(30, 0);
   });
 
   test('dragging the left edge moves the window with it, keeping its right edge', async ({
@@ -231,8 +235,10 @@ test.describe('desktop resize', () => {
     const before = await settledBox(node(page, 'win-1'));
     const edge = { x: before.x + 3, y: before.y + before.h / 2 };
     await dragMouse(page, edge, { x: edge.x - 20, y: edge.y });
+    await expect
+      .poll(async () => (await boxOf(node(page, 'win-1'))).x - before.x)
+      .toBeCloseTo(-20, 0);
     const after = await settledBox(node(page, 'win-1'));
-    expect(after.x - before.x).toBeCloseTo(-20, 0);
     expect(after.x + after.w).toBeCloseTo(before.x + before.w, 0);
   });
 
@@ -290,9 +296,9 @@ test.describe('desktop iconFrom', () => {
     await openStory(page, `${BEHAVIOR}&arg-minimize=icon`);
     const trash = await settledBox(node(page, 'trash'));
     await page.getByRole('button', { name: 'minimize win-1' }).click();
-    const icon = await settledBox(node(page, 'win-1'));
-    expect(icon).toMatchObject({ y: trash.y, w: 72, h: 64 });
-    expect(icon.x).toBeCloseTo(trash.x + trash.w + 8, 0);
+    const icon = () => boxOf(node(page, 'win-1'));
+    await expect.poll(icon).toMatchObject({ y: trash.y, w: 72, h: 64 });
+    await expect.poll(async () => (await icon()).x).toBeCloseTo(trash.x + trash.w + 8, 0);
   });
 
   test("iconFrom: 'top-right' lines them up from the top-right", async ({ page }) => {
@@ -316,19 +322,20 @@ test.describe('desktop wrap', () => {
     const desk = await deskOf(page);
     await addWindows(page, 8);
     // new-7 sits at 240: 240 + 100 fits the 360px desktop; new-8 at 280 would not.
-    const seventh = await settledBox(node(page, 'new-7'));
-    expect(seventh.y - desk.y).toBeCloseTo(240, 0);
-    const eighth = await settledBox(node(page, 'new-8'));
-    expect(eighth.x).toBeCloseTo(desk.x, 0);
-    expect(eighth.y).toBeCloseTo(desk.y, 0);
+    await expect
+      .poll(async () => (await boxOf(node(page, 'new-7'))).y - desk.y)
+      .toBeCloseTo(240, 0);
+    await expect.poll(async () => (await boxOf(node(page, 'new-8'))).x).toBeCloseTo(desk.x, 0);
+    await expect.poll(async () => (await boxOf(node(page, 'new-8'))).y).toBeCloseTo(desk.y, 0);
   });
 
   test('without wrap, the cascade runs on past the edge', async ({ page }) => {
     await openStory(page, `${BEHAVIOR}&arg-wrap=false`);
     const desk = await deskOf(page);
     await addWindows(page, 8);
-    const eighth = await settledBox(node(page, 'new-8'));
-    expect(eighth.y - desk.y).toBeCloseTo(280, 0);
+    await expect
+      .poll(async () => (await boxOf(node(page, 'new-8'))).y - desk.y)
+      .toBeCloseTo(280, 0);
   });
 });
 

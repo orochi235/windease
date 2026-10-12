@@ -40,11 +40,18 @@ test.describe('stack tab band', () => {
     await tab(page, 'console').click();
     await expect(body(page, 'console')).toBeVisible();
     await expect(body(page, 'editor')).toHaveCount(0);
-    const frame = await settledBox(stack(page));
-    const b = await settledBox(body(page, 'console'));
     // The band is at the bottom, so the body starts at the top.
-    expect(Math.round(b.y - frame.y)).toBeLessThanOrEqual(2);
-    expect((await settledBox(tab(page, 'editor'))).y).toBeGreaterThanOrEqual(b.y + b.h - 2);
+    await expect
+      .poll(async () =>
+        Math.round((await boxOf(body(page, 'console'))).y - (await boxOf(stack(page))).y),
+      )
+      .toBeLessThanOrEqual(2);
+    await expect
+      .poll(async () => {
+        const b = await boxOf(body(page, 'console'));
+        return (await boxOf(tab(page, 'editor'))).y - (b.y + b.h - 2);
+      })
+      .toBeGreaterThanOrEqual(0);
   });
 
   test('a left strip band puts the tabs in a column and the body to its right', async ({

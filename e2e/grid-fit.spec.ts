@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { openStory, settledBox } from './fixtures.js';
+import { boxOf, openStory, settledBox } from './fixtures.js';
 
 const FITTED = 'grid--fitted-grid';
 
@@ -49,9 +49,15 @@ test.describe("grid orientation 'fit'", () => {
     // is waiting for the relayout — measuring straight after the select reads
     // the box the fitted grid left behind.
     await expect(page.getByTestId('fit-tiling')).toHaveText('4 × 3');
-    const wide = await settledBox(tile(page, 1));
     const aspect = (b: { w: number; h: number }) => Math.max(b.w / b.h, b.h / b.w);
-    expect(aspect(fitted)).toBeLessThan(aspect(wide));
-    expect(Math.min(fitted.w, fitted.h)).toBeGreaterThan(Math.min(wide.w, wide.h));
+    await expect
+      .poll(async () => aspect(await boxOf(tile(page, 1))))
+      .toBeGreaterThan(aspect(fitted));
+    await expect
+      .poll(async () => {
+        const wide = await boxOf(tile(page, 1));
+        return Math.min(wide.w, wide.h);
+      })
+      .toBeLessThan(Math.min(fitted.w, fitted.h));
   });
 });

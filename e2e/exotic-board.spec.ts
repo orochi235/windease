@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { openStory } from './fixtures.js';
+import { boxOf, centerOf, openStory, settledBox } from './fixtures.js';
 
 const STORY = 'exotic--board--duel-board';
 
@@ -158,17 +158,16 @@ async function hoverCard(page: Page, cardId: string): Promise<{ x: number; y: nu
 
 /** Drag `from` onto the middle of `to`, in steps so the hit-test samples. */
 async function dragOnto(page: Page, cardId: string, bandId: string): Promise<void> {
-  const src = await card(page, cardId).boundingBox();
   // The hand's drop target is the dock at the bottom of its surface, not the
   // surface, which spans the whole board and would aim this at the table.
-  const dst = await (bandId === 'your-hand'
-    ? page.getByTestId('xb-hand-dock')
-    : band(page, bandId)
-  ).boundingBox();
-  if (!src || !dst) throw new Error(`missing geometry for ${cardId} → ${bandId}`);
+  const dst = centerOf(
+    await settledBox(
+      bandId === 'your-hand' ? page.getByTestId('xb-hand-dock') : band(page, bandId),
+    ),
+  );
   await hoverCard(page, cardId);
   await page.mouse.down();
-  await page.mouse.move(dst.x + dst.width / 2, dst.y + dst.height / 2, { steps: 24 });
+  await page.mouse.move(dst.x, dst.y, { steps: 24 });
   await page.mouse.up();
 }
 
@@ -186,9 +185,13 @@ test.describe('duel board', () => {
   test('the table recedes: a far band draws its cards smaller than a near one', async ({
     page,
   }) => {
-    const far = await card(page, 'opp-field-0').boundingBox();
-    const near = await card(page, 'your-field-0').boundingBox();
-    expect(far!.width).toBeLessThan(near!.width);
+    await expect
+      .poll(async () => {
+        const far = await boxOf(card(page, 'opp-field-0'));
+        const near = await boxOf(card(page, 'your-field-0'));
+        return far.w - near.w;
+      })
+      .toBeLessThan(0);
   });
 
   // The test the CSS approach fails: under a transformed parent the drop
@@ -213,17 +216,17 @@ test.describe('duel board', () => {
   });
 
   test('the pile rail refuses cards; they belong in bands', async ({ page }) => {
-    const rail = await page.getByTestId('xb-pile-graveyard').boundingBox();
-    const src = await card(page, 'your-hand-2').boundingBox();
-    await page.mouse.move(src!.x + src!.width / 2, src!.y + src!.height / 2);
+    const rail = centerOf(await settledBox(page.getByTestId('xb-pile-graveyard')));
+    const src = centerOf(await settledBox(card(page, 'your-hand-2')));
+    await page.mouse.move(src.x, src.y);
     await page.mouse.down();
-    await page.mouse.move(rail!.x + rail!.width / 2, rail!.y + rail!.height / 2, { steps: 24 });
+    await page.mouse.move(rail.x, rail.y, { steps: 24 });
     await page.mouse.up();
     await expect.poll(() => bandUnder(page, 'your-hand-2')).toBe('your-hand');
   });
 
   test('a turned card swaps its footprint rather than growing square', async ({ page }) => {
-    const before = await card(page, 'your-field-0').boundingBox();
+    const before = await settledBox(card(page, 'your-field-0'));
     await card(page, 'your-field-0').click();
     await expect(card(page, 'your-field-0')).toHaveAttribute('data-tapped', 'true');
 
@@ -233,10 +236,11 @@ test.describe('duel board', () => {
     // the turn is animated, and a card caught at 80° has a box wider than
     // either extent (`w·cosθ + h·sinθ`), which is a frame, not a footprint.
     await expect
-      .poll(async () => (await card(page, 'your-field-0').boundingBox())!.width)
-      .toBeCloseTo(before!.height, 0);
-    const after = (await card(page, 'your-field-0').boundingBox())!;
-    expect(after.height).toBeCloseTo(before!.width, 0);
+      .poll(async () => (await boxOf(card(page, 'your-field-0'))).w)
+      .toBeCloseTo(before.h, 0);
+    await expect
+      .poll(async () => (await boxOf(card(page, 'your-field-0'))).h)
+      .toBeCloseTo(before.w, 0);
   });
 
   test('the card keeps its own size and is rotated to lie down', async ({ page }) => {
@@ -258,24 +262,24 @@ test.describe('duel board', () => {
   });
 
   test('the band reflows around a turn as it happens', async ({ page }) => {
-    const before = (await card(page, 'your-land-1').boundingBox())!;
+    const before = await settledBox(card(page, 'your-land-1'));
     await card(page, 'your-land-0').click();
     // The neighbor slides over by the width the turn added, rather than being
     // overlapped by a card that grew outside its slot.
     await expect
-      .poll(async () => (await card(page, 'your-land-1').boundingBox())!.x)
+      .poll(async () => (await boxOf(card(page, 'your-land-1'))).x)
       .toBeGreaterThan(before.x);
   });
 
   test('a turn can be undone by turning it back', async ({ page }) => {
-    const upright = (await card(page, 'your-field-0').boundingBox())!;
+    const upright = await settledBox(card(page, 'your-field-0'));
     await card(page, 'your-field-0').click();
     await expect(card(page, 'your-field-0')).toHaveAttribute('data-tapped', 'true');
     await card(page, 'your-field-0').click();
     await expect(card(page, 'your-field-0')).not.toHaveAttribute('data-tapped', 'true');
     await expect
-      .poll(async () => Math.round((await card(page, 'your-field-0').boundingBox())!.width))
-      .toBe(Math.round(upright.width));
+      .poll(async () => Math.round((await boxOf(card(page, 'your-field-0'))).w))
+      .toBe(Math.round(upright.w));
   });
 
   test('every card on the table is drawn to the same shape', async ({ page }) => {
@@ -310,12 +314,9 @@ test.describe('duel board', () => {
   });
 
   test('the hand parts under the pointer', async ({ page }) => {
-    const still = await card(page, 'your-hand-3').boundingBox();
-    const box = await card(page, 'your-hand-3').boundingBox();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-    await expect
-      .poll(async () => (await card(page, 'your-hand-3').boundingBox())!.y)
-      .toBeLessThan(still!.y);
+    const still = await settledBox(card(page, 'your-hand-3'));
+    await page.mouse.move(centerOf(still).x, centerOf(still).y);
+    await expect.poll(async () => (await boxOf(card(page, 'your-hand-3'))).y).toBeLessThan(still.y);
   });
 
   test('a dealt hand fans in order, each card clear of the one before', async ({ page }) => {
@@ -333,12 +334,16 @@ test.describe('duel board', () => {
   test('the hand fans rather than shrinking once it outgrows the band', async ({ page }) => {
     const before = await handBoxes(page);
     await draw(page, 12);
-    const after = await handBoxes(page);
 
-    expect(after.length).toBeGreaterThan(before.length);
-    // Full size kept, and the next card now starts before this one ends.
-    expect(after[1]!.w).toBeCloseTo(before[1]!.w, 0);
-    expect(after[1]!.x).toBeLessThan(after[0]!.x + after[0]!.w);
+    await expect.poll(async () => (await handBoxes(page)).length).toBeGreaterThan(before.length);
+    // The next card now starts before this one ends, and full size is kept.
+    await expect
+      .poll(async () => {
+        const after = await handBoxes(page);
+        return after[1]!.x - (after[0]!.x + after[0]!.w);
+      })
+      .toBeLessThan(0);
+    expect((await handBoxes(page))[1]!.w).toBeCloseTo(before[1]!.w, 0);
   });
 
   test('the hand scrolls once fanning runs out of room', async ({ page }) => {
@@ -353,8 +358,12 @@ test.describe('duel board', () => {
     await draw(page, 30);
 
     // Past the peek floor the row reports overflow, and the wrapper grows.
-    const full = await fits();
-    expect(full.scroll).toBeGreaterThan(full.client);
+    await expect
+      .poll(async () => {
+        const full = await fits();
+        return full.scroll - full.client;
+      })
+      .toBeGreaterThan(0);
 
     // And it really scrolls, rather than reporting an extent nothing reaches.
     await scroller.evaluate((el) => {
@@ -373,26 +382,34 @@ test.describe('duel board', () => {
     await draw(page, 20);
     // Aim at the row the cards rest in, not the middle of the surface — the
     // surface is the whole board and its centre is well above the hand.
-    const box = await page.getByTestId('xb-hand-dock').boundingBox();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height - 40, { steps: 20 });
+    const box = await settledBox(page.getByTestId('xb-hand-dock'));
+    await page.mouse.move(box.x + box.w / 2, box.y + box.h - 40, { steps: 20 });
 
-    const out = await page.evaluate(() => {
-      const el = document.querySelector('[data-testid="xb-hand-surface"]') as HTMLElement;
-      const b = el.getBoundingClientRect();
-      let over = 0;
-      let tallest = 0;
-      for (const c of document.querySelectorAll('[data-testid="xb-hand-surface"] .xb-card-drag')) {
-        const r = c.getBoundingClientRect();
-        over = Math.max(over, b.top - r.top, r.bottom - b.bottom);
-        tallest = Math.max(tallest, r.height);
-      }
-      return { over, tallest, rest: el.clientHeight };
-    });
+    const measure = () =>
+      page.evaluate(() => {
+        const el = document.querySelector('[data-testid="xb-hand-surface"]') as HTMLElement;
+        const b = el.getBoundingClientRect();
+        let over = 0;
+        let tallest = 0;
+        for (const c of document.querySelectorAll(
+          '[data-testid="xb-hand-surface"] .xb-card-drag',
+        )) {
+          const r = c.getBoundingClientRect();
+          over = Math.max(over, b.top - r.top, r.bottom - b.bottom);
+          tallest = Math.max(tallest, r.height);
+        }
+        return { over, tallest, rest: el.clientHeight };
+      });
 
     // Something under the cursor really did grow, and the band still holds it:
     // a scroller cannot spill on its cross axis, so this has to fit by sizing.
-    expect(out.tallest).toBeGreaterThan(out.rest * 0.55);
-    expect(out.over).toBeLessThanOrEqual(1);
+    await expect
+      .poll(async () => {
+        const out = await measure();
+        return out.tallest - out.rest * 0.55;
+      })
+      .toBeGreaterThan(0);
+    expect((await measure()).over).toBeLessThanOrEqual(1);
   });
 
   test('turning a land pays mana, and turning it back takes it away', async ({ page }) => {
@@ -423,9 +440,9 @@ test.describe('duel board', () => {
     await hoverCard(page, auraId);
     // Measured with the cursor already on the aura: picking the host up front
     // reads a box the held card was covering, and the drag lands beside it.
-    const host = await card(page, hostId).boundingBox();
+    const host = centerOf(await settledBox(card(page, hostId)));
     await page.mouse.down();
-    await page.mouse.move(host!.x + host!.width / 2, host!.y + host!.height / 2, { steps: 24 });
+    await page.mouse.move(host.x, host.y, { steps: 24 });
     await page.mouse.up();
 
     // It now belongs to the creature, and is drawn as a tab rather than a card.
