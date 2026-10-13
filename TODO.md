@@ -378,10 +378,7 @@ tabs are a stack's band, drawn by the story, so the key does not reach them.
 
 Open, grouped by what they touch:
 
-- **strip** — `squeeze` scales `preferredSize` down until floors bind (per the
-  docstring and README) vs renders as asked (`strip.test.ts` pins the latter);
-  KNOWN entry `vscode-hinted-sidebars@400-squeeze`. Under `justify` center/end,
-  drags don't follow the pointer.
+- **strip** — under `justify` center/end, drags don't follow the pointer.
 - **grid** — dropping onto a specific empty cell needs a strategy drop hook;
   capacity by width under fixed cells; vertical align; pinned vs celled
   priority. Flowed items under a row cap are still slow in resize reach; the

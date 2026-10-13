@@ -444,15 +444,33 @@ describe('stripStrategy — axis y (from stack)', () => {
     expect(result.placements.get('b')?.h).toBe(200); // leftover, not the 50 default
   });
 
-  it('clamps flex height to zero when preferred items already overflow', () => {
+  it('squeezes a preferred pane to the container, leaving a flex pane nothing', () => {
     const result = stripStrategy.layout({
       items: [mkItem('a', { preferredH: 200 }), mkItem('b')],
       container: { w: 100, h: 100 },
       state: undefined as void,
       options: { axis: 'y', fill: true },
     });
-    expect(result.placements.get('a')?.h).toBe(200);
+    expect(result.placements.get('a')?.h).toBe(100);
     expect(result.placements.get('b')?.h).toBe(0);
+    expect(result.overflow).toBeUndefined();
+  });
+
+  it('scales preferred panes down together until a floor binds, then overflows', () => {
+    const result = stripStrategy.layout({
+      items: [
+        { id: 'a', hints: { preferredSize: { w: 0, h: 300 }, minSize: { w: 0, h: 250 } } },
+        mkItem('b', { preferredH: 300 }),
+        { id: 'c', hints: { preferredSize: { w: 0, h: 300 }, minSize: { w: 0, h: 200 } } },
+      ],
+      container: { w: 100, h: 400 },
+      state: undefined as void,
+      options: { axis: 'y' },
+    });
+    expect(result.placements.get('a')?.h).toBe(250);
+    expect(result.placements.get('b')?.h).toBe(0);
+    expect(result.placements.get('c')?.h).toBe(200);
+    expect(result.overflow?.h).toBe(50);
   });
 });
 

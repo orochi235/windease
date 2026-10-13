@@ -66,9 +66,14 @@ describe('stripStrategy justify', () => {
     expect(starts(row, { fill: true, justify: 'end' })).toEqual({ a: 0, b: 300 });
   });
 
+  it('does nothing when the panes are squeezed to fit the row', () => {
+    const row = [pref('a', 400), pref('b', 400)];
+    expect(starts(row, { justify: 'center' })).toEqual({ a: 0, b: 300 });
+  });
+
   it('does nothing when the panes overflow the row', () => {
     const row = [pref('a', 400), pref('b', 400)];
-    expect(starts(row, { justify: 'center' })).toEqual({ a: 0, b: 400 });
+    expect(starts(row, { justify: 'center', overflowMode: 'scroll' })).toEqual({ a: 0, b: 400 });
   });
 
   it("keeps each seam on its pane's trailing edge", () => {

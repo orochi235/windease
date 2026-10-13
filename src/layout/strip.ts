@@ -400,12 +400,10 @@ function resolveRow(
     (sum, it) => sum + intrinsicAxis(it, axis, cfg, hinted),
     0,
   );
-  // A hint-sized row has never scaled preferredSize under `squeeze` either,
-  // despite that mode's docstring; which one is right is an open question.
   // `overlap` shortens the step rather than the panes, so like `scroll` it
   // sizes against what the row asked for.
   const budget =
-    cfg.overflowMode === 'scroll' || cfg.overflowMode === 'overlap' || hinted
+    cfg.overflowMode === 'scroll' || cfg.overflowMode === 'overlap'
       ? Math.max(usableMain, intrinsicMain)
       : usableMain;
 

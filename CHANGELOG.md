@@ -48,6 +48,15 @@ section below.
   node, the wrapped child standing for the group that takes its slot. A stack
   drop onto a child of a container that is itself a stack still adds a child.
 
+- **`overflowMode: 'squeeze'` scales a strip sized by `preferredSize`.** A strip
+  whose panes state no `placement.size` or `share` takes each pane's extent from
+  `hints.preferredSize`, and such a row never squeezed: two 400px panes in a
+  600px strip stayed at 400 and reported 200px of `overflow`. They now scale to
+  300 each, down to each pane's `hints.minSize`, and report only what the floors
+  will not absorb — what the README has always said `squeeze` does. A pane with
+  no `minSize` can now shrink to nothing; give it a floor, or set
+  `overflowMode: 'scroll'` to keep every pane at the size it asked for.
+
 - **A share capped by `hints.maxSize` gives its excess to the other shares.** In
   a strip where every pane has a `placement.share`, a pane held at its cap left
   the rest of its share empty: `0.5` / `0.5` in 600px with a 100px cap gave 100

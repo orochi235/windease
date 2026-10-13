@@ -279,12 +279,7 @@ function layoutTree(preset: Preset, store: Store = presetToStore(preset)): Laid[
  * Defects these fixtures expose, keyed `scenario id » invariant`. Each entry
  * runs as `it.fails` and names the defect, so a fix turns it red here first.
  */
-const KNOWN: Record<string, string> = {
-  // Open question rather than a settled defect: `squeeze`'s docstring says it
-  // scales panes down, but strip.test.ts pins preferredSize as unscaled.
-  'vscode-hinted-sidebars@400-squeeze » squeeze overflows only once every pane is at its floor':
-    'squeeze never scales preferredSize, so floors do not bind before overflow',
-};
+const KNOWN: Record<string, string> = {};
 
 describe('strip on real-software layouts', () => {
   const laid = PRESETS.flatMap((p) => layoutTree(p));
