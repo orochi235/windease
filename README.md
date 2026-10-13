@@ -1780,8 +1780,9 @@ One row can mix all three kinds of pane:
 3. Panes with neither split the rest equally, as they always have.
 
 `hints.minSize` and `hints.maxSize` bound a shared pane like any other. Space a
-capped share gives up goes to the panes with neither, or is left empty (see
-[`justify`](#when-panes-leave-room)). A `size` on the main axis outranks a `share` on the same pane. A
+capped share gives up goes to the panes with neither, or, in a row with none,
+to the shares that are not capped. It is left empty only when every share is at
+its cap (see [`justify`](#when-panes-leave-room)). A `size` on the main axis outranks a `share` on the same pane. A
 share that is not a positive, finite number is ignored and traced under
 `layout`.
 

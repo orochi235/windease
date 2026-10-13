@@ -40,8 +40,9 @@ export interface ClampInput {
  *  3. Shared items split the leftover after explicit items in proportion to
  *     their shares. With unconstrained items present a share is a fraction of
  *     that leftover (shares summing past 1 are normalized); without any, the
- *     shares are normalized to fill it. Each is floored at its min and capped
- *     at its max, then resolved like an explicit size: scaled down, floors
+ *     shares are normalized to fill it, and what a capped share gives up goes
+ *     to the uncapped ones. Each is floored at its min and capped at its max,
+ *     then resolved like an explicit size: scaled down, floors
  *     frozen, until the unconstrained mins fit. The shared floors are reserved
  *     in step 2 alongside the unconstrained ones.
  *  4. Leftover after explicit and shared items is distributed equally among
@@ -87,12 +88,23 @@ export function clampExplicitSizes(input: ClampInput): Map<string, number> {
 
   let usedByShared = 0;
   if (shared.length > 0) {
-    const total = shared.reduce((s, it) => s + (it.share ?? 0), 0);
-    const denom = unconstrained.length > 0 ? Math.max(1, total) : total;
-    for (const it of shared) {
-      let v = denom > 0 ? ((it.share ?? 0) / denom) * afterExplicit : 0;
-      if (it.max !== undefined && v > it.max) v = it.max;
-      requested.set(it.id, Math.max(v, autoFloor(it)));
+    // Beside an unconstrained item a share is a fixed fraction and that item
+    // takes what a cap frees. With none, the uncapped shares take it.
+    let pool = shared;
+    let space = afterExplicit;
+    while (pool.length > 0) {
+      const total = pool.reduce((s, it) => s + (it.share ?? 0), 0);
+      const denom = unconstrained.length > 0 ? Math.max(1, total) : total;
+      const ask = (it: ClampItem) => (denom > 0 ? ((it.share ?? 0) / denom) * space : 0);
+      const capped = pool.filter((it) => it.max !== undefined && ask(it) > it.max);
+      const settled = capped.length === 0 || unconstrained.length > 0 ? pool : capped;
+      for (const it of settled) {
+        const v = Math.min(ask(it), it.max ?? Number.POSITIVE_INFINITY);
+        requested.set(it.id, Math.max(v, autoFloor(it)));
+      }
+      if (settled === pool) break;
+      for (const it of capped) space -= it.max ?? 0;
+      pool = pool.filter((it) => !capped.includes(it));
     }
     scaleInto(shared, requested, autoFloor, Math.max(0, afterExplicit - unconstrainedMinSum), out);
     for (const it of shared) usedByShared += out.get(it.id) ?? 0;

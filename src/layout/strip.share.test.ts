@@ -90,8 +90,22 @@ describe('stripStrategy placement.share', () => {
     expect(widths([shared('a', 0.5, max(100)), { id: 'b' }])).toEqual({ a: 100, b: 500 });
   });
 
-  it('caps a share at its max in a row of shares, leaving the excess empty', () => {
-    expect(widths([shared('a', 0.5, max(100)), shared('b', 0.5)])).toEqual({ a: 100, b: 300 });
+  it('caps a share at its max in a row of shares, and the others take the excess', () => {
+    expect(widths([shared('a', 0.5, max(100)), shared('b', 0.5)])).toEqual({ a: 100, b: 500 });
+  });
+
+  it("splits a capped share's excess in proportion to the shares left", () => {
+    const w = widths([shared('a', 0.5, max(100)), shared('b', 0.3), shared('c', 0.2)]);
+    expect(w.a).toBe(100);
+    expect(w.b).toBeCloseTo(300, 9);
+    expect(w.c).toBeCloseTo(200, 9);
+  });
+
+  it('leaves the row short when every share is capped', () => {
+    expect(widths([shared('a', 0.5, max(100)), shared('b', 0.5, max(150))])).toEqual({
+      a: 100,
+      b: 150,
+    });
   });
 
   it('lets a pixel size outrank a share on the same pane', () => {

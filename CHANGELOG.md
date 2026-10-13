@@ -48,6 +48,12 @@ section below.
   node, the wrapped child standing for the group that takes its slot. A stack
   drop onto a child of a container that is itself a stack still adds a child.
 
+- **A share capped by `hints.maxSize` gives its excess to the other shares.** In
+  a strip where every pane has a `placement.share`, a pane held at its cap left
+  the rest of its share empty: `0.5` / `0.5` in 600px with a 100px cap gave 100
+  and 300. The uncapped shares now grow to fill the row, 100 and 500, as a pane
+  with no share always has. A row whose shares are all capped is still short.
+
 - **No `localStorage` warning under Node.** Loading windease no longer reads
   `localStorage` when `process.versions.node` is set, so Node 25+ stops printing
   its "localStorage is not available" warning on every thread that imports it.
