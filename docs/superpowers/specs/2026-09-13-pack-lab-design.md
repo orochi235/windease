@@ -72,8 +72,8 @@ datasets sharing an id, throws while the page loads and names the file, plate an
 ```json
 {
   "source": "astv",
-  "commit": "abc1234",
-  "fixture": "def5678",
+  "commit": "<astv commit>",
+  "fixture": "<windease commit>",
   "captured": "2026-09-13",
   "gap": 1,
   "plates": [

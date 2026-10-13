@@ -6,6 +6,9 @@
 # reader unable to tell whether the commit was dropped, squashed, or renumbered.
 # Only cite a hash once it is on the trunk — and run this to be sure.
 #
+# A hash from another repository is written `repo@hash` (`klieg@f441b90`) and
+# is not checked: nothing here can resolve it.
+#
 #   scripts/check-doc-hashes.sh              # every tracked *.md
 #   scripts/check-doc-hashes.sh a.md b.md    # just these
 #
@@ -28,7 +31,10 @@ for f in "${files[@]}"; do
 
   # Commit-shaped: 7-40 hex chars, at least one letter so pure digits (dates,
   # counts, versions) don't masquerade as abbreviated hashes.
-  mapfile -t tokens < <(grep -oE '\b[0-9a-f]{7,40}\b' "$f" | grep -E '[a-f]' | sort -u)
+  mapfile -t tokens < <(
+    sed -E 's/[A-Za-z0-9_.\/-]+@[0-9a-f]{7,40}//g' "$f" |
+      grep -oE '\b[0-9a-f]{7,40}\b' | grep -E '[a-f]' | sort -u
+  )
 
   bad=()
   for h in "${tokens[@]}"; do

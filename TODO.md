@@ -272,11 +272,6 @@ it; `e2e/drag.spec.ts` pins the parallel-zones case.
 - `scripts/strip-ladle-tsx.sh` (run from `prepare`) works around Ladle shipping
   raw `.tsx` in its typings, which fails typecheck under TS 7. Drop it once
   Ladle ships only `.d.ts` there.
-- `scripts/check-doc-hashes.sh` fails on three citations it cannot resolve:
-  `f441b90` in this file, which is a klieg commit rather than one of this
-  repo's, and the placeholder hashes `abc1234` / `def5678` in
-  `docs/superpowers/specs/2026-09-13-pack-lab-design.md`. It has no way to
-  mark a hash as belonging to another repository.
 - **Every `REJECT` trace in `DragEngine.checkAccept` fires per pointermove
   sample**, not per hover transition — the per-frame chatter the tracing tenet
   in `CLAUDE.md` warns against. Left as is: those lines are the whole record of
@@ -335,7 +330,7 @@ its panels as scissor rects on one `WebGLRenderer`, so the canvas is one element
 spanning the whole zone rather than one per window. Both ergonomics it asked for shipped —
 `.windease-zone--unclipped` and `observePixelRatio`.
 
-The lab no longer imports windease. Since klieg `f441b90` (2026-08-22) it tiles
+The lab no longer imports windease. Since `klieg@f441b90` (2026-08-22) it tiles
 through `@weasel-js/labkit`'s `<Workspace>`, which brings windease in as its own
 dependency, and reads each tile's rect back from the DOM instead of from
 `placements`. Anything it asks for now arrives by way of labkit.
