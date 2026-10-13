@@ -10,8 +10,6 @@ import { trace } from '../trace.js';
 import type { DropIntent } from './dropIntent.js';
 import { type EdgeScrollOptions, edgeScrollDelta } from './edgeScroll.js';
 
-type AcceptItem = LayoutItem & { id: NodeId };
-
 /** Looks up a strategy by id. The engine uses it to consult
  *  `strategy.canAccept` on the prospective post-drop child list. */
 export type StrategyLookup = (id: string) => LayoutStrategy<unknown, string, unknown> | undefined;
@@ -54,12 +52,14 @@ export interface DragState {
   } | null;
 }
 
+type AcceptItem = LayoutItem & { id: NodeId };
+
 /** What a drop target's `acceptPolicy` is asked about: the child list
  *  `strategy.canAccept` would see for this drop, plus who is being dropped.
  *  A stack or split intent that wraps the onto-child shows no new child: the
  *  source is absent, and the onto-child stands for the group taking its slot. */
 export interface AcceptContext {
-  items: { id: NodeId }[];
+  items: AcceptItem[];
   options: Record<string, unknown>;
   sourceId: NodeId;
 }

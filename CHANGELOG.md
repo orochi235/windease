@@ -27,6 +27,10 @@ section below.
   every hint; the type listed `minSize` and `preferredSize` only, so reading
   `maxSize`, `aspect`, `turn`, `sizing` or `render` off one needed a cast.
 
+- **`AcceptContext.items` is typed as the layout items it holds.** An
+  `acceptPolicy` was already handed each child as `strategy.canAccept` sees it;
+  the type listed `id` only, so reading `meta` or `hints` off one needed a cast.
+
 - **`new Store({ successorPolicy, navigationPolicy })`** are the names for the
   options that were `chooseSuccessor` and `resolveNavigation`, matching
   `collapsePolicy`, `acceptPolicy` and their own `SuccessorPolicy` /

@@ -116,6 +116,19 @@ describe('DragEngine — acceptPolicy', () => {
     expect(seen[0]?.options).toEqual({});
   });
 
+  it('hands the policy each child as layout sees it, placement included', () => {
+    const s = fullStore();
+    s.patchPlacement(asNodeId('a'), { size: { w: 40 } });
+    let widths: (number | undefined)[] = [];
+    engineWith(s, {
+      acceptPolicy: (ctx) => {
+        widths = ctx.items.map((i) => i.placement?.size?.w);
+        return true;
+      },
+    });
+    expect(widths).toEqual([40, undefined, undefined]);
+  });
+
   it('lock.accept still refuses, whatever the policy says', () => {
     const s = fullStore();
     s.setLock(asNodeId('z2'), { accept: true });

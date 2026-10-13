@@ -397,11 +397,10 @@ Open, grouped by what they touch:
   every item where it used to drop unmarked ones — confirm that is wanted.
 - **desktop** — resize capped at the container vs obeying the clamp; `iconFrom`
   doesn't mirror inner bounds.
-- **accepts and locks** — `AcceptContext.items` should be `LayoutItem`-shaped,
-  as the runtime already passes full items. `accepts: false` and `lock.accept`
-  both stay (accepts is drag-only); stack/split drops honor
-  `accepts.kinds`, and count toward `accepts.max` only where they add a child. `lock: true` does *not* include the
-  `hide` axis, which protects apps that lock with `true` and still hide via a
+- **accepts and locks** — `accepts: false` and `lock.accept` both stay
+  (accepts is drag-only); stack/split drops honor `accepts.kinds`, and count
+  toward `accepts.max` only where they add a child. `lock: true` does *not*
+  include the `hide` axis, which protects apps that lock with `true` and still hide via a
   View menu — making `true` mean every axis needs a README breaking-change note.
 - **raise** — under `FocusProvider` a DOM reorder mid-press cancels the click;
   the fix is stacking by z-index rather than DOM order. Declarative `<Zone>` JSX
