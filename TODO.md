@@ -276,14 +276,6 @@ through `@weasel-js/labkit`'s `<Workspace>`, which brings windease in as its own
 dependency, and reads each tile's rect back from the DOM instead of from
 `placements`. Anything it asks for now arrives by way of labkit.
 
-## Desktop windows: no keyboard resize [MED]
-
-A floating item and a desktop window move from the keyboard: their handle
-carries `travel` and `AffordanceHandle` binds the arrows to it. A desktop
-window's eight resize edges are still pointer-only. Giving each `travel` would
-work as it stands, at the cost of eight tab stops a window; one handle that
-resizes under a modifier is the likelier shape.
-
 ## Exotic presets: open questions [MED]
 
 Rescued from the `exotic-layout-fixtures` handoff when that worktree was
