@@ -1492,6 +1492,13 @@ whatever order the host renders them in. `layer: 'top'` in its placement lifts i
 further, to `z` 2 and up in child order, which is how one floating item stays
 above another. [`desktopStrategy`](#desktop-windows) stacks every window by `z`.
 
+A floating item's handle, and a desktop window's, is a tab stop: the arrow keys
+move it one `affordanceKeyStep` at a time, through the same clamp and snap a
+pointer drag gets, and a live region says where it landed. The strategy marks
+such a handle with `travel: { x, y }` on its affordance, the two-axis
+counterpart of `bounds`, so a host drawing its own handles knows which arrows
+to bind.
+
 See the **Floating** story for both handle modes.
 
 ## Desktop windows

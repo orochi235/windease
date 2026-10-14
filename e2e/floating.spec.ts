@@ -42,6 +42,18 @@ test.describe('floating panel', () => {
     await expect.poll(() => offsetInZone(page)).toMatchObject({ left: 12, bottom: 12 });
   });
 
+  test('arrow keys move the panel from its focused handle', async ({ page }) => {
+    await openStory(page, BAND_STORY);
+    await expect.poll(() => offsetInZone(page)).toMatchObject({ left: 12, bottom: 12 });
+    const handle = page.locator(HANDLE);
+    await expect(handle).toHaveAttribute('aria-label', /^move /);
+    await handle.focus();
+    // Ten presses of 8px each way, well clear of the corner's snap threshold.
+    for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowRight');
+    for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowUp');
+    await expect.poll(() => offsetInZone(page)).toMatchObject({ left: 92, bottom: 92 });
+  });
+
   test('a drag toward the bottom-right corner snaps it to a 12px inset', async ({ page }) => {
     await openStory(page, BAND_STORY);
     const zone = await settledBox(page.locator(ZONE));

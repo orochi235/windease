@@ -82,6 +82,42 @@ describe('desktop affordances in <Container>', () => {
     expect(hit('desktop:minimize:a').getAttribute('aria-label')).toBe('restore a');
   });
 
+  it('moves a window with the arrow keys on its focused band', () => {
+    const { store, hit } = renderDesktop({ drag: true });
+    const band = hit('desktop:drag:b');
+    expect(band.tabIndex).toBe(0);
+    expect(band.getAttribute('aria-label')).toBe('move b');
+    expect(band.getAttribute('role')).toBe('button');
+    fireEvent.keyDown(band, { key: 'ArrowRight' });
+    fireEvent.keyDown(hit('desktop:drag:b'), { key: 'ArrowDown' });
+    expect(placementOf(store, 'b')).toMatchObject({ x: 28, y: 8 });
+    fireEvent.keyDown(hit('desktop:drag:b'), { key: 'ArrowLeft' });
+    fireEvent.keyDown(hit('desktop:drag:b'), { key: 'ArrowUp' });
+    expect(placementOf(store, 'b')).toMatchObject({ x: 20, y: 0 });
+  });
+
+  it('leaves the arrows of an axis the window cannot move on to bubble', () => {
+    const { store, hit } = renderDesktop({ drag: 'x' });
+    const down = fireEvent.keyDown(hit('desktop:drag:b'), { key: 'ArrowDown' });
+    expect(down).toBe(true);
+    expect(placementOf(store, 'b')).toMatchObject({ x: 20, y: 0 });
+    const right = fireEvent.keyDown(hit('desktop:drag:b'), { key: 'ArrowRight' });
+    expect(right).toBe(false);
+    expect(placementOf(store, 'b')).toMatchObject({ x: 28 });
+  });
+
+  it('says where a window landed after a key moved it', () => {
+    const { hit } = renderDesktop({ drag: true });
+    fireEvent.keyDown(hit('desktop:drag:b'), { key: 'ArrowRight' });
+    expect(hit('desktop:drag:b').nextElementSibling?.textContent).toBe('b at 28, 0');
+    expect(hit('desktop:drag:a').nextElementSibling?.textContent).toBe('');
+  });
+
+  it('keeps a band out of the tab order when affordance tab stops are off', () => {
+    const { hit } = renderDesktop({ drag: true }, { affordanceTabStops: false });
+    expect(hit('desktop:drag:a').tabIndex).toBe(-1);
+  });
+
   it('keeps the toggle out of the tab order when affordance tab stops are off', () => {
     const { hit } = renderDesktop({ minimizable: true }, { affordanceTabStops: false });
     expect(hit('desktop:minimize:a').tabIndex).toBe(-1);

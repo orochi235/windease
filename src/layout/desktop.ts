@@ -553,6 +553,7 @@ export function desktopStrategy<TInner>(
             cursor: 'grab',
             label: 'move',
             childId: item.id,
+            travel: { x: axes !== 'y', y: axes !== 'x' },
           });
         }
         if (!minimized && resizable(item, cfg)) {

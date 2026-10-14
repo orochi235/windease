@@ -338,8 +338,10 @@ export function floatingStrategy<TInner>(
           kind: 'drag-xy',
           rect: handleSize > 0 ? { ...rect, h: Math.min(handleSize, rect.h) } : rect,
           cursor: 'grab',
+          label: 'move',
           childId: item.id,
           affects: [item.id],
+          travel: { x: true, y: true },
         });
       }
 

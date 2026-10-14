@@ -24,6 +24,13 @@ section below.
   is marked `data-workspace-fill` so CSS can give it the room. See
   [Workspace: seams between separate roots](README.md#workspace-seams-between-separate-roots).
 
+- **Keyboard move for floating items and desktop windows.** Their drag handle
+  is now a tab stop named "move …", and the arrow keys move the item one
+  `affordanceKeyStep` per press on the axes it can drag along. `Affordance`
+  gains `travel: { x?, y?, step? }`, which a strategy sets on a handle that
+  moves freely and so has no `bounds` to report. `floatingStrategy`'s handle
+  now carries `label: 'move'`.
+
 - **`collapsePolicy` in a grid.** `gridStrategy` now honors the store's
   `collapsePolicy`: a column or row whose every child is an empty container the
   policy collapsed is held at the policy's extent, and the other tracks take

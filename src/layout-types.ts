@@ -278,6 +278,13 @@ export interface Affordance<TMeta = unknown> {
     step?: number;
   };
   /**
+   * Present on an affordance that moves freely, with no range to report: the
+   * axes it moves on. `bounds` is one extent between two limits, which a
+   * position on two axes is not. A host with a keyboard sends one `drag` of
+   * `step` layout pixels per arrow key on a set axis, or picks the step itself.
+   */
+  travel?: { x?: boolean; y?: boolean; step?: number };
+  /**
    * Present on a seam that belongs to a sticky placement, so it moves with the
    * pane. Same meaning as `LayoutResult.sticky`.
    */

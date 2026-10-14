@@ -326,17 +326,13 @@ through `@weasel-js/labkit`'s `<Workspace>`, which brings windease in as its own
 dependency, and reads each tile's rect back from the DOM instead of from
 `placements`. Anything it asks for now arrives by way of labkit.
 
-## Floating chrome: no keyboard move [MED]
+## Desktop windows: no keyboard resize [MED]
 
-`AffordanceLayer` binds its key handler only to an affordance carrying `bounds`,
-which models a one-axis range — a seam's extent — and a free position is two
-axes with no meaningful min or max. So a floating panel is pointer-only, and a
-keyboard user cannot move it. Either `bounds` grows a two-axis form or the
-affordance layer takes a second keyboard contract; neither is worth designing
-before something wants it.
-
-First consumer: klieg's corner lab, through a `FloatingPanel` in
-`@weasel-js/labkit`.
+A floating item and a desktop window move from the keyboard: their handle
+carries `travel` and `AffordanceHandle` binds the arrows to it. A desktop
+window's eight resize edges are still pointer-only. Giving each `travel` would
+work as it stands, at the cost of eight tab stops a window; one handle that
+resizes under a modifier is the likelier shape.
 
 ## Exotic presets: open questions [MED]
 

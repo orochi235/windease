@@ -68,6 +68,12 @@ function affordanceLabel(store: Store, aff: Affordance): string | undefined {
   return `${aff.label ?? 'resize'} ${names.join(' and ')}`;
 }
 
+function travelKeys(travel: NonNullable<Affordance['travel']>): string {
+  return [travel.x && 'ArrowLeft ArrowRight', travel.y && 'ArrowUp ArrowDown']
+    .filter(Boolean)
+    .join(' ');
+}
+
 const noJoinArmChange = () => {};
 
 export interface AffordanceLayerProps {
@@ -634,8 +640,23 @@ function AffordanceHandle({
   const bounds = affordance.bounds;
   const padXRef = useRef(0);
   const padYRef = useRef(0);
+  const travel = bounds ? undefined : affordance.travel;
+  const [moved, setMoved] = useState(false);
   const onKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (travel) {
+        const step = travel.step ?? keyStep;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        // An arrow on an axis this handle does not move on bubbles, as the
+        // perpendicular arrows do on a seam.
+        if ((dx === 0 || !travel.x) && (dy === 0 || !travel.y)) return;
+        e.preventDefault();
+        capture();
+        dispatch({ affordanceId: affordance.id, kind: 'drag', payload: { dx, dy } });
+        setMoved(true);
+        return;
+      }
       if (!bounds) return;
       if (e.key === 'Enter') {
         // Unarmed, Enter is not ours: leave it to whatever the host binds.
@@ -676,10 +697,11 @@ function AffordanceHandle({
       });
       advanceJoin(delta);
     },
-    [bounds, dispatch, affordance.id, keyStep, advanceJoin, endGesture, capture],
+    [bounds, travel, dispatch, affordance.id, keyStep, advanceJoin, endGesture, capture],
   );
 
   const onBlur = useCallback(() => {
+    setMoved(false);
     // A pointer gesture owns its accumulation; focus leaving mid-drag is not
     // the user abandoning it.
     if (last.current) return;
@@ -712,15 +734,17 @@ function AffordanceHandle({
         onPointerCancel={onPointerCancel}
         draggable={false}
         onDragStart={preventNativeDrag}
-        onKeyDown={bounds ? onKeyDown : undefined}
+        onKeyDown={bounds || travel ? onKeyDown : undefined}
         onBlur={onBlur}
-        role={bounds ? 'separator' : undefined}
-        tabIndex={bounds && tabStop ? 0 : undefined}
+        role={bounds ? 'separator' : travel ? 'button' : undefined}
+        tabIndex={(bounds || travel) && tabStop ? 0 : undefined}
+        aria-roledescription={travel ? 'move handle' : undefined}
+        aria-keyshortcuts={travel ? travelKeys(travel) : undefined}
         aria-orientation={bounds?.orientation}
         aria-valuenow={bounds ? Math.round(bounds.valueNow) : undefined}
         aria-valuemin={bounds ? Math.round(bounds.valueMin) : undefined}
         aria-valuemax={bounds ? Math.round(bounds.valueMax) : undefined}
-        aria-label={bounds ? label : undefined}
+        aria-label={bounds || travel ? label : undefined}
         aria-disabled={rangeless ? true : undefined}
       >
         <div
@@ -729,6 +753,18 @@ function AffordanceHandle({
           data-affordance-kind={affordance.kind}
         />
       </div>
+      {travel ? (
+        <div
+          className="windease-live-region"
+          aria-live="polite"
+          aria-atomic="true"
+          data-move-live=""
+        >
+          {moved && affordance.childId !== undefined
+            ? `${accessibleName(store, affordance.childId as NodeId)} at ${Math.round(affordance.rect.x)}, ${Math.round(affordance.rect.y)}`
+            : ''}
+        </div>
+      ) : null}
       {affordance.join ? (
         <div
           className="windease-live-region"
