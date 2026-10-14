@@ -201,7 +201,7 @@ function makeJustifyStore(): Store {
       kind: 'zone',
       container: {
         strategyId: 'strip',
-        config: { axis: 'x', gap: 6, padding: 6, fill: true, resizable: false },
+        config: { axis: 'x', gap: 6, padding: 6, fill: true },
       },
       id: JUSTIFY_ZONE,
     }),
@@ -225,7 +225,7 @@ function makeJustifyStore(): Store {
 
 /**
  * Three tabs held at a 160px cap leave most of the row empty; `justify` says
- * where that space goes.
+ * where that space goes. Drag a seam under each: it stays under the pointer.
  */
 export const Justify: Story = () => {
   const store = useMemo(makeJustifyStore, []);
@@ -257,6 +257,7 @@ export const Justify: Story = () => {
           chrome={chrome}
           viewport={{ w: 800, h: 60 }}
           className="windease-zone"
+          affordances
         />
       </StrategyRegistryProvider>
     </Provider>

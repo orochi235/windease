@@ -808,6 +808,65 @@ function justified(
   }
 }
 
+/** Whether a seam resizes the pane after it. An `end` row with room to spare
+ *  is anchored at its trailing edge, so a pane's own size cannot move the seam
+ *  on that edge: only the panes after it can. */
+function resizesTrailing(cfg: StripConfig, free: number): boolean {
+  return cfg.justify === 'end' && cfg.resizeMode !== 'neighbor' && free > PACK_EPSILON;
+}
+
+/** How much a pane in a `center` row grows for its trailing seam to travel
+ *  `travel`. While the row has room, half of any growth goes to the far side. */
+function centeredGrowth(travel: number, free: number): number {
+  if (travel <= 0) return 2 * travel;
+  return travel <= free / 2 ? 2 * travel : travel + free / 2;
+}
+
+/** Bounds for a seam that resizes the pane after it, as the seam's offset along
+ *  the row: a drag moves it by exactly the delta, which a pane's extent under
+ *  `end` does not. */
+function trailingBounds(
+  axis: 'x' | 'y',
+  at: number,
+  next: LayoutItem,
+  extent: number,
+  free: number,
+  step: number | undefined,
+): NonNullable<Affordance['bounds']> {
+  const max = effectiveMaxAxis(next, axis);
+  const grow = Math.max(0, Math.min(free, (max ?? Number.POSITIVE_INFINITY) - extent));
+  const shrink = Math.max(0, extent - effectiveMinAxis(next, axis));
+  const b = finishBounds(axis, at, at - grow, at + shrink);
+  return step === undefined ? b : { ...b, step };
+}
+
+/** `writes`, plus every other pane that would move once they land, held where
+ *  it renders. A new size can rescale a squeezed row, and takes a row sized by
+ *  preferredSize off that path, so its untouched panes would fill the rest. */
+function pinRest(
+  items: LayoutItem[],
+  sizes: number[],
+  writes: Map<string, number>,
+  cfg: StripConfig,
+  axis: 'x' | 'y',
+  usableMain: number,
+): void {
+  for (let pass = 0; pass < items.length; pass++) {
+    const after = mainSizes(
+      withWrites(items, writes, cfg, axis, usableMain),
+      cfg,
+      axis,
+      usableMain,
+    );
+    const pinned = writes.size;
+    items.forEach((it, i) => {
+      const now = sizes[i] ?? 0;
+      if (!writes.has(it.id) && Math.abs((after[i] ?? 0) - now) > 1e-6) writes.set(it.id, now);
+    });
+    if (writes.size === pinned) break;
+  }
+}
+
 /** The default px of a covered pane left showing under `overflowMode: 'overlap'`. */
 const DEFAULT_PEEK = 24;
 
@@ -1031,9 +1090,11 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     const sizes = mainSizes(placedItems, cfg, axis, usableMain);
     const starts: number[] = [];
     const overlapped = overlapSpacing(cfg, sizes, usableMain);
+    const free = overlapped === undefined ? usableMain - sizes.reduce((s, v) => s + v, 0) : 0;
+    const trailing = resizesTrailing(cfg, free);
     const { lead, spacing } =
       overlapped === undefined
-        ? justified(cfg, usableMain - sizes.reduce((s, v) => s + v, 0), gap, placedItems.length)
+        ? justified(cfg, free, gap, placedItems.length)
         : // An overlapping row consumes the whole extent it was given, so
           // there is no free space left for `justify` to place.
           { lead: 0, spacing: overlapped };
@@ -1059,21 +1120,24 @@ export const stripStrategy: LayoutStrategy<void, string> = {
             rect: { x: x + w - SEAM_SIZE / 2, y, z: 0, w: SEAM_SIZE, h },
             cursor: 'ew-resize',
             childId: item.id,
-            affects:
-              cfg.resizeMode === 'neighbor' && placedItems[i + 1]
+            affects: trailing
+              ? [placedItems[i + 1]!.id]
+              : cfg.resizeMode === 'neighbor' && placedItems[i + 1]
                 ? [item.id, placedItems[i + 1]!.id]
                 : [item.id],
-            bounds: boundsFor(
-              item,
-              w,
-              placedItems,
-              'x',
-              usableMain,
-              cfg.resizeMode === 'neighbor' && placedItems[i + 1]
-                ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
-                : undefined,
-              step,
-            ),
+            bounds: trailing
+              ? trailingBounds('x', x + w - padding, placedItems[i + 1]!, sizes[i + 1]!, free, step)
+              : boundsFor(
+                  item,
+                  w,
+                  placedItems,
+                  'x',
+                  usableMain,
+                  cfg.resizeMode === 'neighbor' && placedItems[i + 1]
+                    ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
+                    : undefined,
+                  step,
+                ),
             ...(join ? { join } : {}),
           });
         }
@@ -1100,21 +1164,24 @@ export const stripStrategy: LayoutStrategy<void, string> = {
             rect: { x, y: y + h - SEAM_SIZE / 2, z: 0, w, h: SEAM_SIZE },
             cursor: 'ns-resize',
             childId: item.id,
-            affects:
-              cfg.resizeMode === 'neighbor' && placedItems[i + 1]
+            affects: trailing
+              ? [placedItems[i + 1]!.id]
+              : cfg.resizeMode === 'neighbor' && placedItems[i + 1]
                 ? [item.id, placedItems[i + 1]!.id]
                 : [item.id],
-            bounds: boundsFor(
-              item,
-              h,
-              placedItems,
-              'y',
-              usableMain,
-              cfg.resizeMode === 'neighbor' && placedItems[i + 1]
-                ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
-                : undefined,
-              step,
-            ),
+            bounds: trailing
+              ? trailingBounds('y', y + h - padding, placedItems[i + 1]!, sizes[i + 1]!, free, step)
+              : boundsFor(
+                  item,
+                  h,
+                  placedItems,
+                  'y',
+                  usableMain,
+                  cfg.resizeMode === 'neighbor' && placedItems[i + 1]
+                    ? { item: placedItems[i + 1]!, extent: sizes[i + 1]! }
+                    : undefined,
+                  step,
+                ),
             ...(join ? { join } : {}),
           });
         }
@@ -1212,20 +1279,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
         [item.id, baseA + d],
         [next.id, baseB - d],
       ]);
-      for (let pass = 0; pass < placedItems.length; pass++) {
-        const after = mainSizes(
-          withWrites(placedItems, writes, cfg, axis, usableMain),
-          cfg,
-          axis,
-          usableMain,
-        );
-        const pinned = writes.size;
-        placedItems.forEach((it, i) => {
-          const now = sizes[i] ?? 0;
-          if (!writes.has(it.id) && Math.abs((after[i] ?? 0) - now) > 1e-6) writes.set(it.id, now);
-        });
-        if (writes.size === pinned) break;
-      }
+      pinRest(placedItems, sizes, writes, cfg, axis, usableMain);
       if (writes.size > 2)
         trace('layout', `strip: pinned ${writes.size - 2} panes beside ${childId}`);
       storeWrites(store, placedItems, writes, cfg, axis, usableMain);
@@ -1236,7 +1290,32 @@ export const stripStrategy: LayoutStrategy<void, string> = {
 
     const down = (v: number) => (step === undefined ? v : stepDown(v, step));
     const up = (v: number) => (step === undefined ? v : stepUp(v, step));
-    let next = step === undefined ? base + delta : Math.round(want / step) * step;
+    const free =
+      overlapSpacing(cfg, sizes, usableMain) === undefined
+        ? usableMain - sizes.reduce((s, v) => s + v, 0)
+        : 0;
+    const roomy = free > PACK_EPSILON;
+    const travel = want - base;
+
+    const after = placedItems[index + 1];
+    if (after && resizesTrailing(cfg, free)) {
+      const from = sizes[index + 1] ?? 0;
+      const floor = Math.min(from, effectiveMinAxis(after, axis));
+      const cap = Math.min(from + free, effectiveMaxAxis(after, axis) ?? Number.POSITIVE_INFINITY);
+      let to = from - travel;
+      if (step !== undefined) to = Math.round(to / step) * step;
+      if (to < floor) to = up(floor);
+      if (to > cap) to = Math.max(from, down(cap));
+      if ((to - from) * travel >= 0) return;
+      const writes = new Map<string, number>([[after.id, to]]);
+      pinRest(placedItems, sizes, writes, cfg, axis, usableMain);
+      trace('layout', `strip: seam after ${childId} moved ${from - to} by resizing ${after.id}`);
+      storeWrites(store, placedItems, writes, cfg, axis, usableMain);
+      return;
+    }
+
+    const grow = cfg.justify === 'center' && roomy ? centeredGrowth(travel, free) : travel;
+    let next = step === undefined ? base + grow : Math.round((base + grow) / step) * step;
     const min = effectiveMinAxis(item, axis);
     const max = effectiveMaxAxis(item, axis);
     const otherMinSum = placedItems
@@ -1254,13 +1333,22 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     if (step !== undefined && next === base) return;
 
     const writes = new Map<string, number>([[childId as string, next]]);
-    const after = mainSizes(
+    const landed = mainSizes(
       withWrites(placedItems, writes, cfg, axis, usableMain),
       cfg,
       axis,
       usableMain,
     );
-    if (Math.abs((after[index] ?? 0) - next) > 1e-6) {
+    if (roomy && cfg.justify !== 'between') {
+      // Growth the free space cannot cover comes out of the other panes.
+      const over = next - base - free;
+      if (over > 1e-6) {
+        for (const [id, size] of shareOut(placedItems, sizes, index, over, axis)) {
+          writes.set(id, size);
+        }
+      }
+      pinRest(placedItems, sizes, writes, cfg, axis, usableMain);
+    } else if (Math.abs((landed[index] ?? 0) - next) > 1e-6) {
       // Nothing absorbs the change — every other pane holds a stored size, or
       // the row was squeezed — so the new size alone would rescale the row and
       // move the seam by some other amount, even backward. The others give up

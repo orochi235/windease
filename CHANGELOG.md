@@ -48,6 +48,21 @@ section below.
   node, the wrapped child standing for the group that takes its slot. A stack
   drop onto a child of a container that is itself a stack still adds a child.
 
+- **A strip seam follows the pointer under `justify: 'center'` and `'end'`.** In
+  a row with room to spare, a drag of 40px moved the seam 20px under `'center'`
+  and not at all under `'end'`, where the pane grew away from the pointer
+  instead. Under `'center'` the pane now grows on both sides. Under `'end'` the
+  seam resizes the pane after it, so that seam's `affects` names the following
+  pane and its `bounds` are the seam's offset along the row; `childId` and the
+  affordance id are unchanged. `resizeMode: 'neighbor'` and `'between'` behave
+  as before.
+
+- **Dragging a seam no longer stretches the other panes across free space.** In
+  a strip sized by `preferredSize` with room left over, the first seam drag
+  stored one size, and every pane without one then grew to fill the row: two
+  100px panes in 600px became 140 and 460. The panes the drag does not touch
+  now hold where they rendered, stored as `placement.size`.
+
 - **`overflowMode: 'squeeze'` scales a strip sized by `preferredSize`.** A strip
   whose panes state no `placement.size` or `share` takes each pane's extent from
   `hints.preferredSize`, and such a row never squeezed: two 400px panes in a
