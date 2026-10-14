@@ -65,20 +65,6 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
     `toBeGreaterThan` failure rather than a timeout, so it is the one mode that
     can be mistaken for a genuine regression.
 
-## Pinning items within a zone
-
-Baseline shipped: `placement.pinned` is the numeric index a node holds in its
-parent's `childOrder`, set through `store.setPinned` / `unpin` (0.9.0 replaced
-the boolean-plus-`resortByPin` prefix model). Strategies see it through
-`LayoutItem.meta.pinned` if they want extra behavior. Snapshot round-trips,
-undo works (history captures full store state).
-
-Followup:
-
-- Strategy-specific pin behavior beyond ordering: grid pinning could mean a
-  fixed `(col, row)` cell once variable-cell layout lands; strip/stack
-  already get correct behavior for free via the prefix.
-
 ## Workspace
 
 Zones nested under one root container tile, with draggable gutters between
