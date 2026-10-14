@@ -521,3 +521,76 @@ export const StickyTabs: Story = () => {
     </Provider>
   );
 };
+
+const OVERSIZE_ZONE = asNodeId('strip-oversize');
+type Oversize = 'clamp' | 'overflow';
+
+function makeOversizeStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      container: { strategyId: 'strip', config: { axis: 'y', overflowMode: 'unplaced' } },
+      id: OVERSIZE_ZONE,
+    }),
+  );
+  for (const [name, h] of [
+    ['log', 420],
+    ['notes', 100],
+  ] as const) {
+    const id = asNodeId(`oversize-${name}`);
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        focus: true,
+        id,
+        parentId: OVERSIZE_ZONE,
+        placement: { size: { h } },
+        meta: { title: `${name} (h=${h})` },
+      }),
+    );
+    s.showNode(id);
+  }
+  return s;
+}
+
+/**
+ * `overflowMode: 'unplaced'` with a first pane taller than the zone. It is
+ * placed either way; `oversize` says whether it is held to the zone or laid
+ * out in full for the wrapper to scroll to.
+ */
+export const OversizedFirstPane: Story = () => {
+  const store = useMemo(makeOversizeStore, []);
+  const [oversize, setOversize] = useState<Oversize>('clamp');
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <div className="strip-controls">
+          <label>
+            oversize{' '}
+            <select
+              value={oversize}
+              data-testid="oversize"
+              onChange={(e) => {
+                const next = e.target.value as Oversize;
+                setOversize(next);
+                store.updateContainerConfig(OVERSIZE_ZONE, { oversize: next });
+              }}
+            >
+              <option value="clamp">clamp</option>
+              <option value="overflow">overflow</option>
+            </select>
+          </label>
+        </div>
+        <div className="strip-oversize-scroller" data-testid="oversize-scroller">
+          <Container
+            parentId={OVERSIZE_ZONE}
+            chrome={chrome}
+            viewport={{ w: 260, h: 240 }}
+            className="windease-zone"
+          />
+        </div>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};

@@ -527,6 +527,9 @@ Under `scroll` each pane holds at its measurement.
 `LayoutResult.unplaced`, which is also where `maxItems` sends items over its
 count cap — the two compose. When even the first pane doesn't fit it is placed
 anyway, clamped to the container, so an overflowing dock never renders empty.
+`oversize: 'overflow'` lays that one pane out at the extent it asked for
+instead and reports the excess as `overflow`, for a host that would sooner
+scroll to it than crop it.
 
 `'overlap'` keeps every pane at its full extent and shortens the step between
 them until the row fits, so the panes slide over each other instead of getting

@@ -260,10 +260,6 @@ all. Reflow coverage has to use a ref-measured fixture.
   sample**, not per hover transition — the per-frame chatter the tracing tenet
   in `CLAUDE.md` warns against. Left as is: those lines are the whole record of
   why a drop was refused, and `dnd` is off by default.
-- **`unplace` never reports overflow.** The one pane that must be placed when
-  nothing fits is clamped to the container rather than overflowed, so a
-  consumer who would rather see the excess than a clamped pane has no way to
-  ask for it. A choice, not a law — revisit if anyone wants the other one.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like

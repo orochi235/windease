@@ -105,6 +105,14 @@ interface StripConfig {
    */
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced' | 'overlap';
   /**
+   * Under `overflowMode: 'unplaced'`, what the first pane does when it alone
+   * is longer than the container. It is placed either way, so the container
+   * never renders empty. `'clamp'` (default) holds it to the container;
+   * `'overflow'` lays it out at the extent it asked for and reports the excess
+   * as `overflow`, for a host that would sooner scroll to it than crop it.
+   */
+  oversize?: 'clamp' | 'overflow';
+  /**
    * Under `overflowMode: 'overlap'`, how much of each covered pane stays
    * visible, in px. Defaults to 24. The analogue of `squeeze`'s `minSize`
    * floor and for the same reason: below it a pane stops being separately
@@ -402,10 +410,11 @@ function resolveRow(
   );
   // `overlap` shortens the step rather than the panes, so like `scroll` it
   // sizes against what the row asked for.
-  const budget =
-    cfg.overflowMode === 'scroll' || cfg.overflowMode === 'overlap'
-      ? Math.max(usableMain, intrinsicMain)
-      : usableMain;
+  const asked =
+    cfg.overflowMode === 'scroll' ||
+    cfg.overflowMode === 'overlap' ||
+    (cfg.overflowMode === 'unplaced' && cfg.oversize === 'overflow');
+  const budget = asked ? Math.max(usableMain, intrinsicMain) : usableMain;
 
   // Once any child states a size, every child without one shares the rest and
   // preferredSize is not consulted; otherwise preferredSize (or, under
@@ -1038,6 +1047,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     step: 'number',
     zoom: 'string',
     overflowMode: ['squeeze', 'scroll', 'unplaced', 'overlap'],
+    oversize: ['clamp', 'overflow'],
     peek: 'number',
     justify: ['start', 'center', 'end', 'between'],
   },

@@ -120,6 +120,21 @@ describe('strip overflowMode', () => {
       expect(r.overflow).toBeUndefined();
     });
 
+    it("lays that pane out at its full extent and reports the excess under oversize: 'overflow'", () => {
+      const options = { axis: 'y', overflowMode: 'unplaced', oversize: 'overflow' };
+      const r = run(asking(900, 2), options);
+      expect(heights(r)).toEqual([900]);
+      expect(r.unplaced).toEqual(['p2']);
+      expect(r.overflow).toEqual({ w: 0, h: 500 });
+    });
+
+    it('oversize changes nothing while the placed panes fit', () => {
+      const options = { axis: 'y', overflowMode: 'unplaced', oversize: 'overflow' };
+      const r = run(asking(150), options);
+      expect(heights(r)).toEqual([150, 150]);
+      expect(r.overflow).toBeUndefined();
+    });
+
     it('composes with the count cap rather than replacing it', () => {
       const r = run(asking(50, 4), { axis: 'y', overflowMode: 'unplaced', maxItems: 2 });
       expect(r.unplaced).toEqual(['p3', 'p4']);

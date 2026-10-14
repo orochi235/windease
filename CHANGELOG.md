@@ -31,6 +31,11 @@ section below.
   moves freely and so has no `bounds` to report. `floatingStrategy`'s handle
   now carries `label: 'move'`.
 
+- **`oversize` on a strip.** Under `overflowMode: 'unplaced'` the first pane
+  is placed even when it alone is longer than the container, and was always
+  clamped to it. `oversize: 'overflow'` lays it out in full and reports the
+  excess as `overflow`.
+
 - **`collapsePolicy` in a grid.** `gridStrategy` now honors the store's
   `collapsePolicy`: a column or row whose every child is an empty container the
   policy collapsed is held at the policy's extent, and the other tracks take

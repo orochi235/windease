@@ -72,3 +72,9 @@
   background: #2563eb;
   color: #fff;
 }
+
+.strip-oversize-scroller {
+  width: 280px;
+  height: 260px;
+  overflow: auto;
+}
