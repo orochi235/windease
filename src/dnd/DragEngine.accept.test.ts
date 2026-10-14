@@ -74,6 +74,46 @@ function engineWith(s: Store, target: Partial<DropTarget>): DragEngine {
   return e;
 }
 
+describe('DragEngine — two registrations for one target', () => {
+  function twice(second: Partial<DropTarget>) {
+    const e = new DragEngine(openStore(), { getStrategy: () => exactlyTwoStrategy });
+    e.addDropTarget(asNodeId('z2'), at(SQUARE, { getInsertionIndex: () => 0 }));
+    const off = e.addDropTarget(asNodeId('z2'), at(SQUARE, second));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    return { e, off };
+  }
+
+  it('keeps what the first one answered that the second leaves out', () => {
+    const { e } = twice({ acceptPolicy: () => true });
+    expect(e.state()?.hover).toMatchObject({ accepted: true, insertIndex: 0 });
+  });
+
+  it('lets the second one answer what both do', () => {
+    const { e } = twice({ getInsertionIndex: () => 1 });
+    expect(e.state()?.hover?.insertIndex).toBe(1);
+  });
+
+  it('goes back to the first when the second is removed', () => {
+    const { e, off } = twice({ acceptPolicy: () => false });
+    expect(e.state()?.hover?.accepted).toBe(false);
+    off();
+    e.updateHoverByPoint(51, 50);
+    expect(e.state()?.hover).toMatchObject({ accepted: true, insertIndex: 0 });
+  });
+
+  it('keeps the second when the first is removed', () => {
+    const e = new DragEngine(openStore(), { getStrategy: () => exactlyTwoStrategy });
+    const offFirst = e.addDropTarget(asNodeId('z2'), at(SQUARE, { getInsertionIndex: () => 0 }));
+    e.addDropTarget(asNodeId('z2'), at(SQUARE, { acceptPolicy: () => false }));
+    offFirst();
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover).toMatchObject({ accepted: false });
+    expect(e.state()?.hover?.insertIndex).toBeUndefined();
+  });
+});
+
 describe('DragEngine — acceptPolicy', () => {
   it('true overrides a strategy rejection', () => {
     const e = engineWith(fullStore(), { acceptPolicy: () => true });

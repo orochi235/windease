@@ -1152,7 +1152,11 @@ code.
 ```
 
 A target you register yourself takes the same callback:
-`useDropTarget(zoneId, ref, { acceptPolicy })`.
+`useDropTarget(zoneId, ref, { acceptPolicy })`. Registering one for an id a
+`<Container>` already registered adds to it: the latest registration answers,
+and whatever it leaves out — where the drop lands, say — is still answered by
+the one before. `getInsertionIndex` and `getDropIntent` count as one answer,
+so giving either replaces both.
 
 It runs on every `pointermove` of a drag, so keep it O(items). Accepting is not
 capacity: a `strip` reads `maxItems` when it lays out too, so a drop accepted

@@ -144,6 +144,7 @@ export class DragController {
   }
 
   registerDropTarget(id: NodeId, el: Element, options?: DropTargetOptions): () => void {
+    const below = this.elements.get(id);
     this.elements.set(id, el);
     const off = this.engine.addDropTarget(id, {
       bounds: () => rectOf(el),
@@ -169,7 +170,11 @@ export class DragController {
         : {}),
     });
     return () => {
-      this.elements.delete(id);
+      // An earlier registration for this id is still standing: hand it back.
+      if (this.elements.get(id) === el) {
+        if (below && below !== el) this.elements.set(id, below);
+        else this.elements.delete(id);
+      }
       off();
     };
   }

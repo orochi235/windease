@@ -117,10 +117,6 @@ function makeStore(): Store {
 }
 
 function ZoneShell({ zoneId, chrome }: { zoneId: ReturnType<typeof asNodeId>; chrome: ChromeMap }) {
-  // Container itself registers as the drop target (and the default
-  // getInsertionIndex callback). An extra useDropTarget here would clobber
-  // that registration because child effects fire before parent effects in
-  // React — leaving every drop appending instead of inserting at the cursor.
   return (
     <div className="pg-zone-shell">
       <Container parentId={zoneId} chrome={chrome} className="pg-zone-inner" />

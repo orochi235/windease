@@ -69,6 +69,13 @@ section below.
   node, the wrapped child standing for the group that takes its slot. A stack
   drop onto a child of a container that is itself a stack still adds a child.
 
+- **A second drop-target registration no longer drops the first one's answers.**
+  `useDropTarget(zoneId, ref, { acceptPolicy })` on a zone its `<Container>`
+  had already registered replaced that registration whole, so the container's
+  insertion index was lost and every drop appended. Registrations for one id
+  now stack: the latest answers, and each field it leaves out falls to the one
+  before. Unregistering one leaves the others in place.
+
 - **A strip seam follows the pointer under `justify: 'center'` and `'end'`.** In
   a row with room to spare, a drag of 40px moved the seam 20px under `'center'`
   and not at all under `'end'`, where the pane grew away from the pointer

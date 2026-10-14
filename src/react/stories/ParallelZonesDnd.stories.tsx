@@ -1,8 +1,8 @@
 export default { title: 'Parallel zones' };
 
 import type { Story } from '@ladle/react';
-import { useMemo } from 'react';
-import { asNodeId, createNode, Store, stripStrategy } from '../../index.js';
+import { useMemo, useRef } from 'react';
+import { type AcceptPolicy, asNodeId, createNode, Store, stripStrategy } from '../../index.js';
 import {
   type ChromeMap,
   Container,
@@ -13,6 +13,7 @@ import {
   Provider,
   StrategyRegistryProvider,
   useDragState,
+  useDropTarget,
 } from '../index.js';
 import './windease.css';
 import './parallel-zones-dnd.css';
@@ -58,6 +59,9 @@ function makeStore(): Store {
   return s;
 }
 
+/** A column takes four panels and refuses a fifth. */
+const upToFour: AcceptPolicy = ({ items }) => (items.length <= 4 ? undefined : false);
+
 function ZoneShell({
   zoneId,
   label,
@@ -67,9 +71,10 @@ function ZoneShell({
   label: string;
   chrome: ChromeMap;
 }) {
-  // `<Container>` registers the zone as a drop target itself, with the default
-  // getInsertionIndex. A useDropTarget call here would clobber that — child
-  // effects run before parent effects — and every drop would append.
+  // Registered beside `<Container>`'s own target for the same id: this one
+  // adds the policy, and the container's still says where a drop lands.
+  const ref = useRef<HTMLDivElement>(null);
+  useDropTarget(zoneId, ref, { acceptPolicy: upToFour });
   const drag = useDragState();
   const isTarget = drag?.hover?.targetId === zoneId;
   const accepted = isTarget && drag?.hover?.accepted === true;
@@ -84,7 +89,7 @@ function ZoneShell({
   return (
     <section className="pz-column">
       <header className="pz-column__header">{label}</header>
-      <div className={className}>
+      <div className={className} ref={ref}>
         <Container parentId={zoneId} chrome={chrome} className="pz-zone__inner" />
       </div>
     </section>

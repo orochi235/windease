@@ -77,9 +77,7 @@ test.describe('drag between zones', () => {
 
     await page.mouse.move(handle.x, handle.y);
     await page.mouse.down();
-    // Above the first child's midpoint resolves to insertIndex 0. Only
-    // `<Container>`'s own getInsertionIndex computes that — a consumer
-    // useDropTarget on the same zone id would clobber it and append.
+    // Above the first child's midpoint resolves to insertIndex 0.
     await page.mouse.move(first.x + 8, first.y + 4, { steps: 15 });
     await page.mouse.up();
 

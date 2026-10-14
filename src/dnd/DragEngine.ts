@@ -203,6 +203,7 @@ export class DragEngine {
   private inFlight: CollapseDrag | null = null;
   private readonly listeners = new Set<Listener>();
   private readonly dropTargets = new Map<NodeId, DropTarget>();
+  private targetLayers = new Map<NodeId, DropTarget[]>();
   private readonly orderControls = new Map<NodeId, ChildOrderCommit>();
   private readonly schedule: FrameScheduler;
   private readonly getStrategy: StrategyLookup | undefined;
@@ -240,17 +241,51 @@ export class DragEngine {
     };
   }
 
+  /**
+   * Registrations for one id stack: the target the engine asks is the latest,
+   * with each field it leaves out answered by the one before. So a host that
+   * registers only an `acceptPolicy` for a container keeps the insertion index
+   * that container's own registration computes. `getInsertionIndex` and
+   * `getDropIntent` go together: giving either replaces both. Removing a
+   * registration leaves the rest.
+   */
   addDropTarget(id: NodeId, target: DropTarget): () => void {
-    const overwriting = this.dropTargets.has(id);
-    this.dropTargets.set(id, target);
+    const layers = this.targetLayers.get(id) ?? [];
+    this.targetLayers.set(id, layers);
+    layers.push(target);
+    this.mergeTarget(id);
     trace(
       'dnd',
-      `registerDropTarget: ${id}${overwriting ? ' (overwriting prior registration)' : ''} (total: ${this.dropTargets.size})`,
+      `registerDropTarget: ${id}${layers.length > 1 ? ` (over ${layers.length - 1} earlier)` : ''} (total: ${this.dropTargets.size})`,
     );
     return () => {
-      this.dropTargets.delete(id);
+      const at = layers.indexOf(target);
+      if (at >= 0) layers.splice(at, 1);
+      this.mergeTarget(id);
       trace('dnd', `unregisterDropTarget: ${id} (total: ${this.dropTargets.size})`);
     };
+  }
+
+  private mergeTarget(id: NodeId): void {
+    const layers = this.targetLayers.get(id) ?? [];
+    if (layers.length === 0) {
+      this.targetLayers.delete(id);
+      this.dropTargets.delete(id);
+      return;
+    }
+    const merged: Record<string, unknown> = {};
+    for (const layer of layers) {
+      // Where a drop lands is one question with two forms of answer; a layer
+      // that gives either replaces both.
+      if (layer.getInsertionIndex || layer.getDropIntent) {
+        delete merged.getInsertionIndex;
+        delete merged.getDropIntent;
+      }
+      for (const [key, value] of Object.entries(layer)) {
+        if (value !== undefined) merged[key] = value;
+      }
+    }
+    this.dropTargets.set(id, merged as never as DropTarget);
   }
 
   /**
@@ -258,8 +293,8 @@ export class DragEngine {
    * change it calls `commit` with the prospective order instead of mutating
    * the store — the controlled half of `preserveStoreOrder`.
    *
-   * Kept in its own registry rather than on `addDropTarget`, whose later
-   * registration replaces an earlier one for the same id.
+   * Kept in its own registry rather than on `addDropTarget`: it is declared
+   * by a different component, on its own lifetime.
    */
   registerOrderControl(id: NodeId, commit: ChildOrderCommit): () => void {
     this.orderControls.set(id, commit);

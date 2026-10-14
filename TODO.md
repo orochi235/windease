@@ -248,13 +248,6 @@ One thing the suite surfaced that is worth knowing: the split story passes an
 explicit `viewport` prop, so it never exercises the ResizeObserver path at
 all. Reflow coverage has to use a ref-measured fixture.
 
-A consumer registering `useDropTarget` for a zone id its `<Container>` already
-registered silently loses the default `getInsertionIndex` — child effects run
-before parent effects, so the consumer's registration wins and every drop
-appends. `DragController` traces the overwrite but nothing surfaces it to a
-consumer. Both `Playground` and `ParallelZonesDnd` document the trap and avoid
-it; `e2e/drag.spec.ts` pins the parallel-zones case.
-
 ## Loose ends
 
 - typedoc runs from a pinned `npx` install carrying TypeScript 6.0.3
