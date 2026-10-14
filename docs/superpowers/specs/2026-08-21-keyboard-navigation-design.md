@@ -350,7 +350,7 @@ No collision with window navigation: arrows are gated on the event target
   list a switcher renders from; the overlay is the consumer's.
 - Custom keymaps.
 - Multi-select.
-- A DOM-proxy adapter for canvas hosts — see TODO.md. windease has no WebGL in
-  its dev dependencies and no way to test one in CI. The existing WebGL consumer
-  (`blitsklieg`, `packages/core/dev/tube-lab`) is a React DOM app that draws into
-  a canvas from `placements`, so it uses the DOM adapter unchanged.
+- A separate DOM-proxy adapter for canvas hosts. The DOM adapter already serves
+  one: a `<Container>` whose chrome draws nothing leaves a focusable, named
+  wrapper over each pane the canvas paints. The README's Canvas hosts section
+  has the recipe and the Canvas host story runs it.
