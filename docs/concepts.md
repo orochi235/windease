@@ -182,7 +182,7 @@ first. `true` sets every supported axis except `hide`, which has to be named.
 | Axis      | Requires     | Guards                                                     |
 | --------- | ------------ | ----------------------------------------------------------- |
 | `move`    | `membership` | `moveNode` (as source), `reorderInParent`                   |
-| `resize`  | `membership` | `patchPlacement`, reserved `size` / `span` / `share` keys only |
+| `resize`  | —            | `patchPlacement`, reserved `size` / `span` / `share` keys only; on a root, the `<Workspace>` seams beside it |
 | `destroy` | —            | `unregisterNode`                                             |
 | `hide`    | —            | `hideNode`, and an `overshoot: 'hide'` seam arming on the node |
 | `accept`  | `container`  | `moveNode` (as target)                                       |

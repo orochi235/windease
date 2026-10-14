@@ -53,6 +53,34 @@ function input(store: Store, over: Partial<WorkspaceInput> = {}): WorkspaceInput
 const drag = (id: string, dx: number, dy = 0) =>
   ({ affordanceId: id, kind: 'drag', payload: { dx, dy } }) as const;
 
+describe('a workspace seam beside a root with lock.resize', () => {
+  it.each([SIDE, MAIN])('is not drawn when %s is locked', (locked) => {
+    const s = build();
+    s.setLock(locked, { resize: true });
+    expect(arrangeWorkspace(input(s)).affordances).toEqual([]);
+  });
+
+  it('refuses a drag from a renderer that kept the handle', () => {
+    const s = build();
+    s.setLock(MAIN, { resize: true });
+    dispatchWorkspaceSeam(input(s), drag('workspace-seam-side-main', 40));
+    expect(s.getNode(SIDE)?.hints?.size).toBeUndefined();
+  });
+
+  it('still holds the size the seam was dragged to before the lock', () => {
+    const s = build();
+    dispatchWorkspaceSeam(input(s), drag('workspace-seam-side-main', 40));
+    s.setLock(SIDE, { resize: true });
+    expect(arrangeWorkspace(input(s)).roots.get(SIDE)?.size).toEqual({ w: 240 });
+  });
+
+  it('is what lock: true means on a root', () => {
+    const s = build();
+    s.setLock(SIDE, true);
+    expect(s.isLocked(SIDE, 'resize')).toBe(true);
+  });
+});
+
 describe('arrangeWorkspace — seams', () => {
   it('puts a seam in the gap between two roots, over the extent they share', () => {
     const { affordances } = arrangeWorkspace(input(build()));

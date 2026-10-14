@@ -98,6 +98,11 @@ function ceilingOf(read: Read, id: NodeId, axis: 'x' | 'y'): number {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : Number.POSITIVE_INFINITY;
 }
 
+/** A seam moves both roots' edges, so a `lock.resize` on either freezes it. */
+function resizeLocked(store: Store, seam: WorkspaceSeam): boolean {
+  return store.isLocked(seam.before, 'resize') || store.isLocked(seam.after, 'resize');
+}
+
 /** One seam resolved against the measured boxes of the roots beside it. */
 interface SeamGeometry {
   seam: WorkspaceSeam;
@@ -117,6 +122,7 @@ function resolveSeam(
 ): SeamGeometry | undefined {
   const { rects } = input;
   if (isHidden(read, seam.before) || isHidden(read, seam.after)) return undefined;
+  if (resizeLocked(input.store, seam)) return undefined;
   const a = rects.get(seam.before);
   const b = rects.get(seam.after);
   if (!a || !b) return undefined;

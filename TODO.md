@@ -103,8 +103,6 @@ build their shells as nested strips.
 
 Still open, waiting for a consumer to ask:
 
-- A workspace seam has no lock. A root cannot carry `lock.resize`, which needs
-  `membership`, so the only way to freeze a seam is to leave it out of `seams`.
 - `zoom` is a prop and is not snapshotted. A consumer that wants it saved
   keeps it beside its own state.
 - A stored `hints.size` on a root whose sized neighbor is hidden is applied as

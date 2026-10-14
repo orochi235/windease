@@ -119,6 +119,20 @@ function Toggle({ store, id, label }: { store: Store; id: NodeId; label: string 
   );
 }
 
+function ResizeLock({ store, id, label }: { store: Store; id: NodeId; label: string }) {
+  const locked = useNode(id)?.lock?.resize === true;
+  return (
+    <button
+      type="button"
+      data-testid={`ws-lock-${id}`}
+      aria-pressed={locked}
+      onClick={() => store.setLock(id, { ...store.getLock(id), resize: !locked })}
+    >
+      {locked ? `Unlock ${label} size` : `Lock ${label} size`}
+    </button>
+  );
+}
+
 function Readout({ id, label }: { id: NodeId; label: string }) {
   const node = useNode(id);
   const size = node?.hints?.size;
@@ -156,6 +170,7 @@ export const RootsInTheHostsLayout: Story = () => {
               <div className="ws-controls">
                 <Toggle store={store} id={SIDE} label="sidebar" />
                 <Toggle store={store} id={DOCK} label="dock" />
+                <ResizeLock store={store} id={SIDE} label="sidebar" />
                 <button
                   type="button"
                   data-testid="ws-zoom"

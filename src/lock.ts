@@ -3,8 +3,9 @@ import type { Store } from './store.js';
 
 /**
  * One restrictable operation. Which axes apply to a node follows from its
- * capabilities: `move`/`resize` need `membership`, `accept`/`dragOut` need
- * `container`, and `destroy`/`arrange`/`hide` always apply.
+ * capabilities: `move` needs `membership`, `accept`/`dragOut` need `container`,
+ * and `resize`/`destroy`/`arrange`/`hide` always apply. On a root, `resize`
+ * freezes the workspace seams beside it.
  */
 export type LockAxis = 'move' | 'resize' | 'destroy' | 'accept' | 'dragOut' | 'arrange' | 'hide';
 
@@ -14,12 +15,12 @@ export type LockAxis = 'move' | 'resize' | 'destroy' | 'accept' | 'dragOut' | 'a
  */
 export type LockSet = Partial<Record<LockAxis, boolean>>;
 
-const MEMBERSHIP_AXES = ['move', 'resize'] as const;
+const MEMBERSHIP_AXES = ['move'] as const;
 const CONTAINER_AXES = ['accept', 'dragOut'] as const;
 // `arrange` governs whether this node's children may be rearranged — including
 // whether it may acquire any. Gating it on an existing container would make it
 // bind everywhere except on `ensureContainer`, the one call it has to stop.
-const ALWAYS_AXES = ['destroy', 'arrange', 'hide'] as const;
+const ALWAYS_AXES = ['resize', 'destroy', 'arrange', 'hide'] as const;
 
 /** Axes meaningful for this node, decided by which capabilities it carries. */
 export function supportedAxes(node: Node): ReadonlySet<LockAxis> {

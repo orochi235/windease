@@ -2060,6 +2060,10 @@ safe to declare there.
 When the window shrinks, a stored size is held to the room there is without
 being rewritten, so it comes back when the room does.
 
+`store.setLock(rootId, { resize: true })` freezes every seam beside that root:
+the seam is not drawn, and a drag event for it writes nothing. The root keeps
+the size it was last dragged to.
+
 `overshoot: 'hide'` works as it does on a strip: push the seam past a root's
 floor, keep pushing `joinThreshold` pixels, and release to hide that root, with
 its size put back as the drag found it. A hidden root leaves a handle on its

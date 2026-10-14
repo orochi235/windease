@@ -22,7 +22,7 @@ describe('supportedAxes', () => {
     ]);
   });
 
-  it('gives a zone the container axes plus destroy, and no membership axes', () => {
+  it('gives a zone the container axes plus the ungated ones, and not move', () => {
     const zone = createNode({
       kind: 'zone',
       container: { strategyId: 'grid', config: {} },
@@ -34,6 +34,7 @@ describe('supportedAxes', () => {
       'destroy',
       'dragOut',
       'hide',
+      'resize',
     ]);
   });
 
@@ -68,6 +69,7 @@ describe('resolveLock', () => {
       arrange: true,
       destroy: true,
       dragOut: true,
+      resize: true,
     });
   });
 

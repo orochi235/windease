@@ -102,7 +102,7 @@ function arrangementKey(store: Store, ids: readonly NodeId[]): string {
   for (const id of ids) {
     const node = store.getNode(id);
     const h = node?.hints;
-    key += `${id}:${node?.lifecycle.state}:${node?.lock?.hide ? 1 : 0}:${JSON.stringify([h?.size, h?.minSize, h?.maxSize])};`;
+    key += `${id}:${node?.lifecycle.state}:${node?.lock?.hide ? 1 : 0}${node?.lock?.resize ? 1 : 0}:${JSON.stringify([h?.size, h?.minSize, h?.maxSize])};`;
   }
   return key;
 }

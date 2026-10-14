@@ -18,7 +18,8 @@ section below.
   root sits in a `<WorkspaceRoot>`, which takes the dragged size as an inline
   `width` or `height`. The size is stored on the root as the new
   `hints.size: { w?, h? }`. `arrangeWorkspace` and `dispatchWorkspaceSeam` are
-  the same thing without React, over boxes the host measures. See
+  the same thing without React, over boxes the host measures. `lock.resize` on
+  a root freezes the seams beside it. See
   [Workspace: seams between separate roots](README.md#workspace-seams-between-separate-roots).
 
 ### Changed
@@ -26,6 +27,11 @@ section below.
 - **`SerializedNode.hints` is typed as `NodeHints`.** A snapshot already carried
   every hint; the type listed `minSize` and `preferredSize` only, so reading
   `maxSize`, `aspect`, `turn`, `sizing` or `render` off one needed a cast.
+
+- **`lock.resize` applies to every node.** It needed `membership`, so
+  `setLock(rootId, { resize: true })` was dropped silently. A root now keeps
+  it, and `lock: true` on a root includes it. Nothing read a root's size before
+  `<Workspace>`, so only its seams are affected.
 
 - **`AcceptContext.items` is typed as the layout items it holds.** An
   `acceptPolicy` was already handed each child as `strategy.canAccept` sees it;

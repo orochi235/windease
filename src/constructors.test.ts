@@ -15,7 +15,7 @@ describe('createNode', () => {
 
   it('resolves lock: true on a leaf to only the axes a leaf supports', () => {
     const node = createNode({ id: asNodeId('leaf-lock'), lock: true });
-    expect(node.lock).toEqual({ destroy: true, arrange: true });
+    expect(node.lock).toEqual({ resize: true, destroy: true, arrange: true });
   });
 
   it('produces a leaf + focus', () => {
@@ -28,7 +28,7 @@ describe('createNode', () => {
 
   it('resolves lock: true on a leaf + focus the same as a bare leaf — focus adds no axes', () => {
     const node = createNode({ id: asNodeId('lf-lock'), focus: true, lock: true });
-    expect(node.lock).toEqual({ destroy: true, arrange: true });
+    expect(node.lock).toEqual({ resize: true, destroy: true, arrange: true });
   });
 
   it('produces a container root: container only, no membership', () => {
@@ -53,13 +53,19 @@ describe('createNode', () => {
     expect(node.container?.allowsPinning).toBe(false);
   });
 
-  it('resolves lock: true on a container root to only container axes + destroy', () => {
+  it('resolves lock: true on a container root to every axis but move and hide', () => {
     const node = createNode({
       id: asNodeId('root-lock'),
       container: { strategyId: 'grid', config: {} },
       lock: true,
     });
-    expect(node.lock).toEqual({ destroy: true, accept: true, dragOut: true, arrange: true });
+    expect(node.lock).toEqual({
+      resize: true,
+      destroy: true,
+      accept: true,
+      dragOut: true,
+      arrange: true,
+    });
   });
 
   it('produces a container + parent (the former createGroup shape)', () => {

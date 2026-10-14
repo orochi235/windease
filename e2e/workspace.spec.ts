@@ -46,6 +46,19 @@ test.describe('workspace: roots the host lays out', () => {
     await expect(size(page, 'side')).toHaveText('w 260');
   });
 
+  test('locking the sidebar size takes its seam away, and unlocking brings it back', async ({
+    page,
+  }) => {
+    await openStory(page, STORY);
+    await expect(seam(page, 'side', 'main')).toHaveCount(1);
+    await page.getByTestId('ws-lock-ws-side').click();
+    await expect(seam(page, 'side', 'main')).toHaveCount(0);
+    // The dock's seam names neither locked root.
+    await expect(seam(page, 'main', 'dock')).toHaveCount(1);
+    await page.getByTestId('ws-lock-ws-side').click();
+    await expect(seam(page, 'side', 'main')).toHaveCount(1);
+  });
+
   test('the seam stops at the sidebar ceiling and at the main floor', async ({ page }) => {
     await openStory(page, STORY);
     const from = centerOf(await settledBox(seam(page, 'side', 'main')));
