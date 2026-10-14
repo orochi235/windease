@@ -80,7 +80,7 @@ past the floor, and one root zoomed over the rest — documented in the README's
 No consumer has used it yet: `brainhouse/client` and `@weasel-js/labkit` both
 build their shells as nested strips.
 
-Still open, waiting for a consumer to ask:
+Open questions, neither with a design yet:
 
 - Should zones know about each other for purposes like "dock at the bottom of
   whichever zone has focus" or "promote selected window to main zone"?
