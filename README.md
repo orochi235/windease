@@ -964,6 +964,33 @@ node. Two things it needs that a DOM host does not.
 positioning and the container queries and drop the `overflow: hidden`, so one
 canvas can span the whole zone.
 
+A canvas has no element per pane, so nothing to focus and nothing a screen
+reader can find. Keep `<Container>` and give it chrome that draws nothing: the
+wrapper it puts around each child is then an invisible proxy, positioned from
+the same placements, carrying `role="group"`, the pane's name, the tab stop and
+the arrow keys. Paint from the `overlay` callback, which receives those
+placements, and keep the canvas out of the pointer's way so a click lands on a
+proxy:
+
+```tsx
+<GeometryProvider>
+  <FocusProvider>
+    <Container
+      parentId={zoneId}
+      chrome={{ panel: () => null }}
+      overlay={({ placements }) => <Scene placements={placements} />}
+    />
+  </FocusProvider>
+</GeometryProvider>
+```
+
+```css
+.scene { position: absolute; inset: 0; pointer-events: none; }
+```
+
+`<Scene>` reads `useFocusedNode()` to paint the focus ring, since the proxies
+show none. The **Canvas host** story is this, in a 2D canvas.
+
 Placements are in CSS pixels, which is most of what a backing store needs — but
 a `devicePixelRatio` change means every canvas has to be resized, and dragging a
 window between displays is the common case:

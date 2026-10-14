@@ -1,0 +1,18 @@
+.ch-zone {
+  position: relative;
+}
+
+/* Under the proxies and out of the pointer's way: a click lands on a proxy. */
+.ch-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ch-prose {
+  max-width: 600px;
+  font:
+    13px / 1.5 system-ui,
+    sans-serif;
+  color: #475569;
+}

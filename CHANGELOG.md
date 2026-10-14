@@ -31,6 +31,12 @@ section below.
   moves freely and so has no `bounds` to report. `floatingStrategy`'s handle
   now carries `label: 'move'`.
 
+- **Focus and a screen-reader tree for a canvas host.** No new API: a
+  `<Container>` whose chrome draws nothing leaves an invisible, focusable,
+  named proxy over each pane the canvas paints. The recipe is in the README
+  under [Canvas hosts](README.md#canvas-hosts) and runs as the **Canvas host**
+  story.
+
 - **`oversize` on a strip.** Under `overflowMode: 'unplaced'` the first pane
   is placed even when it alone is longer than the container, and was always
   clamped to it. `oversize: 'overflow'` lays it out in full and reports the

@@ -160,23 +160,6 @@ node with no `focus` capability, and a `navigate` that throws, are traced on
 `workspace` and answered by the geometric search, the same contract a
 replacement `resolveNavigation` policy already had (`src/focus/resolve.ts`).
 
-## DOM-proxy focus adapter for canvas hosts
-
-Medium priority. A canvas surface has no accessibility tree, so the standard
-technique is a parallel DOM tree of invisible focusable proxies positioned from
-`placements` — giving the surface real focus, real tab order and real
-screen-reader output. That logic is non-trivial and reusable, which is what
-would earn it a place in the library.
-
-Not built yet because there is no second consumer and no way to test it: there
-is no WebGL in windease's dev dependencies, and the one WebGL consumer
-(klieg, `packages/core/dev/tube-lab`) is a React DOM app drawing into a canvas
-over DOM tiles, so it uses the DOM adapter unchanged. Ships as a
-documented recipe first; promote when a host actually needs it.
-
-Depends on the adapter seam in
-`docs/superpowers/specs/2026-08-21-keyboard-navigation-design.md`.
-
 ## Playwright e2e suite
 
 Shipped. `npm run test:e2e` drives the Ladle stories in Chromium, Firefox and
@@ -265,8 +248,7 @@ All three have shipped. Drop-on-edge is what the intent hit-test was built for.
 
 ## Canvas-host ergonomics
 
-Raised by klieg's tube lab (`packages/core/dev/tube-lab`), the WebGL consumer
-already described under "DOM-proxy focus adapter for canvas hosts". It draws
+Raised by klieg's tube lab (`packages/core/dev/tube-lab`), a WebGL consumer. It draws
 its panels as scissor rects on one `WebGLRenderer`, so the canvas is one element
 spanning the whole zone rather than one per window. Both ergonomics it asked for shipped —
 `.windease-zone--unclipped` and `observePixelRatio`.
