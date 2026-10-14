@@ -181,15 +181,6 @@ node with no `focus` capability, and a `navigate` that throws, are traced on
 `workspace` and answered by the geometric search, the same contract a
 replacement `resolveNavigation` policy already had (`src/focus/resolve.ts`).
 
-## Groups
-
-A "group" wraps multiple windows so they move, drag, and (potentially) resize
-as a unit. Open questions: is a group a special kind of window, a sibling
-concept to zones, or a layout strategy that nests its own children? Visual
-treatment (tabbed group vs. accordion vs. side-by-side strip) probably wants
-to be a strategy choice on the group itself. Persistence needs a stable group
-id and a way to express membership in snapshots.
-
 ## DOM-proxy focus adapter for canvas hosts
 
 Medium priority. A canvas surface has no accessibility tree, so the standard
@@ -206,15 +197,6 @@ documented recipe first; promote when a host actually needs it.
 
 Depends on the adapter seam in
 `docs/superpowers/specs/2026-08-21-keyboard-navigation-design.md`.
-
-## Drag-into (windows ↔ zones ↔ groups)
-
-Blocked on Groups. Dragging a window onto another window should be able to
-*form* a group, dragging into an empty zone should claim that zone, and
-dragging onto a group's drop region should join it. Edge cases: rejecting drops
-a strategy can't accept (e.g. a 2-pane binarySplit), insertion-point previews
-for ordered strategies, and what happens to a single-member group when its last
-sibling leaves.
 
 ## Playwright e2e suite
 
