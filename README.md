@@ -1562,17 +1562,17 @@ as `overflow`.
 `<Container>` and the presets turn a nonzero `z` into `z-index`, and a 3D host
 reads it as depth. A window whose placement has `layer: 'top'` ranks after every
 window without it, keeping child order within each layer, so a dock or palette
-stays above whatever is raised. To raise a window, move it to the end of its
-parent:
+stays above whatever is raised. A window is raised by moving it to the end of
+its parent, which `store.raise(windowId)` does.
 
-```ts
-store.reorderInParent(windowId, store.getNode(desktopId)!.container!.childOrder.length - 1);
-```
-
-Nothing raises on focus for you — each raise is a store mutation, so an undo
-step. The **Desktop** story does it from `useFocusedNode`. Raise on `click`, not
-`pointerdown`: `<Container>` renders children in child order, so a raise moves
-the pressed element in the DOM and the browser drops the click it was for.
+`raise` in the container's config does it for you: `'focus'` raises a window
+when it takes focus, and `'click'` also raises on a click that moves no focus.
+Each raise is a store mutation, in one transaction with the focus change that
+caused it, so one undo step. A pinned window keeps its slot, and the
+container's `lock.arrange` stops every raise in it. With `raise` set,
+`<Container>` keeps each child in the DOM slot it first rendered in and stacks
+by `z-index` alone, so the press that raises a window does not move the
+element being pressed.
 
 | Config | Default | Meaning |
 | --- | --- | --- |
