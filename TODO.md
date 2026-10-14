@@ -103,8 +103,6 @@ build their shells as nested strips.
 
 Still open, waiting for a consumer to ask:
 
-- `zoom` is a prop and is not snapshotted. A consumer that wants it saved
-  keeps it beside its own state.
 - A stored `hints.size` on a root whose sized neighbor is hidden is applied as
   written; nothing redistributes the room.
 - `collapsePolicy` is honored by `stripStrategy` only. `grid` is the next

@@ -72,6 +72,12 @@ export interface NodeHints {
    */
   size?: { w?: number; h?: number };
   /**
+   * Set on a root that asks to be laid over the rest of its workspace. Like
+   * `size`, `arrangeWorkspace` is the only reader, and a `zoom` passed to it
+   * wins. A node with a parent is zoomed by its parent's `zoom` config.
+   */
+  zoom?: boolean;
+  /**
    * How this container arranges its children. `'placed'` (the default) runs the
    * registered strategy and produces a rect per child. `'flow'` runs no
    * strategy: children render as ordinary in-flow elements and the consumer's

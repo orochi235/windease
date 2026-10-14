@@ -1,7 +1,7 @@
 export default { title: 'Workspace' };
 
 import type { Story } from '@ladle/react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   asNodeId,
   createNode,
@@ -133,6 +133,21 @@ function ResizeLock({ store, id, label }: { store: Store; id: NodeId; label: str
   );
 }
 
+/** Zoom kept on the root, where a snapshot carries it. */
+function ZoomToggle({ store, id, label }: { store: Store; id: NodeId; label: string }) {
+  const zoomed = useNode(id)?.hints?.zoom === true;
+  return (
+    <button
+      type="button"
+      data-testid="ws-zoom"
+      aria-pressed={zoomed}
+      onClick={() => store.setHints(id, { zoom: zoomed ? undefined : true })}
+    >
+      {zoomed ? `Unzoom ${label}` : `Zoom ${label}`}
+    </button>
+  );
+}
+
 function Readout({ id, label }: { id: NodeId; label: string }) {
   const node = useNode(id);
   const size = node?.hints?.size;
@@ -153,7 +168,6 @@ function Readout({ id, label }: { id: NodeId; label: string }) {
 
 export const RootsInTheHostsLayout: Story = () => {
   const store = useMemo(() => makeStore(), []);
-  const [zoom, setZoom] = useState<NodeId | null>(null);
 
   const root = (id: NodeId, className: string) => (
     <WorkspaceRoot id={id} className={className}>
@@ -171,16 +185,9 @@ export const RootsInTheHostsLayout: Story = () => {
                 <Toggle store={store} id={SIDE} label="sidebar" />
                 <Toggle store={store} id={DOCK} label="dock" />
                 <ResizeLock store={store} id={SIDE} label="sidebar" />
-                <button
-                  type="button"
-                  data-testid="ws-zoom"
-                  aria-pressed={zoom !== null}
-                  onClick={() => setZoom(zoom ? null : MAIN)}
-                >
-                  {zoom ? 'Unzoom main' : 'Zoom main'}
-                </button>
+                <ZoomToggle store={store} id={MAIN} label="main" />
               </div>
-              <Workspace className="ws-shell" seams={SEAMS} zoom={zoom}>
+              <Workspace className="ws-shell" seams={SEAMS}>
                 <div className="ws-top">
                   {root(SIDE, 'ws-side')}
                   {root(MAIN, 'ws-main')}

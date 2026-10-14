@@ -39,7 +39,8 @@ export interface WorkspaceInput {
   /** Each root's box as the host has laid it out, all in one space. A root
    *  that is hidden, or not yet measured, has none. */
   rects: ReadonlyMap<NodeId, Rect>;
-  /** A root that fills the workspace while every other one is withheld. */
+  /** A root that fills the workspace while every other one is withheld.
+   *  Absent, the first shown root with `hints.zoom` is; `null` zooms none. */
   zoom?: NodeId | null;
   /** Main-axis thickness of a seam. Defaults to 4. */
   seamSize?: number;
@@ -228,7 +229,10 @@ function revealAffordance(input: WorkspaceInput, seam: WorkspaceSeam): Affordanc
 /** The root `zoom` names, when it is a shown root of this workspace. */
 function zoomedOf(input: WorkspaceInput, read: Read): NodeId | undefined {
   const { zoom } = input;
-  if (zoom === undefined || zoom === null) return undefined;
+  if (zoom === null) return undefined;
+  if (zoom === undefined) {
+    return input.roots.find((id) => read(id)?.hints?.zoom === true && !isHidden(read, id));
+  }
   if (!input.roots.includes(zoom) || !read(zoom) || isHidden(read, zoom)) {
     trace('workspace', `zoom: ${zoom} is not a shown root here; arranging unzoomed`);
     return undefined;

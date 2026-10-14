@@ -336,6 +336,45 @@ describe('arrangeWorkspace — hiding a root', () => {
   });
 });
 
+describe('arrangeWorkspace — a zoom stored on the root', () => {
+  it('zooms the root whose hints.zoom is set, with no zoom passed', () => {
+    const store = build({ [MAIN]: { zoom: true } });
+    const layout = arrangeWorkspace(input(store));
+    expect(layout.roots.get(MAIN)?.state).toBe('zoomed');
+    expect(layout.roots.get(SIDE)?.state).toBe('withheld');
+  });
+
+  it('survives a snapshot', () => {
+    const store = build();
+    store.setHints(MAIN, { zoom: true });
+    const restored = deserialize(serialize(store));
+    expect(arrangeWorkspace(input(restored)).roots.get(MAIN)?.state).toBe('zoomed');
+  });
+
+  it('gives way to a zoom passed in, null included', () => {
+    const store = build({ [MAIN]: { zoom: true } });
+    expect(arrangeWorkspace(input(store, { zoom: SIDE })).roots.get(SIDE)?.state).toBe('zoomed');
+    expect(arrangeWorkspace(input(store, { zoom: null })).roots.get(MAIN)?.state).toBe('placed');
+  });
+
+  it('takes the first root in order when two ask', () => {
+    const store = build({ [MAIN]: { zoom: true }, [DOCK]: { zoom: true } });
+    expect(arrangeWorkspace(input(store)).roots.get(MAIN)?.state).toBe('zoomed');
+  });
+
+  it('skips a hidden root that asks, for the next one that does', () => {
+    const store = build({ [MAIN]: { zoom: true }, [DOCK]: { zoom: true } });
+    store.hideNode(MAIN);
+    expect(arrangeWorkspace(input(store)).roots.get(DOCK)?.state).toBe('zoomed');
+  });
+
+  it('stops a seam drag like a passed zoom does', () => {
+    const store = build({ [MAIN]: { zoom: true } });
+    dispatchWorkspaceSeam(input(store), drag('workspace-seam-side-main', 40));
+    expect(store.getNode(SIDE)?.hints?.size).toBeUndefined();
+  });
+});
+
 describe('arrangeWorkspace — zoom', () => {
   it('fills the workspace with one root and withholds the rest', () => {
     const layout = arrangeWorkspace(input(build(), { zoom: MAIN }));
