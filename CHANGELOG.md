@@ -74,6 +74,12 @@ section below.
   node, the wrapped child standing for the group that takes its slot. A stack
   drop onto a child of a container that is itself a stack still adds a child.
 
+- **A click that raises a window is no longer cancelled by the raise.**
+  `<Container>` drew a `raise` container's children in child order, so raising
+  one moved its element mid-press: the click never fired, and a pointer capture
+  taken on it was dropped. Children of a container with `raise` set now keep
+  the DOM slot they first rendered in and stack by `z-index` alone.
+
 - **A drop preview shows the slot past a pinned child.** Hovering a slot a
   pinned child holds reported that slot as `hover.insertIndex`, so the
   insertion preview opened a gap the drop then did not take. The hover now

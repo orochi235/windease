@@ -324,8 +324,7 @@ Open, grouped by what they touch:
   toward `accepts.max` only where they add a child. `lock: true` does *not*
   include the `hide` axis, which protects apps that lock with `true` and still hide via a
   View menu — making `true` mean every axis needs a README breaking-change note.
-- **raise** — under `FocusProvider` a DOM reorder mid-press cancels the click;
-  the fix is stacking by z-index rather than DOM order. Declarative `<Zone>` JSX
+- **raise** — declarative `<Zone>` JSX
   reverts raises through `reconcileChildOrder`, `show` activates on initial
   registration, and raise ignores a child's `lock.move`.
 - **reorder** — a `<Zone>` declaring `reorder` keeps the dropped order (acting

@@ -352,6 +352,7 @@ function StoreContainer({
   }, [dragController, parentId, onChildOrderChange]);
 
   const containerCfg = (parent?.container?.config ?? {}) as { axis?: 'x' | 'y'; raise?: string };
+  const firstSeen = useRef(new Map<NodeId, number>());
   const dropCfg = readDropConfig(containerCfg);
   // On click, not pointerdown: raising moves the child in the DOM, and a move
   // mid-press drops the click the press was for.
@@ -477,6 +478,17 @@ function StoreContainer({
     renderEntries.set(previewSourceId, { isReal: false });
   }
 
+  // Under `raise`, child order is stacking order and `rect.z` already draws it.
+  // Following it in the DOM as well would move a pressed child mid-press, which
+  // cancels the click and drops a pointer capture. Each child keeps the slot it
+  // first rendered in, as each affordance handle does.
+  const seen = firstSeen.current;
+  for (const id of renderEntries.keys()) if (!seen.has(id)) seen.set(id, seen.size);
+  const ordered = Array.from(renderEntries.entries());
+  if (containerCfg.raise === 'click' || containerCfg.raise === 'focus') {
+    ordered.sort(([a], [b]) => (seen.get(a) ?? 0) - (seen.get(b) ?? 0));
+  }
+
   const splitStyle = splitPreviewStyle(layout.placements, dropPreview);
   // Children and affordances draw inside the view's transform, in layout pixels.
   const layoutScroll = toLayoutScroll(layout.scroll, layout.view);
@@ -508,7 +520,7 @@ function StoreContainer({
           data-preview={layout.isPreview ? 'true' : undefined}
           data-split-preview={dropPreview.laidOut && layout.isPreview ? 'true' : undefined}
         >
-          {Array.from(renderEntries.entries()).map(([id, { isReal }]) => {
+          {ordered.map(([id, { isReal }]) => {
             const placed = layout.placements.get(id);
             if (!placed) return null;
             const stick = layout.sticky?.get(id);

@@ -82,6 +82,23 @@ describe('desktop affordances in <Container>', () => {
     expect(hit('desktop:minimize:a').getAttribute('aria-label')).toBe('restore a');
   });
 
+  it('raises a clicked window by z-index, leaving the DOM order alone', () => {
+    const { store } = renderDesktop({ raise: 'click' });
+    const nodes = () =>
+      [...document.querySelectorAll<HTMLElement>('[data-node]')].map((el) => el.dataset.node);
+    const zOf = (id: string) =>
+      document.querySelector<HTMLElement>(`[data-node="${id}"]`)?.style.zIndex;
+    expect(nodes()).toEqual(['a', 'b']);
+    const a = document.querySelector<HTMLElement>('[data-node="a"]') as HTMLElement;
+    fireEvent.click(a);
+    expect(store.getNode(ZONE)?.container?.childOrder).toEqual(['b', 'a']);
+    // The same element, still in its slot: a press that raises must not move
+    // the node it is pressing.
+    expect(document.querySelector('[data-node="a"]')).toBe(a);
+    expect(nodes()).toEqual(['a', 'b']);
+    expect(Number(zOf('a'))).toBeGreaterThan(Number(zOf('b')));
+  });
+
   it('moves a window with the arrow keys on its focused band', () => {
     const { store, hit } = renderDesktop({ drag: true });
     const band = hit('desktop:drag:b');
