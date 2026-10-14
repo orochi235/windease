@@ -2060,6 +2060,13 @@ safe to declare there.
 When the window shrinks, a stored size is held to the room there is without
 being rewritten, so it comes back when the room does.
 
+Hide the root on the other side of a seam and nothing is left to take the room
+the sized root leaves. Its dragged size is then withheld, not cleared, and its
+`<WorkspaceRoot>` carries `data-workspace-fill="w"` (or `"h"`) so your CSS can
+give it the room — `.sidebar[data-workspace-fill~="w"] { flex: 1 1 0 }`. Show
+the neighbor and the dragged size is back. `arrangeWorkspace` reports the same
+thing as `fill` on the root.
+
 `store.setLock(rootId, { resize: true })` freezes every seam beside that root:
 the seam is not drawn, and a drag event for it writes nothing. The root keeps
 the size it was last dragged to.

@@ -70,7 +70,7 @@ const SEAMS: WorkspaceSeam[] = [
   { before: MAIN, after: DOCK, axis: 'y', sizes: 'after', overshoot: 'hide' },
 ];
 
-function makeStore(): Store {
+function makeStore(mainHides = false): Store {
   const s = new Store();
   for (const root of ROOTS) {
     s.registerNode(
@@ -92,7 +92,7 @@ function makeStore(): Store {
     }
   }
   // Main is what is left when the others close, so no seam may hide it.
-  s.setLock(MAIN, { hide: true });
+  if (!mainHides) s.setLock(MAIN, { hide: true });
   return s;
 }
 
@@ -205,6 +205,41 @@ export const RootsInTheHostsLayout: Story = () => {
               </p>
             </FocusProvider>
           </GeometryProvider>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+const SIDE_SEAM: WorkspaceSeam[] = [{ before: SIDE, after: MAIN, axis: 'x' }];
+
+/**
+ * The seam sizes the sidebar and main takes what is left. Hide main and nothing
+ * is left to take it: the sidebar's dragged width is withheld, and the story's
+ * CSS reads `data-workspace-fill` to let it have the row.
+ */
+export const ASizedRootLeftAlone: Story = () => {
+  const store = useMemo(() => makeStore(true), []);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <DragProvider>
+          <div className="ws-controls">
+            <Toggle store={store} id={MAIN} label="main" />
+          </div>
+          <Workspace className="ws-shell ws-row" seams={SIDE_SEAM}>
+            <WorkspaceRoot id={SIDE} className="ws-side">
+              <Container parentId={SIDE} chrome={CHROME} className="ws-zone" />
+            </WorkspaceRoot>
+            <WorkspaceRoot id={MAIN} className="ws-main">
+              <Container parentId={MAIN} chrome={CHROME} className="ws-zone" />
+            </WorkspaceRoot>
+          </Workspace>
+          <Readout id={SIDE} label="Sidebar" />
+          <p className="ws-prose">
+            Drag the seam, then hide main. The sidebar takes the whole row; show main again and it
+            goes back to the width you dragged it to.
+          </p>
         </DragProvider>
       </StrategyRegistryProvider>
     </Provider>

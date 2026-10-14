@@ -22,6 +22,15 @@
   width: 200px;
 }
 
+/* The root across its seam is hidden, so nothing else can take the row. */
+.ws-side[data-workspace-fill~="w"] {
+  flex: 1 1 0;
+}
+
+.ws-row {
+  flex-direction: row;
+}
+
 .ws-main {
   flex: 1 1 0;
   min-width: 0;

@@ -251,6 +251,9 @@ export interface WorkspaceRootProps {
  * `<Container>` or `<Zone>` inside.
  *
  * `data-workspace-state` is `placed`, `hidden`, `zoomed` or `withheld`.
+ * `data-workspace-fill` holds `w` or `h` while the root on the other side of
+ * this one's seam is hidden: the dragged size is withheld on that axis, and the
+ * host's CSS should let the root take the room.
  *
  * @group Components
  */
@@ -273,6 +276,8 @@ export function WorkspaceRoot({ id, className, style, children }: WorkspaceRootP
   const sized: CSSProperties = { ...style };
   if (size?.w !== undefined) sized.width = size.w;
   if (size?.h !== undefined) sized.height = size.h;
+  const fill = state === 'placed' ? arranged?.fill : undefined;
+  const fills = [fill?.w && 'w', fill?.h && 'h'].filter(Boolean).join(' ');
 
   return (
     <div
@@ -281,6 +286,7 @@ export function WorkspaceRoot({ id, className, style, children }: WorkspaceRootP
       style={sized}
       data-workspace-root={id}
       data-workspace-state={state}
+      data-workspace-fill={fills || undefined}
       data-join-armed={shared.armedId === id ? 'true' : undefined}
     >
       {children}

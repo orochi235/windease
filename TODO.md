@@ -103,8 +103,6 @@ build their shells as nested strips.
 
 Still open, waiting for a consumer to ask:
 
-- A stored `hints.size` on a root whose sized neighbor is hidden is applied as
-  written; nothing redistributes the room.
 - `collapsePolicy` is honored by `stripStrategy` only. `grid` is the next
   candidate, where an empty celled child would give its track back; nothing
   has asked for it.

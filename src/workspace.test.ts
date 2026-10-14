@@ -336,6 +336,58 @@ describe('arrangeWorkspace — hiding a root', () => {
   });
 });
 
+describe('arrangeWorkspace — a sized root whose neighbor is hidden', () => {
+  const sizedSide = () => {
+    const store = build();
+    store.setHints(SIDE, { size: { w: 260 } });
+    return store;
+  };
+
+  it('releases the stored size and says the root has the room to itself', () => {
+    const store = sizedSide();
+    store.hideNode(MAIN);
+    const rects = new Map<NodeId, Rect>([[SIDE, rect(0, 0, 260, 400)]]);
+    expect(arrangeWorkspace(input(store, { rects })).roots.get(SIDE)).toEqual({
+      state: 'placed',
+      fill: { w: true },
+    });
+  });
+
+  it('leaves the stored size in the store for when the neighbor is shown', () => {
+    const store = sizedSide();
+    store.hideNode(MAIN);
+    arrangeWorkspace(input(store));
+    expect(store.getNode(SIDE)?.hints?.size).toEqual({ w: 260 });
+    store.showNode(MAIN);
+    expect(arrangeWorkspace(input(store)).roots.get(SIDE)).toEqual({
+      state: 'placed',
+      size: { w: 260 },
+    });
+  });
+
+  it('keeps the size on an axis another seam still sizes', () => {
+    const store = build();
+    store.setHints(DOCK, { size: { w: 300, h: 140 } });
+    store.hideNode(SIDE);
+    const seams: WorkspaceSeam[] = [
+      { before: SIDE, after: DOCK, axis: 'x', sizes: 'after' },
+      { before: MAIN, after: DOCK, axis: 'y', sizes: 'after' },
+    ];
+    expect(arrangeWorkspace(input(store, { seams })).roots.get(DOCK)).toEqual({
+      state: 'placed',
+      size: { h: 140 },
+      fill: { w: true },
+    });
+  });
+
+  it('keeps the stored size while the neighbor is only unmeasured', () => {
+    const rects = new Map<NodeId, Rect>([[SIDE, rect(0, 0, 260, 400)]]);
+    expect(arrangeWorkspace(input(sizedSide(), { rects })).roots.get(SIDE)?.size).toEqual({
+      w: 260,
+    });
+  });
+});
+
 describe('arrangeWorkspace — a zoom stored on the root', () => {
   it('zooms the root whose hints.zoom is set, with no zoom passed', () => {
     const store = build({ [MAIN]: { zoom: true } });

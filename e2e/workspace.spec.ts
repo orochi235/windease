@@ -186,3 +186,23 @@ test.describe('workspace: roots the host lays out', () => {
     await expect(root(page, 'dock').locator('[data-node="ws-files"]')).toHaveCount(1);
   });
 });
+
+test.describe('workspace: a sized root whose neighbor is hidden', () => {
+  test('takes the row while main is hidden and its dragged width when main is back', async ({
+    page,
+  }) => {
+    await openStory(page, 'workspace--a-sized-root-left-alone');
+    const from = centerOf(await settledBox(seam(page, 'side', 'main')));
+    await dragMouse(page, from, dropAt({ x: from.x + 60, y: from.y }));
+    await expect.poll(widthOf(page, 'side')).toBe(260);
+
+    await page.getByTestId('ws-toggle-ws-main').click();
+    await expect(root(page, 'side')).toHaveAttribute('data-workspace-fill', 'w');
+    await expect.poll(widthOf(page, 'side')).toBe(800);
+    await expect(size(page, 'side')).toHaveText('w 260');
+
+    await page.getByTestId('ws-toggle-ws-main').click();
+    await expect(root(page, 'side')).not.toHaveAttribute('data-workspace-fill');
+    await expect.poll(widthOf(page, 'side')).toBe(260);
+  });
+});

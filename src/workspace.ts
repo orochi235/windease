@@ -52,12 +52,15 @@ export interface WorkspaceInput {
  * What a host does with one root. `'hidden'` is the root's own lifecycle;
  * `'withheld'` is a shown root kept off screen by another's zoom. `size` holds
  * only the axes a seam sizes, and is absent until one has been dragged or the
- * root's `hints.size` set.
+ * root's `hints.size` set. `fill` marks an axis whose seam has lost its other
+ * root to hiding: nothing is left to take the room this root's size leaves, so
+ * the size is withheld and the host is told to let the root have it all.
  * @group Workspace
  */
 export interface WorkspaceRootLayout {
   state: 'placed' | 'hidden' | 'zoomed' | 'withheld';
   size?: { w?: number; h?: number };
+  fill?: { w?: true; h?: true };
 }
 
 /** The result of {@link arrangeWorkspace}.
@@ -284,6 +287,11 @@ export function arrangeWorkspace(input: WorkspaceInput): WorkspaceLayout {
 
     const sized = roots.get(sizedOf(seam));
     if (sized?.state !== 'placed') continue;
+    const other = seam.sizes === 'after' ? seam.before : seam.after;
+    if (isHidden(read, other)) {
+      sized.fill = { ...sized.fill, [dim(seam.axis)]: true };
+      continue;
+    }
     const stored = storedSize(read, sizedOf(seam), seam.axis);
     if (stored === undefined) continue;
     const held = g ? (seam.sizes === 'after' ? g.total - g.pos : g.pos) : stored;

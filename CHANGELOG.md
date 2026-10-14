@@ -20,7 +20,8 @@ section below.
   `width` or `height`. The size is stored on the root as the new
   `hints.size: { w?, h? }`. `arrangeWorkspace` and `dispatchWorkspaceSeam` are
   the same thing without React, over boxes the host measures. `lock.resize` on
-  a root freezes the seams beside it. See
+  a root freezes the seams beside it, and a sized root whose neighbor is hidden
+  is marked `data-workspace-fill` so CSS can give it the room. See
   [Workspace: seams between separate roots](README.md#workspace-seams-between-separate-roots).
 
 ### Changed
