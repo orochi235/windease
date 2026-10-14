@@ -73,18 +73,11 @@ the boolean-plus-`resortByPin` prefix model). Strategies see it through
 `LayoutItem.meta.pinned` if they want extra behavior. Snapshot round-trips,
 undo works (history captures full store state).
 
-Followups:
+Followup:
 
 - Strategy-specific pin behavior beyond ordering: grid pinning could mean a
   fixed `(col, row)` cell once variable-cell layout lands; strip/stack
   already get correct behavior for free via the prefix.
-- DnD affordance: drag-handle hint or refusal animation when trying to
-  drop *above* a pinned window in the unpinned section (currently the
-  reorder snaps silently — fine, but a hint would be friendlier).
-- Pin-while-dragging: today the in-flight item is excluded from the
-  destination's prospective list, so pin-prefix calculation during hover
-  ignores it; verify this matches user expectations once a real consumer
-  ships pinning UI.
 
 ## Workspace
 

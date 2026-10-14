@@ -74,6 +74,11 @@ section below.
   node, the wrapped child standing for the group that takes its slot. A stack
   drop onto a child of a container that is itself a stack still adds a child.
 
+- **A drop preview shows the slot past a pinned child.** Hovering a slot a
+  pinned child holds reported that slot as `hover.insertIndex`, so the
+  insertion preview opened a gap the drop then did not take. The hover now
+  reports the index the drop lands at.
+
 - **A second drop-target registration no longer drops the first one's answers.**
   `useDropTarget(zoneId, ref, { acceptPolicy })` on a zone its `<Container>`
   had already registered replaced that registration whole, so the container's

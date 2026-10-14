@@ -397,12 +397,13 @@ export class DragEngine {
     const intent = target?.getDropIntent?.({ x, y });
     // An intent that names a seam is the authority on the index too, so the
     // two answers cannot disagree about where the drop lands.
-    const insertIndex =
+    const asked =
       intent === undefined
         ? target?.getInsertionIndex?.({ x, y })
         : intent.kind === 'insert'
           ? intent.index
           : undefined;
+    const insertIndex = asked === undefined ? undefined : this.landingIndex(best.id, asked);
     const accepted = this.checkAccept(best.id, intent);
     const hover: NonNullable<DragState['hover']> = { targetId: best.id, accepted };
     if (insertIndex !== undefined) hover.insertIndex = insertIndex;
@@ -625,6 +626,25 @@ export class DragEngine {
       items.push(item);
     }
     return items;
+  }
+
+  /**
+   * The index a drop asked for at `index` in `targetId` will land at once the
+   * pinned children there have kept their slots. Reported on the hover, so the
+   * insertion preview shows the slot the drop takes, not one a pin refuses.
+   */
+  private landingIndex(targetId: NodeId, index: number): number {
+    const dragging = this.active?.draggingId;
+    const order = this.store.getNode(targetId)?.container?.childOrder;
+    if (dragging === undefined || !order) return index;
+    const pinnedIndexOf = (id: NodeId) => this.store.getPinnedIndex(id);
+    if (!order.some((id) => id !== dragging && pinnedIndexOf(id) !== null)) return index;
+    const spliced = order.filter((id) => id !== dragging);
+    const at = Math.max(0, Math.min(index, spliced.length));
+    spliced.splice(at, 0, dragging);
+    const landed = placeRespectingPins(spliced, dragging, at, pinnedIndexOf).indexOf(dragging);
+    if (landed !== index) trace('dnd', `hover ${targetId}: index ${index} → ${landed} (pinned)`);
+    return landed;
   }
 
   /** Whether committing `intent` wraps the onto-child in a new group, rather
