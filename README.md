@@ -453,8 +453,15 @@ gap is held for it, a drag passes over it, and keyboard navigation skips it.
 Its placed rect carries `collapsed: true`, and the React layer clips the child
 to that rect so borders and padding drawn for a full pane cannot show past it.
 
-Only `stripStrategy` honors the answer, which covers every tree `store.split`
-builds. A root is never asked about: no parent lays it out.
+`stripStrategy` honors the answer, which covers every tree `store.split`
+builds, and so does `gridStrategy`. A grid has no main axis, so the extent goes
+to whichever tracks the container holds alone: a column or row in which every
+child is collapsed is held at that extent, split across the tracks a spanning
+child covers, and the other tracks share the room. A collapsed child that
+shares both its column and its row with an open one keeps its cell, since there
+is no track to give back. While a track is held, the seams beside it are not
+drawn, and neither are the span seams on that axis. The other strategies ignore
+the answer. A root is never asked about: no parent lays it out.
 
 Layout runs again when the store changes or a drag starts or ends, so a policy
 has to decide from its input. One that reads a toggle kept elsewhere will not

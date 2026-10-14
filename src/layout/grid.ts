@@ -4,7 +4,7 @@ import type {
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
-  Rect,
+  PlacedRect,
   Size,
 } from '../layout-types.js';
 import { trace } from '../trace.js';
@@ -738,14 +738,20 @@ function resolveTracks(
 
 /** Pixel sizes for `tracks` along `available`: pixels as stated, shares
  *  splitting what the pixels and gaps leave, each held at `floor`. */
-function trackSizes(tracks: Track[], available: number, gap: number, floor: number): number[] {
+function trackSizes(
+  tracks: Track[],
+  available: number,
+  gap: number,
+  floor: number,
+  gaps = tracks.length - 1,
+): number[] {
   let px = 0;
   let shares = 0;
   for (const t of tracks) {
     if ('px' in t) px += t.px;
     else shares += t.share;
   }
-  const rest = Math.max(0, available - gap * (tracks.length - 1) - px);
+  const rest = Math.max(0, available - gap * gaps - px);
   return tracks.map((t) => ('px' in t ? t.px : Math.max((rest * t.share) / shares, floor)));
 }
 
@@ -783,20 +789,78 @@ function uniformAxis(
   };
 }
 
-function listedAxis(sizes: number[], gap: number, origin: number, extra: number): Axis {
+/** `shut` marks tracks of no extent, which take no gap either. */
+function listedAxis(
+  sizes: number[],
+  gap: number,
+  origin: number,
+  extra: number,
+  shut?: readonly boolean[],
+): Axis {
   const between = gap + extra;
-  const prefix = new Array<number>(sizes.length + 1);
-  prefix[0] = 0;
+  const starts = new Array<number>(sizes.length + 1);
+  starts[0] = origin;
   for (let i = 0; i < sizes.length; i++) {
-    prefix[i + 1] = (prefix[i] as number) + (sizes[i] as number);
+    starts[i + 1] = (starts[i] as number) + (sizes[i] as number) + (shut?.[i] ? 0 : between);
   }
+  const end = (i: number) => (starts[i] as number) + (sizes[i] as number);
   return {
     count: sizes.length,
     gap: between,
-    start: (i) => origin + (prefix[i] as number) + i * between,
+    start: (i) => starts[Math.min(i, sizes.length)] as number,
     size: (i) => sizes[i] as number,
-    length: (i, n) => (prefix[i + n] as number) - (prefix[i] as number) + (n - 1) * between,
+    length: (i, n) => (n < 1 ? 0 : end(Math.min(i + n, sizes.length) - 1) - (starts[i] as number)),
   };
+}
+
+/**
+ * The extent each track is held at because every child in it is collapsed, or
+ * undefined for a track some open child still needs. A child spanning several
+ * such tracks splits its extent across them.
+ */
+function heldTracks(
+  items: LayoutItem[],
+  cells: Map<string, ReservedCell>,
+  axis: 'cols' | 'rows',
+  count: number,
+): (number | undefined)[] | undefined {
+  if (!items.some((it) => it.collapse !== undefined)) return undefined;
+  const held = new Array<number | undefined>(count).fill(undefined);
+  const open = new Array<boolean>(count).fill(false);
+  for (const item of items) {
+    const cell = cells.get(item.id);
+    if (!cell) continue;
+    const from = axis === 'cols' ? cell.col : cell.row;
+    const n = axis === 'cols' ? cell.cols : cell.rows;
+    const extent = item.collapse?.extent;
+    const ok = typeof extent === 'number' && Number.isFinite(extent) && extent >= 0;
+    for (let k = from; k < from + n && k < count; k++) {
+      if (ok) held[k] = Math.max(held[k] ?? 0, extent / n);
+      else open[k] = true;
+    }
+  }
+  for (let k = 0; k < count; k++) if (open[k]) held[k] = undefined;
+  return held.some((v) => v !== undefined) ? held : undefined;
+}
+
+/** An axis whose `held` tracks sit at their extent and whose others split the
+ *  room that leaves, as their own tracks say or evenly. */
+function heldAxis(
+  held: (number | undefined)[],
+  tracks: Track[] | undefined,
+  fixed: number | undefined,
+  usable: number,
+  gap: number,
+  floor: number,
+  origin: number,
+  extra: number,
+): Axis {
+  const shut = held.map((v) => v === 0);
+  const sized = held.map((v, i) =>
+    v !== undefined ? { px: v } : (tracks?.[i] ?? implicitTrack(fixed)),
+  );
+  const gaps = Math.max(0, held.length - 1 - shut.filter(Boolean).length);
+  return listedAxis(trackSizes(sized, usable, gap, floor, gaps), gap, origin, extra, shut);
 }
 
 /** A laid-out grid: the tiling, the cells that survived the overflow mode, and
@@ -812,6 +876,9 @@ interface GridGeometry {
   /** Present on a tracked axis. */
   colTracks: Track[] | undefined;
   rowTracks: Track[] | undefined;
+  /** Present on an axis with a track every child of which is collapsed. */
+  heldCols: (number | undefined)[] | undefined;
+  heldRows: (number | undefined)[] | undefined;
   usableW: number;
   usableH: number;
   excessW: number;
@@ -877,15 +944,20 @@ function gridGeometry(items: LayoutItem[], container: Size, cfg: GridConfig): Gr
     }
     y = uniformAxis(rowsUsed, cellH, gap, padding, 0);
   }
+  const heldRows = heldTracks(items, cells, 'rows', y.count);
+  if (heldRows) y = heldAxis(heldRows, rowTracks, fixed.h, usableH, gap, floorH, padding, 0);
 
   const listedCols = listedTracks(cfg, 'cols');
   const colTracks = listedCols ? resolveTracks(listedCols, cols, fixed.w, 'cols') : undefined;
   const colSizes = colTracks ? trackSizes(colTracks, usableW, gap, floorW) : undefined;
   const cellW = fixed.w ?? Math.max((usableW - gap * (cols - 1)) / cols, floorW);
+  const heldCols = heldTracks(items, cells, 'cols', cols);
   const axisX = (origin: number, extra: number) =>
-    colSizes
-      ? listedAxis(colSizes, gap, origin, extra)
-      : uniformAxis(cols, cellW, gap, origin, extra);
+    heldCols
+      ? heldAxis(heldCols, colTracks, fixed.w, usableW, gap, floorW, origin, extra)
+      : colSizes
+        ? listedAxis(colSizes, gap, origin, extra)
+        : uniformAxis(cols, cellW, gap, origin, extra);
   const plain = axisX(padding, 0);
   const used = usedCols(cells);
   const spread = justifyColumns(cfg.justify, usableW - plain.length(0, used), used);
@@ -904,6 +976,8 @@ function gridGeometry(items: LayoutItem[], container: Size, cfg: GridConfig): Gr
     y,
     colTracks,
     rowTracks,
+    heldCols,
+    heldRows,
     usableW,
     usableH,
     excessW: Math.max(0, plain.length(0, cols) - usableW),
@@ -1214,7 +1288,11 @@ function trackSeams(geom: GridGeometry, axis: 'cols' | 'rows', cfg: GridConfig):
   const lo = across.start(0);
   const extent = Math.max(0, across.length(0, across.count));
   const out: Affordance[] = [];
+  const held = axis === 'cols' ? geom.heldCols : geom.heldRows;
   for (let i = 0; i < tracks.length; i++) {
+    // A held track's extent is the policy's, so a drag on either side of it
+    // would store a size nothing reads.
+    if (held?.[i] !== undefined || held?.[i + 1] !== undefined) continue;
     const seam = seamAt(geom, axis, i, pxTotal, cfg);
     if (!seam) continue;
     const affects = seam.pair
@@ -1396,7 +1474,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
   }): LayoutResult<string> {
     const cfg = options as GridConfig;
 
-    const placements = new Map<string, Rect>();
+    const placements = new Map<string, PlacedRect>();
     if (items.length === 0) {
       const empty: LayoutResult<string> = { placements, affordances: [] };
       if (preview) empty.isPreview = true;
@@ -1410,13 +1488,20 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     for (const item of items) {
       const cell = cells.get(item.id);
       if (!cell) continue;
-      placements.set(item.id, {
+      const rect: PlacedRect = {
         x: x.start(cell.col),
         y: y.start(cell.row),
         z: 0,
         w: x.length(cell.col, cell.cols),
         h: y.length(cell.row, cell.rows),
-      });
+      };
+      if (
+        item.collapse !== undefined &&
+        (geom.heldCols?.[cell.col] !== undefined || geom.heldRows?.[cell.row] !== undefined)
+      ) {
+        rect.collapsed = true;
+      }
+      placements.set(item.id, rect);
     }
 
     const affordances: Affordance[] = [];
@@ -1432,7 +1517,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
         // Emit when the span can move at all, in either direction. Keying on
         // "a cell follows this one" instead would drop the handle from an item
         // spanning to the edge, leaving it grown with no way back.
-        if (!geom.colTracks && (reach.cols > 1 || cell.cols > 1)) {
+        if (!geom.colTracks && !geom.heldCols && (reach.cols > 1 || cell.cols > 1)) {
           affordances.push({
             id: `resize-x-${item.id}`,
             kind: 'resize-x',
@@ -1451,7 +1536,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
             },
           });
         }
-        if (!geom.rowTracks && (reach.rows > 1 || cell.rows > 1)) {
+        if (!geom.rowTracks && !geom.heldRows && (reach.rows > 1 || cell.rows > 1)) {
           affordances.push({
             id: `resize-y-${item.id}`,
             kind: 'resize-y',

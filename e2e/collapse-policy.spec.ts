@@ -146,3 +146,33 @@ test.describe('collapsePolicy', () => {
     expect(await widthOf(page, 'main')).toBe(ROW - SIDE - GAP);
   });
 });
+
+test.describe('collapsePolicy in a grid', () => {
+  const GRID_STORY = 'policies--collapse--grid-column-that-shuts';
+
+  test('an emptied group gives its column back, and opens for a drag', async ({ page }) => {
+    await openStory(page, GRID_STORY);
+    // 720 across three columns with two 8px gaps.
+    await expect.poll(() => widthOf(page, 'board-middle')).toBe(235);
+
+    const from = centerOf(await settledBox(handle(page, 'card-2')));
+    const to = dropAt(centerOf(await settledBox(group(page, 'board-left'))));
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 12 });
+    await page.mouse.up();
+
+    await expect.poll(() => widthOf(page, 'board-middle')).toBe(0);
+    // One gap left between the two columns that remain.
+    await expect.poll(() => widthOf(page, 'board-left')).toBe(356);
+    await expect.poll(() => widthOf(page, 'board-right')).toBe(356);
+
+    const again = centerOf(await settledBox(handle(page, 'card-1')));
+    await page.mouse.move(again.x, again.y);
+    await page.mouse.down();
+    await page.mouse.move(again.x + 20, again.y + 20, { steps: 6 });
+    await expect.poll(() => widthOf(page, 'board-middle')).toBe(160);
+    await page.mouse.up();
+    await expect.poll(() => widthOf(page, 'board-middle')).toBe(0);
+  });
+});

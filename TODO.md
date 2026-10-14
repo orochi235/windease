@@ -103,9 +103,6 @@ build their shells as nested strips.
 
 Still open, waiting for a consumer to ask:
 
-- `collapsePolicy` is honored by `stripStrategy` only. `grid` is the next
-  candidate, where an empty celled child would give its track back; nothing
-  has asked for it.
 - Should zones know about each other for purposes like "dock at the bottom of
   whichever zone has focus" or "promote selected window to main zone"?
 - Dynamic zone creation/teardown: brainhouse's worktree grouping might want

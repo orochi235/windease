@@ -105,7 +105,8 @@ export interface LayoutItem {
    * chose an extent for. A strategy that honors it gives the item exactly
    * `extent` main-axis pixels, over `placement.size`, `share` and both size
    * hints, and leaves all of those as it found them. `stripStrategy` honors
-   * it; the others ignore it, as they ignore `turn`.
+   * it, and `gridStrategy` holds a track at it when every child in the track
+   * is collapsed; the others ignore it, as they ignore `turn`.
    */
   collapse?: { extent: number };
 }

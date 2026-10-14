@@ -7,6 +7,7 @@ import {
   type CollapsePolicy,
   collapse,
   createNode,
+  gridStrategy,
   type Node,
   type NodeId,
   Store,
@@ -25,7 +26,7 @@ import '../styles.css';
 import './accept-policy.css';
 import './collapse-policy.css';
 
-const STRATEGIES = { strip: stripStrategy as never };
+const STRATEGIES = { strip: stripStrategy as never, grid: gridStrategy as never };
 
 const ROOT = asNodeId('workspace');
 const SIDE = asNodeId('sidebar');
@@ -177,6 +178,82 @@ export const SidebarThatShuts: Story = () => {
             <p>
               The width under the workspace is what the sidebar was last dragged to. No policy
               writes it, which is why the sidebar comes back at that width when a pane returns.
+            </p>
+          </div>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+const GRID = asNodeId('board');
+const GRID_GROUPS = ['left', 'middle', 'right'].map((name) => asNodeId(`board-${name}`));
+const GRID_MIDDLE = GRID_GROUPS[1] as NodeId;
+const GRID_PANES: [id: NodeId, parentId: NodeId, title: string][] = GRID_GROUPS.map((group, i) => [
+  asNodeId(`card-${i + 1}`),
+  group,
+  `Card ${i + 1}`,
+]);
+
+function Board() {
+  const store = useStore();
+  useEffect(() => {
+    if (GRID_GROUPS.some((id) => !store.getNode(id))) return;
+    for (const [id, parentId, title] of GRID_PANES) {
+      if (store.getNode(id)) continue;
+      store.registerNode(createNode({ kind: 'panel', focus: true, id, parentId, meta: { title } }));
+      store.showNode(id);
+    }
+  }, [store]);
+
+  return (
+    <div className="cp-frame">
+      <Zone id={GRID} strategyId="grid" config={{ cols: 3, gap: 8 }} viewport={VIEWPORT}>
+        {GRID_GROUPS.map((id) => (
+          <Zone
+            key={id}
+            id={id}
+            kind="group"
+            strategyId="strip"
+            config={COLUMN}
+            acceptsDrops
+            className="cp-group"
+            data-testid={id}
+            renderImperative={renderPane}
+          />
+        ))}
+      </Zone>
+    </div>
+  );
+}
+
+/**
+ * The same policy in a grid: a column whose only child is an empty group is
+ * given back to the columns beside it.
+ */
+export const GridColumnThatShuts: Story = () => {
+  const store = useMemo(
+    () =>
+      new Store({
+        collapsePolicy: (input) =>
+          input.id === GRID_MIDDLE ? collapse({ dragTo: 160 })(input) : undefined,
+      }),
+    [],
+  );
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <DragProvider>
+          <Board />
+          <div className="ap-prose">
+            <p>
+              Drag Card 2 out of the middle group into either neighbor. The middle group is now
+              empty,{' '}
+              <code>
+                collapse({'{'} dragTo: 160 {'}'})
+              </code>{' '}
+              answers for it, and the grid gives its column to the other two. Pick any card up and
+              the column opens to 160px to be dropped on.
             </p>
           </div>
         </DragProvider>
