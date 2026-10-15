@@ -219,3 +219,44 @@ test.describe('Workspace: which root a node is in', () => {
     await expect(page.getByTestId('ws-send-to-main')).toBeDisabled();
   });
 });
+
+test.describe('Workspace: zones that come and go', () => {
+  const ZONES = 'workspace--worktree-zones';
+  const panelsIn = (page: Page, zone: string) =>
+    page.getByTestId(`wz-column-${zone}`).locator('[data-node^="wz-"]');
+
+  test('removing a worktree with rehome moves its panels to main', async ({ page }) => {
+    await openStory(page, ZONES);
+    await page.getByTestId('wz-add').click();
+    await expect(panelsIn(page, 'wz-wt1')).toHaveCount(1);
+    await page.getByTestId('wz-remove-wz-wt1').click();
+    await expect(page.getByTestId('wz-column-wz-wt1')).toHaveCount(0);
+    await expect(
+      page.getByTestId('wz-column-wz-main').locator('[data-node="wz-wt1-notes"]'),
+    ).toHaveCount(1);
+  });
+
+  test('removing one without rehome destroys its panels', async ({ page }) => {
+    await openStory(page, ZONES);
+    await page.getByTestId('wz-add').click();
+    await page.getByTestId('wz-rehome').uncheck();
+    await page.getByTestId('wz-remove-wz-wt1').click();
+    await expect(page.locator('[data-node="wz-wt1-notes"]')).toHaveCount(0);
+    await expect(panelsIn(page, 'wz-main')).toHaveCount(1);
+  });
+
+  test('a panel dragged into a worktree comes back to main when it goes', async ({ page }) => {
+    await openStory(page, ZONES);
+    await page.getByTestId('wz-add').click();
+    const from = centerOf(await settledBox(page.locator('[data-node="wz-editor"]')));
+    const notes = await settledBox(page.locator('[data-node="wz-wt1-notes"]'));
+    await dragMouse(page, from, dropAt({ x: notes.x + notes.w / 2, y: notes.y + notes.h * 0.8 }));
+    await expect(
+      page.getByTestId('wz-column-wz-wt1').locator('[data-node="wz-editor"]'),
+    ).toHaveCount(1);
+    await page.getByTestId('wz-remove-wz-wt1').click();
+    await expect(
+      page.getByTestId('wz-column-wz-main').locator('[data-node="wz-editor"]'),
+    ).toHaveCount(1);
+  });
+});

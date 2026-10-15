@@ -210,11 +210,12 @@ their only other writer is the gesture the very same lock already blocks
 (`resize`, `destroy`, `hide`). `deserialize` and `HistoryController` use `withLocksSuspended`
 internally, so restoring a snapshot or undoing is never blocked by a lock.
 
-`lock.destroy` on a child does not veto an ancestor's cascade destroy — it
-only blocks `unregisterNode` called directly on that node. To protect a
-subtree, lock the ancestor. It also doesn't keep a node mounted: a node
-cannot outlive the JSX that owns it, so removing a locked `<Panel>` from JSX
-still unregisters it on unmount.
+`lock.destroy` on a descendant refuses an ancestor's cascade too:
+`unregisterNode` checks the whole subtree first and throws naming the node
+that refused (`destroyBlockedBy` is the same check). Under `rehome` only the
+node itself is checked, since its children move out instead of dying. The
+lock doesn't keep a node mounted: a node cannot outlive the JSX that owns it,
+so removing a locked `<Panel>` from JSX still unregisters it on unmount.
 
 ### `acceptsDrops` vs. `lock.accept`
 
@@ -240,8 +241,12 @@ record-replacement mutations — every change produces a fresh `Node`
 reference so React's `useSyncExternalStore` invalidates correctly. Key
 methods:
 
-- `registerNode(node)` / `unregisterNode(id)` — cascade-destroys
-  descendants depth-first.
+- `registerNode(node)` / `unregisterNode(id, { rehome? })` — cascade-destroys
+  descendants depth-first. `rehome: targetId` moves the direct children to
+  `targetId` first, in the same transaction, so only the node itself goes; a
+  lock that refuses the move throws before anything changes, unless `force`.
+  `<Zone rehome>` / `<Panel rehome>` does the same on unmount, falling back to
+  the cascade when the target is gone or sits inside the node.
 - `moveNode(id, newParentId, at?)` — atomic transit
   `idle → releasing → claiming → idle`. Throws `CycleError` on a move into
   the node's own descendant.

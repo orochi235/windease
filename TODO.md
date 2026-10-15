@@ -80,7 +80,7 @@ past the floor, and one root zoomed over the rest — documented in the README's
 No consumer has used it yet: `brainhouse/client` and `@weasel-js/labkit` both
 build their shells as nested strips.
 
-Open questions:
+Open question:
 
 - **Zone roles, if apps keep writing the same lookup.** Today an app keeps its
   own ids for "main" and "dock"; `store.getRoot` and `moveNode` cover "which
@@ -90,13 +90,9 @@ Open questions:
   generic UI such as a "Send to main" command can be written against roles. It
   adds without breaking anything, so long as nothing else claims `hints.role`.
   Name it there rather than on `meta` (app data) or `kind` (chrome dispatch).
-  A dock that
-  follows the focused root is a separate step: `<Workspace>` would start
-  placing roots, which today only the app's CSS does, so it needs a design
-  first.
-- Dynamic zone creation/teardown (no design yet): brainhouse's worktree grouping might want
-  zones that appear and disappear as worktrees are added/removed. Today
-  `registerNode`/`unregisterNode` work; what's missing is a UX for it.
+  A dock that follows the focused root is a separate step: `<Workspace>` would
+  start placing roots, which today only the app's CSS does, so it needs a
+  design first.
 
 ## Drag and drop
 

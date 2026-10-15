@@ -1,7 +1,7 @@
 export default { title: 'Workspace' };
 
 import type { Story } from '@ladle/react';
-import { useMemo, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   asNodeId,
   createNode,
@@ -21,6 +21,7 @@ import {
   Provider,
   StrategyRegistryProvider,
   useNode,
+  useRootNodes,
   Workspace,
   WorkspaceRoot,
 } from '../index.js';
@@ -271,3 +272,109 @@ export const ASizedRootLeftAlone: Story = () => {
     </Provider>
   );
 };
+
+const HOME = asNodeId('wz-main');
+
+function zoneNode(id: NodeId, title: string) {
+  return createNode({
+    kind: 'zone',
+    id,
+    container: { strategyId: 'strip', config: { axis: 'y', fill: true, gap: 6 } },
+    meta: { title },
+  });
+}
+
+function panelNode(id: string, parentId: NodeId, title: string) {
+  return createNode({ kind: 'panel', focus: true, id: asNodeId(id), parentId, meta: { title } });
+}
+
+function WorktreeColumn({ store, id, rehome }: { store: Store; id: NodeId; rehome: boolean }) {
+  const title = String(useNode(id)?.meta?.title ?? id);
+  return (
+    <section className="wz-column" data-testid={`wz-column-${id}`}>
+      <header className="wz-column__header">
+        {title}
+        {id === HOME ? null : (
+          <button
+            type="button"
+            data-testid={`wz-remove-${id}`}
+            onClick={() => store.unregisterNode(id, rehome ? { rehome: HOME } : undefined)}
+          >
+            Remove
+          </button>
+        )}
+      </header>
+      <Container parentId={id} chrome={CHROME} className="ws-zone" />
+    </section>
+  );
+}
+
+/**
+ * Zones that come and go, one per worktree. Each new worktree zone opens with
+ * a panel of its own, and panels drag between the zones. Removing a zone with
+ * "Keep its panels" checked calls `unregisterNode(id, { rehome: main })`, so
+ * its panels move to main; unchecked, they go with it.
+ */
+export const WorktreeZones: Story = () => {
+  const store = useMemo(() => {
+    const s = new Store();
+    s.registerNode(zoneNode(HOME, 'main'));
+    s.showNode(HOME);
+    s.registerNode(panelNode('wz-editor', HOME, 'Editor'));
+    s.showNode(asNodeId('wz-editor'));
+    return s;
+  }, []);
+  const next = useRef(1);
+  const [rehome, setRehome] = useState(true);
+
+  const add = () => {
+    const n = next.current++;
+    const id = asNodeId(`wz-wt${n}`);
+    store.transact(() => {
+      store.registerNode(zoneNode(id, `worktree ${n}`));
+      store.showNode(id);
+      const panel = `wz-wt${n}-notes`;
+      store.registerNode(panelNode(panel, id, `Notes ${n}`));
+      store.showNode(asNodeId(panel));
+    }, 'add worktree');
+  };
+
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <DragProvider>
+          <div className="ws-controls">
+            <button type="button" data-testid="wz-add" onClick={add}>
+              Add worktree
+            </button>
+            <label>
+              <input
+                type="checkbox"
+                data-testid="wz-rehome"
+                checked={rehome}
+                onChange={(e) => setRehome(e.currentTarget.checked)}
+              />{' '}
+              Keep its panels when a worktree is removed
+            </label>
+          </div>
+          <WorktreeRow store={store} rehome={rehome} />
+          <p className="ws-prose">
+            Add a worktree or two, drag panels between the zones, then remove one. With the box
+            checked its panels land in main; unchecked, they are destroyed with it.
+          </p>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+function WorktreeRow({ store, rehome }: { store: Store; rehome: boolean }) {
+  const roots = useRootNodes();
+  return (
+    <div className="wz-row">
+      {roots.map((r) => (
+        <WorktreeColumn key={r.id} store={store} id={r.id} rehome={rehome} />
+      ))}
+    </div>
+  );
+}

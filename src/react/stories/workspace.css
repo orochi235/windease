@@ -135,3 +135,37 @@
   background: var(--ws-edge);
   border-radius: 6px;
 }
+
+.wz-row {
+  display: flex;
+  gap: 8px;
+  width: 800px;
+  height: 320px;
+}
+
+.wz-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 4px;
+}
+
+.wz-column__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font:
+    13px / 1.4 system-ui,
+    sans-serif;
+}
+
+.wz-column .ws-zone {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.wz-column {
+  --ws-tint: #e2e8f0;
+  --ws-edge: #64748b;
+}

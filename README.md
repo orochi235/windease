@@ -2175,6 +2175,26 @@ a root. Something that follows focus, such as a dock rendered beside whichever
 root holds it, reads that and places the dock in your own layout, since your
 CSS places the roots.
 
+Roots can come and go: `registerNode` one and render a `<WorkspaceRoot>` for
+it, and recompute `seams` to include it. Removing a zone destroys what is in it,
+panels dragged in from elsewhere included. Pass `rehome` to keep them:
+
+```ts
+store.unregisterNode(worktreeZoneId, { rehome: mainId }); // its panels move to main
+```
+
+```tsx
+<Zone id={worktreeZoneId} strategyId="strip" rehome={mainId} />
+```
+
+The move and the removal are one transaction, so one undo step. A lock that
+would refuse the move (`lock.move` on a panel, `lock.accept` on the target,
+`lock.dragOut` on the zone) throws and changes nothing, unless you pass
+`force`. The prop runs on unmount, which cannot throw, so it always forces,
+and when the target is gone too it destroys the panels as before. Panels the
+zone's own JSX declares go with it either way: a node cannot outlive the JSX
+that owns it. See the **Worktree zones** story.
+
 Without React, `arrangeWorkspace({ store, roots, seams, rects, zoom })` is the
 whole of it: you measure each root's box and pass the map, and it returns each
 root's state and size plus the seams as affordances in the same space.

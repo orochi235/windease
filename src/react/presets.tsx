@@ -89,6 +89,10 @@ interface CommonBindingProps {
    *  `sizing` for content-measured axes. Reconciled on change. */
   hints?: NodeHints;
   hidden?: boolean;
+  /** On unmount, move this node's children here instead of destroying them
+   *  with it, as `store.unregisterNode(id, { rehome })` does. Ignored when the
+   *  target is gone, holds no children, or sits inside this node. */
+  rehome?: NodeId;
   /** When true, registers this preset's wrapper element as a drop target so
    *  consumers can drag items into it. The element must have a container
    *  capability (Zone always does; Panel needs the `container` prop). */
@@ -280,7 +284,12 @@ function useFlowChildGeometry(
 export function Panel(props: PanelProps) {
   const declaredConfig = useRef<unknown>(props.container?.config ?? {});
   const { id } = useNodeBinding({
-    ...defined({ id: props.id, parentId: props.parentId, order: props.order }),
+    ...defined({
+      id: props.id,
+      parentId: props.parentId,
+      order: props.order,
+      rehome: props.rehome,
+    }),
     kindHintForAutoId: 'panel',
     factory: (id, parentId) => {
       if (!parentId) {
@@ -489,7 +498,12 @@ export function Zone(props: ZoneProps) {
   // so the reconcile below sees a change only when the prop itself moves.
   const declaredConfig = useRef<unknown>(props.config);
   const { id } = useNodeBinding({
-    ...defined({ id: props.id, parentId: props.parentId, order: props.order }),
+    ...defined({
+      id: props.id,
+      parentId: props.parentId,
+      order: props.order,
+      rehome: props.rehome,
+    }),
     kindHintForAutoId: 'zone',
     factory: (id, parentId) => {
       // A flow zone never runs a strategy, so demanding an id for one would be

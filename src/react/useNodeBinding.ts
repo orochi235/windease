@@ -66,6 +66,17 @@ function restoreWaitingChildren(store: Store, parentId: NodeId): void {
   for (const restore of waiting) restore();
 }
 
+/** `rehome` when it can take `id`'s children: an unmount must not throw, so a
+ *  target already torn down, or one inside `id`, falls back to the cascade. */
+function rehomeTarget(store: Store, id: NodeId, rehome: NodeId | undefined): NodeId | undefined {
+  if (rehome === undefined || !store.isContainer(rehome)) return undefined;
+  if (store.getAncestors(rehome).some((n) => n.id === id)) {
+    trace('store', `rehome: ${rehome} sits inside ${id}; cascading instead`);
+    return undefined;
+  }
+  return rehome;
+}
+
 export interface NodeBindingOptions {
   /** Explicit id from props. If absent, a stable auto-id is minted. */
   id?: NodeId;
@@ -79,6 +90,8 @@ export interface NodeBindingOptions {
   reconcile?: (store: Store, id: NodeId) => void;
   /** Hint used by the auto-id minter ("panel-:r1:", "zone-:r2:"). */
   kindHintForAutoId?: string;
+  /** Where the node's children go when it unmounts, instead of with it. */
+  rehome?: NodeId;
 }
 
 export interface NodeBindingResult {
@@ -135,8 +148,18 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   // most-recently-rendered effect callback, so the closures are current —
   // but reading through the ref is defense in depth and makes the dependency
   // explicit for readers.
-  const latestRef = useRef({ factory: opts.factory, reconcile: opts.reconcile, parentId });
-  latestRef.current = { factory: opts.factory, reconcile: opts.reconcile, parentId };
+  const latestRef = useRef({
+    factory: opts.factory,
+    reconcile: opts.reconcile,
+    parentId,
+    rehome: opts.rehome,
+  });
+  latestRef.current = {
+    factory: opts.factory,
+    reconcile: opts.reconcile,
+    parentId,
+    rehome: opts.rehome,
+  };
 
   function registerWithOwner(factory: NodeBindingOptions['factory'], parent: NodeId | null): void {
     const node = factory(id, parent);
@@ -219,7 +242,8 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
       // force:true — a node cannot outlive the JSX that owns it; lock.destroy
       // stops user/host destroy calls, not React unmount.
       if (store.getNode(id)) {
-        store.unregisterNode(id, { force: true });
+        const to = rehomeTarget(store, id, latestRef.current.rehome);
+        store.unregisterNode(id, to === undefined ? { force: true } : { force: true, rehome: to });
       }
     };
   }, [id]);

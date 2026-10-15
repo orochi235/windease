@@ -10,6 +10,14 @@ section below.
 
 ### Added
 
+- **Removing a zone can keep its panels.** `store.unregisterNode(id, { rehome:
+  targetId })` moves the zone's children to `targetId` and then removes the
+  zone, in one transaction. Before, removal always destroyed everything in the
+  zone, panels the user dragged in included. A lock that refuses the move
+  throws and changes nothing unless the call is forced. `<Zone rehome>` and
+  `<Panel rehome>` do it on unmount. See
+  [Workspace: seams between separate roots](README.md#workspace-seams-between-separate-roots).
+
 - **`store.getRoot(id)`**: the root zone a node sits under, or the node itself
   for a root. With it, "which zone holds focus" is
   `store.getRoot(store.focusedId)`. See

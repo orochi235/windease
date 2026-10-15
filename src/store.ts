@@ -359,18 +359,44 @@ export class Store {
     this.scheduleNotify();
   }
 
-  unregisterNode(id: NodeId, opts?: MutateOptions): void {
+  unregisterNode(id: NodeId, opts?: UnregisterOptions): void {
     this.assertUnlocked(id, 'destroy', 'unregisterNode', opts);
     const node = this.requireNode(id);
-    if (opts?.force !== true) {
+    const rehome = opts?.rehome;
+    const kids = rehome === undefined ? [] : [...(node.container?.childOrder ?? [])];
+    if (rehome !== undefined) this.#assertRehome(id, rehome, kids, opts);
+    // Rehomed children leave before the cascade, so only the node itself can block.
+    if (opts?.force !== true && rehome === undefined) {
       const blocker = destroyBlockedBy(this, id);
       if (blocker !== null) throw new LockedError(blocker, 'destroy', 'unregisterNode');
     }
     const wasIn = node.membership?.parentId;
     this.transact(() => {
-      this.#unregisterNodeInner(id, node);
+      if (rehome !== undefined && kids.length > 0) {
+        trace('store', `rehome: ${kids.length} children of ${id} → ${rehome}`);
+        this.moveNodes(kids, rehome, undefined, opts);
+      }
+      this.#unregisterNodeInner(id, this.requireNode(id));
       if (wasIn) this.coalesceParent(wasIn);
     }, 'unregisterNode');
+  }
+
+  /** Everything `moveNodes` would refuse, checked before the transaction opens,
+   *  since it does not roll back. */
+  #assertRehome(id: NodeId, target: NodeId, kids: readonly NodeId[], opts?: MutateOptions): void {
+    const to = this.requireNode(target);
+    if (target === id || this.isDescendantOf(target, id)) throw new CycleError(id, target);
+    if (!to.container) {
+      throw new InvariantViolationError(
+        'parent-not-container',
+        `rehome target ${target} has no container capability`,
+        { newParentId: target, id },
+      );
+    }
+    if (kids.length === 0) return;
+    this.assertUnlocked(target, 'accept', 'unregisterNode', opts);
+    this.assertUnlocked(id, 'dragOut', 'unregisterNode', opts);
+    for (const kid of kids) this.assertUnlocked(kid, 'move', 'unregisterNode', opts);
   }
 
   #unregisterNodeInner(id: NodeId, node: Node): void {
@@ -2039,6 +2065,14 @@ function clampIndex(at: number | undefined, length: number): number {
 export interface MutateOptions {
   /** Bypass lock guards for this call. */
   force?: boolean;
+}
+
+/** Options for {@link Store.unregisterNode}. */
+export interface UnregisterOptions extends MutateOptions {
+  /** Move the node's children here, in the same transaction, instead of
+   *  destroying them with it. A lock that would refuse the move throws unless
+   *  `force` is set, and nothing changes. */
+  rehome?: NodeId;
 }
 
 /** How a turn is eased. `t` and the return are both 0…1. */

@@ -276,6 +276,7 @@ export {
   Store,
   type StoreEvents,
   type TurnOptions,
+  type UnregisterOptions,
 } from './store.js';
 export { dockNode, type FloatInput, floatAncestor, floatNode } from './tear.js';
 export {
