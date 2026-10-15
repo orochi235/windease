@@ -289,7 +289,9 @@ methods:
 - `raise(id)` — move a child last in its parent's `childOrder`, around pins;
   gated by the parent's `arrange`. A container whose config sets
   `raise: 'focus' | 'click'` has `focusNode` do this for the focused node's
-  ancestor in it, in the same transaction.
+  ancestor in it, in the same transaction. The child's own `lock.move` does
+  not gate it: that lock holds a node's position, not its stacking rank. A
+  child pinned in the parent holds its rank.
 
 Selectors: `getNode`, `getChildren`, `getParent`, `getAncestors`,
 `isContainer`, `isMember`, `canFocus`, `getContainerView`. All three

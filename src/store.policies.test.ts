@@ -106,6 +106,13 @@ describe("config raise: 'focus'", () => {
     expect(order(s, id('z'))).toEqual(['b', 'a', 'c']);
   });
 
+  it("raises a child locked against 'move', which holds its position, not its rank", () => {
+    const s = seeded({ raise: 'focus' });
+    s.setLock(id('a'), { move: true });
+    s.focusNode(id('a'));
+    expect(order(s, id('z'))).toEqual(['b', 'c', 'a']);
+  });
+
   it("skips a parent locked against 'arrange', and still focuses", () => {
     const s = seeded({ raise: 'focus' });
     s.setLock(id('z'), { arrange: true });

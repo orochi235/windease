@@ -1569,7 +1569,10 @@ its parent, which `store.raise(windowId)` does.
 when it takes focus, and `'click'` also raises on a click that moves no focus.
 Each raise is a store mutation, in one transaction with the focus change that
 caused it, so one undo step. A pinned window keeps its slot, and the
-container's `lock.arrange` stops every raise in it. With `raise` set,
+container's `lock.arrange` stops every raise in it. A window's own `lock.move`
+does not: it keeps the window where it is on the desktop, not where it is in
+the stack, so a move-locked window still comes to the front. Pin it to hold its
+place in the stack. With `raise` set,
 `<Container>` keeps each child in the DOM slot it first rendered in and stacks
 by `z-index` alone, so the press that raises a window does not move the
 element being pressed.

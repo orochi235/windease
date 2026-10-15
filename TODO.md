@@ -308,7 +308,7 @@ Open, grouped by what they touch:
   View menu — making `true` mean every axis needs a README breaking-change note.
 - **raise** — declarative `<Zone>` JSX
   reverts raises through `reconcileChildOrder`, `show` activates on initial
-  registration, and raise ignores a child's `lock.move`.
+  registration.
 - **reorder** — a `<Zone>` declaring `reorder` keeps the dropped order (acting
   as `sort={preserveStoreOrder}`) unless `sort` is passed: keep that implicit or
   make it opt-in? No `touch-action: none` on reorder wrappers, left to consumer
