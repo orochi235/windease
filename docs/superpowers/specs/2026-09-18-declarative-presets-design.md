@@ -2,9 +2,10 @@
 
 For whoever extends windease's layout vocabulary, and for anyone turning the Exotic presets into
 canned presets a consumer can load.
-**Status, 2026-10-12, read from the code: every key in the phase table is built except grid
+**Status, 2026-10-15, read from the code: every key in the phase table is built except grid
 `sticky`. Also unbuilt: `placement.share` taking an axis, dropping a child onto a chosen grid cell,
-`allowsPinning` and `autoUnsplit` on a preset node, and inner config nested under `inner`. No
+and inner config nested under `inner`. `allowsPinning` and `autoUnsplit` on a preset node are
+built; Emacs's main split and Golden Layout's rows and columns set `autoUnsplit`. No
 preset sets `zoom`, `drop`, pages, stack `tabs: 'stacked'` or floating `snap: 'fill'` yet. The
 Firefox and Win 10 presets set `reorder`; every other grid preset, and the Exotic tree and desktop
 stories, still wrap their tiles, panes and palette tabs in `DragHandle`.** The phase table at the end is the record of what exists.
@@ -114,8 +115,10 @@ These are config or placement keys on one strategy each.
 
 ## What the schema carries beyond today's
 
-- `allowsPinning` and `autoUnsplit` on a container node; both exist on `ContainerCap` already.
-  Unbuilt: `PresetNode` has neither field.
+- `allowsPinning` and `autoUnsplit` on a container node. Built: `PresetNode` carries both, and
+  `createNode` takes `autoUnsplit`. Golden Layout's translator sets both, but its collapse is not
+  reachable by drag: Golden Layout removes a stack emptied by a drag, and windease has no key
+  that removes an emptied container.
 - Drop behavior now set by React props (`stackOnDrop`, `splitOnDrop`) moves into config as
   `drop: { stack?, split? }`, so a preset can say a group stacks on drop. The props stay and win. Built; no preset sets it.
 - Per-view state (page) lives in container `state`, which snapshots already carry. Scroll and

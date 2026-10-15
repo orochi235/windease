@@ -17,6 +17,10 @@ export interface PresetNode {
   /** `container.strategyId`. Present → the node is a container. */
   strategy?: string;
   config?: Record<string, unknown>;
+  /** On a container: `false` refuses `setPinned` on its children. Default `true`. */
+  allowsPinning?: boolean;
+  /** On a container: collapse it into its parent when a removal leaves one child. */
+  autoUnsplit?: boolean;
   /** The container's persisted strategy state (saved positions, anchors…), as `setContainerState` takes it. */
   state?: unknown;
   hints?: NodeHints;
@@ -177,7 +181,12 @@ export function presetToStore(preset: Preset, store: Store = new Store()): Store
         kind: node.kind ?? (node.strategy ? 'group' : 'panel'),
         parentId: parentId === undefined ? undefined : asNodeId(parentId),
         container: node.strategy
-          ? { strategyId: node.strategy, config: node.config ?? {} }
+          ? {
+              strategyId: node.strategy,
+              config: node.config ?? {},
+              allowsPinning: node.allowsPinning,
+              autoUnsplit: node.autoUnsplit,
+            }
           : undefined,
         focus: !node.strategy,
         placement: node.placement,
@@ -286,6 +295,8 @@ export function presetProperties(preset: Preset): PresetProperty[] {
     ['Locked', (n) => n.lock !== undefined && n.lock !== false],
     ['Hidden', (n) => n.hidden === true],
     ['Saved strategy state', (n) => n.state !== undefined],
+    ['Auto-unsplit', (n) => n.autoUnsplit === true],
+    ['Pinning refused', (n) => n.allowsPinning === false],
   ];
   for (const [label, pred] of extras) {
     const n = count(pred);

@@ -21,6 +21,8 @@ export interface CreateNodeInput {
         strategyId: string;
         config: unknown;
         allowsPinning?: boolean | undefined;
+        /** Collapse into the parent when a removal leaves one child. */
+        autoUnsplit?: boolean | undefined;
       }
     | undefined;
   /** Give the node a focus machine. */
@@ -62,6 +64,7 @@ export function createNode(input: CreateNodeInput): Node {
       childOrder: [],
       allowsPinning: input.container.allowsPinning ?? true,
     };
+    if (input.container.autoUnsplit) node.container.autoUnsplit = true;
   }
   if (input.focus) node.focus = createFocusMachine();
   if (input.meta !== undefined) node.meta = input.meta;

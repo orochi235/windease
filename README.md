@@ -387,6 +387,9 @@ store.setAutoUnsplit(groupId, true);
 store.unregisterNode(paneA); // paneB takes the group's place; the group is gone
 ```
 
+`createNode({ container: { strategyId, config, autoUnsplit: true } })` sets it at
+registration, as a preset's `autoUnsplit: true` does.
+
 Opt-in per container, because a zone you created on purpose has to survive
 being emptied — the trigger cannot live in `unregisterNode` itself. It fires
 only on the transition, not on any container that happens to hold one child,

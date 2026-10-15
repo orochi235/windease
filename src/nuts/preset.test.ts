@@ -51,6 +51,52 @@ describe('presets', () => {
   });
 });
 
+describe('preset container flags', () => {
+  const flagged: Preset = {
+    id: 'flags',
+    source: 'test',
+    stress: 'none',
+    description: 'test',
+    viewport: { w: 300, h: 200 },
+    mechanics: {
+      id: 'root',
+      strategy: 'strip',
+      config: { axis: 'x' },
+      allowsPinning: false,
+      children: [
+        {
+          id: 'group',
+          strategy: 'strip',
+          config: { axis: 'y' },
+          autoUnsplit: true,
+          children: [{ id: 'a' }, { id: 'b' }],
+        },
+        { id: 'c' },
+      ],
+    },
+  };
+
+  it('carries allowsPinning and autoUnsplit onto the store nodes', () => {
+    const store = presetToStore(flagged);
+    expect(store.getNode(asNodeId('root'))?.container?.allowsPinning).toBe(false);
+    expect(store.getNode(asNodeId('group'))?.container?.autoUnsplit).toBe(true);
+    expect(store.getNode(asNodeId('group'))?.container?.allowsPinning).toBe(true);
+  });
+
+  it('unsplits the group when a removal leaves it one child', () => {
+    const store = presetToStore(flagged);
+    store.unregisterNode(asNodeId('a'));
+    expect(store.getNode(asNodeId('group'))).toBeUndefined();
+    expect(store.getContainerView(asNodeId('root'))?.childOrder).toEqual(['b', 'c']);
+  });
+
+  it('lists both in the properties', () => {
+    const labels = presetProperties(flagged).map((r) => r.label);
+    expect(labels).toContain('Auto-unsplit');
+    expect(labels).toContain('Pinning refused');
+  });
+});
+
 describe('preset state and visibility', () => {
   const withState: Preset = {
     id: 's',

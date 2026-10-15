@@ -10,6 +10,11 @@ section below.
 
 ### Added
 
+- **`autoUnsplit` at registration, and in presets.** `createNode`'s `container`
+  takes `autoUnsplit`, and a `PresetNode` takes `autoUnsplit` and
+  `allowsPinning`. The Emacs preset's main split collapses when a window is
+  dragged out of it, and Golden Layout's translator sets both flags.
+
 - **Removing a zone can keep its panels.** `store.unregisterNode(id, { rehome:
   targetId })` moves the zone's children to `targetId` and then removes the
   zone, in one transaction. Before, removal always destroyed everything in the

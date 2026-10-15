@@ -317,6 +317,8 @@ function goldenShare(item: GoldenItem, axis: 'x' | 'y'): number | undefined {
  * on load; `minItemWidth`/`minItemHeight` become `hints.minSize` on every tab,
  * and percentages become `placement.share`. A stack shows a dropped tab, and
  * after the active tab closes shows the one before it, as Golden Layout does.
+ * A nested row or column left with one child collapses into its parent, and
+ * no container takes pins, which Golden Layout has no notion of.
  */
 export function fromGoldenLayout(
   config: GoldenConfig,
@@ -348,6 +350,7 @@ export function fromGoldenLayout(
         id: mint(`stack-${panel.id}`),
         kind: 'group',
         strategy: 'stack',
+        allowsPinning: false,
         config: { ...stack, activeId: panel.id },
         children: [panel],
       });
@@ -361,6 +364,7 @@ export function fromGoldenLayout(
         id: mint(item.id ?? `stack-${tabs[0]?.id ?? 'empty'}`),
         kind: 'group',
         strategy: 'stack',
+        allowsPinning: false,
         config: active ? { ...stack, activeId: active.id } : stack,
         children: tabs,
       });
@@ -372,6 +376,9 @@ export function fromGoldenLayout(
       kind: parentAxis ? 'group' : 'zone',
       strategy: 'strip',
       config: { axis, fill: true },
+      // Golden Layout replaces a row or column left with one child by that child.
+      ...(parentAxis ? { autoUnsplit: true } : {}),
+      allowsPinning: false,
       children: children.map((c) => walk(c, axis)),
     });
   };
@@ -789,6 +796,8 @@ export const EMACS_PRESET = styled(
           kind: 'group',
           strategy: 'strip',
           config: { axis: 'y', fill: true },
+          // Deleting one of two windows in an Emacs split leaves the other in its parent.
+          autoUnsplit: true,
           children: [
             { id: 'help', kind: 'panel' },
             { id: 'messages', kind: 'panel' },

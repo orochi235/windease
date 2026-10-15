@@ -156,3 +156,18 @@ test.describe('a squeezed layout, saved bigger than the screen it is shown on', 
     });
   }
 });
+
+test.describe('Emacs: a split left with one window', () => {
+  test('dragging one of two windows out collapses the split into its parent', async ({ page }) => {
+    await page.goto('/?story=exotic--trees--presets&mode=preview');
+    await expect(page.locator('[data-node]').first()).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId('preset-picker').selectOption('emacs-side-windows');
+    await expect(group(page, 'main-right')).toHaveCount(1);
+    const shell = await settledBox(node(page, 'shell'));
+
+    await drag(page, 'help', { x: shell.x + shell.w / 2, y: shell.y + shell.h / 2 });
+
+    await expect(group(page, 'main-right')).toHaveCount(0);
+    await expect(group(page, 'main-area').locator('[data-node="messages"]')).toHaveCount(1);
+  });
+});

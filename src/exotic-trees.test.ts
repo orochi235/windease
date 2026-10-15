@@ -291,6 +291,35 @@ describe('Golden Layout configs', () => {
     });
   });
 
+  it('collapses a column left with one child into its row, and takes no pins', () => {
+    const preset = fromGoldenLayout(
+      {
+        root: {
+          type: 'row',
+          content: [
+            {
+              type: 'column',
+              id: 'col',
+              content: [
+                { type: 'component', id: 'top', title: 'Top' },
+                { type: 'component', id: 'bottom', title: 'Bottom' },
+              ],
+            },
+            { type: 'component', id: 'side', title: 'Side' },
+          ],
+        },
+      },
+      { id: 'g', source: 'test', stress: 'none', description: 'test', viewport: LAPTOP },
+    );
+    const store = presetToStore(preset);
+    const root = presetTree(preset).id;
+    expect(store.getNode(id('stack-side'))).toBeDefined();
+    expect(() => store.setPinned(id('stack-side'), 0)).toThrow(/pin/i);
+    store.unregisterNode(id('stack-top'));
+    expect(store.getNode(id('col'))).toBeUndefined();
+    expect(store.getParent(id('stack-bottom'))?.id).toBe(root);
+  });
+
   it('reads v1 width/height percentages the same as v2 size strings', () => {
     const v2 = fromGoldenLayout(
       {
@@ -450,7 +479,8 @@ describe('Emacs side windows', () => {
     store.moveNode(id('compilation'), id('main-area'), 0);
     expect(store.getPinnedIndex(id('compilation'))).toBe(0);
     store.moveNode(id('help'), id('main-area'), 0);
-    expect(order(store, 'main-area')).toEqual(['compilation', 'help', 'init-el', 'main-right']);
+    // main-right, left holding only *Messages*, unsplits into its slot.
+    expect(order(store, 'main-area')).toEqual(['compilation', 'help', 'init-el', 'messages']);
     expect(laidOut(EMACS_PRESET, store).problems).toEqual([]);
   });
 });

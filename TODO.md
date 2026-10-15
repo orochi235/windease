@@ -316,8 +316,11 @@ Decided in conversation and recorded nowhere else:
   needs grid `sticky`.
 
 Unbuilt, named by the design doc: grid `sticky`; `share` taking an axis
-(`{ w?, h? }`, like `size`); a grid drop-to-cell hook; `allowsPinning` and
-`autoUnsplit` on a preset node; composite config nested under `inner`. Built
+(`{ w?, h? }`, like `size`); a grid drop-to-cell hook; composite config nested
+under `inner`. Also missing: a key that removes a container a drag empties, as
+Golden Layout removes an emptied stack. Without it, the `autoUnsplit` its
+translator sets on rows and columns fires on `unregisterNode` but never on a
+drag. Built
 with no preset using it: `zoom`, `drop`, pages, stack `tabs: 'stacked'` and
 floating `snap: 'fill'`. The Firefox and Win 10 presets set `reorder`; Chrome's
 tabs are a stack's band, drawn by the story, so the key does not reach them.
