@@ -60,6 +60,9 @@ export interface ContainerConfigKeys {
   raise?: RaiseMode;
   /** Makes every child a drag source without a `DragHandle` in its chrome. */
   reorder?: ReorderMode;
+  /** Under `reorder`, let a touch on a child scroll the page instead of
+   *  dragging it. Off by default, so a finger drags. */
+  touchScroll?: boolean;
 }
 
 /** Keys every strategy's config check accepts without declaring them. */
@@ -68,12 +71,18 @@ export const CONTAINER_CONFIG_KEYS: ReadonlySet<string> = new Set<keyof Containe
   'drop',
   'raise',
   'reorder',
+  'touchScroll',
 ]);
 
 /** `config.reorder` when it names a mode, else undefined. */
 export function readReorderConfig(config: unknown): ReorderMode | undefined {
   const reorder = (config as { reorder?: unknown } | null | undefined)?.reorder;
   return reorder === true || reorder === 'handle' ? reorder : undefined;
+}
+
+/** Whether `config.touchScroll` leaves a reorder child's touches to the page. */
+export function readTouchScroll(config: unknown): boolean {
+  return (config as { touchScroll?: unknown } | null | undefined)?.touchScroll === true;
 }
 
 /** `config.drop`, or an empty rule when it is absent or not an object. */

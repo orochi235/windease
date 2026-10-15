@@ -72,7 +72,6 @@
   font-size: 11px;
   cursor: grab;
   user-select: none;
-  touch-action: none;
 }
 
 .xg-tile:active {

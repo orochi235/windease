@@ -31,7 +31,6 @@
   background: #f1f5f9;
   cursor: grab;
   user-select: none;
-  touch-action: none;
   font-family: system-ui, sans-serif;
 }
 
@@ -80,7 +79,6 @@
   color: #fff;
   cursor: grab;
   user-select: none;
-  touch-action: none;
   font:
     600 10px / 1 system-ui,
     sans-serif;

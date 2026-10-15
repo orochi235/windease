@@ -1249,6 +1249,23 @@ that under `dnd`.
 `<DragProvider dragThreshold>` sets the travel for both `reorder` and
 `<DragHandle>`; `0` starts a drag on press. See the **Reorder** stories.
 
+**Touch.** On a touchscreen, a finger that presses and moves scrolls the page,
+and the browser cancels the drag. So a drag source claims touches with
+`touch-action: none`: `<DragHandle>` and each `reorder: true` wrapper set it
+inline, and under `reorder: 'handle'` the shipped stylesheet sets it on the
+`data-windease-handle` grip, leaving the rest of the row to scroll. Where the
+sources cover the screen, as in a phone list whose every row reorders, that
+leaves nothing to scroll the page by. Hand touches back with `touchScroll`:
+
+```tsx
+config: { axis: 'y', reorder: true, touchScroll: true }
+<DragHandle nodeId={id} touchScroll>…</DragHandle>
+```
+
+Under it, a touch scrolls and only a mouse or pen drags. `useDragHandle` sets
+nothing, since you own the element, so give that element `touch-action: none`
+yourself.
+
 ### Drop intent
 
 A drop target answers more than "which seam". `resolveDropIntent` turns the

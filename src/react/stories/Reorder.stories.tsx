@@ -53,6 +53,11 @@ function makeStore(): Store {
 export const FirefoxTabs: Story = () => {
   const store = useMemo(() => makeStore(), []);
   const [selected, setSelected] = useState<string>('news');
+  const [touchScroll, setTouchScroll] = useState(false);
+  const toggleTouchScroll = (on: boolean) => {
+    setTouchScroll(on);
+    for (const id of [TOP, BOTTOM]) store.updateContainerConfig(id, { touchScroll: on });
+  };
 
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -91,6 +96,15 @@ export const FirefoxTabs: Story = () => {
             Selected: <output data-testid="selected">{selected}</output>. Drag a tab along its
             strip, or into the other window.
           </p>
+          <label className="ro-hint">
+            <input
+              type="checkbox"
+              data-testid="touch-scroll"
+              checked={touchScroll}
+              onChange={(e) => toggleTouchScroll(e.currentTarget.checked)}
+            />{' '}
+            Let a touch on a tab scroll the page (<code>touchScroll</code>) instead of dragging it
+          </label>
         </DragProvider>
       </StrategyRegistryProvider>
     </Provider>

@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -6,7 +7,7 @@ import {
   useEffect,
   useSyncExternalStore,
 } from 'react';
-import { readReorderConfig } from '../../container-config.js';
+import { readReorderConfig, readTouchScroll } from '../../container-config.js';
 import type { NodeId } from '../../index.js';
 import { trace } from '../../index.js';
 import { useStore } from '../Provider.js';
@@ -20,9 +21,15 @@ export interface ReorderSourceProps {
   draggable?: false;
   onDragStart?: (e: DragEvent<HTMLElement>) => void;
   'data-windease-reorder'?: 'true' | 'handle';
+  'data-windease-touch-scroll'?: 'true';
+  /** Merged into the wrapper's own style by whoever renders it. */
+  style?: CSSProperties;
 }
 
 const NONE: ReorderSourceProps = {};
+// A finger that presses and moves is a scroll unless the element claims the
+// touch; the browser then sends `pointercancel` and the drag never starts.
+const CLAIM_TOUCH: CSSProperties = { touchAction: 'none' };
 
 const EDITABLE = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
 
@@ -50,6 +57,10 @@ export function useReorderSources(
       parentId === undefined
         ? undefined
         : readReorderConfig(store.getNode(parentId)?.container?.config),
+  );
+  const touchScroll = useSyncExternalStore(
+    (cb) => store.subscribe(cb),
+    () => parentId !== undefined && readTouchScroll(store.getNode(parentId)?.container?.config),
   );
 
   useEffect(() => {
@@ -84,8 +95,13 @@ export function useReorderSources(
             draggable: false,
             onDragStart: preventNativeDrag,
             'data-windease-reorder': mode === true ? 'true' : 'handle',
+            ...(touchScroll
+              ? { 'data-windease-touch-scroll': 'true' as const }
+              : mode === true
+                ? { style: CLAIM_TOUCH }
+                : {}),
           }
         : NONE,
-    [mode, controller, onPress],
+    [mode, controller, onPress, touchScroll],
   );
 }

@@ -22,6 +22,8 @@
  *   - .windease-focus-root exists only to catch bubbled focusin/keydown, so
  *     it must not take a layout box — a plain block div here breaks any
  *     height: 100% chain the consumer's own layout depends on.
+ *   - A data-windease-handle grip under reorder: 'handle' claims touches, so
+ *     a finger drags it; the wrapper itself sets this inline under reorder: true.
  *
  * Cosmetics (colors, borders, transitions, drop-state styling) are left to
  * consumers — style off [data-drop-target], [data-drop-rejected], etc.
@@ -122,6 +124,10 @@
   inset: -4px;
   background: currentColor;
   pointer-events: none;
+}
+
+[data-windease-reorder="handle"]:not([data-windease-touch-scroll]) [data-windease-handle] {
+  touch-action: none;
 }
 
 [data-node][data-join-armed] {

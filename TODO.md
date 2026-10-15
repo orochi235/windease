@@ -340,8 +340,9 @@ Open, grouped by what they touch:
   registration.
 - **reorder** — a `<Zone>` declaring `reorder` keeps the dropped order (acting
   as `sort={preserveStoreOrder}`) unless `sort` is passed: keep that implicit or
-  make it opt-in? No `touch-action: none` on reorder wrappers, left to consumer
-  CSS.
+  make it opt-in? Press-and-hold to start a touch drag, so a swipe still
+  scrolls a list of `reorder` rows, would beat `touchScroll` turning touch
+  drags off; it is a new gesture mode in `DragController`.
 - **stack** — the tab band is exposed via channels (`bandX/Y/W/H`, `tabX/…`);
   should `useStack` return it too? Stacked with `side` left/right gives vertical
   columns, which i3 has no equivalent for. `strict` never applies to

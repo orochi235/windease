@@ -60,6 +60,17 @@ test.describe('reorder: true — Firefox-like tabs', () => {
       .toEqual(['news', 'mail', 'docs', 'maps', 'music']);
     expect(await orderIn(page, 'bottom-strip')).toEqual(['notes']);
   });
+
+  test('a tab claims touches until touchScroll hands them back to the page', async ({ page }) => {
+    await openStory(page, STORY);
+    const touchAction = () =>
+      page.locator('[data-node="mail"]').evaluate((el) => getComputedStyle(el).touchAction);
+    await expect.poll(touchAction).toBe('none');
+    await page.getByTestId('touch-scroll').check();
+    await expect.poll(touchAction).toBe('auto');
+    await page.getByTestId('touch-scroll').uncheck();
+    await expect.poll(touchAction).toBe('none');
+  });
 });
 
 test.describe("reorder: 'handle' — presets", () => {
@@ -85,5 +96,15 @@ test.describe("reorder: 'handle' — presets", () => {
     await expect
       .poll(() => orderIn(page, 'folders'))
       .toEqual(['drafts', 'sent', 'archive', 'inbox']);
+  });
+
+  test('the grip claims touches and the rest of the row leaves them to the page', async ({
+    page,
+  }) => {
+    await openStory(page, STORY);
+    const touchAction = (testId: string) =>
+      page.getByTestId(testId).evaluate((el) => getComputedStyle(el).touchAction);
+    await expect.poll(() => touchAction('grip-inbox')).toBe('none');
+    expect(await touchAction('row-inbox')).toBe('auto');
   });
 });

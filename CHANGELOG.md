@@ -50,6 +50,15 @@ section below.
 
 ### Changed
 
+- **Drag sources work by touch.** `<DragHandle>` and each `reorder: true`
+  wrapper now set `touch-action: none`, and the shipped stylesheet sets it on a
+  `data-windease-handle` grip under `reorder: 'handle'`. Before, a finger that
+  moved scrolled the page and the browser canceled the drag unless your CSS
+  set it. A touch on a drag source no longer scrolls the page; the new
+  `touchScroll` prop on `<DragHandle>`, and container config key beside
+  `reorder`, turns it off. See
+  [Reordering children by drag](README.md#reordering-children-by-drag).
+
 - **`SerializedNode.hints` is typed as `NodeHints`.** A snapshot already carried
   every hint; the type listed `minSize` and `preferredSize` only, so reading
   `maxSize`, `aspect`, `turn`, `sizing` or `render` off one needed a cast.

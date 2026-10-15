@@ -566,7 +566,7 @@ function StoreContainer({
                 <div
                   key={id}
                   {...reorderSource(id)}
-                  style={{ ...childStyle, opacity: 0 }}
+                  style={{ ...childStyle, ...reorderSource(id).style, opacity: 0 }}
                   data-node={id}
                   data-preview-source="true"
                 >
@@ -586,7 +586,7 @@ function StoreContainer({
               <div
                 key={id}
                 {...reorderSource(id)}
-                style={childStyle}
+                style={{ ...childStyle, ...reorderSource(id).style }}
                 onClick={raiseOnClick?.(id)}
                 data-node={id}
                 data-join-armed={joinArmedId === id ? 'true' : undefined}

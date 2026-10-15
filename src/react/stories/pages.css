@@ -59,7 +59,6 @@
   background: #e2e8f0;
   cursor: grab;
   user-select: none;
-  touch-action: none;
 }
 
 .pages-window__body {

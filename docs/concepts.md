@@ -601,7 +601,12 @@ marked `data-windease-handle`. Presses on an affordance, a text field or a
 nested `DragHandle` are exempt, and without a `<DragProvider>` the key is
 inert. The core never reads it. A drag from either this or a `DragHandle`
 begins only after the press travels `<DragProvider dragThreshold>` pixels
-(default 4), so a click stays a click.
+(default 4), so a click stays a click. Both claim touches with
+`touch-action: none`, since a finger that moves is otherwise a page scroll that
+cancels the drag: a `DragHandle` and a `reorder: true` wrapper set it inline,
+and under `'handle'` the shipped stylesheet sets it on the marked grip only.
+`touchScroll` (a `DragHandle` prop, a container config key beside `reorder`)
+turns it off.
 
 Pass `affordances` to `<Container>`, `<Zone>` or a `<Panel>` promoted to a
 container to render the strategy's interactive gutters; all three share one

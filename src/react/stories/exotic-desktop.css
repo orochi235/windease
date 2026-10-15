@@ -132,7 +132,6 @@
   background: #334155;
   cursor: grab;
   user-select: none;
-  touch-action: none;
 }
 
 /* A fitted desktop scales into the frame's width; the frame inside it clips. */

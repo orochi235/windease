@@ -908,7 +908,7 @@ function PresetShell({
           {...reorderSource}
           ref={wrapperRef}
           className={compose(wrapperClass, className)}
-          style={style}
+          style={reorderSource.style ? { ...style, ...reorderSource.style } : style}
           data-testid={testId}
           data-node={id}
           data-node-container={id}
@@ -1027,7 +1027,7 @@ function AbsoluteWrapper({
   return (
     <div
       {...reorderSource}
-      style={style}
+      style={{ ...style, ...reorderSource.style }}
       data-node={nodeId}
       data-node-container={parentId}
       data-preview-source={previewSource ? 'true' : undefined}

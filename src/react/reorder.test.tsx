@@ -148,6 +148,38 @@ describe('config.reorder on <Container>', () => {
     expect(marked).toHaveLength(3);
   });
 
+  it('claims touches on each wrapper, so a finger drags it instead of scrolling the page', () => {
+    const { container } = containerTree(
+      makeStore(true),
+      tabChrome(() => {}),
+    );
+    const wrappers = Array.from(container.querySelectorAll<HTMLElement>('[data-windease-reorder]'));
+    expect(wrappers.map((el) => el.style.touchAction)).toEqual(['none', 'none', 'none']);
+    // The wrapper still sits where the strategy put it.
+    expect(wrappers[0]?.style.position).toBe('absolute');
+  });
+
+  it('leaves touches to the page under touchScroll', () => {
+    const s = makeStore(true);
+    s.updateContainerConfig(Z, { touchScroll: true });
+    const { container } = containerTree(
+      s,
+      tabChrome(() => {}),
+    );
+    const wrapper = container.querySelector<HTMLElement>('[data-windease-reorder]');
+    expect(wrapper?.style.touchAction).toBe('');
+    expect(wrapper?.hasAttribute('data-windease-touch-scroll')).toBe(true);
+  });
+
+  it("leaves the wrapper's touches alone under 'handle', where only the grip drags", () => {
+    const { container } = containerTree(
+      makeStore('handle'),
+      tabChrome(() => {}, true),
+    );
+    const wrapper = container.querySelector<HTMLElement>('[data-windease-reorder]');
+    expect(wrapper?.style.touchAction).toBe('');
+  });
+
   it('leaves the wrappers alone when the container does not declare it', () => {
     const { container } = containerTree(
       makeStore(undefined),
@@ -327,8 +359,11 @@ describe('config.reorder on presets', () => {
         </Panel>
       )),
     );
-    const marked = container.querySelectorAll('.windease-panel[data-windease-reorder="true"]');
+    const marked = container.querySelectorAll<HTMLElement>(
+      '.windease-panel[data-windease-reorder="true"]',
+    );
     expect(marked).toHaveLength(3);
+    expect(marked[0]?.style.touchAction).toBe('none');
     const box = container.querySelector('[data-node-container="z"]') as Element;
     stubBox(box, { x: 0, y: 0, z: 0, w: 300, h: 100 });
     // The preset hit-test harvests the placement boxes around each shell.
@@ -413,6 +448,27 @@ describe('drag threshold', () => {
       fireEvent.pointerUp(window, { clientX: 3, clientY: 3, pointerId: 1 });
     });
     expect(controller().state()).toBeNull();
+  });
+
+  it('DragHandle claims touches, so a finger drags it instead of scrolling the page', () => {
+    const { getByTestId } = handleTree();
+    const handle = getByTestId('grip').parentElement as HTMLElement;
+    expect(handle.style.touchAction).toBe('none');
+  });
+
+  it('DragHandle touchScroll leaves touches to the page', () => {
+    const { getByTestId } = render(
+      <Provider store={makeStore(undefined)}>
+        <DragProvider dragOverlay={null}>
+          <DragHandle nodeId={asNodeId('a')} touchScroll style={{ color: 'red' }}>
+            <span data-testid="grip">grip</span>
+          </DragHandle>
+        </DragProvider>
+      </Provider>,
+    );
+    const handle = getByTestId('grip').parentElement as HTMLElement;
+    expect(handle.style.touchAction).toBe('');
+    expect(handle.style.color).toBe('red');
   });
 
   it('dragThreshold={0} starts the drag on press', async () => {
