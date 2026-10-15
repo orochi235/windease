@@ -72,7 +72,6 @@ function Scene({ placements }: { placements: ReadonlyMap<string, Rect> }) {
       height={VIEWPORT.h}
       data-testid="scene"
       data-focused={focused ?? ''}
-      aria-hidden="true"
     />
   );
 }
