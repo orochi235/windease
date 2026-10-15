@@ -80,7 +80,9 @@ export interface LayoutItem {
    *
    * `share` is a fraction of the main-axis extent the pixel-sized panes leave,
    * so it keeps its proportion when the container resizes. `stripStrategy`
-   * reads it; `size` on the main axis outranks it.
+   * reads it; `size` on the main axis outranks it. Per axis, like `size`, so
+   * a pane moved to a strip on the other axis does not read its width share
+   * as a height; a bare number applies to whichever axis reads it.
    *
    * `cell` is the zero-based grid cell an item's top-left corner sits in,
    * instead of wherever the flow puts it. Only `gridStrategy` reads it.
@@ -88,7 +90,7 @@ export interface LayoutItem {
   placement?: {
     size?: { w?: number; h?: number };
     span?: { cols?: number; rows?: number };
-    share?: number;
+    share?: number | { w?: number; h?: number };
     cell?: { col: number; row: number };
   };
   /**

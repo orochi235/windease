@@ -53,6 +53,25 @@ describe('stripStrategy placement.share', () => {
     expect(widths([sized('a', 960), { id: 'b' }, sized('c', 2880)], 960).b).toBe(0);
   });
 
+  it('gives a fill pane the mean share when the shares leave it less', () => {
+    // A pane moved in with no share for this axis, beside shares that fill the row.
+    expect(widths([shared('a', 0.5), shared('b', 0.5), { id: 'c' }])).toEqual({
+      a: 200,
+      b: 200,
+      c: 200,
+    });
+    const w = widths([shared('a', 0.4), shared('b', 0.4), { id: 'c' }]);
+    expect(w.c).toBeCloseTo(200, 9);
+  });
+
+  it('leaves a fill pane what the shares leave when that is at least the mean', () => {
+    expect(widths([shared('a', 0.25), shared('b', 0.25), { id: 'c' }])).toEqual({
+      a: 150,
+      b: 150,
+      c: 300,
+    });
+  });
+
   it('splits fill panes equally in what the shares leave', () => {
     expect(widths([shared('a', 0.5), { id: 'b' }, { id: 'c' }])).toEqual({
       a: 300,
@@ -61,9 +80,9 @@ describe('stripStrategy placement.share', () => {
     });
   });
 
-  it('shares over 1 beside a fill pane split the row after its floor', () => {
+  it('shares over 1 beside a fill pane leave it the mean share, not its floor', () => {
     const w = widths([shared('a', 0.75), shared('b', 0.75), { id: 'c', hints: min(60) }]);
-    expect(w).toEqual({ a: 270, b: 270, c: 60 });
+    expect(w).toEqual({ a: 200, b: 200, c: 200 });
   });
 
   it('takes pixel sizes out first and shares split the rest', () => {
@@ -134,6 +153,34 @@ describe('stripStrategy placement.share', () => {
     expect(r.placements.get('b')?.h).toBe(300);
   });
 
+  it('reads its own axis of a share given per axis, as size is', () => {
+    const row: LayoutItem[] = [
+      { id: 'a', placement: { share: { w: 0.25, h: 0.9 } } },
+      { id: 'b', placement: { share: { w: 0.75 } } },
+    ];
+    expect(widths(row)).toEqual({ a: 150, b: 450 });
+    const r = stripStrategy.layout({
+      items: [{ id: 'a', placement: { share: { w: 0.9, h: 0.25 } } }, { id: 'b' }],
+      container: { w: 50, h: 400 },
+      state: undefined as void,
+      options: { axis: 'y' },
+    });
+    expect(r.placements.get('a')?.h).toBe(100);
+  });
+
+  it('treats a share with no value on its axis as absent, without a trace', () => {
+    const cap = captureTrace('layout');
+    const w = widths([{ id: 'a', placement: { share: { h: 0.2 } } }, shared('b', 0.5)]);
+    expect(w).toEqual({ a: 300, b: 300 });
+    expect(cap.matching(/ignoring placement\.share/)).toHaveLength(0);
+  });
+
+  it('traces a bad value on its axis', () => {
+    const cap = captureTrace('layout');
+    widths([{ id: 'a', placement: { share: { w: -1 } } }, shared('b', 0.5)]);
+    expect(cap.matching(/ignoring placement\.share .* on a/)).not.toHaveLength(0);
+  });
+
   it.each([
     ['NaN', Number.NaN],
     ['Infinity', Number.POSITIVE_INFINITY],
@@ -167,11 +214,11 @@ describe('stripStrategy placement.share', () => {
   });
 });
 
-function fakeStore() {
+function fakeStore(placements: Record<string, Record<string, unknown>> = {}) {
   const patchPlacement = vi.fn();
   return {
     patchPlacement,
-    getNode: () => ({ membership: { placement: {} } }),
+    getNode: (id: string) => ({ membership: { placement: placements[id] ?? {} } }),
   } as never as { patchPlacement: ReturnType<typeof vi.fn> };
 }
 
@@ -197,7 +244,9 @@ function dragAndRelayout(
     Object.fromEntries(
       [...layout(list).placements].map(([id, r]) => [id, axis === 'x' ? r.x : r.y]),
     );
-  const store = fakeStore();
+  const store = fakeStore(
+    Object.fromEntries(rows.map((it) => [it.id, (it.placement ?? {}) as Record<string, unknown>])),
+  );
   const kind = axis === 'x' ? 'resize-x' : 'resize-y';
   stripStrategy.dispatchAffordance?.({
     event: {
@@ -231,7 +280,9 @@ function dragAndRelayout(
   };
 }
 
-const shareOf = (p: Record<string, unknown> | undefined) => p?.share as number | undefined;
+/** The width share a drag wrote, from the per-axis form it writes. */
+const shareOf = (p: Record<string, unknown> | undefined) =>
+  (p?.share as { w?: number } | undefined)?.w;
 
 describe('a seam drag on a row of shares writes shares', () => {
   const three = () => [shared('a', 0.2), shared('b', 0.3), shared('c', 0.5)];
@@ -306,18 +357,46 @@ describe('a seam drag on a row of shares writes shares', () => {
     expect(after).toEqual({ a: 350, b: 250 });
   });
 
-  it('clears the share of a pane dragged to nothing rather than storing a zero', () => {
+  it('stores 0px for a pane dragged to nothing, so it stays shut', () => {
     const rows = [shared('a', 0.5), shared('b', 0.5)];
     const { after, patches } = dragAndRelayout(rows, 'a', -400, { resizeMode: 'neighbor' });
-    expect(patches.get('a')).toEqual({ share: undefined });
+    expect(patches.get('a')).toEqual({ size: { w: 0 } });
     expect(shareOf(patches.get('b'))).toBeCloseTo(1, 9);
     expect(after).toEqual({ a: 0, b: 600 });
   });
 
-  it('works on a y strip', () => {
+  it('works on a y strip, writing the height share', () => {
     const rows = [shared('a', 0.5), shared('b', 0.5)];
-    const { before, after } = dragAndRelayout(rows, 'a', 40, { axis: 'y' }, 400);
+    const { before, after, patches } = dragAndRelayout(rows, 'a', 40, { axis: 'y' }, 400);
     expect(after.a).toBeCloseTo(before.a! + 40, 9);
     expect(after.b).toBeCloseTo(before.b! - 40, 9);
+    expect(Object.keys(patches.get('a')?.share as object)).toEqual(['h']);
+  });
+
+  it('writes its own axis and keeps the other, so a pane moved across axes keeps both', () => {
+    const rows: LayoutItem[] = [
+      { id: 'a', placement: { share: { w: 0.5, h: 0.3 } } },
+      { id: 'b', placement: { share: { w: 0.5 } } },
+    ];
+    const { patches } = dragAndRelayout(rows, 'a', 60, { resizeMode: 'neighbor' });
+    const a = patches.get('a')?.share as { w: number; h: number };
+    expect(a.w).toBeCloseTo(0.6, 9);
+    expect(a.h).toBe(0.3);
+  });
+
+  it('replaces a bare-number share, which names no axis, with its own axis', () => {
+    const { patches } = dragAndRelayout([shared('a', 0.5), shared('b', 0.5)], 'a', 60, {
+      resizeMode: 'neighbor',
+    });
+    expect(Object.keys(patches.get('a')?.share as object)).toEqual(['w']);
+  });
+
+  it('leaves the share of a pane dragged to nothing, under the 0px that outranks it', () => {
+    const rows: LayoutItem[] = [
+      { id: 'a', placement: { share: { w: 0.5, h: 0.3 } } },
+      shared('b', 0.5),
+    ];
+    const { patches } = dragAndRelayout(rows, 'a', -400, { resizeMode: 'neighbor' });
+    expect(patches.get('a')).toEqual({ size: { w: 0 } });
   });
 });

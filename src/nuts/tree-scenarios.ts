@@ -125,9 +125,10 @@ export interface I3Node {
 export const I3_TITLE_BAR = 20;
 
 /**
- * Translates an i3 layout into a preset. `percent` becomes `placement.share`,
- * a fraction of the parent split that i3 keeps when the output resizes. A moved
- * window carries it into its new parent, where i3 would have reset it.
+ * Translates an i3 layout into a preset. `percent` becomes `placement.share`
+ * on the parent split's axis, a fraction i3 keeps when the output resizes. A
+ * moved window carries it into its new parent; in a split on the other axis it
+ * reads as no share, as i3 resets it.
  */
 export function fromI3Layout(
   root: I3Node,
@@ -139,7 +140,9 @@ export function fromI3Layout(
     const out: PresetNode = { id: '' };
     if (parent?.layout === 'splith' || parent?.layout === 'splitv') {
       if (typeof node.percent === 'number' && node.percent > 0) {
-        out.placement = { share: node.percent };
+        out.placement = {
+          share: parent.layout === 'splith' ? { w: node.percent } : { h: node.percent },
+        };
       }
     }
     if (!node.nodes || node.nodes.length === 0) {
@@ -340,7 +343,10 @@ export function fromGoldenLayout(
   const stack = { headerSize: header, show: 'dropped', fallback: 'prev' };
   const walk = (item: GoldenItem, parentAxis: 'x' | 'y' | undefined): PresetNode => {
     const share = parentAxis ? goldenShare(item, parentAxis) : undefined;
-    const placement = share !== undefined && share > 0 ? { share } : undefined;
+    const placement =
+      share !== undefined && share > 0
+        ? { share: parentAxis === 'x' ? { w: share } : { h: share } }
+        : undefined;
     const withPlacement = (n: PresetNode): PresetNode => (placement ? { ...n, placement } : n);
 
     if (item.type === 'component') {
@@ -551,10 +557,15 @@ export function fromDockview(
     siblingsTotal: number | undefined,
     path: string,
   ): PresetNode => {
-    const placement =
+    // A child's orientation is its parent's flipped, so a VERTICAL child sits in a row.
+    const fraction =
       siblingsTotal !== undefined && siblingsTotal > 0 && typeof node.size === 'number'
-        ? { share: node.size / siblingsTotal }
+        ? node.size / siblingsTotal
         : undefined;
+    const placement =
+      fraction === undefined
+        ? undefined
+        : { share: orientation === 'VERTICAL' ? { w: fraction } : { h: fraction } };
     if (node.type === 'leaf') {
       const views = node.data.views.map((v) => {
         nodes[v] = { meta: { title: layout.panels[v]?.title ?? v } };
@@ -715,7 +726,8 @@ export function emacsFrame(input: {
       kind: 'group',
       strategy: 'strip',
       config: { axis, fill: true },
-      placement: { share: fraction },
+      // A left or right side sits in the middle row, a top or bottom side in the frame's column.
+      placement: { share: axis === 'y' ? { w: fraction } : { h: fraction } },
       children: sorted.map((w, i) => ({
         id: slug(w.buffer),
         kind: 'panel',
@@ -864,13 +876,13 @@ export const TRADING_DESK_PRESET: Preset = styled(
           kind: 'group',
           strategy: 'strip',
           config: { axis: 'y', gap: 4, fill: true },
-          placement: { share: 960 / DESK.row },
+          placement: { share: { w: 960 / DESK.row } },
           children: [
             { id: 'quote-board', kind: 'panel' },
             {
               id: 'time-sales',
               kind: 'panel',
-              placement: { share: 1200 / DESK.quotes },
+              placement: { share: { h: 1200 / DESK.quotes } },
               hints: { minSize: { w: 200, h: 120 } },
             },
             { id: 'news', kind: 'panel' },
@@ -887,7 +899,7 @@ export const TRADING_DESK_PRESET: Preset = styled(
               kind: 'group',
               strategy: 'grid',
               config: { cols: 2, gap: 4 },
-              placement: { share: 1440 / DESK.center },
+              placement: { share: { h: 1440 / DESK.center } },
               children: [
                 { id: 'chart-es', kind: 'panel' },
                 { id: 'chart-nq', kind: 'panel' },
@@ -907,7 +919,7 @@ export const TRADING_DESK_PRESET: Preset = styled(
                 ...['es', 'nq', 'cl'].map((sym) => ({
                   id: `ladder-${sym}`,
                   kind: 'panel',
-                  placement: { share: 420 / LADDER_ROW },
+                  placement: { share: { w: 420 / LADDER_ROW } },
                   hints: { minSize: { w: 180, h: 200 } },
                 })),
                 {
@@ -924,7 +936,7 @@ export const TRADING_DESK_PRESET: Preset = styled(
           kind: 'group',
           strategy: 'desktop',
           config: {},
-          placement: { share: 1400 / DESK.row },
+          placement: { share: { w: 1400 / DESK.row } },
           children: [
             {
               id: 'ticket-es',

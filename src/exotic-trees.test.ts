@@ -131,8 +131,8 @@ describe('i3 / sway trees', () => {
 
   it('translates append_layout into six nested containers with percent as share', () => {
     expect(depth(presetTree(I3_PRESET))).toBeGreaterThanOrEqual(6);
-    expect(find(presetTree(I3_PRESET), 'splitv-0-0')?.placement).toEqual({ share: 0.25 });
-    expect(find(presetTree(I3_PRESET), 'nvim')?.placement).toEqual({ share: 0.4 });
+    expect(find(presetTree(I3_PRESET), 'splitv-0-0')?.placement).toEqual({ share: { w: 0.25 } });
+    expect(find(presetTree(I3_PRESET), 'nvim')?.placement).toEqual({ share: { w: 0.4 } });
     expect(find(presetTree(I3_PRESET), 'stacked-0-0-1')?.config).toEqual({
       headerSize: 60,
       show: 'dropped',
@@ -156,26 +156,25 @@ describe('i3 / sway trees', () => {
     expect(consoleRect.w / (consoleRect.w + network.w)).toBeCloseTo(0.3, 1);
   });
 
-  it('gives a pane zero extent when it lands unshared among siblings whose shares fill the split', () => {
-    // i3 hands a moved window an equal share. A tab carries no share, and
-    // htop and the stack already share all of the column, so an unshared pane
-    // gets only the leftover — none.
+  it('gives a pane that lands unshared among shares that fill the split the mean share', () => {
+    // A tab carries no share, and htop and the stack already share all of the
+    // column; like i3, the moved window gets an equal share.
     const store = presetToStore(I3_PRESET);
     store.moveNode(id('slack'), id('splitv-0-0'), 1);
     const { rects, problems } = laidOut(I3_PRESET, store);
     expect(problems).toEqual([]);
     expect(rectOf(rects, 'slack').w).toBeCloseTo(rectOf(rects, 'splitv-0-0').w, 6);
-    expect(rectOf(rects, 'slack').h).toBe(0);
+    expect(rectOf(rects, 'slack').h).toBeGreaterThan(0);
   });
 
-  it('reads a share carried from a horizontal split on a vertical one', () => {
-    // A share names no axis, so nvim's 0.4 of a width becomes 0.4 of a height,
-    // normalized against the 1.0 htop and the stack already hold.
+  it('does not read a width share carried from a horizontal split as a height', () => {
+    // nvim holds { w: 0.4 }, so the column sees no height share and gives it
+    // the mean of the shares already there: 0.5 against htop's and the stack's 1.0.
     const store = presetToStore(I3_PRESET);
     store.moveNode(id('nvim'), id('splitv-0-0'), 1);
     const { rects, problems } = laidOut(I3_PRESET, store);
     expect(problems).toEqual([]);
-    expect(rectOf(rects, 'nvim').h / rectOf(rects, 'splitv-0-0').h).toBeCloseTo(0.4 / 1.4, 6);
+    expect(rectOf(rects, 'nvim').h / rectOf(rects, 'splitv-0-0').h).toBeCloseTo(0.5 / 1.5, 2);
   });
 
   it('lets a stale share claim its old fraction of a much narrower split', () => {
@@ -273,7 +272,7 @@ describe('Golden Layout configs', () => {
     const search = find(presetTree(GOLDEN_PRESET), 'stack-search');
     expect(search?.strategy).toBe('stack');
     expect(search?.children?.map((c) => c.id)).toEqual(['search']);
-    expect(search?.placement).toEqual({ share: 0.4 });
+    expect(search?.placement).toEqual({ share: { h: 0.4 } });
   });
 
   it('shows a dropped tab, and the tab before a closed active one', () => {
@@ -385,7 +384,9 @@ describe('Dockview layouts', () => {
       axis: 'y',
       fill: true,
     });
-    expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1.1')?.placement).toEqual({ share: 0.3 });
+    expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1.1')?.placement).toEqual({
+      share: { h: 0.3 },
+    });
   });
 
   it('lays out at the saved grid size and restores identically', () => {

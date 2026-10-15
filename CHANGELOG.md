@@ -68,6 +68,15 @@ section below.
 
 ### Changed
 
+- **`placement.share` is per axis.** It takes `{ w?, h? }`, like `size`, and a
+  seam drag writes that form, so a pane moved from a row into a column no
+  longer reads its width share as a height. A bare number is still read on
+  either axis. A pane with no share, beside shares that leave it less than the
+  mean share, now gets the mean share instead of what is left, which was often
+  nothing. A pane dragged to nothing stores a 0px size instead of clearing its
+  share. The i3, Golden Layout, Dockview, Emacs and trading-desk presets write
+  per-axis shares. See [Breaking changes](README.md#unreleased--placementshare-is-per-axis).
+
 - **Drag sources work by touch.** `<DragHandle>` and each `reorder: true`
   wrapper now set `touch-action: none`, and the shipped stylesheet sets it on a
   `data-windease-handle` grip under `reorder: 'handle'`. Before, a finger that

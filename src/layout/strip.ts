@@ -203,11 +203,23 @@ function requestedAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
  *  nothing is the fill pane it would otherwise be. */
 function shareAxis(item: LayoutItem, axis: 'x' | 'y'): number | undefined {
   if (requestedAxis(item, axis) !== undefined) return undefined;
-  const v = item.placement?.share;
-  if (typeof v !== 'number') return undefined;
-  if (Number.isFinite(v) && v > 0) return v;
+  const share = item.placement?.share;
+  const v = typeof share === 'object' && share !== null ? share[axisKey(axis)] : share;
+  if (v === undefined) return undefined;
+  if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v;
   trace('layout', `strip: ignoring placement.share ${v} on ${item.id}`);
   return undefined;
+}
+
+const axisKey = (axis: 'x' | 'y') => (axis === 'x' ? 'w' : 'h');
+
+type Share = NonNullable<NonNullable<LayoutItem['placement']>['share']>;
+
+/** `share` with `axis` set to `v`. The other axis survives; a bare number,
+ *  which names no axis, does not. */
+function withShare(share: unknown, axis: 'x' | 'y', v: number): Share {
+  const kept = typeof share === 'object' && share !== null ? share : {};
+  return { ...(kept as { w?: number; h?: number }), [axisKey(axis)]: v };
 }
 
 function effectiveMinAxis(item: LayoutItem, axis: 'x' | 'y'): number {
@@ -634,7 +646,7 @@ function revealHandles(
 }
 
 /** What a drag stores for one pane: a pixel size, or a share of the row. */
-type Stored = { size: number } | { share: number | undefined };
+type Stored = { size: number } | { share: number };
 
 function writeStored(store: unknown, id: string, axis: 'x' | 'y', value: Stored): void {
   const s = store as {
@@ -642,7 +654,8 @@ function writeStored(store: unknown, id: string, axis: 'x' | 'y', value: Stored)
     patchPlacement: (id: string, patch: Record<string, unknown>) => void;
   };
   if ('share' in value) {
-    s.patchPlacement(id, { share: value.share });
+    const existing = s.getNode(id)?.membership?.placement?.share;
+    s.patchPlacement(id, { share: withShare(existing, axis, value.share) });
     return;
   }
   const existing = (s.getNode(id)?.membership?.placement?.size ?? {}) as { w?: number; h?: number };
@@ -671,8 +684,8 @@ function storeWrites(
  * What each pane in `writes` stores to render at its new extent. A row holding
  * any share stays proportional: every pane written that does not already ask
  * for pixels (an explicit size or a measurement) stores a share of the extent
- * the pixel panes leave once their own writes land. A share of nothing is
- * cleared rather than stored as zero.
+ * the pixel panes leave once their own writes land. A pane dragged to nothing
+ * stores a 0px size rather than a zero share, which is refused.
  */
 function toStored(
   items: LayoutItem[],
@@ -696,9 +709,10 @@ function toStored(
   for (const it of items) {
     const v = writes.get(it.id);
     if (v === undefined || byPixels(it)) continue;
-    // With nothing to be a fraction of, pixels are the only faithful record.
-    if (shareSpace <= 0) out.set(it.id, { size: v });
-    else out.set(it.id, { share: v > 0 ? v / shareSpace : undefined });
+    // With nothing to be a fraction of, pixels are the only faithful record. A
+    // pane dragged to nothing stores 0px: cleared, it would take the mean share.
+    if (shareSpace <= 0 || v <= 0) out.set(it.id, { size: Math.max(0, v) });
+    else out.set(it.id, { share: v / shareSpace });
   }
   return out;
 }
@@ -713,8 +727,10 @@ function applyStored(
     const v = stored.get(it.id);
     if (v === undefined) return it;
     if ('share' in v) {
-      const { share: _, ...rest } = it.placement ?? {};
-      return { ...it, placement: v.share === undefined ? rest : { ...rest, share: v.share } };
+      return {
+        ...it,
+        placement: { ...it.placement, share: withShare(it.placement?.share, axis, v.share) },
+      };
     }
     const size = { ...it.placement?.size, [axis === 'x' ? 'w' : 'h']: v.size };
     return { ...it, placement: { ...it.placement, size } };

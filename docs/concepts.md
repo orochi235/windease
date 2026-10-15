@@ -108,14 +108,16 @@ Two paths for free-form data on a node; lifetimes differ:
   — it reaches a strategy as `LayoutItem.natural`, is never stored on the node,
   and never enters a snapshot. `size` outranks it, so a gutter drag pins the
   pane.
-- `share: number` — a **fraction** of the main-axis extent a strip's
-  pixel-sized panes leave, honored by strip only; it keeps its proportion when
-  the container resizes. Panes with neither `size` nor `share` take what the
-  shares leave; with none, shares are normalized to fill the row. `size` on the
-  main axis outranks it. A seam drag on a row holding any share writes shares,
-  except to a pane that already asks for pixels. A share that is not a positive
-  finite number is ignored, with a `layout` trace. `split` clears it with
-  `size`.
+- `share: { w?, h? } | number` — a **fraction** of the main-axis extent a
+  strip's pixel-sized panes leave, honored by strip only; it keeps its
+  proportion when the container resizes. Per axis like `size`; a bare number
+  applies to either. Panes with neither `size` nor a share on that axis take
+  what the shares leave, or the mean share when the shares leave less than
+  that in all; with none, shares are normalized to fill the row. `size` on the
+  main axis outranks it. A seam drag on a row holding any share writes shares
+  on its axis, except to a pane that already asks for pixels, and 0px to a pane
+  dragged to nothing. A share that is not a positive finite number is ignored,
+  with a `layout` trace. `split` clears it with `size`.
 - `sticky: true` — holds a strip pane at the start of the row while the rest
   scroll, under `overflowMode: 'scroll'` only. The strategy never sees the
   scroll offset: it reports the inset each sticky pane holds in

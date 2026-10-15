@@ -45,6 +45,8 @@ export interface ClampInput {
  *     then resolved like an explicit size: scaled down, floors
  *     frozen, until the unconstrained mins fit. The shared floors are reserved
  *     in step 2 alongside the unconstrained ones.
+ *     When the shares leave the unconstrained items less than the mean share
+ *     in all, each of those takes the mean as its share instead.
  *  4. Leftover after explicit and shared items is distributed equally among
  *     unconstrained items, within each one's `[min, max]`: an item whose
  *     bound binds takes it, and the others share the rest. So a larger floor
@@ -54,11 +56,10 @@ export function clampExplicitSizes(input: ClampInput): Map<string, number> {
   const out = new Map<string, number>();
   if (input.items.length === 0) return out;
 
-  const explicits = input.items.filter((it) => it.explicit !== undefined);
-  const shared = input.items.filter((it) => it.explicit === undefined && it.share !== undefined);
-  const unconstrained = input.items.filter(
-    (it) => it.explicit === undefined && it.share === undefined,
-  );
+  const items = withAverageFloor(input.items);
+  const explicits = items.filter((it) => it.explicit !== undefined);
+  const shared = items.filter((it) => it.explicit === undefined && it.share !== undefined);
+  const unconstrained = items.filter((it) => it.explicit === undefined && it.share === undefined);
   const unconstrainedMinSum = unconstrained.reduce((s, it) => s + autoFloor(it), 0);
   const sharedMinSum = shared.reduce((s, it) => s + autoFloor(it), 0);
 
@@ -120,6 +121,22 @@ export function clampExplicitSizes(input: ClampInput): Map<string, number> {
   });
 
   return out;
+}
+
+/**
+ * Gives every unconstrained item the mean share when the shares leave less
+ * than the mean in all, as i3 hands a window moved into a split an equal
+ * share. A pane moved in from a split on the other axis, or a tab dragged out
+ * of a stack, carries no share for this axis and would otherwise get nothing.
+ */
+function withAverageFloor(items: readonly ClampItem[]): readonly ClampItem[] {
+  const shares = items.filter((it) => it.explicit === undefined && it.share !== undefined);
+  const free = items.filter((it) => it.explicit === undefined && it.share === undefined);
+  if (shares.length === 0 || free.length === 0) return items;
+  const total = shares.reduce((s, it) => s + (it.share ?? 0), 0);
+  const mean = total / shares.length;
+  if (Math.max(0, 1 - total) >= mean) return items;
+  return items.map((it) => (free.includes(it) ? { ...it, share: mean } : it));
 }
 
 /**

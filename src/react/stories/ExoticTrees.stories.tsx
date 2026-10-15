@@ -20,6 +20,7 @@ import { PresetInfo } from './PresetInfo.js';
 import { PresetPicker, usePresetPick } from './PresetPicker.js';
 import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
+import { shareLabel } from './share-label.js';
 
 function TabStrip({ id, stacked }: { id: NodeId; stacked: boolean }) {
   const { tabs, activeId, activate } = useStack(id);
@@ -65,14 +66,14 @@ const chrome: ChromeMap = {
     );
   },
   panel: ({ node }) => {
-    const share = (node.membership?.placement as { share?: number } | undefined)?.share;
+    const share = shareLabel(node.membership?.placement?.share);
     return (
       <DragHandle nodeId={node.id} className={withMetaClass('xt-pane', node)}>
         <header className="xt-pane__title" data-testid={`xt-pane-${node.id}`}>
           {String(node.meta?.title ?? node.id)}
         </header>
         <p className="xt-pane__size">
-          {share === undefined ? 'no placement.share' : `placement.share ${share.toFixed(3)}`}
+          {share === undefined ? 'no placement.share' : `placement.share ${share}`}
         </p>
       </DragHandle>
     );
@@ -102,10 +103,10 @@ function Tree({ preset }: { preset: Preset }) {
             <p>
               Drag a pane into a container of another kind: a horizontal split into a vertical one,
               or a split into a tab stack. A tab stack shows the pane it receives and fills its body
-              with it. The pane keeps the <code>placement.share</code> it was saved with, and a
-              share names no axis, so in a split on the other axis a share of a width becomes a
-              share of the height. A pane saved as a tab has no share, and in a split whose shares
-              already add up to the whole it gets the leftover, which is nothing.
+              with it. The pane keeps the <code>placement.share</code> it was saved with, which
+              names its axis, so in a split on the other axis a share of a width is not read as a
+              height. A pane with no share for the split's axis, like one saved as a tab, gets what
+              the shares leave, or the mean share when they leave less than that.
             </p>
           </div>
         </DragProvider>

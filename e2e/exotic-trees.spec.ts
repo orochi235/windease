@@ -69,7 +69,7 @@ test.describe('exotic trees', () => {
     await drag(page, 'nvim', { x: htop.x + htop.w / 2, y: htop.y + htop.h * 0.75 });
 
     await landedIn(page, 'nvim', 'splitv-0-0');
-    // It spans the column, and its share of a width is now a share of the height.
+    // It spans the column; its width share means nothing here, so it takes the mean share.
     await expect
       .poll(async () => (await boxOf(node(page, 'nvim'))).w)
       .toBeGreaterThan(column.w - 4);

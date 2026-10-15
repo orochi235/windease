@@ -3,8 +3,8 @@
 For whoever extends windease's layout vocabulary, and for anyone turning the Exotic presets into
 canned presets a consumer can load.
 **Status, 2026-10-15, read from the code: every key in the phase table is built except grid
-`sticky`. Also unbuilt: `placement.share` taking an axis, dropping a child onto a chosen grid cell,
-and inner config nested under `inner`. `allowsPinning` and `autoUnsplit` on a preset node are
+`sticky`. Also unbuilt: dropping a child onto a chosen grid cell, and inner config nested under
+`inner`. `placement.share` takes an axis. `allowsPinning` and `autoUnsplit` on a preset node are
 built; Emacs's main split and Golden Layout's rows and columns set `autoUnsplit`. No
 preset sets `zoom`, `drop`, pages, stack `tabs: 'stacked'` or floating `snap: 'fill'` yet. The
 Firefox and Win 10 presets set `reorder`; every other grid preset, and the Exotic tree and desktop
@@ -95,7 +95,7 @@ These are config or placement keys on one strategy each.
 |---|---|---|---|
 | Explicit cell | `placement.cell: { col, row }` (built for layout; a move or reorder clears it, and nothing drops a child onto a chosen cell) | grid | Grafana, Android, periodic table, iOS 18 |
 | Fixed-size cells, spaced out | `cell: { w, h }`, `justify` | grid | iOS dock, Win 8, Launchpad |
-| Fractional sizes that survive a resize | `placement.share` — built as a bare number; the `{ w?, h? }` form, like `size`, is unbuilt and still wanted, since a pane moved to a split on the other axis reads its width fraction as a height | strip | i3, Golden Layout, Emacs, trading desk |
+| Fractional sizes that survive a resize | `placement.share` — `{ w?, h? }` like `size`, or a bare number read on either axis (built) | strip | i3, Golden Layout, Emacs, trading desk |
 | Leftover space placement | `justify: 'start' \| 'center' \| 'end' \| 'between'` | strip, grid, column | Firefox, Pinterest, iOS dock |
 | Size steps | `step` | strip | tmux, Emacs |
 | Overshoot hides instead of destroying | `overshoot: 'join' \| 'hide'` | strip | VS Code |
@@ -134,7 +134,7 @@ These are config or placement keys on one strategy each.
 
 | Phase | Contents | Status |
 |---|---|---|
-| 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `drop` config; `placement.share`; grid `cell`, fixed cells, `justify`; child templates | built. `placement.share` is a bare number, not yet `{ w?, h? }`. Grid `cell` is read by layout only: a move or reorder clears it, and nothing drops a child onto a chosen cell. No preset sets `drop` |
+| 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `drop` config; `placement.share`; grid `cell`, fixed cells, `justify`; child templates | built. Grid `cell` is read by layout only: a move or reorder clears it, and nothing drops a child onto a chosen cell. No preset sets `drop` |
 | 2 | `tear`, `zoom`, `view` (pan/zoom, desktop fit), `sticky`, `step`, `overshoot`, `layer`, `resize` | built: `view`, `fit`, `tear`, `layer` (desktop, floating), `resize` (desktop), `step`, `overshoot`, `zoom` and strip `sticky`; grid `sticky` unbuilt. No preset sets `zoom` |
 | 3 | Grid tracks, `compact`; `reorder`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | built. The Firefox and Win 10 presets set `reorder`. No preset sets stack `tabs: 'stacked'` or `side`, or `snap: 'fill'` |
 | 4 | Packer `rotate`/`sort`/height bound; `hints.aspect`; `justified` strategy; product-look CSS for every preset | built: packer `rotate`, `sort`, height bound (`overflowMode: 'unplaced'`), column `cols`/`justify`, `hints.aspect`, `justified`, product-look CSS for every preset |

@@ -6,6 +6,7 @@ import { asNodeId, createNode, Store, stackStrategy, stripStrategy } from '../..
 import { type ChromeMap, Container, Provider, StrategyRegistryProvider } from '../index.js';
 import './windease.css';
 import './strip.css';
+import { shareLabel } from './share-label.js';
 
 const STRATEGIES = {
   strip: stripStrategy as never,
@@ -110,7 +111,7 @@ function makeSharesStore(): Store {
         id,
         parentId: SHARES_ZONE,
         hints: { minSize: { w: 40, h: 0 } },
-        placement: { share },
+        placement: { share: { w: share } },
         meta: { title: name },
       }),
     );
@@ -121,12 +122,12 @@ function makeSharesStore(): Store {
 
 const sharesChrome: ChromeMap = {
   panel: ({ node }) => {
-    const share = node.membership?.placement?.share;
+    const label = shareLabel(node.membership?.placement?.share);
     return (
       <div className="windease-panel">
         <header className="windease-panel__title">{String(node.meta?.title ?? node.id)}</header>
-        <span className="strip-readout" data-share={String(share ?? '')}>
-          share {typeof share === 'number' ? share.toFixed(3) : 'none'}
+        <span className="strip-readout" data-share={label ?? ''}>
+          share {label ?? 'none'}
         </span>
       </div>
     );

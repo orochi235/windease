@@ -1846,10 +1846,14 @@ nothing. `placement.share` stores a fraction of the row instead, the way i3,
 Golden Layout and Emacs do, and keeps its proportions at any width:
 
 ```ts
-store.patchPlacement(nav, { share: 0.2 });
-store.patchPlacement(editor, { share: 0.5 });
-store.patchPlacement(inspector, { share: 0.3 });
+store.patchPlacement(nav, { share: { w: 0.2 } });
+store.patchPlacement(editor, { share: { w: 0.5 } });
+store.patchPlacement(inspector, { share: { w: 0.3 } });
 ```
+
+A share is per axis, like `size`: a row reads `w` and a column reads `h`, so a
+pane moved from a row into a column does not read its width share as a height.
+A bare number, `{ share: 0.2 }`, applies to whichever axis reads it.
 
 One row can mix all three kinds of pane:
 
@@ -1858,7 +1862,11 @@ One row can mix all three kinds of pane:
    neither, a share is a fraction of it — `0.25` is a quarter — and shares
    summing past 1 are scaled down to fit. With no such pane, the shares are
    scaled to fill it, so `1` and `3` read as a quarter and three quarters.
-3. Panes with neither split the rest equally, as they always have.
+3. Panes with neither split the rest equally. When the shares leave them less
+   than the mean share in all — shares of `0.5` and `0.5` leave nothing — each
+   takes the mean share instead, and the row is scaled to fit. That is how a
+   pane moved in with no share for this axis gets room, as i3 gives a moved
+   window an equal share.
 
 `hints.minSize` and `hints.maxSize` bound a shared pane like any other. Space a
 capped share gives up goes to the panes with neither, or, in a row with none,
@@ -1870,8 +1878,9 @@ share that is not a positive, finite number is ignored and traced under
 A seam drag on a row holding any share writes shares back: each pane it resizes
 stores its new extent as a fraction of what the pixel panes leave, so the row
 stays proportional and the seam still moves by exactly the drag. A pane that
-already asks for pixels keeps getting `size`. A pane dragged to nothing has its
-share cleared rather than set to 0.
+already asks for pixels keeps getting `size`. The drag writes its own axis and
+keeps the other. A pane dragged to nothing stores a 0px `size`, which outranks
+its share, so it stays shut rather than taking the mean share.
 
 Like `size`, a share is relative to the parent: `store.split` clears it from the
 panes it moves into a new group, and the group inherits the slot's share.
@@ -2430,6 +2439,18 @@ placement travels with it. Focus does not move — call `focusNode` yourself if
 the arriving subtree should take it.
 
 ## Breaking changes
+
+### Unreleased — `placement.share` is per axis
+
+A seam drag on a row of shares now writes `{ share: { w } }` (or `{ h }` on a
+column) where it wrote a bare number, keeping the other axis if the pane has
+one. Code that reads `placement.share` as a number has to read the object too.
+Bare numbers you write are still read, on any axis.
+
+Two layouts change. A pane with no share, beside shares that leave it less than
+the mean share, now gets the mean share where it got what was left, often
+nothing. And a pane dragged to nothing stores `size: { w: 0 }` where its share
+was cleared.
 
 ### 2.0.0 — four deprecated APIs removed
 
