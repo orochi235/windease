@@ -1,7 +1,7 @@
 export default { title: 'Workspace' };
 
 import type { Story } from '@ladle/react';
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import {
   asNodeId,
   createNode,
@@ -148,6 +148,30 @@ function ZoomToggle({ store, id, label }: { store: Store; id: NodeId; label: str
   );
 }
 
+/** Which root holds focus, read with `store.getRoot`, and a button that sends
+ *  the focused panel to main with one `moveNode`. */
+function FocusedRoot({ store }: { store: Store }) {
+  const rootId = useSyncExternalStore(
+    (cb) => store.subscribe(cb),
+    () => (store.focusedId ? store.getRoot(store.focusedId)?.id : undefined),
+  );
+  const title = rootId ? String(store.getNode(rootId)?.meta?.title ?? rootId) : 'nothing';
+  const panel = store.focusedId;
+  return (
+    <div className="ws-readout">
+      Focus is in <code data-testid="ws-focused-root">{title}</code>{' '}
+      <button
+        type="button"
+        data-testid="ws-send-to-main"
+        disabled={!panel || rootId === MAIN}
+        onClick={() => panel && store.moveNode(panel, MAIN)}
+      >
+        Send to main
+      </button>
+    </div>
+  );
+}
+
 function Readout({ id, label }: { id: NodeId; label: string }) {
   const node = useNode(id);
   const size = node?.hints?.size;
@@ -196,12 +220,14 @@ export const RootsInTheHostsLayout: Story = () => {
               </Workspace>
               <Readout id={SIDE} label="Sidebar" />
               <Readout id={DOCK} label="Dock" />
+              <FocusedRoot store={store} />
               <p className="ws-prose">
                 Three root zones, placed by this story's own flexbox — none is a child of another.
                 Drag the seam beside the sidebar or above the dock; push either past its floor and
                 release to hide it, then drag the handle it leaves on the main area's edge to bring
                 it back. Panels still drag between the three, and <kbd>←</kbd> <kbd>→</kbd>{' '}
-                <kbd>↑</kbd> <kbd>↓</kbd> cross between them.
+                <kbd>↑</kbd> <kbd>↓</kbd> cross between them. Click a panel in the sidebar or dock
+                and press Send to main to move it there.
               </p>
             </FocusProvider>
           </GeometryProvider>

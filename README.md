@@ -2161,6 +2161,20 @@ Roots in a workspace are still ordinary roots. Panels drag between them, and
 under a `GeometryProvider` the arrow keys cross from one to the next, as in
 [Keyboard navigation](#keyboard-navigation).
 
+windease does not know which root is your main area or your dock; keep those
+ids yourself. With them, moving a panel between roots and finding the one that
+holds focus are each a line:
+
+```ts
+store.moveNode(panelId, mainId); // "promote to main", honoring locks and accepts
+const focusedRoot = store.focusedId ? store.getRoot(store.focusedId) : undefined;
+```
+
+`store.getRoot(id)` returns the root a node sits under, or the node itself for
+a root. Something that follows focus, such as a dock rendered beside whichever
+root holds it, reads that and places the dock in your own layout, since your
+CSS places the roots.
+
 Without React, `arrangeWorkspace({ store, roots, seams, rects, zoom })` is the
 whole of it: you measure each root's box and pass the map, and it returns each
 root's state and size plus the seams as affordances in the same space.

@@ -774,6 +774,37 @@ describe('Store — selectors', () => {
     expect(s.getAncestors(id('leaf')).map((n) => n.id)).toEqual(['z', 'tray', 'leaf']);
   });
 
+  it('getRoot returns the root zone a node sits under, itself for a root', () => {
+    const s = fresh();
+    s.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'grid', config: {} }, id: id('z') }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        id: id('tray'),
+        parentId: id('z'),
+        container: { strategyId: 'stack', config: {} },
+      }),
+    );
+    s.registerNode(createNode({ kind: 'panel', id: id('leaf'), parentId: id('tray') }));
+    expect(s.getRoot(id('leaf'))?.id).toBe('z');
+    expect(s.getRoot(id('z'))?.id).toBe('z');
+    expect(s.getRoot(id('missing'))).toBeUndefined();
+  });
+
+  it('getRoot follows a node moved to another root', () => {
+    const s = fresh();
+    for (const z of ['main', 'side']) {
+      s.registerNode(
+        createNode({ kind: 'zone', container: { strategyId: 'grid', config: {} }, id: id(z) }),
+      );
+    }
+    s.registerNode(createNode({ kind: 'panel', id: id('p'), parentId: id('side') }));
+    s.moveNode(id('p'), id('main'));
+    expect(s.getRoot(id('p'))?.id).toBe('main');
+  });
+
   it('isContainer / isMember / canFocus', () => {
     const s = fresh();
     s.registerNode(

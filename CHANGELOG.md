@@ -10,6 +10,11 @@ section below.
 
 ### Added
 
+- **`store.getRoot(id)`**: the root zone a node sits under, or the node itself
+  for a root. With it, "which zone holds focus" is
+  `store.getRoot(store.focusedId)`. See
+  [Workspace: seams between separate roots](README.md#workspace-seams-between-separate-roots).
+
 - **`<Workspace>`: seams, hiding and zoom for zones that are separate roots.**
   Root zones placed by your own CSS could already trade panels and keyboard
   focus; now a `seams` entry draws a draggable seam between two of them,

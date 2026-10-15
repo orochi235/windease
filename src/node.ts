@@ -17,7 +17,7 @@ export type NodeId = string & { readonly __brand: 'NodeId' };
 export const asNodeId = (s: string): NodeId => s as NodeId;
 
 /**
- * Optional consumer-defined role label. Conventional values when using the
+ * Optional consumer-defined label for what a node is. Conventional values when using the
  * shipped presets are `'panel'`, `'group'`, `'zone'`, but the core does not
  * enforce or interpret these — `kind` is a free-form string that the React
  * chrome map can dispatch on, and nothing else.
@@ -184,7 +184,7 @@ export interface MembershipCap {
  */
 export interface Node {
   id: NodeId;
-  /** Free-form role label; see `NodeKind` JSDoc. Optional. */
+  /** Free-form label for what the node is; see `NodeKind` JSDoc. Optional. */
   kind?: NodeKind;
   meta?: Record<string, unknown>;
   activity?: Record<string, unknown>;

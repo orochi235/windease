@@ -118,7 +118,7 @@ export interface LayoutItem {
  */
 export interface LayoutNode {
   id: string;
-  /** Free-form role label echoed from `node.kind` (optional). */
+  /** Free-form label echoed from `node.kind` (optional). */
   kind?: string;
   hints: {
     minSize?: Size;

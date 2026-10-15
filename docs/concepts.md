@@ -293,7 +293,7 @@ methods:
   not gate it: that lock holds a node's position, not its stacking rank. A
   child pinned in the parent holds its rank.
 
-Selectors: `getNode`, `getChildren`, `getParent`, `getAncestors`,
+Selectors: `getNode`, `getChildren`, `getParent`, `getAncestors`, `getRoot`,
 `isContainer`, `isMember`, `canFocus`, `getContainerView`. All three
 predicates answer *capability* — `canFocus(id)` is "does this node have a
 focus machine", not "is it focused". For that, compare `store.focusedId`.

@@ -206,3 +206,16 @@ test.describe('workspace: a sized root whose neighbor is hidden', () => {
     await expect.poll(widthOf(page, 'side')).toBe(260);
   });
 });
+
+test.describe('Workspace: which root a node is in', () => {
+  test('reads the focused root, and one moveNode sends the panel to main', async ({ page }) => {
+    await openStory(page, STORY);
+    const files = page.locator('[data-node="ws-files"]');
+    await files.click();
+    await expect(page.getByTestId('ws-focused-root')).toHaveText('Sidebar');
+    await page.getByTestId('ws-send-to-main').click();
+    await expect(root(page, 'main').locator('[data-node="ws-files"]')).toHaveCount(1);
+    await expect(page.getByTestId('ws-focused-root')).toHaveText('Main');
+    await expect(page.getByTestId('ws-send-to-main')).toBeDisabled();
+  });
+});

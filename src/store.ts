@@ -287,6 +287,12 @@ export class Store {
     return chain;
   }
 
+  /** The root `id` sits under: the ancestor with no parent, or `id`
+   *  itself when it is a root. Undefined for an unknown id. */
+  getRoot(id: NodeId): Node | undefined {
+    return this.getAncestors(id)[0];
+  }
+
   isContainer(id: NodeId): boolean {
     return !!this.nodesMap.get(id)?.container;
   }
