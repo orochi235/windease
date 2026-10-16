@@ -833,6 +833,22 @@ cell would override it, so a dragged celled child would otherwise not move at
 all. Dragging one therefore drops it into the flow at the index it lands on.
 `setChildOrder` leaves cells alone, since it arranges every child at once.
 
+To drop a child into the cell under the pointer instead, set `drop.cell` on
+the grid:
+
+```ts
+{ strategyId: 'grid', config: { cols: 18, drop: { cell: true } } }
+```
+
+A drop over an empty cell then moves the child in and writes its
+`placement.cell`, in one transaction, so one undo step; a gap counts as the
+cell before it. Over a cell a child already holds, the drop inserts at an index
+as before. A grid has the rows its children reach, so a drop below the last
+one is an ordinary insert too. The preview shows the child in the cell. A
+parent whose order the host controls (`onChildOrderChange`) refuses a cell
+drop. Any strategy can offer the same by implementing `cellAt`, the pure
+hit-test behind it. See the **Periodic table** grid story.
+
 ### Cells of a fixed size
 
 By default a grid divides its container among its cells. `cell: { w, h }` in
@@ -1308,6 +1324,8 @@ the container that resolved it, one flip from that container's own.
 `stackOnDrop` for the centre band, `splitOnDrop` for the cross-axis ones. The
 same two can live in the container's config as `drop: { stack, split }`, so a
 snapshot or preset carries them; a prop that is set, `false` included, wins.
+`drop.cell` asks for the fourth intent, `{ kind: 'cell', cell }`, on a strategy
+that implements `cellAt`; see [Putting a grid child at a cell](#putting-a-grid-child-at-a-cell).
 
 A target you register yourself takes `getDropIntent` beside the older
 `getInsertionIndex`, which still works and is still honoured when no intent

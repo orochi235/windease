@@ -1,4 +1,4 @@
-import { type AxisScale, type FitMode, fitView, type View } from './view.js';
+import { type AxisScale, type FitMode, fitView, toLocalPoint, type View } from './view.js';
 
 const UNSCALED: AxisScale = Object.freeze({ x: 1, y: 1 }) as AxisScale;
 
@@ -19,6 +19,19 @@ export function elementScale(el: Element): AxisScale {
   const x = ow > 0 && r.width > 0 ? r.width / ow : 1;
   const y = oh > 0 && r.height > 0 ? r.height / oh : 1;
   return x === 1 && y === 1 ? UNSCALED : { x, y };
+}
+
+/**
+ * A screen point in `el`'s own layout pixels: offset by its box and divided by
+ * every scale between it and the page. What a strategy's `cursor` and
+ * `cellAt` take.
+ */
+export function layoutPointIn(
+  point: { x: number; y: number },
+  el: Element,
+): { x: number; y: number } {
+  const r = el.getBoundingClientRect();
+  return toLocalPoint(point, { x: r.left, y: r.top }, elementScale(el));
 }
 
 /**

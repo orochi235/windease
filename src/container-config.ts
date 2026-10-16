@@ -36,6 +36,9 @@ export interface DropConfig {
   stack?: boolean;
   /** A drop on a child's cross-axis edge splits that child's slot in two. */
   split?: boolean;
+  /** A drop on an empty cell of a grid places the child in that cell, as
+   *  `placement.cell`, instead of at an index. */
+  cell?: boolean;
 }
 
 /**

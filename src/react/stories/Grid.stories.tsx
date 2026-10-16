@@ -300,7 +300,9 @@ const elementChrome: ChromeMap = {
 /** Every element holds `placement.cell` at its group and period, so the gaps
  *  in periods 1–3 stay open. Move one with the form: a cell someone already
  *  holds, or past column 17, sends it to the unplaced list. Drag one, and the
- *  move clears its cell, so it drops into the first free cell of the flow. */
+ *  move clears its cell, so it drops into the first free cell of the flow —
+ *  unless "Drop onto a cell" is checked, which sets `drop.cell` and lands it
+ *  in the empty cell under the pointer. */
 export const PeriodicTable: Story = () => {
   const [generation, setGeneration] = useState(0);
   const store = useMemo(() => {
@@ -308,6 +310,11 @@ export const PeriodicTable: Story = () => {
     return periodicStore();
   }, [generation]);
   const [target, setTarget] = useState('ne');
+  const [cellDrop, setCellDrop] = useState(false);
+  const toggleCellDrop = (on: boolean) => {
+    setCellDrop(on);
+    store.updateContainerConfig(TABLE, { drop: on ? { cell: true } : undefined });
+  };
   const [col, setCol] = useState(17);
   const [row, setRow] = useState(0);
 
@@ -360,6 +367,15 @@ export const PeriodicTable: Story = () => {
             <button type="button" onClick={() => setGeneration((g) => g + 1)}>
               Reset
             </button>
+            <label>
+              <input
+                type="checkbox"
+                data-testid="cell-drop"
+                checked={cellDrop}
+                onChange={(e) => toggleCellDrop(e.currentTarget.checked)}
+              />{' '}
+              Drop onto a cell
+            </label>
           </form>
           <div className="gc-table">
             <Container

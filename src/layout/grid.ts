@@ -1347,6 +1347,17 @@ function stickCells(
   return out;
 }
 
+/** The track `p` falls in, a gap counting as the track before it so a drop
+ *  a few pixels off a cell still lands in one; undefined past either end. */
+function trackAt(axis: Axis, p: number): number | undefined {
+  for (let i = 0; i < axis.count; i++) {
+    const start = axis.start(i);
+    const end = start + axis.size(i) + (i < axis.count - 1 ? axis.gap : 0);
+    if (p >= start && p < end) return i;
+  }
+  return undefined;
+}
+
 function trackSeams(geom: GridGeometry, axis: 'cols' | 'rows', cfg: GridConfig): Affordance[] {
   const tracks = (axis === 'cols' ? geom.colTracks : geom.rowTracks) ?? [];
   const across = axis === 'cols' ? geom.y : geom.x;
@@ -1491,7 +1502,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
   canAccept(items, options): boolean {
     return fitsCapacity(options as GridConfig, items);
   },
-  getDropPreview({ items, container, options, insertId, insertIndex, cursor: _cursor }) {
+  getDropPreview({ items, container, options, insertId, insertIndex, cursor: _cursor, cell }) {
     const cfg = options as GridConfig;
     // Splice ghost in if not already present. A celled child dragged within
     // its own grid is previewed as the reorder will leave it: its cell
@@ -1499,7 +1510,14 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     const ghostAt = items.findIndex((it) => it.id === insertId);
     const ghost = ghostAt >= 0 ? items[ghostAt] : undefined;
     let projected: LayoutItem[];
-    if (ghost && explicitCell(ghost)) {
+    if (cell) {
+      // A drop to a cell lands there, whatever index it came from.
+      const rest = items.filter((_, i) => i !== ghostAt);
+      projected = [
+        ...rest,
+        { ...(ghost ?? { id: insertId }), placement: { ...ghost?.placement, cell } },
+      ];
+    } else if (ghost && explicitCell(ghost)) {
       const { cell: _cell, ...placement } = ghost.placement ?? {};
       const rest = items.filter((_, i) => i !== ghostAt);
       const index = Math.max(0, Math.min(insertIndex ?? rest.length, rest.length));
@@ -1639,6 +1657,20 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     if (unplaced.length > 0) result.unplaced = unplaced;
     if (preview) result.isPreview = true;
     return result;
+  },
+
+  cellAt({ items, container, options, point, sourceId }) {
+    const rest = sourceId === undefined ? items : items.filter((it) => it.id !== sourceId);
+    const geom = gridGeometry(rest, container, options as GridConfig);
+    const col = trackAt(geom.x, point.x);
+    const row = trackAt(geom.y, point.y);
+    if (col === undefined || row === undefined) return undefined;
+    for (const c of geom.cells.values()) {
+      if (col >= c.col && col < c.col + c.cols && row >= c.row && row < c.row + c.rows) {
+        return undefined;
+      }
+    }
+    return { col, row };
   },
 
   dispatchAffordance({ event, affordance, store, items, container, options, parentId }) {

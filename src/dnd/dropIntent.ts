@@ -7,7 +7,9 @@ export type DropIntent =
   | { kind: 'stack'; ontoId: ItemId }
   /** `axis` is the strip axis of the group a split would create — the *cross*
    *  axis of the container that resolved this, not that container's own. */
-  | { kind: 'split'; ontoId: ItemId; edge: 'start' | 'end'; axis: 'x' | 'y' };
+  | { kind: 'split'; ontoId: ItemId; edge: 'start' | 'end'; axis: 'x' | 'y' }
+  /** Place the child in this empty cell of a grid, as `placement.cell`. */
+  | { kind: 'cell'; cell: { col: number; row: number } };
 
 /** Which restructuring intents a hit-test may return. Everything is off by
  *  default: both stacking and splitting reshape the tree. */

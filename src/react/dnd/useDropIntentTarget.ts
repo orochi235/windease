@@ -4,6 +4,7 @@ import { type DropIntent, resolveDropIntent } from '../../dnd/dropIntent.js';
 import type { EdgeScrollOptions } from '../../dnd/edgeScroll.js';
 import { axisFromRects, childRectsForContainer } from '../../dnd/insertionIndex.js';
 import type { NodeId, Rect } from '../../index.js';
+import { layoutPointIn } from '../../view-dom.js';
 import { DragContext } from './DragProvider.js';
 
 /** What a `dropIntent` callback is handed. The container has already measured
@@ -34,6 +35,11 @@ export interface DropIntentTargetOptions {
   stackOnDrop?: boolean | undefined;
   splitOnDrop?: boolean | undefined;
   dropIntent?: ((ctx: DropIntentContext) => DropIntent | undefined) | undefined;
+  /** The empty cell under a point in the container's layout pixels, for
+   *  `drop.cell`. A free cell under the cursor wins over an index. */
+  cellAt?:
+    | ((point: Point, sourceId: NodeId) => { col: number; row: number } | undefined)
+    | undefined;
   /** The ref to the element that scrolls this container's content. A ref, not
    *  an element: `.current` is null on the first render and the effect must
    *  read it when it runs. */
@@ -70,6 +76,7 @@ export function useDropIntentTarget(
     stackOnDrop,
     splitOnDrop,
     dropIntent,
+    cellAt,
     scrollRef,
     acceptPolicy,
     edgeScroll,
@@ -97,9 +104,13 @@ export function useDropIntentTarget(
         const displaced = el.getAttribute('data-split-preview') === 'true';
         if (!displaced) undisplaced.current = live;
         const rects = displaced ? (undisplaced.current ?? live) : live;
-        if (rects.length === 0) return { kind: 'insert', index: 0 };
         // Skip the source itself for same-parent previews.
         const sourceId = controller.state()?.draggingId;
+        if (cellAt && sourceId && !dropIntent) {
+          const cell = cellAt(layoutPointIn(point, el), sourceId);
+          if (cell) return { kind: 'cell', cell };
+        }
+        if (rects.length === 0) return { kind: 'insert', index: 0 };
         const filtered = sourceId ? rects.filter((r) => r.id !== sourceId) : rects;
         // A flow container has no strategy to infer an axis from and no reason
         // to have set one, so read it off the arrangement CSS produced.
@@ -126,6 +137,7 @@ export function useDropIntentTarget(
     stackOnDrop,
     splitOnDrop,
     dropIntent,
+    cellAt,
     scrollRef,
     acceptPolicy,
     edgeScroll,

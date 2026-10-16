@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **Drop a grid child into the cell under the pointer.** `drop: { cell: true }`
+  on a grid makes a drop over an empty cell write the child's `placement.cell`,
+  in the same transaction as the move, where a drag always dropped it into the
+  flow. A new `{ kind: 'cell' }` drop intent carries it, and
+  `LayoutStrategy.cellAt` is the hit-test, which grid implements. See
+  [Putting a grid child at a cell](README.md#putting-a-grid-child-at-a-cell).
+
 - **Grid cells stick while the sheet scrolls.** A grid cell's
   `placement.sticky` is `'y'` to hold at the top edge, `'x'` at the left, or
   `true` for both, as Excel's frozen headings and row numbers do. Sticky

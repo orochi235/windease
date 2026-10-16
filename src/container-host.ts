@@ -480,6 +480,8 @@ export class ContainerHost {
         a.insertIndex === p.insertIndex &&
         a.cursor.x === p.cursor.x &&
         a.cursor.y === p.cursor.y &&
+        a.cell?.col === p.cell?.col &&
+        a.cell?.row === p.cell?.row &&
         a.split?.ontoId === p.split?.ontoId &&
         a.split?.edge === p.split?.edge &&
         a.split?.axis === p.split?.axis);
@@ -624,6 +626,29 @@ export class ContainerHost {
       trace('layout', `placement diverted to host: ${id} (${affordanceId})`);
       commit(proposed, { affordanceId, parentId: this.#parentId });
     }
+  }
+
+  /**
+   * The empty cell under `point`, in this container's layout pixels, from the
+   * strategy's `cellAt`. Undefined before the first measurement, for a
+   * strategy without the hook, or where no free cell is.
+   */
+  cellAt(
+    point: { x: number; y: number },
+    sourceId?: NodeId,
+  ): { col: number; row: number } | undefined {
+    const container = this.#store.getNode(this.#parentId)?.container;
+    const viewport = this.#viewport;
+    if (!container || !viewport) return undefined;
+    const strategy = this.#registry.get(container.strategyId);
+    if (!strategy?.cellAt) return undefined;
+    return strategy.cellAt({
+      items: this.#visibleItems(),
+      container: viewport,
+      options: (container.config ?? {}) as Record<string, unknown>,
+      point,
+      ...(sourceId !== undefined ? { sourceId } : {}),
+    });
   }
 
   /**
@@ -862,6 +887,7 @@ export class ContainerHost {
         insertId: preview.insertId,
         insertIndex: preview.insertIndex,
         cursor: preview.cursor,
+        ...(preview.cell ? { cell: preview.cell } : {}),
       });
       if (fast) {
         return {

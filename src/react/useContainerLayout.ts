@@ -53,6 +53,12 @@ export interface ContainerLayout extends HostLayout {
    * instead of writing the store. See `ContainerHost.registerPlacementControl`.
    */
   registerPlacementControl: (id: NodeId, commit: PlacementCommit) => () => void;
+  /** The empty cell under a layout-pixel point, for a drop to a cell. See
+   *  `ContainerHost.cellAt`. */
+  cellAt: (
+    point: { x: number; y: number },
+    sourceId?: NodeId,
+  ) => { col: number; row: number } | undefined;
   /**
    * Track `el`'s scroll offset for this container. Returns a teardown. See
    * `ContainerHost.observeScroll` — `el` is the element that actually scrolls,
@@ -112,7 +118,8 @@ export function useContainerLayout(
   // Identity of `preview` changes every pointermove; the host dedupes by value.
   const previewKey = preview
     ? `${preview.insertId}|${preview.insertIndex ?? '-'}|${preview.cursor.x}|${preview.cursor.y}` +
-      `|${preview.split ? `${preview.split.ontoId}:${preview.split.axis}:${preview.split.edge}` : '-'}`
+      `|${preview.split ? `${preview.split.ontoId}:${preview.split.axis}:${preview.split.edge}` : '-'}` +
+      `|${preview.cell ? `${preview.cell.col},${preview.cell.row}` : '-'}`
     : '';
   // biome-ignore lint/correctness/useExhaustiveDependencies: previewKey is a stable identity for `preview`.
   useEffect(() => {
@@ -165,6 +172,11 @@ export function useContainerLayout(
 
   const command = useCallback((cmd: StrategyCommand) => host.command(cmd), [host]);
 
+  const cellAt = useCallback(
+    (point: { x: number; y: number }, sourceId?: NodeId) => host.cellAt(point, sourceId),
+    [host],
+  );
+
   return {
     ...layout,
     dispatchAffordance,
@@ -173,6 +185,7 @@ export function useContainerLayout(
     observeScroll,
     setView,
     command,
+    cellAt,
   };
 }
 

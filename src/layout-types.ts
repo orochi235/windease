@@ -313,6 +313,8 @@ export interface LayoutPreview {
   insertId: string;
   insertIndex?: number;
   cursor: { x: number; y: number };
+  /** Present when the drop places the child in this cell (`drop.cell`). */
+  cell?: { col: number; row: number };
   /**
    * Present when the drop splits `ontoId`'s slot instead of inserting a
    * sibling. `insertIndex` means nothing then — the parent's child list keeps
@@ -562,6 +564,19 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
     options: Record<string, unknown>;
   }): TId | null | undefined;
   /**
+   * The empty cell under `point`, in the container's layout pixels, for a drop
+   * that places a child in a chosen cell (container config `drop.cell`).
+   * `sourceId`, the child being dragged, counts as gone, so it can move to a
+   * cell of its own. Undefined over a held cell, a gap, or outside the cells.
+   */
+  cellAt?(input: {
+    items: LayoutItem[];
+    container: Size;
+    options: Record<string, unknown>;
+    point: { x: number; y: number };
+    sourceId?: string;
+  }): { col: number; row: number } | undefined;
+  /**
    * Optional fast-path preview. When defined and returns non-null, the host
    * uses this instead of calling `.layout({ preview })`. Useful when preview
    * placements are cheap to compute directly (e.g. grid cells given an index).
@@ -574,6 +589,7 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
     insertId: TId;
     insertIndex: number | undefined;
     cursor: { x: number; y: number };
+    cell?: { col: number; row: number };
   }): { placements: Map<TId, Rect>; accepted: boolean } | null;
   /**
    * Present on a strategy that places children free of any tiling — floating,

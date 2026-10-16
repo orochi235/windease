@@ -651,7 +651,7 @@ export class DragEngine {
    *  than adding the source to the hovered target's own children. A stack onto
    *  a child of a stack is the exception: `stackNodes` moves the source in. */
   private wraps(intent: DropIntent): boolean {
-    if (intent.kind === 'insert') return false;
+    if (intent.kind === 'insert' || intent.kind === 'cell') return false;
     if (intent.kind === 'split') return true;
     const parentId = this.store.getNode(intent.ontoId as NodeId)?.membership?.parentId;
     const strategyId =
@@ -666,6 +666,13 @@ export class DragEngine {
    */
   private checkIntent(targetId: NodeId, draggingId: NodeId, intent: DropIntent): boolean {
     if (intent.kind === 'insert') return true;
+    if (intent.kind === 'cell') {
+      // The host commits a controlled parent's order later, and that move
+      // would release the cell written here.
+      if (!this.orderControls.has(targetId)) return true;
+      trace('dnd', `checkAccept ${targetId}: REJECT (cell drop into a controlled parent)`);
+      return false;
+    }
     const ontoId = intent.ontoId as NodeId;
     if (ontoId === draggingId) {
       trace('dnd', `checkAccept ${targetId}: REJECT (${intent.kind} onto the dragged node)`);
@@ -795,6 +802,25 @@ export class DragEngine {
           ...(this.splitConfig ? { config: this.splitConfig } : {}),
         });
         trace('dnd', `drop: split ${draggingId} onto ${ontoId} ${axis}/${edge} as ${id}`);
+      } catch (err) {
+        trace('dnd', `drop failed: ${(err as Error).message}`);
+      }
+      this.clear();
+      return;
+    }
+    if (hover.intent?.kind === 'cell') {
+      const { cell } = hover.intent;
+      const targetId = hover.targetId;
+      try {
+        // One transaction, so one undo step: the move releases any cell the
+        // child held, and the patch names the new one.
+        this.store.transact(() => {
+          if (this.store.getNode(draggingId)?.membership?.parentId !== targetId) {
+            this.store.moveNode(draggingId, targetId);
+          }
+          this.store.patchPlacement(draggingId, { cell });
+        }, 'drop to cell');
+        trace('dnd', `drop: ${draggingId} → ${targetId} cell ${cell.col},${cell.row}`);
       } catch (err) {
         trace('dnd', `drop failed: ${(err as Error).message}`);
       }

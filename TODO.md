@@ -315,9 +315,9 @@ Decided in conversation and recorded nowhere else:
 - Excel's preset wants to be big enough to scroll with frozen headers; grid
   `sticky` now exists for it.
 
-Unbuilt, named by the design doc: a grid drop-to-cell hook. The Excel preset
-still trims its rows with `maxRows`; making it scroll behind grid `sticky`
-headings would need the Exotic grid story to give it a scrolling box. Also missing: a key that removes a container a drag empties, as
+Everything the design doc names is built. The Excel preset still trims its
+rows with `maxRows`; making it scroll behind grid `sticky` headings would need
+the Exotic grid story to give it a scrolling box. Also missing: a key that removes a container a drag empties, as
 Golden Layout removes an emptied stack. Without it, the `autoUnsplit` its
 translator sets on rows and columns fires on `unregisterNode` but never on a
 drag. Built
@@ -330,8 +330,7 @@ Open, grouped by what they touch:
 - **strip** — under `justify: 'between'` only the first seam follows the
   pointer, since every pane's size moves every gap; `resizeMode: 'neighbor'`
   is the answer today.
-- **grid** — dropping onto a specific empty cell needs a strategy drop hook;
-  capacity by width under fixed cells; vertical align; pinned vs celled
+- **grid** — capacity by width under fixed cells; vertical align; pinned vs celled
   priority. Flowed items under a row cap are still slow in resize reach; the
   celled path is fixed (27s → 5ms).
 - **floating** — ignore an `Infinity` drag delta (only `NaN` is ignored now,

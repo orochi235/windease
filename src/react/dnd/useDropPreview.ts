@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { LayoutPreview, NodeId, Rect } from '../../index.js';
-import { elementScale, toLocalPoint } from '../../index.js';
+import { layoutPointIn } from '../../view-dom.js';
 import { DragContext } from './DragProvider.js';
 
 /** What a prospective split draws. See `<Container splitPreview>`. */
@@ -77,6 +77,7 @@ export function useDropPreview(
       insertId: dragState.draggingId,
       ...(hover.insertIndex !== undefined ? { insertIndex: hover.insertIndex } : {}),
       cursor: localCursor(dragState.cursor, boxRef?.current ?? null),
+      ...(hover.intent?.kind === 'cell' ? { cell: hover.intent.cell } : {}),
       ...(laidOut && split ? { split } : {}),
     },
     sourceId: dragState.draggingId,
@@ -91,9 +92,7 @@ export function useDropPreview(
  * under a view those differ by the box's offset and scale.
  */
 function localCursor(cursor: { x: number; y: number }, box: Element | null) {
-  if (!box) return cursor;
-  const r = box.getBoundingClientRect();
-  return toLocalPoint(cursor, { x: r.left, y: r.top }, elementScale(box));
+  return box ? layoutPointIn(cursor, box) : cursor;
 }
 
 const CHILD_BASE: CSSProperties = { position: 'absolute' };

@@ -2,12 +2,12 @@
 
 For whoever extends windease's layout vocabulary, and for anyone turning the Exotic presets into
 canned presets a consumer can load.
-**Status, 2026-10-15, read from the code: every key in the phase table is built. Unbuilt:
-dropping a child onto a chosen grid cell. Grid `sticky` is built, but the Excel preset still trims
+**Status, 2026-10-15, read from the code: every key in the phase table is built, and so is
+dropping a child onto a chosen grid cell (`drop.cell`, which the Grafana preset sets). Grid `sticky` is built, but the Excel preset still trims
 its rows rather than scrolling them; the Frozen headers grid story is the scrolling sheet. `placement.share` takes an
 axis, and composite config nests under `inner`. `allowsPinning` and `autoUnsplit` on a preset node are
 built; Emacs's main split and Golden Layout's rows and columns set `autoUnsplit`. No
-preset sets `zoom`, `drop`, pages, stack `tabs: 'stacked'` or floating `snap: 'fill'` yet. The
+preset sets `zoom`, `drop.stack` / `drop.split`, pages, stack `tabs: 'stacked'` or floating `snap: 'fill'` yet. The
 Firefox and Win 10 presets set `reorder`; every other grid preset, and the Exotic tree and desktop
 stories, still wrap their tiles, panes and palette tabs in `DragHandle`.** The phase table at the end is the record of what exists.
 
@@ -94,7 +94,7 @@ These are config or placement keys on one strategy each.
 
 | Capability | Key | Strategy | Presets |
 |---|---|---|---|
-| Explicit cell | `placement.cell: { col, row }` (built for layout; a move or reorder clears it, and nothing drops a child onto a chosen cell) | grid | Grafana, Android, periodic table, iOS 18 |
+| Explicit cell | `placement.cell: { col, row }` (built; a move or reorder clears it, and `drop.cell` drops a child onto the empty cell under the pointer) | grid | Grafana, Android, periodic table, iOS 18 |
 | Fixed-size cells, spaced out | `cell: { w, h }`, `justify` | grid | iOS dock, Win 8, Launchpad |
 | Fractional sizes that survive a resize | `placement.share` — `{ w?, h? }` like `size`, or a bare number read on either axis (built) | strip | i3, Golden Layout, Emacs, trading desk |
 | Leftover space placement | `justify: 'start' \| 'center' \| 'end' \| 'between'` | strip, grid, column | Firefox, Pinterest, iOS dock |
@@ -121,7 +121,7 @@ These are config or placement keys on one strategy each.
   reachable by drag: Golden Layout removes a stack emptied by a drag, and windease has no key
   that removes an emptied container.
 - Drop behavior now set by React props (`stackOnDrop`, `splitOnDrop`) moves into config as
-  `drop: { stack?, split? }`, so a preset can say a group stacks on drop. The props stay and win. Built; no preset sets it.
+  `drop: { stack?, split?, cell? }`, so a preset can say a group stacks on drop. The props stay and win. Built; only Grafana's preset sets it, as `cell`.
 - Per-view state (page) lives in container `state`, which snapshots already carry. Scroll and
   pan/zoom are the exception: they live on `ContainerHost`, because `state` belongs to the
   strategy (`setStrategy` drops it, `reduce` replaces it) and a fitted view is a fact about the
@@ -135,7 +135,7 @@ These are config or placement keys on one strategy each.
 
 | Phase | Contents | Status |
 |---|---|---|
-| 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `drop` config; `placement.share`; grid `cell`, fixed cells, `justify`; child templates | built. Grid `cell` is read by layout only: a move or reorder clears it, and nothing drops a child onto a chosen cell. No preset sets `drop` |
+| 1 | Mechanics/data split and tabs; `drag`, `raise`, minimize toggle, `clamp`, `overflow` (desktop); `show`, `fallback` (stack); `accepts`; `drop` config; `placement.share`; grid `cell`, fixed cells, `justify`; child templates | built. Grid `cell`: a move or reorder clears it, and `drop.cell` drops onto a chosen cell. Only Grafana's preset sets `drop`, as `drop.cell` |
 | 2 | `tear`, `zoom`, `view` (pan/zoom, desktop fit), `sticky`, `step`, `overshoot`, `layer`, `resize` | built: `view`, `fit`, `tear`, `layer` (desktop, floating), `resize` (desktop), `step`, `overshoot`, `zoom` and `sticky` (strip and grid). No preset sets `zoom` |
 | 3 | Grid tracks, `compact`; `reorder`; stack `tabs`/`side`; desktop `iconFrom`, `wrap`; floating `snap`; `strict` split | built. The Firefox and Win 10 presets set `reorder`. No preset sets stack `tabs: 'stacked'` or `side`, or `snap: 'fill'` |
 | 4 | Packer `rotate`/`sort`/height bound; `hints.aspect`; `justified` strategy; product-look CSS for every preset | built: packer `rotate`, `sort`, height bound (`overflowMode: 'unplaced'`), column `cols`/`justify`, `hints.aspect`, `justified`, product-look CSS for every preset |

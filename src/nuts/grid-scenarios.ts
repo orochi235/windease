@@ -722,7 +722,16 @@ export const PRESETS: Preset[] = [
         kind: 'group',
         strategy: 'grid',
         // Panels float up into free rows, and a growing one pushes the ones below down.
-        config: { cols: 24, gap: 8, padding: 8, cell: { h: 30 }, resizable: true, compact: 'up' },
+        config: {
+          cols: 24,
+          gap: 8,
+          padding: 8,
+          cell: { h: 30 },
+          resizable: true,
+          compact: 'up',
+          // A dragged panel keeps the column it is dropped in; compact floats it up.
+          drop: { cell: true },
+        },
       },
       data: {
         nodes: titles({ dashboard: 'Node Exporter Full' }),

@@ -65,6 +65,7 @@ import { useStore } from './Provider.js';
 import { ResizeGestureContext } from './resize-gesture.js';
 import { useOptionalStrategyRegistry } from './strategies.js';
 import {
+  type ContainerLayout,
   collapsedStyle,
   DEFAULT_SETTLE_MS,
   FITTED_BOX,
@@ -169,7 +170,10 @@ function defined<T extends Record<string, unknown>>(obj: T): Partial<T> {
 /** Collects a preset's drop-related props into the bag `PresetShell` forwards
  *  to `useDropIntentTarget` — one place a new drop prop or preset variant has
  *  to reach, instead of four call sites that can silently diverge. */
-function dropBag(props: CommonBindingProps, hostsLayout?: boolean): PresetShellProps['drop'] {
+function dropBag(
+  props: CommonBindingProps,
+  layout?: Pick<ContainerLayout, 'cellAt'>,
+): PresetShellProps['drop'] {
   return defined({
     stackOnDrop: props.stackOnDrop,
     splitOnDrop: props.splitOnDrop,
@@ -177,7 +181,8 @@ function dropBag(props: CommonBindingProps, hostsLayout?: boolean): PresetShellP
     acceptPolicy: props.acceptPolicy,
     scrollRef: props.scrollRef,
     edgeScroll: props.edgeScroll,
-    hostsLayout,
+    hostsLayout: layout ? true : undefined,
+    cellAt: layout?.cellAt,
   });
 }
 
@@ -418,7 +423,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
       testId={props['data-testid']}
       innerRef={ref}
       acceptsDrops={props.acceptsDrops}
-      drop={dropBag(props, true)}
+      drop={dropBag(props, layout)}
       measure={props.measure}
       joinArmedId={joinArmedId}
       preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
@@ -680,7 +685,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         sort={props.sort}
         innerRef={ref}
         acceptsDrops={props.acceptsDrops}
-        drop={dropBag(props, true)}
+        drop={dropBag(props, layout)}
         measure={props.measure}
         joinArmedId={joinArmedId}
         preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
@@ -765,6 +770,8 @@ interface PresetShellProps {
         /** A strategy places these children. Without one, CSS does, and the
          *  axis is read off the arrangement rather than the config. */
         hostsLayout?: boolean | undefined;
+        /** The free cell under a layout-pixel point, read under `drop.cell`. */
+        cellAt?: ContainerLayout['cellAt'] | undefined;
       }
     | undefined;
   /** Wraps this preset's content in a measurement box reporting its natural
@@ -829,6 +836,7 @@ function PresetShell({
     stackOnDrop: drop?.stackOnDrop ?? dropCfg.stack === true,
     splitOnDrop: drop?.splitOnDrop ?? dropCfg.split === true,
     ...(drop?.dropIntent ? { dropIntent: drop.dropIntent } : {}),
+    ...(drop?.cellAt && dropCfg.cell === true ? { cellAt: drop.cellAt } : {}),
     ...(drop?.acceptPolicy ? { acceptPolicy: drop.acceptPolicy } : {}),
     ...(drop?.scrollRef ? { scrollRef: drop.scrollRef } : {}),
     ...(drop?.edgeScroll ? { edgeScroll: drop.edgeScroll } : {}),

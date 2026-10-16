@@ -74,6 +74,27 @@ test.describe('grid placement.cell — periodic table', () => {
   });
 });
 
+test.describe('grid drop.cell — periodic table', () => {
+  test('a drag lands in the empty cell under the pointer, keeping it', async ({ page }) => {
+    await openStory(page, TABLE);
+    await page.getByTestId('cell-drop').check();
+    const be = await settledBox(element(page, 'be'));
+    const from = centerOf(await settledBox(element(page, 'o')));
+    // The middle of group 8 of period 2, six cells right of Be.
+    const to = { x: be.x + 6 * (be.w + 4) + be.w / 2, y: be.y + be.h / 2 };
+    await dragMouse(page, from, to);
+
+    await expect
+      .poll(async () => {
+        const o = await boxOf(element(page, 'o'));
+        return Math.round((o.x - be.x) / (be.w + 4));
+      })
+      .toBe(6);
+    expect(Math.abs((await settledBox(element(page, 'o'))).y - be.y)).toBeLessThan(1);
+    await expect(page.getByTestId('unplaced')).toHaveText('Unplaced: none');
+  });
+});
+
 const DOCK = 'grid--dock';
 
 function zoneOf(page: Page, nodeId: string) {

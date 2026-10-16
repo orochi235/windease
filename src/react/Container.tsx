@@ -370,6 +370,7 @@ function StoreContainer({
     stackOnDrop: stackOnDrop ?? dropCfg.stack === true,
     splitOnDrop: splitOnDrop ?? dropCfg.split === true,
     ...(dropIntent ? { dropIntent } : {}),
+    ...(dropCfg.cell === true ? { cellAt: layout.cellAt } : {}),
     ...(scrollRef ? { scrollRef } : {}),
     ...(acceptPolicy ? { acceptPolicy } : {}),
     ...(edgeScroll ? { edgeScroll } : {}),
