@@ -11,6 +11,7 @@ import type {
 } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import { trace } from '../trace.js';
+import { innerConfig } from './inner-config.js';
 
 /** Where a child's page comes from: its own `placement.page`, or the order
  *  children fill pages in. */
@@ -45,10 +46,7 @@ const PAGE_PREFIX = 'page:';
 
 const isOwn = (affordanceId: string) => affordanceId.startsWith(PAGE_PREFIX);
 
-function innerOptions(options: Record<string, unknown>): Record<string, unknown> {
-  const inner = (options as PageConfig).inner;
-  return inner && typeof inner === 'object' ? inner : {};
-}
+const innerOptions = (options: unknown) => innerConfig(options, false);
 
 function barSize(cfg: PageConfig): number {
   const bar = cfg.bar;
@@ -228,7 +226,7 @@ export function pageStrategy<TInner>(
       pages: 'number',
       bar: 'number',
       barSide: BAR_SIDES,
-      inner: 'object',
+      inner: inner.configSpec ?? 'object',
     },
 
     initialState(items, options = {}) {

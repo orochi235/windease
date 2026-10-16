@@ -11,6 +11,7 @@ import type {
 import { asNodeId } from '../node.js';
 import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
+import { compositeSpec, innerConfig } from './inner-config.js';
 import { itemSize, itemWant } from './item-place.js';
 import { onTopLayer } from './layer.js';
 
@@ -481,27 +482,30 @@ export function desktopStrategy<TInner>(
   return {
     name: inner ? `desktop(${inner.name})` : 'desktop',
 
-    configSpec: {
-      ...(inner?.configSpec ?? {}),
-      minimize: DESKTOP_MINIMIZE,
-      shadeHeight: 'number',
-      iconWidth: 'number',
-      iconHeight: 'number',
-      cascade: 'number',
-      raise: RAISE_MODES,
-      drag: DESKTOP_DRAG,
-      handleSize: 'number',
-      clamp: DESKTOP_CLAMP,
-      overflow: DESKTOP_OVERFLOW,
-      minimizable: 'boolean',
-      resize: 'boolean',
-      edgeSize: 'number',
-      iconFrom: DESKTOP_ICON_FROM,
-      wrap: 'boolean',
-    },
+    ...compositeSpec(
+      {
+        minimize: DESKTOP_MINIMIZE,
+        shadeHeight: 'number',
+        iconWidth: 'number',
+        iconHeight: 'number',
+        cascade: 'number',
+        raise: RAISE_MODES,
+        drag: DESKTOP_DRAG,
+        handleSize: 'number',
+        clamp: DESKTOP_CLAMP,
+        overflow: DESKTOP_OVERFLOW,
+        minimizable: 'boolean',
+        resize: 'boolean',
+        edgeSize: 'number',
+        iconFrom: DESKTOP_ICON_FROM,
+        wrap: 'boolean',
+      },
+      inner,
+    ),
 
     initialState(items, options) {
-      return { inner: inner?.initialState?.(layers(items, options, hasInner).icons, options) };
+      const icons = layers(items, options, hasInner).icons;
+      return { inner: inner?.initialState?.(icons, innerConfig(options, true)) };
     },
 
     layout({ items, container, state, options, preview }) {
@@ -510,7 +514,12 @@ export function desktopStrategy<TInner>(
       const { icons, windows } = layers(items, options, hasInner);
 
       const mirror = mirrorOf(cfg);
-      const innerInput = { items: icons, container, state: state.inner as TInner, options };
+      const innerInput = {
+        items: icons,
+        container,
+        state: state.inner as TInner,
+        options: innerConfig(options, true),
+      };
       const innerPreview = preview && {
         ...preview,
         cursor: flipPoint(preview.cursor, mirror, container),
@@ -597,6 +606,7 @@ export function desktopStrategy<TInner>(
         const mirror = mirrorOf(ctx.options as DesktopConfig);
         inner.dispatchAffordance({
           ...ctx,
+          options: innerConfig(ctx.options, true),
           items,
           event: flipEvent(event, mirror, ctx.container),
           affordance: { ...affordance, rect: flipRect(affordance.rect, mirror, ctx.container) },
@@ -650,13 +660,17 @@ export function desktopStrategy<TInner>(
       );
       return {
         ...state,
-        inner: inner.reduce(state.inner as TInner, flipped, { ...context, items }),
+        inner: inner.reduce(state.inner as TInner, flipped, {
+          ...context,
+          items,
+          options: innerConfig(context.options, true),
+        }),
       };
     },
 
     canAccept(items, options) {
       if (!inner?.canAccept) return true;
-      return inner.canAccept(layers(items, options, hasInner).icons, options);
+      return inner.canAccept(layers(items, options, hasInner).icons, innerConfig(options, true));
     },
 
     navigate(input) {
@@ -667,6 +681,7 @@ export function desktopStrategy<TInner>(
       const across = direction === 'left' || direction === 'right' ? mirror?.x : mirror?.y;
       return inner.navigate({
         ...input,
+        options: innerConfig(input.options, true),
         items,
         direction: across ? OPPOSITE[direction] : direction,
       });

@@ -9,6 +9,7 @@ import type {
 } from '../layout-types.js';
 import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
+import { compositeSpec, innerConfig } from './inner-config.js';
 import { onTopLayer } from './layer.js';
 
 /** The four corners a floating item can anchor to. */
@@ -280,22 +281,24 @@ export function floatingStrategy<TInner>(
   return {
     name: inner ? `floating(${inner.name})` : 'floating',
 
-    configSpec: {
-      ...(inner?.configSpec ?? {}),
-      inset: 'number',
-      snapThreshold: 'number',
-      handleSize: 'number',
-      snapToPanes: 'boolean',
-      snap: FLOATING_SNAP,
-      defaultAnchor: FLOATING_CORNERS,
-      raise: RAISE_MODES,
-    },
+    ...compositeSpec(
+      {
+        inset: 'number',
+        snapThreshold: 'number',
+        handleSize: 'number',
+        snapToPanes: 'boolean',
+        snap: FLOATING_SNAP,
+        defaultAnchor: FLOATING_CORNERS,
+        raise: RAISE_MODES,
+      },
+      inner,
+    ),
 
     initialState(items, options) {
       const at: Record<string, FloatingPlacement> = {};
       for (const item of items) if (floats(item)) at[item.id] = seed(options);
       const tiled = items.filter((i) => !floats(i));
-      return { at, inner: inner?.initialState?.(tiled, options) };
+      return { at, inner: inner?.initialState?.(tiled, innerConfig(options, true)) };
     },
 
     layout({ items, container, state, options, preview }) {
@@ -305,7 +308,12 @@ export function floatingStrategy<TInner>(
       const floating = items.filter(floats);
       const tiled = items.filter((i) => !floats(i));
 
-      const innerInput = { items: tiled, container, state: state.inner as TInner, options };
+      const innerInput = {
+        items: tiled,
+        container,
+        state: state.inner as TInner,
+        options: innerConfig(options, true),
+      };
       const result: LayoutResult<string> = inner
         ? inner.layout(preview ? { ...innerInput, preview } : innerInput)
         : { placements: new Map(), affordances: [] };
@@ -354,7 +362,13 @@ export function floatingStrategy<TInner>(
     reduce(state, event, context) {
       if (!event.affordanceId.startsWith(FLOATING_DRAG_PREFIX)) {
         if (!inner?.reduce) return state;
-        return { ...state, inner: inner.reduce(state.inner as TInner, event, context) };
+        return {
+          ...state,
+          inner: inner.reduce(state.inner as TInner, event, {
+            ...context,
+            options: innerConfig(context.options, true),
+          }),
+        };
       }
 
       const id = event.affordanceId.slice(FLOATING_DRAG_PREFIX.length);
@@ -382,7 +396,7 @@ export function floatingStrategy<TInner>(
               items: context.items.filter((i) => !isFloating(i)),
               container: context.container,
               state: state.inner as TInner,
-              options: context.options,
+              options: innerConfig(context.options, true),
             }).placements
           : undefined;
       if (fill) {
@@ -428,13 +442,17 @@ export function floatingStrategy<TInner>(
       if (!inner?.canAccept) return true;
       return inner.canAccept(
         items.filter((i) => !isFloating(i)),
-        options,
+        innerConfig(options, true),
       );
     },
 
     navigate(input) {
       if (!inner?.navigate) return undefined;
-      return inner.navigate({ ...input, items: input.items.filter((i) => !isFloating(i)) });
+      return inner.navigate({
+        ...input,
+        options: innerConfig(input.options, true),
+        items: input.items.filter((i) => !isFloating(i)),
+      });
     },
 
     float: {

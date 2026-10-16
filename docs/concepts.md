@@ -452,7 +452,8 @@ Built-ins:
 - **`floatingStrategy(inner?)`** — wraps another strategy. Items whose
   `meta.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
-  `handleSize`, `snapToPanes`, `snap`. Called with no argument, everything
+  `handleSize`, `snapToPanes`, `snap`, and `inner`'s own config under `inner`
+  (or flat beside these, the older form). Called with no argument, everything
   floats. `snap: 'fill'` replaces corner snapping with FancyZones' zones: an
   item dragged over a pane of `inner` fills it, and its state entry in `at`
   records the pane as `fill`. Its `x` / `y` stay its free position at its own
@@ -465,7 +466,8 @@ Built-ins:
   a window, or with `minimize: 'icon'` hands it to `inner` beside the items
   marked `icon`, which sit at `z` 0. Config: `minimize`, `shadeHeight`,
   `iconWidth`, `iconHeight`, `cascade`, `drag`, `handleSize`, `clamp`, `overflow`, `minimizable`,
-  `resize`, `edgeSize`, `iconFrom`, `wrap`. Keeps no state of its own; with `drag` set it emits a
+  `resize`, `edgeSize`, `iconFrom`, `wrap`, and the icon layer's config under
+  `inner` (or flat, as with floating). Keeps no state of its own; with `drag` set it emits a
   title-band drag affordance per window that writes placement `x` / `y`, with
   `minimizable` a `click` affordance that flips `minimized`, and with `resize`
   edge and corner affordances that write `size` (and `x` / `y` from the left and

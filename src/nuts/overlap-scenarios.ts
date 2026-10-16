@@ -126,10 +126,7 @@ export const MACOS9_WINDOWSHADE: Preset = {
       minimize: 'shade',
       shadeHeight: BAR,
       // The disks and Trash, one column down the right edge.
-      cols: 1,
-      cell: { w: 64, h: 64 },
-      gap: 12,
-      padding: 12,
+      inner: { cols: 1, cell: { w: 64, h: 64 }, gap: 12, padding: 12 },
       iconFrom: 'top-right',
       drag: true,
       handleSize: BAR,
@@ -238,8 +235,7 @@ export const WIN31_ICONS: Preset = {
       minimize: 'icon',
       iconWidth: 72,
       iconHeight: 56,
-      gap: 4,
-      padding: 4,
+      inner: { gap: 4, padding: 4 },
       iconFrom: 'bottom-left',
       drag: true,
       handleSize: BAR,
@@ -598,7 +594,12 @@ export const PHOTOSHOP_PANELS: Preset = {
     kind: 'zone',
     strategy: 'floating-strip',
     // Takes panels torn out of the dock, and nothing else.
-    config: { axis: 'x', fill: true, handleSize: 22, defaultAnchor: 'top-left', accepts: 'tear' },
+    config: {
+      inner: { axis: 'x', fill: true },
+      handleSize: 22,
+      defaultAnchor: 'top-left',
+      accepts: 'tear',
+    },
     children: [
       { id: 'ps-canvas', kind: 'canvas' },
       {
@@ -682,7 +683,12 @@ export const FANCYZONES: Preset = {
     id: 'fz-desktop',
     kind: 'zone',
     strategy: 'floating-grid',
-    config: { cols: 3, gap: 8, padding: 8, snapToPanes: true, snapThreshold: 24, handleSize: 24 },
+    config: {
+      inner: { cols: 3, gap: 8, padding: 8 },
+      snapToPanes: true,
+      snapThreshold: 24,
+      handleSize: 24,
+    },
     children: [
       { id: 'fz-zone-left', kind: 'snap-zone' },
       { id: 'fz-zone-center', kind: 'snap-zone' },
@@ -744,8 +750,7 @@ export const TWM_ICON_MANAGER: Preset = {
       minimize: 'icon',
       iconWidth: 160,
       iconHeight: 20,
-      gap: 0,
-      padding: 0,
+      inner: { gap: 0, padding: 0 },
       drag: true,
       handleSize: BAR,
       raise: 'click',

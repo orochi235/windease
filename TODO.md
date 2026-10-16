@@ -315,8 +315,7 @@ Decided in conversation and recorded nowhere else:
 - Excel's preset wants to be big enough to scroll with frozen headers, which
   needs grid `sticky`.
 
-Unbuilt, named by the design doc: grid `sticky`; a grid drop-to-cell hook;
-composite config nested under `inner`. Also missing: a key that removes a container a drag empties, as
+Unbuilt, named by the design doc: grid `sticky`; a grid drop-to-cell hook. Also missing: a key that removes a container a drag empties, as
 Golden Layout removes an emptied stack. Without it, the `autoUnsplit` its
 translator sets on rows and columns fires on `unregisterNode` but never on a
 drag. Built

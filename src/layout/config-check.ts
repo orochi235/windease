@@ -11,18 +11,22 @@
 import { CONTAINER_CONFIG_KEYS } from '../container-config.js';
 
 /** What one config key accepts: a primitive type, a plain object (whose keys
- *  the strategy checks itself), or the set of allowed values. A set may mix
- *  strings and booleans, for a key like `drag: true | 'x' | 'y'`. */
+ *  the strategy checks itself), the set of allowed values, or a nested spec
+ *  checked key by key, as a composite's `inner` is. A set may mix strings and
+ *  booleans, for a key like `drag: true | 'x' | 'y'`. */
 export type ConfigFieldSpec =
   | 'number'
   | 'boolean'
   | 'string'
   | 'object'
-  | readonly (string | boolean)[];
+  | readonly (string | boolean)[]
+  | ConfigSpec;
 
 /** Every key a strategy understands. Keys absent from the config are fine —
  *  strategy config is optional throughout. */
-export type ConfigSpec = Readonly<Record<string, ConfigFieldSpec>>;
+export interface ConfigSpec {
+  readonly [key: string]: ConfigFieldSpec;
+}
 
 /**
  * A relationship between config keys that {@link ConfigSpec} cannot express,
@@ -91,7 +95,7 @@ function isPlainObject(value: unknown): boolean {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function describe(spec: ConfigFieldSpec): string {
+function describe(spec: readonly (string | boolean)[] | string): string {
   return Array.isArray(spec)
     ? spec.map((v) => (typeof v === 'string' ? `'${v}'` : String(v))).join(' | ')
     : String(spec);
@@ -110,21 +114,44 @@ export function checkStrategyConfig(
   spec: ConfigSpec,
   conflicts?: readonly ConfigConflict[],
 ): string[] {
+  return checkKeys(strategyName, config, spec, conflicts, '');
+}
+
+function checkKeys(
+  strategyName: string,
+  config: unknown,
+  spec: ConfigSpec,
+  conflicts: readonly ConfigConflict[] | undefined,
+  prefix: string,
+): string[] {
   if (typeof config !== 'object' || config === null || Array.isArray(config)) return [];
-  const known = [...Object.keys(spec), ...CONTAINER_CONFIG_KEYS];
+  // Container-level keys belong to the container, not to a nested strategy.
+  const top = prefix === '';
+  const known = [...Object.keys(spec), ...(top ? CONTAINER_CONFIG_KEYS : [])];
   const problems: string[] = [];
 
-  for (const [key, value] of Object.entries(config as Record<string, unknown>)) {
+  for (const [name, value] of Object.entries(config as Record<string, unknown>)) {
     if (value === undefined) continue;
-    const field = spec[key];
-    if (field === undefined && CONTAINER_CONFIG_KEYS.has(key)) continue;
+    const key = `${prefix}${name}`;
+    const field = spec[name];
+    if (field === undefined && top && CONTAINER_CONFIG_KEYS.has(name)) continue;
     if (field === undefined) {
-      const near = nearestKey(key, known);
+      const near = nearestKey(name, known);
       problems.push(
         near
-          ? `${strategyName}: unknown config key '${key}' — did you mean '${near}'?`
+          ? `${strategyName}: unknown config key '${key}' — did you mean '${prefix}${near}'?`
           : `${strategyName}: unknown config key '${key}'`,
       );
+      continue;
+    }
+    if (typeof field === 'object' && !Array.isArray(field)) {
+      if (!isPlainObject(value)) {
+        problems.push(
+          `${strategyName}: config '${key}' is ${article(kindOf(value))}, expected an object`,
+        );
+      } else {
+        problems.push(...checkKeys(strategyName, value, field as ConfigSpec, undefined, `${key}.`));
+      }
       continue;
     }
     if (Array.isArray(field)) {

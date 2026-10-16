@@ -57,7 +57,7 @@ function makeStore(size: Size): Store {
         strategyId: 'floating-strip',
         // Takes only tabs torn out of the stack: a floating panel dropped on
         // the canvas is not a move.
-        config: { axis: 'x', fill: true, handleSize: 24, accepts: 'tear' },
+        config: { inner: { axis: 'x', fill: true }, handleSize: 24, accepts: 'tear' },
       },
     }),
   );

@@ -3,8 +3,8 @@
 For whoever extends windease's layout vocabulary, and for anyone turning the Exotic presets into
 canned presets a consumer can load.
 **Status, 2026-10-15, read from the code: every key in the phase table is built except grid
-`sticky`. Also unbuilt: dropping a child onto a chosen grid cell, and inner config nested under
-`inner`. `placement.share` takes an axis. `allowsPinning` and `autoUnsplit` on a preset node are
+`sticky`. Also unbuilt: dropping a child onto a chosen grid cell. `placement.share` takes an
+axis, and composite config nests under `inner`. `allowsPinning` and `autoUnsplit` on a preset node are
 built; Emacs's main split and Golden Layout's rows and columns set `autoUnsplit`. No
 preset sets `zoom`, `drop`, pages, stack `tabs: 'stacked'` or floating `snap: 'fill'` yet. The
 Firefox and Win 10 presets set `reorder`; every other grid preset, and the Exotic tree and desktop
@@ -127,8 +127,8 @@ These are config or placement keys on one strategy each.
   screen, not the document. `zoom` is config instead, like stack's `activeId`: it names which
   child shows.
 - Inner strategy config separates from the wrapper's: `desktop-shelf`'s `gap` belongs to shelf.
-  Composite ids stay; their config nests under `inner`. Unbuilt: a composite still reads one flat
-  config, the inner strategy's keys beside its own.
+  Composite ids stay; their config nests under `inner` (built, with the flat form still read when
+  `inner` is absent).
 
 ## Phases
 

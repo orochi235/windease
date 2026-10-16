@@ -10,6 +10,14 @@ section below.
 
 ### Added
 
+- **Composite config nests under `inner`.** `floatingStrategy(inner)` and
+  `desktopStrategy(inner)` hand `config.inner` to the strategy they wrap, as
+  `pageStrategy` already did, so `{ inner: { gap: 4 } }` is the shelf's gap
+  and not the desktop's. A config with no `inner` still works flat. The config
+  check now reads nested specs: a typo under `inner` is traced as
+  `inner.gapp`, and a flat inner key beside `inner` as ignored. The composite
+  presets and the Tear-out story use the nested form.
+
 - **`autoUnsplit` at registration, and in presets.** `createNode`'s `container`
   takes `autoUnsplit`, and a `PresetNode` takes `autoUnsplit` and
   `allowsPinning`. The Emacs preset's main split collapses when a window is

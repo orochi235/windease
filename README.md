@@ -1502,6 +1502,14 @@ store.patchPlacement(panelId, { floating: true, snapCorners: ['bottom-left', 'bo
 | `handleSize` | `0` | height of the drag band; `0` makes the whole item the handle |
 | `snapToPanes` | `false` | also snap to the corners of the panes the inner strategy placed |
 | `snap` | `'corner'` | `'fill'` makes a dropped item fill the pane under the pointer instead |
+| `inner` | — | the inner strategy's own config, such as `{ cols: 3, gap: 8 }` for a grid |
+
+The inner strategy's keys go under `inner`, so they cannot collide with the
+wrapper's and are checked against the inner strategy's own spec, a typo there
+traced as `inner.gapp`. A config with no `inner` hands the inner strategy the
+whole flat config, as before; beside `inner`, a flat inner key is ignored, and
+traced as such. `desktopStrategy(inner)` reads its icon layer's config the same
+way.
 
 Snapping is live during the drag — there is no drag-end event — so the item
 follows the pointer, sticks on reaching a corner, and lets go once the pointer
@@ -1612,6 +1620,7 @@ element being pressed.
 | `edgeSize` | `6` | thickness of the edges `resize` grabs; corners are twice it |
 | `wrap` | off | `true` restarts the cascade at the top left once the next window would leave the desktop |
 | `iconFrom` | `'top-left'` | the corner the icon layer fills from: `'top-left'`, `'bottom-left'`, `'top-right'` or `'bottom-right'` |
+| `inner` | — | the icon layer's config, such as `{ gap: 4, padding: 4 }` for a shelf; see [Floating chrome](#floating-chrome-over-a-tiled-zone) for the flat form |
 
 With no `inner` there is no icon layer: icons are unplaced, and `minimize: 'icon'`
 shades instead, with a `layout` trace.
