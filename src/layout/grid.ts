@@ -6,6 +6,7 @@ import type {
   LayoutStrategy,
   PlacedRect,
   Size,
+  StickyInset,
 } from '../layout-types.js';
 import { trace } from '../trace.js';
 
@@ -1275,6 +1276,77 @@ function pixelTotal(tracks: Track[]): number {
 }
 
 /** The seams of a tracked axis, one after each track that has one. */
+/** Which axes a cell's `placement.sticky` holds it on: `'y'` at the top edge
+ *  (a column heading), `'x'` at the left (a row number), `true` both. */
+function stickyAxes(item: LayoutItem): { x: boolean; y: boolean } | undefined {
+  const v = item.meta?.sticky;
+  if (v === true) return { x: true, y: true };
+  if (v === 'x') return { x: true, y: false };
+  if (v === 'y') return { x: false, y: true };
+  return undefined;
+}
+
+/** Each sticky track's inset from the visible leading edge: the sticky tracks
+ *  before it stacked from the first track's start, as strip stacks its panes. */
+function stickyInsets(tracks: ReadonlySet<number>, axis: Axis): Map<number, number> {
+  const out = new Map<number, number>();
+  let at = axis.start(0);
+  for (const i of [...tracks].sort((a, b) => a - b)) {
+    out.set(i, at);
+    at += axis.size(i) + axis.gap;
+  }
+  return out;
+}
+
+/**
+ * Where each `placement.sticky` cell sticks, keyed by id. Raises those cells
+ * above the ones that scroll under them (a cell sticky on both axes above
+ * those sticky on one), and makes the seam of a sticky track move with it.
+ */
+function stickCells(
+  items: LayoutItem[],
+  geom: GridGeometry,
+  placements: Map<string, PlacedRect>,
+  affordances: Affordance[],
+): Map<string, StickyInset> {
+  const marked: Array<[LayoutItem, ReservedCell, { x: boolean; y: boolean }]> = [];
+  const cols = new Set<number>();
+  const rows = new Set<number>();
+  for (const it of items) {
+    const axes = stickyAxes(it);
+    const cell = geom.cells.get(it.id);
+    if (!axes || !cell) continue;
+    marked.push([it, cell, axes]);
+    if (axes.x) cols.add(cell.col);
+    if (axes.y) rows.add(cell.row);
+  }
+  const out = new Map<string, StickyInset>();
+  if (marked.length === 0) return out;
+  const colAt = stickyInsets(cols, geom.x);
+  const rowAt = stickyInsets(rows, geom.y);
+  for (const [it, cell, axes] of marked) {
+    const inset: StickyInset = {};
+    if (axes.x) inset.x = colAt.get(cell.col) ?? 0;
+    if (axes.y) inset.y = rowAt.get(cell.row) ?? 0;
+    out.set(it.id, inset);
+    const rect = placements.get(it.id);
+    if (rect) placements.set(it.id, { ...rect, z: axes.x && axes.y ? 3 : 2 });
+  }
+  for (const a of affordances) {
+    const track = /^track-([xy])-(\d+)$/.exec(a.id);
+    if (!track) continue;
+    const i = Number(track[2]);
+    const across = track[1] === 'x';
+    const at = (across ? colAt : rowAt).get(i);
+    if (at === undefined) continue;
+    const start = (across ? geom.x : geom.y).start(i);
+    a.sticky = across ? { x: at + a.rect.x - start } : { y: at + a.rect.y - start };
+    a.rect = { ...a.rect, z: 2 };
+  }
+  trace('layout', `grid: ${out.size} sticky cells over ${cols.size} cols, ${rows.size} rows`);
+  return out;
+}
+
 function trackSeams(geom: GridGeometry, axis: 'cols' | 'rows', cfg: GridConfig): Affordance[] {
   const tracks = (axis === 'cols' ? geom.colTracks : geom.rowTracks) ?? [];
   const across = axis === 'cols' ? geom.y : geom.x;
@@ -1559,6 +1631,8 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     }
 
     const result: LayoutResult<string> = { placements, affordances };
+    const sticky = stickCells(items, geom, placements, affordances);
+    if (sticky.size > 0) result.sticky = sticky;
     if (geom.excessW > 0 || geom.excessH > 0) {
       result.overflow = { w: geom.excessW, h: geom.excessH };
     }

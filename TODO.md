@@ -312,10 +312,12 @@ Decided in conversation and recorded nowhere else:
   mechanics, in code and in the story tabs.
 - Desktop `overflow` defaults to `'scroll'`, today's behavior; presets opt into
   `'clip'`.
-- Excel's preset wants to be big enough to scroll with frozen headers, which
-  needs grid `sticky`.
+- Excel's preset wants to be big enough to scroll with frozen headers; grid
+  `sticky` now exists for it.
 
-Unbuilt, named by the design doc: grid `sticky`; a grid drop-to-cell hook. Also missing: a key that removes a container a drag empties, as
+Unbuilt, named by the design doc: a grid drop-to-cell hook. The Excel preset
+still trims its rows with `maxRows`; making it scroll behind grid `sticky`
+headings would need the Exotic grid story to give it a scrolling box. Also missing: a key that removes a container a drag empties, as
 Golden Layout removes an emptied stack. Without it, the `autoUnsplit` its
 translator sets on rows and columns fires on `unregisterNode` but never on a
 drag. Built

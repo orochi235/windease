@@ -593,6 +593,20 @@ A sticky pane sits where the row puts it until the scroll reaches it, and its
 seam moves with it. It draws above the panes that scroll under it, so give it
 an opaque background.
 
+A grid cell takes `sticky` too, per axis, the way Excel's Freeze Panes holds
+the column headings and row numbers:
+
+```ts
+store.patchPlacement(headingB, { sticky: 'y' }); // holds at the top
+store.patchPlacement(row12, { sticky: 'x' }); // holds at the left
+store.patchPlacement(corner, { sticky: true }); // both
+```
+
+Sticky rows stack in order, as sticky panes do, and so do sticky columns. A
+cell sticky on both axes draws above those sticky on one, and they draw above
+the rest. Under `tracks`, a sticky column's seam moves with it. See the
+**Frozen headers** grid story.
+
 The strategy never sees the scroll offset, so scrolling still doesn't re-run
 it. It reports each sticky pane's inset from the visible edge in
 `LayoutResult.sticky`, and the container shows the pane at

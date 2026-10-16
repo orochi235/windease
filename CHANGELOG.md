@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **Grid cells stick while the sheet scrolls.** A grid cell's
+  `placement.sticky` is `'y'` to hold at the top edge, `'x'` at the left, or
+  `true` for both, as Excel's frozen headings and row numbers do. Sticky
+  tracks stack in order, a sticky track's seam moves with it, and the cells
+  report through `LayoutResult.sticky` as a strip's sticky panes do. See the
+  **Frozen headers** grid story.
+
 - **Composite config nests under `inner`.** `floatingStrategy(inner)` and
   `desktopStrategy(inner)` hand `config.inner` to the strategy they wrap, as
   `pageStrategy` already did, so `{ inner: { gap: 4 } }` is the shelf's gap

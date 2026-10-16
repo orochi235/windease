@@ -1,7 +1,7 @@
 export default { title: 'Grid' };
 
 import type { Story } from '@ladle/react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { LayoutItem, NodeId } from '../../index.js';
 import { asNodeId, createNode, gridStrategy, gridTiling, Store } from '../../index.js';
 import {
@@ -757,4 +757,81 @@ FittedGrid.argTypes = {
   tileCount: { control: { type: 'range', min: 1, max: 16, step: 1 } },
   width: { control: { type: 'range', min: 160, max: 900, step: 20 } },
   height: { control: { type: 'range', min: 160, max: 700, step: 20 } },
+};
+
+const FROZEN = asNodeId('frozen-sheet');
+const FROZEN_COLS = 10;
+const FROZEN_ROWS = 30;
+const frozenLetter = (c: number) => String.fromCharCode(64 + c);
+
+function makeFrozenStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      id: FROZEN,
+      container: {
+        strategyId: 'grid',
+        config: {
+          cols: FROZEN_COLS,
+          gap: 1,
+          cell: { w: 64, h: 20 },
+          tracks: { cols: [32] },
+          overflowMode: 'scroll',
+        },
+      },
+    }),
+  );
+  for (let r = 0; r < FROZEN_ROWS; r++) {
+    for (let c = 0; c < FROZEN_COLS; c++) {
+      const id = asNodeId(`sheet-${r}-${c}`);
+      const sticky = r === 0 && c === 0 ? true : r === 0 ? 'y' : c === 0 ? 'x' : undefined;
+      const title = r === 0 ? (c === 0 ? '' : frozenLetter(c)) : c === 0 ? String(r) : '';
+      s.registerNode(
+        createNode({
+          kind: r === 0 || c === 0 ? 'heading' : 'sheet-cell',
+          id,
+          parentId: FROZEN,
+          meta: { title },
+          ...(sticky === undefined ? {} : { placement: { sticky } }),
+        }),
+      );
+      s.showNode(id);
+    }
+  }
+  return s;
+}
+
+const frozenChrome: ChromeMap = {
+  heading: ({ node }) => <div className="gc-sheet-heading">{String(node.meta?.title ?? '')}</div>,
+  'sheet-cell': () => <div className="gc-sheet-cell" />,
+};
+
+/**
+ * A spreadsheet with its headings frozen, as Excel's Freeze Panes does. Row 1
+ * sets `placement.sticky: 'y'` and holds at the top, column A sets `'x'` and
+ * holds at the left, and the corner sets `true` and holds at both.
+ */
+export const FrozenHeaders: Story = () => {
+  const store = useMemo(makeFrozenStore, []);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <div ref={scrollRef} className="gc-sheet-scroller" data-testid="sheet-scroller">
+          <Container
+            parentId={FROZEN}
+            chrome={frozenChrome}
+            viewport={{ w: 360, h: 200 }}
+            scrollRef={scrollRef}
+            className="windease-zone"
+          />
+        </div>
+        <p className="gc-hint">
+          Scroll the sheet either way. The column letters stay along the top, the row numbers down
+          the left, and the corner stays put.
+        </p>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
 };

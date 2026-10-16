@@ -139,3 +139,41 @@
   width: 640px;
   height: 480px;
 }
+
+.gc-sheet-scroller {
+  width: 360px;
+  height: 200px;
+  overflow: auto;
+  border: 1px solid #c8c8c8;
+  background: #e1e1e1;
+}
+
+.gc-sheet-heading,
+.gc-sheet-cell {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  font:
+    11px / 20px Calibri,
+    system-ui,
+    sans-serif;
+  text-align: center;
+}
+
+/* Opaque, since the body scrolls under it. */
+.gc-sheet-heading {
+  background: #f3f3f3;
+  color: #444;
+}
+
+.gc-sheet-cell {
+  background: #fff;
+}
+
+.gc-hint {
+  max-width: 360px;
+  font:
+    13px / 1.5 system-ui,
+    sans-serif;
+  color: #444;
+}
