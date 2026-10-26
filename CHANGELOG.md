@@ -140,6 +140,10 @@ section below.
 
 ### Fixed
 
+- **A docked tab forgets its float.** `dockNode`, and so a tab dropped back
+  on a tearable stack, now drops the tab from `floatingStrategy`'s saved
+  corners and gives back the `preferredSize` the tear replaced. A strategy's
+  `float` hook can carry a `release` for its own state.
 - **A raised child stays on top in a declarative `<Zone>`.** A zone whose
   config sets `raise` keeps its store order the way a `reorder` zone does,
   where the next render used to put the raised child back in JSX order.

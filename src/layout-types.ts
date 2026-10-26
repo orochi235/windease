@@ -617,4 +617,7 @@ export interface FloatHook<TState = unknown> {
     state: TState;
     options: Record<string, unknown>;
   }): { placement: Record<string, unknown>; state?: TState };
+  /** The container's next state once child `id` docks out of it, for a
+   *  strategy that keeps positions there. Pure. */
+  release?(input: { id: string; state: TState }): TState;
 }

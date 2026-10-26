@@ -461,6 +461,11 @@ export function floatingStrategy<TInner>(
         placement: { floating: true },
         state: { ...state, at: { ...state.at, [id]: { x: at.x, y: at.y, anchor: null } } },
       }),
+      release: ({ id, state }) => {
+        if (!(id in state.at)) return state;
+        const { [id]: _gone, ...at } = state.at;
+        return { ...state, at };
+      },
     },
   };
 }

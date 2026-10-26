@@ -154,6 +154,42 @@ describe('dockNode', () => {
     expect(s.getPlacement(id('a'))).toEqual({});
   });
 
+  it("drops the child from the floating parent's saved positions", () => {
+    const s = makeStore();
+    floatNode(s, floating as never, id('a'), ROOT, { at: { x: 10, y: 10 } });
+    expect((s.getContainerState(ROOT) as FloatingState).at).toHaveProperty('a');
+    dockNode(s, id('a'), STACK, { from: floating as never });
+    expect((s.getContainerState(ROOT) as FloatingState).at).not.toHaveProperty('a');
+  });
+
+  it('gives back the preferredSize the float replaced', () => {
+    const s = makeStore();
+    s.setHints(id('a'), { preferredSize: { w: 80, h: 60 } });
+    floatNode(s, floating as never, id('a'), ROOT, {
+      at: { x: 0, y: 0 },
+      size: { w: 300, h: 200 },
+    });
+    expect(s.getNode(id('a'))?.hints?.preferredSize).toEqual({ w: 300, h: 200 });
+    dockNode(s, id('a'), STACK, { from: floating as never });
+    expect(s.getNode(id('a'))?.hints?.preferredSize).toEqual({ w: 80, h: 60 });
+    expect(s.getPlacement(id('a'))).toEqual({});
+  });
+
+  it('clears a preferredSize the float wrote onto a child that had none', () => {
+    const s = makeStore('desktop');
+    floatNode(s, desktop as never, id('a'), ROOT, { at: { x: 0, y: 0 }, size: { w: 300, h: 200 } });
+    dockNode(s, id('a'), STACK, { from: desktop as never });
+    expect(s.getNode(id('a'))?.hints?.preferredSize).toBeUndefined();
+  });
+
+  it('keeps a preferredSize the float never touched', () => {
+    const s = makeStore();
+    floatNode(s, floating as never, id('a'), ROOT, { at: { x: 0, y: 0 } });
+    s.setHints(id('a'), { preferredSize: { w: 90, h: 90 } });
+    dockNode(s, id('a'), STACK, { from: floating as never });
+    expect(s.getNode(id('a'))?.hints?.preferredSize).toEqual({ w: 90, h: 90 });
+  });
+
   it('is a plain move without a strategy to clear for', () => {
     const s = makeStore();
     floatNode(s, floating as never, id('a'), ROOT, { at: { x: 10, y: 10 } });

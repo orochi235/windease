@@ -1446,7 +1446,9 @@ stack sets one and at the size of the stack's body otherwise, written to
 business: `desktopStrategy` writes placement `x` / `y`, `floatingStrategy` sets
 placement `floating` and keeps the corner in its container state. A floating
 child dropped back on a stack with `tear` docks as a tab and loses those
-placement keys; with `show: 'dropped'` it becomes the tab you see. Each gesture
+placement keys and its saved corner, and gets back the `preferredSize` it had
+before the tear unless something changed that since; with `show: 'dropped'` it
+becomes the tab you see. Each gesture
 is one transaction, so one undo step.
 
 To make the floating container take tear-outs and nothing else, set
@@ -1459,8 +1461,9 @@ dockNode(store, tabId, stackId, { from: registry.get('studio-floating') });
 ```
 
 A strategy of your own floats children by carrying a `float` hook: the placement
-keys it writes, and a pure `place` that returns them and any next state for a
-child set down at a point.
+keys it writes, a pure `place` that returns them and any next state for a
+child set down at a point, and an optional pure `release` that returns the
+state once a child docks out.
 
 See the **Tear out** story.
 

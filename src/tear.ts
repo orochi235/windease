@@ -46,6 +46,15 @@ export function floatAncestor(
   return null;
 }
 
+/** Placement key `floatNode` stashes the `preferredSize` it replaced under, so
+ *  `dockNode` can give it back. */
+const RESTORE_KEY = 'floatRestore';
+
+interface FloatRestore {
+  wrote: Size;
+  prior: Size | null;
+}
+
 /** Where a floated child goes and how big it is. */
 export interface FloatInput {
   /** Top-left corner, relative to the container. */
@@ -102,9 +111,16 @@ export function floatNode(
   const state = containerStateFor(store, parentId, strategy);
   const placed = hook.place({ id, at: input.at, state, options });
 
+  const prior = (node.hints?.preferredSize as Size | undefined) ?? null;
+  const restore: FloatRestore | undefined = input.size ? { wrote: input.size, prior } : undefined;
+
   store.transact(() => {
     if (input.size) store.setHints(id, { preferredSize: input.size });
-    store.patchPlacement(id, placed.placement, opts);
+    store.patchPlacement(
+      id,
+      restore ? { ...placed.placement, [RESTORE_KEY]: restore } : placed.placement,
+      opts,
+    );
     if (placed.state !== undefined) store.setContainerState(parentId, placed.state, opts);
     store.moveNode(id, parentId, undefined, opts);
   }, 'floatNode');
@@ -116,8 +132,10 @@ export function floatNode(
 
 /**
  * Move a floating child into a stack as a tab, clearing the placement keys its
- * current parent's `float` hook wrote. `from` is that parent's strategy; absent,
- * nothing is cleared and this is a plain `moveNode`.
+ * current parent's `float` hook wrote and dropping it from that parent's state.
+ * A `preferredSize` that `floatNode` replaced is given back, unless something
+ * has changed it since. `from` is that parent's strategy; absent, nothing is
+ * cleared and this is a plain `moveNode`.
  */
 export function dockNode(
   store: Store,
@@ -126,16 +144,39 @@ export function dockNode(
   input: { at?: number; from?: AnyStrategy } = {},
   opts?: MutateOptions,
 ): void {
-  const keys = input.from?.float?.keys ?? [];
-  const placement = store.getNodeTruth(id)?.membership?.placement ?? {};
+  const hook = input.from?.float;
+  const keys = hook?.keys ?? [];
+  const node = store.getNodeTruth(id);
+  const placement = node?.membership?.placement ?? {};
   const clear: Record<string, undefined> = {};
   for (const k of keys) if (k in placement) clear[k] = undefined;
+  const restore = hook ? (placement[RESTORE_KEY] as FloatRestore | undefined) : undefined;
+  if (restore) clear[RESTORE_KEY] = undefined;
+  const fromId = node?.membership?.parentId;
+  // An arrange lock on the source keeps its stale entry rather than refusing the dock.
+  const fromState =
+    hook?.release && fromId && !store.isLocked(fromId, 'arrange')
+      ? store.getContainerState(fromId)
+      : undefined;
   store.transact(() => {
     store.moveNode(id, stackId, input.at, opts);
     if (Object.keys(clear).length > 0) store.patchPlacement(id, clear, opts);
+    if (restore && sameSize(store.getNodeTruth(id)?.hints?.preferredSize, restore.wrote)) {
+      store.setHints(id, { preferredSize: restore.prior ?? undefined });
+    }
+    // The move can remove an emptied source.
+    if (fromId && fromState !== undefined && hook?.release && store.getNodeTruth(fromId)) {
+      const next = hook.release({ id, state: fromState });
+      if (next !== fromState) store.setContainerState(fromId, next, opts);
+    }
   }, 'dockNode');
   trace(
     'store',
     `dock: ${id} → ${stackId}@${input.at ?? 'append'} (cleared ${keys.join(', ') || 'nothing'})`,
   );
+}
+
+function sameSize(a: unknown, b: Size): boolean {
+  const s = a as Size | undefined;
+  return s !== undefined && s.w === b.w && s.h === b.h;
 }

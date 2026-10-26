@@ -537,13 +537,17 @@ from a frame loop. A turn is bracketed in `transaction.begin`/`end` labelled
 A strategy that places children free of any tiling says so with an optional
 `float` hook: `keys`, the placement keys it writes, and a pure
 `place({ id, at, state, options })` returning `{ placement, state? }` for a
-child set down at `at`. `floatingStrategy` writes `floating: true` and keeps the
+child set down at `at`, and an optional pure `release({ id, state })` returning
+the state once that child docks out. `floatingStrategy` writes `floating: true` and keeps the
 corner in its state's `at`; `desktopStrategy` writes placement `x` / `y`.
 
 `floatNode(store, strategy, id, parentId, { at, size? })` applies it: it
-validates, then in one transaction writes `size` to `hints.preferredSize`,
-patches the placement, sets the state, and calls `moveNode`. `dockNode` is the
-reverse — `moveNode` into a stack, then clear the old parent's `keys`.
+validates, then in one transaction writes `size` to `hints.preferredSize`
+(keeping the size it replaced in placement `floatRestore`), patches the
+placement, sets the state, and calls `moveNode`. `dockNode` is the reverse —
+`moveNode` into a stack, clear the old parent's `keys`, give back the replaced
+size if `preferredSize` still holds the one written, and `release` the child
+from the old parent's state.
 
 The drag engine calls both for a stack with `tear: 'float'`. While a tab from
 such a stack hovers the stack's nearest ancestor with a `float` hook, the hover
