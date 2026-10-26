@@ -543,7 +543,7 @@ corner in its state's `at`; `desktopStrategy` writes placement `x` / `y`.
 
 `floatNode(store, strategy, id, parentId, { at, size? })` applies it: it
 validates, then in one transaction writes `size` to `hints.preferredSize`
-(keeping the size it replaced in placement `floatRestore`), patches the
+(keeping the size it replaced in placement `sizeRecord`), patches the
 placement, sets the state, and calls `moveNode`. `dockNode` is the reverse —
 `moveNode` into a stack, clear the old parent's `keys`, give back the replaced
 size if `preferredSize` still holds the one written, and `release` the child

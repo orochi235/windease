@@ -48,9 +48,9 @@ export function floatAncestor(
 
 /** Placement key `floatNode` stashes the `preferredSize` it replaced under, so
  *  `dockNode` can give it back. */
-const RESTORE_KEY = 'floatRestore';
+const SIZE_RECORD_KEY = 'sizeRecord';
 
-interface FloatRestore {
+interface SizeRecord {
   wrote: Size;
   prior: Size | null;
 }
@@ -112,13 +112,13 @@ export function floatNode(
   const placed = hook.place({ id, at: input.at, state, options });
 
   const prior = (node.hints?.preferredSize as Size | undefined) ?? null;
-  const restore: FloatRestore | undefined = input.size ? { wrote: input.size, prior } : undefined;
+  const record: SizeRecord | undefined = input.size ? { wrote: input.size, prior } : undefined;
 
   store.transact(() => {
     if (input.size) store.setHints(id, { preferredSize: input.size });
     store.patchPlacement(
       id,
-      restore ? { ...placed.placement, [RESTORE_KEY]: restore } : placed.placement,
+      record ? { ...placed.placement, [SIZE_RECORD_KEY]: record } : placed.placement,
       opts,
     );
     if (placed.state !== undefined) store.setContainerState(parentId, placed.state, opts);
@@ -150,8 +150,8 @@ export function dockNode(
   const placement = node?.membership?.placement ?? {};
   const clear: Record<string, undefined> = {};
   for (const k of keys) if (k in placement) clear[k] = undefined;
-  const restore = hook ? (placement[RESTORE_KEY] as FloatRestore | undefined) : undefined;
-  if (restore) clear[RESTORE_KEY] = undefined;
+  const record = hook ? (placement[SIZE_RECORD_KEY] as SizeRecord | undefined) : undefined;
+  if (record) clear[SIZE_RECORD_KEY] = undefined;
   const fromId = node?.membership?.parentId;
   // An arrange lock on the source keeps its stale entry rather than refusing the dock.
   const fromState =
@@ -161,8 +161,8 @@ export function dockNode(
   store.transact(() => {
     store.moveNode(id, stackId, input.at, opts);
     if (Object.keys(clear).length > 0) store.patchPlacement(id, clear, opts);
-    if (restore && sameSize(store.getNodeTruth(id)?.hints?.preferredSize, restore.wrote)) {
-      store.setHints(id, { preferredSize: restore.prior ?? undefined });
+    if (record && sameSize(store.getNodeTruth(id)?.hints?.preferredSize, record.wrote)) {
+      store.setHints(id, { preferredSize: record.prior ?? undefined });
     }
     // The move can remove an emptied source.
     if (fromId && fromState !== undefined && hook?.release && store.getNodeTruth(fromId)) {
