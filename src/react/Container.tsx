@@ -620,6 +620,8 @@ function StoreContainer({
             onActiveChange={setDraggingAffordanceId}
             onJoinArmChange={setJoinArmedId}
             scroll={layoutScroll}
+            placements={layout.placements}
+            sticky={layout.sticky}
           />
           {splitStyle ? (
             <div className="windease-split-preview" style={splitStyle} aria-hidden="true" />

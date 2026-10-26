@@ -164,7 +164,7 @@ export {
   stackBands,
   stackStrategy,
 } from './layout/stack.js';
-export { stuckRect } from './layout/sticky.js';
+export { clipUnderBand, frozenBands, stuckRect } from './layout/sticky.js';
 export { stripStrategy } from './layout/strip.js';
 export { turnedExtent } from './layout/turn.js';
 export {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LayoutItem } from '../layout-types.js';
 import { gridStrategy } from './grid.js';
-import { stuckRect } from './sticky.js';
+import { clipUnderBand, frozenBands, stuckRect } from './sticky.js';
 
 /** A 4x4 sheet of 50px cells with a 1px gap and 2px padding: row 0 holds the
  *  column headings, column 0 the row numbers, and cell 0 the corner. */
@@ -74,6 +74,29 @@ describe('gridStrategy placement.sticky', () => {
     const seams = r.affordances.filter((a) => /^track-[xy]-/.test(a.id));
     expect(seams.length).toBeGreaterThan(0);
     for (const a of seams) expect(a.rect.z, a.id).toBe(3);
+  });
+
+  it('clips a seam scrolled under the frozen column, and not under the heading row', () => {
+    const r = sheet({
+      tracks: { cols: [50, 50, 50, 50], rows: [50, 50, 50, 50] },
+      resizable: true,
+    });
+    const seam = (id: string, scroll: { x: number; y: number }) => {
+      const a = r.affordances.find((s) => s.id === id)!;
+      const bands = frozenBands(r.placements, r.sticky!, scroll);
+      const across = id.startsWith('track-x') ? 'x' : 'y';
+      return clipUnderBand(stuckRect(a.rect, a.sticky, scroll), across, bands, a.sticky);
+    };
+    expect(seam('track-x-1', { x: 60, y: 0 }).h).toBe(0);
+    expect(seam('track-y-1', { x: 0, y: 60 }).w).toBe(0);
+    // Under the heading row a column seam stays whole: widths drag from there.
+    const whole = r.affordances.find((s) => s.id === 'track-x-1')!.rect;
+    expect(seam('track-x-1', { x: 0, y: 60 })).toEqual(whole);
+    expect(seam('track-x-2', { x: 60, y: 0 })).toEqual(
+      r.affordances.find((s) => s.id === 'track-x-2')!.rect,
+    );
+    // The frozen column's own seam rides with it, never beneath it.
+    expect(seam('track-x-0', { x: 60, y: 0 }).h).toBeGreaterThan(0);
   });
 
   it('reports nothing when no cell is sticky', () => {

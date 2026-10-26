@@ -324,6 +324,27 @@ test.describe('Excel frozen panes', () => {
     }
   });
 
+  test('a column seam scrolled under the row numbers cannot be grabbed through them', async ({
+    page,
+  }) => {
+    await pick(page, 'excel-frozen-panes', 'cell-corner');
+    const was = await settledBox(seam(page, 'track-x-1'));
+    const row = await settledBox(node(page, 'cell-row12'));
+    // Column A's right edge sits about 98px in; this carries it over the row numbers.
+    await page.getByTestId('xg-scroller').evaluate((el) => el.scrollTo(80, 0));
+    const at = { x: was.x + was.w / 2 - 80, y: row.y + row.h / 2 };
+    expect(at.x).toBeGreaterThan(row.x);
+    expect(at.x).toBeLessThan(row.x + row.w);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          ({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-affordance-hit]') === null,
+          at,
+        ),
+      )
+      .toBe(true);
+  });
+
   test('the row-number column is narrow, and dragging column A’s seam widens it alone', async ({
     page,
   }) => {

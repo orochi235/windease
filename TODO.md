@@ -30,15 +30,6 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
     would pass at once. It still passes on a read taken before a wrong change
     starts; only a separate signal that the gesture landed would close that.
 
-- **A grid seam scrolled under a frozen column or row stays grabbable.** Every
-  track seam in a grid with `sticky` cells sits at z 3, above the headings it
-  crosses (so a column's width drags from the heading row) and below only the
-  corner. A seam whose column has scrolled left under a `sticky: 'x'` column
-  therefore lies over that column, invisible but grabbable, and the same holds
-  for row seams under the heading row. One z per seam cannot do both; the fix is
-  to clip a seam's hit area to the part not under a sticky band, in
-  `Container` where the scroll is known (2026-10-26).
-
 - **The suite fails under machine load, and the failing specs move between
   runs.** Reproduces readily once the load average passes roughly twice the
   core count — three consecutive full runs at 25–32 on a 12-core machine

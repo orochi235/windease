@@ -14,12 +14,16 @@ import {
   type AxisScale,
   accessibleName,
   captureSeam,
+  clipUnderBand,
   commitJoin,
   commitReveal,
   destroyBlockedBy,
   elementScale,
+  frozenBands,
   type NodeId,
+  type Rect,
   type SeamCapture,
+  type StickyInset,
   stuckRect,
   toLayoutDelta,
   toLocalPoint,
@@ -92,9 +96,19 @@ export interface AffordanceLayerProps {
   /** The container's scroll in layout pixels (see `toLayoutScroll`), which a
    *  sticky seam is held against. */
   scroll?: { x: number; y: number };
+  /** The container's placements and sticky insets, which a seam scrolled
+   *  under a frozen pane is clipped against. */
+  placements?: ReadonlyMap<NodeId, Rect>;
+  sticky?: ReadonlyMap<NodeId, StickyInset> | undefined;
 }
 
 const NO_SCROLL = { x: 0, y: 0 };
+
+/** The axis a seam drags along, which is the one a frozen pane hides it on. */
+function seamAxis(aff: Affordance): 'x' | 'y' | undefined {
+  const o = aff.bounds?.orientation;
+  return o === 'horizontal' ? 'x' : o === 'vertical' ? 'y' : undefined;
+}
 
 /**
  * The strategy's affordances as DOM. Shared by `<Container>` and the
@@ -112,6 +126,8 @@ export function AffordanceLayer({
   onActiveChange,
   onJoinArmChange = noJoinArmChange,
   scroll = NO_SCROLL,
+  placements,
+  sticky,
 }: AffordanceLayerProps) {
   // Each handle keeps the DOM slot it first rendered in; stacking comes from
   // its rect's `z`. Following the strategy's order instead would move a
@@ -122,12 +138,14 @@ export function AffordanceLayer({
   for (const aff of affordances) if (!seen.has(aff.id)) seen.set(aff.id, seen.size);
   const ordered = [...affordances].sort((a, b) => (seen.get(a.id) ?? 0) - (seen.get(b.id) ?? 0));
   if (!render) return null;
+  const bands = placements && sticky ? frozenBands(placements, sticky, scroll) : undefined;
   return (
     <>
       {ordered.map((placed) => {
-        const aff = placed.sticky
-          ? { ...placed, rect: stuckRect(placed.rect, placed.sticky, scroll) }
-          : placed;
+        const across = seamAxis(placed);
+        const rect = stuckRect(placed.rect, placed.sticky, scroll);
+        const shown = bands && across ? clipUnderBand(rect, across, bands, placed.sticky) : rect;
+        const aff = shown === placed.rect ? placed : { ...placed, rect: shown };
         return typeof render === 'function' ? (
           <Fragment key={aff.id}>{render({ affordance: aff, dispatch, hitPad })}</Fragment>
         ) : aff.kind === 'click' ? (

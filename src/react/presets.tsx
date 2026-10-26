@@ -445,6 +445,8 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         onActiveChange={setDraggingAffordanceId}
         onJoinArmChange={setJoinArmedId}
         scroll={layoutScroll}
+        placements={layout.placements}
+        sticky={layout.sticky}
       />
     </PresetShell>
   );
@@ -712,6 +714,8 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
           onActiveChange={setDraggingAffordanceId}
           onJoinArmChange={setJoinArmedId}
           scroll={layoutScroll}
+          placements={layout.placements}
+          sticky={layout.sticky}
         />
       </PresetShell>
     </ResizeGestureContext.Provider>

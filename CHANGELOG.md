@@ -134,6 +134,10 @@ section below.
 
 ### Fixed
 
+- **A grid seam scrolled under a frozen column or heading row can't be grabbed
+  through it.** Its hit area is clipped to the part outside the frozen pane.
+  `frozenBands` and `clipUnderBand` are exported for hosts that draw seams
+  themselves.
 - **A reveal handle at the window's right edge opens in WebKit.** WebKit hands
   a press within its overlay scrollbar's strip to the scrollbar, so the drag
   sent no moves and never armed. The handle now reads the release point from
