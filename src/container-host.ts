@@ -602,6 +602,27 @@ export class ContainerHost {
     };
   }
 
+  /**
+   * Write a gesture's placement patch for child `id`: to the store, or, for a
+   * controlled child, to its host as the whole placement it would make.
+   */
+  writePlacement(id: NodeId, patch: Record<string, unknown>, affordanceId: string): void {
+    const commit = this.#placementControls.get(id);
+    if (!commit) {
+      this.#store.patchPlacement(id, patch);
+      return;
+    }
+    const next: Record<string, unknown> = {
+      ...(this.#store.getNode(id)?.membership?.placement ?? {}),
+    };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === undefined) delete next[k];
+      else next[k] = v;
+    }
+    trace('layout', `placement write diverted to host: ${id} (${affordanceId})`);
+    commit(next, { affordanceId, parentId: this.#parentId });
+  }
+
   /** Snapshot of every controlled child's placement, taken before a dispatch so
    *  the write it makes can be handed back and undone. */
   #capturePlacements(): Map<NodeId, Record<string, unknown>> {

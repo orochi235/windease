@@ -53,6 +53,9 @@ export interface ContainerLayout extends HostLayout {
    * instead of writing the store. See `ContainerHost.registerPlacementControl`.
    */
   registerPlacementControl: (id: NodeId, commit: PlacementCommit) => () => void;
+  /** Write a gesture's placement patch, to the store or a controlled child's
+   *  host. See `ContainerHost.writePlacement`. */
+  writePlacement: (id: NodeId, patch: Record<string, unknown>, affordanceId: string) => void;
   /** The empty cell under a layout-pixel point, for a drop to a cell. See
    *  `ContainerHost.cellAt`. */
   cellAt: (
@@ -166,6 +169,12 @@ export function useContainerLayout(
     [host],
   );
 
+  const writePlacement = useCallback(
+    (id: NodeId, patch: Record<string, unknown>, affordanceId: string) =>
+      host.writePlacement(id, patch, affordanceId),
+    [host],
+  );
+
   const observeScroll = useCallback((el: Element) => host.observeScroll(el), [host]);
 
   const setView = useCallback((view: View) => host.setView(view), [host]);
@@ -182,6 +191,7 @@ export function useContainerLayout(
     dispatchAffordance,
     observeNatural,
     registerPlacementControl,
+    writePlacement,
     observeScroll,
     setView,
     command,

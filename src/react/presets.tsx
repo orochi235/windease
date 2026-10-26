@@ -89,6 +89,8 @@ interface CommonBindingProps {
   /** Layout hints a strategy reads: `minSize`, `maxSize`, `preferredSize`, and
    *  `sizing` for content-measured axes. Reconciled on change. */
   hints?: NodeHints;
+  /** `true` hides the node and `false` shows it, on every render. Unset, it is
+   *  shown on mount and later hides and shows are left to whoever makes them. */
   hidden?: boolean;
   /** On unmount, move this node's children here instead of destroying them
    *  with it, as `store.unregisterNode(id, { rehome })` does. Ignored when the
@@ -447,6 +449,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         scroll={layoutScroll}
         placements={layout.placements}
         sticky={layout.sticky}
+        writePlacement={layout.writePlacement}
       />
     </PresetShell>
   );
@@ -716,6 +719,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
           scroll={layoutScroll}
           placements={layout.placements}
           sticky={layout.sticky}
+          writePlacement={layout.writePlacement}
         />
       </PresetShell>
     </ResizeGestureContext.Provider>
@@ -739,7 +743,8 @@ function makeReconciler(props: CommonBindingProps) {
     if (!node) return;
     if (props.hidden) {
       if (node.lifecycle.state !== 'hidden') store.hideNode(id, { force: true });
-    } else {
+    } else if (props.hidden === false || node.lifecycle.state === 'mounted') {
+      // Unset, it shows the node once and leaves later hides to whoever made them.
       if (node.lifecycle.state !== 'visible') store.showNode(id);
     }
   };

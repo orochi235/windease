@@ -1855,8 +1855,11 @@ const [h, setH] = useState(200);
 <Panel id={b} />  {/* uncontrolled — its own drags commit as usual */}
 ```
 
-Controlled and uncontrolled panes mix freely in one row. Without React, the
-same thing is `host.registerPlacementControl(id, commit)`.
+Controlled and uncontrolled panes mix freely in one row. A seam join that
+hides a pane puts the row's sizes back through the same path, so a controlled
+pane hears about that too. Without React, the same thing is
+`host.registerPlacementControl(id, commit)`, and `host.writePlacement` is the
+write that respects it.
 
 Gutters are operable from the keyboard. Each renders as `role="separator"`
 carrying `aria-orientation` and `aria-valuenow` / `aria-valuemin` /

@@ -622,6 +622,7 @@ function StoreContainer({
             scroll={layoutScroll}
             placements={layout.placements}
             sticky={layout.sticky}
+            writePlacement={layout.writePlacement}
           />
           {splitStyle ? (
             <div className="windease-split-preview" style={splitStyle} aria-hidden="true" />

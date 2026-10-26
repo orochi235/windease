@@ -100,7 +100,12 @@ export interface AffordanceLayerProps {
    *  under a frozen pane is clipped against. */
   placements?: ReadonlyMap<NodeId, Rect>;
   sticky?: ReadonlyMap<NodeId, StickyInset> | undefined;
+  /** How a seam join puts sizes back: through placement control where a child
+   *  has it. Absent, straight to the store. */
+  writePlacement?: WritePlacement;
 }
+
+type WritePlacement = ContainerLayout['writePlacement'];
 
 const NO_SCROLL = { x: 0, y: 0 };
 
@@ -128,6 +133,7 @@ export function AffordanceLayer({
   scroll = NO_SCROLL,
   placements,
   sticky,
+  writePlacement,
 }: AffordanceLayerProps) {
   // Each handle keeps the DOM slot it first rendered in; stacking comes from
   // its rect's `z`. Following the strategy's order instead would move a
@@ -179,6 +185,7 @@ export function AffordanceLayer({
             label={affordanceLabel(store, aff)}
             onActiveChange={(active) => onActiveChange(active ? aff.id : null)}
             onJoinArmChange={onJoinArmChange}
+            writePlacement={writePlacement}
           />
         );
       })}
@@ -498,6 +505,7 @@ interface AffordanceHandleProps {
   label: string | undefined;
   onActiveChange: (active: boolean) => void;
   onJoinArmChange: (victimId: NodeId | null) => void;
+  writePlacement: WritePlacement | undefined;
 }
 
 function AffordanceHandle({
@@ -510,6 +518,7 @@ function AffordanceHandle({
   label,
   onActiveChange,
   onJoinArmChange,
+  writePlacement,
 }: AffordanceHandleProps) {
   const last = useRef<{ x: number; y: number } | null>(null);
   // Screen pixels per layout pixel, read once per gesture: a view that zooms
@@ -548,9 +557,13 @@ function AffordanceHandle({
       setArmed(null);
       overshoot.current = null;
       captured.current = null;
-      if (commit && victim) commitJoin(store, affordance, victim, before);
+      if (!commit || !victim) return;
+      const write = writePlacement
+        ? (id: NodeId, patch: Record<string, unknown>) => writePlacement(id, patch, affordance.id)
+        : undefined;
+      commitJoin(store, affordance, victim, before, write);
     },
-    [setArmed, store, affordance],
+    [setArmed, store, affordance, writePlacement],
   );
 
   const advanceJoin = useCallback(

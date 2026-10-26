@@ -1,5 +1,5 @@
 import { act, fireEvent, render } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createNode } from '../constructors.js';
 import { stripStrategy } from '../index.js';
@@ -549,5 +549,89 @@ describe("seam join — overshoot: 'hide'", () => {
     press(seam, 'Enter');
     expect(store.getNode(asNodeId('b'))?.lifecycle.state).toBe('hidden');
     expect(widthOf(store, 'a')).toBe(200);
+  });
+});
+
+describe("seam join — overshoot: 'hide' under controlled placement", () => {
+  const CONFIG = { ...STRIP_CONFIG, joinOnOvershoot: undefined, overshoot: 'hide' };
+  const HINTS = { minSize: { w: 80, h: 0 } };
+
+  function mountControlled() {
+    const store = new Store();
+    const host: { sizes: Record<string, number> } = { sizes: { a: 200, b: 200, c: 200 } };
+    function Host() {
+      const [sizes, setSizes] = useState(host.sizes);
+      host.sizes = sizes;
+      return (
+        <Zone
+          id={asNodeId('root')}
+          strategyId="strip"
+          config={CONFIG}
+          viewport={{ w: 600, h: 200 }}
+          affordances
+        >
+          {['a', 'b', 'c'].map((id) => (
+            <Panel
+              key={id}
+              id={asNodeId(id)}
+              hints={HINTS}
+              placement={{ size: { w: sizes[id] } }}
+              onPlacementChange={(next) => {
+                const w = (next.size as { w?: number } | undefined)?.w;
+                if (w !== undefined) setSizes((prev) => ({ ...prev, [id]: w }));
+              }}
+            />
+          ))}
+        </Zone>
+      );
+    }
+    const { container } = render(withProviders(store, <Host />));
+    const seam = container.querySelector('[data-affordance-hit="resize-x-a"]') as HTMLElement;
+    return { store, host, seam };
+  }
+
+  it('hands the restored sizes to the host, which owns them', () => {
+    const { store, host, seam } = mountControlled();
+    down(seam);
+    const x = move(seam, 30, move(seam, TO_CLAMP));
+    expect(host.sizes.a).toBe(320);
+    expect(widthOf(store, 'a')).toBe(320);
+    expect(widthOf(store, 'b')).toBe(80);
+    expect(document.querySelector('[data-node][data-join-armed]')?.getAttribute('data-node')).toBe(
+      'b',
+    );
+    expect(seam.isConnected).toBe(true);
+    act(() => up(seam, x));
+    expect(store.getNode(asNodeId('b'))?.lifecycle.state).toBe('hidden');
+    expect(host.sizes).toEqual({ a: 200, b: 200, c: 200 });
+    expect(widthOf(store, 'a')).toBe(200);
+  });
+});
+
+describe("seam join — overshoot: 'hide' through the presets", () => {
+  it('keeps the pane hidden through the next render', () => {
+    const store = new Store();
+    const ui = () =>
+      withProviders(
+        store,
+        <Zone
+          id={asNodeId('root')}
+          strategyId="strip"
+          config={{ ...STRIP_CONFIG, joinOnOvershoot: undefined, overshoot: 'hide' }}
+          viewport={{ w: 600, h: 200 }}
+          affordances
+        >
+          <Panel id={asNodeId('a')} hints={PANE_HINTS} />
+          <Panel id={asNodeId('b')} hints={PANE_HINTS} />
+          <Panel id={asNodeId('c')} hints={PANE_HINTS} />
+        </Zone>,
+      );
+    const { container, rerender } = render(ui());
+    const seam = container.querySelector('[data-affordance-hit="resize-x-a"]') as HTMLElement;
+    down(seam);
+    const x = move(seam, 30, move(seam, TO_CLAMP));
+    act(() => up(seam, x));
+    rerender(ui());
+    expect(store.getNode(asNodeId('b'))?.lifecycle.state).toBe('hidden');
   });
 });

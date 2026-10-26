@@ -157,7 +157,8 @@ export function captureSeam(store: Store, affordance: Affordance): SeamCapture {
  * began. Otherwise the victim is unregistered, as `destroyBlockedBy` allowed.
  *
  * Only sizes the gesture changed are written, so a resize-locked pane it never
- * touched is left alone.
+ * touched is left alone. `write` makes them; a host whose children's placement
+ * is controlled passes one that hands them over (`ContainerHost.writePlacement`).
  *
  * @group Layout
  */
@@ -166,6 +167,8 @@ export function commitJoin(
   affordance: Affordance,
   victimId: NodeId,
   before?: SeamCapture,
+  write: (id: NodeId, patch: Record<string, unknown>) => void = (id, patch) =>
+    store.patchPlacement(id, patch),
 ): void {
   if (affordance.join?.action !== 'hide') {
     trace('store', `join: ${affordance.id} destroys ${victimId}`);
@@ -185,7 +188,7 @@ export function commitJoin(
       for (const k of SIZE_KEYS) {
         if (JSON.stringify(now[k]) !== JSON.stringify(was[k])) patch[k] = was[k];
       }
-      if (Object.keys(patch).length > 0) store.patchPlacement(id, patch);
+      if (Object.keys(patch).length > 0) write(id, patch);
     }
     trace('store', `join: ${affordance.id} hides ${victimId}`);
     store.hideNode(victimId);

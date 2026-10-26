@@ -140,6 +140,14 @@ section below.
 
 ### Fixed
 
+- **A preset pane hidden by anything but its `hidden` prop stays hidden.** A
+  `<Panel>` or `<Zone>` with `hidden` unset showed itself again on its next
+  render, which undid a seam join's `overshoot: 'hide'` and any
+  `store.hideNode`. With `hidden` unset it now shows once, on mount.
+- **A seam join's hide hands a controlled pane its restored size.** The sizes
+  it puts back go through `onPlacementChange`, where they used to go to the
+  store and be overwritten by the host's next render. `ContainerHost` gains
+  `writePlacement` for the same routing without React.
 - **A docked tab forgets its float.** `dockNode`, and so a tab dropped back
   on a tearable stack, now drops the tab from `floatingStrategy`'s saved
   corners and gives back the `preferredSize` the tear replaced. A strategy's
