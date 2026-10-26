@@ -7,6 +7,7 @@ import {
   createNode,
   type Node,
   type NodeId,
+  type Rect,
   Store,
   stackStrategy,
   stripStrategy,
@@ -14,10 +15,10 @@ import {
 import {
   type ChromeMap,
   Container,
-  type ContainerLayout,
   DragHandle,
   DragProvider,
   Provider,
+  type StackTab,
   StrategyRegistryProvider,
   useChildren,
   useNode,
@@ -379,20 +380,19 @@ function makeSidedStore(tabs: Tabs, side: Side): Store {
 }
 
 /** A rect as custom properties; the stylesheet positions the element with them. */
-const rectVars = (x: number, y: number, w: number, h: number) =>
+const rectVars = ({ x, y, w, h }: Rect) =>
   ({ '--x': `${x}px`, '--y': `${y}px`, '--w': `${w}px`, '--h': `${h}px` }) as CSSProperties;
 
 /**
- * Draws the tabs into the band the strategy reserved. `stackStrategy` reports
- * the band, and under `tabs: 'stacked'` each child's own title bar, as
- * channels; the tabs themselves are this story's.
+ * Draws the tabs into the band the strategy reserved. Rendered from the stack's
+ * `overlay`, so `useStack` reads the band from that layout; the tabs
+ * themselves are this story's.
  */
-function BandTabs({ id, channels }: { id: NodeId; channels: ContainerLayout['channels'] }) {
-  const { tabs, activeId, activate } = useStack(id);
-  const first = tabs[0] && channels?.get(tabs[0].id);
-  if (!first || first.bandX === undefined) return null;
-  const stacked = first.tabH !== undefined;
-  const button = (tab: { id: NodeId; title: string }, style?: CSSProperties) => (
+function BandTabs({ id }: { id: NodeId }) {
+  const { tabs, activeId, activate, band } = useStack(id);
+  if (!band) return null;
+  const stacked = tabs.some((t) => t.bar);
+  const button = (tab: StackTab, style?: CSSProperties) => (
     <button
       key={tab.id}
       type="button"
@@ -409,11 +409,7 @@ function BandTabs({ id, channels }: { id: NodeId; channels: ContainerLayout['cha
   if (stacked) {
     return (
       <div role="tablist" data-testid="ts-band">
-        {tabs.map((tab) => {
-          const c = channels?.get(tab.id);
-          if (c?.tabX === undefined) return null;
-          return button(tab, rectVars(c.tabX, c.tabY ?? 0, c.tabW ?? 0, c.tabH ?? 0));
-        })}
+        {tabs.map((tab) => tab.bar && button(tab, rectVars(tab.bar)))}
       </div>
     );
   }
@@ -422,8 +418,8 @@ function BandTabs({ id, channels }: { id: NodeId; channels: ContainerLayout['cha
       role="tablist"
       data-testid="ts-band"
       className="ts-band"
-      data-vertical={(first.bandH ?? 0) > (first.bandW ?? 0) || undefined}
-      style={rectVars(first.bandX, first.bandY ?? 0, first.bandW ?? 0, first.bandH ?? 0)}
+      data-vertical={band.h > band.w || undefined}
+      style={rectVars(band)}
     >
       {tabs.map((tab) => button(tab))}
     </div>
@@ -463,11 +459,7 @@ export const TabsAndSide: Story<{ tabs: Tabs; side: Side }> = ({ tabs, side }) =
       ),
       sided: ({ node }) => (
         <div className="ts-stack" data-testid={`stack-${node.id}`}>
-          <Container
-            parentId={node.id}
-            chrome={chrome}
-            overlay={(ctx) => <BandTabs id={node.id} channels={ctx.channels} />}
-          />
+          <Container parentId={node.id} chrome={chrome} overlay={<BandTabs id={node.id} />} />
         </div>
       ),
     }),

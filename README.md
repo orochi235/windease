@@ -1421,9 +1421,11 @@ config: { tabs: 'stacked', side: 'left', tabSize: 24 }
 The strategy still draws nothing. It reports the band to every child, the
 withheld ones included, as channels: `bandX`, `bandY`, `bandW`, `bandH` in the
 stack's coordinates, and under `'stacked'` each child's own bar as `tabX`,
-`tabY`, `tabW`, `tabH`. Draw the tabs from a `<Container overlay>` function,
-whose context carries `channels`, or compute the same rects with
-`stackBands(config, size, childCount)`.
+`tabY`, `tabW`, `tabH`. Called inside the stack's layout — its
+`<Container overlay>`, an affordance renderer, or a child — `useStack` reads
+them for you: `band` is the band's rect, and each tab carries its own `bar`
+under `'stacked'`. Outside it both are undefined; compute the same rects there
+with `stackBands(config, size, childCount)`.
 
 See the **Tab stack / Tabs and side** story.
 

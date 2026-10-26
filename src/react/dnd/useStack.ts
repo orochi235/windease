@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
-import { accessibleName, type NodeId } from '../../index.js';
+import { accessibleName, type NodeId, type Rect } from '../../index.js';
 import { useChildren, useNode } from '../hooks.js';
+import { useLayoutContext } from '../LayoutContext.js';
 import { useStore } from '../Provider.js';
 
 /** One tab in a {@link StackModel}: the child it selects and the label to
@@ -9,6 +10,8 @@ export interface StackTab {
   id: NodeId;
   /** What to label the tab with. */
   title: string;
+  /** This tab's own title bar under `tabs: 'stacked'`; see {@link StackModel.band}. */
+  bar?: Rect;
 }
 
 /** A tabbed container rendered as data — the tabs, which is active, and the
@@ -20,6 +23,10 @@ export interface StackModel {
   activeId: NodeId | undefined;
   /** Show `id`. A no-op for an id that is not a child of this stack. */
   activate(id: NodeId): void;
+  /** The band the strategy reserved for tabs, in the stack's own coordinates.
+   *  Read from the stack's layout, so it is set only where that layout is in
+   *  scope: its `overlay`, its affordance renderers and its children. */
+  band?: Rect;
 }
 
 /**
@@ -34,10 +41,18 @@ export function useStack(containerId: NodeId): StackModel {
   const children = useChildren(containerId);
   const configuredActive = (node?.container?.config as { activeId?: string } | undefined)?.activeId;
 
+  const { channels } = useLayoutContext();
   const tabs = useMemo(
-    () => children.map((c) => ({ id: c.id, title: accessibleName(store, c.id) })),
-    [children, store],
+    () =>
+      children.map((c) => {
+        const tab: StackTab = { id: c.id, title: accessibleName(store, c.id) };
+        const bar = rectOf(channels?.get(c.id), 'tab');
+        if (bar) tab.bar = bar;
+        return tab;
+      }),
+    [children, store, channels],
   );
+  const band = tabs[0] && rectOf(channels?.get(tabs[0].id), 'band');
 
   // The strategy falls back to the first child for an activeId naming one that
   // has left, so the model has to report the same tab the body is showing.
@@ -54,5 +69,11 @@ export function useStack(containerId: NodeId): StackModel {
     [store, containerId],
   );
 
-  return { tabs, activeId, activate };
+  return band ? { tabs, activeId, activate, band } : { tabs, activeId, activate };
+}
+
+function rectOf(c: Record<string, number> | undefined, prefix: 'band' | 'tab'): Rect | undefined {
+  const x = c?.[`${prefix}X`];
+  if (c === undefined || x === undefined) return undefined;
+  return { x, y: c[`${prefix}Y`] ?? 0, z: 0, w: c[`${prefix}W`] ?? 0, h: c[`${prefix}H`] ?? 0 };
 }

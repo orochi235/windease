@@ -10,6 +10,10 @@ section below.
 
 ### Added
 
+- **`useStack` reports the tab band.** Called inside the stack's own layout —
+  its `overlay`, an affordance renderer, or a child — it returns `band`, and
+  each tab its `bar` under `tabs: 'stacked'`, read from the channels
+  `stackStrategy` already emits. Elsewhere both stay undefined.
 - **`autoPrune` removes a container a removal leaves empty.** Set it with
   `store.setAutoPrune`, `createNode`'s container, or a preset node. An
   `autoUnsplit` parent it leaves with one child collapses in the same

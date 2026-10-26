@@ -2,6 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { asNodeId, createNode, type NodeId, Store } from '../index.js';
 import { useStack } from './dnd/useStack.js';
+import { LayoutScope } from './LayoutContext.js';
 import { Provider } from './Provider.js';
 
 afterEach(cleanup);
@@ -23,7 +24,7 @@ function seeded(config: Record<string, unknown> = {}): Store {
   return s;
 }
 
-function mount(store: Store) {
+function mount(store: Store, channels?: Map<NodeId, Record<string, number>>) {
   const seen: { current: ReturnType<typeof useStack> | null } = { current: null };
   function Probe() {
     seen.current = useStack(id('s1'));
@@ -31,11 +32,19 @@ function mount(store: Store) {
   }
   render(
     <Provider store={store}>
-      <Probe />
+      {channels ? (
+        <LayoutScope value={{ placements: new Map(), unplaced: [], settleMs: 0, channels }}>
+          <Probe />
+        </LayoutScope>
+      ) : (
+        <Probe />
+      )}
     </Provider>,
   );
   return seen;
 }
+
+const band = { bandX: 0, bandY: 0, bandW: 300, bandH: 24 };
 
 describe('useStack', () => {
   it('reports tabs in childOrder, titled from meta', () => {
@@ -87,5 +96,31 @@ describe('useStack', () => {
     const before = store.getNode(id('s1'))?.container?.config;
     act(() => seen.current?.activate('elsewhere' as NodeId));
     expect(store.getNode(id('s1'))?.container?.config).toBe(before);
+  });
+
+  it('reports the band from the stack layout in scope', () => {
+    const channels = new Map([
+      [id('a'), band],
+      [id('b'), band],
+    ]);
+    expect(mount(seeded(), channels).current?.band).toEqual({ x: 0, y: 0, z: 0, w: 300, h: 24 });
+  });
+
+  it('reports each tab its own bar under stacked tabs', () => {
+    const channels = new Map([
+      [id('a'), { ...band, bandH: 48, tabX: 0, tabY: 0, tabW: 300, tabH: 24 }],
+      [id('b'), { ...band, bandH: 48, tabX: 0, tabY: 24, tabW: 300, tabH: 24 }],
+    ]);
+    const tabs = mount(seeded(), channels).current?.tabs;
+    expect(tabs?.map((t) => t.bar)).toEqual([
+      { x: 0, y: 0, z: 0, w: 300, h: 24 },
+      { x: 0, y: 24, z: 0, w: 300, h: 24 },
+    ]);
+  });
+
+  it('reports no band outside the stack layout', () => {
+    const elsewhere = new Map([[id('other'), band]]);
+    expect(mount(seeded(), elsewhere).current?.band).toBeUndefined();
+    expect(mount(seeded()).current?.band).toBeUndefined();
   });
 });
