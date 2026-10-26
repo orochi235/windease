@@ -95,6 +95,12 @@ interface GridConfig {
    */
   justify?: GridJustify;
   /**
+   * `justify` for rows: where leftover height goes when the rows don't fill the
+   * container, which takes fixed cell heights or pixel row tracks. Rows move as
+   * whole tracks. Default `'start'`.
+   */
+  align?: GridJustify;
+  /**
    * Per-track sizes, by index: a number of pixels, or `{ share }` of what the
    * pixel tracks and gaps leave, the way CSS `fr` splits it. A tracked axis has
    * uneven cells. `tracks.cols` sets the column count when `cols` is unset;
@@ -809,7 +815,7 @@ function trackSizes(
 
 /**
  * One axis of a laid-out grid in pixels. `start` already includes padding and
- * the `justify` offset, and `gap` the justify space between tracks.
+ * the `justify` or `align` offset, and `gap` the space they add between tracks.
  */
 interface Axis {
   count: number;
@@ -968,6 +974,8 @@ function gridGeometry(items: LayoutItem[], container: Size, cfg: GridConfig): Gr
 
   const listedRows = listedTracks(cfg, 'rows');
   let rowTracks: Track[] | undefined;
+  let rowsUsed = rows;
+  let cellH = 0;
   let y: Axis;
   if (listedRows) {
     rowTracks = resolveTracks(listedRows, rows, fixed.h, 'rows');
@@ -985,8 +993,7 @@ function gridGeometry(items: LayoutItem[], container: Size, cfg: GridConfig): Gr
     }
   } else {
     const heightFor = (r: number) => fixed.h ?? Math.max((usableH - gap * (r - 1)) / r, floorH);
-    let rowsUsed = rows;
-    let cellH = heightFor(rowsUsed);
+    cellH = heightFor(rowsUsed);
     if (mode === 'unplaced' && cellH * rowsUsed + gap * (rowsUsed - 1) > usableH) {
       // The first row is placed even when it does not fit, so an overflowing
       // grid never renders empty — same rule strip follows.
@@ -997,7 +1004,15 @@ function gridGeometry(items: LayoutItem[], container: Size, cfg: GridConfig): Gr
     y = uniformAxis(rowsUsed, cellH, gap, padding, 0);
   }
   const heldRows = heldTracks(items, cells, 'rows', y.count);
-  if (heldRows) y = heldAxis(heldRows, rowTracks, fixed.h, usableH, gap, floorH, padding, 0);
+  const axisY = (origin: number, extra: number) =>
+    heldRows
+      ? heldAxis(heldRows, rowTracks, fixed.h, usableH, gap, floorH, origin, extra)
+      : rowTracks
+        ? listedAxis(trackSizes(rowTracks, usableH, gap, floorH), gap, origin, extra)
+        : uniformAxis(rowsUsed, cellH, gap, origin, extra);
+  if (heldRows) y = axisY(padding, 0);
+  const rise = justifyColumns(cfg.align, usableH - y.length(0, y.count), y.count);
+  if (rise.offset !== 0 || rise.extra !== 0) y = axisY(padding + rise.offset, rise.extra);
 
   const listedCols = listedTracks(cfg, 'cols');
   const colTracks = listedCols ? resolveTracks(listedCols, cols, fixed.w, 'cols') : undefined;
@@ -1559,6 +1574,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     overflowMode: ['squeeze', 'scroll', 'unplaced'],
     cell: 'object',
     justify: ['start', 'center', 'end', 'between', 'evenly'],
+    align: ['start', 'center', 'end', 'between', 'evenly'],
     tracks: 'object',
     compact: ['up'],
   },

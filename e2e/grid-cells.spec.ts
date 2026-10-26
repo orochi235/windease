@@ -191,3 +191,12 @@ test.describe('grid fixed cells — dock', () => {
     expect(Math.round(safari.x - phone.x)).toBe(68);
   });
 });
+
+test.describe('grid align', () => {
+  test("align: 'end' moves the library's rows into the leftover height", async ({ page }) => {
+    await openStory(page, `${DOCK}&arg-align=start`);
+    const top = (await settledBox(element(page, 'mail'))).y;
+    await openStory(page, `${DOCK}&arg-align=end`);
+    await expect.poll(async () => (await boxOf(element(page, 'mail'))).y).toBeGreaterThan(top + 20);
+  });
+});

@@ -339,7 +339,7 @@ Open, grouped by what they touch:
 - **strip** — under `justify: 'between'` only the first seam follows the
   pointer, since every pane's size moves every gap; `resizeMode: 'neighbor'`
   is the answer today.
-- **grid** — capacity by width under fixed cells; vertical align; pinned vs celled
+- **grid** — capacity by width under fixed cells; pinned vs celled
   priority. Flowed items under a row cap still cost O(items² × span) in resize
   reach — 200 panels under `maxRows: 420` take 2.0s a layout, measured
   2026-10-26 — because first-fit packing is not monotone in span, so every span

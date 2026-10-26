@@ -904,8 +904,12 @@ than it, or trailing columns nothing sits in under `fill: false` or a set
 
 An iOS dock is `justify: 'evenly'` over fixed cells. Whole columns move, so a
 short last row stays aligned under the first, and a span widens by the extra
-space between the columns it covers. `justify` is horizontal only, and content
-wider than the container stays at the start.
+space between the columns it covers, and content wider than the container
+stays at the start.
+
+`align` is the same for rows, with the same values: when fixed cell heights or
+pixel row tracks leave the container taller than the rows, it says where the
+leftover height goes, moving whole rows.
 
 ### Tracks of different sizes
 

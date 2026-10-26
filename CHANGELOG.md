@@ -10,6 +10,9 @@ section below.
 
 ### Added
 
+- **`align` on `gridStrategy`**, `justify` for rows: where leftover height goes
+  when fixed cell heights or pixel row tracks leave the container taller than
+  the rows. Same values as `justify`; rows move as whole tracks.
 - **`useStack` reports the tab band.** Called inside the stack's own layout —
   its `overlay`, an affordance renderer, or a child — it returns `band`, and
   each tab its `bar` under `tabs: 'stacked'`, read from the channels

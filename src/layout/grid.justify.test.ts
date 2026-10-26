@@ -130,3 +130,42 @@ describe('gridStrategy — justify', () => {
     expect(checkStrategyConfig('grid', { justify: 'around' }, spec)).toHaveLength(1);
   });
 });
+
+/** Two 48px rows and one 8px gap take 104 of 400px, leaving 296. */
+const ys = (items: LayoutItem[], options: Record<string, unknown>) => {
+  const r = run(items, options);
+  return items.map((it) => r.placements.get(it.id)?.y);
+};
+const SHEET = { cell: { w: 64, h: 48 }, gap: 8, cols: 1 };
+
+describe('gridStrategy — align', () => {
+  it('start (the default) keeps the rows at the top', () => {
+    expect(ys(ids(2), SHEET)).toEqual([0, 56]);
+  });
+
+  it('center, end, between, and evenly hand out the leftover height as justify does width', () => {
+    expect(ys(ids(2), { ...SHEET, align: 'center' })).toEqual([148, 204]);
+    expect(ys(ids(2), { ...SHEET, align: 'end' })).toEqual([296, 352]);
+    expect(ys(ids(2), { ...SHEET, align: 'between' })).toEqual([0, 352]);
+    expect(ys(ids(2), { ...SHEET, align: 'evenly' })).toEqual([
+      296 / 3,
+      296 / 3 + 48 + 8 + 296 / 3,
+    ]);
+  });
+
+  it('applies to pixel row tracks', () => {
+    const options = { cols: 1, tracks: { rows: [100, 100] }, align: 'end' };
+    expect(ys(ids(2), options)).toEqual([200, 300]);
+  });
+
+  it('does nothing when the rows already fill the height', () => {
+    expect(ys(ids(2), { cols: 1, align: 'end' })).toEqual([0, 200]);
+  });
+
+  it('is a checked config key', () => {
+    const spec = gridStrategy.configSpec;
+    if (!spec) throw new Error('grid has no configSpec');
+    expect(checkStrategyConfig('grid', { align: 'center' }, spec)).toEqual([]);
+    expect(checkStrategyConfig('grid', { align: 'middle' }, spec)).toHaveLength(1);
+  });
+});
