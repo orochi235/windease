@@ -21,6 +21,8 @@ export interface PresetNode {
   allowsPinning?: boolean;
   /** On a container: collapse it into its parent when a removal leaves one child. */
   autoUnsplit?: boolean;
+  /** On a container: remove it when a removal leaves no children. */
+  autoPrune?: boolean;
   /** The container's persisted strategy state (saved positions, anchors…), as `setContainerState` takes it. */
   state?: unknown;
   hints?: NodeHints;
@@ -186,6 +188,7 @@ export function presetToStore(preset: Preset, store: Store = new Store()): Store
               config: node.config ?? {},
               allowsPinning: node.allowsPinning,
               autoUnsplit: node.autoUnsplit,
+              autoPrune: node.autoPrune,
             }
           : undefined,
         focus: !node.strategy,
@@ -296,6 +299,7 @@ export function presetProperties(preset: Preset): PresetProperty[] {
     ['Hidden', (n) => n.hidden === true],
     ['Saved strategy state', (n) => n.state !== undefined],
     ['Auto-unsplit', (n) => n.autoUnsplit === true],
+    ['Auto-prune', (n) => n.autoPrune === true],
     ['Pinning refused', (n) => n.allowsPinning === false],
   ];
   for (const [label, pred] of extras) {

@@ -98,6 +98,21 @@ test.describe('exotic trees', () => {
     expectFinite(pane);
     expectInside(pane, chat);
   });
+
+  test('a Golden Layout stack whose last tab is dragged out is removed', async ({ page }) => {
+    await openStory(page, GOLDEN);
+    const chat = await settledBox(group(page, 'stack-chat'));
+    const files = await settledBox(group(page, 'stack-files'));
+
+    await drag(page, 'search', { x: chat.x + chat.w / 2, y: chat.y + chat.h / 2 });
+
+    await landedIn(page, 'search', 'stack-chat');
+    await expect(group(page, 'stack-search')).toHaveCount(0);
+    // The stack above it takes the column's whole height.
+    await expect
+      .poll(async () => (await boxOf(group(page, 'stack-files'))).h)
+      .toBeGreaterThan(files.h);
+  });
 });
 
 test.describe('a seam drag resizing a group of nested panes', () => {

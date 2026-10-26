@@ -405,6 +405,23 @@ Removals are now bracketed in a transaction so the unsplit is one undo step
 with the removal that caused it. If you bracket history on `transaction.begin`
 / `transaction.end`, every `unregisterNode` emits that pair, unsplit or not.
 
+## Removing a container that empties
+
+`autoPrune` is the same idea one child further down: a container a removal
+leaves with no children at all is destroyed, as Golden Layout removes a stack
+whose last tab is dragged out. Its parent has then lost a child, so an
+`autoUnsplit` parent left with one collapses in the same transaction.
+
+```ts
+store.setAutoPrune(stackId, true); // or createNode({ container: { …, autoPrune: true } })
+store.moveNode(lastTab, otherStack); // the emptied stack is gone
+```
+
+The guards match `autoUnsplit`'s: opt-in per container, judged only on a
+removal (a container registered empty stays), never a root, and a `destroy`
+lock leaves it in place without failing the move. To keep an emptied container
+and give back its room instead, use `collapsePolicy`, below.
+
 ## Collapsing a container that empties
 
 A sidebar whose last pane was dragged out is an empty box still holding its

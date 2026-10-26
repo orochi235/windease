@@ -133,6 +133,12 @@ export interface ContainerCap {
    */
   autoUnsplit?: boolean;
   /**
+   * Remove this container when a removal leaves it with no children, as Golden
+   * Layout removes a stack whose last tab is dragged out. Off by default, never
+   * applied to a root, and not to a container registered empty.
+   */
+  autoPrune?: boolean;
+  /**
    * The descendant of this container that most recently held focus. Maintained
    * by the store, not by consumers: written on `focusNode`, cleared when that
    * node is removed or reparented. Session-only — deliberately not serialized,

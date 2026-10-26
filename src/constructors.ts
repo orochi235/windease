@@ -23,6 +23,8 @@ export interface CreateNodeInput {
         allowsPinning?: boolean | undefined;
         /** Collapse into the parent when a removal leaves one child. */
         autoUnsplit?: boolean | undefined;
+        /** Remove it when a removal leaves no children. */
+        autoPrune?: boolean | undefined;
       }
     | undefined;
   /** Give the node a focus machine. */
@@ -65,6 +67,7 @@ export function createNode(input: CreateNodeInput): Node {
       allowsPinning: input.container.allowsPinning ?? true,
     };
     if (input.container.autoUnsplit) node.container.autoUnsplit = true;
+    if (input.container.autoPrune) node.container.autoPrune = true;
   }
   if (input.focus) node.focus = createFocusMachine();
   if (input.meta !== undefined) node.meta = input.meta;

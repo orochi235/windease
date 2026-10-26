@@ -312,6 +312,7 @@ export class Store {
     config: unknown;
     allowsPinning: boolean;
     autoUnsplit: boolean;
+    autoPrune: boolean;
   } | null {
     const c = this.nodesMap.get(id)?.container;
     if (!c) return null;
@@ -320,6 +321,7 @@ export class Store {
       config: c.config,
       allowsPinning: c.allowsPinning,
       autoUnsplit: c.autoUnsplit ?? false,
+      autoPrune: c.autoPrune ?? false,
     };
   }
 
@@ -843,6 +845,9 @@ export class Store {
    * It cannot cascade: `unsplit` replaces the group with its survivor, so the
    * grandparent's child count is unchanged.
    *
+   * An `autoPrune` container left with none is removed instead, and that can
+   * cascade: its parent has lost a child.
+   *
    * Silent when a lock forbids it. The caller removed a node; a lock on the
    * group must not turn that into a failed removal.
    */
@@ -851,10 +856,13 @@ export class Store {
     if (this.coalescing) return;
     const node = this.nodesMap.get(parentId);
     const container = node?.container;
-    if (!node || !container?.autoUnsplit) return;
-    // A root has no grandparent to lift into.
-    if (!node.membership) return;
-    if (container.childOrder.length !== 1) return;
+    // A root has no grandparent to lift into, nor a parent to be removed from.
+    if (!node?.membership || !container) return;
+    if (container.childOrder.length === 0 && container.autoPrune) {
+      this.#prune(parentId, node.membership.parentId);
+      return;
+    }
+    if (!container.autoUnsplit || container.childOrder.length !== 1) return;
     this.coalescing = true;
     try {
       this.unsplit(parentId);
@@ -864,6 +872,25 @@ export class Store {
     } finally {
       this.coalescing = false;
     }
+  }
+
+  /** Remove an emptied `autoPrune` container, then settle the parent it left,
+   *  which may now unsplit or be emptied in turn. */
+  #prune(id: NodeId, parentId: NodeId): void {
+    this.transact(() => {
+      this.coalescing = true;
+      try {
+        this.unregisterNode(id);
+      } catch (e) {
+        if (!(e instanceof LockedError)) throw e;
+        trace('store', `autoPrune: ${id} refused (${e.axis})`);
+        return;
+      } finally {
+        this.coalescing = false;
+      }
+      trace('store', `autoPrune: removed emptied ${id} from ${parentId}`);
+      this.coalesceParent(parentId);
+    }, 'autoPrune');
   }
 
   reorderInParent(id: NodeId, at: number, opts?: MutateOptions): void {
@@ -1420,6 +1447,21 @@ export class Store {
     }
     if ((node.container.autoUnsplit ?? false) === enabled) return;
     this.replaceContainer(id, (c) => ({ ...c, autoUnsplit: enabled }));
+    this.scheduleNotify();
+  }
+
+  /**
+   * Turn on remove-when-emptied for this container. See `ContainerCap.autoPrune`.
+   * Gated by `arrange`, as `setAutoUnsplit` is.
+   */
+  setAutoPrune(id: NodeId, enabled: boolean, opts?: MutateOptions): void {
+    this.assertUnlocked(id, 'arrange', 'setAutoPrune', opts);
+    const node = this.requireNode(id);
+    if (!node.container) {
+      throw new CapabilityMissingError(id, 'container', 'setAutoPrune');
+    }
+    if ((node.container.autoPrune ?? false) === enabled) return;
+    this.replaceContainer(id, (c) => ({ ...c, autoPrune: enabled }));
     this.scheduleNotify();
   }
 

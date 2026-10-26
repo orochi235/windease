@@ -34,6 +34,7 @@ export interface SerializedNode {
     childOrder: string[];
     allowsPinning: boolean;
     autoUnsplit?: boolean;
+    autoPrune?: boolean;
     state?: unknown;
   };
   membership?: {
@@ -82,6 +83,7 @@ function serializeNode(node: Node): SerializedNode {
     // Written only when on, so an old snapshot and a default container read
     // the same on the way back in.
     if (node.container.autoUnsplit) c.autoUnsplit = true;
+    if (node.container.autoPrune) c.autoPrune = true;
     if (node.container.state !== undefined) c.state = node.container.state;
     out.container = c;
   }
@@ -712,6 +714,7 @@ function buildNodeFromSerialized(sn: SerializedNode, opts: { emptyChildOrder: bo
       allowsPinning: sn.container.allowsPinning,
     };
     if (sn.container.autoUnsplit) node.container.autoUnsplit = true;
+    if (sn.container.autoPrune) node.container.autoPrune = true;
     if (sn.container.state !== undefined) {
       node.container.state = sn.container.state;
     }

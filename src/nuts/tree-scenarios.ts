@@ -320,8 +320,8 @@ function goldenShare(item: GoldenItem, axis: 'x' | 'y'): number | undefined {
  * on load; `minItemWidth`/`minItemHeight` become `hints.minSize` on every tab,
  * and percentages become `placement.share`. A stack shows a dropped tab, and
  * after the active tab closes shows the one before it, as Golden Layout does.
- * A nested row or column left with one child collapses into its parent, and
- * no container takes pins, which Golden Layout has no notion of.
+ * A stack whose last tab leaves is removed, a nested row or column left with
+ * one child collapses into its parent, and no container takes pins, which Golden Layout has no notion of.
  */
 export function fromGoldenLayout(
   config: GoldenConfig,
@@ -357,6 +357,7 @@ export function fromGoldenLayout(
         kind: 'group',
         strategy: 'stack',
         allowsPinning: false,
+        autoPrune: true,
         config: { ...stack, activeId: panel.id },
         children: [panel],
       });
@@ -371,6 +372,7 @@ export function fromGoldenLayout(
         kind: 'group',
         strategy: 'stack',
         allowsPinning: false,
+        autoPrune: true,
         config: active ? { ...stack, activeId: active.id } : stack,
         children: tabs,
       });

@@ -309,11 +309,7 @@ Decided in conversation and recorded nowhere else:
   Exotic grid story gives any preset whose root sets `overflowMode: 'scroll'`
   a scroll box at its viewport.
 
-Everything the design doc names is built. Missing: a key that removes a container a drag empties, as
-Golden Layout removes an emptied stack. Without it, the `autoUnsplit` its
-translator sets on rows and columns fires on `unregisterNode` but never on a
-drag. Built
-with no preset using it: `zoom`, `drop`, pages, stack `tabs: 'stacked'` and
+Everything the design doc names is built. Built with no preset using it: `zoom`, `drop`, pages, stack `tabs: 'stacked'` and
 floating `snap: 'fill'`. The Firefox and Win 10 presets set `reorder`; Chrome's
 tabs are a stack's band, drawn by the story, so the key does not reach them.
 

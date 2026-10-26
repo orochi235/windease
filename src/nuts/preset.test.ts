@@ -72,6 +72,7 @@ describe('preset container flags', () => {
           children: [{ id: 'a' }, { id: 'b' }],
         },
         { id: 'c' },
+        { id: 'tray', strategy: 'strip', config: {}, autoPrune: true, children: [{ id: 'd' }] },
       ],
     },
   };
@@ -87,12 +88,20 @@ describe('preset container flags', () => {
     const store = presetToStore(flagged);
     store.unregisterNode(asNodeId('a'));
     expect(store.getNode(asNodeId('group'))).toBeUndefined();
-    expect(store.getContainerView(asNodeId('root'))?.childOrder).toEqual(['b', 'c']);
+    expect(store.getContainerView(asNodeId('root'))?.childOrder).toEqual(['b', 'c', 'tray']);
+  });
+
+  it('carries autoPrune, removing the container a removal empties', () => {
+    const store = presetToStore(flagged);
+    expect(store.getContainerView(asNodeId('tray'))?.autoPrune).toBe(true);
+    store.unregisterNode(asNodeId('d'));
+    expect(store.getNode(asNodeId('tray'))).toBeUndefined();
   });
 
   it('lists both in the properties', () => {
     const labels = presetProperties(flagged).map((r) => r.label);
     expect(labels).toContain('Auto-unsplit');
+    expect(labels).toContain('Auto-prune');
     expect(labels).toContain('Pinning refused');
   });
 });

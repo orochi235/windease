@@ -116,10 +116,10 @@ These are config or placement keys on one strategy each.
 
 ## What the schema carries beyond today's
 
-- `allowsPinning` and `autoUnsplit` on a container node. Built: `PresetNode` carries both, and
-  `createNode` takes `autoUnsplit`. Golden Layout's translator sets both, but its collapse is not
-  reachable by drag: Golden Layout removes a stack emptied by a drag, and windease has no key
-  that removes an emptied container.
+- `allowsPinning`, `autoUnsplit` and `autoPrune` on a container node. Built: `PresetNode` carries
+  all three, and `createNode` takes both flags. Golden Layout's translator sets `autoPrune` on
+  stacks, so a stack emptied by a drag is removed and the row it leaves with one child collapses
+  (2026-10-26).
 - Drop behavior now set by React props (`stackOnDrop`, `splitOnDrop`) moves into config as
   `drop: { stack?, split?, cell? }`, so a preset can say a group stacks on drop. The props stay and win. Built; only Grafana's preset sets it, as `cell`.
 - Per-view state (page) lives in container `state`, which snapshots already carry. Scroll and

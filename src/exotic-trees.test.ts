@@ -275,6 +275,17 @@ describe('Golden Layout configs', () => {
     expect(search?.placement).toEqual({ share: { h: 0.4 } });
   });
 
+  it('removes a stack whose last tab is dragged out, and the column it leaves with one', () => {
+    const store = presetToStore(GOLDEN_PRESET);
+    const column = store.getNode(id('stack-search'))?.membership?.parentId;
+    const files = store.getContainerView(column!)?.childOrder.find((c) => c !== 'stack-search');
+    const row = store.getNode(column!)?.membership?.parentId;
+    store.moveNode(id('search'), id('stack-chat'));
+    expect(store.getNode(id('stack-search'))).toBeUndefined();
+    expect(store.getNode(column!)).toBeUndefined();
+    expect(store.getNode(files!)?.membership?.parentId).toBe(row);
+  });
+
   it('shows a dropped tab, and the tab before a closed active one', () => {
     const store = presetToStore(GOLDEN_PRESET);
     store.moveNode(id('terminal'), id('stack-chat'), 1);

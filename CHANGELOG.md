@@ -10,6 +10,12 @@ section below.
 
 ### Added
 
+- **`autoPrune` removes a container a removal leaves empty.** Set it with
+  `store.setAutoPrune`, `createNode`'s container, or a preset node. An
+  `autoUnsplit` parent it leaves with one child collapses in the same
+  transaction. The Golden Layout translator sets it on every stack, so a stack
+  whose last tab is dragged out is removed, as in Golden Layout.
+
 - **Drop a grid child into the cell under the pointer.** `drop: { cell: true }`
   on a grid makes a drop over an empty cell write the child's `placement.cell`,
   in the same transaction as the move, where a drag always dropped it into the
