@@ -1301,7 +1301,8 @@ function stickyInsets(tracks: ReadonlySet<number>, axis: Axis): Map<number, numb
 /**
  * Where each `placement.sticky` cell sticks, keyed by id. Raises those cells
  * above the ones that scroll under them (a cell sticky on both axes above
- * those sticky on one), and makes the seam of a sticky track move with it.
+ * those sticky on one, and every seam between the two), and makes the seam of
+ * a sticky track move with it.
  */
 function stickCells(
   items: LayoutItem[],
@@ -1330,18 +1331,20 @@ function stickCells(
     if (axes.y) inset.y = rowAt.get(cell.row) ?? 0;
     out.set(it.id, inset);
     const rect = placements.get(it.id);
-    if (rect) placements.set(it.id, { ...rect, z: axes.x && axes.y ? 3 : 2 });
+    if (rect) placements.set(it.id, { ...rect, z: axes.x && axes.y ? 4 : 2 });
   }
+  // One z cannot put a seam above the heading row it crosses and below the
+  // frozen column it scrolls under; the heading row is where widths are dragged.
   for (const a of affordances) {
     const track = /^track-([xy])-(\d+)$/.exec(a.id);
     if (!track) continue;
+    a.rect = { ...a.rect, z: 3 };
     const i = Number(track[2]);
     const across = track[1] === 'x';
     const at = (across ? colAt : rowAt).get(i);
     if (at === undefined) continue;
     const start = (across ? geom.x : geom.y).start(i);
     a.sticky = across ? { x: at + a.rect.x - start } : { y: at + a.rect.y - start };
-    a.rect = { ...a.rect, z: 2 };
   }
   trace('layout', `grid: ${out.size} sticky cells over ${cols.size} cols, ${rows.size} rows`);
   return out;

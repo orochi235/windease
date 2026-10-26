@@ -34,6 +34,10 @@
   background: #f1f5f9;
 }
 
+.xg-scroller {
+  overflow: auto;
+}
+
 .xg-group {
   box-sizing: border-box;
   width: 100%;

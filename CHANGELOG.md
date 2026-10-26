@@ -20,9 +20,13 @@ section below.
 - **Grid cells stick while the sheet scrolls.** A grid cell's
   `placement.sticky` is `'y'` to hold at the top edge, `'x'` at the left, or
   `true` for both, as Excel's frozen headings and row numbers do. Sticky
-  tracks stack in order, a sticky track's seam moves with it, and the cells
+  tracks stack in order, a sticky track's seam moves with it, every seam
+  draws above the headings it crosses so a width drags from the heading row,
+  and the cells
   report through `LayoutResult.sticky` as a strip's sticky panes do. See the
-  **Frozen headers** grid story.
+  **Frozen headers** grid story. The `excel-frozen-panes` preset in
+  `windease/nuts` uses it: the sheet is now 10 × 30 cells that scroll both ways
+  instead of a `maxRows` trim to 6 rows.
 
 - **Composite config nests under `inner`.** `floatingStrategy(inner)` and
   `desktopStrategy(inner)` hand `config.inner` to the strategy they wrap, as

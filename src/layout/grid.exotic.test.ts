@@ -599,16 +599,22 @@ describe('keyboards', () => {
   });
 });
 
-describe('Excel frozen panes (pinned headers)', () => {
+describe('Excel frozen panes (sticky headers)', () => {
   const s = scenario('excel-frozen-panes', 'sheet');
   const r = run(s);
-  const pinned = s.items.filter((i) => typeof i.meta?.pinned === 'number').map((i) => i.id);
 
-  it('every pinned header survives the capacity trim; only data cells are unplaced', () => {
-    expect(pinned).toHaveLength(14);
-    for (const id of pinned) expect(r.placements.has(id)).toBe(true);
-    expect((r.unplaced ?? []).every((id) => !pinned.includes(id))).toBe(true);
-    expect(r.placements.size).toBe(36);
+  it('places the whole sheet and reports what lies past the window as overflow', () => {
+    expect(r.placements.size).toBe(300);
+    expect(r.unplaced ?? []).toEqual([]);
+    expect(r.overflow?.w).toBeGreaterThan(0);
+    expect(r.overflow?.h).toBeGreaterThan(0);
+  });
+
+  it('holds row 1 at the top, column A at the left, and the corner at both', () => {
+    expect(r.sticky?.get('cell-corner')).toEqual({ x: 0, y: 0 });
+    expect(r.sticky?.get('cell-C')).toEqual({ y: 0 });
+    expect(r.sticky?.get('cell-row12')).toEqual({ x: 0 });
+    expect(r.sticky?.has('cell-C12')).toBe(false);
   });
 
   it('sizes the row-number column 32px, every other column 64px, and every row 20px', () => {
@@ -633,16 +639,19 @@ describe('Excel frozen panes (pinned headers)', () => {
       items: s.items,
     });
     const config = store.getNode(asNodeId('sheet'))?.container?.config as Cfg;
-    expect(config.tracks?.cols).toEqual([32, 80, 64, 64, 64, 64]);
+    expect(config.tracks?.cols).toEqual([32, 80]);
     const after = run(fromStore(store, 'sheet', s));
     expect(after.placements.get('cell-A')!.w).toBe(80);
     expect(after.placements.get('cell-B')!.x).toBe(r.placements.get('cell-B')!.x + 16);
   });
 
-  it('a pin holds a childOrder index, not a cell: a trimmed sheet shifts a row header out of column A', () => {
+  it('with nothing trimmed, every row header pins into column A and every letter into row 1', () => {
     const { cells } = cellsOf(s, r);
-    const offColumnA = pinned.filter((id) => id.startsWith('cell-row') && cells.get(id)?.col !== 0);
-    expect(offColumnA.length).toBeGreaterThan(0);
+    const ids = s.items.map((i) => i.id);
+    for (const id of ids.filter((i) => /^cell-row\d+$/.test(i)))
+      expect(cells.get(id)?.col, id).toBe(0);
+    for (const id of ids.filter((i) => /^cell-[A-Z]$/.test(i)))
+      expect(cells.get(id)?.row, id).toBe(0);
   });
 });
 
@@ -798,7 +807,7 @@ describe('DragEngine feeding grid.canAccept', () => {
     expect(hover('widget-weather')).toBe(false);
   });
 
-  it('an over-capacity sheet accepts a reorder of its own cells', () => {
+  it('a sheet accepts a reorder of its own cells', () => {
     const preset = PRESETS.find((p) => p.id === 'excel-frozen-panes') as Preset;
     expect(verdict(preset, 'sheet', 'cell-B1')).toBe(true);
   });

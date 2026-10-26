@@ -604,7 +604,8 @@ store.patchPlacement(corner, { sticky: true }); // both
 
 Sticky rows stack in order, as sticky panes do, and so do sticky columns. A
 cell sticky on both axes draws above those sticky on one, and they draw above
-the rest. Under `tracks`, a sticky column's seam moves with it. See the
+the rest. Under `tracks`, every seam draws between the two, so a column's width
+drags from the heading row, and a sticky column's seam moves with it. See the
 **Frozen headers** grid story.
 
 The strategy never sees the scroll offset, so scrolling still doesn't re-run

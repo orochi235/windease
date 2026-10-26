@@ -301,12 +301,27 @@ test.describe('periodic table and keyboard', () => {
 });
 
 test.describe('Excel frozen panes', () => {
-  test('the pinned header row survives the capacity trim', async ({ page }) => {
+  test('scrolling the sheet leaves row 1 at the top and column A at the left', async ({ page }) => {
     await pick(page, 'excel-frozen-panes', 'cell-corner');
-    for (const id of ['cell-corner', 'cell-A', 'cell-E', 'cell-row5']) {
-      await expect(node(page, id)).toBeVisible();
+    await expect(unplaced(page, 'sheet')).toHaveText('(none)');
+    const ids = ['cell-corner', 'cell-C', 'cell-row12', 'cell-C12'];
+    const before = new Map<string, Box>();
+    for (const id of ids) before.set(id, await settledBox(node(page, id)));
+
+    await page.getByTestId('xg-scroller').evaluate((el) => el.scrollTo(100, 120));
+
+    // [id, how far it moves left, how far it moves up]
+    const moves: Array<[string, number, number]> = [
+      ['cell-corner', 0, 0],
+      ['cell-C', 100, 0],
+      ['cell-row12', 0, 120],
+      ['cell-C12', 100, 120],
+    ];
+    for (const [id, dx, dy] of moves) {
+      const was = before.get(id)!;
+      await expect.poll(async () => (await boxOf(node(page, id))).x, id).toBeCloseTo(was.x - dx, 0);
+      await expect.poll(async () => (await boxOf(node(page, id))).y, id).toBeCloseTo(was.y - dy, 0);
     }
-    await expect(unplaced(page, 'sheet')).toContainText('cell-E8');
   });
 
   test('the row-number column is narrow, and dragging column A’s seam widens it alone', async ({

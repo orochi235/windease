@@ -1,7 +1,7 @@
 export default { title: 'Exotic / Grid' };
 
 import type { Story } from '@ladle/react';
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useMemo, useRef } from 'react';
 import { readReorderConfig } from '../../container-config.js';
 import {
   asNodeId,
@@ -139,6 +139,17 @@ function PresetView({ preset }: { preset: Preset }) {
     .map(({ node }) => node)
     .filter((n) => n.strategy === 'grid');
   const rootId = asNodeId(preset.mechanics.id);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const scrolls = preset.mechanics.config?.overflowMode === 'scroll';
+  const container = (
+    <Container
+      parentId={rootId}
+      chrome={chrome}
+      viewport={preset.viewport}
+      affordances
+      {...(scrolls ? { scrollRef } : {})}
+    />
+  );
 
   return (
     <Provider store={store}>
@@ -147,7 +158,19 @@ function PresetView({ preset }: { preset: Preset }) {
           <PresetInfo preset={preset} />
           <PresetStyle preset={preset} />
           <RootFrame id={rootId} className={presetClass(preset)}>
-            <Container parentId={rootId} chrome={chrome} viewport={preset.viewport} affordances />
+            {scrolls ? (
+              // Sized to the designed viewport, which is the preset's data.
+              <div
+                ref={scrollRef}
+                className="xg-scroller"
+                style={{ width: preset.viewport.w, height: preset.viewport.h }}
+                data-testid="xg-scroller"
+              >
+                {container}
+              </div>
+            ) : (
+              container
+            )}
           </RootFrame>
           <dl className="xg-readout">
             {grids.map((g) => (

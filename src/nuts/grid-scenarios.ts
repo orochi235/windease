@@ -407,18 +407,19 @@ const keyboard = (id: string, cols: number, quartersPerCell: number, title: stri
   },
 });
 
-const cell = (ref: string, pinnedAt?: number): PresetNode => ({
+const cell = (ref: string, header?: { at: number; sticky: true | 'x' | 'y' }): PresetNode => ({
   id: `cell-${ref}`,
-  placement: pinnedAt === undefined ? {} : { pinned: pinnedAt },
+  placement: header === undefined ? {} : { pinned: header.at, sticky: header.sticky },
 });
 
 /**
  * Excel with row 1 and column A frozen: every header cell pinned to its own
- * index. The cells are the sheet's structure; their references are data.
+ * index and sticky on its axis. The cells are the sheet's structure; their
+ * references are data.
  */
 function frozenSheet(): Halves {
-  const COLS = 6;
-  const ROWS = 9;
+  const COLS = 10;
+  const ROWS = 30;
   const children: PresetNode[] = [];
   const nodes: NonNullable<PresetData['nodes']> = { sheet: { meta: { title: 'Book1 — Sheet1' } } };
   for (let r = 0; r < ROWS; r++) {
@@ -433,7 +434,8 @@ function frozenSheet(): Halves {
             ? `row${r}`
             : `${String.fromCharCode(64 + c)}${r}`;
       const header = r === 0 || c === 0;
-      children.push(cell(ref, header ? index : undefined));
+      const sticky = r === 0 && c === 0 ? true : r === 0 ? 'y' : 'x';
+      children.push(cell(ref, header ? { at: index, sticky } : undefined));
       nodes[`cell-${ref}`] = { meta: { title: ref }, ...(header ? { className: 'xl-head' } : {}) };
     }
   }
@@ -445,10 +447,10 @@ function frozenSheet(): Halves {
       // Excel's defaults at 100%: 64px columns, 20px rows, a narrow row-number column.
       config: {
         cols: COLS,
-        maxRows: 6,
         gap: 1,
-        cell: { h: 20 },
-        tracks: { cols: [32, 64, 64, 64, 64, 64], rows: [20, 20, 20, 20, 20, 20] },
+        cell: { w: 64, h: 20 },
+        tracks: { cols: [32] },
+        overflowMode: 'scroll',
         resizable: true,
       },
       children,
@@ -934,12 +936,12 @@ export const PRESETS: Preset[] = [
   styled(
     {
       id: 'excel-frozen-panes',
-      source: 'Excel with row 1 and column A frozen, scrolled so only 6 rows fit',
+      source: 'Excel with row 1 and column A frozen, in a window smaller than the sheet',
       stress:
-        'header cells pinned to their childOrder index; capacity trims data rows, and a pin is an index, not a cell',
+        'header cells pinned to their childOrder index and sticky on their axis, in a grid that scrolls both ways',
       description:
-        'An Excel spreadsheet with Freeze Panes set so that row 1 (the column headings) and column A (the row labels) stay on screen while the rest of the sheet scrolls. Users set it from View > Freeze Panes and then scroll as usual; only as many rows as fit in the window are shown.',
-      viewport: { w: 720, h: 125 },
+        'An Excel spreadsheet with Freeze Panes set so that row 1 (the column headings) and column A (the row labels) stay on screen while the rest of the sheet scrolls. Users set it from View > Freeze Panes and then scroll as usual, in either direction.',
+      viewport: { w: 360, h: 125 },
       ...frozenSheet(),
     },
     EXCEL_CSS,

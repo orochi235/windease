@@ -32,7 +32,7 @@ describe('gridStrategy placement.sticky', () => {
 
   it('draws the corner above the headings, and the headings above the body', () => {
     const r = sheet();
-    expect(r.placements.get('r0c0')?.z).toBe(3);
+    expect(r.placements.get('r0c0')?.z).toBe(4);
     expect(r.placements.get('r0c2')?.z).toBe(2);
     expect(r.placements.get('r2c0')?.z).toBe(2);
     expect(r.placements.get('r2c2')?.z).toBe(0);
@@ -66,6 +66,14 @@ describe('gridStrategy placement.sticky', () => {
     const seam = r.affordances.find((a) => a.id === 'track-x-0');
     expect(seam?.sticky).toEqual({ x: 2 + 50 - 2 + 0.5 });
     expect(r.affordances.find((a) => a.id === 'track-x-1')?.sticky).toBeUndefined();
+  });
+
+  it('draws every seam above the headings it crosses and below the corner', () => {
+    // A column seam crosses the heading row, where its width is dragged.
+    const r = sheet({ tracks: { cols: [50, 50, 50, 50] }, resizable: true });
+    const seams = r.affordances.filter((a) => /^track-[xy]-/.test(a.id));
+    expect(seams.length).toBeGreaterThan(0);
+    for (const a of seams) expect(a.rect.z, a.id).toBe(3);
   });
 
   it('reports nothing when no cell is sticky', () => {
