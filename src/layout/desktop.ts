@@ -444,6 +444,7 @@ function resizeWindow(ctx: DispatchContext, windows: readonly LayoutItem[]): voi
   const { item, rect } = shown;
   const edgeSize = cfg.edgeSize ?? DEFAULT_EDGE_SIZE;
   const moveLocked = store.isLocked(id, 'move');
+  const delta = dragDelta(`desktop: ${id} resize`, event.payload);
   const sides = sidesOf(edge);
   const next = { ...rect };
   for (const side of [sides.x, sides.y]) {
@@ -453,8 +454,8 @@ function resizeWindow(ctx: DispatchContext, windows: readonly LayoutItem[]): voi
       continue;
     }
     const horizontal = side === 'w' || side === 'e';
-    const raw = horizontal ? event.payload.dx : event.payload.dy;
-    if (raw === undefined || !Number.isFinite(raw) || raw === 0) continue;
+    const raw = horizontal ? delta.dx : delta.dy;
+    if (raw === 0) continue;
     const r = edgeRange(side, rect, item, container, edgeSize);
     const to = Math.max(r.min, Math.min(r.max, r.now + raw));
     if (side === 'e') next.w = to - rect.x;
