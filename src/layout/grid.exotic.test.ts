@@ -469,6 +469,18 @@ describe('Windows 10 Start tiles', () => {
     expect(performance.now() - t).toBeLessThan(100);
   });
 
+  it('a resizable 100-panel flowed dashboard under a row cap lays out in under 2s', () => {
+    const items = Array.from({ length: 100 }, (_, i) => ({
+      id: `p${i}`,
+      placement: { span: { cols: 6, rows: 8 } },
+    }));
+    const options = { cols: 24, maxRows: 220, cell: { h: 30 }, resizable: true };
+    const t = performance.now();
+    const r = run({ items, container: { w: 2400, h: 1000 }, options });
+    expect(performance.now() - t).toBeLessThan(2000);
+    expect(r.unplaced).toBeUndefined();
+  });
+
   it('a resizable 200-panel celled dashboard under a row cap lays out in under 100ms', () => {
     const items = Array.from({ length: 200 }, (_, i) => ({
       id: `p${i}`,

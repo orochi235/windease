@@ -319,8 +319,10 @@ Open, grouped by what they touch:
   pointer, since every pane's size moves every gap; `resizeMode: 'neighbor'`
   is the answer today.
 - **grid** — capacity by width under fixed cells; vertical align; pinned vs celled
-  priority. Flowed items under a row cap are still slow in resize reach; the
-  celled path is fixed (27s → 5ms).
+  priority. Flowed items under a row cap still cost O(items² × span) in resize
+  reach — 200 panels under `maxRows: 420` take 2.0s a layout, measured
+  2026-10-26 — because first-fit packing is not monotone in span, so every span
+  is probed; going further needs reach to be bounded or computed lazily.
 - **accepts and locks** — `accepts: false` and `lock.accept` both stay
   (accepts is drag-only); stack/split drops honor `accepts.kinds`, and count
   toward `accepts.max` only where they add a child. `lock: true` does *not*

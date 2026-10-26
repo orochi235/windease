@@ -382,10 +382,38 @@ function byCapacityPriority(items: LayoutItem[]): LayoutItem[] {
  * Row-major first-fit over a `cols`-wide lattice. Every cell before `cursor`
  * is taken, so no block can start there and each search begins at it.
  */
+/** Taken cells by index, as a byte map grown on demand. A `Set` here made
+ *  span-reach probes several times slower. */
+class CellSet {
+  private bits = new Uint8Array(64);
+  size = 0;
+
+  has(cell: number): boolean {
+    return cell < this.bits.length && this.bits[cell] === 1;
+  }
+
+  add(cell: number): void {
+    if (cell >= this.bits.length) {
+      const next = new Uint8Array(Math.max(cell + 1, this.bits.length * 2));
+      next.set(this.bits);
+      this.bits = next;
+    }
+    if (this.bits[cell] === 1) return;
+    this.bits[cell] = 1;
+    this.size++;
+  }
+
+  delete(cell: number): void {
+    if (cell >= this.bits.length || this.bits[cell] === 0) return;
+    this.bits[cell] = 0;
+    this.size--;
+  }
+}
+
 class CellPacker {
   readonly cols: number;
   readonly rowCap: number | undefined;
-  private readonly taken = new Set<number>();
+  private readonly taken = new CellSet();
   private cursor = 0;
   private journal: number[] | undefined;
 
@@ -407,6 +435,11 @@ class CellPacker {
       for (const cell of journal) this.taken.delete(cell);
       this.cursor = cursor;
     }
+  }
+
+  /** How many cells are taken. */
+  get takenCount(): number {
+    return this.taken.size;
   }
 
   free(col: number, row: number, cSpan: number, rSpan: number): boolean {
@@ -576,6 +609,24 @@ function compactCells(
   }
   if (moved > 0) trace('layout', `grid: compact moved ${moved}/${celled.length} cells`);
   return anyFlow;
+}
+
+/** The fewest cells any `count` of `items` cover, spans clamped as packing clamps them. */
+function cellsNeeded(
+  items: LayoutItem[],
+  count: number,
+  cols: number,
+  rowCap: number | undefined,
+): number {
+  if (count <= 0) return 0;
+  const areas = items.map((it) => {
+    const span = clampSpan(it, cols, rowCap);
+    return span.cols * span.rows;
+  });
+  areas.sort((a, b) => a - b);
+  let sum = 0;
+  for (let i = 0; i < count && i < areas.length; i++) sum += areas[i] as number;
+  return sum;
 }
 
 /** One past the rightmost column the explicit cells reach, spans included. */
@@ -1145,18 +1196,34 @@ function spanReacher(
     };
     const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
       if (ownCell && before < itemCap) return cellReach(ownCell, axis, cap);
+      // The fewest cells the rest must still cover for a probe to fit.
+      const need = cellsNeeded(rest, baseline - before - 1, cols, rowCap);
+      const room =
+        rowCap === undefined ? Number.POSITIVE_INFINITY : cols * rowCap - prefix.takenCount;
       let best = 1;
       for (let v = 1; v <= cap; v++) {
+        const span = { ...own, [axis]: v };
+        if (before < itemCap && span.cols * span.rows > room - need) {
+          // From here `id` either places and starves the rest or places
+          // nowhere, and placing nowhere is the same for every larger span.
+          if (!prefix.trial((packer) => packRest(packer, before))) return best;
+          const atCap = { ...own, [axis]: cap };
+          return prefix.trial((packer) => packer.place(atCap.cols, atCap.rows)) ? best : cap;
+        }
+        let ownPlaced = false;
         const fits = prefix.trial((packer) => {
           let placed = before;
           // Past the cap `id` places nowhere, whatever its span.
           if (placed < itemCap && !ownCell) {
-            const span = { ...own, [axis]: v };
-            if (packer.place(span.cols, span.rows)) placed++;
+            ownPlaced = packer.place(span.cols, span.rows) !== undefined;
+            if (ownPlaced) placed++;
           }
           return packRest(packer, placed);
         });
         if (fits) best = v;
+        // A block that fits nowhere at `v` fits nowhere at a larger span, and
+        // with `id` unplaced the rest pack the same, so every later probe agrees.
+        if (!ownPlaced) return fits ? cap : best;
       }
       return best;
     };

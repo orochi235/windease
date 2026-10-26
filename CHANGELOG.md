@@ -144,6 +144,10 @@ section below.
 
 ### Fixed
 
+- **A resizable grid of flowed items under a row cap lays out about 10× faster.**
+  100 panels of 6×8 cells in 24 columns under `maxRows: 220` took 5.3s per
+  layout and now take 0.4s; 200 under `maxRows: 420`, 2.0s. The seams' reported
+  ranges are unchanged.
 - **`floatingStrategy` ignores an infinite drag delta.** It saved the clamped
   edge, so one event from a zero view scale threw a panel against the wall; an
   infinite axis is now dropped like a `NaN` one, as `desktopStrategy` already
