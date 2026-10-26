@@ -330,9 +330,9 @@ Open, grouped by what they touch:
   toward `accepts.max` only where they add a child. `lock: true` does *not*
   include the `hide` axis, which protects apps that lock with `true` and still hide via a
   View menu — making `true` mean every axis needs a README breaking-change note.
-- **reorder** — a `<Zone>` declaring `reorder` keeps the dropped order (acting
-  as `sort={preserveStoreOrder}`) unless `sort` is passed: keep that implicit or
-  make it opt-in? Press-and-hold to start a touch drag, so a swipe still
+- **reorder** — a `<Zone>` declaring `reorder` or `raise` (the latter since
+  2026-10-26) keeps the store's order (acting as `sort={preserveStoreOrder}`)
+  unless `sort` is passed: keep that implicit or make it opt-in? Press-and-hold to start a touch drag, so a swipe still
   scrolls a list of `reorder` rows, would beat `touchScroll` turning touch
   drags off; it is a new gesture mode in `DragController`.
 - **stack** — the tab band is exposed via channels (`bandX/Y/W/H`, `tabX/…`);
