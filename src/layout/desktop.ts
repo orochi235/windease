@@ -673,7 +673,7 @@ export function desktopStrategy<TInner>(
       const unzoom = item && unzoomForDrag(store, item, affordance.rect, next, event.payload.point);
       if (unzoom) next = unzoom.at;
       const size = unzoom ? unzoom.size : item && itemSize(item);
-      if (cfg.clamp && size) {
+      if (cfg.clamp && item && size) {
         const h =
           item.meta?.minimized === true ? (cfg.shadeHeight ?? DEFAULT_SHADE_HEIGHT) : size.h;
         const band = cfg.handleSize ?? DEFAULT_HANDLE_SIZE;
