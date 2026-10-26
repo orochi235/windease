@@ -134,6 +134,9 @@ section below.
 
 ### Fixed
 
+- **A raised child stays on top in a declarative `<Zone>`.** A zone whose
+  config sets `raise` keeps its store order the way a `reorder` zone does,
+  where the next render used to put the raised child back in JSX order.
 - **A grid seam scrolled under a frozen column or heading row can't be grabbed
   through it.** Its hit area is clipped to the part outside the frozen pane.
   `frozenBands` and `clipUnderBand` are exported for hosts that draw seams

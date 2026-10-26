@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react';
 import { type ChildSort, preserveStoreOrder } from '../child-sort.js';
-import { readDropConfig, readReorderConfig } from '../container-config.js';
+import { readDropConfig, readRaiseConfig, readReorderConfig } from '../container-config.js';
 import type { AcceptPolicy } from '../dnd/DragEngine.js';
 import type { EdgeScrollOptions } from '../dnd/edgeScroll.js';
 import type {
@@ -896,10 +896,12 @@ function PresetShell({
       .snapshot()
       .filter((e) => currentSet.has(e.id))
       .map((e) => ({ id: e.id, order: e.order }));
-    // A container whose children the user reorders owns their arrangement, so
-    // declared JSX order would revert every drop on the next render.
-    const effectiveSort =
-      sort ?? (readReorderConfig(ownContainer?.config) ? preserveStoreOrder : undefined);
+    // A container whose children the user reorders or raises owns their
+    // arrangement, so declared JSX order would revert it on the next render.
+    const userArranged =
+      readReorderConfig(ownContainer?.config) !== undefined ||
+      readRaiseConfig(ownContainer?.config) !== undefined;
+    const effectiveSort = sort ?? (userArranged ? preserveStoreOrder : undefined);
     reconcileChildOrder(store, id, observed, effectiveSort ? { sort: effectiveSort } : undefined);
   });
 

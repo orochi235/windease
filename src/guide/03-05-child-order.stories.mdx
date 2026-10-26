@@ -46,6 +46,9 @@ Reconcile short-circuits: no `setChildOrder` runs, so a drop survives the next
 render and no `arrange` lock is needed. Children the binding did not observe
 keep their store positions.
 
+A `<Zone>` whose config sets `reorder` or `raise` takes this sort unless you
+pass `sort`, since a drop or a raise is the user arranging it.
+
 `defaultChildSort` is the other built-in — numeric `order` ascending, then
 declared position. A custom `ChildSort` receives the observed children and the
 full current id list and returns the final order.

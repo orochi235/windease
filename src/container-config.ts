@@ -83,6 +83,12 @@ export function readReorderConfig(config: unknown): ReorderMode | undefined {
   return reorder === true || reorder === 'handle' ? reorder : undefined;
 }
 
+/** `config.raise` when it names a mode, else undefined. */
+export function readRaiseConfig(config: unknown): RaiseMode | undefined {
+  const raise = (config as { raise?: unknown } | null | undefined)?.raise;
+  return raise === 'click' || raise === 'focus' ? raise : undefined;
+}
+
 /** Whether `config.touchScroll` leaves a reorder child's touches to the page. */
 export function readTouchScroll(config: unknown): boolean {
   return (config as { touchScroll?: unknown } | null | undefined)?.touchScroll === true;
