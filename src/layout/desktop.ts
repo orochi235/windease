@@ -281,14 +281,32 @@ function flipPoint(p: Point, m: Mirror | null, c: Size): Point {
   return { x: m.x ? c.w - p.x : p.x, y: m.y ? c.h - p.y : p.y };
 }
 
+/** An affordance in the other frame. On a flipped axis a seam's value is
+ *  reflected within its range, so it grows the way the seam moves on screen and
+ *  Home / End reach the ends they name. Its own inverse, like the rect's flip. */
+function flipAffordance(a: Affordance, m: Mirror | null, c: Size): Affordance {
+  if (!m) return a;
+  const out = { ...a, rect: flipRect(a.rect, m, c) };
+  const b = a.bounds;
+  if (b && (b.orientation === 'horizontal' ? m.x : m.y)) {
+    out.bounds = {
+      ...b,
+      valueNow: b.valueMin + b.valueMax - b.valueNow,
+      atMin: b.atMax,
+      atMax: b.atMin,
+    };
+  }
+  return out;
+}
+
 /** A mirror is its own inverse, so this maps the inner strategy's frame to the
- *  desktop's and back. `bounds` values are left alone: they may be sizes. */
+ *  desktop's and back. */
 function flipResult(r: LayoutResult<string>, m: Mirror | null, c: Size): LayoutResult<string> {
   if (!m) return r;
   const out: LayoutResult<string> = {
     ...r,
     placements: new Map([...r.placements].map(([id, rect]) => [id, flipRect(rect, m, c)])),
-    affordances: r.affordances.map((a) => ({ ...a, rect: flipRect(a.rect, m, c) })),
+    affordances: r.affordances.map((a) => flipAffordance(a, m, c)),
   };
   if (r.overflow) {
     const { w, h, left = 0, top = 0 } = r.overflow;
@@ -609,7 +627,7 @@ export function desktopStrategy<TInner>(
           options: innerConfig(ctx.options, true),
           items,
           event: flipEvent(event, mirror, ctx.container),
-          affordance: { ...affordance, rect: flipRect(affordance.rect, mirror, ctx.container) },
+          affordance: flipAffordance(affordance, mirror, ctx.container),
         });
         return;
       }

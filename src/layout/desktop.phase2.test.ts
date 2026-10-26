@@ -423,6 +423,79 @@ describe('desktop iconFrom', () => {
     expect(toggle?.rect).toMatchObject({ x: 0, y: 236, w: 64, h: 64 });
   });
 
+  describe('with an inner seam that reports a value', () => {
+    const bounds = (orientation: 'horizontal' | 'vertical') => ({
+      orientation,
+      valueNow: 30,
+      valueMin: 10,
+      valueMax: 90,
+      atMin: false,
+      atMax: false,
+    });
+    const seen: unknown[] = [];
+    const seamy = (orientation: 'horizontal' | 'vertical'): Inner => ({
+      name: 'seamy',
+      layout: ({ items }) => ({
+        placements: new Map(items.map((i) => [i.id, { x: 0, y: 0, z: 0, w: 10, h: 10 }])),
+        affordances: [
+          {
+            id: 'seamy:seam',
+            kind: 'resize-x',
+            rect: { x: 0, y: 0, z: 0, w: 4, h: 20 },
+            bounds: bounds(orientation),
+          },
+        ],
+      }),
+      dispatchAffordance: ({ affordance }) => {
+        seen.push(affordance.bounds);
+      },
+    });
+    const valueOf = (orientation: 'horizontal' | 'vertical', iconFrom: string) =>
+      run([icon('i1')], { iconFrom }, seamy(orientation)).affordances[0]?.bounds;
+
+    it('reads it from the mirrored side on the axis the mirror flips', () => {
+      expect(valueOf('horizontal', 'top-right')).toMatchObject({ valueNow: 70 });
+      expect(valueOf('vertical', 'bottom-left')).toMatchObject({ valueNow: 70 });
+    });
+
+    it('leaves it alone on the axis the mirror keeps', () => {
+      expect(valueOf('horizontal', 'bottom-left')).toMatchObject({ valueNow: 30 });
+      expect(valueOf('vertical', 'top-right')).toMatchObject({ valueNow: 30 });
+    });
+
+    it('swaps atMin and atMax with it', () => {
+      const pinned: Inner = {
+        ...seamy('horizontal'),
+        layout: (input) => {
+          const r = seamy('horizontal').layout(input);
+          r.affordances[0]!.bounds = { ...bounds('horizontal'), valueNow: 10, atMin: true };
+          return r;
+        },
+      };
+      expect(
+        run([icon('i1')], { iconFrom: 'top-right' }, pinned).affordances[0]?.bounds,
+      ).toMatchObject({ valueNow: 90, atMin: false, atMax: true });
+    });
+
+    it('hands the inner strategy its own value back', () => {
+      seen.length = 0;
+      const options = { iconFrom: 'top-right' };
+      const s = desktopStrategy(seamy('horizontal'));
+      const items = [icon('i1')];
+      const shown = run(items, options, seamy('horizontal')).affordances[0]!;
+      s.dispatchAffordance?.({
+        event: { affordanceId: 'seamy:seam', kind: 'drag', payload: { dx: 8 } },
+        affordance: shown,
+        store: desktop(options, []),
+        parentId: Z,
+        container: CONTAINER,
+        options,
+        items,
+      });
+      expect(seen).toEqual([bounds('horizontal')]);
+    });
+  });
+
   describe('with an inner strategy that emits and hears gestures', () => {
     const seen: Record<string, unknown>[] = [];
     const spy: Inner = {

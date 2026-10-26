@@ -1686,8 +1686,9 @@ mirrors the result into another corner, so any inner strategy works there.
 `'top-right'` with a one-column inner strategy gives Mac OS 9's disks down the
 right edge. The mirror covers the inner strategy's affordances, its overflow
 (rows past the top come back as `overflow.top`), and the pointer deltas, preview
-cursor and arrow-key direction it is handed back. An inner affordance's `bounds`
-is not mirrored.
+cursor and arrow-key direction it is handed back. On a flipped axis an inner
+seam's value is reflected within its range, so it grows the way the seam moves
+on screen and Home / End reach the ends they name.
 
 **Dragging.** With `drag` set, each window gets a `drag-xy` affordance (`drag-x`,
 `drag-y`) over its top `handleSize` pixels, and dragging it writes `x` / `y` into

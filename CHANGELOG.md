@@ -140,6 +140,9 @@ section below.
 
 ### Fixed
 
+- **Home and End reach the right end on a mirrored icon layer's seams.** Under
+  an `iconFrom` that flips an axis, an inner seam's value now reads in the
+  desktop's frame, where it used to run backward and send Home to the far end.
 - **A preset pane hidden by anything but its `hidden` prop stays hidden.** A
   `<Panel>` or `<Zone>` with `hidden` unset showed itself again on its next
   render, which undid a seam join's `overshoot: 'hide'` and any

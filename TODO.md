@@ -324,8 +324,7 @@ Open, grouped by what they touch:
 - **floating** — ignore an `Infinity` drag delta (only `NaN` is ignored now,
   and a test expects the clamp); `floatingStrategy()` with no inner now floats
   every item where it used to drop unmarked ones — confirm that is wanted.
-- **desktop** — resize capped at the container vs obeying the clamp; `iconFrom`
-  doesn't mirror inner bounds.
+- **desktop** — resize capped at the container vs obeying the clamp.
 - **accepts and locks** — `accepts: false` and `lock.accept` both stay
   (accepts is drag-only); stack/split drops honor `accepts.kinds`, and count
   toward `accepts.max` only where they add a child. `lock: true` does *not*
