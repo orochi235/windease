@@ -32,6 +32,8 @@ interface Args {
   /** Register the legend before the panes, and put it on the top layer when true. */
   layer?: boolean;
   snap?: FloatingSnap;
+  /** Give the tiled panes span seams, which drag through to the grid. */
+  resizable?: boolean;
 }
 
 function cornersFrom(args: Args): Corner[] {
@@ -50,6 +52,7 @@ function useZoneStore(
   corners: string,
   layer: boolean | undefined,
   snap: FloatingSnap | undefined,
+  resizable: boolean | undefined,
 ): Store {
   return useMemo(() => {
     const s = new Store();
@@ -67,6 +70,7 @@ function useZoneStore(
             inset: 12,
             snapThreshold: 12,
             ...(snap ? { snap } : {}),
+            ...(resizable ? { resizable } : {}),
           },
         },
         id: ZONE_ID,
@@ -106,7 +110,7 @@ function useZoneStore(
     }
     if (layer === undefined) registerLegend();
     return s;
-  }, [handleSize, snapToPanes, corners, layer, snap]);
+  }, [handleSize, snapToPanes, corners, layer, snap, resizable]);
 }
 
 function addPane(store: Store) {
@@ -127,6 +131,7 @@ function FloatingZone(args: Args) {
     corners.join(','),
     args.layer,
     args.snap,
+    args.resizable,
   );
   const [clicks, setClicks] = useState(0);
   const { handleSize, snapToPanes } = args;
@@ -241,3 +246,7 @@ TopLayer.args = { ...HandleBand.args, layer: true };
 /** `snap: 'fill'`, as FancyZones does it: a dropped legend fills the pane under the pointer. */
 export const SnapFill: Story<Args> = (args) => <FloatingZone {...args} />;
 SnapFill.args = { ...HandleBand.args, snap: 'fill' };
+
+/** The panes' span seams belong to the grid under the legend, and drag through to it. */
+export const ResizableTiles: Story<Args> = (args) => <FloatingZone {...args} />;
+ResizableTiles.args = { ...HandleBand.args, resizable: true };

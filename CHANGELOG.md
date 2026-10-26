@@ -144,6 +144,15 @@ section below.
 
 ### Fixed
 
+- **Seams and span handles drag under `floatingStrategy`.** It drew its inner
+  strategy's affordances but never forwarded their dispatch, so under
+  `floatingStrategy(stripStrategy)` or `floatingStrategy(gridStrategy)` a seam or
+  span drag did nothing. It also forwards `cellAt` now, so grid's `drop.cell`
+  works under it.
+- **A tab torn out over `pageStrategy` floats on the shown page.** `page` now
+  carries its inner strategy's float hook, below the bar and, under
+  `mode: 'assigned'`, with `placement.page` set to the page in view; before, a
+  `tear: 'float'` drag found no surface to float on.
 - **A resizable grid of flowed items under a row cap lays out about 10× faster.**
   100 panels of 6×8 cells in 24 columns under `maxRows: 220` took 5.3s per
   layout and now take 0.4s; 200 under `maxRows: 420`, 2.0s. The seams' reported

@@ -191,6 +191,27 @@ One thing the suite surfaced that is worth knowing: the split story passes an
 explicit `viewport` prop, so it never exercises the ResizeObserver path at
 all. Reflow coverage has to use a ref-measured fixture.
 
+## Strategy wrappers forward a hand-picked set of hooks
+
+Audited 2026-10-26. `floating`, `desktop`, `page` and `warp` each wrap an inner
+strategy and each forward a different subset of its optional hooks. The worst
+gaps are fixed (floating's `dispatchAffordance` and `cellAt`, page's `float`);
+still open:
+
+- **`cellAt` under `desktop`, `page` and `warp`.** The host reads it off the
+  outer strategy, so grid's `drop.cell` does nothing under
+  `desktopStrategy(gridStrategy)` or `pageStrategy(gridStrategy)`. Desktop needs
+  the mirror flip on the point; page cannot answer at all, since `cellAt` is not
+  handed container state and page needs it to know which page shows.
+- **`canAccept` under `page`.** Whether a paged inner's capacity should count
+  per page or not at all is undecided, so nothing is forwarded.
+- **One forwarding helper** for the wrappers would close this class of gap; the
+  per-wrapper coordinate changes (page's bar shift, desktop's mirror, warp's
+  passes) are what keep it from being trivial.
+- **Key-name drift**: desktop's `resize` / `overflow` against strip and grid's
+  `resizable` / `overflowMode`; `handleSize` defaults to 0 on floating and 22
+  on desktop; repel's `gap` defaults to 8, every other strategy's to 0.
+
 ## Loose ends
 
 - typedoc runs from a pinned `npx` install carrying TypeScript 6.0.3

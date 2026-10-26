@@ -1,5 +1,6 @@
 import type {
   Affordance,
+  FloatHook,
   LayoutEvent,
   LayoutItem,
   LayoutResult,
@@ -179,6 +180,32 @@ function withPage<TInner>(state: PageState<TInner>, page: number): PageState<TIn
   return { ...state, page };
 }
 
+/** `inner`'s float hook, below the bar and, under `mode: 'assigned'`, on the
+ *  shown page, so a tab torn out over virtual desktops lands where it is seen. */
+function pageFloat<TInner>(hook: FloatHook<TInner>): FloatHook<PageState<TInner>> {
+  const out: FloatHook<PageState<TInner>> = {
+    keys: [...hook.keys, 'page'],
+    place({ id, at, state, options }) {
+      const cfg = options as PageConfig;
+      const dy = cfg.barSide === 'top' ? barSize(cfg) : 0;
+      const r = hook.place({
+        id,
+        at: { x: at.x, y: at.y - dy },
+        state: state.inner,
+        options: innerOptions(options),
+      });
+      const placement = cfg.mode === 'flowed' ? r.placement : { ...r.placement, page: state.page };
+      return r.state === undefined
+        ? { placement }
+        : { placement, state: { ...state, inner: r.state } };
+    },
+  };
+  const release = hook.release;
+  if (release)
+    out.release = ({ id, state }) => ({ ...state, inner: release({ id, state: state.inner }) });
+  return out;
+}
+
 /**
  * Shows one page of children at a time and hands that page to `inner`. A
  * child's page is its `placement.page` under `mode: 'assigned'` — virtual
@@ -332,6 +359,8 @@ export function pageStrategy<TInner>(
       }
       return state;
     },
+
+    ...(inner.float ? { float: pageFloat(inner.float) } : {}),
 
     navigate(input) {
       if (!inner.navigate || (input.options as PageConfig).mode === 'flowed') return undefined;

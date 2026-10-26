@@ -434,6 +434,25 @@ export function floatingStrategy<TInner>(
       return { ...state, at: { ...state.at, [id]: placed } };
     },
 
+    dispatchAffordance(ctx) {
+      if (ctx.event.affordanceId.startsWith(FLOATING_DRAG_PREFIX) || !inner?.dispatchAffordance) {
+        return;
+      }
+      inner.dispatchAffordance({
+        ...ctx,
+        items: ctx.items.filter((i) => !floats(i)),
+        options: innerConfig(ctx.options, true),
+      });
+    },
+
+    cellAt(input) {
+      return inner?.cellAt?.({
+        ...input,
+        items: input.items.filter((i) => !floats(i)),
+        options: innerConfig(input.options, true),
+      });
+    },
+
     canAccept(items, options) {
       if (!inner?.canAccept) return true;
       return inner.canAccept(

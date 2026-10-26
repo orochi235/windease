@@ -174,3 +174,15 @@ test.describe('floating layer', () => {
     expect(await hitAtLegend(page)).toBe('legend');
   });
 });
+
+test.describe('floating over a resizable grid', () => {
+  test("dragging a pane's span seam widens it through the grid", async ({ page }) => {
+    await openStory(page, 'floating--resizable-tiles');
+    const pane = page.locator('[data-node="panel-1"]');
+    const before = await settledBox(pane);
+    const seam = page.locator('[data-affordance-hit="resize-x-panel-1"]');
+    const from = centerOf(await settledBox(seam));
+    await dragMouse(page, from, { x: from.x + before.w, y: from.y });
+    await expect.poll(async () => (await boxOf(pane)).w).toBeGreaterThan(before.w * 1.5);
+  });
+});
