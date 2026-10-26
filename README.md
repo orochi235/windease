@@ -1706,6 +1706,11 @@ kept inside horizontally and its top within `[0, h - handleSize]`, so the body
 may hang off the bottom. An axis a window cannot fit on pins it to the left or
 top edge.
 
+Resizing ignores `clamp`: a dragged edge always stops at the desktop's border
+(or where it already is, if past it), so a window can be moved off screen but
+not grown off it, as on macOS. Kept that way on purpose (2026-10-26): an
+unclamped edge with no `maxSize` would have no maximum to report.
+
 **Minimize toggle.** With `minimizable: true`, each window gets a `click`
 affordance, a `handleSize` square at the right end of its title band, and pressing
 it flips the window's `placement.minimized`. A window iconified under

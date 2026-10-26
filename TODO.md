@@ -321,7 +321,6 @@ Open, grouped by what they touch:
 - **grid** — capacity by width under fixed cells; vertical align; pinned vs celled
   priority. Flowed items under a row cap are still slow in resize reach; the
   celled path is fixed (27s → 5ms).
-- **desktop** — resize capped at the container vs obeying the clamp.
 - **accepts and locks** — `accepts: false` and `lock.accept` both stay
   (accepts is drag-only); stack/split drops honor `accepts.kinds`, and count
   toward `accepts.max` only where they add a child. `lock: true` does *not*
