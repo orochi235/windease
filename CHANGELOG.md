@@ -140,6 +140,10 @@ section below.
 
 ### Fixed
 
+- **`floatingStrategy` ignores an infinite drag delta.** It saved the clamped
+  edge, so one event from a zero view scale threw a panel against the wall; an
+  infinite axis is now dropped like a `NaN` one, as `desktopStrategy` already
+  did, and both trace it on `layout`.
 - **Home and End reach the right end on a mirrored icon layer's seams.** Under
   an `iconFrom` that flips an axis, an inner seam's value now reads in the
   desktop's frame, where it used to run backward and send Home to the far end.

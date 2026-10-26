@@ -12,7 +12,7 @@ import { asNodeId } from '../node.js';
 import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
 import { compositeSpec, innerConfig } from './inner-config.js';
-import { itemSize, itemWant } from './item-place.js';
+import { dragDelta, itemSize, itemWant } from './item-place.js';
 import { onTopLayer } from './layer.js';
 
 /** The values `container.config.minimize` accepts. */
@@ -649,9 +649,9 @@ export function desktopStrategy<TInner>(
         trace('layout', `desktop: ${id} drag refused (lock.move)`);
         return;
       }
-      const { dx: rawX, dy: rawY } = event.payload;
-      const dx = affordance.kind === 'drag-y' || !Number.isFinite(rawX) ? 0 : (rawX as number);
-      const dy = affordance.kind === 'drag-x' || !Number.isFinite(rawY) ? 0 : (rawY as number);
+      const delta = dragDelta(`desktop: ${id}`, event.payload);
+      const dx = affordance.kind === 'drag-y' ? 0 : delta.dx;
+      const dy = affordance.kind === 'drag-x' ? 0 : delta.dy;
       if (dx === 0 && dy === 0) return;
       // From where it shows, not the stored value: a cascaded window has none.
       let next = { x: affordance.rect.x + dx, y: affordance.rect.y + dy };

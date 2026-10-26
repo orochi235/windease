@@ -10,6 +10,7 @@ import type {
 import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
 import { compositeSpec, innerConfig } from './inner-config.js';
+import { dragDelta } from './item-place.js';
 import { onTopLayer } from './layer.js';
 
 /** The four corners a floating item can anchor to. */
@@ -373,12 +374,7 @@ export function floatingStrategy<TInner>(
 
       const id = event.affordanceId.slice(FLOATING_DRAG_PREFIX.length);
       const item = context.items.find((i) => i.id === id);
-      const { dx: rawX, dy: rawY } = event.payload;
-      if (Number.isNaN(rawX) || Number.isNaN(rawY)) {
-        trace('layout', `floating: ${id} drag delta (${rawX}, ${rawY}) is NaN, axis ignored`);
-      }
-      const dx = rawX === undefined || Number.isNaN(rawX) ? 0 : rawX;
-      const dy = rawY === undefined || Number.isNaN(rawY) ? 0 : rawY;
+      const { dx, dy } = dragDelta(`floating: ${id}`, event.payload);
       if (!item || (dx === 0 && dy === 0)) return state;
 
       const cfg = context.options as FloatingConfig;

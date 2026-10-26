@@ -402,12 +402,22 @@ describe('floating pathology', () => {
     expect(malformedRects(r.placements)).toEqual([]);
   });
 
-  it('absorbs an infinite drag delta at the container edge', () => {
+  it('ignores an infinite drag delta, as it does a NaN one', () => {
     const items = byId['floating-unmeasured']!.items.filter((i) => i.id === 'ok');
     const container = { w: 800, h: 600 };
     const state = dragged(strategy, items, container, {}, [
       drag('ok', Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY),
     ]);
-    expect(state.at.ok).toMatchObject({ x: 600, y: 0 });
+    expect(state).toEqual(dragged(strategy, items, container, {}, []));
+  });
+
+  it('keeps the finite axis of a half-infinite drag delta', () => {
+    const items = byId['floating-unmeasured']!.items.filter((i) => i.id === 'ok');
+    const container = { w: 800, h: 600 };
+    const before = dragged(strategy, items, container, {}, [drag('ok', 0, 5)]);
+    const after = dragged(strategy, items, container, {}, [
+      drag('ok', Number.POSITIVE_INFINITY, 5),
+    ]);
+    expect(after.at.ok).toEqual(before.at.ok);
   });
 });
