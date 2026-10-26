@@ -1,5 +1,12 @@
 {
   "root": false,
   "extends": "//",
-  "plugins": ["./raw-geometry.grit"]
+  "plugins": ["./raw-geometry.grit"],
+  "linter": {
+    "rules": {
+      // It targets a DOM node's innerText; these are Playwright locators, and the
+      // tests compare rendered text on purpose.
+      "performance": { "useDomNodeTextContent": "off" }
+    }
+  }
 }

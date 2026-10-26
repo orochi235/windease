@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
   "files": {
     "includes": [
       "**",
@@ -49,5 +49,23 @@
       }
     }
   },
+  // Its formatter rewraps the code samples in the docs and adds semicolons to
+  // JSX fragments in them.
+  "markdown": { "formatter": { "enabled": false } },
+  "yaml": { "formatter": { "quoteStyle": "single" } },
+  "overrides": [
+    {
+      // A test renders its component once, so one defined inside the test is
+      // never remounted by a re-rendering parent.
+      "includes": ["**/*.test.ts", "**/*.test.tsx"],
+      "linter": { "rules": { "correctness": { "noComponentHookFactories": "off" } } }
+    },
+    {
+      // Vitest takes an async describe, and config-check has a function of its
+      // own called describe.
+      "includes": ["src/**"],
+      "linter": { "rules": { "correctness": { "usePlaywrightValidDescribeCallback": "off" } } }
+    }
+  ],
   "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "always" } }
 }
