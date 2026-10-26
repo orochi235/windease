@@ -11,6 +11,19 @@ import type {
 import { asNodeId } from '../node.js';
 import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
+import { listOf } from './config-check.js';
+import {
+  controlAffordances,
+  DESKTOP_CONTROLS,
+  DESKTOP_CONTROLS_SIDE,
+  type DesktopControlsConfig,
+  dispatchControl,
+  iconRestore,
+  parseControl,
+  unzoomForDrag,
+  windowControls,
+  withControlConflicts,
+} from './desktop-controls.js';
 import { compositeSpec, innerConfig } from './inner-config.js';
 import { dragDelta, itemSize, itemWant } from './item-place.js';
 import { onTopLayer } from './layer.js';
@@ -31,7 +44,7 @@ export const DESKTOP_DRAG = [true, false, 'x', 'y'] as const;
 export const DESKTOP_ICON_FROM = ['top-left', 'bottom-left', 'top-right', 'bottom-right'] as const;
 
 /** `container.config` keys {@link desktopStrategy} reads. */
-export interface DesktopConfig {
+export interface DesktopConfig extends DesktopControlsConfig {
   /** `'shade'` rolls a minimized window up in place; `'icon'` hands it to the
    *  icon layer, and shades it when there is none. */
   minimize?: (typeof DESKTOP_MINIMIZE)[number];
@@ -51,9 +64,6 @@ export interface DesktopConfig {
   /** `'scroll'` (the default) reports windows past any edge as `overflow`, so a
    *  host can scroll to them; `'clip'` reports none. */
   overflow?: (typeof DESKTOP_OVERFLOW)[number];
-  /** Put a click box at the right of each title band that flips the window's
-   *  `minimized`, and one over each iconified window that restores it. */
-  minimizable?: boolean;
   /** Resize windows from their edges and corners. A window's own
    *  `placement.resize` overrides it. */
   resize?: boolean;
@@ -78,9 +88,20 @@ export const DEFAULT_CASCADE = 24;
 export const DEFAULT_HANDLE_SIZE = 22;
 export const DEFAULT_EDGE_SIZE = 6;
 
+export {
+  DESKTOP_CLOSE_PREFIX,
+  DESKTOP_CONTROLS,
+  DESKTOP_CONTROLS_SIDE,
+  DESKTOP_MINIMIZE_PREFIX,
+  DESKTOP_ZOOM_PREFIX,
+  type DesktopControl,
+  type DesktopControlsConfig,
+  ZOOM_RECORD_KEY,
+  type ZoomRecord,
+} from './desktop-controls.js';
+
 /** Affordance id prefixes, so dispatch can route without knowing the inner strategy. */
 export const DESKTOP_DRAG_PREFIX = 'desktop:drag:';
-export const DESKTOP_MINIMIZE_PREFIX = 'desktop:minimize:';
 export const DESKTOP_RESIZE_PREFIX = 'desktop:resize:';
 
 const DRAG_KIND = { xy: 'drag-xy', x: 'drag-x', y: 'drag-y' } as const;
@@ -115,8 +136,8 @@ function clampWindow(
 function isOwnAffordance(id: string): boolean {
   return (
     id.startsWith(DESKTOP_DRAG_PREFIX) ||
-    id.startsWith(DESKTOP_MINIMIZE_PREFIX) ||
-    id.startsWith(DESKTOP_RESIZE_PREFIX)
+    id.startsWith(DESKTOP_RESIZE_PREFIX) ||
+    parseControl(id) !== null
   );
 }
 
@@ -244,17 +265,6 @@ function resizeAffordances(
     out.push(aff);
   }
   return out;
-}
-
-function minimizeToggle(id: string, rect: Rect, minimized: boolean): Affordance {
-  return {
-    id: `${DESKTOP_MINIMIZE_PREFIX}${id}`,
-    kind: 'click',
-    rect,
-    cursor: 'pointer',
-    label: minimized ? 'restore' : 'minimize',
-    childId: id,
-  };
 }
 
 /** Which axes `iconFrom` flips the icon layer on; null when it flips none. */
@@ -501,25 +511,29 @@ export function desktopStrategy<TInner>(
   return {
     name: inner ? `desktop(${inner.name})` : 'desktop',
 
-    ...compositeSpec(
-      {
-        minimize: DESKTOP_MINIMIZE,
-        shadeHeight: 'number',
-        iconWidth: 'number',
-        iconHeight: 'number',
-        cascade: 'number',
-        raise: RAISE_MODES,
-        drag: DESKTOP_DRAG,
-        handleSize: 'number',
-        clamp: DESKTOP_CLAMP,
-        overflow: DESKTOP_OVERFLOW,
-        minimizable: 'boolean',
-        resize: 'boolean',
-        edgeSize: 'number',
-        iconFrom: DESKTOP_ICON_FROM,
-        wrap: 'boolean',
-      },
-      inner,
+    ...withControlConflicts(
+      compositeSpec(
+        {
+          minimize: DESKTOP_MINIMIZE,
+          shadeHeight: 'number',
+          iconWidth: 'number',
+          iconHeight: 'number',
+          cascade: 'number',
+          raise: RAISE_MODES,
+          drag: DESKTOP_DRAG,
+          handleSize: 'number',
+          clamp: DESKTOP_CLAMP,
+          overflow: DESKTOP_OVERFLOW,
+          minimizable: 'boolean',
+          controls: listOf(DESKTOP_CONTROLS),
+          controlsSide: DESKTOP_CONTROLS_SIDE,
+          resize: 'boolean',
+          edgeSize: 'number',
+          iconFrom: DESKTOP_ICON_FROM,
+          wrap: 'boolean',
+        },
+        inner,
+      ),
     ),
 
     initialState(items, options) {
@@ -555,11 +569,11 @@ export function desktopStrategy<TInner>(
       const affordances: Affordance[] = [...result.affordances];
       const unplaced = [...(result.unplaced ?? [])];
       if (!inner) for (const icon of icons) unplaced.push(icon.id);
-      if (cfg.minimizable) {
-        for (const icon of icons) {
-          if (icon.meta?.icon === true || icon.meta?.minimized !== true) continue;
-          const rect = placements.get(icon.id);
-          if (rect) affordances.push(minimizeToggle(icon.id, rect, true));
+      for (const icon of icons) {
+        if (icon.meta?.icon === true || icon.meta?.minimized !== true) continue;
+        const rect = placements.get(icon.id);
+        if (rect && windowControls(icon, cfg).includes('minimize')) {
+          affordances.push(iconRestore(icon, rect));
         }
       }
 
@@ -587,11 +601,7 @@ export function desktopStrategy<TInner>(
         if (!minimized && resizable(item, cfg)) {
           affordances.push(...resizeAffordances(item, rect, container, edgeSize));
         }
-        if (cfg.minimizable) {
-          const side = Math.min(handleSize, rect.h, rect.w);
-          const box = { x: rect.x + rect.w - side, y: rect.y, z: rect.z, w: side, h: side };
-          affordances.push(minimizeToggle(item.id, box, minimized));
-        }
+        affordances.push(...controlAffordances(item, rect, minimized, cfg, handleSize));
         overW = Math.max(overW, rect.x + rect.w - container.w);
         overH = Math.max(overH, rect.y + rect.h - container.h);
         overLeft = Math.max(overLeft, -rect.x);
@@ -632,12 +642,14 @@ export function desktopStrategy<TInner>(
         });
         return;
       }
-      if (event.affordanceId.startsWith(DESKTOP_MINIMIZE_PREFIX)) {
+      if (parseControl(event.affordanceId)) {
         if (event.kind !== 'click') return;
-        const id = asNodeId(event.affordanceId.slice(DESKTOP_MINIMIZE_PREFIX.length));
-        const minimized = store.getNode(id)?.membership?.placement.minimized === true;
-        trace('layout', `desktop: ${id} ${minimized ? 'restored' : 'minimized'} by its toggle`);
-        store.patchPlacement(id, { minimized: !minimized });
+        const windows = layers(ctx.items, ctx.options, hasInner).windows;
+        const shown = (id: string) =>
+          placeWindows(windows, ctx.options as DesktopConfig, ctx.container).windows.find(
+            (p) => p.item.id === id,
+          )?.rect;
+        dispatchControl(store, event.affordanceId, shown, ctx.container);
         return;
       }
       if (event.kind !== 'drag') return;
@@ -658,7 +670,9 @@ export function desktopStrategy<TInner>(
       let next = { x: affordance.rect.x + dx, y: affordance.rect.y + dy };
       const cfg = ctx.options as DesktopConfig;
       const item = ctx.items.find((i) => i.id === id);
-      const size = item && itemSize(item);
+      const unzoom = item && unzoomForDrag(store, item, affordance.rect, next, event.payload.point);
+      if (unzoom) next = unzoom.at;
+      const size = unzoom ? unzoom.size : item && itemSize(item);
       if (cfg.clamp && size) {
         const h =
           item.meta?.minimized === true ? (cfg.shadeHeight ?? DEFAULT_SHADE_HEIGHT) : size.h;
@@ -666,7 +680,7 @@ export function desktopStrategy<TInner>(
         next = clampWindow(next, { w: size.w, h }, ctx.container, cfg.clamp, band);
       }
       trace('layout', `desktop: ${id} dragged to ${next.x},${next.y}`);
-      store.patchPlacement(id, next);
+      store.patchPlacement(id, unzoom ? { ...unzoom.patch, ...next } : next);
     },
 
     reduce(state, event, context) {
