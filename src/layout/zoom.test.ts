@@ -27,6 +27,17 @@ describe('strip zoom', () => {
     expect(r.unplaced).toEqual(['a', 'c']);
   });
 
+  it('lays out unzoomed while the zoomed child is hidden, and zooms it again once shown', () => {
+    const shown = strip({ zoom: 'b', fill: true });
+    const hidden = strip(
+      { zoom: 'b', fill: true },
+      items.filter((it) => it.id !== 'b'),
+    );
+    expect([...hidden.placements.keys()]).toEqual(['a', 'c']);
+    expect(hidden.unplaced).toBeUndefined();
+    expect(strip({ zoom: 'b', fill: true }).placements).toEqual(shown.placements);
+  });
+
   it('emits no seams while zoomed', () => {
     expect(strip({ zoom: 'b', fill: true }).affordances).toEqual([]);
   });

@@ -341,8 +341,6 @@ Open, grouped by what they touch:
 - **view, tear, step/zoom** — persist `view` in snapshots? `<Panel container>`
   view/fit; pass scale to custom affordance renderers. The default body-size
   tear is huge (`tearSize` is the practical answer); a drag-start threshold.
-  `zoom` naming a hidden child persists, as the README documents: keep that, or
-  clear `zoom` when its child hides?
 - **packers** — per-box rotation greed can load less than upright (van 5/14 vs
   7; pallets on column/shelf); `justified` has no minimum row height, so
   Flickr's ±25% floor is unexpressible; stb's secondary sort (widest among equal
