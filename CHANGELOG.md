@@ -130,6 +130,12 @@ section below.
 
 ### Fixed
 
+- **A reveal handle at the window's right edge opens in WebKit.** WebKit hands
+  a press within its overlay scrollbar's strip to the scrollbar, so the drag
+  sent no moves and never armed. The handle now reads the release point from
+  the window, and a drag past the threshold shows the pane; only the armed
+  highlight during that drag is missing.
+
 - **A full container takes a stack or split drop.** A drop that wraps one of a
   container's children in a new group leaves its child count where it was, but
   `accepts.max`, `strategy.canAccept` and `acceptPolicy` were asked about a list

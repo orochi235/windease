@@ -337,28 +337,13 @@ function RevealHandle({
     [setArmed, store, affordance],
   );
 
-  const onPointerDown = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => {
-      last.current = { x: e.clientX, y: e.clientY };
-      scale.current = elementScale(e.currentTarget);
-      travel.current = 0;
-      setDragging(true);
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {
-        // jsdom or unsupported — ignore.
-      }
-      onActiveChange(true);
-    },
-    [onActiveChange],
-  );
-  const onPointerMove = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => {
+  const step = useCallback(
+    (clientX: number, clientY: number) => {
       if (!last.current || !reveal) return;
-      const sx = e.clientX - last.current.x;
-      const sy = e.clientY - last.current.y;
+      const sx = clientX - last.current.x;
+      const sy = clientY - last.current.y;
       if (sx === 0 && sy === 0) return;
-      last.current = { x: e.clientX, y: e.clientY };
+      last.current = { x: clientX, y: clientY };
       const { dx, dy } = toLayoutDelta(sx, sy, scale.current);
       const state = trackReveal({
         reveal,
@@ -370,11 +355,14 @@ function RevealHandle({
     },
     [reveal, affordance.kind, setArmed],
   );
+  const unlisten = useRef<(() => void) | null>(null);
   const finish = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>, commit: boolean) => {
+    (target: HTMLButtonElement, pointerId: number, commit: boolean) => {
+      unlisten.current?.();
+      unlisten.current = null;
       const wasDragging = last.current !== null;
       try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
+        target.releasePointerCapture(pointerId);
       } catch {
         // ignore
       }
@@ -383,12 +371,42 @@ function RevealHandle({
     },
     [onActiveChange, endGesture],
   );
-  const onPointerUp = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => finish(e, true),
-    [finish],
+  useEffect(() => () => unlisten.current?.(), []);
+
+  const onPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      last.current = { x: e.clientX, y: e.clientY };
+      scale.current = elementScale(e.currentTarget);
+      travel.current = 0;
+      setDragging(true);
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // jsdom or unsupported — ignore.
+      }
+      // WebKit gives a press in its overlay scrollbar's strip to the scrollbar: no capture or
+      // pointermove follows and the pointerup can land elsewhere, so the release is read here.
+      unlisten.current?.();
+      const target = e.currentTarget;
+      const { pointerId } = e;
+      const onUp = (up: PointerEvent) => {
+        if (up.pointerId !== pointerId) return;
+        step(up.clientX, up.clientY);
+        trace('dnd', `reveal release: ${affordance.id} travel ${travel.current}`);
+        finish(target, pointerId, true);
+      };
+      window.addEventListener('pointerup', onUp, true);
+      unlisten.current = () => window.removeEventListener('pointerup', onUp, true);
+      onActiveChange(true);
+    },
+    [onActiveChange, step, finish, affordance.id],
+  );
+  const onPointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => step(e.clientX, e.clientY),
+    [step],
   );
   const onPointerCancel = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => finish(e, false),
+    (e: ReactPointerEvent<HTMLButtonElement>) => finish(e.currentTarget, e.pointerId, false),
     [finish],
   );
 
@@ -396,6 +414,8 @@ function RevealHandle({
     if (!dragging) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      unlisten.current?.();
+      unlisten.current = null;
       endGesture(false);
       onActiveChange(false);
     };
@@ -425,7 +445,6 @@ function RevealHandle({
         data-reveal-armed={armed ? 'true' : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         draggable={false}
         onDragStart={preventNativeDrag}

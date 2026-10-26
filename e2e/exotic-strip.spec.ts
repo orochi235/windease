@@ -290,8 +290,6 @@ test.describe('vscode: a sidebar dragged shut hides', () => {
   test('the secondary sidebar, hidden at the right edge, drags back out to the left', async ({
     page,
   }) => {
-    // Wider than the workbench: WebKit gives a press on the window's right edge to the scrollbar.
-    await page.setViewportSize({ width: 1700, height: 1000 });
     await openPreset(page, 'vscode-hinted-sidebars');
     const id = 'resize-x-vh-editor';
     const travel =

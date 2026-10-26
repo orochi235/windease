@@ -89,6 +89,14 @@ describe('reveal handle — pointer', () => {
     expect((store.getPlacement(SIDE).size as { w: number }).w).toBe(150);
   });
 
+  it('shows the pane from the release point alone, when no move arrived and it lands elsewhere', () => {
+    // WebKit's overlay scrollbar swallows the moves of a press at the window's edge.
+    const { handle } = mount(store, 'side');
+    down(handle);
+    up(document.body, 30);
+    expect(stateOf(store, SIDE)).toBe('visible');
+  });
+
   it('leaves the pane hidden when released inside the threshold', () => {
     const { handle } = mount(store, 'side');
     down(handle);

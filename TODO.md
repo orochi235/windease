@@ -30,13 +30,6 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
     would pass at once. It still passes on a read taken before a wrong change
     starts; only a separate signal that the gesture landed would close that.
 
-- **WebKit gives a press on the window's right edge to the scrollbar.** A
-  reveal handle for a pane hidden at the end of a row sits on the container's
-  last 4px; where that is also the window's edge and the page scrolls, WebKit
-  sends `pointerdown` to the handle and no `pointermove` after it, so the drag
-  never arms. `exotic-strip.spec.ts` widens the window to get clear of it.
-  Enter on the handle still works. Nothing in the library works around it.
-
 - **The suite fails under machine load, and the failing specs move between
   runs.** Reproduces readily once the load average passes roughly twice the
   core count — three consecutive full runs at 25–32 on a 12-core machine
