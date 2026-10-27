@@ -349,6 +349,22 @@ describe('real layouts, packer by packer', () => {
     expect(result.overflow?.w ?? 0).toBe(0);
   });
 
+  it('brings Flickr’s rows nearer the 240px floor than breaking by deviation alone', () => {
+    const shortfall = (result: LayoutResult<string>) =>
+      rows(result)
+        .slice(0, -1)
+        .map((ids) => result.placements.get(ids[0]!)!.h)
+        .reduce((sum, h) => sum + Math.max(0, 240 - h) ** 2, 0);
+    const floored = run(preset('flickr-justified-rows'), 'justified').result;
+    const unfloored = run(preset('flickr-justified-rows'), 'justified', (s) => {
+      const { minRowHeight: _, ...options } = s.options;
+      return { ...s, options };
+    }).result;
+    // These 40 photos admit no breaks with every row in 240–400, so the floor narrows the miss.
+    expect(shortfall(floored)).toBeGreaterThan(0);
+    expect(shortfall(floored)).toBeLessThan(shortfall(unfloored));
+  });
+
   it('shelf, the fallback without justified rows, leaves Flickr’s rows ragged on the right', () => {
     const { scenario, result } = run(preset('flickr-justified-rows'), 'shelf');
     const byRow = rows(result);

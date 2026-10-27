@@ -353,7 +353,11 @@ Open, grouped by what they touch:
   `state.at` after a dock; a drag-start threshold. Hide-restore under controlled
   placement; `zoom` naming a hidden child persists.
 - **packers** — per-box rotation greed can load less than upright (van 5/14 vs
-  7; pallets on column/shelf); `justified` has no minimum row height, so
-  Flickr's ±25% floor is unexpressible.
+  7; pallets on column/shelf). `justified` without `minRowHeight` can crush
+  most of a feed into one row: the Justified story at width 520, row height
+  220 puts 35 photos in one 6px row, because summed squared deviation charges
+  per row and the panoramas cost more apart than together. Should a floor
+  default to some fraction of `rowHeight`, or the cost weigh each row by its
+  items?
 - **elsewhere** — a viewport vs border-box zone makes rows 2px wider than a
   bordered zone; is that a library fix?

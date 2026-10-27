@@ -342,8 +342,8 @@ function flickrJustified(): Preset {
       'Flickr shows photos in justified rows: each row holds photos at a shared height, scaled so the row runs exactly the width of the page, and every photo keeps its shape. Flickr published the algorithm as the open-source justified-layout library, whose defaults aim for 320-pixel rows in a 1060-pixel-wide container with 10 pixels between photos.',
     viewport: { w: 1060, h: 1400 },
     strategy: 'justified',
-    // targetRowHeightTolerance 0.25 caps a row at 400px; justified has no key for its 240px floor.
-    config: { rowHeight: 320, gap: 10, maxRowHeight: 400 },
+    // targetRowHeightTolerance 0.25 bounds a row to 240–400px.
+    config: { rowHeight: 320, gap: 10, minRowHeight: 240, maxRowHeight: 400 },
     boxes,
     aspects,
   });

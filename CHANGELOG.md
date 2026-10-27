@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **A floor for justified rows.** `justifiedStrategy` takes `minRowHeight`,
+  the counterpart of `maxRowHeight`: a row takes one photo fewer rather than
+  shrink below it to fill the width. The `flickr-justified-rows` preset in
+  `windease/nuts` sets it to 240, Flickr's −25%. See
+  [Justified rows of photos](README.md#justified-rows-of-photos) and the
+  **Justified** story's min row height slider.
+
 - **Tiebreaks in a packer's `sort`.** `shelf`, `skyline` and `column` take a
   list of orders, compared in turn: `sort: ['height', 'width']` places the
   tallest first and the widest among equal heights. The
@@ -100,6 +107,11 @@ section below.
   [Collapsing a container that empties](README.md#collapsing-a-container-that-empties).
 
 ### Changed
+
+- **`maxRowHeight` now steers justified row breaks.** Breaks that keep every
+  row at or under it win over breaks that only deviate less from `rowHeight`,
+  where before a row past it was merely left ragged. A layout that set
+  `maxRowHeight` may break its rows differently.
 
 - **`placement.share` is per axis.** It takes `{ w?, h? }`, like `size`, and a
   seam drag writes that form, so a pane moved from a row into a column no

@@ -504,9 +504,10 @@ Built-ins:
 - **`justifiedStrategy`** — justified rows, as in Flickr or Google Photos. Each
   item keeps its aspect (`hints.aspect`, else `natural` or `preferredSize`
   width ÷ height) and every row but the last is scaled to fill the width.
-  Config: `rowHeight` (the target, default 200), `gap`, `maxRowHeight`,
-  `justifyLast`. Grid's cells stretch an item regardless of its aspect, and
-  strip's cross axis does unless `crossAlign` says otherwise (see
+  Config: `rowHeight` (the target, default 200), `gap`, `minRowHeight` and
+  `maxRowHeight` (the band rows are broken to stay inside), `justifyLast`.
+  Grid's cells stretch an item regardless of its aspect, and strip's cross
+  axis does unless `crossAlign` says otherwise (see
   [Two rotations](#two-rotations)). Items with no aspect go to `unplaced`.
 
 ### Two rotations

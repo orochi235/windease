@@ -708,7 +708,7 @@ them goes to `unplaced`.
 ```ts
 createNode({ kind: 'panel', id, parentId: galleryId, hints: { aspect: 3 / 2 } });
 // the gallery's config:
-{ rowHeight: 180, gap: 4, maxRowHeight: 360, justifyLast: false }
+{ rowHeight: 180, gap: 4, minRowHeight: 135, maxRowHeight: 360, justifyLast: false }
 ```
 
 - **`rowHeight`** (default 200) is the height rows aim for. The strategy picks
@@ -718,9 +718,16 @@ createNode({ kind: 'panel', id, parentId: galleryId, hints: { aspect: 3 / 2 } })
 - **`justifyLast`** — the last row stays at `rowHeight` and ends short of the
   right edge unless this is `true`. A last row too wide to fit at `rowHeight`
   is always scaled down to the width.
-- **`maxRowHeight`** — a row that would have to grow taller than this to fill
-  the width stays at `rowHeight` and ends short instead, as a lone portrait
-  in a wide container would.
+- **`minRowHeight`** and **`maxRowHeight`** bound how far a row may stray
+  from `rowHeight`, as Flickr's ±25% tolerance does. The row breaks that keep
+  rows inside them win over breaks that only stray less from `rowHeight` in
+  total: a row takes one photo fewer rather than shrink below the floor, or
+  one more rather than grow past the cap. When no breaks keep every row
+  inside, the ones that stray past the bounds least win. A row taller than
+  `maxRowHeight` stays at `rowHeight` and ends short instead of filling the
+  width, as a lone portrait in a wide container would; a row shorter than
+  `minRowHeight` still fills the width, as a panorama too wide to reach it
+  does. A floor above `rowHeight`, or a cap below it, reads as `rowHeight`.
 
 Rows grow down past `container.h`, and the excess is reported as `overflow`,
 as with the packers. No other built-in strategy reads `hints.aspect`: a strip

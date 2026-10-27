@@ -99,6 +99,47 @@ describe('justifiedStrategy', () => {
     expect(capped.placements.get('tall')).toEqual({ x: 0, y: 0, z: 0, w: 50, h: 100 });
   });
 
+  describe('minRowHeight', () => {
+    // Wide panoramas in 1000px: all on one row is 71.4 tall, the least deviation from 100.
+    const panos = [shaped('a', 4), shaped('b', 5), shaped('c', 5)];
+    const container = { w: 1000, h: 1000 };
+    const heights = (options: Record<string, unknown>) =>
+      rows(runPack(justifiedStrategy, panos, container, options).placements).map((row) =>
+        row.map((r) => r.h),
+      );
+
+    it('takes fewer items on a row that would shrink below the floor', () => {
+      const options = { rowHeight: 100, justifyLast: true };
+      expect(heights(options)).toEqual([[1000 / 14, 1000 / 14, 1000 / 14]]);
+      expect(heights({ ...options, minRowHeight: 80 })).toEqual([[1000 / 9, 1000 / 9], [200]]);
+    });
+
+    it('fills the width below the floor when that strays least outside the band', () => {
+      // Under a 150 cap every split leaves a row 50 or more past it; one row is 8.6 under 80.
+      const options = { rowHeight: 100, justifyLast: true, minRowHeight: 80, maxRowHeight: 150 };
+      expect(heights(options)).toEqual([[1000 / 14, 1000 / 14, 1000 / 14]]);
+    });
+
+    it('still gives a lone item too wide to reach the floor a row, scaled to the width', () => {
+      const r = runPack(justifiedStrategy, [shaped('pano', 20), shaped('b', 1)], container, {
+        rowHeight: 100,
+        minRowHeight: 80,
+      });
+      expect(r.placements.get('pano')).toEqual({ x: 0, y: 0, z: 0, w: 1000, h: 50 });
+      expect(r.placements.get('b')).toEqual({ x: 0, y: 50, z: 0, w: 100, h: 100 });
+    });
+
+    it('reads a floor above rowHeight as rowHeight, and ignores an unusable one', () => {
+      const options = { rowHeight: 100, justifyLast: true };
+      expect(heights({ ...options, minRowHeight: 300 })).toEqual(
+        heights({ ...options, minRowHeight: 100 }),
+      );
+      for (const minRowHeight of [0, -5, Number.NaN, 'tall']) {
+        expect(heights({ ...options, minRowHeight })).toEqual(heights(options));
+      }
+    });
+  });
+
   it('reads hints.aspect before the measured or preferred size', () => {
     const item: LayoutItem = {
       id: 'x',
@@ -165,11 +206,58 @@ describe('justifiedStrategy', () => {
     expect(got).toBeCloseTo(best, 6);
   });
 
+  describe('breaks rows to stray least outside minRowHeight–maxRowHeight, then deviate least', () => {
+    const t = 100;
+    const w = 600;
+    const a = [1.2, 0.7, 2.5, 1, 1.9, 0.6, 1.4, 3.2, 0.9, 1.1];
+    const set = a.map((aspect, i) => shaped(`s${i}`, aspect));
+    const options = { rowHeight: t, justifyLast: true };
+    const fills = (options: Record<string, unknown>) =>
+      rows(runPack(justifiedStrategy, set, { w, h: 400 }, options).placements).map(
+        (row) => w / row.reduce((sum, rect) => sum + rect.w / rect.h, 0),
+      );
+
+    it.each([
+      { min: 90, max: Number.POSITIVE_INFINITY },
+      { min: 85, max: 115 },
+      { min: 0, max: 105 },
+    ])('$min–$max matches an exhaustive search', ({ min, max }) => {
+      const score = (heights: number[]): [number, number] => [
+        heights.reduce((sum, h) => sum + Math.max(0, min - h, h - max) ** 2, 0),
+        heights.reduce((sum, h) => sum + (h - t) ** 2, 0),
+      ];
+      let best: [number, number] = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY];
+      for (let mask = 0; mask < 1 << (a.length - 1); mask++) {
+        const heights: number[] = [];
+        let sum = 0;
+        for (let i = 0; i < a.length; i++) {
+          sum += a[i]!;
+          if (i === a.length - 1 || mask & (1 << i)) {
+            heights.push(w / sum);
+            sum = 0;
+          }
+        }
+        const s = score(heights);
+        const tie = Math.abs(s[0] - best[0]) <= 1e-9;
+        if ((!tie && s[0] < best[0]) || (tie && s[1] < best[1])) best = s;
+      }
+      const got = score(fills({ ...options, minRowHeight: min, maxRowHeight: max }));
+      expect(got[0]).toBeCloseTo(best[0], 6);
+      expect(got[1]).toBeCloseTo(best[1], 6);
+    });
+
+    it('moves the breaks where deviation alone would leave rows under the floor', () => {
+      expect(fills(options).some((h) => h < 90)).toBe(true);
+      expect(fills({ ...options, minRowHeight: 90 }).every((h) => h >= 90)).toBe(true);
+    });
+  });
+
   it('declares its config keys so a typo is reported, not silently defaulted', () => {
     expect(Object.keys(justifiedStrategy.configSpec ?? {})).toEqual([
       'rowHeight',
       'gap',
       'maxRowHeight',
+      'minRowHeight',
       'justifyLast',
       'pocket',
     ]);
