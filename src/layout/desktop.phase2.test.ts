@@ -450,17 +450,17 @@ describe('desktop iconFrom', () => {
         seen.push(affordance.bounds);
       },
     });
-    const valueOf = (orientation: 'horizontal' | 'vertical', iconFrom: string) =>
+    const seamOf = (orientation: 'horizontal' | 'vertical', iconFrom: string) =>
       run([icon('i1')], { iconFrom }, seamy(orientation)).affordances[0]?.bounds;
 
     it('reads it from the mirrored side on the axis the mirror flips', () => {
-      expect(valueOf('horizontal', 'top-right')).toMatchObject({ valueNow: 70 });
-      expect(valueOf('vertical', 'bottom-left')).toMatchObject({ valueNow: 70 });
+      expect(seamOf('horizontal', 'top-right')).toMatchObject({ valueNow: 70 });
+      expect(seamOf('vertical', 'bottom-left')).toMatchObject({ valueNow: 70 });
     });
 
     it('leaves it alone on the axis the mirror keeps', () => {
-      expect(valueOf('horizontal', 'bottom-left')).toMatchObject({ valueNow: 30 });
-      expect(valueOf('vertical', 'top-right')).toMatchObject({ valueNow: 30 });
+      expect(seamOf('horizontal', 'bottom-left')).toMatchObject({ valueNow: 30 });
+      expect(seamOf('vertical', 'top-right')).toMatchObject({ valueNow: 30 });
     });
 
     it('swaps atMin and atMax with it', () => {

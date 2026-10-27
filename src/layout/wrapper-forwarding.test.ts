@@ -87,7 +87,11 @@ describe('pageStrategy over a floating strategy', () => {
 });
 
 describe('desktopStrategy over a grid', () => {
-  const low: LayoutItem = { id: 'low', meta: { icon: true }, placement: { cell: { col: 0, row: 1 } } };
+  const low: LayoutItem = {
+    id: 'low',
+    meta: { icon: true },
+    placement: { cell: { col: 0, row: 1 } },
+  };
   const container = { w: 320, h: 110 };
   const grid = { cols: 3, gap: 10, cell: { h: 50 } };
 
