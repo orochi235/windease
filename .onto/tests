@@ -1,9 +1,9 @@
 enlist: 6
-# Both suites in one pass: vitest over the library and the pack lab, then
-# Playwright driving Ladle. onto runs one command per repository, so they are
-# one script here rather than two entries.
+# Lint and typecheck first, the gates release.yml publishes behind, then both
+# suites: vitest over the library and the pack lab, then Playwright driving
+# Ladle. onto runs one command per repository, so they are one script here.
 plugin: node
-run: npm run test:all
+run: npm run lint && npm run typecheck && npm run test:all
 # No `runner:`. test:all chains vitest into Playwright, and a reporter added to
 # the end of it would reach Playwright only.
 
