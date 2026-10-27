@@ -4,6 +4,7 @@ import {
   type ConfigSpec,
   checkStrategyConfig,
   listOf,
+  oneOrList,
 } from './config-check.js';
 
 const SPEC: ConfigSpec = {
@@ -59,6 +60,22 @@ describe('checkStrategyConfig', () => {
     expect(checkStrategyConfig('desktop', { controls: 'zoom' }, spec)).toEqual([
       "desktop: config 'controls' is a string, expected a list of 'close' | 'zoom'",
     ]);
+  });
+
+  it('takes one value or a non-empty list of them where the spec says oneOrList', () => {
+    const spec: ConfigSpec = { sort: oneOrList(['height', 'width']) };
+    for (const sort of ['height', ['height'], ['height', 'width']]) {
+      expect(checkStrategyConfig('shelf', { sort }, spec)).toEqual([]);
+    }
+    for (const sort of ['depth', [], ['height', 'depth'], 3, { height: 1 }]) {
+      const [problem] = checkStrategyConfig('shelf', { sort }, spec);
+      expect(problem, JSON.stringify(sort)).toContain("'height' | 'width', or a non-empty array");
+    }
+  });
+
+  it('reads a oneOrList spec as a value, not as nested keys', () => {
+    const spec: ConfigSpec = { sort: oneOrList(['height']) };
+    expect(checkStrategyConfig('shelf', { sort: 'height' }, spec)).toEqual([]);
   });
 
   it('catches a wrong primitive type', () => {

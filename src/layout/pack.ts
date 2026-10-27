@@ -1,5 +1,6 @@
 import type { LayoutItem, LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
 import { trace } from '../trace.js';
+import { oneOrList } from './config-check.js';
 import { largestEmptyRect } from './empty-rect.js';
 
 /**
@@ -27,9 +28,14 @@ export function packSize(item: LayoutItem): Size | null {
 }
 
 /** The orders a packing strategy's `sort` config accepts. Every order but
- *  `'none'` is descending and keeps input order among equal keys. */
+ *  `'none'` is descending and keeps input order among equal keys. `sort` also
+ *  takes an array of them, compared in turn: `['height', 'width']` places the
+ *  tallest first and, among equal heights, the widest. */
 export const PACK_SORTS = ['none', 'height', 'width', 'area', 'max-side'] as const;
 export type PackSort = (typeof PACK_SORTS)[number];
+
+/** The `configSpec` entry for a packer's `sort`. */
+export const PACK_SORT_SPEC = oneOrList(PACK_SORTS);
 
 /** A sized item as a packer places it. */
 export interface PackEntry {
@@ -44,10 +50,20 @@ const SORT_KEYS: Record<Exclude<PackSort, 'none'>, (size: Size) => number> = {
   'max-side': (s) => Math.max(s.w, s.h),
 };
 
+/** The keys `sort` compares by, in turn; unknown names and `'none'` add none. */
+function sortKeys(sort: unknown): ((size: Size) => number)[] {
+  const names: unknown[] = Array.isArray(sort) ? sort : [sort];
+  return names.flatMap((name) => {
+    const key = SORT_KEYS[name as Exclude<PackSort, 'none'>];
+    return key ? [key] : [];
+  });
+}
+
 /**
  * `items` split into the sized ones, in the order `options.sort` places them,
  * and the ids of those with no usable size. An unknown `sort` reads as
- * `'none'`, the order given.
+ * `'none'`, the order given; a list sorts by its first order, breaking ties
+ * by the next.
  */
 export function packQueue(
   items: LayoutItem[],
@@ -60,8 +76,16 @@ export function packQueue(
     if (size) queue.push({ item, size });
     else unsized.push(item.id);
   }
-  const key = SORT_KEYS[options.sort as Exclude<PackSort, 'none'>];
-  if (key) queue.sort((a, b) => key(b.size) - key(a.size));
+  const keys = sortKeys(options.sort);
+  if (keys.length > 0) {
+    queue.sort((a, b) => {
+      for (const key of keys) {
+        const d = key(b.size) - key(a.size);
+        if (d !== 0) return d;
+      }
+      return 0;
+    });
+  }
   return { queue, unsized };
 }
 

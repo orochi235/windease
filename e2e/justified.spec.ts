@@ -87,6 +87,31 @@ test.describe('justified rows', () => {
     }
   });
 
+  test('a min row height keeps rows off the floor unless a photo too wide for it is in them', async ({
+    page,
+  }) => {
+    const floor = 160;
+    /** Rows but the last under the floor with no photo too wide to reach it alone. */
+    const under = async () => {
+      const { width, photos } = await measure(page);
+      const rows = new Map<number, Photo[]>();
+      for (const p of photos) {
+        const key = Math.round(p.top);
+        rows.set(key, [...(rows.get(key) ?? []), p]);
+      }
+      return [...rows.entries()]
+        .sort(([a], [b]) => a - b)
+        .slice(0, -1)
+        .filter(([, row]) => row[0]!.h < floor - 1 && row.every((p) => p.aspect * floor <= width))
+        .length;
+    };
+    await expect.poll(() => faults(page)).toEqual([]);
+    await expect.poll(under).toBeGreaterThan(0);
+    await slide(page, 'justified-min-row-height', floor);
+    await expect.poll(under).toBe(0);
+    await expect.poll(() => faults(page)).toEqual([]);
+  });
+
   test('a taller target makes fewer rows', async ({ page }) => {
     const rowCount = async () =>
       new Set((await measure(page)).photos.map((p) => Math.round(p.top))).size;

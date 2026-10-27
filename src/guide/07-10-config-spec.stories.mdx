@@ -24,6 +24,9 @@ Catches an unknown key, a misspelled enum value, and a string where a number
 belongs. Without it, a typo falls back to the default and the strategy looks like
 it is ignoring a setting for no reason.
 
+A key that takes one value of a set or a list of them, as a packer's
+`sort: ['height', 'width']` does, is declared `sort: oneOrList(['height', 'width'])`.
+
 `checkStrategyConfig` is the check, run by `ContainerHost` on every layout.
 
 Leave `accepts` and `drop` out of the spec. They belong to the container, not the

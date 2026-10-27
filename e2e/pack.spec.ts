@@ -56,6 +56,22 @@ test.describe('the Pack story drives the packers from config', () => {
     await expect.poll(() => atOrigin(page)).toEqual(['box-3']);
   });
 
+  test('a second sort order breaks ties on the first', async ({ page }) => {
+    // 90×30 (box-4) and 90×180 (box-14) tie on width; shelf places in order, row by row.
+    const order = async () => {
+      const boxes = await placed(page);
+      const at = (id: string) => boxes.find((b) => b.id === id)!;
+      const [a, b] = [at('box-4'), at('box-14')];
+      return a.y < b.y || (a.y === b.y && a.x < b.x) ? 'box-4 first' : 'box-14 first';
+    };
+    await openStory(page, `${STORY}&arg-strategy=shelf&arg-sort=width`);
+    await expect(page.getByTestId('pack-readout')).toHaveText('14 placed, 0 unplaced');
+    expect(await order()).toBe('box-4 first');
+
+    await openStory(page, `${STORY}&arg-strategy=shelf&arg-sort=width&arg-thenBy=height`);
+    await expect.poll(order).toBe('box-14 first');
+  });
+
   for (const strategy of ['shelf', 'skyline', 'column']) {
     test(`overflowMode unplaced keeps ${strategy} inside the container's height`, async ({
       page,
@@ -134,7 +150,7 @@ test('changing a control repacks the boxes', async ({ page }) => {
   const before = await placed(page);
 
   await page.getByRole('button', { name: /Explore different versions/ }).click();
-  await page.getByRole('radio', { name: 'area', exact: true }).check();
+  await page.locator('input[type="radio"][name="sort"][value="area"]').check();
 
   await expect
     .poll(async () =>

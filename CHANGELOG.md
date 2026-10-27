@@ -31,6 +31,19 @@ section below.
   `autoUnsplit` parent it leaves with one child collapses in the same
   transaction. The Golden Layout translator sets it on every stack, so a stack
   whose last tab is dragged out is removed, as in Golden Layout.
+- **A floor for justified rows.** `justifiedStrategy` takes `minRowHeight`,
+  the counterpart of `maxRowHeight`: a row takes one photo fewer rather than
+  shrink below it to fill the width. The `flickr-justified-rows` preset in
+  `windease/nuts` sets it to 240, Flickr's −25%. See
+  [Justified rows of photos](README.md#justified-rows-of-photos) and the
+  **Justified** story's min row height slider.
+
+- **Tiebreaks in a packer's `sort`.** `shelf`, `skyline` and `column` take a
+  list of orders, compared in turn: `sort: ['height', 'width']` places the
+  tallest first and the widest among equal heights. The
+  `stb-strip-among-tiles` preset uses it, as stb_rect_pack sorts. Strategy
+  authors can declare such a key with `oneOrList(values)` in a `configSpec`.
+  See [Sorting before packing](README.md#sorting-before-packing).
 
 - **Drop a grid child into the cell under the pointer.** `drop: { cell: true }`
   on a grid makes a drop over an empty cell write the child's `placement.cell`,
@@ -115,6 +128,11 @@ section below.
   [Collapsing a container that empties](README.md#collapsing-a-container-that-empties).
 
 ### Changed
+
+- **`maxRowHeight` now steers justified row breaks.** Breaks that keep every
+  row at or under it win over breaks that only deviate less from `rowHeight`,
+  where before a row past it was merely left ragged. A layout that set
+  `maxRowHeight` may break its rows differently.
 
 - **`placement.share` is per axis.** It takes `{ w?, h? }`, like `size`, and a
   seam drag writes that form, so a pane moved from a row into a column no

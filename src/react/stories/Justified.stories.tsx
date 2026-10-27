@@ -61,12 +61,14 @@ const chrome: ChromeMap = {
 
 /**
  * Forty photos of mixed shape laid out in justified rows. Every row but the
- * last fills the width; drag the sliders to watch the row breaks move.
+ * last fills the width; drag the sliders to watch the row breaks move. A min
+ * row height stops rows shrinking under it to fit one more photo.
  */
 export const Photos: Story = () => {
   const store = useMemo(makeStore, []);
   const [width, setWidth] = useState(900);
   const [rowHeight, setRowHeight] = useState(160);
+  const [minRowHeight, setMinRowHeight] = useState(0);
   const [justifyLast, setJustifyLast] = useState(false);
 
   return (
@@ -104,6 +106,24 @@ export const Photos: Story = () => {
               }}
             />{' '}
             <output>{rowHeight}</output>
+          </label>
+          <label>
+            Min row height{' '}
+            <input
+              type="range"
+              min={0}
+              max={320}
+              step={10}
+              value={minRowHeight}
+              aria-label="Min row height"
+              data-testid="justified-min-row-height"
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setMinRowHeight(next);
+                store.updateContainerConfig(ZONE_ID, { minRowHeight: next > 0 ? next : undefined });
+              }}
+            />{' '}
+            <output>{minRowHeight > 0 ? minRowHeight : 'off'}</output>
           </label>
           <label>
             <input

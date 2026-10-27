@@ -3,7 +3,7 @@ import { trace } from '../trace.js';
 import {
   fitsWithin,
   PACK_OVERFLOW_MODES,
-  PACK_SORTS,
+  PACK_SORT_SPEC,
   type PackTurn,
   packBounded,
   packGap,
@@ -45,7 +45,7 @@ export const shelfStrategy: LayoutStrategy<void, string> = {
   name: 'shelf',
   configSpec: {
     gap: 'number',
-    sort: PACK_SORTS,
+    sort: PACK_SORT_SPEC,
     rotate: 'boolean',
     overflowMode: PACK_OVERFLOW_MODES,
     pocket: 'object',

@@ -10,14 +10,28 @@
 
 import { CONTAINER_CONFIG_KEYS } from '../container-config.js';
 
-/** A config key holding a list, each entry one of `values`. Built by {@link listOf}. */
+/** A config key holding a list, each entry one of `values`. Built by
+ *  {@link listOf}, or by {@link oneOrList} when one bare value also passes. */
 export class ListSpec {
-  constructor(readonly values: readonly string[]) {}
+  constructor(
+    readonly values: readonly string[],
+    readonly single = false,
+  ) {}
 }
 
 /** Spec for a key whose value is an array of entries drawn from `values`. */
 export function listOf(values: readonly string[]): ListSpec {
   return new ListSpec(values);
+}
+
+/**
+ * The spec for a key that takes one of `values`, or a non-empty array of them —
+ * a packer's `sort: ['height', 'width']`, compared in turn.
+ *
+ * @group Layout
+ */
+export function oneOrList(values: readonly string[]): ListSpec {
+  return new ListSpec(values, true);
 }
 
 /** What one config key accepts: a primitive type, a plain object (whose keys
@@ -157,16 +171,27 @@ function checkKeys(
       continue;
     }
     if (field instanceof ListSpec) {
+      const expected = describe(field.values);
+      const allowed = (v: unknown) => field.values.includes(v as string);
+      if (field.single) {
+        const ok = Array.isArray(value) ? value.length > 0 && value.every(allowed) : allowed(value);
+        if (!ok) {
+          problems.push(
+            `${strategyName}: config '${key}' is ${JSON.stringify(value)}, expected ${expected}, or a non-empty array of them`,
+          );
+        }
+        continue;
+      }
       if (!Array.isArray(value)) {
         problems.push(
-          `${strategyName}: config '${key}' is ${article(kindOf(value))}, expected a list of ${describe(field.values)}`,
+          `${strategyName}: config '${key}' is ${article(kindOf(value))}, expected a list of ${expected}`,
         );
         continue;
       }
       for (const entry of value) {
-        if (!field.values.includes(entry as string)) {
+        if (!allowed(entry)) {
           problems.push(
-            `${strategyName}: config '${key}' holds ${JSON.stringify(entry)}, expected ${describe(field.values)}`,
+            `${strategyName}: config '${key}' holds ${JSON.stringify(entry)}, expected ${expected}`,
           );
         }
       }

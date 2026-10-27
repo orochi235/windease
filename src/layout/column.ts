@@ -5,7 +5,7 @@ import {
   fitsWithin,
   PACK_EPSILON,
   PACK_OVERFLOW_MODES,
-  PACK_SORTS,
+  PACK_SORT_SPEC,
   type PackTurn,
   packBounded,
   packGap,
@@ -70,7 +70,7 @@ export const columnStrategy: LayoutStrategy<void, string> = {
   name: 'column',
   configSpec: {
     gap: 'number',
-    sort: PACK_SORTS,
+    sort: PACK_SORT_SPEC,
     rotate: 'boolean',
     overflowMode: PACK_OVERFLOW_MODES,
     columnWidth: 'number',

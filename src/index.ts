@@ -97,6 +97,7 @@ export {
   checkStrategyConfig,
   ListSpec,
   listOf,
+  oneOrList,
 } from './layout/config-check.js';
 export {
   DEFAULT_CASCADE,

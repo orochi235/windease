@@ -492,14 +492,26 @@ Built-ins:
 - **`shelfStrategy`**, **`columnStrategy`**, **`skylineStrategy`** — pack items
   at their own size (`natural`, else `hints.preferredSize`) into the container's
   width, in rows, masonry columns, or the lowest free spot. They grow downward;
-  `container.h` only decides `overflow`. Config: `gap`, plus `columnWidth` on
-  `column`. Items with no size go to `unplaced`.
+  `container.h` only decides `overflow`. Config: `gap`, `sort` (`'height'`,
+  `'width'`, `'area'` or `'max-side'`, largest first and stable on ties; the
+  default `'none'` keeps the order given; a list such as `['height', 'width']`
+  breaks ties on each order by the next), `rotate` (an item may be placed
+  turned a quarter, rect `w`/`h` swapped, with a `rotation` channel of 90 or 0
+  on every placement), `overflowMode` (`'scroll'`, the
+  default, packs past `container.h` and reports `overflow`; `'unplaced'` treats
+  the container as a bin and sends any item that would cross an edge to
+  `unplaced`), plus `columnWidth`, `cols` (a fixed count of columns widened to
+  fill the container; exclusive with `columnWidth`) and `justify` (`'start'`,
+  `'center'` or `'end'` for the width fixed-width columns leave) on `column`.
+  Items with no size go to `unplaced`. Sorting decides placement order only;
+  the result lists items in the order given.
 - **`justifiedStrategy`** — justified rows, as in Flickr or Google Photos. Each
   item keeps its aspect (`hints.aspect`, else `natural` or `preferredSize`
   width ÷ height) and every row but the last is scaled to fill the width.
-  Config: `rowHeight` (the target, default 200), `gap`, `maxRowHeight`,
-  `justifyLast`. Grid's cells stretch an item regardless of its aspect, and
-  strip's cross axis does unless `crossAlign` says otherwise (see
+  Config: `rowHeight` (the target, default 200), `gap`, `minRowHeight` and
+  `maxRowHeight` (the band rows are broken to stay inside), `justifyLast`.
+  Grid's cells stretch an item regardless of its aspect, and strip's cross
+  axis does unless `crossAlign` says otherwise (see
   [Two rotations](#two-rotations)). Items with no aspect go to `unplaced`.
 
 ### Two rotations
@@ -561,19 +573,6 @@ and a drop floats it with its corner at the cursor, relative to that target's
 its body at the stack's registered `bounds()`: the host measures, the engine
 lays out. A tear is refused under the target's `lock.arrange`, and into a parent
 whose child order the host controls.
-
-  `container.h` only decides `overflow`. Config: `gap`, `sort` (`'height'`,
-  `'width'`, `'area'` or `'max-side'`, largest first and stable on ties; the
-  default `'none'` keeps the order given), `rotate` (an item may be placed
-  turned a quarter, rect `w`/`h` swapped, with a `rotation` channel of 90 or 0
-  on every placement), `overflowMode` (`'scroll'`, the
-  default, packs past `container.h` and reports `overflow`; `'unplaced'` treats
-  the container as a bin and sends any item that would cross an edge to
-  `unplaced`), plus `columnWidth`, `cols` (a fixed count of columns widened to
-  fill the container; exclusive with `columnWidth`) and `justify` (`'start'`,
-  `'center'` or `'end'` for the width fixed-width columns leave) on `column`. Items with no size go to
-  `unplaced`. Sorting decides placement order only; the
-  result lists items in the order given.
 
 ## React layer
 

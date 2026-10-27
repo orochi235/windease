@@ -123,8 +123,8 @@ function stbStripAmongTiles(): Preset {
       "stb_rect_pack is a small, widely embedded C library that packs rectangles into a texture atlas, one image holding many small ones, such as font glyphs. This atlas mixes 1,200 tiny 4×4 tiles with one long 2048×8 color ramp (a gradient stored as a strip of texture) that spans the atlas's full width. stb packs into a target of fixed size, never turns a rectangle, and sorts the rectangles tallest first before placing them, whatever order the source files list them in.",
     viewport: { w: 2048, h: 2048 },
     strategy: 'skyline',
-    // stb_rect_pack's `rect_height_compare`: tallest first (then widest, which `sort` cannot say).
-    config: { sort: 'height', overflowMode: 'unplaced' },
+    // stb_rect_pack's `rect_height_compare`: tallest first, then widest.
+    config: { sort: ['height', 'width'], overflowMode: 'unplaced' },
     boxes,
   });
 }
@@ -342,8 +342,8 @@ function flickrJustified(): Preset {
       'Flickr shows photos in justified rows: each row holds photos at a shared height, scaled so the row runs exactly the width of the page, and every photo keeps its shape. Flickr published the algorithm as the open-source justified-layout library, whose defaults aim for 320-pixel rows in a 1060-pixel-wide container with 10 pixels between photos.',
     viewport: { w: 1060, h: 1400 },
     strategy: 'justified',
-    // targetRowHeightTolerance 0.25 caps a row at 400px; justified has no key for its 240px floor.
-    config: { rowHeight: 320, gap: 10, maxRowHeight: 400 },
+    // targetRowHeightTolerance 0.25 bounds a row to 240–400px.
+    config: { rowHeight: 320, gap: 10, minRowHeight: 240, maxRowHeight: 400 },
     boxes,
     aspects,
   });

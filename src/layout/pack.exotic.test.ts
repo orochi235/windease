@@ -230,6 +230,27 @@ describe('packing quality against the literature', () => {
     );
   });
 
+  it('skyline packs stb’s atlas in rect_height_compare order: the strip, then widest among equal heights', () => {
+    // Every other tile widened to 8×4, so only the width tiebreak orders the tiles.
+    const { scenario, result } = run(preset('stb-strip-among-tiles'), 'skyline', (s) => ({
+      ...s,
+      items: s.items.map((item, i) =>
+        item.hints?.preferredSize?.h === 4 && i % 2 === 0
+          ? { ...item, hints: { ...item.hints, preferredSize: { w: 8, h: 4 } } }
+          : item,
+      ),
+    }));
+    const reading = [...result.placements.entries()]
+      .sort(([, a], [, b]) => a.y - b.y || a.x - b.x)
+      .map(([, r]) => r.w);
+    const strip = scenario.container.w;
+    const wide = reading.filter((w) => w === 8).length;
+    expect(reading[0]).toBe(strip);
+    expect(reading.slice(1, 1 + wide).every((w) => w === 8)).toBe(true);
+    expect(reading.slice(1 + wide).every((w) => w === 4)).toBe(true);
+    expect(result.unplaced).toBeUndefined();
+  });
+
   it('shelf packs a feed shorter when the caller sorts it tallest first', () => {
     const p = preset('ascending-heights');
     const asGiven = extent(run(p, 'shelf').result.placements).bottom;
@@ -326,6 +347,22 @@ describe('real layouts, packer by packer', () => {
       expect(r.w / r.h, item.id).toBeCloseTo(item.hints!.aspect!, 6);
     }
     expect(result.overflow?.w ?? 0).toBe(0);
+  });
+
+  it('brings Flickr’s rows nearer the 240px floor than breaking by deviation alone', () => {
+    const shortfall = (result: LayoutResult<string>) =>
+      rows(result)
+        .slice(0, -1)
+        .map((ids) => result.placements.get(ids[0]!)!.h)
+        .reduce((sum, h) => sum + Math.max(0, 240 - h) ** 2, 0);
+    const floored = run(preset('flickr-justified-rows'), 'justified').result;
+    const unfloored = run(preset('flickr-justified-rows'), 'justified', (s) => {
+      const { minRowHeight: _, ...options } = s.options;
+      return { ...s, options };
+    }).result;
+    // These 40 photos admit no breaks with every row in 240–400, so the floor narrows the miss.
+    expect(shortfall(floored)).toBeGreaterThan(0);
+    expect(shortfall(floored)).toBeLessThan(shortfall(unfloored));
   });
 
   it('shelf, the fallback without justified rows, leaves Flickr’s rows ragged on the right', () => {
