@@ -1675,7 +1675,9 @@ element being pressed.
 | `drag` | off | `true` moves a window by its title band, `'x'` or `'y'` on one axis only |
 | `handleSize` | `22` | height of the title band `drag` grabs |
 | `clamp` | off | `'bar'` keeps each title band inside the desktop; `'all'` keeps whole windows inside where they fit |
-| `minimizable` | off | adds a click box at the right of each title band that flips `minimized`, and one over each iconified window |
+| `minimizable` | off | shorthand for `controls: ['minimize']`; ignored when `controls` is set |
+| `controls` | none | the click boxes each title band carries, in order: any of `'close'`, `'minimize'`, `'zoom'` |
+| `controlsSide` | `'end'` | the end of the title band the `controls` boxes pack against: `'start'` or `'end'` |
 | `overflow` | `'scroll'` | `'scroll'` reports windows past any edge as `overflow`, left and top included; `'clip'` reports none |
 | `resize` | off | `true` resizes a window from its edges and corners |
 | `edgeSize` | `6` | thickness of the edges `resize` grabs; corners are twice it |
@@ -1715,12 +1717,40 @@ Resizing ignores `clamp`: a dragged edge always stops at the desktop's border
 not grown off it, as on macOS. Kept that way on purpose (2026-10-26): an
 unclamped edge with no `maxSize` would have no maximum to report.
 
-**Minimize toggle.** With `minimizable: true`, each window gets a `click`
-affordance, a `handleSize` square at the right end of its title band, and pressing
-it flips the window's `placement.minimized`. A window iconified under
-`minimize: 'icon'` gets one over its icon, so pressing the icon restores it. The
-built-in renderer draws it as an empty `<button>` named "minimize …" or
-"restore …", and the chrome draws the glyph beneath.
+**Window controls.** `controls` lists the click boxes each title band carries,
+in order, and `controlsSide` the end they pack against: `controls: ['close',
+'minimize', 'zoom'], controlsSide: 'start'` gives macOS's stoplights. Each box is a
+`handleSize` square, narrower when the band cannot fit them all. The built-in
+renderer draws each as an empty `<button>` named for what it does — "close Mail",
+"minimize Mail" — so it takes the keyboard and a screen reader's name, and the
+chrome draws the glyph beneath. A window's own `placement.controls` overrides the
+list, and `placement.controls: []` turns them off on that window. With neither
+set there are no boxes, and `minimizable: true` is the older spelling of
+`controls: ['minimize']`.
+
+- **Minimize** flips the window's `placement.minimized`. A window iconified under
+  `minimize: 'icon'` gets one over its icon, so pressing the icon restores it.
+- **Close** does not remove anything: what closing means belongs to the app.
+  It emits `node.closeRequested` with the window's `id` and `parentId`, and the
+  host answers by hiding it, unregistering it, or asking first. Nothing is
+  emitted under the window's `lock.destroy` or `lock.hide`. `requestClose(store,
+  id)` sends the same request from a menu or a shortcut.
+- **Zoom** fills the desktop, up to the window's `hints.maxSize`, and keeps the
+  rect it replaced in `placement.zoomRecord`. Pressing it again puts the window
+  back, and so does dragging its title band, which leaves the pointer at the
+  same fraction of the restored band, as macOS does. A window resized or moved
+  some other way since counts as unzoomed. Refused under `lock.move` or
+  `lock.resize`; under `lock.resize` alone a drag only moves the zoomed window.
+
+```tsx
+useEffect(
+  () =>
+    store.events.on('node.closeRequested', ({ id }) => {
+      if (confirm(`Close ${id}?`)) store.hideNode(id);
+    }),
+  [store],
+);
+```
 
 **Resizing.** With `resize` set, each window gets eight affordances inside its
 border: `resize-y` on the top and bottom edges, `resize-x` on the left and right,
@@ -1732,7 +1762,7 @@ desktop's edge unless the window is already past it. Each edge's `bounds` is its
 position on its axis, so an arrow key moves it the way the arrow points. A window
 with `lock.resize` does not resize, one with `lock.move` does not resize from its
 left or top edge, and a shaded window has no edges. A window's own
-`placement.resize` overrides the config. The minimize box sits above the edges.
+`placement.resize` overrides the config. The control boxes sit above the edges.
 
 **Overflow.** Under the default `overflow: 'scroll'`, a window at `x = -1800` is
 reported as `overflow.left`, so a scrolling wrapper can reach it (see

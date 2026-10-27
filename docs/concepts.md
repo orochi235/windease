@@ -469,12 +469,16 @@ Built-ins:
   a window, or with `minimize: 'icon'` hands it to `inner` beside the items
   marked `icon`, which sit at `z` 0. Config: `minimize`, `shadeHeight`,
   `iconWidth`, `iconHeight`, `cascade`, `drag`, `handleSize`, `clamp`, `overflow`, `minimizable`,
-  `resize`, `edgeSize`, `iconFrom`, `wrap`, and the icon layer's config under
+  `controls`, `controlsSide`, `resize`, `edgeSize`, `iconFrom`, `wrap`, and the icon layer's config under
   `inner` (or flat, as with floating). Keeps no state of its own; with `drag` set it emits a
   title-band drag affordance per window that writes placement `x` / `y`, with
-  `minimizable` a `click` affordance that flips `minimized`, and with `resize`
-  edge and corner affordances that write `size` (and `x` / `y` from the left and
-  top). `iconFrom` mirrors `inner`'s top-left layout into another corner rather
+  `controls` a `click` affordance per listed control (`minimizable` is
+  `controls: ['minimize']`), and with `resize` edge and corner affordances that
+  write `size` (and `x` / `y` from the left and top). Close writes nothing: it
+  emits `node.closeRequested` for the host to answer. Zoom writes `x` / `y` /
+  `size` and keeps what they replaced in placement `zoomRecord`, read back by a
+  second press or a title-band drag. Placement `controls` overrides the config's
+  list per window. `iconFrom` mirrors `inner`'s top-left layout into another corner rather
   than asking `inner` to place from there.
 - **`pageStrategy(inner)`** — one page of children at a time, laid out by
   `inner`: virtual desktops under `mode: 'assigned'`, where a child's page is
@@ -703,7 +707,7 @@ node.moved                       | node.reordered
 node.placementChanged (batched) | node.metaChanged (batched)
 node.lockChanged                 | node.pinnedChanged
 node.activityChanged
-node.cascadeDestroyed
+node.cascadeDestroyed            | node.closeRequested
 container.configChanged          | container.allowsPinningChanged
 container.stateChanged           | container.strategyChanged
 container.added
@@ -713,6 +717,8 @@ throttle.pending                 | throttle.published
 ```
 
 One bus on the store (`store.events`); DnD events fire from the controller.
+`node.closeRequested` is a request rather than a report: `requestClose(store, id)`
+emits it and changes nothing, and the listener decides what closing means.
 
 ## Snapshot
 

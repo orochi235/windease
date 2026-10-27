@@ -10,16 +10,28 @@
 
 import { CONTAINER_CONFIG_KEYS } from '../container-config.js';
 
+/** A config key holding a list, each entry one of `values`. Built by {@link listOf}. */
+export class ListSpec {
+  constructor(readonly values: readonly string[]) {}
+}
+
+/** Spec for a key whose value is an array of entries drawn from `values`. */
+export function listOf(values: readonly string[]): ListSpec {
+  return new ListSpec(values);
+}
+
 /** What one config key accepts: a primitive type, a plain object (whose keys
- *  the strategy checks itself), the set of allowed values, or a nested spec
- *  checked key by key, as a composite's `inner` is. A set may mix strings and
- *  booleans, for a key like `drag: true | 'x' | 'y'`. */
+ *  the strategy checks itself), the set of allowed values, a list of them
+ *  ({@link listOf}), or a nested spec checked key by key, as a composite's
+ *  `inner` is. A set may mix strings and booleans, for a key like
+ *  `drag: true | 'x' | 'y'`. */
 export type ConfigFieldSpec =
   | 'number'
   | 'boolean'
   | 'string'
   | 'object'
   | readonly (string | boolean)[]
+  | ListSpec
   | ConfigSpec;
 
 /** Every key a strategy understands. Keys absent from the config are fine —
@@ -142,6 +154,22 @@ function checkKeys(
           ? `${strategyName}: unknown config key '${key}' — did you mean '${prefix}${near}'?`
           : `${strategyName}: unknown config key '${key}'`,
       );
+      continue;
+    }
+    if (field instanceof ListSpec) {
+      if (!Array.isArray(value)) {
+        problems.push(
+          `${strategyName}: config '${key}' is ${article(kindOf(value))}, expected a list of ${describe(field.values)}`,
+        );
+        continue;
+      }
+      for (const entry of value) {
+        if (!field.values.includes(entry as string)) {
+          problems.push(
+            `${strategyName}: config '${key}' holds ${JSON.stringify(entry)}, expected ${describe(field.values)}`,
+          );
+        }
+      }
       continue;
     }
     if (typeof field === 'object' && !Array.isArray(field)) {

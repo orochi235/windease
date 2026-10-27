@@ -89,6 +89,12 @@ export interface StoreEvents {
     parentId: NodeId;
     descendantIds: readonly NodeId[];
   };
+  /**
+   * Something asked to close `id`: a desktop window's close box, or the host's
+   * own `requestClose`. Nothing else happens — what closing means (hide,
+   * unregister, ask first) is the listener's to decide and do.
+   */
+  'node.closeRequested': { id: NodeId; parentId: NodeId | null };
   'container.configChanged': { id: NodeId; from: unknown; to: unknown };
   'container.allowsPinningChanged': { id: NodeId; from: boolean; to: boolean };
   /**

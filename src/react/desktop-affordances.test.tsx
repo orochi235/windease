@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { asNodeId, createNode, desktopStrategy, Store } from '../index.js';
 import { type ChromeMap, Container } from './index.js';
@@ -80,6 +80,21 @@ describe('desktop affordances in <Container>', () => {
     fireEvent.click(box);
     expect(placementOf(store, 'a').minimized).toBe(true);
     expect(hit('desktop:minimize:a').getAttribute('aria-label')).toBe('restore a');
+  });
+
+  it('renders close and zoom as named buttons, and none for a window with controls: []', () => {
+    const { store, hit } = renderDesktop({ controls: ['close', 'zoom'], controlsSide: 'start' });
+    act(() => store.patchPlacement(asNodeId('b'), { controls: [] }));
+    const heard: unknown[] = [];
+    store.events.on('node.closeRequested', (e) => heard.push(e));
+    expect(hit('desktop:close:a').tagName).toBe('BUTTON');
+    expect(hit('desktop:close:a').getAttribute('aria-label')).toBe('close a');
+    expect(hit('desktop:close:b')).toBeNull();
+    fireEvent.click(hit('desktop:close:a'));
+    expect(heard).toEqual([{ id: 'a', parentId: 'z' }]);
+    fireEvent.click(hit('desktop:zoom:a'));
+    expect(placementOf(store, 'a')).toMatchObject({ x: 0, y: 0, size: { w: 200, h: 100 } });
+    expect(hit('desktop:zoom:a').getAttribute('aria-label')).toBe('restore size a');
   });
 
   it('raises a clicked window by z-index, leaving the DOM order alone', () => {

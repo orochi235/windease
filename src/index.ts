@@ -4,6 +4,7 @@ export {
   defaultChildSort,
   preserveStoreOrder,
 } from './child-sort.js';
+export { requestClose } from './close.js';
 export {
   type CollapseAnswer,
   type CollapseDrag,
@@ -94,6 +95,8 @@ export {
   type ConfigFieldSpec,
   type ConfigSpec,
   checkStrategyConfig,
+  ListSpec,
+  listOf,
 } from './layout/config-check.js';
 export {
   DEFAULT_CASCADE,
@@ -102,6 +105,9 @@ export {
   DEFAULT_ICON_SIZE,
   DEFAULT_SHADE_HEIGHT,
   DESKTOP_CLAMP,
+  DESKTOP_CLOSE_PREFIX,
+  DESKTOP_CONTROLS,
+  DESKTOP_CONTROLS_SIDE,
   DESKTOP_DRAG,
   DESKTOP_DRAG_PREFIX,
   DESKTOP_ICON_FROM,
@@ -109,9 +115,14 @@ export {
   DESKTOP_MINIMIZE_PREFIX,
   DESKTOP_OVERFLOW,
   DESKTOP_RESIZE_PREFIX,
+  DESKTOP_ZOOM_PREFIX,
   type DesktopConfig,
+  type DesktopControl,
+  type DesktopControlsConfig,
   type DesktopState,
   desktopStrategy,
+  ZOOM_RECORD_KEY,
+  type ZoomRecord,
 } from './layout/desktop.js';
 export {
   ANCHORS,

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { type ConfigConflict, type ConfigSpec, checkStrategyConfig } from './config-check.js';
+import {
+  type ConfigConflict,
+  type ConfigSpec,
+  checkStrategyConfig,
+  listOf,
+} from './config-check.js';
 
 const SPEC: ConfigSpec = {
   axis: ['x', 'y'],
@@ -42,6 +47,18 @@ describe('checkStrategyConfig', () => {
     expect(checkStrategyConfig('desktop', { drag: 'y' }, spec)).toEqual([]);
     const [problem] = checkStrategyConfig('desktop', { drag: 'xy' }, spec);
     expect(problem).toContain("true | false | 'x' | 'y'");
+  });
+
+  it('checks a list key entry by entry, and that it is a list at all', () => {
+    const spec: ConfigSpec = { controls: listOf(['close', 'zoom']) };
+    expect(checkStrategyConfig('desktop', { controls: [] }, spec)).toEqual([]);
+    expect(checkStrategyConfig('desktop', { controls: ['zoom', 'close'] }, spec)).toEqual([]);
+    expect(checkStrategyConfig('desktop', { controls: ['zoom', 'shut'] }, spec)).toEqual([
+      `desktop: config 'controls' holds "shut", expected 'close' | 'zoom'`,
+    ]);
+    expect(checkStrategyConfig('desktop', { controls: 'zoom' }, spec)).toEqual([
+      "desktop: config 'controls' is a string, expected a list of 'close' | 'zoom'",
+    ]);
   });
 
   it('catches a wrong primitive type', () => {
