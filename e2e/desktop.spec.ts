@@ -126,13 +126,14 @@ test.describe('desktop behavior keys', () => {
 
   test("clamp: 'bar' keeps the title bar on the desktop, body hanging below", async ({ page }) => {
     await openStory(page, `${BEHAVIOR}&arg-clamp=bar`);
-    const desk = await deskOf(page);
     const { at } = await barOf(page, 'win-2');
     await dragMouse(page, at, { x: at.x, y: at.y + 400 });
+    // The release lies past the scroller's bottom edge, so the drag auto-scrolls the desktop
+    // by however long it lingered there; read the origin after it, not before.
     // The story lays out against a 360px viewport, which its border-box does not shrink.
     await expect
-      .poll(async () => (await boxOf(node(page, 'win-2'))).y)
-      .toBeCloseTo(desk.y + 360 - 26, 0);
+      .poll(async () => (await boxOf(node(page, 'win-2'))).y - (await deskOf(page)).y)
+      .toBeCloseTo(360 - 26, 0);
   });
 
   test('a window past the left edge opens scrolled out of view and scrolls into it', async ({
