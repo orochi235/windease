@@ -41,7 +41,7 @@ test.describe('desktop window controls', () => {
       .poll(() => boxOf(node(page, 'mail')))
       .toMatchObject({ x: desk.x, y: desk.y, w: desk.w, h: desk.h });
     await page.getByRole('button', { name: 'restore size mail' }).click();
-    await expect.poll(() => boxOf(node(page, 'mail'))).toMatchObject(before);
+    await expect.poll(() => boxOf(node(page, 'mail'))).toMatchObject({ ...before });
   });
 
   test('dragging a zoomed window by its title bar restores its size under the pointer', async ({

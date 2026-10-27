@@ -59,7 +59,7 @@ describe('floatingStrategy over a grid', () => {
 
 describe('pageStrategy over a floating strategy', () => {
   const strategy = pageStrategy(desktopStrategy());
-  const state = { page: 2, inner: undefined };
+  const state = { page: 2, inner: { inner: undefined } };
 
   it('floats a child below a top bar, on the shown page', () => {
     const r = strategy.float?.place({
