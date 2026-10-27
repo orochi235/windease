@@ -729,9 +729,12 @@ stretches its cross axis and a grid fills its cells whatever the item's shape.
 ### Sorting before packing
 
 `sort: 'height' | 'width' | 'area' | 'max-side'` places the largest first by
-that measure; `'none'`, the default, keeps the order given. Items that tie keep
-their order. Sorting changes where items land, never which ones are placed,
-and `placements` and `unplaced` still list items in the order given.
+that measure; `'none'`, the default, keeps the order given. A list compares by
+each measure in turn: `sort: ['height', 'width']` places the tallest first and,
+among boxes of the same height, the widest, as stb_rect_pack does. Items that
+tie on every measure keep their order. Sorting changes where items land, never
+which ones are placed, and `placements` and `unplaced` still list items in the
+order given.
 
 Sorting usually packs tighter: `shelf` with `sort: 'height'` is the classic
 next-fit decreasing height packing, and `'max-side'` is a common choice for

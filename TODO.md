@@ -354,7 +354,6 @@ Open, grouped by what they touch:
   placement; `zoom` naming a hidden child persists.
 - **packers** — per-box rotation greed can load less than upright (van 5/14 vs
   7; pallets on column/shelf); `justified` has no minimum row height, so
-  Flickr's ±25% floor is unexpressible; stb's secondary sort (widest among equal
-  heights) is unexpressible.
+  Flickr's ±25% floor is unexpressible.
 - **elsewhere** — a viewport vs border-box zone makes rows 2px wider than a
   bordered zone; is that a library fix?

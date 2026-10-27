@@ -20,7 +20,30 @@ export type ConfigFieldSpec =
   | 'string'
   | 'object'
   | readonly (string | boolean)[]
+  | ConfigListSpec
   | ConfigSpec;
+
+const LIST = Symbol('windease.configList');
+
+/** A key taking one of a set of strings, or a non-empty array of them. Built
+ *  with {@link oneOrList}. */
+export interface ConfigListSpec {
+  readonly [LIST]: readonly string[];
+}
+
+/**
+ * The spec for a key that takes one of `values`, or a non-empty array of them —
+ * a packer's `sort: ['height', 'width']`, compared in turn.
+ *
+ * @group Layout
+ */
+export function oneOrList(values: readonly string[]): ConfigListSpec {
+  return { [LIST]: values };
+}
+
+function isListSpec(field: ConfigFieldSpec): field is ConfigListSpec {
+  return typeof field === 'object' && LIST in field;
+}
 
 /** Every key a strategy understands. Keys absent from the config are fine —
  *  strategy config is optional throughout. */
@@ -142,6 +165,18 @@ function checkKeys(
           ? `${strategyName}: unknown config key '${key}' — did you mean '${prefix}${near}'?`
           : `${strategyName}: unknown config key '${key}'`,
       );
+      continue;
+    }
+    if (isListSpec(field)) {
+      const values = field[LIST];
+      const ok = Array.isArray(value)
+        ? value.length > 0 && value.every((v) => values.includes(v))
+        : values.includes(value as string);
+      if (!ok) {
+        problems.push(
+          `${strategyName}: config '${key}' is ${JSON.stringify(value)}, expected ${describe(values)}, or a non-empty array of them`,
+        );
+      }
       continue;
     }
     if (typeof field === 'object' && !Array.isArray(field)) {

@@ -347,6 +347,28 @@ export function describePackContract(
         });
       });
     }
+
+    rearranging('a sort list', () => {
+      // Equal heights, widths out of order: only the second key tells them apart.
+      const level = [sized('narrow', 40, 50), sized('wide', 120, 50), sized('mid', 80, 50)];
+
+      it('breaks ties on the first order by the next', () => {
+        const first = runPack(strategy, level, container, { gap: 8, sort: ['height', 'width'] });
+        expect(first.placements.get('wide')).toMatchObject({ x: 0, y: 0 });
+        const alone = runPack(strategy, level, container, { gap: 8, sort: 'height' });
+        expect(alone.placements.get('narrow')).toMatchObject({ x: 0, y: 0 });
+      });
+
+      it('reads a one-order list, and skips unknown orders, as the order alone', () => {
+        const height = runPack(strategy, boxes, container, { gap: 8, sort: 'height' });
+        for (const sort of [['height'], ['bogus', 'height'], ['height', 'none']]) {
+          expect(runPack(strategy, boxes, container, { gap: 8, sort })).toEqual(height);
+        }
+        expect(runPack(strategy, boxes, container, { gap: 8, sort: [] })).toEqual(
+          runPack(strategy, boxes, container, { gap: 8 }),
+        );
+      });
+    });
   });
 }
 

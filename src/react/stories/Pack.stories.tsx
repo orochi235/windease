@@ -55,6 +55,8 @@ interface Args {
   gap: number;
   height: number;
   sort: 'none' | 'height' | 'width' | 'area' | 'max-side';
+  /** Breaks ties on `sort`; 'none' leaves `sort` a single order. */
+  thenBy: 'none' | 'height' | 'width' | 'area' | 'max-side';
   rotate: boolean;
   overflowMode: 'scroll' | 'unplaced';
   /** Column only; 0 leaves it unset. */
@@ -99,6 +101,7 @@ export const PackedBoxes: Story<Args> = ({
   height,
   gap,
   sort,
+  thenBy,
   rotate,
   overflowMode,
   cols,
@@ -115,7 +118,7 @@ export const PackedBoxes: Story<Args> = ({
           strategyId: strategy,
           config: {
             gap,
-            sort,
+            sort: sort !== 'none' && thenBy !== 'none' ? [sort, thenBy] : sort,
             rotate,
             overflowMode,
             ...(strategy === 'column'
@@ -143,12 +146,20 @@ export const PackedBoxes: Story<Args> = ({
       s.showNode(id);
     });
     return s;
-  }, [strategy, gap, sort, rotate, overflowMode, cols, columnWidth, justify]);
+  }, [strategy, gap, sort, thenBy, rotate, overflowMode, cols, columnWidth, justify]);
   // A Provider captures its store on first render, so without this key every control above
   // builds a store nothing reads and the zone keeps showing the first one.
-  const storeKey = [strategy, gap, sort, rotate, overflowMode, cols, columnWidth, justify].join(
-    ':',
-  );
+  const storeKey = [
+    strategy,
+    gap,
+    sort,
+    thenBy,
+    rotate,
+    overflowMode,
+    cols,
+    columnWidth,
+    justify,
+  ].join(':');
 
   const chrome: ChromeMap = useMemo(
     () => ({
@@ -184,6 +195,7 @@ PackedBoxes.args = {
   height: 360,
   gap: 8,
   sort: 'none',
+  thenBy: 'none',
   rotate: false,
   overflowMode: 'scroll',
   cols: 0,
@@ -197,6 +209,10 @@ PackedBoxes.argTypes = {
   height: { control: { type: 'range', min: 120, max: 900, step: 10 } },
   gap: { control: { type: 'range', min: 0, max: 32, step: 1 } },
   sort: {
+    options: ['none', 'height', 'width', 'area', 'max-side'],
+    control: { type: 'radio' },
+  },
+  thenBy: {
     options: ['none', 'height', 'width', 'area', 'max-side'],
     control: { type: 'radio' },
   },

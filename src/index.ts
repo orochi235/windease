@@ -92,8 +92,10 @@ export { columnStrategy } from './layout/column.js';
 export {
   type ConfigConflict,
   type ConfigFieldSpec,
+  type ConfigListSpec,
   type ConfigSpec,
   checkStrategyConfig,
+  oneOrList,
 } from './layout/config-check.js';
 export {
   DEFAULT_CASCADE,

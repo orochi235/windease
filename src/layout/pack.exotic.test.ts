@@ -230,6 +230,27 @@ describe('packing quality against the literature', () => {
     );
   });
 
+  it('skyline packs stb’s atlas in rect_height_compare order: the strip, then widest among equal heights', () => {
+    // Every other tile widened to 8×4, so only the width tiebreak orders the tiles.
+    const { scenario, result } = run(preset('stb-strip-among-tiles'), 'skyline', (s) => ({
+      ...s,
+      items: s.items.map((item, i) =>
+        item.hints?.preferredSize?.h === 4 && i % 2 === 0
+          ? { ...item, hints: { ...item.hints, preferredSize: { w: 8, h: 4 } } }
+          : item,
+      ),
+    }));
+    const reading = [...result.placements.entries()]
+      .sort(([, a], [, b]) => a.y - b.y || a.x - b.x)
+      .map(([, r]) => r.w);
+    const strip = scenario.container.w;
+    const wide = reading.filter((w) => w === 8).length;
+    expect(reading[0]).toBe(strip);
+    expect(reading.slice(1, 1 + wide).every((w) => w === 8)).toBe(true);
+    expect(reading.slice(1 + wide).every((w) => w === 4)).toBe(true);
+    expect(result.unplaced).toBeUndefined();
+  });
+
   it('shelf packs a feed shorter when the caller sorts it tallest first', () => {
     const p = preset('ascending-heights');
     const asGiven = extent(run(p, 'shelf').result.placements).bottom;

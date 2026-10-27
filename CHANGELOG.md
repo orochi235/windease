@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **Tiebreaks in a packer's `sort`.** `shelf`, `skyline` and `column` take a
+  list of orders, compared in turn: `sort: ['height', 'width']` places the
+  tallest first and the widest among equal heights. The
+  `stb-strip-among-tiles` preset uses it, as stb_rect_pack sorts. Strategy
+  authors can declare such a key with `oneOrList(values)` in a `configSpec`.
+  See [Sorting before packing](README.md#sorting-before-packing).
+
 - **Drop a grid child into the cell under the pointer.** `drop: { cell: true }`
   on a grid makes a drop over an empty cell write the child's `placement.cell`,
   in the same transaction as the move, where a drag always dropped it into the

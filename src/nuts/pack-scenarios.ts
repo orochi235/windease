@@ -123,8 +123,8 @@ function stbStripAmongTiles(): Preset {
       "stb_rect_pack is a small, widely embedded C library that packs rectangles into a texture atlas, one image holding many small ones, such as font glyphs. This atlas mixes 1,200 tiny 4×4 tiles with one long 2048×8 color ramp (a gradient stored as a strip of texture) that spans the atlas's full width. stb packs into a target of fixed size, never turns a rectangle, and sorts the rectangles tallest first before placing them, whatever order the source files list them in.",
     viewport: { w: 2048, h: 2048 },
     strategy: 'skyline',
-    // stb_rect_pack's `rect_height_compare`: tallest first (then widest, which `sort` cannot say).
-    config: { sort: 'height', overflowMode: 'unplaced' },
+    // stb_rect_pack's `rect_height_compare`: tallest first, then widest.
+    config: { sort: ['height', 'width'], overflowMode: 'unplaced' },
     boxes,
   });
 }
