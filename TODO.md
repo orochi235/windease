@@ -120,16 +120,20 @@ Still open:
   deliberately.** `dropIntent` subsumes both, because replacing the resolver
   replaces the calls to them.
 
-- **Two gesture pipelines are converging.** `DragController` drags panes and
-  owns arm/cancel/commit/lock/undo/announce; `AffordanceHandle` drags seams and
-  owns none of it, because until now a seam drag only wrote `placement.size`.
-  Seam-join is the first seam gesture that mutates the tree, so it reimplements
-  all six in the React layer. One duplicate is not yet an abstraction — the
-  point to extract a shared gesture lifecycle is when a third copy appears, and
-  the seam to watch is `trackJoin` (`src/layout/seam-join.ts`), which is already
-  shaped for it. Tab-stacking did not add one: drop intent rides
-  `DragController`, which already owns all six. Workspace seams did not add
-  one either: they are `Affordance`s drawn by the same `AffordanceLayer`.
+- **Pane drags and seam drags share one gesture lifecycle (2026-10-27).**
+  `Gesture` (`src/gesture.ts`) is headless. A drag runs through it in four
+  steps: `begin` under a lock check, `offer` a target under another lock check,
+  `release` to commit, or `cancel`. The commit runs inside one labeled
+  transaction unless the store call it makes is already one undo step. While
+  armed, `state().message` is the line a live region reads. Each pipeline keeps
+  its own reducer for deciding what to offer: `DragEngine`'s hit-test and accept
+  checks, `trackJoin`, `trackReveal`. `DragEngine` runs every pane drag through
+  a `Gesture`. `AffordanceHandle` and `RevealHandle` bind one with `useGesture`
+  (`src/react/useGesture.ts`). `cancelOnEscape` (`src/gesture-dom.ts`) is the
+  window Escape binding all three use. The window `pointerup` safety net is
+  still written twice, in `DragController` and `RevealHandle`. `Gesture` is not
+  exported: a consumer writing a function-form `affordances` renderer still
+  rebuilds the lifecycle by hand.
 
 - **Open question, nothing decided: should input binding come from
   `@weasel-js/gestures`?** That package (1.0.4, zero dependencies, no React or
@@ -223,6 +227,14 @@ differs — which children, which config, which state, and how a point moves.
   sample**, not per hover transition — the per-frame chatter the tracing tenet
   in `CLAUDE.md` warns against. Left as is: those lines are the whole record of
   why a drop was refused, and `dnd` is off by default.
+- **Four React tests print "Cannot update a component (`ZoneWithLayout`) while
+  rendering a different component (`Panel`)"** (one names `PresetShell`), and
+  still pass: the controlled-placement hide in `seam-join.test.tsx`,
+  `palette-dock.test.tsx`, `presets-affordances.test.tsx`, and the lock rerender
+  in `lock.test.tsx`. All four printed it when `src/react` ran as a whole on the
+  fleet at `c84beef`. Run alone, `seam-join.test.tsx` and
+  `palette-dock.test.tsx` print nothing. Something in `Panel`'s render sets its
+  parent's state.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like
