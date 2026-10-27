@@ -195,14 +195,15 @@ all. Reflow coverage has to use a ref-measured fixture.
 
 Audited 2026-10-26. `floating`, `desktop`, `page` and `warp` each wrap an inner
 strategy and each forward a different subset of its optional hooks. The worst
-gaps are fixed (floating's `dispatchAffordance` and `cellAt`, page's `float`);
+gaps are fixed (floating's `dispatchAffordance` and `cellAt`, desktop's
+`cellAt`, page's `float`);
 still open:
 
-- **`cellAt` under `desktop`, `page` and `warp`.** The host reads it off the
-  outer strategy, so grid's `drop.cell` does nothing under
-  `desktopStrategy(gridStrategy)` or `pageStrategy(gridStrategy)`. Desktop needs
-  the mirror flip on the point; page cannot answer at all, since `cellAt` is not
-  handed container state and page needs it to know which page shows.
+- **`cellAt` under `page` and `warp`.** The host reads it off the outer
+  strategy, so grid's `drop.cell` does nothing under `pageStrategy(gridStrategy)`.
+  Page cannot answer, since `cellAt` is not handed container state and page
+  needs it to know which page shows; warp would need its passes inverted on the
+  point.
 - **`canAccept` under `page`.** Whether a paged inner's capacity should count
   per page or not at all is undecided, so nothing is forwarded.
 - **One forwarding helper** for the wrappers would close this class of gap; the

@@ -85,3 +85,32 @@ describe('pageStrategy over a floating strategy', () => {
     expect(strategy.float?.keys).toContain('page');
   });
 });
+
+describe('desktopStrategy over a grid', () => {
+  const low: LayoutItem = { id: 'low', meta: { icon: true }, placement: { cell: { col: 0, row: 1 } } };
+  const container = { w: 320, h: 110 };
+  const grid = { cols: 3, gap: 10, cell: { h: 50 } };
+
+  it("answers cellAt from the icon layer's grid", () => {
+    const strategy = desktopStrategy(gridStrategy);
+    const r = strategy.cellAt?.({
+      items: [low],
+      container,
+      options: { inner: grid },
+      point: { x: 230, y: 80 },
+    });
+    expect(r).toEqual({ col: 2, row: 1 });
+  });
+
+  it('mirrors the point under a flipped iconFrom', () => {
+    const strategy = desktopStrategy(gridStrategy);
+    const options = { inner: grid, iconFrom: 'top-right' };
+    const r = strategy.cellAt?.({
+      items: [low],
+      container,
+      options,
+      point: { x: 320 - 230, y: 80 },
+    });
+    expect(r).toEqual({ col: 2, row: 1 });
+  });
+});

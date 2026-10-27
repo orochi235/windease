@@ -270,6 +270,16 @@ describe('desktop zoom box', () => {
     expect(placementOf(s, 'a')).toMatchObject({ x: 8, y: 0, size: { w: 400, h: 300 } });
   });
 
+  it('drops the record when the window is resized by an edge', () => {
+    const s = desktop({ controls: ['zoom'], resize: true }, [
+      { id: 'a', placement: { x: 30, y: 40 } },
+    ]);
+    send(s, 'desktop:zoom:a', 'click');
+    send(s, 'desktop:resize:e:a', 'drag', { dx: -100, dy: 0 });
+    expect(placementOf(s, 'a').zoomRecord).toBeUndefined();
+    expect(affordance(s, 'desktop:zoom:a').label).toBe('zoom');
+  });
+
   it('drops a stale record on the next drag', () => {
     const s = desktop({ controls: ['zoom'], drag: true }, [
       { id: 'a', placement: { x: 30, y: 40 } },

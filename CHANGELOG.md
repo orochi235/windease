@@ -159,8 +159,8 @@ section below.
 - **Seams and span handles drag under `floatingStrategy`.** It drew its inner
   strategy's affordances but never forwarded their dispatch, so under
   `floatingStrategy(stripStrategy)` or `floatingStrategy(gridStrategy)` a seam or
-  span drag did nothing. It also forwards `cellAt` now, so grid's `drop.cell`
-  works under it.
+  span drag did nothing. It and `desktopStrategy` also forward `cellAt` now, so
+  grid's `drop.cell` works under either.
 - **A tab torn out over `pageStrategy` floats on the shown page.** `page` now
   carries its inner strategy's float hook, below the bar and, under
   `mode: 'assigned'`, with `placement.page` set to the page in view; before, a

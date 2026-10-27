@@ -23,6 +23,7 @@ import {
   unzoomForDrag,
   windowControls,
   withControlConflicts,
+  ZOOM_RECORD_KEY,
 } from './desktop-controls.js';
 import { compositeSpec, innerConfig } from './inner-config.js';
 import { dragDelta, itemSize, itemWant } from './item-place.js';
@@ -482,7 +483,8 @@ function resizeWindow(ctx: DispatchContext, windows: readonly LayoutItem[]): voi
   const size = { ...(item.placement?.size ?? {}) };
   if (next.w !== rect.w) size.w = next.w;
   if (next.h !== rect.h) size.h = next.h;
-  const patch: Record<string, unknown> = { size };
+  // A resized window is no longer the zoomed rect, so it has nothing to restore.
+  const patch: Record<string, unknown> = { size, [ZOOM_RECORD_KEY]: undefined };
   if (next.x !== rect.x || next.y !== rect.y) {
     patch.x = next.x;
     patch.y = next.y;
@@ -699,6 +701,16 @@ export function desktopStrategy<TInner>(
           options: innerConfig(context.options, true),
         }),
       };
+    },
+
+    cellAt(input) {
+      if (!inner?.cellAt) return undefined;
+      return inner.cellAt({
+        ...input,
+        items: layers(input.items, input.options, hasInner).icons,
+        options: innerConfig(input.options, true),
+        point: flipPoint(input.point, mirrorOf(input.options as DesktopConfig), input.container),
+      });
     },
 
     canAccept(items, options) {
