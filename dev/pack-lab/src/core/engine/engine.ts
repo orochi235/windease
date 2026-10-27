@@ -1,3 +1,4 @@
+import { oneOrList } from '#windease/index.js';
 import type {
   LayoutItem,
   LayoutResult,
@@ -183,7 +184,7 @@ export function engineStrategy(recipe: Recipe): LayoutStrategy<void, string> {
     name: `engine:${recipe.id}`,
     configSpec: {
       gap: 'number',
-      sort: ENGINE_SORTS,
+      sort: oneOrList(ENGINE_SORTS),
       rotate: 'boolean',
       overflowMode: ['scroll', 'unplaced'],
       ...def.configSpec,

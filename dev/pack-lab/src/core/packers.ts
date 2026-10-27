@@ -1,4 +1,9 @@
-import { columnStrategy, shelfStrategy, skylineStrategy } from '#windease/index.js';
+import {
+  checkStrategyConfig,
+  columnStrategy,
+  shelfStrategy,
+  skylineStrategy,
+} from '#windease/index.js';
 import { engineStrategy } from './engine/engine.js';
 import { RECIPES } from './engine/recipes.js';
 import type { Packer } from './types.js';
@@ -30,5 +35,5 @@ export const optionKeys = (packer: Packer): string[] =>
 export function acceptsOption(packer: Packer, key: string, value: unknown): boolean {
   const spec = packer.strategy.configSpec?.[key];
   if (spec === undefined) return false;
-  return Array.isArray(spec) ? spec.includes(value as string) : true;
+  return checkStrategyConfig(packer.id, { [key]: value }, { [key]: spec }).length === 0;
 }

@@ -45,14 +45,27 @@ export interface QueueEntry {
   size: Size;
 }
 
-/** The sized items in `sort` order, ties in input order. An unknown `sort` is `'none'`. */
+/** The sized items in `sort` order, ties in input order. A list compares by each order in
+ *  turn, as the shipped packers do; unknown names and `'none'` add nothing. */
 export function engineQueue(items: readonly LayoutItem[], sort: unknown): QueueEntry[] {
   const queue: QueueEntry[] = [];
   for (const item of items) {
     const size = engineSize(item);
     if (size) queue.push({ item, size });
   }
-  const compare = COMPARES[sort as Exclude<EngineSort, 'none'>];
-  if (compare) queue.sort((a, b) => compare(a.size, b.size));
+  const names: unknown[] = Array.isArray(sort) ? sort : [sort];
+  const compares = names.flatMap((n) => {
+    const c = COMPARES[n as Exclude<EngineSort, 'none'>];
+    return c ? [c] : [];
+  });
+  if (compares.length > 0) {
+    queue.sort((a, b) => {
+      for (const c of compares) {
+        const d = c(a.size, b.size);
+        if (d !== 0) return d;
+      }
+      return 0;
+    });
+  }
   return queue;
 }
