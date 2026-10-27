@@ -5,6 +5,7 @@ import type { LayoutItem, LayoutStrategy, Rect, Size } from '../layout-types.js'
 import type { NodeId } from '../node.js';
 import { placeRespectingPins } from '../pinning.js';
 import { STACK_STRATEGY_ID, type Store } from '../store.js';
+import { Gesture } from '../gesture.js';
 import { containerStateFor, dockNode, floatAncestor, floatNode } from '../tear.js';
 import { trace } from '../trace.js';
 import type { DropIntent } from './dropIntent.js';
@@ -183,9 +184,15 @@ function sameIntent(a: DropIntent | undefined, b: DropIntent | undefined): boole
 function sameHover(a: DragState['hover'], b: DragState['hover']): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
+  return a.accepted === b.accepted && sameCandidate(a, b);
+}
+
+/** A hover before the accept check has answered: where the drop would land. */
+type DropCandidate = Omit<NonNullable<DragState['hover']>, 'accepted'>;
+
+function sameCandidate(a: DropCandidate, b: DropCandidate): boolean {
   return (
     a.targetId === b.targetId &&
-    a.accepted === b.accepted &&
     a.insertIndex === b.insertIndex &&
     a.tear === b.tear &&
     sameIntent(a.intent, b.intent)
@@ -200,6 +207,7 @@ function sameHover(a: DragState['hover'], b: DragState['hover']): boolean {
  */
 export class DragEngine {
   private active: DragState | null = null;
+  private gesture: Gesture<DropCandidate> | null = null;
   private inFlight: CollapseDrag | null = null;
   private readonly listeners = new Set<Listener>();
   private readonly dropTargets = new Map<NodeId, DropTarget>();
@@ -332,23 +340,36 @@ export class DragEngine {
       return false;
     }
     const node = this.store.getNode(sourceId);
-    if (!node?.membership) {
-      trace('dnd', `tryBegin ${sourceId}: REJECTED (no membership)`);
-      return false;
-    }
-    if (this.store.isLocked(sourceId, 'move')) {
-      trace('dnd', `tryBegin ${sourceId}: REJECTED (lock.move)`);
-      return false;
-    }
-    if (this.store.isLocked(node.membership.parentId, 'dragOut')) {
-      trace('dnd', `tryBegin ${sourceId}: REJECTED (parent lock.dragOut)`);
-      return false;
-    }
+    const parentId = node?.membership?.parentId;
+    const gesture = new Gesture<DropCandidate>({
+      name: `drag ${sourceId}`,
+      refuse: () =>
+        parentId === undefined
+          ? 'no membership'
+          : this.store.isLocked(sourceId, 'move')
+            ? 'lock.move'
+            : this.store.isLocked(parentId, 'dragOut')
+              ? 'parent lock.dragOut'
+              : null,
+      permits: (c) => this.checkAccept(c.targetId, c.intent, c.tear === true),
+      commit: (c) => this.commitDrop(c),
+      undo: {
+        transact: (fn, label) => this.store.transact(fn, label),
+        // A cell drop is a move and a placement patch; every other drop is one
+        // store call that is its own undo step already.
+        label: (c) => (c.intent?.kind === 'cell' ? 'drop to cell' : undefined),
+      },
+      same: sameCandidate,
+      show: (c) => `${c.targetId}@${c.insertIndex ?? c.intent?.kind ?? (c.tear ? 'tear' : '-')}`,
+      onEnd: () => this.clear(),
+    });
+    if (!gesture.begin()) return false;
+    this.gesture = gesture;
     this.active = { draggingId: sourceId, cursor: { x: 0, y: 0 }, hover: null };
     this.inFlight = { ids: [sourceId], accepts: (targetId) => this.checkAccept(targetId) };
     trace(
       'dnd',
-      `drag start: ${sourceId} (from parent ${node.membership.parentId}; ${this.dropTargets.size} drop targets registered)`,
+      `drag start: ${sourceId} (from parent ${parentId}; ${this.dropTargets.size} drop targets registered)`,
     );
     this.emit();
     return true;
@@ -384,14 +405,14 @@ export class DragEngine {
       if (!best || depth > best.depth) best = { id, depth };
     }
     if (!best) {
+      this.gesture?.offer(null);
       this.setHover(null, { x, y });
       return;
     }
     const target = this.dropTargets.get(best.id);
     this.autoScroll(target, x, y);
     if (this.tearStrategy(best.id)) {
-      const accepted = this.checkAccept(best.id, undefined, true);
-      this.setHover({ targetId: best.id, accepted, tear: true }, { x, y });
+      this.offer({ targetId: best.id, tear: true }, { x, y });
       return;
     }
     const intent = target?.getDropIntent?.({ x, y });
@@ -404,11 +425,16 @@ export class DragEngine {
           ? intent.index
           : undefined;
     const insertIndex = asked === undefined ? undefined : this.landingIndex(best.id, asked);
-    const accepted = this.checkAccept(best.id, intent);
-    const hover: NonNullable<DragState['hover']> = { targetId: best.id, accepted };
-    if (insertIndex !== undefined) hover.insertIndex = insertIndex;
-    if (intent !== undefined) hover.intent = intent;
-    this.setHover(hover, { x, y });
+    const candidate: DropCandidate = { targetId: best.id };
+    if (insertIndex !== undefined) candidate.insertIndex = insertIndex;
+    if (intent !== undefined) candidate.intent = intent;
+    this.offer(candidate, { x, y });
+  }
+
+  /** Hover `candidate`, armed if the accept checks let it be dropped there. */
+  private offer(candidate: DropCandidate, cursor: Point): void {
+    const accepted = this.gesture?.offer(candidate) ?? false;
+    this.setHover({ ...candidate, accepted }, cursor);
   }
 
   /**
@@ -766,14 +792,21 @@ export class DragEngine {
     // queued here; dropping it resolves the drop against the frame before,
     // which on a fast drag is a different zone.
     this.flushPending();
-    const { draggingId, hover, cursor } = this.active;
+    const { hover } = this.active;
     if (!hover?.accepted) {
       this.cancel(hover ? 'rejected' : 'outside');
       return;
     }
+    this.gesture?.release();
+  }
+
+  /** Carry out the drop the gesture armed. A store refusal is traced, not
+   *  thrown: the drag ends either way. */
+  private commitDrop(hover: DropCandidate): void {
+    if (!this.active) return;
+    const { draggingId, cursor } = this.active;
     if (hover.tear) {
       this.dropTear(draggingId, hover.targetId, cursor);
-      this.clear();
       return;
     }
     if (hover.intent?.kind === 'stack') {
@@ -788,7 +821,6 @@ export class DragEngine {
       } catch (err) {
         trace('dnd', `drop failed: ${(err as Error).message}`);
       }
-      this.clear();
       return;
     }
     if (hover.intent?.kind === 'split') {
@@ -805,32 +837,25 @@ export class DragEngine {
       } catch (err) {
         trace('dnd', `drop failed: ${(err as Error).message}`);
       }
-      this.clear();
       return;
     }
     if (hover.intent?.kind === 'cell') {
       const { cell } = hover.intent;
       const targetId = hover.targetId;
       try {
-        // One transaction, so one undo step: the move releases any cell the
-        // child held, and the patch names the new one.
-        this.store.transact(() => {
-          if (this.store.getNode(draggingId)?.membership?.parentId !== targetId) {
-            this.store.moveNode(draggingId, targetId);
-          }
-          this.store.patchPlacement(draggingId, { cell });
-        }, 'drop to cell');
+        // The move releases any cell the child held, and the patch names the
+        // new one.
+        if (this.store.getNode(draggingId)?.membership?.parentId !== targetId) {
+          this.store.moveNode(draggingId, targetId);
+        }
+        this.store.patchPlacement(draggingId, { cell });
         trace('dnd', `drop: ${draggingId} → ${targetId} cell ${cell.col},${cell.row}`);
       } catch (err) {
         trace('dnd', `drop failed: ${(err as Error).message}`);
       }
-      this.clear();
       return;
     }
-    if (this.commitControlled(draggingId, hover.targetId, hover.insertIndex)) {
-      this.clear();
-      return;
-    }
+    if (this.commitControlled(draggingId, hover.targetId, hover.insertIndex)) return;
     try {
       const from = this.dockingFrom(draggingId, hover.targetId);
       if (from) {
@@ -848,7 +873,6 @@ export class DragEngine {
     } catch (err) {
       trace('dnd', `drop failed: ${(err as Error).message}`);
     }
-    this.clear();
   }
 
   /** Float the source in `targetId` with its top-left corner at the cursor. */
@@ -969,8 +993,7 @@ export class DragEngine {
   cancel(reason: DragCancelReason = 'outside'): void {
     if (!this.active) return;
     this.dropPending();
-    trace('dnd', `cancel: ${this.active.draggingId} reason=${reason}`);
-    this.clear();
+    this.gesture?.cancel(reason);
   }
 
   /** Apply the queued sample now and cancel its frame. Only for `drop`:
@@ -994,6 +1017,7 @@ export class DragEngine {
   private clear(): void {
     this.active = null;
     this.inFlight = null;
+    this.gesture = null;
     this.emit();
   }
 
