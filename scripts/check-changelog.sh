@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Verify CHANGELOG.md is ready to publish at a given version.
 #
-# Two drifts this catches. A tag whose version has no section ships a release
+# Three drifts this catches. A tag whose version has no section ships a release
 # with no notes to read. And an "Unreleased" heading that survives the bump goes
 # out in the tarball — README.md and CHANGELOG.md are both published files, so a
-# consumer ends up reading "Unreleased" about code they already have.
+# consumer ends up reading "Unreleased" about code they already have. And a
+# bump that skips src/index.ts's VERSION fails release.yml's unit tests.
 #
 #   scripts/check-changelog.sh              # version from package.json
 #   scripts/check-changelog.sh 1.3.0        # or an explicit one (v-prefix ok)
@@ -50,10 +51,10 @@ fail=0
 
 body="$(section_body)"
 if [ -z "${body//[[:space:]]/}" ]; then
-  echo "1/2 $CHANGELOG — no section for $version"
+  echo "1/3 $CHANGELOG — no section for $version"
   fail=$((fail + 1))
 else
-  echo "1/2 $CHANGELOG — section for $version found, $(printf '%s\n' "$body" | grep -c '^- ') entries"
+  echo "1/3 $CHANGELOG — section for $version found, $(printf '%s\n' "$body" | grep -c '^- ') entries"
 fi
 
 stale=()
@@ -63,9 +64,17 @@ for f in "${PUBLISHED[@]}"; do
 done
 
 if [ ${#stale[@]} -eq 0 ]; then
-  echo "2/2 Unreleased headings — none in ${PUBLISHED[*]}"
+  echo "2/3 Unreleased headings — none in ${PUBLISHED[*]}"
 else
-  echo "2/2 Unreleased headings — still in: ${stale[*]}"
+  echo "2/3 Unreleased headings — still in: ${stale[*]}"
+  fail=$((fail + 1))
+fi
+
+declared="$(sed -n "s/^export const VERSION = '\\(.*\\)';$/\\1/p" src/index.ts)"
+if [ "$declared" = "$version" ]; then
+  echo "3/3 src/index.ts — VERSION is $version"
+else
+  echo "3/3 src/index.ts — VERSION is '$declared', not $version"
   fail=$((fail + 1))
 fi
 
@@ -73,6 +82,6 @@ echo
 if [ "$fail" -eq 0 ]; then
   echo "OK: $version is ready to publish."
 else
-  echo "FAIL: $fail check(s). Name the version in $CHANGELOG and retitle every Unreleased heading."
+  echo "FAIL: $fail check(s). Name the version in $CHANGELOG and src/index.ts, and retitle every Unreleased heading."
 fi
 exit $((fail > 0))
