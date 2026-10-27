@@ -1,11 +1,11 @@
 import { type CollapseDrag, resolveCollapse } from '../collapse.js';
 import type { AcceptsConfig } from '../container-config.js';
+import { Gesture } from '../gesture.js';
 import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { LayoutItem, LayoutStrategy, Rect, Size } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import { placeRespectingPins } from '../pinning.js';
 import { STACK_STRATEGY_ID, type Store } from '../store.js';
-import { Gesture } from '../gesture.js';
 import { containerStateFor, dockNode, floatAncestor, floatNode } from '../tear.js';
 import { trace } from '../trace.js';
 import type { DropIntent } from './dropIntent.js';
