@@ -10,6 +10,16 @@ section below.
 
 ### Added
 
+- **Close, minimize, and zoom boxes on desktop windows.** `desktopStrategy`
+  takes `controls`, the boxes each title band carries in order, and
+  `controlsSide`, the end they sit at; a window's `placement.controls` overrides
+  them, and `[]` turns them off. `minimizable: true` still works and means
+  `controls: ['minimize']`. Close emits the new `node.closeRequested` event for
+  the host to answer, also sent by the new `requestClose`. Zoom fills the desktop
+  and keeps the rect it replaced in `placement.zoomRecord`, restored by a second
+  press or a drag of the title band. `listOf` lets a `configSpec` check a list
+  key. See [Desktop windows](README.md#desktop-windows).
+
 - **`useStack` reports the tab band.** Called inside the stack's own layout —
   its `overlay`, an affordance renderer, or a child — it returns `band`, and
   each tab its `bar` under `tabs: 'stacked'`, read from the channels

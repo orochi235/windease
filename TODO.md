@@ -257,35 +257,6 @@ through `@weasel-js/labkit`'s `<Workspace>`, which brings windease in as its own
 dependency, and reads each tile's rect back from the DOM instead of from
 `placements`. Anything it asks for now arrives by way of labkit.
 
-## Desktop window controls [MED]
-
-A title bar and its buttons are chrome the consumer draws. `desktop` lays
-affordances over it: the `drag-xy` band, and with `minimizable` a click box
-fixed at the band's right end. That leaves gaps for a macOS-style window:
-
-- **Controls can't be placed.** The minimize box always sits at the right, so
-  stoplights on the left can't use it. A consumer drawing them as plain buttons
-  loses the keyboard and ARIA wiring the affordance carries. Proposed: a
-  `controls` config listing which boxes exist and in what order (`close`,
-  `minimize`, `zoom`), and the `side` they sit on (`'start' | 'end'`), with
-  `placement.controls` overriding it per window. `minimizable: true` becomes
-  shorthand for `controls: ['minimize']` on `'end'`.
-- **No close box.** A `close` control would dispatch an intent the host
-  answers (hide, unregister, or confirm first). It should not call
-  `unregisterNode` itself, since what close means belongs to the app. It
-  honors `lock.destroy` / `lock.hide`.
-- **No zoom (maximize).** A `zoom` control fills the desktop and saves the
-  window's rect in placement (as `x` / `y` / `size` before zoom), so pressing
-  it again restores that rect, and so does dragging the title band, as macOS
-  does. It honors `lock.move` / `lock.resize`.
-
-**Every piece must be opt-out.** A consumer that draws its own controls, or
-none, must get no boxes, no click targets and no ARIA buttons from windease.
-That means off by default, as `minimizable` is now, plus a per-window
-`placement.controls: []` that turns them off on one window under a config
-that turns them on. None of this may change the band or the resize edges for
-a container that doesn't set it.
-
 ## Exotic presets: open questions [MED]
 
 Rescued from the `exotic-layout-fixtures` handoff when that worktree was
