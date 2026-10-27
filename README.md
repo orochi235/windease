@@ -2559,7 +2559,7 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
-### Unreleased — `placement.share` is per axis
+### 2.2.0 — `placement.share` is per axis
 
 A seam drag on a row of shares now writes `{ share: { w } }` (or `{ h }` on a
 column) where it wrote a bare number, keeping the other axis if the pane has
