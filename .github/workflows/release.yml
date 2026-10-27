@@ -57,6 +57,8 @@ jobs:
       - name: CI must be green
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # CI's e2e job alone runs about 30 minutes, the script's default wait.
+          TIMEOUT_SECONDS: 3600
         run: scripts/require-green-ci.sh "${GITHUB_SHA}"
 
       - name: Publish
