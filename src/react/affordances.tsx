@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { cancelOnEscape } from '../gesture-dom.js';
 import {
   type Affordance,
   type AxisScale,
@@ -34,6 +35,7 @@ import {
 import type { Store } from '../store.js';
 import { preventNativeDrag } from './dnd/nativeDrag.js';
 import type { ContainerLayout } from './useContainerLayout.js';
+import { useGesture } from './useGesture.js';
 
 /** Args passed to function-form `affordances` callbacks. The function fully
  *  replaces the default renderer and is responsible for pointer events; call
@@ -336,30 +338,25 @@ function RevealHandle({
   const last = useRef<{ x: number; y: number } | null>(null);
   const scale = useRef<AxisScale>({ x: 1, y: 1 });
   const travel = useRef(0);
-  const armedRef = useRef(false);
-  const [armed, setArmedState] = useState(false);
   const [dragging, setDragging] = useState(false);
-
-  const setArmed = useCallback(
-    (next: boolean) => {
-      if (armedRef.current === next) return;
-      trace('dnd', `reveal ${next ? 'armed' : 'disarmed'}: ${affordance.id} → ${reveal?.id}`);
-      armedRef.current = next;
-      setArmedState(next);
-    },
-    [affordance.id, reveal?.id],
-  );
-
-  const endGesture = useCallback(
-    (commit: boolean) => {
-      const show = commit && armedRef.current;
-      setArmed(false);
+  const name = reveal ? accessibleName(store, reveal.id as NodeId) : '';
+  const [gesture, { armed, message }] = useGesture<string>({
+    name: `reveal ${affordance.id}`,
+    commit: () => commitReveal(store, affordance),
+    describe: () => `${name} will show. Release to confirm, Escape to cancel.`,
+    onEnd: () => {
       travel.current = 0;
       last.current = null;
       setDragging(false);
-      if (show) commitReveal(store, affordance);
     },
-    [setArmed, store, affordance],
+  });
+
+  const endGesture = useCallback(
+    (commit: boolean, reason = 'pointercancel') => {
+      if (commit) gesture.release();
+      else gesture.cancel(reason);
+    },
+    [gesture],
   );
 
   const step = useCallback(
@@ -376,9 +373,9 @@ function RevealHandle({
         delta: affordance.kind === 'resize-y' ? dy : dx,
       });
       travel.current = state.travel;
-      setArmed(state.armed);
+      gesture.offer(state.armed ? reveal.id : null);
     },
-    [reveal, affordance.kind, setArmed],
+    [reveal, affordance.kind, gesture],
   );
   const unlisten = useRef<(() => void) | null>(null);
   const finish = useCallback(
@@ -400,9 +397,10 @@ function RevealHandle({
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
+      gesture.cancel('pressed again');
+      gesture.begin();
       last.current = { x: e.clientX, y: e.clientY };
       scale.current = elementScale(e.currentTarget);
-      travel.current = 0;
       setDragging(true);
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -424,7 +422,7 @@ function RevealHandle({
       unlisten.current = () => window.removeEventListener('pointerup', onUp, true);
       onActiveChange(true);
     },
-    [onActiveChange, step, finish, affordance.id],
+    [onActiveChange, step, finish, affordance.id, gesture],
   );
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => step(e.clientX, e.clientY),
@@ -437,15 +435,12 @@ function RevealHandle({
 
   useEffect(() => {
     if (!dragging) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+    return cancelOnEscape(() => {
       unlisten.current?.();
       unlisten.current = null;
-      endGesture(false);
+      endGesture(false, 'escape');
       onActiveChange(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    });
   }, [dragging, endGesture, onActiveChange]);
 
   const onKeyDown = useCallback(
@@ -458,7 +453,6 @@ function RevealHandle({
   );
 
   const { outerStyle, innerStyle } = hitArea(affordance, hitPad, reveal?.direction);
-  const name = reveal ? accessibleName(store, reveal.id as NodeId) : '';
 
   return (
     <>
@@ -467,7 +461,7 @@ function RevealHandle({
         className="windease-affordance-hit"
         style={{ ...CLICK_RESET, ...outerStyle }}
         data-affordance-hit={affordance.id}
-        data-reveal-armed={armed ? 'true' : undefined}
+        data-reveal-armed={armed !== null ? 'true' : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerCancel={onPointerCancel}
@@ -489,7 +483,7 @@ function RevealHandle({
         aria-atomic="true"
         data-reveal-live=""
       >
-        {armed ? `${name} will show. Release to confirm, Escape to cancel.` : ''}
+        {message}
       </div>
     </>
   );
@@ -525,8 +519,6 @@ function AffordanceHandle({
   // mid-drag is not something a pointer delta can be reconciled against.
   const scale = useRef<AxisScale>({ x: 1, y: 1 });
   const overshoot = useRef<number | null>(null);
-  const [armedId, setArmedId] = useState<NodeId | null>(null);
-  const armedRef = useRef<NodeId | null>(null);
   const [dragging, setDragging] = useState(false);
   // What a hiding join restores. Taken when the gesture begins, before it
   // writes anything.
@@ -536,34 +528,35 @@ function AffordanceHandle({
     if (hides && captured.current === null) captured.current = captureSeam(store, affordance);
   }, [hides, store, affordance]);
 
-  const setArmed = useCallback(
-    (victimId: NodeId | null) => {
-      if (armedRef.current === victimId) return;
-      trace(
-        'dnd',
-        `join ${victimId ? 'armed' : 'disarmed'}: ${affordance.id} → ${victimId ?? armedRef.current}`,
-      );
-      armedRef.current = victimId;
-      setArmedId(victimId);
-      onJoinArmChange(victimId);
-    },
-    [onJoinArmChange, affordance.id],
-  );
-
-  const endGesture = useCallback(
-    (commit: boolean) => {
-      const victim = armedRef.current;
-      const before = captured.current ?? undefined;
-      setArmed(null);
-      overshoot.current = null;
-      captured.current = null;
-      if (!commit || !victim) return;
+  const [gesture, { armed: armedId, message }] = useGesture<NodeId>({
+    name: `seam ${affordance.id}`,
+    // Hiding destroys nothing, so a destroy lock does not refuse it.
+    permits: (id) => (hides ? !store.isLocked(id, 'hide') : destroyBlockedBy(store, id) === null),
+    commit: (victim) => {
       const write = writePlacement
         ? (id: NodeId, patch: Record<string, unknown>) => writePlacement(id, patch, affordance.id)
         : undefined;
-      commitJoin(store, affordance, victim, before, write);
+      commitJoin(store, affordance, victim, captured.current ?? undefined, write);
     },
-    [setArmed, store, affordance, writePlacement],
+    describe: (victim) =>
+      `${accessibleName(store, victim)} will ${hides ? 'hide' : 'close'}. Press Enter to confirm, Escape to cancel.`,
+    onArm: onJoinArmChange,
+    onEnd: () => {
+      overshoot.current = null;
+      captured.current = null;
+    },
+  });
+  // A keyboard gesture begins on its first step; a pointer one on the press.
+  const ensureBegun = useCallback(() => {
+    if (!gesture.state().active) gesture.begin();
+  }, [gesture]);
+
+  const endGesture = useCallback(
+    (commit: boolean, reason: string) => {
+      if (commit) gesture.release();
+      else gesture.cancel(reason);
+    },
+    [gesture],
   );
 
   const advanceJoin = useCallback(
@@ -571,31 +564,29 @@ function AffordanceHandle({
       const join = affordance.join;
       const b = affordance.bounds;
       if (!join || !b) return;
+      // The lock check is the gesture's, asked only of a candidate past the
+      // threshold.
       const state = trackJoin({
         join,
         overshoot: overshoot.current ?? 0,
         delta,
         atMin: b.atMin,
         atMax: b.atMax,
-        // Hiding destroys nothing, so a destroy lock does not refuse it.
-        canDestroy: (id) =>
-          hides
-            ? !store.isLocked(id as NodeId, 'hide')
-            : destroyBlockedBy(store, id as NodeId) === null,
+        canDestroy: () => true,
       });
       overshoot.current = state.overshoot;
-      setArmed(state.armed ? ((state.candidateId as NodeId | undefined) ?? null) : null);
+      gesture.offer(state.armed ? ((state.candidateId as NodeId | undefined) ?? null) : null);
     },
-    [affordance.join, affordance.bounds, store, setArmed, hides],
+    [affordance.join, affordance.bounds, gesture],
   );
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       last.current = { x: e.clientX, y: e.clientY };
       scale.current = elementScale(e.currentTarget);
-      overshoot.current = null;
       raiseOnPress(store, affordance);
-      captured.current = null;
+      gesture.cancel('pressed again');
+      gesture.begin();
       capture();
       setDragging(true);
       try {
@@ -605,7 +596,7 @@ function AffordanceHandle({
       }
       onActiveChange(true);
     },
-    [onActiveChange, store, affordance, capture],
+    [onActiveChange, store, affordance, capture, gesture],
   );
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -646,7 +637,7 @@ function AffordanceHandle({
       } catch {
         // ignore
       }
-      endGesture(commit);
+      endGesture(commit, 'pointercancel');
       if (wasDragging) onActiveChange(false);
     },
     [onActiveChange, endGesture],
@@ -661,30 +652,14 @@ function AffordanceHandle({
     [finish],
   );
 
-  const notifyArm = useRef(onJoinArmChange);
-  useEffect(() => {
-    notifyArm.current = onJoinArmChange;
-  });
-  // A commit clears the marking before it destroys, so this only fires when the
-  // handle goes away with a gesture still armed.
-  useEffect(
-    () => () => {
-      if (armedRef.current !== null) notifyArm.current(null);
-    },
-    [],
-  );
-
   useEffect(() => {
     if (!dragging) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+    return cancelOnEscape(() => {
       last.current = null;
       setDragging(false);
-      endGesture(false);
+      endGesture(false, 'escape');
       onActiveChange(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    });
   }, [dragging, endGesture, onActiveChange]);
 
   const bounds = affordance.bounds;
@@ -702,6 +677,7 @@ function AffordanceHandle({
         // perpendicular arrows do on a seam.
         if ((dx === 0 || !travel.x) && (dy === 0 || !travel.y)) return;
         e.preventDefault();
+        ensureBegun();
         capture();
         dispatch({ affordanceId: affordance.id, kind: 'drag', payload: { dx, dy } });
         setMoved(true);
@@ -710,15 +686,15 @@ function AffordanceHandle({
       if (!bounds) return;
       if (e.key === 'Enter') {
         // Unarmed, Enter is not ours: leave it to whatever the host binds.
-        if (armedRef.current === null) return;
+        if (gesture.state().armed === null) return;
         e.preventDefault();
-        endGesture(true);
+        endGesture(true, 'enter');
         return;
       }
       if (e.key === 'Escape') {
-        if (armedRef.current === null && (overshoot.current ?? 0) === 0) return;
+        if (gesture.state().armed === null && (overshoot.current ?? 0) === 0) return;
         e.preventDefault();
-        endGesture(false);
+        endGesture(false, 'escape');
         return;
       }
       const horizontal = bounds.orientation === 'horizontal';
@@ -737,6 +713,7 @@ function AffordanceHandle({
       else return;
       e.preventDefault();
       if (delta === 0) return;
+      ensureBegun();
       capture();
       // The same event the pointer sends: the strategy clamps once, where it
       // already clamps.
@@ -747,7 +724,18 @@ function AffordanceHandle({
       });
       advanceJoin(delta);
     },
-    [bounds, travel, dispatch, affordance.id, keyStep, advanceJoin, endGesture, capture],
+    [
+      bounds,
+      travel,
+      dispatch,
+      affordance.id,
+      keyStep,
+      advanceJoin,
+      endGesture,
+      capture,
+      ensureBegun,
+      gesture,
+    ],
   );
 
   const onBlur = useCallback(() => {
@@ -755,14 +743,12 @@ function AffordanceHandle({
     // A pointer gesture owns its accumulation; focus leaving mid-drag is not
     // the user abandoning it.
     if (last.current) return;
-    endGesture(false);
+    endGesture(false, 'blur');
   }, [endGesture]);
 
   const { padX, padY, outerStyle, innerStyle } = hitArea(affordance, hitPad);
   padXRef.current = padX;
   padYRef.current = padY;
-
-  const armedName = armedId !== null ? accessibleName(store, armedId) : null;
 
   // A container squeezed under the sum of its panes' floors leaves every pane
   // at its floor, and the seam between them reports a range of one point.
@@ -822,9 +808,7 @@ function AffordanceHandle({
           aria-atomic="true"
           data-join-live=""
         >
-          {armedName
-            ? `${armedName} will ${hides ? 'hide' : 'close'}. Press Enter to confirm, Escape to cancel.`
-            : ''}
+          {message}
         </div>
       ) : null}
     </>

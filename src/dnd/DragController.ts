@@ -1,4 +1,5 @@
 import type { CollapseDrag } from '../collapse.js';
+import { cancelOnEscape } from '../gesture-dom.js';
 import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
@@ -99,7 +100,7 @@ export class DragController {
   private readonly engine: DragEngine;
   private readonly elements = new Map<NodeId, Element>();
   private stamped: NodeId | null = null;
-  private escapeBound = false;
+  private unbindEscape: (() => void) | null = null;
   private windowUpBound = false;
 
   constructor(
@@ -126,10 +127,11 @@ export class DragController {
     this.engine.subscribe((state) => {
       this.reflectHover(state);
       if (state) {
-        this.bindEscape();
+        this.unbindEscape ??= cancelOnEscape(() => this.cancel('escape'));
         this.bindWindowUp();
       } else {
-        this.unbindEscape();
+        this.unbindEscape?.();
+        this.unbindEscape = null;
         this.unbindWindowUp();
       }
     });
@@ -224,18 +226,6 @@ export class DragController {
     el.removeAttribute(next.accepted ? 'data-drop-rejected' : 'data-drop-target');
   }
 
-  private bindEscape(): void {
-    if (this.escapeBound || typeof window === 'undefined') return;
-    window.addEventListener('keydown', this.onKey);
-    this.escapeBound = true;
-  }
-
-  private unbindEscape(): void {
-    if (!this.escapeBound || typeof window === 'undefined') return;
-    window.removeEventListener('keydown', this.onKey);
-    this.escapeBound = false;
-  }
-
   /** Window-level pointerup safety net. The DragHandle's onPointerUp is the
    *  primary drop trigger, but setPointerCapture can be silently lost (cursor
    *  leaves the window, the captured element gets unmounted by a re-render,
@@ -254,10 +244,6 @@ export class DragController {
     window.removeEventListener('pointercancel', this.onWindowPointerUp);
     this.windowUpBound = false;
   }
-
-  private onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') this.cancel('escape');
-  };
 
   private onWindowPointerUp = (): void => {
     if (!this.state()) return;
