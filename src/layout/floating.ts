@@ -9,6 +9,7 @@ import type {
 } from '../layout-types.js';
 import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
+import { forwardInner } from './forward.js';
 import { compositeSpec, innerConfig } from './inner-config.js';
 import { dragDelta } from './item-place.js';
 import { onTopLayer } from './layer.js';
@@ -279,6 +280,12 @@ export function floatingStrategy<TInner>(
   inner?: LayoutStrategy<TInner, string, unknown>,
 ): StatefulLayoutStrategy<FloatingState<TInner | undefined>, string> {
   const floats = inner ? isFloating : () => true;
+  const fwd = forwardInner<FloatingState<TInner | undefined>, TInner>(inner, {
+    items: ({ items }) => items.filter((i) => !isFloating(i)),
+    options: (o) => innerConfig(o, true),
+    owns: (id) => id.startsWith(FLOATING_DRAG_PREFIX),
+    state: { inner: (s) => s.inner as TInner, wrap: (s, next) => ({ ...s, inner: next }) },
+  });
   return {
     name: inner ? `floating(${inner.name})` : 'floating',
 
@@ -360,16 +367,11 @@ export function floatingStrategy<TInner>(
       return out;
     },
 
+    ...fwd,
+
     reduce(state, event, context) {
       if (!event.affordanceId.startsWith(FLOATING_DRAG_PREFIX)) {
-        if (!inner?.reduce) return state;
-        return {
-          ...state,
-          inner: inner.reduce(state.inner as TInner, event, {
-            ...context,
-            options: innerConfig(context.options, true),
-          }),
-        };
+        return fwd.reduce ? fwd.reduce(state, event, context) : state;
       }
 
       const id = event.affordanceId.slice(FLOATING_DRAG_PREFIX.length);
@@ -432,42 +434,6 @@ export function floatingStrategy<TInner>(
       const placed: FloatingPlacement = { ...next, anchor: hit?.corner ?? null };
       if (hit?.to != null) placed.anchorTo = hit.to;
       return { ...state, at: { ...state.at, [id]: placed } };
-    },
-
-    dispatchAffordance(ctx) {
-      if (ctx.event.affordanceId.startsWith(FLOATING_DRAG_PREFIX) || !inner?.dispatchAffordance) {
-        return;
-      }
-      inner.dispatchAffordance({
-        ...ctx,
-        items: ctx.items.filter((i) => !floats(i)),
-        options: innerConfig(ctx.options, true),
-      });
-    },
-
-    cellAt(input) {
-      return inner?.cellAt?.({
-        ...input,
-        items: input.items.filter((i) => !floats(i)),
-        options: innerConfig(input.options, true),
-      });
-    },
-
-    canAccept(items, options) {
-      if (!inner?.canAccept) return true;
-      return inner.canAccept(
-        items.filter((i) => !isFloating(i)),
-        innerConfig(options, true),
-      );
-    },
-
-    navigate(input) {
-      if (!inner?.navigate) return undefined;
-      return inner.navigate({
-        ...input,
-        options: innerConfig(input.options, true),
-        items: input.items.filter((i) => !isFloating(i)),
-      });
     },
 
     float: {

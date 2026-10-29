@@ -320,8 +320,8 @@ describe('floatingStrategy delegation', () => {
     expect(s.canAccept?.([pane, { id: 'third' }, { id: 'fourth' }], {})).toBe(false);
   });
 
-  it('accepts everything when nothing is wrapped', () => {
-    expect(floatingStrategy().canAccept?.([panel, pane], {})).toBe(true);
+  it('leaves canAccept off when nothing is wrapped, which the host reads as accept-all', () => {
+    expect(floatingStrategy().canAccept).toBeUndefined();
   });
 
   it('lets the inner strategy answer navigation', () => {

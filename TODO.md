@@ -191,24 +191,22 @@ One thing the suite surfaced that is worth knowing: the split story passes an
 explicit `viewport` prop, so it never exercises the ResizeObserver path at
 all. Reflow coverage has to use a ref-measured fixture.
 
-## Strategy wrappers forward a hand-picked set of hooks
+## Strategy wrappers forward through one helper
 
-Audited 2026-10-26. `floating`, `desktop`, `page` and `warp` each wrap an inner
-strategy and each forward a different subset of its optional hooks. The worst
-gaps are fixed (floating's `dispatchAffordance` and `cellAt`, desktop's
-`cellAt`, page's `float`);
-still open:
+`floating`, `desktop`, `page` and `warp` forward their inner strategy's hooks
+through `forwardInner` (`src/layout/forward.ts`), each describing how its frame
+differs — which children, which config, which state, and how a point moves.
+`wrapper-forwarding.test.ts` fails when a wrapper drops a hook in
+`FORWARDED_HOOKS` (2026-10-27). Still open:
 
-- **`cellAt` under `page` and `warp`.** The host reads it off the outer
-  strategy, so grid's `drop.cell` does nothing under `pageStrategy(gridStrategy)`.
-  Page cannot answer, since `cellAt` is not handed container state and page
-  needs it to know which page shows; warp would need its passes inverted on the
-  point.
-- **`canAccept` under `page`.** Whether a paged inner's capacity should count
-  per page or not at all is undecided, so nothing is forwarded.
-- **One forwarding helper** for the wrappers would close this class of gap; the
-  per-wrapper coordinate changes (page's bar shift, desktop's mirror, warp's
-  passes) are what keep it from being trivial.
+- **`cellAt` and `canAccept` under `page`.** Neither is handed container state,
+  so page cannot know which page shows; grid's `drop.cell` does nothing under
+  `pageStrategy(gridStrategy)`. Closing it means adding `state` to both hooks'
+  input. Whether a paged inner's capacity should count per page or not at all
+  is undecided either way.
+- **`getDropPreview` is forwarded by no wrapper.** Each wrapper reshapes the
+  inner result, so the fast path would answer in the wrong frame; the host
+  falls back to `layout({ preview })`, which is correct and slower.
 - **Key-name drift**: desktop's `resize` / `overflow` against strip and grid's
   `resizable` / `overflowMode`; `handleSize` defaults to 0 on floating and 22
   on desktop; repel's `gap` defaults to 8, every other strategy's to 0.

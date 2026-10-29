@@ -6,6 +6,21 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
+## Unreleased
+
+### Fixed
+
+- **Wrapping strategies forward every hook their inner strategy has.**
+  `floatingStrategy` and `desktopStrategy` forward `command` and `land`, so a
+  `pageStrategy` inside either still pages and still pins arrivals to the page
+  in view. `pageStrategy` hands a command it does not know (anything but
+  `page` / `next` / `prev`) to its inner strategy, and runs the inner `land`
+  after its own. `warp` answers `cellAt` through its passes' inverses, so
+  grid's `drop.cell` works under a warped grid. `floatingStrategy` no longer
+  hands its floating children to the inner strategy's `reduce`. Under
+  `pageStrategy`, `canAccept` and `cellAt` stay unforwarded, since neither is
+  told which page shows.
+
 ## 2.2.0
 
 ### Added

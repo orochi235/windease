@@ -25,6 +25,7 @@ import {
   withControlConflicts,
   ZOOM_RECORD_KEY,
 } from './desktop-controls.js';
+import { forwardInner } from './forward.js';
 import { compositeSpec, innerConfig } from './inner-config.js';
 import { dragDelta, itemSize, itemWant } from './item-place.js';
 import { onTopLayer } from './layer.js';
@@ -510,6 +511,20 @@ export function desktopStrategy<TInner>(
   inner?: LayoutStrategy<TInner, string, unknown>,
 ): StatefulLayoutStrategy<DesktopState<TInner | undefined>, string> {
   const hasInner = inner !== undefined;
+  const fwd = forwardInner<DesktopState<TInner | undefined>, TInner>(inner, {
+    items: ({ items, options }) => layers(items, options, hasInner).icons,
+    options: (o) => innerConfig(o, true),
+    owns: isOwnAffordance,
+    point: (p, { options, container }) => flipPoint(p, mirrorOf(options), container),
+    event: (e, { options, container }) => flipEvent(e, mirrorOf(options), container),
+    affordance: (a, { options, container }) => flipAffordance(a, mirrorOf(options), container),
+    direction: (d, o) => {
+      const mirror = mirrorOf(o);
+      const across = d === 'left' || d === 'right' ? mirror?.x : mirror?.y;
+      return across ? OPPOSITE[d] : d;
+    },
+    state: { inner: (s) => s.inner as TInner, wrap: (s, next) => ({ ...s, inner: next }) },
+  });
   return {
     name: inner ? `desktop(${inner.name})` : 'desktop',
 
@@ -629,19 +644,12 @@ export function desktopStrategy<TInner>(
       return out;
     },
 
+    ...fwd,
+
     dispatchAffordance(ctx) {
       const { event, affordance, store } = ctx;
       if (!isOwnAffordance(event.affordanceId)) {
-        if (!inner?.dispatchAffordance) return;
-        const items = layers(ctx.items, ctx.options, hasInner).icons;
-        const mirror = mirrorOf(ctx.options as DesktopConfig);
-        inner.dispatchAffordance({
-          ...ctx,
-          options: innerConfig(ctx.options, true),
-          items,
-          event: flipEvent(event, mirror, ctx.container),
-          affordance: flipAffordance(affordance, mirror, ctx.container),
-        });
+        fwd.dispatchAffordance?.(ctx);
         return;
       }
       if (parseControl(event.affordanceId)) {
@@ -683,53 +691,6 @@ export function desktopStrategy<TInner>(
       }
       trace('layout', `desktop: ${id} dragged to ${next.x},${next.y}`);
       store.patchPlacement(id, unzoom ? { ...unzoom.patch, ...next } : next);
-    },
-
-    reduce(state, event, context) {
-      if (!inner?.reduce || isOwnAffordance(event.affordanceId)) return state;
-      const items = layers(context.items, context.options, hasInner).icons;
-      const flipped = flipEvent(
-        event,
-        mirrorOf(context.options as DesktopConfig),
-        context.container,
-      );
-      return {
-        ...state,
-        inner: inner.reduce(state.inner as TInner, flipped, {
-          ...context,
-          items,
-          options: innerConfig(context.options, true),
-        }),
-      };
-    },
-
-    cellAt(input) {
-      if (!inner?.cellAt) return undefined;
-      return inner.cellAt({
-        ...input,
-        items: layers(input.items, input.options, hasInner).icons,
-        options: innerConfig(input.options, true),
-        point: flipPoint(input.point, mirrorOf(input.options as DesktopConfig), input.container),
-      });
-    },
-
-    canAccept(items, options) {
-      if (!inner?.canAccept) return true;
-      return inner.canAccept(layers(items, options, hasInner).icons, innerConfig(options, true));
-    },
-
-    navigate(input) {
-      if (!inner?.navigate) return undefined;
-      const items = layers(input.items, input.options, hasInner).icons;
-      const mirror = mirrorOf(input.options as DesktopConfig);
-      const { direction } = input;
-      const across = direction === 'left' || direction === 'right' ? mirror?.x : mirror?.y;
-      return inner.navigate({
-        ...input,
-        options: innerConfig(input.options, true),
-        items,
-        direction: across ? OPPOSITE[direction] : direction,
-      });
     },
 
     float: {

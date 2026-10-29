@@ -165,7 +165,7 @@ describe('desktopStrategy icons', () => {
     const s = desktopStrategy(inner);
     expect(s.canAccept?.([win('w'), icon('i')], {})).toBe(false);
     expect(seen).toEqual([['i']]);
-    expect(desktopStrategy().canAccept?.([win('w')], {})).toBe(true);
+    expect(desktopStrategy().canAccept).toBeUndefined();
   });
 });
 

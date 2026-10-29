@@ -1,7 +1,6 @@
 import type {
   Affordance,
   FloatHook,
-  LayoutEvent,
   LayoutItem,
   LayoutResult,
   LayoutStrategy,
@@ -12,6 +11,7 @@ import type {
 } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import { trace } from '../trace.js';
+import { forwardInner } from './forward.js';
 import { innerConfig } from './inner-config.js';
 
 /** Where a child's page comes from: its own `placement.page`, or the order
@@ -239,11 +239,52 @@ export function pageStrategy<TInner>(
     return pages[shown] ?? [];
   };
 
-  const unshift = (event: LayoutEvent, dy: number): LayoutEvent => {
-    const point = event.payload.point;
-    if (dy === 0 || !point) return event;
-    return { ...event, payload: { ...event.payload, point: { x: point.x, y: point.y - dy } } };
+  /** Pins arrivals to the page that shows, under `mode: 'assigned'`. */
+  const landOnShownPage = ({
+    ids,
+    state,
+    store,
+    options,
+    items,
+    container,
+  }: Parameters<NonNullable<LayoutStrategy<PageState<TInner>, string, unknown>['land']>>[0]) => {
+    if ((options as PageConfig).mode === 'flowed') return state;
+    const size = container ? areaOf(container, options).size : { w: 0, h: 0 };
+    // Count pages without the arrivals: the page they carried is another container's.
+    const arriving = new Set<string>(ids);
+    const staying = items.filter((i) => !arriving.has(i.id));
+    const { shown } = paginate(inner, staying, size, state, options);
+    for (const id of ids) {
+      if (store.getNode(id)?.membership?.placement.page === shown) continue;
+      trace('layout', `page: ${id} landed on page ${shown}`);
+      store.patchPlacement(id as NodeId, { page: shown });
+    }
+    return state;
   };
+
+  // canAccept and cellAt are not handed container state, so they cannot know which page shows.
+  const fwd = forwardInner<PageState<TInner>, TInner>(
+    inner,
+    {
+      items: ({ items, options, container, state }) =>
+        shownItems(
+          items,
+          state ?? { page: 0, inner: initialInner(items, options) },
+          options,
+          container ?? { w: 0, h: 0 },
+        ),
+      options: innerOptions,
+      container: (c, o) => areaOf(c, o).size,
+      point: (p, { container, options }) => ({ x: p.x, y: p.y - areaOf(container, options).dy }),
+      affordance: (a, { container, options }) => ({
+        ...a,
+        rect: shift(a.rect, -areaOf(container, options).dy),
+      }),
+      owns: isOwn,
+      state: { inner: (s) => s.inner, wrap: (s, next) => ({ ...s, inner: next }) },
+    },
+    ['canAccept', 'cellAt'],
+  );
 
   return {
     name: `page(${inner.name})`,
@@ -295,36 +336,15 @@ export function pageStrategy<TInner>(
       return out;
     },
 
+    ...fwd,
+
     reduce(state, event, context) {
       if (isOwn(event.affordanceId)) {
         if (event.kind !== 'click') return state;
         const to = Number(event.affordanceId.slice(PAGE_PREFIX.length));
         return Number.isInteger(to) ? withPage(state, to) : state;
       }
-      if (!inner.reduce) return state;
-      const { size, dy } = areaOf(context.container, context.options);
-      const items = shownItems(context.items, state, context.options, context.container);
-      const next = inner.reduce(state.inner, unshift(event, dy), {
-        container: size,
-        options: innerOptions(context.options),
-        items,
-      });
-      return next === state.inner ? state : { ...state, inner: next };
-    },
-
-    dispatchAffordance(ctx) {
-      if (isOwn(ctx.event.affordanceId) || !inner.dispatchAffordance) return;
-      const stored = ctx.store.getContainerState(ctx.parentId) as PageState<TInner> | undefined;
-      const state = stored ?? { page: 0, inner: initialInner(ctx.items, ctx.options) };
-      const { size, dy } = areaOf(ctx.container, ctx.options);
-      inner.dispatchAffordance({
-        ...ctx,
-        event: unshift(ctx.event, dy),
-        affordance: { ...ctx.affordance, rect: shift(ctx.affordance.rect, -dy) },
-        container: size,
-        options: innerOptions(ctx.options),
-        items: shownItems(ctx.items, state, ctx.options, ctx.container),
-      });
+      return fwd.reduce ? fwd.reduce(state, event, context) : state;
     },
 
     command(state, cmd: StrategyCommand, context) {
@@ -341,23 +361,14 @@ export function pageStrategy<TInner>(
       if (cmd.type === 'page' && typeof cmd.to === 'number' && Number.isInteger(cmd.to)) {
         return withPage(state, clampPage(cmd.to, pages.length));
       }
+      if (fwd.command) return fwd.command(state, cmd, context);
       trace('layout', `page: command ${JSON.stringify(cmd)} ignored`);
       return state;
     },
 
-    land({ ids, state, store, options, items, container }) {
-      if ((options as PageConfig).mode === 'flowed') return state;
-      const size = container ? areaOf(container, options).size : { w: 0, h: 0 };
-      // Count pages without the arrivals: the page they carried is another container's.
-      const arriving = new Set<string>(ids);
-      const staying = items.filter((i) => !arriving.has(i.id));
-      const { shown } = paginate(inner, staying, size, state, options);
-      for (const id of ids) {
-        if (store.getNode(id)?.membership?.placement.page === shown) continue;
-        trace('layout', `page: ${id} landed on page ${shown}`);
-        store.patchPlacement(id as NodeId, { page: shown });
-      }
-      return state;
+    land(ctx) {
+      const next = landOnShownPage(ctx);
+      return fwd.land ? fwd.land({ ...ctx, state: next }) : next;
     },
 
     ...(inner.float ? { float: pageFloat(inner.float) } : {}),

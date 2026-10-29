@@ -235,7 +235,7 @@ describe('canAccept on 10k items', () => {
     ['grid rows', as(gridStrategy), { rows: 40, maxCols: 400 }],
     ['strip maxItems', as(stripStrategy), { maxItems: 20_000 }],
     ['floating(grid)', as(floatingStrategy(gridStrategy)), { maxCols: 120, maxRows: 120 }],
-    ['desktop(shelf)', as(desktopStrategy(shelfStrategy)), {}],
+    ['desktop(grid)', as(desktopStrategy(gridStrategy)), { maxCols: 120, maxRows: 120 }],
   ];
   for (const [name, strategy, options] of cases) {
     it(`${name} answers within ${BUDGET_MS}ms`, () => {

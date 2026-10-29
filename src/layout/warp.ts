@@ -24,6 +24,7 @@ import type {
 } from '../layout-types.js';
 import { trace } from '../trace.js';
 import type { ConfigSpec } from './config-check.js';
+import { forwardInner } from './forward.js';
 
 /** A point in a container's coordinate space. */
 export interface Point {
@@ -630,36 +631,16 @@ export function warp<TState, TMeta = unknown>(
   if (strategy.initialState) {
     composed.initialState = (items, options) => strategy.initialState?.(items, options) as TState;
   }
-  if (strategy.canAccept) {
-    composed.canAccept = (items, options) => strategy.canAccept?.(items, options) ?? true;
-  }
-  if (strategy.navigate) composed.navigate = (input) => strategy.navigate?.(input);
-  if (strategy.land) composed.land = (ctx) => strategy.land?.(ctx) as TState;
   if (strategy.float) composed.float = strategy.float;
-  if (strategy.command) {
-    composed.command = (state, cmd, context) => strategy.command?.(state, cmd, context) as TState;
-  }
-  if (strategy.reduce) {
-    composed.reduce = (state, event, context) =>
-      strategy.reduce?.(
-        state,
-        invertEvent(passes, event, { ...context, state }),
-        context,
-      ) as TState;
-  }
-  if (strategy.dispatchAffordance) {
-    composed.dispatchAffordance = (ctx) => {
-      strategy.dispatchAffordance?.({
-        ...ctx,
-        event: invertEvent(passes, ctx.event, {
-          items: ctx.items,
-          container: ctx.container,
-          state: undefined,
-          options: ctx.options,
-        }),
-      });
-    };
-  }
+  Object.assign(
+    composed,
+    forwardInner<TState, TState>(strategy, {
+      event: (e, { items, container, state, options }) =>
+        invertEvent(passes, e, { items, container, state, options }),
+      point: (p, { items, container, state, options }) =>
+        invertPoint(passes, p, { items, container, state, options, pointer: p }),
+    }),
+  );
 
   return composed;
 }
