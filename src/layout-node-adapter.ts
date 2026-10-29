@@ -83,13 +83,13 @@ export function nodeToLayoutNode(node: Node): LayoutNode {
 
 /**
  * Collect visible children of `parentId` as LayoutNodes in childOrder order.
- * Hidden children (lifecycle.state === 'hidden') are excluded.
+ * A child that is hidden, destroyed, or registered and never shown is excluded.
  */
 export function getLayoutNodes(store: Store, parentId: NodeId): LayoutNode[] {
   const children = store.getChildren(parentId);
   const out: LayoutNode[] = [];
   for (const child of children) {
-    if (child.lifecycle.state === 'hidden' || child.lifecycle.state === 'destroyed') continue;
+    if (child.lifecycle.state !== 'visible') continue;
     out.push(nodeToLayoutNode(child));
   }
   return out;
@@ -125,7 +125,7 @@ export function runStrategyForContainer<TState>(
   const hidden: HiddenItem[] = [];
   for (const child of children) {
     if (child.lifecycle.state === 'hidden') hidden.push({ id: child.id, before: items.length });
-    if (child.lifecycle.state === 'hidden' || child.lifecycle.state === 'destroyed') continue;
+    if (child.lifecycle.state !== 'visible') continue;
     const item = childToLayoutItem(store, child, drag);
     const measured = natural?.get(String(child.id));
     if (measured && item.hints?.sizing) item.natural = measured;

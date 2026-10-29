@@ -171,6 +171,21 @@ describe('getLayoutNodes', () => {
     const ln = getLayoutNodes(s, asNodeId('z'));
     expect(ln.map((n) => n.id)).toEqual(['a', 'c']);
   });
+
+  it('excludes a child that was registered and never shown', () => {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    s.registerNode(createNode({ kind: 'panel', id: asNodeId('a'), parentId: asNodeId('z') }));
+    s.registerNode(createNode({ kind: 'panel', id: asNodeId('b'), parentId: asNodeId('z') }));
+    s.showNode(asNodeId('b'));
+    expect(getLayoutNodes(s, asNodeId('z')).map((n) => n.id)).toEqual(['b']);
+  });
 });
 
 describe('layout-node-adapter — activity passthrough', () => {
@@ -258,6 +273,8 @@ describe('runStrategyForContainer', () => {
         parentId: asNodeId('z'),
       }),
     );
+    s.showNode(asNodeId('a'));
+    s.showNode(asNodeId('b'));
     const initial = stripStrategy.initialState
       ? stripStrategy.initialState([{ id: 'a' }, { id: 'b' }])
       : undefined;
@@ -271,5 +288,36 @@ describe('runStrategyForContainer', () => {
     expect(result.placements.size).toBeGreaterThan(0);
     expect(result.placements.has(asNodeId('a'))).toBe(true);
     expect(result.placements.has(asNodeId('b'))).toBe(true);
+  });
+
+  it('gives a child that was registered and never shown no room and no seam', () => {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: { axis: 'x', fill: true, resizable: true } },
+        id: asNodeId('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'panel',
+        id: asNodeId('side'),
+        parentId: asNodeId('z'),
+        placement: { size: { w: 80 } },
+      }),
+    );
+    s.registerNode(createNode({ kind: 'panel', id: asNodeId('main'), parentId: asNodeId('z') }));
+    s.showNode(asNodeId('main'));
+    const result = runStrategyForContainer(
+      s,
+      asNodeId('z'),
+      { w: 200, h: 100 },
+      stripStrategy,
+      undefined as never,
+    );
+    expect([...result.placements.keys()]).toEqual(['main']);
+    expect(result.placements.get(asNodeId('main'))).toMatchObject({ x: 0, w: 200 });
+    expect(result.affordances).toEqual([]);
   });
 });

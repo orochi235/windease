@@ -29,6 +29,11 @@ section below.
   hands its floating children to the inner strategy's `reduce`. Under
   `pageStrategy`, `canAccept` and `cellAt` stay unforwarded, since neither is
   told which page shows.
+- **A child registered and never shown takes no room.** Layout skipped only
+  `hidden` and `destroyed` children, so a `mounted` one got its slot and, in a
+  resizable `strip`, a live seam, while `Container` renders only `visible`
+  children: an empty gap. Layout now places only `visible` children, matching
+  what renders.
 
 ## 2.2.0
 
