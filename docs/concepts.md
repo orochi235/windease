@@ -421,9 +421,9 @@ Built-ins:
   (tmux's character cells); the last pane with no pixel `size` takes the
   rounding remainder, so a filled row stays filled. Under
   `resizeMode: 'neighbor'`, `overshoot` says what a seam pushed past a pane's
-  floor does on release: `'join'` destroys the pane, `'hide'` hides it with
+  floor does on release: `'destroy'` destroys the pane, `'hide'` hides it with
   the row's sizes put back as the drag found them, so `showNode` restores it.
-  A pane with `lock.hide` is left out of the join, so its seam just clamps.
+  A pane with `lock.hide` is left out of the bury, so its seam just clamps.
   `store.split(id, input)` (see Store API) builds nested strip trees —
   workspace-level splits with draggable gutters — without a dedicated
   strategy of its own.

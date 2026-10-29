@@ -11,8 +11,8 @@
  *   - .windease-insertion-line gets a subtle default appearance, as does
  *     .windease-split-preview, which the library positions over the half a
  *     prospective split would take.
- *   - [data-join-armed] gets a visible default: releasing an armed seam-join
- *     destroys a pane with no confirmation step, so the point of no return
+ *   - [data-bury-armed] gets a visible default: releasing an armed seam can
+ *     destroy a pane with no confirmation step, so the point of no return
  *     cannot wait on consumer CSS. [data-reveal-armed], on the handle that
  *     shows a hidden pane, thickens the same way.
  *   - .windease-workspace and .windease-workspace-root position a workspace's
@@ -117,7 +117,7 @@
 /* Two signals, not one: an armed victim sits at its floor and may be a sliver,
  * so the thickened seam is what stays visible and the hatch names the pane. */
 
-.windease-affordance-hit[data-join-armed] > [data-affordance]::after,
+.windease-affordance-hit[data-bury-armed] > [data-affordance]::after,
 .windease-affordance-hit[data-reveal-armed] > [data-affordance]::after {
   content: "";
   position: absolute;
@@ -130,12 +130,12 @@
   touch-action: none;
 }
 
-[data-node][data-join-armed] {
+[data-node][data-bury-armed] {
   position: relative;
 }
 
-[data-node][data-join-armed]::after,
-.windease-workspace-root[data-join-armed]::after {
+[data-node][data-bury-armed]::after,
+.windease-workspace-root[data-bury-armed]::after {
   content: "";
   position: absolute;
   inset: 0;

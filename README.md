@@ -1907,8 +1907,8 @@ const [h, setH] = useState(200);
 <Panel id={b} />  {/* uncontrolled — its own drags commit as usual */}
 ```
 
-Controlled and uncontrolled panes mix freely in one row. A seam join that
-hides a pane puts the row's sizes back through the same path, so a controlled
+Controlled and uncontrolled panes mix freely in one row. A seam that buries
+a pane by hiding it puts the row's sizes back through the same path, so a controlled
 pane hears about that too. Without React, the same thing is
 `host.registerPlacementControl(id, commit)`, and `host.writePlacement` is the
 write that respects it.
@@ -2051,18 +2051,19 @@ clears. A `zoom` naming no visible child is ignored, and traced under
 Zoom lives in config, like stack's `activeId`, so a snapshot or preset carries
 it and `lock.arrange` guards it.
 
-### Seam join
+### Burying a pane
 
-A neighbor seam can end in a destroy rather than a clamp. With
-`joinOnOvershoot: true`, pushing the seam past a pane's floor and continuing to
-push arms the gesture; releasing there closes that pane. `joinThreshold` is how
-many main-axis pixels past the floor that takes — 24 by default.
+A neighbor seam can bury the pane it is pushed into rather than clamp at its
+floor. With `overshoot: 'destroy'`, pushing the seam past a pane's floor and
+continuing to push arms the gesture; releasing there closes that pane.
+`buryThreshold` is how many main-axis pixels past the floor that takes — 24 by
+default.
 
 ```tsx
 <Zone
   id={zoneId}
   strategyId="strip"
-  config={{ axis: 'x', resizeMode: 'neighbor', joinOnOvershoot: true }}
+  config={{ axis: 'x', resizeMode: 'neighbor', overshoot: 'destroy' }}
 />
 ```
 
@@ -2072,13 +2073,13 @@ name. Whichever pane's floor breaks is the one closed: the neighbor when the
 seam is pushed toward it, the dragged pane when it is pushed the other way.
 
 While the gesture is armed, both that pane and the seam carry
-`data-join-armed`. `styles.css` gives them a visible default — a hatch on the
+`data-bury-armed`. `styles.css` gives them a visible default — a hatch on the
 pane and a thickened seam, both from `currentColor` — because the point of no
 return cannot wait on consumer CSS. Override the two selectors to restyle:
 
 ```css
-[data-node][data-join-armed]::after { /* the pane about to close */ }
-.windease-affordance-hit[data-join-armed] > [data-affordance]::after { /* the seam */ }
+[data-node][data-bury-armed]::after { /* the pane about to close */ }
+.windease-affordance-hit[data-bury-armed] > [data-affordance]::after { /* the seam */ }
 ```
 
 `Escape` cancels mid-drag, and a cancelled pointer never commits. From the
@@ -2091,18 +2092,16 @@ is — never arms; its seam still resizes down to the floor. The destroy runs in
 one transaction, so a host recording history per transaction gets a single undo
 step.
 
-Without React, `trackJoin` is the whole decision: give it the affordance's
-`join` and `bounds`, this move's main-axis delta, and the overshoot it returned
+Without React, `trackBury` is the whole decision: give it the affordance's
+`bury` and `bounds`, this move's main-axis delta, and the overshoot it returned
 last time, and it answers whether the gesture is armed and on which node.
-`destroyBlockedBy(store, id)` is the lock check to pass it. `commitJoin(store,
+`destroyBlockedBy(store, id)` is the lock check to pass it. `commitBury(store,
 affordance, victimId)` carries out the release.
 
 #### Hiding instead of closing
 
 `overshoot: 'hide'` arms the same gesture but hides the pane on release
 instead of destroying it, the way VS Code closes a sidebar dragged shut.
-`overshoot: 'join'` is the same as `joinOnOvershoot: true`, and `overshoot`
-wins when both are set.
 
 ```tsx
 <Zone
@@ -2120,12 +2119,12 @@ happen in one transaction. Nothing is destroyed, so a `destroy` lock does not
 stop the gesture arming. The live region says the pane "will hide".
 
 A pane that must stay, like VS Code's editor, takes `lock: { hide: true }`. The
-strip leaves it out of the join, so pushing a seam into it clamps at its floor
+strip leaves it out of the bury, so pushing a seam into it clamps at its floor
 as an ordinary resize does, and `store.hideNode` refuses it with `LockedError`
 unless passed `{ force: true }`. `lock: true` does not set `hide`; name it.
 
 A host driving seams itself calls `captureSeam(store, affordance)` when the
-gesture begins and passes the result to `commitJoin` as its fourth argument.
+gesture begins and passes the result to `commitBury` as its fourth argument.
 Without it, the pane is hidden at the size the drag left it.
 
 #### Dragging a hidden pane back
@@ -2133,7 +2132,7 @@ Without it, the pane is hidden at the size the drag left it.
 Under `overshoot: 'hide'`, every hidden child of the strip leaves a handle in
 the row, `reveal-x-<id>` or `reveal-y-<id>`, over the place the pane would
 open. Dragging it 24px the way the pane opens arms it, and releasing there
-shows the pane at the size it was hidden with. `joinThreshold` sets the
+shows the pane at the size it was hidden with. `buryThreshold` sets the
 distance. `Escape` cancels, and so does dragging back inside the threshold.
 
 The handle is a button named "show" and the pane's name. Enter or Space shows
@@ -2271,7 +2270,7 @@ the seam is not drawn, and a drag event for it writes nothing. The root keeps
 the size it was last dragged to.
 
 `overshoot: 'hide'` works as it does on a strip: push the seam past a root's
-floor, keep pushing `joinThreshold` pixels, and release to hide that root, with
+floor, keep pushing `buryThreshold` pixels, and release to hide that root, with
 its size put back as the drag found it. A hidden root leaves a handle on its
 neighbor's edge that drags it open again; `store.hideNode(rootId)` and
 `showNode` do the same from a button. `lock.hide` on a root keeps a seam from
@@ -2329,8 +2328,8 @@ that owns it. See the **Worktree zones** story.
 Without React, `arrangeWorkspace({ store, roots, seams, rects, zoom })` is the
 whole of it: you measure each root's box and pass the map, and it returns each
 root's state and size plus the seams as affordances in the same space.
-`dispatchWorkspaceSeam(input, event)` applies a drag, and `trackJoin`,
-`commitJoin`, `trackReveal` and `commitReveal` drive hiding and showing exactly
+`dispatchWorkspaceSeam(input, event)` applies a drag, and `trackBury`,
+`commitBury`, `trackReveal` and `commitReveal` drive hiding and showing exactly
 as they do for a strip.
 
 ## Keyboard navigation
@@ -2558,6 +2557,32 @@ placement travels with it. Focus does not move — call `focusNode` yourself if
 the arriving subtree should take it.
 
 ## Breaking changes
+
+### Unreleased — seam join renamed bury
+
+The gesture that destroys or hides a pane pushed past its floor is now called
+burying it. Every old name still works and is removed in 3.0:
+
+```diff
+- config={{ resizeMode: 'neighbor', joinOnOvershoot: true }}
+- config={{ resizeMode: 'neighbor', overshoot: 'join' }}
++ config={{ resizeMode: 'neighbor', overshoot: 'destroy' }}
+
+- joinThreshold                     (strip config, <Workspace>, arrangeWorkspace)
++ buryThreshold
+
+- trackJoin({ join, ... })          + trackBury({ bury, ... })
+- commitJoin, JoinState, TrackJoinInput, AffordanceJoin, DEFAULT_JOIN_THRESHOLD
++ commitBury, BuryState, TrackBuryInput, AffordanceBury, DEFAULT_BURY_THRESHOLD
+
+- affordance.join                   + affordance.bury
+- [data-join-armed]                 + [data-bury-armed]
+```
+
+Built-in strategies set both `bury` and `join` on an affordance, and the armed
+pane and seam carry both attributes, so a custom renderer or stylesheet reading
+the old name keeps working. The handle reads `join` from a custom strategy that
+has not moved to `bury`.
 
 ### 2.2.0 — `placement.share` is per axis
 

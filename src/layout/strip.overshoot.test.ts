@@ -4,7 +4,7 @@ import { nodeToLayoutItem, runStrategyForContainer } from '../layout-node-adapte
 import type { Affordance, HiddenItem, LayoutItem } from '../layout-types.js';
 import { asNodeId } from '../node.js';
 import { Store } from '../store.js';
-import { captureSeam, commitJoin, commitReveal } from './seam-join.js';
+import { captureSeam, commitBury, commitReveal } from './seam-bury.js';
 import { stripStrategy } from './strip.js';
 
 const items: LayoutItem[] = [
@@ -19,18 +19,45 @@ function seams(options: Record<string, unknown>): Affordance[] {
 }
 
 describe('strip overshoot declaration', () => {
-  it("declares the same join for overshoot: 'join' as for joinOnOvershoot", () => {
-    expect(seams({ resizeMode: 'neighbor', overshoot: 'join' }).map((a) => a.join)).toEqual(
-      seams({ resizeMode: 'neighbor', joinOnOvershoot: true }).map((a) => a.join),
+  it("declares a bury that destroys under overshoot: 'destroy'", () => {
+    const [first] = seams({ resizeMode: 'neighbor', overshoot: 'destroy' });
+    expect(first?.bury).toEqual({ atMin: 'a', atMax: 'b', threshold: 24 });
+  });
+
+  it("reads the deprecated overshoot: 'join' and joinOnOvershoot as 'destroy'", () => {
+    const destroy = seams({ resizeMode: 'neighbor', overshoot: 'destroy' }).map((a) => a.bury);
+    expect(seams({ resizeMode: 'neighbor', overshoot: 'join' }).map((a) => a.bury)).toEqual(
+      destroy,
+    );
+    expect(seams({ resizeMode: 'neighbor', joinOnOvershoot: true }).map((a) => a.bury)).toEqual(
+      destroy,
     );
   });
 
-  it("marks the join as a hide under overshoot: 'hide'", () => {
-    const [first] = seams({ resizeMode: 'neighbor', overshoot: 'hide' });
-    expect(first?.join).toEqual({ atMin: 'a', atMax: 'b', threshold: 24, action: 'hide' });
+  it('reads the deprecated joinThreshold, which buryThreshold outranks', () => {
+    const [old] = seams({ resizeMode: 'neighbor', overshoot: 'destroy', joinThreshold: 40 });
+    expect(old?.bury?.threshold).toBe(40);
+    const [both] = seams({
+      resizeMode: 'neighbor',
+      overshoot: 'destroy',
+      joinThreshold: 40,
+      buryThreshold: 30,
+    });
+    expect(both?.bury?.threshold).toBe(30);
   });
 
-  it('leaves a pane locked against hiding out of its end of the join', () => {
+  it('sets the deprecated join key to the same bury', () => {
+    for (const aff of seams({ resizeMode: 'neighbor', overshoot: 'hide' })) {
+      expect(aff.join).toBe(aff.bury);
+    }
+  });
+
+  it("marks the bury as a hide under overshoot: 'hide'", () => {
+    const [first] = seams({ resizeMode: 'neighbor', overshoot: 'hide' });
+    expect(first?.bury).toEqual({ atMin: 'a', atMax: 'b', threshold: 24, action: 'hide' });
+  });
+
+  it('leaves a pane locked against hiding out of its end of the bury', () => {
     const locked = items.map((it) => (it.id === 'b' ? { ...it, lock: { hide: true } } : it));
     const [first, second] = stripStrategy.layout({
       items: locked,
@@ -38,39 +65,39 @@ describe('strip overshoot declaration', () => {
       state: undefined,
       options: { resizeMode: 'neighbor', overshoot: 'hide' },
     }).affordances;
-    expect(first?.join).toEqual({ atMin: 'a', threshold: 24, action: 'hide' });
-    expect(second?.join).toEqual({ atMax: 'c', threshold: 24, action: 'hide' });
+    expect(first?.bury).toEqual({ atMin: 'a', threshold: 24, action: 'hide' });
+    expect(second?.bury).toEqual({ atMax: 'c', threshold: 24, action: 'hide' });
   });
 
-  it('keeps a hide-locked pane in a join that destroys', () => {
+  it('keeps a hide-locked pane in a bury that destroys', () => {
     const locked = items.map((it) => (it.id === 'b' ? { ...it, lock: { hide: true } } : it));
     const [first] = stripStrategy.layout({
       items: locked,
       container: { w: 600, h: 200 },
       state: undefined,
-      options: { resizeMode: 'neighbor', overshoot: 'join' },
+      options: { resizeMode: 'neighbor', overshoot: 'destroy' },
     }).affordances;
-    expect(first?.join).toEqual({ atMin: 'a', atMax: 'b', threshold: 24 });
+    expect(first?.bury).toEqual({ atMin: 'a', atMax: 'b', threshold: 24 });
   });
 
   it('lets overshoot outrank joinOnOvershoot', () => {
     const [first] = seams({ resizeMode: 'neighbor', overshoot: 'hide', joinOnOvershoot: true });
-    expect(first?.join?.action).toBe('hide');
+    expect(first?.bury?.action).toBe('hide');
   });
 
   it('declares nothing under redistribute, which has no single victim', () => {
-    for (const aff of seams({ overshoot: 'hide' })) expect(aff.join).toBeUndefined();
+    for (const aff of seams({ overshoot: 'hide' })) expect(aff.bury).toBeUndefined();
   });
 
   it('is in the config spec', () => {
-    expect(stripStrategy.configSpec?.overshoot).toEqual(['join', 'hide']);
+    expect(stripStrategy.configSpec?.overshoot).toEqual(['destroy', 'hide', 'join']);
   });
 });
 
 const ROOT = asNodeId('root');
 
 /** Three panes in a 600px neighbor strip: a sidebar at 200, the rest filling. */
-function seed(overshoot: 'join' | 'hide') {
+function seed(overshoot: 'destroy' | 'hide') {
   const store = new Store();
   store.registerNode(
     createNode({
@@ -117,11 +144,11 @@ function dragToFloor(store: Store): void {
   });
 }
 
-describe('commitJoin', () => {
-  it('destroys the victim of a join', () => {
-    const store = seed('join');
+describe('commitBury', () => {
+  it('destroys the victim of a bury', () => {
+    const store = seed('destroy');
     const aff = seamAfter(store, 'side');
-    commitJoin(store, aff, asNodeId('side'));
+    commitBury(store, aff, asNodeId('side'));
     expect(store.getNode(asNodeId('side'))).toBeUndefined();
   });
 
@@ -131,7 +158,7 @@ describe('commitJoin', () => {
     const before = captureSeam(store, aff);
     dragToFloor(store);
     expect(widths(store).side).toBe(80);
-    commitJoin(store, aff, asNodeId('side'), before);
+    commitBury(store, aff, asNodeId('side'), before);
     expect(store.getNode(asNodeId('side'))?.lifecycle.state).toBe('hidden');
     expect(widths(store)).toEqual({ editor: 300, panel: 300 });
   });
@@ -141,7 +168,7 @@ describe('commitJoin', () => {
     const aff = seamAfter(store, 'side');
     const before = captureSeam(store, aff);
     dragToFloor(store);
-    commitJoin(store, aff, asNodeId('side'), before);
+    commitBury(store, aff, asNodeId('side'), before);
     store.showNode(asNodeId('side'));
     expect(widths(store)).toEqual({ side: 200, editor: 200, panel: 200 });
   });
@@ -150,7 +177,7 @@ describe('commitJoin', () => {
     const store = seed('hide');
     const aff = seamAfter(store, 'side');
     dragToFloor(store);
-    commitJoin(store, aff, asNodeId('side'));
+    commitBury(store, aff, asNodeId('side'));
     store.showNode(asNodeId('side'));
     expect(widths(store).side).toBe(80);
   });
@@ -162,14 +189,14 @@ describe('commitJoin', () => {
     dragToFloor(store);
     let begins = 0;
     store.events.on('transaction.begin', () => begins++);
-    commitJoin(store, aff, asNodeId('side'), before);
+    commitBury(store, aff, asNodeId('side'), before);
     expect(begins).toBe(1);
   });
 
   it('hides a destroy-locked pane, since nothing is destroyed', () => {
     const store = seed('hide');
     store.setLock(asNodeId('side'), { destroy: true });
-    commitJoin(store, seamAfter(store, 'side'), asNodeId('side'));
+    commitBury(store, seamAfter(store, 'side'), asNodeId('side'));
     expect(store.getNode(asNodeId('side'))?.lifecycle.state).toBe('hidden');
   });
 });
@@ -248,9 +275,9 @@ describe('strip reveal handles', () => {
     expect(handle?.rect).toEqual({ x: 0, y: placements.get('c')!.y + 2, z: 0, w: 600, h: 4 });
   });
 
-  it('uses the join threshold', () => {
+  it('uses the bury threshold', () => {
     const [handle] = handles(
-      withHidden([{ id: 'b', before: 1 }], { joinThreshold: 40 }).affordances,
+      withHidden([{ id: 'b', before: 1 }], { buryThreshold: 40 }).affordances,
     );
     expect(handle?.reveal?.threshold).toBe(40);
   });
@@ -275,7 +302,7 @@ describe('strip reveal handles', () => {
   });
 
   it.each([
-    ['a join that destroys', { overshoot: 'join' }],
+    ['a bury that destroys', { overshoot: 'destroy' }],
     ['no overshoot at all', { overshoot: undefined }],
     ['redistribute', { resizeMode: 'redistribute' }],
     ['resizable: false', { resizable: false }],
@@ -298,7 +325,7 @@ describe('a hidden pane in a store', () => {
     const aff = seamAfter(store, 'side');
     const before = captureSeam(store, aff);
     dragToFloor(store);
-    commitJoin(store, aff, asNodeId('side'), before);
+    commitBury(store, aff, asNodeId('side'), before);
     const [handle] = handles(layoutOf(store).affordances);
     commitReveal(store, handle!);
     expect(store.getNode(asNodeId('side'))?.lifecycle.state).toBe('visible');

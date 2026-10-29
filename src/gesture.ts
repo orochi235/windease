@@ -6,7 +6,7 @@ export type GestureEnd = 'commit' | 'cancel';
 /** The rules one kind of gesture runs by. `T` is what a release would act on:
  *  a drop target, the node a seam would close. */
 export interface GestureOptions<T> {
-  /** Names the gesture in traces: `drag w1`, `join split:0`. */
+  /** Names the gesture in traces: `drag w1`, `seam split:0`. */
   name: string;
   /** The lock check on starting at all: a reason to refuse, or null. */
   refuse?: () => string | null;

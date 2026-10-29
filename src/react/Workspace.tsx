@@ -24,6 +24,7 @@ import {
   type WorkspaceLayout,
   type WorkspaceSeam,
 } from '../index.js';
+import { buryArmed } from './affordance-hit.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { useNode } from './hooks.js';
 import { useStore } from './Provider.js';
@@ -56,6 +57,8 @@ export interface WorkspaceProps {
   /** Main-axis thickness of a seam. Default 4. */
   seamSize?: number;
   /** Pixels past a floor before a seam with `overshoot: 'hide'` arms. Default 24. */
+  buryThreshold?: number;
+  /** @deprecated Renamed `buryThreshold`; removed in 3.0. */
   joinThreshold?: number;
   className?: string;
   style?: CSSProperties;
@@ -125,6 +128,7 @@ export function Workspace({
   affordanceHitPad = 4,
   affordanceKeyStep = 8,
   seamSize,
+  buryThreshold: buryThresholdProp,
   joinThreshold,
   className,
   style,
@@ -157,6 +161,7 @@ export function Workspace({
     () => arrangementKey(store, watched),
   );
 
+  const buryThreshold = buryThresholdProp ?? joinThreshold;
   const input: WorkspaceInput = {
     store,
     roots,
@@ -164,7 +169,7 @@ export function Workspace({
     rects,
     ...(zoom !== undefined ? { zoom } : {}),
     ...(seamSize !== undefined ? { seamSize } : {}),
-    ...(joinThreshold !== undefined ? { joinThreshold } : {}),
+    ...(buryThreshold !== undefined ? { buryThreshold } : {}),
   };
   // A drag event must resolve against what is on screen now, not against the
   // render that created the handler.
@@ -174,7 +179,7 @@ export function Workspace({
   // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for the store fields the arrangement reads.
   const layout = useMemo(
     () => arrangeWorkspace(latest.current),
-    [store, roots, seams, rects, zoom, seamSize, joinThreshold, key],
+    [store, roots, seams, rects, zoom, seamSize, buryThreshold, key],
   );
 
   const remeasure = useCallback(() => {
@@ -225,7 +230,7 @@ export function Workspace({
               keyStep={affordanceKeyStep}
               tabStop
               onActiveChange={onActiveChange}
-              onJoinArmChange={setArmedId}
+              onBuryArmChange={setArmedId}
             />
           </div>
         </ResizeGestureContext.Provider>
@@ -287,7 +292,7 @@ export function WorkspaceRoot({ id, className, style, children }: WorkspaceRootP
       data-workspace-root={id}
       data-workspace-state={state}
       data-workspace-fill={fills || undefined}
-      data-join-armed={shared.armedId === id ? 'true' : undefined}
+      {...buryArmed(shared.armedId === id)}
     >
       {children}
     </div>

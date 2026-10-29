@@ -1,15 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import type { NodeId } from '../node.js';
-import { DEFAULT_JOIN_THRESHOLD, trackJoin, trackReveal } from './seam-join.js';
+import {
+  buryOf,
+  commitBury,
+  commitJoin,
+  DEFAULT_BURY_THRESHOLD,
+  DEFAULT_JOIN_THRESHOLD,
+  trackBury,
+  trackJoin,
+  trackReveal,
+} from './seam-bury.js';
 
-const JOIN = { atMin: 'a' as NodeId, atMax: 'b' as NodeId, threshold: 24 };
+const BURY = { atMin: 'a' as NodeId, atMax: 'b' as NodeId, threshold: 24 };
 const yes = () => true;
 const no = () => false;
 
 /** Defaults an unpinned seam, so each test names only the ends it cares about. */
-function track(input: Partial<Parameters<typeof trackJoin>[0]>) {
-  return trackJoin({
-    join: JOIN,
+function track(input: Partial<Parameters<typeof trackBury>[0]>) {
+  return trackBury({
+    bury: BURY,
     overshoot: 0,
     delta: 0,
     atMin: false,
@@ -19,7 +28,7 @@ function track(input: Partial<Parameters<typeof trackJoin>[0]>) {
   });
 }
 
-describe('trackJoin — an unpinned seam is resizing, not overshooting', () => {
+describe('trackBury — an unpinned seam is resizing, not overshooting', () => {
   it('does not arm on a single fast move while the seam still has room', () => {
     expect(track({ overshoot: 0, delta: 200 })).toEqual({ armed: false, overshoot: 0 });
   });
@@ -34,7 +43,7 @@ describe('trackJoin — an unpinned seam is resizing, not overshooting', () => {
   });
 });
 
-describe('trackJoin — accumulation', () => {
+describe('trackBury — accumulation', () => {
   it('accumulates a move made against the max clamp, naming atMax', () => {
     expect(track({ overshoot: 0, delta: 30, atMax: true })).toEqual({
       armed: true,
@@ -84,7 +93,7 @@ describe('trackJoin — accumulation', () => {
 
 // A strip squeezed below the sum of its floors reports both ends pinned at
 // rest, with nothing having visibly stopped for the user.
-describe('trackJoin — a seam with no range at all', () => {
+describe('trackBury — a seam with no range at all', () => {
   it('does not accumulate travel toward max', () => {
     expect(track({ overshoot: 0, delta: 30, atMin: true, atMax: true })).toEqual({
       armed: false,
@@ -100,7 +109,7 @@ describe('trackJoin — a seam with no range at all', () => {
   });
 });
 
-describe('trackJoin — unpinned travel never adds to the push', () => {
+describe('trackBury — unpinned travel never adds to the push', () => {
   it('does not grow overshoot when the seam is free again', () => {
     expect(track({ overshoot: 5, delta: 20 })).toEqual({
       armed: false,
@@ -126,7 +135,7 @@ describe('trackJoin — unpinned travel never adds to the push', () => {
   });
 });
 
-describe('trackJoin — unwinding', () => {
+describe('trackBury — unwinding', () => {
   it('gives back overshoot once the seam moves again, and disarms', () => {
     expect(track({ overshoot: 30, delta: -10, atMax: true })).toEqual({
       armed: false,
@@ -140,7 +149,7 @@ describe('trackJoin — unwinding', () => {
   });
 });
 
-describe('trackJoin — the candidate', () => {
+describe('trackBury — the candidate', () => {
   it('names the candidate but refuses to arm when it cannot be destroyed', () => {
     expect(track({ overshoot: 0, delta: 30, atMax: true, canDestroy: no })).toEqual({
       armed: false,
@@ -151,7 +160,7 @@ describe('trackJoin — the candidate', () => {
 
   it('has no candidate in a direction the strategy did not declare', () => {
     const oneWay = { atMax: 'b' as NodeId, threshold: 24 };
-    expect(track({ join: oneWay, overshoot: 0, delta: -30, atMin: true })).toEqual({
+    expect(track({ bury: oneWay, overshoot: 0, delta: -30, atMin: true })).toEqual({
       armed: false,
       overshoot: -30,
     });
@@ -160,7 +169,7 @@ describe('trackJoin — the candidate', () => {
   it('does not consult canDestroy when there is no candidate', () => {
     let asked = 0;
     track({
-      join: { threshold: 24 },
+      bury: { threshold: 24 },
       overshoot: 0,
       delta: 30,
       atMax: true,
@@ -187,9 +196,27 @@ describe('trackJoin — the candidate', () => {
   });
 });
 
-describe('trackJoin — constants', () => {
+describe('trackBury — constants', () => {
   it('publishes the default threshold strategies fall back to', () => {
-    expect(DEFAULT_JOIN_THRESHOLD).toBe(24);
+    expect(DEFAULT_BURY_THRESHOLD).toBe(24);
+  });
+});
+
+describe('the names it had before 2.3', () => {
+  it('runs trackJoin as trackBury, taking the bury as join', () => {
+    const input = { overshoot: 0, delta: 30, atMin: false, atMax: true, canDestroy: yes };
+    expect(trackJoin({ ...input, join: BURY })).toEqual(trackBury({ ...input, bury: BURY }));
+  });
+
+  it('keeps commitJoin and the threshold', () => {
+    expect(commitJoin).toBe(commitBury);
+    expect(DEFAULT_JOIN_THRESHOLD).toBe(DEFAULT_BURY_THRESHOLD);
+  });
+
+  it('reads a bury from a strategy that still emits join', () => {
+    const rect = { x: 0, y: 0, z: 0, w: 4, h: 100 };
+    expect(buryOf({ id: 's', kind: 'resize-x', rect, join: BURY })).toBe(BURY);
+    expect(buryOf({ id: 's', kind: 'resize-x', rect, bury: BURY })).toBe(BURY);
   });
 });
 

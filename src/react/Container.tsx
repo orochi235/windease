@@ -24,6 +24,7 @@ import {
 
 export type { DropIntentContext } from './dnd/useDropIntentTarget.js';
 
+import { buryArmed } from './affordance-hit.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { type DropIntentContext, useDropIntentTarget } from './dnd/useDropIntentTarget.js';
@@ -380,7 +381,7 @@ function StoreContainer({
   // suppress the settle transition (cursor IS the motion) AND expose the id
   // to overlay/affordance render functions.
   const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
-  const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
+  const [buryArmedId, setBuryArmedId] = useState<NodeId | null>(null);
   const reducedMotion =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ancestorResizing = useContext(ResizeGestureContext);
@@ -590,7 +591,7 @@ function StoreContainer({
                 style={{ ...childStyle, ...reorderSource(id).style }}
                 onClick={raiseOnClick?.(id)}
                 data-node={id}
-                data-join-armed={joinArmedId === id ? 'true' : undefined}
+                {...buryArmed(buryArmedId === id)}
                 tabIndex={rovingId === id ? 0 : -1}
                 role="group"
                 aria-label={accessibleName(store, id)}
@@ -618,7 +619,7 @@ function StoreContainer({
             keyStep={affordanceKeyStep}
             tabStop={affordanceTabStops}
             onActiveChange={setDraggingAffordanceId}
-            onJoinArmChange={setJoinArmedId}
+            onBuryArmChange={setBuryArmedId}
             scroll={layoutScroll}
             placements={layout.placements}
             sticky={layout.sticky}

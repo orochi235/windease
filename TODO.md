@@ -127,7 +127,7 @@ Still open:
   transaction unless the store call it makes is already one undo step. While
   armed, `state().message` is the line a live region reads. Each pipeline keeps
   its own reducer for deciding what to offer: `DragEngine`'s hit-test and accept
-  checks, `trackJoin`, `trackReveal`. `DragEngine` runs every pane drag through
+  checks, `trackBury`, `trackReveal`. `DragEngine` runs every pane drag through
   a `Gesture`. `AffordanceHandle` and `RevealHandle` bind one with `useGesture`
   (`src/react/useGesture.ts`). `cancelOnEscape` (`src/gesture-dom.ts`) is the
   window Escape binding all three use. The window `pointerup` safety net is
@@ -229,10 +229,10 @@ differs — which children, which config, which state, and how a point moves.
   why a drop was refused, and `dnd` is off by default.
 - **Four React tests print "Cannot update a component (`ZoneWithLayout`) while
   rendering a different component (`Panel`)"** (one names `PresetShell`), and
-  still pass: the controlled-placement hide in `seam-join.test.tsx`,
+  still pass: the controlled-placement hide in `seam-bury.test.tsx`,
   `palette-dock.test.tsx`, `presets-affordances.test.tsx`, and the lock rerender
   in `lock.test.tsx`. All four printed it when `src/react` ran as a whole on the
-  fleet at `c84beef`. Run alone, `seam-join.test.tsx` and
+  fleet at `c84beef`. Run alone, `seam-bury.test.tsx` and
   `palette-dock.test.tsx` print nothing. Something in `Panel`'s render sets its
   parent's state.
 - `applyReconfigure` merge-patches the container config, so a key from the
@@ -258,7 +258,8 @@ A third consumer is the thing that would earn a new one.
 
 Filed as one question — "should adjacent nodes be able to merge?" — but it was
 three unrelated features sharing a verb, and separating them was the point.
-Coalescing shipped as `setAutoUnsplit` and seam-join as `joinOnOvershoot`;
+Coalescing shipped as `setAutoUnsplit` and seam join as `joinOnOvershoot`, since
+renamed burying, `overshoot: 'destroy'` (2026-10-28);
 tab-stacking is what is left.
 
 - **Tab-stacking two panes into one — shipped.** `<Container stackOnDrop>`
@@ -268,11 +269,11 @@ tab-stacking is what is left.
   Documented in the README's Drag and drop section; `src/dnd/dropIntent.ts`,
   `src/layout/stack.ts` and `e2e/tab-stack.spec.ts`.
 
-- **Joining panes by dragging a seam past a neighbor's floor — shipped.** A
-  strip opts in with `joinOnOvershoot`; overshooting a floor by `joinThreshold`
+- **Burying panes by dragging a seam past a neighbor's floor — shipped.** A
+  strip opts in with `overshoot: 'destroy'`; overshooting a floor by `buryThreshold`
   arms the gesture and releasing there closes the pane, with `lock.destroy` on
   the pane or any descendant refusing to arm. Documented in the README's Resize
-  section; `src/layout/seam-join.ts` and `e2e/seam-join.spec.ts`.
+  section; `src/layout/seam-bury.ts` and `e2e/seam-bury.spec.ts`.
 
 All three have shipped. Drop-on-edge is what the intent hit-test was built for.
 

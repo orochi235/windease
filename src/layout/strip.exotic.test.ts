@@ -14,7 +14,7 @@ import {
 import { type Preset, type PresetNode, presetToStore, presetTree } from '../nuts/preset.js';
 import { PATHOLOGICAL, PRESETS } from '../nuts/strip-scenarios.js';
 import type { Store } from '../store.js';
-import { captureSeam, commitJoin, trackJoin } from './seam-join.js';
+import { captureSeam, commitBury, trackBury } from './seam-bury.js';
 import { stripStrategy } from './strip.js';
 
 interface Cfg {
@@ -24,9 +24,8 @@ interface Cfg {
   fill?: boolean;
   resizable?: boolean;
   resizeMode?: 'redistribute' | 'neighbor';
-  joinOnOvershoot?: boolean;
-  joinThreshold?: number;
-  overshoot?: 'join' | 'hide';
+  buryThreshold?: number;
+  overshoot?: 'destroy' | 'hide';
   overflowMode?: 'squeeze' | 'scroll' | 'unplaced';
   justify?: 'start' | 'center' | 'end' | 'between';
 }
@@ -206,17 +205,17 @@ function seamShape(s: Scenario, r: LayoutResult<string>, placed: LayoutItem[]): 
     if (JSON.stringify(a.affects) !== JSON.stringify(affects)) {
       bad.push(`${a.id} affects ${JSON.stringify(a.affects)}`);
     }
-    const mode = cfg.overshoot ?? (cfg.joinOnOvershoot ? 'join' : undefined);
-    // Under 'hide', a pane locked against hiding is left out of its end of the join.
+    const mode = cfg.overshoot;
+    // Under 'hide', a pane locked against hiding is left out of its end of the bury.
     const end = (item: LayoutItem | undefined) =>
       mode === 'hide' && item?.lock?.hide ? undefined : item?.id;
-    const joins = neighbor && mode !== undefined && (end(pane) ?? end(next)) !== undefined;
-    if (joins !== !!a.join) bad.push(`${a.id} join ${JSON.stringify(a.join)}`);
-    if (a.join && (a.join.action ?? 'join') !== mode) {
-      bad.push(`${a.id} join action ${a.join.action}, expected ${mode}`);
+    const buries = neighbor && mode !== undefined && (end(pane) ?? end(next)) !== undefined;
+    if (buries !== !!a.bury) bad.push(`${a.id} bury ${JSON.stringify(a.bury)}`);
+    if (a.bury && (a.bury.action ?? 'destroy') !== mode) {
+      bad.push(`${a.id} bury action ${a.bury.action}, expected ${mode}`);
     }
-    if (a.join && (a.join.atMin !== end(pane) || a.join.atMax !== end(next))) {
-      bad.push(`${a.id} join names ${a.join.atMin}/${a.join.atMax}`);
+    if (a.bury && (a.bury.atMin !== end(pane) || a.bury.atMax !== end(next))) {
+      bad.push(`${a.id} bury names ${a.bury.atMin}/${a.bury.atMax}`);
     }
   });
   return bad;
@@ -448,13 +447,13 @@ describe('seam drags on real-software layouts', () => {
   }
 });
 
-interface JoinRun {
+interface BuryRun {
   armedAt: number | undefined;
   candidate: string | undefined;
   extents: number[];
 }
 
-/** Pushes one seam `steps` moves of `step` px, feeding `trackJoin` the bounds the
+/** Pushes one seam `steps` moves of `step` px, feeding `trackBury` the bounds the
  *  layout advertised before each move — the order the React layer uses. */
 function push(
   preset: Preset,
@@ -463,7 +462,7 @@ function push(
   step: number,
   steps: number,
   canDestroy: (id: string) => boolean = () => true,
-): JoinRun {
+): BuryRun {
   const store = presetToStore(preset);
   const size = layoutTree(preset).find((l) =>
     containerId === preset.mechanics.id
@@ -476,8 +475,8 @@ function push(
   const extents: number[] = [];
   for (let i = 0; i < steps; i++) {
     const { seam, after, s } = dragSeam(store, containerId, size, seamId, step);
-    const state = trackJoin({
-      join: seam.join!,
+    const state = trackBury({
+      bury: seam.bury!,
       overshoot,
       delta: step,
       atMin: seam.bounds!.atMin,
@@ -489,13 +488,13 @@ function push(
       armedAt = i;
       candidate = String(state.candidateId);
     }
-    const victim = step > 0 ? seam.join!.atMax! : seam.join!.atMin!;
+    const victim = step > 0 ? seam.bury!.atMax! : seam.bury!.atMin!;
     extents.push(mainOf(after.placements.get(String(victim))!, cfgOf(s).axis ?? 'x'));
   }
   return { armedAt, candidate, extents };
 }
 
-describe('seam joins on real-software layouts', () => {
+describe('seam buries on real-software layouts', () => {
   const blender = PRESETS.find((p) => p.id === 'blender-layout-workspace')!;
   const bloomberg = PRESETS.find((p) => p.id === 'bloomberg-four-panel')!;
   const recursive = PRESETS.find((p) => p.id === 'blender-recursive-split')!;
@@ -697,7 +696,7 @@ describe("VS Code: a sidebar dragged shut hides (overshoot: 'hide')", () => {
     return runScenario(stripStrategy, { ...s, items: s.items.filter((it) => !hidden.has(it.id)) });
   };
 
-  /** Pushes `seamId` by `step` until the join arms or `steps` run out, then releases. */
+  /** Pushes `seamId` by `step` until the bury arms or `steps` run out, then releases. */
   function pushAndRelease(store: Store, seamId: string, step: number, steps: number) {
     const first = shown(store).affordances.find((a) => a.id === seamId)!;
     const before = captureSeam(store, first);
@@ -705,8 +704,8 @@ describe("VS Code: a sidebar dragged shut hides (overshoot: 'hide')", () => {
     let armed: string | undefined;
     for (let i = 0; i < steps && armed === undefined; i++) {
       const { seam } = dragSeam(store, 'vscode-hinted', size, seamId, step);
-      const state = trackJoin({
-        join: seam.join!,
+      const state = trackBury({
+        bury: seam.bury!,
         overshoot,
         delta: step,
         atMin: seam.bounds!.atMin,
@@ -716,7 +715,7 @@ describe("VS Code: a sidebar dragged shut hides (overshoot: 'hide')", () => {
       overshoot = state.overshoot;
       if (state.armed) armed = String(state.candidateId);
     }
-    if (armed) commitJoin(store, first, asNodeId(armed), before);
+    if (armed) commitBury(store, first, asNodeId(armed), before);
     return armed;
   }
 

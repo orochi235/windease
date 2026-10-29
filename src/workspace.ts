@@ -1,5 +1,5 @@
-import { DEFAULT_JOIN_THRESHOLD, SEAM_SIZE } from './layout/seam-join.js';
-import type { Affordance, AffordanceJoin, LayoutEvent, Rect } from './layout-types.js';
+import { DEFAULT_BURY_THRESHOLD, SEAM_SIZE } from './layout/seam-bury.js';
+import type { Affordance, AffordanceBury, LayoutEvent, Rect } from './layout-types.js';
 import type { Node, NodeId } from './node.js';
 import type { Store } from './store.js';
 import { trace } from './trace.js';
@@ -45,6 +45,8 @@ export interface WorkspaceInput {
   /** Main-axis thickness of a seam. Defaults to 4. */
   seamSize?: number;
   /** Pixels past a floor before a hide arms. Defaults to 24. */
+  buryThreshold?: number;
+  /** @deprecated Renamed `buryThreshold`; removed in 3.0. */
   joinThreshold?: number;
 }
 
@@ -164,21 +166,21 @@ function resolveSeam(
   return { seam, rect, total, pos, min, max };
 }
 
-function joinFor(input: WorkspaceInput, seam: WorkspaceSeam): AffordanceJoin | undefined {
+const thresholdOf = (input: WorkspaceInput) =>
+  input.buryThreshold ?? input.joinThreshold ?? DEFAULT_BURY_THRESHOLD;
+
+function buryFor(input: WorkspaceInput, seam: WorkspaceSeam): AffordanceBury | undefined {
   if (seam.overshoot !== 'hide') return undefined;
-  const join: AffordanceJoin = {
-    threshold: input.joinThreshold ?? DEFAULT_JOIN_THRESHOLD,
-    action: 'hide',
-  };
-  if (!input.store.isLocked(seam.before, 'hide')) join.atMin = seam.before;
-  if (!input.store.isLocked(seam.after, 'hide')) join.atMax = seam.after;
-  return join.atMin === undefined && join.atMax === undefined ? undefined : join;
+  const bury: AffordanceBury = { threshold: thresholdOf(input), action: 'hide' };
+  if (!input.store.isLocked(seam.before, 'hide')) bury.atMin = seam.before;
+  if (!input.store.isLocked(seam.after, 'hide')) bury.atMax = seam.after;
+  return bury.atMin === undefined && bury.atMax === undefined ? undefined : bury;
 }
 
 function seamAffordance(input: WorkspaceInput, g: SeamGeometry): Affordance {
   const { seam } = g;
   const x = seam.axis === 'x';
-  const join = joinFor(input, seam);
+  const bury = buryFor(input, seam);
   return {
     id: seamId(seam),
     kind: x ? 'resize-x' : 'resize-y',
@@ -194,7 +196,7 @@ function seamAffordance(input: WorkspaceInput, g: SeamGeometry): Affordance {
       atMin: g.pos <= g.min + EPSILON,
       atMax: g.pos >= g.max - EPSILON,
     },
-    ...(join ? { join } : {}),
+    ...(bury ? { bury, join: bury } : {}),
   };
 }
 
@@ -223,7 +225,7 @@ function revealAffordance(input: WorkspaceInput, seam: WorkspaceSeam): Affordanc
     affects: [hiddenId],
     reveal: {
       id: hiddenId,
-      threshold: input.joinThreshold ?? DEFAULT_JOIN_THRESHOLD,
+      threshold: thresholdOf(input),
       direction: beforeHidden ? 1 : -1,
     },
   };

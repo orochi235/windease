@@ -82,3 +82,9 @@ export function hitArea(affordance: Affordance, hitPad: number, toward?: 1 | -1)
   };
   return { padX, padY, outerStyle, innerStyle };
 }
+
+/** Marks an element armed to be buried. `data-join-armed` is the name it had
+ *  before 2.3, still set so a consumer's styles keep matching until 3.0. */
+export function buryArmed(on: boolean): Record<string, string> {
+  return on ? { 'data-bury-armed': 'true', 'data-join-armed': 'true' } : {};
+}

@@ -61,7 +61,7 @@
   outline-offset: 1px;
 }
 
-.ws-shell .windease-workspace-root[data-join-armed] {
+.ws-shell .windease-workspace-root[data-bury-armed] {
   color: #dc2626;
 }
 

@@ -1,20 +1,26 @@
-import type { Affordance, AffordanceJoin, AffordanceReveal } from '../layout-types.js';
+import type { Affordance, AffordanceBury, AffordanceReveal } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
 
 /** Main-axis pixels past the clamp before a seam arms, when a strategy names
  *  no threshold of its own. */
-export const DEFAULT_JOIN_THRESHOLD = 24;
+export const DEFAULT_BURY_THRESHOLD = 24;
 
 /** Main-axis thickness of a seam, and of the handle over a hidden pane. */
 export const SEAM_SIZE = 4;
 
-/** Input to {@link trackJoin}: the seam's current overshoot and the rules for
+/** The bury an affordance declares, read from the `join` key it was called
+ *  until 3.0 when a custom strategy still emits that. */
+export function buryOf(affordance: Affordance): AffordanceBury | undefined {
+  return affordance.bury ?? affordance.join;
+}
+
+/** Input to {@link trackBury}: the seam's current overshoot and the rules for
  *  whether the node it would destroy may be destroyed.
  *  @group Layout */
-export interface TrackJoinInput {
-  join: AffordanceJoin;
+export interface TrackBuryInput {
+  bury: AffordanceBury;
   /** Overshoot accumulated so far this gesture; 0 when it began. */
   overshoot: number;
   /** Main-axis travel this move asked for. */
@@ -30,9 +36,9 @@ export interface TrackJoinInput {
 }
 
 /** Whether the seam is armed to destroy a node, and which one — what a host
- *  needs to preview the join before the pointer is released.
+ *  needs to preview the bury before the pointer is released.
  *  @group Layout */
-export interface JoinState {
+export interface BuryState {
   armed: boolean;
   /**
    * The node at the end of the range being pushed against. A candidate, not a
@@ -56,7 +62,7 @@ export interface JoinState {
  *
  * @group Layout
  */
-export function trackJoin(input: TrackJoinInput): JoinState {
+export function trackBury(input: TrackBuryInput): BuryState {
   const { overshoot, delta } = input;
   // Pinned at both ends is the container being too small for its panes' floors,
   // not a push against one, so no move in either direction is overshoot.
@@ -74,9 +80,9 @@ export function trackJoin(input: TrackJoinInput): JoinState {
     else if (Math.abs(unwound) < Math.abs(overshoot)) next = unwound;
     else next = overshoot;
   }
-  const candidateId = next > 0 ? input.join.atMax : next < 0 ? input.join.atMin : undefined;
+  const candidateId = next > 0 ? input.bury.atMax : next < 0 ? input.bury.atMin : undefined;
   if (candidateId === undefined) return { armed: false, overshoot: next };
-  const armed = Math.abs(next) > input.join.threshold && input.canDestroy(candidateId);
+  const armed = Math.abs(next) > input.bury.threshold && input.canDestroy(candidateId);
   return { armed, candidateId, overshoot: next };
 }
 
@@ -101,7 +107,7 @@ export interface RevealState {
 /**
  * Whether a handle over a hidden pane has been dragged far enough the way the
  * pane opens to show it on release. A reducer over one move at a time, like
- * {@link trackJoin}.
+ * {@link trackBury}.
  *
  * @group Layout
  */
@@ -120,7 +126,7 @@ const SIZE_KEYS = ['size', 'share'] as const;
 
 /**
  * Record the sizes of every pane in the row a seam resizes, before the gesture
- * writes any. {@link commitJoin} restores them when it hides a pane, so the row
+ * writes any. {@link commitBury} restores them when it hides a pane, so the row
  * comes back as it was when that pane is shown again. Take one when the gesture
  * begins: on pointer down, or on the first key press of a keyboard gesture.
  *
@@ -151,7 +157,7 @@ export function captureSeam(store: Store, affordance: Affordance): SeamCapture {
 }
 
 /**
- * Carry out an armed seam join on `victimId`, in one transaction. A join whose
+ * Carry out an armed bury on `victimId`, in one transaction. A bury whose
  * `action` is `'hide'` puts every size `before` recorded back, then hides the
  * victim; `showNode` later returns it at the size it had when the gesture
  * began. Otherwise the victim is unregistered, as `destroyBlockedBy` allowed.
@@ -162,7 +168,7 @@ export function captureSeam(store: Store, affordance: Affordance): SeamCapture {
  *
  * @group Layout
  */
-export function commitJoin(
+export function commitBury(
   store: Store,
   affordance: Affordance,
   victimId: NodeId,
@@ -170,8 +176,8 @@ export function commitJoin(
   write: (id: NodeId, patch: Record<string, unknown>) => void = (id, patch) =>
     store.patchPlacement(id, patch),
 ): void {
-  if (affordance.join?.action !== 'hide') {
-    trace('store', `join: ${affordance.id} destroys ${victimId}`);
+  if (buryOf(affordance)?.action !== 'hide') {
+    trace('store', `bury: ${affordance.id} destroys ${victimId}`);
     store.unregisterNode(victimId);
     return;
   }
@@ -190,7 +196,7 @@ export function commitJoin(
       }
       if (Object.keys(patch).length > 0) write(id, patch);
     }
-    trace('store', `join: ${affordance.id} hides ${victimId}`);
+    trace('store', `bury: ${affordance.id} hides ${victimId}`);
     store.hideNode(victimId);
   }, 'seam-hide');
 }
@@ -210,3 +216,16 @@ export function commitReveal(store: Store, affordance: Affordance): void {
     store.showNode(id);
   }, 'seam-show');
 }
+
+/** @deprecated Renamed {@link DEFAULT_BURY_THRESHOLD}; removed in 3.0. */
+export const DEFAULT_JOIN_THRESHOLD = DEFAULT_BURY_THRESHOLD;
+/** @deprecated Renamed {@link BuryState}; removed in 3.0. */
+export type JoinState = BuryState;
+/** @deprecated Renamed {@link TrackBuryInput}, whose `join` is now `bury`; removed in 3.0. */
+export type TrackJoinInput = Omit<TrackBuryInput, 'bury'> & { join: AffordanceBury };
+/** @deprecated Renamed {@link trackBury}; removed in 3.0. */
+export function trackJoin({ join, ...rest }: TrackJoinInput): BuryState {
+  return trackBury({ ...rest, bury: join });
+}
+/** @deprecated Renamed {@link commitBury}; removed in 3.0. */
+export const commitJoin = commitBury;

@@ -100,7 +100,7 @@ export interface LayoutItem {
    */
   meta?: Record<string, unknown>;
   /** The node's `lock`, projected by `nodeToLayoutItem` when any axis is set.
-   *  `stripStrategy` reads `hide` to keep a pane out of an `overshoot: 'hide'` join. */
+   *  `stripStrategy` reads `hide` to keep a pane out of an `overshoot: 'hide'` bury. */
   lock?: LockSet;
   /**
    * Set when this item is an empty container the store's `collapsePolicy`
@@ -152,14 +152,14 @@ export type BuiltinAffordanceKind =
   | 'click';
 
 /**
- * Who a seam destroys (or hides) when the gesture is pushed past each end of its range.
+ * Who a seam buries, destroying or hiding them, when the gesture is pushed past each end of its range.
  * A strategy that omits this emits a seam that clamps and nothing more.
  *
  * `atMax` is the node destroyed by pushing toward `bounds.valueMax` (the
  * neighbor's floor breaks); `atMin` the one destroyed pushing the other way
  * (the dragged pane's own floor breaks). Either may be absent.
  */
-export interface AffordanceJoin {
+export interface AffordanceBury {
   atMin?: NodeId | string;
   atMax?: NodeId | string;
   /** Main-axis pixels past the clamp before the gesture arms. */
@@ -168,10 +168,13 @@ export interface AffordanceJoin {
    * What releasing the armed gesture does to the victim. `'destroy'`, the
    * default, unregisters it; `'hide'` hides it, restoring the row's sizes to
    * where the gesture found them so `showNode` brings the pane back as it was.
-   * See `commitJoin`.
+   * See `commitBury`.
    */
   action?: 'destroy' | 'hide';
 }
+
+/** @deprecated Renamed {@link AffordanceBury}; removed in 3.0. */
+export type AffordanceJoin = AffordanceBury;
 
 /**
  * The hidden node a handle brings back. A strategy emits one over the slot a
@@ -292,10 +295,13 @@ export interface Affordance<TMeta = unknown> {
    */
   sticky?: StickyInset;
   /**
-   * Present when overshooting this affordance destroys a node. The host reads
-   * it through `trackJoin`; absent means the seam only ever resizes.
+   * Present when overshooting this affordance buries a node: destroys or hides
+   * it. The host reads it through `trackBury`; absent means the seam only ever
+   * resizes.
    */
-  join?: AffordanceJoin;
+  bury?: AffordanceBury;
+  /** @deprecated Renamed `bury`, and built-in strategies set both until 3.0. */
+  join?: AffordanceBury;
   /** Present on a handle that shows a hidden node rather than resizing one. */
   reveal?: AffordanceReveal;
 }

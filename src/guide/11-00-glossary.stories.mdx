@@ -24,6 +24,11 @@ separate from `meta` so churn does not touch it. ([7.2](/?story=guide--07-custom
 strategy emits alongside its placements: a resize edge, a gutter, a click
 target. Described in layout coordinates; the host renders and binds it. ([4.1](/?story=guide--04-resize--4-01-affordances-and-seams))
 
+**bury** <span className="gd-tag">layout</span> — a seam gesture pushed past a
+pane's floor that ends in destroying or hiding that pane rather than clamping.
+Off by default, because a destroy has no confirmation step. Formerly *join*.
+([4.3](/?story=guide--04-resize--4-03-seam-bury))
+
 **capability** <span className="gd-tag">model</span> — an optional field granting
 a node an ability: `container`, `membership`, `focus`. Decided at `createNode`
 and fixed for the node's life. ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities), [7.1](/?story=guide--07-customization--7-01-the-capabilities-in-full))
@@ -80,10 +85,6 @@ rest — strip clamps to `maxSize`, grid never looks at it — and only on an ax
 that strategy actually sizes, so `{ h: 'content' }` does nothing in a horizontal
 strip. A hint that appears to have no effect usually means this strategy does
 not read it, rather than that the value is wrong. ([2.6](/?story=guide--02-layout--2-06-sizing-a-pane-to-its-contents), [7.2](/?story=guide--07-customization--7-02-where-state-goes))
-
-**join** <span className="gd-tag">layout</span> — a seam gesture that ends in
-destroying a pane rather than clamping. Off by default, because it deletes with
-no confirmation step. ([4.3](/?story=guide--04-resize--4-03-seam-join))
 
 **kind** <span className="gd-tag">model</span> — a free-form label. The core
 stores it and never reads it; React dispatches chrome on it. **Not a type.** ([1.4](/?story=guide--01-tour--1-04-one-shape-four-capabilities))

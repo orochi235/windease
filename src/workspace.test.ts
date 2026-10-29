@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createNode } from './constructors.js';
-import { captureSeam, commitJoin, commitReveal } from './layout/seam-join.js';
+import { captureSeam, commitBury, commitReveal } from './layout/seam-bury.js';
 import type { Rect } from './layout-types.js';
 import { asNodeId, type NodeHints, type NodeId } from './node.js';
 import { deserialize, serialize } from './snapshot.js';
@@ -251,13 +251,13 @@ describe('arrangeWorkspace — sizes', () => {
 describe('arrangeWorkspace — hiding a root', () => {
   const HIDE: WorkspaceSeam = { ...SIDE_SEAM, overshoot: 'hide' };
 
-  it('declares no join unless the seam asks for one', () => {
-    expect(arrangeWorkspace(input(build())).affordances[0]!.join).toBeUndefined();
+  it('declares no bury unless the seam asks for one', () => {
+    expect(arrangeWorkspace(input(build())).affordances[0]!.bury).toBeUndefined();
   });
 
   it('names the root at each end of the range as what an overshoot hides', () => {
     const { affordances } = arrangeWorkspace(input(build(), { seams: [HIDE] }));
-    expect(affordances[0]!.join).toEqual({
+    expect(affordances[0]!.bury).toEqual({
       atMin: SIDE,
       atMax: MAIN,
       threshold: 24,
@@ -265,11 +265,11 @@ describe('arrangeWorkspace — hiding a root', () => {
     });
   });
 
-  it('leaves a hide-locked root out of the join', () => {
+  it('leaves a hide-locked root out of the bury', () => {
     const store = build();
     store.setLock(MAIN, { hide: true });
     const { affordances } = arrangeWorkspace(input(store, { seams: [HIDE] }));
-    expect(affordances[0]!.join).toEqual({ atMin: SIDE, threshold: 24, action: 'hide' });
+    expect(affordances[0]!.bury).toEqual({ atMin: SIDE, threshold: 24, action: 'hide' });
   });
 
   it('reports a hidden root and swaps its seam for a handle on its neighbor', () => {
@@ -312,7 +312,7 @@ describe('arrangeWorkspace — hiding a root', () => {
     const before = captureSeam(store, seam);
     dispatchWorkspaceSeam(input(store, { seams: [HIDE] }), drag(seam.id, -500));
     expect(store.getNode(SIDE)?.hints?.size?.w).toBe(120);
-    commitJoin(store, seam, SIDE, before);
+    commitBury(store, seam, SIDE, before);
     expect(store.getNode(SIDE)?.lifecycle.state).toBe('hidden');
     expect(store.getNode(SIDE)?.hints?.size).toEqual({ w: 240 });
   });
@@ -322,7 +322,7 @@ describe('arrangeWorkspace — hiding a root', () => {
     const seam = arrangeWorkspace(input(store, { seams: [HIDE] })).affordances[0]!;
     const before = captureSeam(store, seam);
     dispatchWorkspaceSeam(input(store, { seams: [HIDE] }), drag(seam.id, -500));
-    commitJoin(store, seam, SIDE, before);
+    commitBury(store, seam, SIDE, before);
     expect(store.getNode(SIDE)?.hints?.size).toBeUndefined();
   });
 

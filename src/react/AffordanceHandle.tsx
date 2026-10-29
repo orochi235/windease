@@ -12,17 +12,18 @@ import {
   type AxisScale,
   accessibleName,
   captureSeam,
-  commitJoin,
+  commitBury,
   destroyBlockedBy,
   elementScale,
   type NodeId,
   type SeamCapture,
   toLayoutDelta,
   toLocalPoint,
-  trackJoin,
+  trackBury,
 } from '../index.js';
+import { buryOf } from '../layout/seam-bury.js';
 import type { Store } from '../store.js';
-import { hitArea, raiseOnPress } from './affordance-hit.js';
+import { buryArmed, hitArea, raiseOnPress } from './affordance-hit.js';
 import { preventNativeDrag } from './dnd/nativeDrag.js';
 import type { ContainerLayout } from './useContainerLayout.js';
 import { useGesture } from './useGesture.js';
@@ -44,7 +45,7 @@ export interface AffordanceHandleProps {
   tabStop: boolean;
   label: string | undefined;
   onActiveChange: (active: boolean) => void;
-  onJoinArmChange: (victimId: NodeId | null) => void;
+  onBuryArmChange: (victimId: NodeId | null) => void;
   writePlacement: WritePlacement | undefined;
 }
 
@@ -57,7 +58,7 @@ export function AffordanceHandle({
   tabStop,
   label,
   onActiveChange,
-  onJoinArmChange,
+  onBuryArmChange,
   writePlacement,
 }: AffordanceHandleProps) {
   const last = useRef<{ x: number; y: number } | null>(null);
@@ -66,10 +67,11 @@ export function AffordanceHandle({
   const scale = useRef<AxisScale>({ x: 1, y: 1 });
   const overshoot = useRef<number | null>(null);
   const [dragging, setDragging] = useState(false);
-  // What a hiding join restores. Taken when the gesture begins, before it
+  // What a hiding bury restores. Taken when the gesture begins, before it
   // writes anything.
   const captured = useRef<SeamCapture | null>(null);
-  const hides = affordance.join?.action === 'hide';
+  const bury = buryOf(affordance);
+  const hides = bury?.action === 'hide';
   const capture = useCallback(() => {
     if (hides && captured.current === null) captured.current = captureSeam(store, affordance);
   }, [hides, store, affordance]);
@@ -82,11 +84,11 @@ export function AffordanceHandle({
       const write = writePlacement
         ? (id: NodeId, patch: Record<string, unknown>) => writePlacement(id, patch, affordance.id)
         : undefined;
-      commitJoin(store, affordance, victim, captured.current ?? undefined, write);
+      commitBury(store, affordance, victim, captured.current ?? undefined, write);
     },
     describe: (victim) =>
       `${accessibleName(store, victim)} will ${hides ? 'hide' : 'close'}. Press Enter to confirm, Escape to cancel.`,
-    onArm: onJoinArmChange,
+    onArm: onBuryArmChange,
     onEnd: () => {
       overshoot.current = null;
       captured.current = null;
@@ -105,15 +107,14 @@ export function AffordanceHandle({
     [gesture],
   );
 
-  const advanceJoin = useCallback(
+  const advanceBury = useCallback(
     (delta: number) => {
-      const join = affordance.join;
       const b = affordance.bounds;
-      if (!join || !b) return;
+      if (!bury || !b) return;
       // The lock check is the gesture's, asked only of a candidate past the
       // threshold.
-      const state = trackJoin({
-        join,
+      const state = trackBury({
+        bury,
         overshoot: overshoot.current ?? 0,
         delta,
         atMin: b.atMin,
@@ -123,7 +124,7 @@ export function AffordanceHandle({
       overshoot.current = state.overshoot;
       gesture.offer(state.armed ? ((state.candidateId as NodeId | undefined) ?? null) : null);
     },
-    [affordance.join, affordance.bounds, gesture],
+    [bury, affordance.bounds, gesture],
   );
 
   const onPointerDown = useCallback(
@@ -169,9 +170,9 @@ export function AffordanceHandle({
         y: affordance.rect.y - padYRef.current + within.y,
       };
       dispatch({ affordanceId: affordance.id, kind: 'drag', payload: { dx, dy, point } });
-      advanceJoin(affordance.bounds?.orientation === 'vertical' ? dy : dx);
+      advanceBury(affordance.bounds?.orientation === 'vertical' ? dy : dx);
     },
-    [dispatch, affordance.id, affordance.rect.x, affordance.rect.y, affordance.bounds, advanceJoin],
+    [dispatch, affordance.id, affordance.rect.x, affordance.rect.y, affordance.bounds, advanceBury],
   );
   const finish = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>, commit: boolean) => {
@@ -192,7 +193,7 @@ export function AffordanceHandle({
     (e: ReactPointerEvent<HTMLDivElement>) => finish(e, true),
     [finish],
   );
-  // A cancelled gesture must not commit the join: same shape, opposite verdict.
+  // A cancelled gesture must not commit the bury: same shape, opposite verdict.
   const onPointerCancel = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => finish(e, false),
     [finish],
@@ -268,7 +269,7 @@ export function AffordanceHandle({
         kind: 'drag',
         payload: horizontal ? { dx: delta, dy: 0 } : { dx: 0, dy: delta },
       });
-      advanceJoin(delta);
+      advanceBury(delta);
     },
     [
       bounds,
@@ -276,7 +277,7 @@ export function AffordanceHandle({
       dispatch,
       affordance.id,
       keyStep,
-      advanceJoin,
+      advanceBury,
       endGesture,
       capture,
       ensureBegun,
@@ -309,7 +310,7 @@ export function AffordanceHandle({
         className="windease-affordance-hit"
         style={outerStyle}
         data-affordance-hit={affordance.id}
-        data-join-armed={armedId !== null ? 'true' : undefined}
+        {...buryArmed(armedId !== null)}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -347,12 +348,12 @@ export function AffordanceHandle({
             : ''}
         </div>
       ) : null}
-      {affordance.join ? (
+      {bury ? (
         <div
           className="windease-live-region"
           aria-live="polite"
           aria-atomic="true"
-          data-join-live=""
+          data-bury-live=""
         >
           {message}
         </div>

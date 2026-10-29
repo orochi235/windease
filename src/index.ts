@@ -153,18 +153,23 @@ export {
 } from './layout/page.js';
 export { DEFAULT_REPEL_GAP, type RepelConfig, repelStrategy } from './layout/repel.js';
 export {
+  type BuryState,
   captureSeam,
+  commitBury,
   commitJoin,
   commitReveal,
+  DEFAULT_BURY_THRESHOLD,
   DEFAULT_JOIN_THRESHOLD,
   type JoinState,
   type RevealState,
   type SeamCapture,
+  type TrackBuryInput,
   type TrackJoinInput,
   type TrackRevealInput,
+  trackBury,
   trackJoin,
   trackReveal,
-} from './layout/seam-join.js';
+} from './layout/seam-bury.js';
 export { shelfStrategy } from './layout/shelf.js';
 export { skylineStrategy } from './layout/skyline.js';
 export {
@@ -202,6 +207,7 @@ export {
 } from './layout-node-adapter.js';
 export type {
   Affordance,
+  AffordanceBury,
   AffordanceJoin,
   AffordanceReveal,
   BuiltinAffordanceKind,

@@ -8,7 +8,7 @@ const h = (v: number) => ({ w: 0, h: v });
 /** Blender scales every area metric by the UI scale; these are its 1.0 values. */
 const BLENDER_HEADER = 26;
 const BLENDER_AREA_MIN_X = 29;
-const BLENDER_SEAM = { gap: 2, resizeMode: 'neighbor', joinOnOvershoot: true, joinThreshold: 24 };
+const BLENDER_SEAM = { gap: 2, resizeMode: 'neighbor', overshoot: 'destroy', buryThreshold: 24 };
 
 /** A 1366×768 laptop panel at 125% display scaling, in CSS pixels. */
 const DPR_125_LAPTOP = { w: 1366 / 1.25, h: 768 / 1.25 };
@@ -247,7 +247,7 @@ export const PRESETS: Preset[] = [
       id: 'blender-layout-workspace',
       source: 'Blender 4.x Layout workspace on a 1366×768 laptop at 125% scaling',
       stress:
-        'alternating-axis nesting at a fractional viewport, 26px header floors, and a timeline seam joined by overshoot',
+        'alternating-axis nesting at a fractional viewport, 26px header floors, and a timeline seam buried by overshoot',
       description:
         "Blender's default Layout workspace fills the window with areas: a top bar of menus and workspace tabs, a large 3D Viewport, the Outliner (the scene's list of objects) above the Properties editor on the right, a Timeline along the bottom and a thin status bar. Users drag the border between two areas to resize both, and drag from an area's corner to split it in two or merge it into a neighbor. Blender will not shrink an area below the height of its header.",
       viewport: DPR_125_LAPTOP,
@@ -343,11 +343,11 @@ export const PRESETS: Preset[] = [
       mechanics: {
         id: 'bbg',
         strategy: 'strip',
-        config: { axis: 'y', gap: 4, fill: true, resizeMode: 'neighbor', joinOnOvershoot: true },
+        config: { axis: 'y', gap: 4, fill: true, resizeMode: 'neighbor', overshoot: 'destroy' },
         children: [1, 2].map((row) => ({
           id: `bbg-row-${row}`,
           strategy: 'strip',
-          config: { axis: 'x', gap: 4, fill: true, resizeMode: 'neighbor', joinOnOvershoot: true },
+          config: { axis: 'x', gap: 4, fill: true, resizeMode: 'neighbor', overshoot: 'destroy' },
           hints: { minSize: { w: 0, h: 540 } },
           children: [1, 2].map((col) => {
             const n = (row - 1) * 2 + col;

@@ -44,7 +44,7 @@ function affordanceLabel(store: Store, aff: Affordance): string | undefined {
   return `${aff.label ?? 'resize'} ${names.join(' and ')}`;
 }
 
-const noJoinArmChange = () => {};
+const noBuryArmChange = () => {};
 
 export interface AffordanceLayerProps {
   /** `true` for the built-in handle, or a renderer that fully replaces it. */
@@ -58,7 +58,7 @@ export interface AffordanceLayerProps {
   onActiveChange: (id: string | null) => void;
   /** The node a release would destroy right now, or null. Optional: a host
    *  with no per-pane element to mark still gets the destroy. */
-  onJoinArmChange?: (victimId: NodeId | null) => void;
+  onBuryArmChange?: (victimId: NodeId | null) => void;
   /** The container's scroll in layout pixels (see `toLayoutScroll`), which a
    *  sticky seam is held against. */
   scroll?: { x: number; y: number };
@@ -66,7 +66,7 @@ export interface AffordanceLayerProps {
    *  under a frozen pane is clipped against. */
   placements?: ReadonlyMap<NodeId, Rect>;
   sticky?: ReadonlyMap<NodeId, StickyInset> | undefined;
-  /** How a seam join puts sizes back: through placement control where a child
+  /** How a seam bury puts sizes back: through placement control where a child
    *  has it. Absent, straight to the store. */
   writePlacement?: WritePlacement;
 }
@@ -93,7 +93,7 @@ export function AffordanceLayer({
   keyStep,
   tabStop,
   onActiveChange,
-  onJoinArmChange = noJoinArmChange,
+  onBuryArmChange = noBuryArmChange,
   scroll = NO_SCROLL,
   placements,
   sticky,
@@ -148,7 +148,7 @@ export function AffordanceLayer({
             tabStop={tabStop}
             label={affordanceLabel(store, aff)}
             onActiveChange={(active) => onActiveChange(active ? aff.id : null)}
-            onJoinArmChange={onJoinArmChange}
+            onBuryArmChange={onBuryArmChange}
             writePlacement={writePlacement}
           />
         );

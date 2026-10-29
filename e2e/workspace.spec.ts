@@ -96,7 +96,7 @@ test.describe('workspace: roots the host lays out', () => {
     // 80 to the 120px floor, then past the 24px threshold.
     const floor = await pressAndMove(page, seam(page, 'side', 'main'), -80, 0);
     await page.mouse.move(floor.x - 40, floor.y, { steps: 6 });
-    await expect(root(page, 'side')).toHaveAttribute('data-join-armed', 'true');
+    await expect(root(page, 'side')).toHaveAttribute('data-bury-armed', 'true');
     await page.mouse.up();
 
     await expect(root(page, 'side')).toBeHidden();
@@ -117,7 +117,7 @@ test.describe('workspace: roots the host lays out', () => {
     await openStory(page, STORY);
     await pressAndMove(page, seam(page, 'side', 'main'), 700, 0);
     await expect.poll(widthOf(page, 'side')).toBe(360);
-    await expect(root(page, 'main')).not.toHaveAttribute('data-join-armed', 'true');
+    await expect(root(page, 'main')).not.toHaveAttribute('data-bury-armed', 'true');
     await page.mouse.up();
     await expect(root(page, 'main')).toBeVisible();
   });

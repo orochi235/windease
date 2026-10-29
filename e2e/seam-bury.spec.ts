@@ -2,12 +2,12 @@ import { expect, type Page, test } from '@playwright/test';
 import { centerOf, openStory, settledBox } from './fixtures.js';
 
 /**
- * Seam-join drives a real pointer past a clamp, which is the one thing jsdom
+ * Seam-bury drives a real pointer past a clamp, which is the one thing jsdom
  * cannot do: the clamp flags only settle after a layout pass, and the armed
  * treatment is pure CSS.
  */
 
-const STORY = 'seam-join--join-on-overshoot';
+const STORY = 'seam-bury--destroy-on-overshoot';
 const KEY_STEP = 8;
 
 const seam = (page: Page, after: string) =>
@@ -38,7 +38,7 @@ async function pushPast(
 }
 
 function armedPanes(page: Page) {
-  return page.locator('[data-node][data-join-armed]');
+  return page.locator('[data-node][data-bury-armed]');
 }
 
 function afterStyle(page: Page, selector: string, prop: string) {
@@ -59,7 +59,7 @@ test('the fixture starts wider than its floors', async ({ page }) => {
 test('overshooting arms the victim, and release destroys it', async ({ page }) => {
   await openStory(page, STORY);
   await pushPast(page, 'editor', 40);
-  await expect(pane(page, 'preview')).toHaveAttribute('data-join-armed', 'true');
+  await expect(pane(page, 'preview')).toHaveAttribute('data-bury-armed', 'true');
   await page.mouse.up();
   await expect(readout(page)).toHaveText('Editor, Console');
   await expect(pane(page, 'preview')).toHaveCount(0);
@@ -68,7 +68,7 @@ test('overshooting arms the victim, and release destroys it', async ({ page }) =
 test('Escape mid-gesture clears the marking and destroys nothing', async ({ page }) => {
   await openStory(page, STORY);
   await pushPast(page, 'editor', 40);
-  await expect(pane(page, 'preview')).toHaveAttribute('data-join-armed', 'true');
+  await expect(pane(page, 'preview')).toHaveAttribute('data-bury-armed', 'true');
   await page.keyboard.press('Escape');
   await expect(armedPanes(page)).toHaveCount(0);
   await page.mouse.up();
@@ -78,7 +78,7 @@ test('Escape mid-gesture clears the marking and destroys nothing', async ({ page
 test('backing off under the threshold disarms, and the pane survives', async ({ page }) => {
   await openStory(page, STORY);
   const from = await pushPast(page, 'editor', 40);
-  await expect(pane(page, 'preview')).toHaveAttribute('data-join-armed', 'true');
+  await expect(pane(page, 'preview')).toHaveAttribute('data-bury-armed', 'true');
   const travel = 400 - 240;
   await page.mouse.move(from.x + travel + 10, from.y, { steps: 3 });
   await expect(armedPanes(page)).toHaveCount(0);
@@ -110,7 +110,7 @@ test('arrowing past the floor arms, and Enter commits', async ({ page }) => {
   await expect(armedPanes(page)).toHaveCount(0);
 
   await page.keyboard.press('ArrowRight');
-  await expect(pane(page, 'preview')).toHaveAttribute('data-join-armed', 'true');
+  await expect(pane(page, 'preview')).toHaveAttribute('data-bury-armed', 'true');
 
   await page.keyboard.press('Enter');
   await expect(readout(page)).toHaveText('Editor, Console');
@@ -123,7 +123,7 @@ test('the armed treatment actually renders', async ({ page }) => {
   );
 
   await pushPast(page, 'editor', 40);
-  await expect(pane(page, 'preview')).toHaveAttribute('data-join-armed', 'true');
+  await expect(pane(page, 'preview')).toHaveAttribute('data-bury-armed', 'true');
 
   expect(await afterStyle(page, '[data-node="preview"]', 'background-image')).toContain(
     'repeating-linear-gradient',

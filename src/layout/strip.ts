@@ -1,6 +1,6 @@
 import type {
   Affordance,
-  AffordanceJoin,
+  AffordanceBury,
   HiddenItem,
   LayoutItem,
   LayoutResult,
@@ -14,7 +14,7 @@ import { trace } from '../trace.js';
 import { selectByCapacity } from './capacity.js';
 import { PACK_EPSILON } from './pack.js';
 import { clampExplicitSizes } from './resize.js';
-import { DEFAULT_JOIN_THRESHOLD, SEAM_SIZE } from './seam-join.js';
+import { DEFAULT_BURY_THRESHOLD, SEAM_SIZE } from './seam-bury.js';
 import { turnedExtent, turns } from './turn.js';
 import { zoomedOf, zoomLayout } from './zoom.js';
 
@@ -52,26 +52,27 @@ interface StripConfig {
    */
   resizeMode?: 'redistribute' | 'neighbor';
   /**
-   * When true, pushing a seam past a pane's floor arms a join: releasing there
-   * destroys that pane. What becomes of the freed extent is ordinary re-layout,
-   * so panes carrying an explicit `placement.size` under `fill: false` leave it
-   * empty rather than absorbing it. Off by default — the gesture deletes a pane
-   * with no confirmation step.
+   * What pushing a seam past a pane's floor does: it arms a bury, and releasing
+   * there buries the pane. `'destroy'` unregisters it, with no confirmation
+   * step. `'hide'` hides it instead, as VS Code does with a sidebar dragged
+   * shut, and the pane's size is kept for `showNode`; a pane with `lock.hide`
+   * never arms, and its seam clamps. Unset, seams only resize.
    *
-   * Ignored unless `resizeMode: 'neighbor'`; a redistribute seam spreads its
-   * delta across every sibling and so has no single pane to name as the victim.
+   * What becomes of a destroyed pane's extent is ordinary re-layout, so panes
+   * carrying an explicit `placement.size` under `fill: false` leave it empty
+   * rather than absorbing it. Ignored unless `resizeMode: 'neighbor'`; a
+   * redistribute seam spreads its delta across every sibling and so has no
+   * single pane to name.
+   *
+   * `'join'` is the deprecated name for `'destroy'`, removed in 3.0.
    */
+  overshoot?: 'destroy' | 'hide' | 'join';
+  /** @deprecated `overshoot: 'destroy'`; removed in 3.0. `overshoot` outranks it. */
   joinOnOvershoot?: boolean;
-  /**
-   * What pushing a seam past a pane's floor does. `'join'` is
-   * `joinOnOvershoot: true`: releasing destroys the pane. `'hide'` hides it
-   * instead, as VS Code does with a sidebar dragged shut, and the pane's size
-   * is kept for `showNode`; a pane with `lock.hide` never arms, and its seam
-   * clamps. Outranks `joinOnOvershoot`; the same `resizeMode: 'neighbor'`
-   * requirement applies.
-   */
-  overshoot?: 'join' | 'hide';
-  /** Main-axis pixels past the floor before the join arms. Defaults to 24. */
+  /** Main-axis pixels past the floor before a bury arms, and of travel before
+   *  a hidden pane's handle shows it. Defaults to 24. */
+  buryThreshold?: number;
+  /** @deprecated Renamed `buryThreshold`; removed in 3.0. */
   joinThreshold?: number;
   /**
    * Absolute cap on the number of items the zone accepts. Items beyond this
@@ -551,31 +552,31 @@ function hintedAxis(item: LayoutItem, axis: 'x' | 'y', cfg: StripConfig): number
   return v === undefined ? undefined : Math.max(v, effectiveMinAxis(item, axis));
 }
 
-/** The join a seam between `item` and `next` declares, or undefined when this
+/** How far a seam travels before it arms, under either threshold name. */
+const thresholdOf = (cfg: StripConfig) =>
+  cfg.buryThreshold ?? cfg.joinThreshold ?? DEFAULT_BURY_THRESHOLD;
+
+/** The bury a seam between `item` and `next` declares, or undefined when this
  *  container has not opted in. */
-function joinFor(
+function buryFor(
   cfg: StripConfig,
   item: LayoutItem,
   next: LayoutItem | undefined,
-): AffordanceJoin | undefined {
+): AffordanceBury | undefined {
   if (!next) return undefined;
   if (cfg.resizeMode !== 'neighbor') return undefined;
-  const mode = cfg.overshoot ?? (cfg.joinOnOvershoot ? 'join' : undefined);
-  if (mode !== 'join' && mode !== 'hide') return undefined;
-  if (mode === 'join') {
-    return {
-      atMin: item.id,
-      atMax: next.id,
-      threshold: cfg.joinThreshold ?? DEFAULT_JOIN_THRESHOLD,
-    };
+  const mode = cfg.overshoot ?? (cfg.joinOnOvershoot ? 'destroy' : undefined);
+  if (mode === 'destroy' || mode === 'join') {
+    return { atMin: item.id, atMax: next.id, threshold: thresholdOf(cfg) };
   }
+  if (mode !== 'hide') return undefined;
   const minHides = item.lock?.hide !== true;
   const maxHides = next.lock?.hide !== true;
   if (!minHides && !maxHides) return undefined;
   return {
     ...(minHides ? { atMin: item.id } : {}),
     ...(maxHides ? { atMax: next.id } : {}),
-    threshold: cfg.joinThreshold ?? DEFAULT_JOIN_THRESHOLD,
+    threshold: thresholdOf(cfg),
     action: 'hide',
   };
 }
@@ -603,7 +604,7 @@ function revealHandles(
   const gap = cfg.gap ?? 0;
   const main = axis === 'x' ? container.w : container.h;
   const cross = Math.max(0, (axis === 'x' ? container.h : container.w) - 2 * padding);
-  const threshold = cfg.joinThreshold ?? DEFAULT_JOIN_THRESHOLD;
+  const threshold = thresholdOf(cfg);
 
   const slotOf = (h: HiddenItem): number => {
     for (let i = Math.max(0, h.before); i < items.length; i++) {
@@ -1056,8 +1057,9 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     defaultItemSize: 'number',
     resizable: 'boolean',
     resizeMode: ['redistribute', 'neighbor'],
+    overshoot: ['destroy', 'hide', 'join'],
     joinOnOvershoot: 'boolean',
-    overshoot: ['join', 'hide'],
+    buryThreshold: 'number',
     joinThreshold: 'number',
     maxItems: 'number',
     step: 'number',
@@ -1139,7 +1141,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
           placedRect(item, { x, y: y + cross.offset, z: 0, w, h: cross.extent }),
         );
         if (resizable && seamed(item, placedItems[i + 1])) {
-          const join = joinFor(cfg, item, placedItems[i + 1]);
+          const bury = buryFor(cfg, item, placedItems[i + 1]);
           affordances.push({
             id: `resize-x-${item.id}`,
             kind: 'resize-x',
@@ -1164,7 +1166,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
                     : undefined,
                   step,
                 ),
-            ...(join ? { join } : {}),
+            ...(bury ? { bury, join: bury } : {}),
           });
         }
         x += w + spacing;
@@ -1183,7 +1185,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
           placedRect(item, { x: x + cross.offset, y, z: 0, w: cross.extent, h }),
         );
         if (resizable && seamed(item, placedItems[i + 1])) {
-          const join = joinFor(cfg, item, placedItems[i + 1]);
+          const bury = buryFor(cfg, item, placedItems[i + 1]);
           affordances.push({
             id: `resize-y-${item.id}`,
             kind: 'resize-y',
@@ -1208,7 +1210,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
                     : undefined,
                   step,
                 ),
-            ...(join ? { join } : {}),
+            ...(bury ? { bury, join: bury } : {}),
           });
         }
         y += h + spacing;

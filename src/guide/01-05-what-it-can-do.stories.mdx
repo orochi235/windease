@@ -1,7 +1,7 @@
 import { Meta } from '@ladle/react';
 import { DraftBanner } from './Draft.tsx';
 import { StackOnDrop } from '../react/stories/TabStack.stories.tsx';
-import { JoinOnOvershoot } from '../react/stories/SeamJoin.stories.tsx';
+import { DestroyOnOvershoot } from '../react/stories/SeamBury.stories.tsx';
 import { SplitOnDrop } from '../react/stories/DropOnEdge.stories.tsx';
 
 <Meta title="Guide/01 Tour/1.05 What it can do" />
@@ -25,7 +25,7 @@ the target's slot. Drag the last tab out and the stack dissolves again.
 Push a seam past its neighbour's floor and keep pushing: the gesture arms, and
 releasing closes that pane. One transaction, so it is one undo step.
 
-<JoinOnOvershoot />
+<DestroyOnOvershoot />
 
 ## Drop on an edge to split a slot
 

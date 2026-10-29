@@ -150,7 +150,7 @@ describe('<Workspace>', () => {
     press('Home');
     expect(store.getNode(SIDE)?.hints?.size).toEqual({ w: 120 });
     for (let i = 0; i < 4; i++) press('ArrowLeft');
-    expect(rootEl(container, 'side').getAttribute('data-join-armed')).toBe('true');
+    expect(rootEl(container, 'side').getAttribute('data-bury-armed')).toBe('true');
     press('Enter');
     expect(store.getNode(SIDE)?.lifecycle.state).toBe('hidden');
     expect(store.getNode(SIDE)?.hints?.size).toBeUndefined();

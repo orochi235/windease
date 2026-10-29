@@ -8,6 +8,15 @@ section below.
 
 ## Unreleased
 
+### Changed
+
+- **Seam join is now called burying a pane.** `overshoot: 'destroy'` replaces
+  `overshoot: 'join'` and `joinOnOvershoot`, `buryThreshold` replaces
+  `joinThreshold`, and `trackBury`, `commitBury`, `affordance.bury` and
+  `[data-bury-armed]` replace their `join` names. The old names are deprecated
+  and still work until 3.0. See
+  [Breaking changes](README.md#unreleased--seam-join-renamed-bury).
+
 ### Fixed
 
 - **Wrapping strategies forward every hook their inner strategy has.**

@@ -61,7 +61,7 @@ async function valueAttr(page: Page, id: string, name: string): Promise<number> 
 }
 
 test.describe('blender layout workspace', () => {
-  test('pushing the timeline past its header floor arms it, and release joins it away', async ({
+  test('pushing the timeline past its header floor arms it, and release buries it', async ({
     page,
   }) => {
     await openPreset(page, 'blender-layout-workspace');
@@ -72,7 +72,7 @@ test.describe('blender layout workspace', () => {
     const at = await dragSeam(page, id, travel, 'y', false);
     // The move that lands on the floor still reads unpinned; overshoot arrives in later moves.
     await page.mouse.move(at.x, at.y + 40, { steps: 5 });
-    await expect(pane(page, 'bl-timeline')).toHaveAttribute('data-join-armed', 'true');
+    await expect(pane(page, 'bl-timeline')).toHaveAttribute('data-bury-armed', 'true');
     await page.mouse.up();
     await expect(pane(page, 'bl-timeline')).toHaveCount(0);
     await expect(pane(page, 'bl-status')).toHaveCount(1);
@@ -84,9 +84,9 @@ test.describe('blender layout workspace', () => {
     await openPreset(page, 'blender-layout-workspace');
     const at = await dragSeam(page, 'resize-y-bl-main', 70, 'y', false);
     await page.mouse.move(at.x, at.y + 40, { steps: 5 });
-    await expect(pane(page, 'bl-timeline')).toHaveAttribute('data-join-armed', 'true');
+    await expect(pane(page, 'bl-timeline')).toHaveAttribute('data-bury-armed', 'true');
     await page.mouse.move(at.x, at.y + 10, { steps: 3 });
-    await expect(page.locator('[data-node][data-join-armed]')).toHaveCount(0);
+    await expect(page.locator('[data-node][data-bury-armed]')).toHaveCount(0);
     await page.mouse.up();
     await expect(pane(page, 'bl-timeline')).toHaveCount(1);
     expect((await settledBox(pane(page, 'bl-timeline'))).h).toBeGreaterThanOrEqual(26 - 0.5);
@@ -95,7 +95,7 @@ test.describe('blender layout workspace', () => {
   test('the fixed-height top bar seam is pinned both ways and never arms', async ({ page }) => {
     await openPreset(page, 'blender-layout-workspace');
     await dragSeam(page, 'resize-y-bl-topbar', 80, 'y', false);
-    await expect(page.locator('[data-node][data-join-armed]')).toHaveCount(0);
+    await expect(page.locator('[data-node][data-bury-armed]')).toHaveCount(0);
     await page.mouse.up();
     await expect(pane(page, 'bl-main')).toHaveCount(1);
   });
@@ -136,7 +136,7 @@ test.describe('bloomberg four-panel', () => {
     }
     const before = await settledBox(pane(page, 'bbg-1'));
     await dragSeam(page, 'resize-x-bbg-1', 120, 'x', false);
-    await expect(page.locator('[data-node][data-join-armed]')).toHaveCount(0);
+    await expect(page.locator('[data-node][data-bury-armed]')).toHaveCount(0);
     await page.mouse.up();
     expect(await settledBox(pane(page, 'bbg-1'))).toEqual(before);
   });
@@ -254,7 +254,7 @@ test.describe('vscode: a sidebar dragged shut hides', () => {
       (await valueAttr(page, id, 'aria-valuenow')) - (await valueAttr(page, id, 'aria-valuemin'));
     const at = await dragSeam(page, id, -travel, 'x', false);
     await page.mouse.move(at.x - 40, at.y, { steps: 5 });
-    await expect(pane(page, 'vh-sidebar')).toHaveAttribute('data-join-armed', 'true');
+    await expect(pane(page, 'vh-sidebar')).toHaveAttribute('data-bury-armed', 'true');
     await page.mouse.up();
     await expect(pane(page, 'vh-sidebar')).toHaveCount(0);
     await expect(page.getByTestId('xs-hidden')).toHaveText('vh-sidebar');
@@ -296,7 +296,7 @@ test.describe('vscode: a sidebar dragged shut hides', () => {
       (await valueAttr(page, id, 'aria-valuemax')) - (await valueAttr(page, id, 'aria-valuenow'));
     const at = await dragSeam(page, id, travel, 'x', false);
     await page.mouse.move(at.x + 40, at.y, { steps: 5 });
-    await expect(pane(page, 'vh-aux')).toHaveAttribute('data-join-armed', 'true');
+    await expect(pane(page, 'vh-aux')).toHaveAttribute('data-bury-armed', 'true');
     await page.mouse.up();
     await expect(page.getByTestId('xs-hidden')).toHaveText('vh-aux');
 

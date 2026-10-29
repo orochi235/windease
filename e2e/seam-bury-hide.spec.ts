@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { centerOf, openStory, settledBox } from './fixtures.js';
 
-const STORY = 'seam-join--hide-on-overshoot';
+const STORY = 'seam-bury--hide-on-overshoot';
 
 const seam = (page: Page, after: string) =>
   page.locator(`[data-affordance-hit="resize-x-hide-${after}"]`);
@@ -25,14 +25,14 @@ async function pushSidebarShut(page: Page, past: number): Promise<void> {
   await page.mouse.move(from.x - travel - past, from.y, { steps: 4 });
 }
 
-test.describe("seam join overshoot: 'hide'", () => {
+test.describe("seam bury overshoot: 'hide'", () => {
   test('releasing past the floor hides the pane and the editor takes its space', async ({
     page,
   }) => {
     await openStory(page, STORY);
     expect(await width(page, 'sidebar')).toBe(200);
     await pushSidebarShut(page, 40);
-    await expect(pane(page, 'sidebar')).toHaveAttribute('data-join-armed', 'true');
+    await expect(pane(page, 'sidebar')).toHaveAttribute('data-bury-armed', 'true');
     await page.mouse.up();
 
     await expect(pane(page, 'sidebar')).toHaveCount(0);
@@ -89,8 +89,8 @@ test.describe("seam join overshoot: 'hide'", () => {
     await seam(page, 'sidebar').focus();
     // 80px to the floor at 8px a press, then past the 24px threshold.
     for (let i = 0; i < 10 + 4; i++) await page.keyboard.press('ArrowLeft');
-    await expect(pane(page, 'sidebar')).toHaveAttribute('data-join-armed', 'true');
-    await expect(page.locator('[data-join-live]').first()).toContainText('will hide');
+    await expect(pane(page, 'sidebar')).toHaveAttribute('data-bury-armed', 'true');
+    await expect(page.locator('[data-bury-live]').first()).toContainText('will hide');
     await page.keyboard.press('Enter');
     await expect(hidden(page)).toHaveText('hide-sidebar');
   });

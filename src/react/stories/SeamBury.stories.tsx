@@ -1,4 +1,4 @@
-export default { title: 'Seam join' };
+export default { title: 'Seam bury' };
 
 import type { Story } from '@ladle/react';
 import { useMemo, useSyncExternalStore } from 'react';
@@ -11,7 +11,7 @@ import {
   useChildren,
 } from '../index.js';
 import '../styles.css';
-import './seam-join.css';
+import './seam-bury.css';
 
 const STRATEGIES = { strip: stripStrategy as never };
 
@@ -43,8 +43,8 @@ function makeStore(): Store {
           gap: GAP,
           padding: PADDING,
           resizeMode: 'neighbor',
-          joinOnOvershoot: true,
-          joinThreshold: 24,
+          overshoot: 'destroy',
+          buryThreshold: 24,
         },
       },
     }),
@@ -97,7 +97,7 @@ const chrome: ChromeMap = {
   ),
 };
 
-export const JoinOnOvershoot: Story = () => {
+export const DestroyOnOvershoot: Story = () => {
   const store = useMemo(() => makeStore(), []);
   return (
     <Provider store={store}>

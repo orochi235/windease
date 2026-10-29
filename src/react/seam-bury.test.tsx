@@ -24,8 +24,8 @@ function seed(lockB = false) {
           gap: 0,
           padding: 0,
           resizeMode: 'neighbor',
-          joinOnOvershoot: true,
-          joinThreshold: 24,
+          overshoot: 'destroy',
+          buryThreshold: 24,
         },
       },
     }),
@@ -98,7 +98,7 @@ function up(seam: HTMLElement, at: number) {
 }
 
 function armedPane(container: HTMLElement): string | null {
-  const el = container.querySelector('[data-node][data-join-armed]');
+  const el = container.querySelector('[data-node][data-bury-armed]');
   return el ? el.getAttribute('data-node') : null;
 }
 
@@ -106,7 +106,7 @@ function widthOf(store: Store, id: string): number | undefined {
   return (store.getPlacement(asNodeId(id)).size as { w?: number } | undefined)?.w;
 }
 
-describe('seam join — arming', () => {
+describe('seam bury — arming', () => {
   let store: Store;
   beforeEach(() => {
     store = seed();
@@ -139,6 +139,16 @@ describe('seam join — arming', () => {
     const x = move(seam, TO_CLAMP);
     move(seam, 30, x);
     expect(armedPane(container)).toBe('b');
+    expect(container.querySelector('[data-affordance-hit][data-bury-armed]')).not.toBeNull();
+  });
+
+  it('marks the armed pane and seam under the name before 2.3 too', () => {
+    const { container, seam } = mount(store);
+    down(seam);
+    move(seam, 30, move(seam, TO_CLAMP));
+    expect(container.querySelector('[data-node][data-join-armed]')?.getAttribute('data-node')).toBe(
+      'b',
+    );
     expect(container.querySelector('[data-affordance-hit][data-join-armed]')).not.toBeNull();
   });
 
@@ -214,7 +224,7 @@ describe('seam join — arming', () => {
 
 // Squeeze mode below the sum of the floors leaves every pane under its own,
 // so the seam reports both ends pinned with nothing having visibly stopped.
-describe('seam join — a strip too narrow for its floors', () => {
+describe('seam bury — a strip too narrow for its floors', () => {
   it('never arms, whichever way the seam is dragged', () => {
     const store = seed();
     const { container, seam } = mount(store, { w: 180, h: 200 });
@@ -235,7 +245,7 @@ describe('seam join — a strip too narrow for its floors', () => {
   });
 });
 
-describe('seam join — abandoning the gesture', () => {
+describe('seam bury — abandoning the gesture', () => {
   it('pointercancel while armed does not destroy and clears the marking', () => {
     const store = seed();
     const { container, seam } = mount(store);
@@ -261,7 +271,7 @@ describe('seam join — abandoning the gesture', () => {
   });
 });
 
-describe('seam join — store consequences', () => {
+describe('seam bury — store consequences', () => {
   it('destroys inside a single transaction', () => {
     const store = seed();
     const { seam } = mount(store);
@@ -288,7 +298,7 @@ describe('seam join — store consequences', () => {
     expect(store.getNode(asNodeId('a'))).toBeDefined();
   });
 
-  it('hands focus on when the focused pane is joined away', () => {
+  it('hands focus on when the focused pane is buried', () => {
     const store = seed();
     store.focusNode(asNodeId('b'));
     expect(store.focusedId).toBe('b');
@@ -315,12 +325,12 @@ function press(seam: HTMLElement, key: string, times = 1): boolean {
 }
 
 function liveText(container: HTMLElement): string {
-  return Array.from(container.querySelectorAll('[data-join-live]'))
+  return Array.from(container.querySelectorAll('[data-bury-live]'))
     .map((el) => el.textContent ?? '')
     .join('');
 }
 
-describe('seam join — from the keyboard', () => {
+describe('seam bury — from the keyboard', () => {
   let store: Store;
   beforeEach(() => {
     store = seed();
@@ -400,7 +410,7 @@ describe('seam join — from the keyboard', () => {
   it('announces the armed pane in a live region, and nothing when disarmed', () => {
     store.setMeta(asNodeId('b'), { title: 'Preview' });
     const { container, seam } = mount(store);
-    const region = container.querySelector('[data-join-live]');
+    const region = container.querySelector('[data-bury-live]');
     expect(region).not.toBeNull();
     expect(region?.getAttribute('aria-live')).toBe('polite');
     expect(liveText(container)).toBe('');
@@ -435,8 +445,8 @@ const STRIP_CONFIG = {
   gap: 0,
   padding: 0,
   resizeMode: 'neighbor',
-  joinOnOvershoot: true,
-  joinThreshold: 24,
+  overshoot: 'destroy',
+  buryThreshold: 24,
 };
 
 function mountPresets() {
@@ -463,10 +473,10 @@ function mountPresets() {
 }
 
 function paneArmed(container: HTMLElement, id: string): boolean {
-  return container.querySelector(`[data-node="${id}"]`)?.hasAttribute('data-join-armed') ?? false;
+  return container.querySelector(`[data-node="${id}"]`)?.hasAttribute('data-bury-armed') ?? false;
 }
 
-describe('seam join — through the presets', () => {
+describe('seam bury — through the presets', () => {
   it('marks the pane whose floor broke, and no sibling', () => {
     const { store, container, seam } = mountPresets();
     down(seam);
@@ -488,11 +498,10 @@ describe('seam join — through the presets', () => {
   });
 });
 
-describe("seam join — overshoot: 'hide'", () => {
+describe("seam bury — overshoot: 'hide'", () => {
   function seedHide(lockB = false) {
     const store = seed(lockB);
     store.updateContainerConfig(asNodeId('root'), {
-      joinOnOvershoot: undefined,
       overshoot: 'hide',
     });
     return store;
@@ -552,8 +561,8 @@ describe("seam join — overshoot: 'hide'", () => {
   });
 });
 
-describe("seam join — overshoot: 'hide' under controlled placement", () => {
-  const CONFIG = { ...STRIP_CONFIG, joinOnOvershoot: undefined, overshoot: 'hide' };
+describe("seam bury — overshoot: 'hide' under controlled placement", () => {
+  const CONFIG = { ...STRIP_CONFIG, overshoot: 'hide' };
   const HINTS = { minSize: { w: 80, h: 0 } };
 
   function mountControlled() {
@@ -597,7 +606,7 @@ describe("seam join — overshoot: 'hide' under controlled placement", () => {
     expect(host.sizes.a).toBe(320);
     expect(widthOf(store, 'a')).toBe(320);
     expect(widthOf(store, 'b')).toBe(80);
-    expect(document.querySelector('[data-node][data-join-armed]')?.getAttribute('data-node')).toBe(
+    expect(document.querySelector('[data-node][data-bury-armed]')?.getAttribute('data-node')).toBe(
       'b',
     );
     expect(seam.isConnected).toBe(true);
@@ -608,7 +617,7 @@ describe("seam join — overshoot: 'hide' under controlled placement", () => {
   });
 });
 
-describe("seam join — overshoot: 'hide' through the presets", () => {
+describe("seam bury — overshoot: 'hide' through the presets", () => {
   it('keeps the pane hidden through the next render', () => {
     const store = new Store();
     const ui = () =>
@@ -617,7 +626,7 @@ describe("seam join — overshoot: 'hide' through the presets", () => {
         <Zone
           id={asNodeId('root')}
           strategyId="strip"
-          config={{ ...STRIP_CONFIG, joinOnOvershoot: undefined, overshoot: 'hide' }}
+          config={{ ...STRIP_CONFIG, overshoot: 'hide' }}
           viewport={{ w: 600, h: 200 }}
           affordances
         >

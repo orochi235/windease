@@ -37,6 +37,7 @@ import {
   toLayoutScroll,
 } from '../index.js';
 import type { LockSet } from '../lock.js';
+import { buryArmed } from './affordance-hit.js';
 import { AffordanceLayer, type AffordanceRenderer } from './affordances.js';
 import { DragHandle } from './dnd/DragHandle.js';
 import { type DropIntentContext, useDropIntentTarget } from './dnd/useDropIntentTarget.js';
@@ -150,10 +151,10 @@ interface PresentationalProps {
   'data-testid'?: string;
 }
 
-/** The pane an armed seam-join would destroy, published by the preset that owns
+/** The pane an armed seam would bury, published by the preset that owns
  *  the affordance layer and read by that pane's own shell. Internal — a preset's
  *  children render their own wrappers, so a prop cannot reach them. */
-const JoinArmContext = createContext<NodeId | null>(null);
+const BuryArmContext = createContext<NodeId | null>(null);
 
 function compose(...parts: Array<string | undefined>): string {
   return parts.filter(Boolean).join(' ');
@@ -391,7 +392,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   const store = useStore();
   const settleMs = DEFAULT_SETTLE_MS;
   const [, setDraggingAffordanceId] = useState<string | null>(null);
-  const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
+  const [buryArmedId, setBuryArmedId] = useState<NodeId | null>(null);
   // Sticky children hold against the scroll in layout pixels, inside the view.
   const layoutScroll = toLayoutScroll(layout.scroll, layout.view);
   const layoutInfo: LayoutInfo = {
@@ -427,7 +428,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
       acceptsDrops={props.acceptsDrops}
       drop={dropBag(props, layout)}
       measure={props.measure}
-      joinArmedId={joinArmedId}
+      buryArmedId={buryArmedId}
       preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
     >
       {props.draggable ? (
@@ -445,7 +446,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
         keyStep={props.affordanceKeyStep ?? 8}
         tabStop={props.affordanceTabStops ?? true}
         onActiveChange={setDraggingAffordanceId}
-        onJoinArmChange={setJoinArmedId}
+        onBuryArmChange={setBuryArmedId}
         scroll={layoutScroll}
         placements={layout.placements}
         sticky={layout.sticky}
@@ -618,7 +619,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   const ancestorResizing = useContext(ResizeGestureContext);
   const resizing = draggingAffordanceId !== null || ancestorResizing;
   const settleMs = resizing ? 0 : (props.settleMs ?? DEFAULT_SETTLE_MS);
-  const [joinArmedId, setJoinArmedId] = useState<NodeId | null>(null);
+  const [buryArmedId, setBuryArmedId] = useState<NodeId | null>(null);
   // Sticky children hold against the scroll in layout pixels, inside the view.
   const layoutScroll = toLayoutScroll(layout.scroll, layout.view);
   const layoutInfo: LayoutInfo = {
@@ -692,7 +693,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
         acceptsDrops={props.acceptsDrops}
         drop={dropBag(props, layout)}
         measure={props.measure}
-        joinArmedId={joinArmedId}
+        buryArmedId={buryArmedId}
         preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
         frame={
           props.fit
@@ -715,7 +716,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
           keyStep={props.affordanceKeyStep ?? 8}
           tabStop={props.affordanceTabStops ?? true}
           onActiveChange={setDraggingAffordanceId}
-          onJoinArmChange={setJoinArmedId}
+          onBuryArmChange={setBuryArmedId}
           scroll={layoutScroll}
           placements={layout.placements}
           sticky={layout.sticky}
@@ -788,10 +789,10 @@ interface PresetShellProps {
   measure?:
     | { observe: (id: NodeId, el: Element) => () => void; widthByContent: boolean }
     | undefined;
-  /** The pane an armed seam-join would destroy, for a shell that owns an
+  /** The pane an armed seam would bury, for a shell that owns an
    *  affordance layer. Published to descendants, never read for this shell —
    *  a seam names one of its own container's children. */
-  joinArmedId?: NodeId | null | undefined;
+  buryArmedId?: NodeId | null | undefined;
   /** Whether these placements came from a live drop preview, and whether that
    *  preview split a child's slot. The second is read back off the DOM by the
    *  hit-test, which resolves against the un-displaced row while it is set. */
@@ -822,7 +823,7 @@ function PresetShell({
   acceptsDrops,
   drop,
   measure,
-  joinArmedId,
+  buryArmedId,
   preview,
   provide,
   frame,
@@ -884,7 +885,7 @@ function PresetShell({
   const selfRect = useLayoutForSelf(id);
   const withheld = useIsUnplaced(id);
   const isPreviewSource = useLayoutContext().previewSourceId === id;
-  const armedByParent = useContext(JoinArmContext);
+  const armedByParent = useContext(BuryArmContext);
   const parentId = store.getNode(id)?.membership?.parentId;
   const reorderSource = useReorderSources(parentId)(id);
 
@@ -926,10 +927,10 @@ function PresetShell({
     </>
   );
   const armed =
-    joinArmedId === undefined ? (
+    buryArmedId === undefined ? (
       body
     ) : (
-      <JoinArmContext.Provider value={joinArmedId}>{body}</JoinArmContext.Provider>
+      <BuryArmContext.Provider value={buryArmedId}>{body}</BuryArmContext.Provider>
     );
   const content = provide ? <LayoutScope value={provide}>{armed}</LayoutScope> : armed;
 
@@ -947,7 +948,7 @@ function PresetShell({
           data-node-container={id}
           data-preview={preview?.active ? 'true' : undefined}
           data-split-preview={preview?.split ? 'true' : undefined}
-          data-join-armed={armedByParent === id ? 'true' : undefined}
+          {...buryArmed(armedByParent === id)}
           tabIndex={focusable ? (rovingId === id ? 0 : -1) : undefined}
           role={focusable ? 'group' : undefined}
           aria-label={focusable ? accessibleName(store, id) : undefined}
