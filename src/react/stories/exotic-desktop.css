@@ -166,7 +166,13 @@
   display: flex;
   gap: 1px;
   overflow-x: auto;
+  /* WebKit's overlay scrollbar would cover the tabs' close buttons, and intercept their clicks. */
+  scrollbar-width: none;
   background: #0f172a;
+}
+
+.xd-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .xd-tabs--tall {

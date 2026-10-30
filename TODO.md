@@ -7,17 +7,6 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
 
 ## Test-harness gaps
 
-- **WebKit sometimes leaves Chrome's 150th tab open after its close button is
-  clicked** (2026-10-30). `exotic-desktop.spec.ts:293`, "closing the active
-  last tab falls back to the first tab", times out waiting for
-  `tab-chrome-tab-150` to go. It failed in two consecutive full fleet runs on
-  main from 24ec47d (lay out only visible children), on the first try and the
-  retry in one and on the first try only in the other, which ran on an
-  uncontended fleet. It passed in the run at bca6f04 just before, and 3/3 when
-  run alone. That it is always this one test, rather than a wandering set, is
-  why it does not look like the load mode below. Unknown whether 24ec47d
-  caused it.
-
 - **A geometry read outside a poll can catch a layout that is still arriving.**
   Panes render in flow until their container has measured itself, and animate
   between placements after that, so a box read the instant a story opens or a
