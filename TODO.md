@@ -38,6 +38,14 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   change. `--workers=2` does not rescue it, and re-running one spec alone
   always passes, so isolation proves nothing either way.
 
+  The converse holds too: one test failing run after run, on an idle fleet, is
+  not load. Repeat it alone with `--repeat-each 60 --workers 8` and read the
+  failing trace. The Chrome 150-tab close test failed 6–10 times in 60 that way
+  because WebKit's overlay scrollbar, shown after the tab strip scrolled,
+  covered the close button. The trace's tell was
+  `<div role="tablist"> intercepts pointer events` on every retry of the click.
+  A scrolling strip of buttons hides its scrollbar now (2026-10-30, f9eab79).
+
   `scripts/flake-census.mjs` measures this rather than reasoning about it:
   it repeat-runs the suite in an `idle` and a `loaded` arm and ranks every
   test by failure rate and mode. The ordering above is a heuristic until a
