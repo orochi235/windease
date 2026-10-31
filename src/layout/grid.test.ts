@@ -482,6 +482,23 @@ describe('gridStrategy — pinned capacity', () => {
     expect(result.unplaced).toEqual(['c']);
     expect([...result.placements.keys()]).toEqual(['a', 'b']);
   });
+
+  it('places a pinned survivor that childOrder alone could not fit', () => {
+    // Pin-first fits P (2×2) beside A and B; childOrder puts A, B across row 0
+    // and leaves P no 2×2 hole in two rows.
+    const result = gridStrategy.layout({
+      items: [
+        mkItem('a'),
+        mkItem('b'),
+        { id: 'p', meta: { pinned: 0 }, placement: { span: { cols: 2, rows: 2 } } },
+      ],
+      container: { w: 300, h: 200 },
+      state: undefined as void,
+      options: { cols: 3, maxRows: 2 },
+    });
+    expect(result.unplaced).toBeUndefined();
+    expect([...result.placements.keys()].sort()).toEqual(['a', 'b', 'p']);
+  });
 });
 
 describe('gridStrategy — span', () => {

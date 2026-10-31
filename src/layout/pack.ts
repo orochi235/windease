@@ -230,9 +230,10 @@ function turnedIn(result: LayoutResult<string>): string[] {
  *
  * Every item still gets a rect of its own; nothing is drawn for the pocket and
  * no node stands in it. Each pocketed placement carries a `pocket: 1` channel,
- * for a host that wants to mark the region. What the pocket cannot hold obeys
- * the container's own `overflowMode`, since the inner pass reads the same
- * config the outer one did.
+ * for a host that wants to mark the region. What the pocket cannot hold, or
+ * every small item when no pocket is left, is packed below everything already
+ * placed and obeys the container's own `overflowMode` there: it scrolls past
+ * the container or goes to `unplaced`, never onto the flow.
  */
 export function packPocketPass(
   strategy: LayoutStrategy<void, string>,
@@ -263,13 +264,31 @@ export function packPocketPass(
       items: smalls,
       container: { w: rect.w, h: rect.h },
       state: undefined,
-      options: rest,
+      options: { ...rest, overflowMode: 'unplaced' },
     });
+    const innerTurned = new Set(turnedIn(inner));
     for (const [id, r] of inner.placements) {
+      // Justified rows ignore overflowMode, so the bound is enforced here too.
+      if (!fitsContainer(r.x, r.y, r, rect)) continue;
       placed.set(id, { ...r, x: r.x + rect.x, y: r.y + rect.y });
       inPocket.add(id);
+      if (innerTurned.has(id)) turned.add(id);
     }
-    for (const id of turnedIn(inner)) turned.add(id);
+  }
+
+  const spill = smalls.filter((item) => !inPocket.has(item.id));
+  if (spill.length > 0) {
+    const gap = packGap(args.options);
+    let bottom = 0;
+    for (const r of placed.values()) bottom = Math.max(bottom, r.y + r.h + gap);
+    const after = strategy.layout({
+      items: spill,
+      container: { w: args.container.w, h: Math.max(0, args.container.h - bottom) },
+      state: undefined,
+      options: rest,
+    });
+    for (const [id, r] of after.placements) placed.set(id, { ...r, y: r.y + bottom });
+    for (const id of turnedIn(after)) turned.add(id);
   }
 
   const rotate = packRotate(args.options);

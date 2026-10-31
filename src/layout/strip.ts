@@ -11,7 +11,7 @@ import type {
   StickyInset,
 } from '../layout-types.js';
 import { trace } from '../trace.js';
-import { selectByCapacity } from './capacity.js';
+import { readCount, selectByCapacity } from './capacity.js';
 import { PACK_EPSILON } from './pack.js';
 import { clampExplicitSizes } from './resize.js';
 import { DEFAULT_BURY_THRESHOLD, SEAM_SIZE } from './seam-bury.js';
@@ -1006,7 +1006,7 @@ function placedOf(
   axis: 'x' | 'y',
   main: number,
 ): { placed: LayoutItem[]; unplaced: string[]; shut: Shut[] } {
-  const cap = cfg.maxItems !== undefined ? Math.max(1, cfg.maxItems) : Number.POSITIVE_INFINITY;
+  const cap = readCount(cfg.maxItems) ?? items.length;
   const counted = selectByCapacity(items, Math.min(items.length, cap));
   const shut: Shut[] = [];
   const open: LayoutItem[] = [];
@@ -1070,9 +1070,8 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     justify: ['start', 'center', 'end', 'between'],
   },
   canAccept(items, options): boolean {
-    const cap = (options as StripConfig).maxItems;
-    if (cap === undefined) return true;
-    return items.length <= Math.max(1, cap);
+    const cap = readCount((options as StripConfig).maxItems);
+    return cap === undefined || items.length <= cap;
   },
   layout({
     items,

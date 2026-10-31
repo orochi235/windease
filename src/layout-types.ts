@@ -399,7 +399,8 @@ export interface LayoutResult<TId extends string = string, TMeta = unknown> {
 /**
  * A gesture on an affordance, fed back to the strategy through `reduce` and
  * `dispatchAffordance`. Coordinates are container-relative and deltas are
- * cumulative from the gesture's start, not per-frame.
+ * per move: each event carries the distance since the previous one, not since
+ * the gesture's start.
  */
 export interface LayoutEvent {
   affordanceId: string;

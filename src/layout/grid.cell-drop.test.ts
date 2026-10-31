@@ -34,6 +34,19 @@ describe('gridStrategy.cellAt', () => {
     expect(cellAt([{ id: 'drag' }], { x: 20, y: 20 })).toEqual({ col: 0, row: 0 });
   });
 
+  it('measures against the grid as shown, with the dragged child still counted', () => {
+    // Five auto-balanced items tile 3×2; without the source, four would tile 2×2.
+    const items = Array.from({ length: 5 }, (_, i) => ({ id: `i${i}` }));
+    const hit = gridStrategy.cellAt?.({
+      items,
+      container: { w: 300, h: 300 },
+      options: {},
+      point: { x: 250, y: 225 },
+      sourceId: 'i0',
+    });
+    expect(hit).toEqual({ col: 2, row: 1 });
+  });
+
   it('counts a gap as the cell before it', () => {
     expect(cellAt([low], { x: 105, y: 20 })).toEqual({ col: 0, row: 0 });
   });

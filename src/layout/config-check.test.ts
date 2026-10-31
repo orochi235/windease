@@ -6,6 +6,7 @@ import {
   listOf,
   oneOrList,
 } from './config-check.js';
+import { gridStrategy } from './grid.js';
 
 const SPEC: ConfigSpec = {
   axis: ['x', 'y'],
@@ -182,5 +183,13 @@ describe('checkStrategyConfig — conflicting keys', () => {
 
   it('checks nothing extra when a strategy declares no conflicts', () => {
     expect(checkStrategyConfig('strip', { gap: 8, fill: true }, SPEC)).toEqual([]);
+  });
+});
+
+describe('strategy config specs', () => {
+  it("accepts grid's every orientation, 'fit' included", () => {
+    for (const orientation of ['wide', 'tall', 'fit']) {
+      expect(checkStrategyConfig('grid', { orientation }, gridStrategy.configSpec!)).toEqual([]);
+    }
   });
 });

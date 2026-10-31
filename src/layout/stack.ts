@@ -127,12 +127,11 @@ export const stackStrategy: LayoutStrategy<void, string> = {
     options: Record<string, unknown>;
   }): LayoutResult<string> {
     const cfg = options as StackConfig;
-    const padding = cfg.padding ?? 0;
 
     const placements = new Map<string, Rect>();
     if (items.length === 0) return { placements, affordances: [] };
     const zoomed = zoomedOf(items, cfg.zoom);
-    if (zoomed) return zoomLayout(items, zoomed, container, padding);
+    if (zoomed) return zoomLayout(items, zoomed, container, num(cfg.padding));
 
     const { band, body, bars } = stackBands(options, container, items.length);
     const active = items.find((i) => i.id === cfg.activeId) ?? items[0]!;

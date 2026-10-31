@@ -11,6 +11,7 @@ import type {
 } from '../layout-types.js';
 import type { NodeId } from '../node.js';
 import { trace } from '../trace.js';
+import { readCount } from './capacity.js';
 import { forwardInner } from './forward.js';
 import { innerConfig } from './inner-config.js';
 
@@ -138,8 +139,8 @@ function paginate<TInner>(
   }
 
   const pages: LayoutItem[][] = [];
-  const min = typeof cfg.pages === 'number' && Number.isFinite(cfg.pages) ? cfg.pages : 1;
-  for (let k = 0; k < Math.max(1, Math.floor(min)); k++) pages.push([]);
+  const min = readCount(cfg.pages) ?? 1;
+  for (let k = 0; k < min; k++) pages.push([]);
   for (const item of items) {
     const p = assignedPage(item);
     while (pages.length <= p) pages.push([]);
