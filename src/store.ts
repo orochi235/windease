@@ -583,8 +583,8 @@ export class Store {
     if (fromParentId !== newParentId) this.#showArrival(newParentId, id);
   }
 
-  /** The locks `moveNode` honors. A move that stays in its parent is a
-   *  reorder, so the parent's `arrange` gates it as it gates `reorderInParent`. */
+  /** The locks `moveNode` honors. Not the parent's `arrange`, even within one
+   *  parent: freezing drag-reordering is `lock.move` on the children. */
   #assertMoveUnlocked(
     id: NodeId,
     fromParentId: NodeId,
@@ -595,7 +595,6 @@ export class Store {
     this.assertUnlocked(id, 'move', operation, opts);
     this.assertUnlocked(toParentId, 'accept', operation, opts);
     this.assertUnlocked(fromParentId, 'dragOut', operation, opts);
-    if (fromParentId === toParentId) this.assertUnlocked(toParentId, 'arrange', operation, opts);
   }
 
   /**
@@ -711,9 +710,6 @@ export class Store {
     for (const id of run) {
       this.assertUnlocked(id, 'move', 'moveNodes', opts);
       this.assertUnlocked(sourceOf.get(id) as NodeId, 'dragOut', 'moveNodes', opts);
-    }
-    if (run.some((id) => sourceOf.get(id) === toParentId)) {
-      this.assertUnlocked(toParentId, 'arrange', 'moveNodes', opts);
     }
 
     const sources = new Set(sourceOf.values());

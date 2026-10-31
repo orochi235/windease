@@ -123,13 +123,12 @@ describe('Store.stackNodes', () => {
     expect(s.getNode(id('s1'))?.container?.config).toMatchObject({ activeId: c });
   });
 
-  it('refuses a reorder inside an arrange-locked existing stack, writing nothing', () => {
-    const { s, a, b } = seeded();
+  it('refuses a move-locked source into an existing stack, writing nothing', () => {
+    const { s, a, b, c } = seeded();
     s.stackNodes(a, b, { id: id('s1') });
-    s.setActiveChild(id('s1'), b);
-    s.setLock(id('s1'), { arrange: true });
+    s.setLock(c, { move: true });
     const before = JSON.stringify(serialize(s));
-    expect(() => s.stackNodes(b, a, { id: id('s2') })).toThrow(LockedError);
+    expect(() => s.stackNodes(c, b, { id: id('s2') })).toThrow(LockedError);
     expect(JSON.stringify(serialize(s))).toBe(before);
   });
 

@@ -347,13 +347,12 @@ describe('Store — arrange and resize locks', () => {
     expect(z).toBeDefined();
   });
 
-  it('blocks a same-parent moveNode on an arrange-locked container, as reorderInParent does', () => {
+  it('lets a same-parent moveNode through an arrange lock, which never gates the drag', () => {
     const { s, z, p } = seeded();
     s.registerNode(createNode({ kind: 'panel', focus: true, id: id('q'), parentId: z }));
     s.setLock(z, { arrange: true });
-    expect(() => s.moveNode(p, z)).toThrow(LockedError);
-    expect(() => s.moveNodes([p], z)).toThrow(LockedError);
-    expect(s.getNode(z)?.container?.childOrder.map(String)).toEqual(['p', 'q']);
+    s.moveNode(p, z);
+    expect(s.getNode(z)?.container?.childOrder.map(String)).toEqual(['q', 'p']);
   });
 
   it('lets a move into an arrange-locked container from elsewhere through', () => {
