@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createNode } from './constructors.js';
 import { ContainerHost } from './container-host.js';
 import { stripStrategy } from './layout/strip.js';
-import type { StrategyRegistry } from './layout-types.js';
+import type { LayoutStrategy, StrategyRegistry } from './layout-types.js';
 import { asNodeId } from './node.js';
 import { serialize } from './snapshot.js';
 import { Store } from './store.js';
@@ -108,5 +108,24 @@ describe('ContainerHost content sizing', () => {
     // The request is node state and must survive; only the measurement doesn't.
     const store = build();
     expect(JSON.stringify(serialize(store))).toContain('"sizing"');
+  });
+});
+
+describe('ContainerHost content sizing in a drop preview', () => {
+  it('hands the fast preview path the same measurements as the committed layout', () => {
+    const seen: (number | undefined)[] = [];
+    const previewing: LayoutStrategy = {
+      ...(stripStrategy as never as LayoutStrategy),
+      getDropPreview: ({ items }) => {
+        for (const it of items) if (it.id === P1) seen.push(it.natural?.h);
+        return { placements: new Map(), accepted: true };
+      },
+    };
+    const h = new ContainerHost(build(), Z, new Map([['stack', previewing as never]]));
+    h.setViewport({ w: 200, h: 400 });
+    h.setNaturalSize(P1, { w: 200, h: 120 });
+    h.setPreview({ insertId: asNodeId('ghost'), insertIndex: 0 });
+    h.layout();
+    expect(seen).toEqual([120]);
   });
 });

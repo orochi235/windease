@@ -908,10 +908,7 @@ export class ContainerHost {
     const preview = this.#preview;
     if (preview && !preview.split && strategy.getDropPreview) {
       const fast = strategy.getDropPreview({
-        items: this.#store
-          .getChildren(this.#parentId)
-          .filter((c) => c.lifecycle.state === 'visible')
-          .map((c) => childToLayoutItem(this.#store, c, this.#drag ?? undefined)),
+        items: this.#visibleItems(),
         container: viewport,
         options: (container.config ?? {}) as Record<string, unknown>,
         insertId: preview.insertId,
