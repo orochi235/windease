@@ -1,11 +1,21 @@
 import { resolveCollapse } from '../collapse.js';
-import type { NodeId } from '../node.js';
+import type { Node, NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import type { GeometrySource } from './types.js';
 
 /** Below this, a pane is as unreachable as one at zero, and float geometry
  *  makes exact-zero comparisons unreliable. */
 const MIN_NAVIGABLE_PX = 1;
+
+/**
+ * Whether `node` and what is under it can be on screen. A container takes its
+ * subtree out only by being hidden or destroyed: `mounted` still renders —
+ * `<Container>` never checks its parent's lifecycle, so a root nobody called
+ * showNode on is on screen. A leaf still has to be `visible` itself.
+ */
+export function rendersSubtree(node: Node): boolean {
+  return node.lifecycle.state !== 'hidden' && node.lifecycle.state !== 'destroyed';
+}
 
 /**
  * Every leaf that can currently take focus, in document order. Hidden and
@@ -18,10 +28,7 @@ export function navigableLeaves(store: Store, geometry: GeometrySource): NodeId[
     for (const nid of ids) {
       const node = store.getNode(nid);
       if (!node) continue;
-      // A container only takes its subtree out of the set by being hidden.
-      // `mounted` still renders — `<Container>` never checks its parent's
-      // lifecycle, so a root nobody called showNode on is on screen.
-      if (node.lifecycle.state === 'hidden' || node.lifecycle.state === 'destroyed') continue;
+      if (!rendersSubtree(node)) continue;
       const children = store.getChildren(nid).map((c) => c.id);
       if (children.length > 0) {
         walk(children);

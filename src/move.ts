@@ -1,4 +1,5 @@
 import { resolveNavigation } from './focus/resolve.js';
+import { isWithin } from './focus/successor.js';
 import type { GeometrySource, NavDirection } from './focus/types.js';
 import type { LayoutStrategy } from './layout-types.js';
 import type { NodeId } from './node.js';
@@ -19,15 +20,6 @@ export interface ResolveMoveInput {
   direction: NavDirection;
   geometry: GeometrySource;
   strategies?: ReadonlyMap<string, LayoutStrategy<unknown, string, unknown>>;
-}
-
-function isWithinSubtree(store: Store, candidate: NodeId, root: NodeId): boolean {
-  let cursor: NodeId | undefined = candidate;
-  while (cursor) {
-    if (cursor === root) return true;
-    cursor = store.getNode(cursor)?.membership?.parentId;
-  }
-  return false;
 }
 
 /**
@@ -70,7 +62,7 @@ export function resolveMove({
 
   if (store.getLock(parentId).accept) return null;
   if (store.getLock(fromParentId).dragOut) return null;
-  if (isWithinSubtree(store, parentId, from)) return null;
+  if (isWithin(store, parentId, from)) return null;
 
   trace('workspace', `move ${direction}: ${from} → ${parentId}@${at}`);
   return { kind: 'reparent', id: from, fromParentId, parentId, at };

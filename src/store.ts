@@ -11,7 +11,7 @@ import {
 } from './errors.js';
 import { TypedEmitter } from './events.js';
 import type { NavigationPolicy } from './focus/resolve.js';
-import { chooseSuccessor, isFocusable, type SuccessorPolicy } from './focus/successor.js';
+import { chooseSuccessor, isFocusable, isWithin, type SuccessorPolicy } from './focus/successor.js';
 import { destroyBlockedBy, type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeHints, NodeId } from './node.js';
 import { placeRespectingPins, placeRunRespectingPins } from './pinning.js';
@@ -411,6 +411,8 @@ export class Store {
   }
 
   #unregisterNodeInner(id: NodeId, node: Node): void {
+    // Before the cascade, so the successor is chosen outside a subtree that still exists.
+    this.#succeedFocusLeaving(id, 'destroyed');
     const descendantIds: NodeId[] = [];
     if (node.container) {
       this.collectDescendants(id, descendantIds);
@@ -424,7 +426,6 @@ export class Store {
       trace('store', `destroy cascade: ${id} → ${descendantIds.length} descendants`);
     }
 
-    if (this.focusedIdValue === id) this.succeedFocus(id, 'destroyed');
     const parentId = node.membership?.parentId;
     const siblings = parentId ? this.nodesMap.get(parentId)?.container?.childOrder : undefined;
     this.detachAndRemove(id);
@@ -1631,13 +1632,28 @@ export class Store {
       const siblings = this.nodesMap.get(parentId)?.container?.childOrder ?? [];
       this.#fallback(parentId, id, siblings, 'hidden');
     }
-    if (this.focusedIdValue === id) this.succeedFocus(id, 'hidden');
+    this.#succeedFocusLeaving(id, 'hidden');
     this.scheduleNotify();
   }
 
   // ===== Focus =====
 
-  private succeedFocus(from: NodeId, reason: 'destroyed' | 'hidden' | 'moved'): void {
+  /** Move focus out of `root`'s subtree when it holds it, choosing from outside. */
+  #succeedFocusLeaving(root: NodeId, reason: 'destroyed' | 'hidden'): void {
+    const focused = this.focusedIdValue;
+    if (focused === null || !isWithin(this, focused, root)) return;
+    if (focused !== root)
+      trace('store', `focus successor: ${root} (${reason}) holds focused ${focused}`);
+    this.succeedFocus(focused, reason, root);
+  }
+
+  /** `scope` is the subtree that is departing: `from` itself, or an ancestor
+   *  of it. Nothing inside it is chosen, from the policy or the built-in. */
+  private succeedFocus(
+    from: NodeId,
+    reason: 'destroyed' | 'hidden' | 'moved',
+    scope: NodeId = from,
+  ): void {
     if (this.focusedIdValue !== from) return;
     let chosen: NodeId | null | undefined;
     try {
@@ -1646,11 +1662,11 @@ export class Store {
       trace('store', `successor policy threw, using built-in: ${err}`);
       chosen = undefined;
     }
-    if (chosen && (chosen === from || !isFocusable(this, chosen))) {
+    if (chosen && (isWithin(this, chosen, scope) || !isFocusable(this, chosen))) {
       trace('store', `successor policy returned unusable ${chosen}, using built-in`);
       chosen = undefined;
     }
-    const to = chosen === undefined ? chooseSuccessor(this, from) : chosen;
+    const to = chosen === undefined ? chooseSuccessor(this, scope) : chosen;
     this.blurAll();
     if (to) this.focusNode(to);
     this.events.emit('focus.successor', { from, to, reason });

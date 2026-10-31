@@ -98,3 +98,84 @@ describe('focus successor', () => {
     rec.stop();
   });
 });
+
+/** zone `z` › [`a`, group `g` › [`g1`, `g2`], `c`], every node shown. */
+function nested(policy?: ConstructorParameters<typeof Store>[0]): Store {
+  const s = new Store(policy);
+  s.registerNode(
+    createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('z') }),
+  );
+  s.registerNode(createNode({ kind: 'panel', focus: true, id: id('a'), parentId: id('z') }));
+  s.registerNode(
+    createNode({
+      kind: 'group',
+      container: { strategyId: 'strip', config: {} },
+      id: id('g'),
+      parentId: id('z'),
+    }),
+  );
+  for (const c of ['g1', 'g2']) {
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id(c), parentId: id('g') }));
+  }
+  s.registerNode(createNode({ kind: 'panel', focus: true, id: id('c'), parentId: id('z') }));
+  for (const n of ['z', 'a', 'g', 'g1', 'g2', 'c']) s.showNode(id(n));
+  return s;
+}
+
+describe('focus successor when a container holding focus departs', () => {
+  it('moves focus out of a destroyed container, announcing it', () => {
+    const s = nested();
+    s.focusNode(id('g1'));
+    const rec = recordEvents(s, 'focus.successor');
+    s.unregisterNode(id('g'));
+    expect(s.focusedId).toBe(id('c'));
+    expect(rec.of('focus.successor')).toEqual([
+      { from: id('g1'), to: id('c'), reason: 'destroyed' },
+    ]);
+    rec.stop();
+  });
+
+  it('moves focus out of a hidden container rather than leaving it off screen', () => {
+    const s = nested();
+    s.focusNode(id('g2'));
+    const rec = recordEvents(s, 'focus.successor');
+    s.hideNode(id('g'));
+    expect(s.focusedId).toBe(id('c'));
+    expect(rec.of('focus.successor')).toEqual([{ from: id('g2'), to: id('c'), reason: 'hidden' }]);
+    rec.stop();
+  });
+
+  it("does not pick the parent's remembered child from inside the departing subtree", () => {
+    const s = nested();
+    s.unregisterNode(id('c'));
+    s.focusNode(id('g1'));
+    s.unregisterNode(id('g'));
+    expect(s.focusedId).toBe(id('a'));
+  });
+
+  it('overrides a policy answer that lies inside the departing subtree', () => {
+    const s = nested({ successorPolicy: () => id('g2') });
+    s.focusNode(id('g1'));
+    s.unregisterNode(id('g'));
+    expect(s.focusedId).toBe(id('c'));
+  });
+});
+
+describe('focus successor fallback to the first leaf', () => {
+  it('descends into a root that was never shown, as navigation does', () => {
+    const s = new Store();
+    s.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('r1') }),
+    );
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('x'), parentId: id('r1') }));
+    s.showNode(id('x'));
+    s.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('r2') }),
+    );
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('y'), parentId: id('r2') }));
+    s.showNode(id('y'));
+    s.focusNode(id('x'));
+    s.unregisterNode(id('x'));
+    expect(s.focusedId).toBe(id('y'));
+  });
+});
