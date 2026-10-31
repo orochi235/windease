@@ -124,7 +124,7 @@ describe('ContainerHost content sizing in a drop preview', () => {
     const h = new ContainerHost(build(), Z, new Map([['stack', previewing as never]]));
     h.setViewport({ w: 200, h: 400 });
     h.setNaturalSize(P1, { w: 200, h: 120 });
-    h.setPreview({ insertId: asNodeId('ghost'), insertIndex: 0 });
+    h.setPreview({ insertId: asNodeId('ghost'), insertIndex: 0, cursor: { x: 0, y: 0 } });
     h.layout();
     expect(seen).toEqual([120]);
   });
