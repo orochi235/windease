@@ -152,6 +152,9 @@ interface PresentationalProps {
   'data-testid'?: string;
 }
 
+/** The scope a container preset placing nothing publishes to its children. */
+const NO_LAYOUT: LayoutInfo = { placements: new Map(), unplaced: [], settleMs: 0 };
+
 /** The pane an armed seam would bury, published by the preset that owns
  *  the affordance layer and read by that pane's own shell. Internal — a preset's
  *  children render their own wrappers, so a prop cannot reach them. */
@@ -411,6 +414,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
     settleMs,
     registerPlacementControl: layout.registerPlacementControl,
     observeNatural: layout.observeNatural,
+    mode: layout.mode,
   };
   if (layout.channels) layoutInfo.channels = layout.channels;
   if (layout.sticky) {
@@ -641,6 +645,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
     settleMs,
     registerPlacementControl: layout.registerPlacementControl,
     observeNatural: layout.observeNatural,
+    mode: layout.mode,
   };
   if (layout.channels) layoutInfo.channels = layout.channels;
   if (layout.sticky) {
@@ -911,7 +916,8 @@ function PresetShell({
   // `hidden`, not "not visible": a node is `mounted` until its first layout
   // effect shows it, and hiding it for that commit would measure it at zero.
   const hidden = useNodeSelector(id, (n) => n.lifecycle.state) === 'hidden';
-  const isPreviewSource = useLayoutContext().previewSourceId === id;
+  const parentLayout = useLayoutContext();
+  const isPreviewSource = parentLayout.previewSourceId === id;
   const armedByParent = useContext(BuryArmContext);
   const parentId = store.getNode(id)?.membership?.parentId;
   const reorderSource = useReorderSources(parentId)(id);
@@ -959,7 +965,18 @@ function PresetShell({
     ) : (
       <BuryArmContext.Provider value={buryArmedId}>{body}</BuryArmContext.Provider>
     );
-  const content = provide ? <LayoutScope value={provide}>{armed}</LayoutScope> : armed;
+  // A container placing nothing still scopes its children, so none of them
+  // looks itself up in a grandparent's placements.
+  const scope = provide ?? (ownContainer ? NO_LAYOUT : undefined);
+  const content = scope ? <LayoutScope value={scope}>{armed}</LayoutScope> : armed;
+
+  // Hidden or withheld: kept mounted, not displayed, and out of the DOM
+  // harvests that find panes by `data-node`.
+  const concealed = hidden || withheld;
+  // A root is never placed, and a pane CSS arranges never gains a rect, so
+  // only a pane its parent places keeps a placement box on every render.
+  const boxed = parentId !== undefined && parentLayout.mode === 'placed';
+  const shellStyle = concealed && !boxed ? { ...style, display: 'none' } : style;
 
   const inner = (
     <ChildRegistryContext.Provider value={registry}>
@@ -969,9 +986,9 @@ function PresetShell({
           {...reorderSource}
           ref={wrapperRef}
           className={compose(wrapperClass, className)}
-          style={reorderSource.style ? { ...style, ...reorderSource.style } : style}
+          style={reorderSource.style ? { ...shellStyle, ...reorderSource.style } : shellStyle}
           data-testid={testId}
-          data-node={id}
+          data-node={concealed ? undefined : id}
           data-node-container={id}
           data-preview={preview?.active ? 'true' : undefined}
           data-split-preview={preview?.split ? 'true' : undefined}
@@ -1003,21 +1020,19 @@ function PresetShell({
     inner
   );
 
-  // A root is never placed.
-  if (!parentId) return shell;
+  if (!boxed) return shell;
 
-  // Every child keeps its placement box on every render, placed or not, hidden
-  // or withheld or not: changing the tree shape remounts the subtree, which
-  // reloads an iframe, drops component state, and has a descendant preset
-  // re-register under a fresh `useId` owner token while the store still holds
-  // the old one.
+  // Placed or not yet, hidden or withheld or not, the box stays: changing the
+  // tree shape remounts the subtree, which reloads an iframe, drops component
+  // state, and has a descendant preset re-register under a fresh `useId`
+  // owner token while the store still holds the old one.
   return (
     <AbsoluteWrapper
       rect={selfRect}
       selfId={id}
       parentId={parentId}
       previewSource={isPreviewSource}
-      hidden={hidden || withheld}
+      hidden={concealed}
     >
       {shell}
     </AbsoluteWrapper>
@@ -1078,7 +1093,7 @@ function AbsoluteWrapper({
   // loaded the stylesheet.
   if (hidden) return <div style={{ display: 'none' }}>{children}</div>;
   // Stamped so the DOM harvest still reads the child as its parent's: it
-  // checks a pane's immediate parent. The hidden box above is left out of it.
+  // checks a pane's immediate parent.
   if (!rect) {
     return (
       <div style={{ display: 'contents' }} data-node-container={parentId}>

@@ -189,6 +189,39 @@ describe('a leaf placed after its first render', () => {
   });
 });
 
+describe('a hidden child of a flow zone', () => {
+  it('stays a direct child of the zone, mounted and not displayed', () => {
+    const store = new Store();
+    let mounts = 0;
+    function Probe() {
+      useEffect(() => {
+        mounts++;
+      }, []);
+      return null;
+    }
+    const tree = (hidden: boolean) => (
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={STRATEGIES}>
+          <Zone id={asNodeId('z')} hints={{ render: 'flow' }} data-testid="z">
+            <Panel id={asNodeId('a')} data-testid="a" hidden={hidden}>
+              <Probe />
+            </Panel>
+          </Zone>
+        </StrategyRegistryProvider>
+      </Provider>
+    );
+    const view = render(tree(false));
+    expect(view.getByTestId('a').parentElement).toBe(view.getByTestId('z'));
+    view.rerender(tree(true));
+    expect(displayed(view.getByTestId('a'))).toBe(false);
+    // Out of the DOM harvests, which find panes by data-node.
+    expect(view.getByTestId('a').getAttribute('data-node')).toBeNull();
+    view.rerender(tree(false));
+    expect(displayed(view.getByTestId('a'))).toBe(true);
+    expect(mounts).toBe(1);
+  });
+});
+
 describe('a child no strategy withheld', () => {
   // These two are why `unplaced` can carry the signal at all: both report an
   // empty list because no strategy ran, so membership means "withheld" and
