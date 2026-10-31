@@ -4,7 +4,6 @@ import {
   type RefObject,
   useContext,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -53,6 +52,7 @@ import {
   useViewBinding,
   viewStyle,
 } from './useContainerLayout.js';
+import { useSettle } from './useSettle.js';
 
 /** Live layout snapshot passed to function-form `overlay` callbacks. */
 export interface OverlayContext extends ContainerLayout {
@@ -283,21 +283,6 @@ function DeclarativeContainer({
   );
 }
 
-/**
- * Whether this render's viewport differs from the last committed one. A resize
- * moves every placement at once and keeps moving it while the edge is dragged,
- * so easing toward each new rect only makes the tiles trail the edge. A
- * rearrange landing in the same render as a resize goes unanimated too.
- */
-function useViewportResized(viewport: { w: number; h: number } | null): boolean {
-  const committed = useRef(viewport);
-  useLayoutEffect(() => {
-    committed.current = viewport;
-  });
-  const prev = committed.current;
-  return prev !== null && viewport !== null && (prev.w !== viewport.w || prev.h !== viewport.h);
-}
-
 function StoreContainer({
   parentId,
   chrome,
@@ -377,17 +362,13 @@ function StoreContainer({
     ...(edgeScroll ? { edgeScroll } : {}),
   });
 
-  // Track which affordance is currently being dragged (if any) so we can
-  // suppress the settle transition (cursor IS the motion) AND expose the id
-  // to overlay/affordance render functions.
-  const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
+  const {
+    settleMs: effectiveSettleMs,
+    resizing,
+    draggingAffordanceId,
+    setDraggingAffordanceId,
+  } = useSettle(settleMs, layout.viewport);
   const [buryArmedId, setBuryArmedId] = useState<NodeId | null>(null);
-  const reducedMotion =
-    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const ancestorResizing = useContext(ResizeGestureContext);
-  const resizing = draggingAffordanceId !== null || ancestorResizing;
-  const viewportResized = useViewportResized(layout.viewport);
-  const effectiveSettleMs = resizing || reducedMotion || viewportResized ? 0 : settleMs;
 
   const containerStyle: CSSProperties = viewport
     ? {

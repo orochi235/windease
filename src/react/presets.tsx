@@ -80,6 +80,7 @@ import {
   viewStyle,
 } from './useContainerLayout.js';
 import { JSX_OWNER_META_KEY, useNodeBinding } from './useNodeBinding.js';
+import { useSettle } from './useSettle.js';
 
 interface CommonBindingProps {
   id?: NodeId;
@@ -240,6 +241,12 @@ export interface PanelProps extends CommonBindingProps, PresentationalProps, Aff
    * drag is reverted on the next one — declare one or the other, not both.
    */
   onPlacementChange?: PlacementCommit;
+  /**
+   * Settle animation duration in ms for children moving between placements,
+   * when `container` gives this panel a layout to run. Default 150. Set to 0
+   * to disable.
+   */
+  settleMs?: number;
 }
 
 /** Registers `commit` as `id`'s placement control on whichever container is
@@ -391,8 +398,10 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   useOverflowOrigin(props.scrollRef, layout.overflow);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
-  const settleMs = DEFAULT_SETTLE_MS;
-  const [, setDraggingAffordanceId] = useState<string | null>(null);
+  const { settleMs, resizing, setDraggingAffordanceId } = useSettle(
+    props.settleMs ?? DEFAULT_SETTLE_MS,
+    layout.viewport,
+  );
   const [buryArmedId, setBuryArmedId] = useState<NodeId | null>(null);
   // Sticky children hold against the scroll in layout pixels, inside the view.
   const layoutScroll = toLayoutScroll(layout.scroll, layout.view);
@@ -417,43 +426,45 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   };
 
   return (
-    <PresetShell
-      provide={layoutInfo}
-      kind="panel"
-      id={props.id}
-      className={props.className}
-      style={panelStyle}
-      title={props.title}
-      testId={props['data-testid']}
-      innerRef={ref}
-      acceptsDrops={props.acceptsDrops}
-      drop={dropBag(props, layout)}
-      measure={props.measure}
-      buryArmedId={buryArmedId}
-      preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
-    >
-      {props.draggable ? (
-        <DragHandle nodeId={props.id}>{props.children}</DragHandle>
-      ) : (
-        props.children
-      )}
-      <SplitPreview placements={layout.placements} state={dropPreview} />
-      <AffordanceLayer
-        render={props.affordances ?? false}
-        affordances={layout.affordances}
-        dispatch={layout.dispatchAffordance}
-        store={store}
-        hitPad={props.affordanceHitPad ?? 4}
-        keyStep={props.affordanceKeyStep ?? 8}
-        tabStop={props.affordanceTabStops ?? true}
-        onActiveChange={setDraggingAffordanceId}
-        onBuryArmChange={setBuryArmedId}
-        scroll={layoutScroll}
-        placements={layout.placements}
-        sticky={layout.sticky}
-        writePlacement={layout.writePlacement}
-      />
-    </PresetShell>
+    <ResizeGestureContext.Provider value={resizing}>
+      <PresetShell
+        provide={layoutInfo}
+        kind="panel"
+        id={props.id}
+        className={props.className}
+        style={panelStyle}
+        title={props.title}
+        testId={props['data-testid']}
+        innerRef={ref}
+        acceptsDrops={props.acceptsDrops}
+        drop={dropBag(props, layout)}
+        measure={props.measure}
+        buryArmedId={buryArmedId}
+        preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
+      >
+        {props.draggable ? (
+          <DragHandle nodeId={props.id}>{props.children}</DragHandle>
+        ) : (
+          props.children
+        )}
+        <SplitPreview placements={layout.placements} state={dropPreview} />
+        <AffordanceLayer
+          render={props.affordances ?? false}
+          affordances={layout.affordances}
+          dispatch={layout.dispatchAffordance}
+          store={store}
+          hitPad={props.affordanceHitPad ?? 4}
+          keyStep={props.affordanceKeyStep ?? 8}
+          tabStop={props.affordanceTabStops ?? true}
+          onActiveChange={setDraggingAffordanceId}
+          onBuryArmChange={setBuryArmedId}
+          scroll={layoutScroll}
+          placements={layout.placements}
+          sticky={layout.sticky}
+          writePlacement={layout.writePlacement}
+        />
+      </PresetShell>
+    </ResizeGestureContext.Provider>
   );
 }
 
@@ -617,10 +628,10 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   useOverflowOrigin(props.scrollRef, layout.overflow);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
-  const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
-  const ancestorResizing = useContext(ResizeGestureContext);
-  const resizing = draggingAffordanceId !== null || ancestorResizing;
-  const settleMs = resizing ? 0 : (props.settleMs ?? DEFAULT_SETTLE_MS);
+  const { settleMs, resizing, setDraggingAffordanceId } = useSettle(
+    props.settleMs ?? DEFAULT_SETTLE_MS,
+    layout.viewport,
+  );
   const [buryArmedId, setBuryArmedId] = useState<NodeId | null>(null);
   // Sticky children hold against the scroll in layout pixels, inside the view.
   const layoutScroll = toLayoutScroll(layout.scroll, layout.view);

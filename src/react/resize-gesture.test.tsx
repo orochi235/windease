@@ -1,5 +1,6 @@
 import { act, fireEvent, render } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { useContext } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { asNodeId, createNode, Store, stripStrategy } from '../index.js';
 import { Container } from './Container.js';
 import { useLayoutContext } from './LayoutContext.js';
@@ -126,5 +127,73 @@ describe('a seam drag that ends without a pointerup', () => {
     const { container, seam } = renderRow();
     fireEvent.lostPointerCapture(seam, { pointerId: 1 });
     expect(child(container).style.transition).toContain('200ms');
+  });
+});
+
+describe('a laid-out Panel', () => {
+  // jsdom lays nothing out; the panel measures its own box for its viewport.
+  class RO {
+    constructor(private cb: ResizeObserverCallback) {}
+    observe(el: Element) {
+      this.cb(
+        [{ target: el, contentRect: { width: 200, height: 100 } } as ResizeObserverEntry],
+        this as never,
+      );
+    }
+    unobserve() {}
+    disconnect() {}
+  }
+  beforeEach(() => vi.stubGlobal('ResizeObserver', RO));
+  afterEach(() => vi.unstubAllGlobals());
+
+  function renderPanel(resizing: boolean) {
+    return render(
+      <Provider store={new Store()}>
+        <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
+          <ResizeGestureContext.Provider value={resizing}>
+            <Zone
+              id={asNodeId('z')}
+              strategyId="strip"
+              config={{ axis: 'x', fill: true }}
+              viewport={{ w: 200, h: 100 }}
+            >
+              <Panel
+                id={asNodeId('p')}
+                container={{ strategyId: 'strip', config: { axis: 'x', fill: true } }}
+                settleMs={250}
+                affordances
+              >
+                <Panel id={asNodeId('a')} />
+                <Panel id={asNodeId('b')} />
+                <SettleProbe />
+                <ResizingProbe />
+              </Panel>
+            </Zone>
+          </ResizeGestureContext.Provider>
+        </StrategyRegistryProvider>
+      </Provider>,
+    );
+  }
+
+  function ResizingProbe() {
+    return <output data-testid="resizing">{String(useContext(ResizeGestureContext))}</output>;
+  }
+
+  it('hands its children its own settleMs', () => {
+    expect(settleOf(renderPanel(false).container)).toBe('250');
+  });
+
+  it('drops it while an ancestor is resizing', () => {
+    expect(settleOf(renderPanel(true).container)).toBe('0');
+  });
+
+  it('drops it and tells its descendants while its own seam is dragged', () => {
+    const { container, getByTestId } = renderPanel(false);
+    const seam = container.querySelector('[data-affordance-hit]') as HTMLElement;
+    fireEvent.pointerDown(seam, { pointerId: 1, clientX: 100, clientY: 0 });
+    expect(settleOf(container)).toBe('0');
+    expect(getByTestId('resizing').textContent).toBe('true');
+    fireEvent.pointerUp(seam, { pointerId: 1, clientX: 100, clientY: 0 });
+    expect(settleOf(container)).toBe('250');
   });
 });
