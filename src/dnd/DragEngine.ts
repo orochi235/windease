@@ -514,15 +514,6 @@ export class DragEngine {
     // A drop within the source's own parent never adds a child, so it cannot
     // make a list the container already holds any worse, even one over capacity.
     const withinParent = this.store.getNode(draggingId)?.membership?.parentId === targetId;
-    // A wrap rearranges the onto-child's parent, which checkIntent has judged.
-    if (
-      withinParent &&
-      !(intent && this.wraps(intent)) &&
-      this.store.isLocked(targetId, 'arrange')
-    ) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (reorder within lock.arrange)`);
-      return false;
-    }
     // Building the prospective child list is O(children) on the pointermove
     // path, so only pay for it when something will actually read it, and once.
     let items: AcceptItem[] | undefined;

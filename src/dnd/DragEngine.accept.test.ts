@@ -554,7 +554,8 @@ describe('DragEngine — config.accepts', () => {
 });
 
 describe('DragEngine — lock.arrange', () => {
-  it('refuses a reorder within an arrange-locked parent', () => {
+  // concepts.md: `arrange` never gates a drag reorder; `lock.move` on the children does.
+  it('still lets a reorder within an arrange-locked parent through', () => {
     const s = openStore();
     s.registerNode(
       createNode({ kind: 'panel', focus: true, id: asNodeId('q'), parentId: asNodeId('z1') }),
@@ -564,9 +565,7 @@ describe('DragEngine — lock.arrange', () => {
     e.addDropTarget(asNodeId('z1'), at(SQUARE, { getInsertionIndex: () => 1 }));
     e.tryBegin(asNodeId('p'));
     e.updateHoverByPoint(50, 50);
-    expect(e.state()?.hover?.accepted).toBe(false);
-    e.drop();
-    expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p', 'q']);
+    expect(e.state()?.hover?.accepted).toBe(true);
   });
 
   it('still lets the source leave an arrange-locked parent', () => {

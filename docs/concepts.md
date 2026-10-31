@@ -608,7 +608,9 @@ DnD scaffolding: `<DragProvider>`, `useDragHandle(id)`, `<DragHandle>`,
 element rects; the controller's innermost-wins hit-test runs on pointermove
 and calls `store.moveNode` on drop. The controller honors `lock.accept`
 (target), `lock.dragOut` (source's parent), `lock.move` (source), the
-target's `config.accepts`, and the destination strategy's `canAccept`.
+target's `config.accepts`, and the destination strategy's `canAccept`, and
+refuses a stack or split onto a child whose parent has `lock.arrange`. Each is
+checked on hover and again on drop, against the store as it stands then.
 
 `container.config.reorder` makes a container's children drag sources without a
 `<DragHandle>` in their chrome. It lives in the parent's config, not on each
