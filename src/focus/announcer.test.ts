@@ -93,6 +93,19 @@ describe('bindAnnouncer', () => {
     expect(adapter.spoken).toEqual(['Editor moved to position 3 of 3']);
   });
 
+  it('counts only the siblings navigation reaches, not hidden or never-shown ones', () => {
+    const s = row('z', ['a', 'b', 'c']);
+    s.hideNode(id('b'));
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('d'), parentId: id('z') }));
+    s.setMeta(id('a'), { title: 'Editor' });
+    const adapter = spyAdapter();
+    bindAnnouncer(s, adapter);
+    s.focusNode(id('a'));
+    s.reorderInParent(id('a'), 2);
+    // childOrder is [b, c, a, d]; only c and a are on screen.
+    expect(adapter.spoken).toEqual(['Editor moved to position 2 of 2']);
+  });
+
   it('announces a move that relocates the subtree focus sits in', () => {
     const s = new Store();
     row('z', [], s);

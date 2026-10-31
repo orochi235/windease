@@ -17,6 +17,13 @@ export function rendersSubtree(node: Node): boolean {
   return node.lifecycle.state !== 'hidden' && node.lifecycle.state !== 'destroyed';
 }
 
+/** Whether navigation considers `node` at all: a container that renders its
+ *  subtree and has children, or a `visible` leaf. */
+export function isOnScreen(store: Store, node: Node): boolean {
+  if (!rendersSubtree(node)) return false;
+  return store.getChildren(node.id).length > 0 || node.lifecycle.state === 'visible';
+}
+
 /**
  * Every leaf that can currently take focus, in document order. Hidden and
  * destroyed subtrees are excluded, as are nodes with no measurable rect —
@@ -27,14 +34,12 @@ export function navigableLeaves(store: Store, geometry: GeometrySource): NodeId[
   const walk = (ids: readonly NodeId[]): void => {
     for (const nid of ids) {
       const node = store.getNode(nid);
-      if (!node) continue;
-      if (!rendersSubtree(node)) continue;
+      if (!node || !isOnScreen(store, node)) continue;
       const children = store.getChildren(nid).map((c) => c.id);
       if (children.length > 0) {
         walk(children);
         continue;
       }
-      if (node.lifecycle.state !== 'visible') continue;
       if (!node.focus) continue;
       // Asked before the rect, which a host may still be reporting from the
       // layout before the container shut.

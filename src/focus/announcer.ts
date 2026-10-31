@@ -2,6 +2,8 @@ import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
 import { accessibleName } from './name.js';
+import { isOnScreen } from './navigable.js';
+import { isWithin } from './successor.js';
 import type { FocusAdapter } from './types.js';
 
 const DEPARTURE: Record<'destroyed' | 'hidden' | 'moved', string> = {
@@ -11,16 +13,16 @@ const DEPARTURE: Record<'destroyed' | 'hidden' | 'moved', string> = {
 };
 
 function isFocusInside(store: Store, id: NodeId): boolean {
-  let cursor: NodeId | null | undefined = store.focusedId;
-  while (cursor) {
-    if (cursor === id) return true;
-    cursor = store.getNode(cursor)?.membership?.parentId ?? null;
-  }
-  return false;
+  const focused = store.focusedId;
+  return focused !== null && isWithin(store, focused, id);
 }
 
+/** Counted among the siblings navigation reaches, so hidden and never-shown ones don't inflate it. */
 function positionIn(store: Store, parentId: NodeId, id: NodeId): string {
-  const order = store.getNode(parentId)?.container?.childOrder ?? [];
+  const order = (store.getNode(parentId)?.container?.childOrder ?? []).filter((cid) => {
+    const n = store.getNode(cid);
+    return cid === id || (n !== undefined && isOnScreen(store, n));
+  });
   return `position ${order.indexOf(id) + 1} of ${order.length}`;
 }
 
