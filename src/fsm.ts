@@ -52,3 +52,35 @@ export class Machine<S extends string, E extends string = string> {
     };
   }
 }
+
+/**
+ * A machine as it stood at one moment, for a throttled store's published
+ * record: `state` holds what was published, while `send`, `can` and
+ * `subscribe` act on the live machine, so a published record never forks
+ * truth.
+ */
+class MachineView<S extends string, E extends string> extends Machine<S, E> {
+  readonly #live: Machine<S, E>;
+
+  constructor(live: Machine<S, E>) {
+    super({ initial: live.state, transitions: {} });
+    this.#live = live;
+  }
+
+  override can(event: E): boolean {
+    return this.#live.can(event);
+  }
+
+  override send(event: E): boolean {
+    return this.#live.send(event);
+  }
+
+  override subscribe(fn: MachineSubscriber<S, E>): () => void {
+    return this.#live.subscribe(fn);
+  }
+}
+
+/** `live`'s state now, frozen; see {@link MachineView}. */
+export function viewOf<S extends string, E extends string>(live: Machine<S, E>): Machine<S, E> {
+  return new MachineView(live);
+}

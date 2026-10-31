@@ -34,8 +34,21 @@ describe('systemClock', () => {
 const nid = (s: string) => s as NodeId;
 const tick = () => new Promise<void>((r) => queueMicrotask(() => r()));
 
+let serial = 0;
+/** Each record carries a serial, so two records for one id are told apart by value. */
 function makeNode(id: string): Node {
-  return { id: nid(id), lifecycle: createLifecycleMachine() };
+  serial += 1;
+  return { id: nid(id), lifecycle: createLifecycleMachine(), meta: { serial } };
+}
+
+/** A throttled publish is `truth`'s fields with its machine frozen at its state. */
+function expectPublishedFrom(published: Node | undefined, truth: Node | undefined): void {
+  expect(published).toBeDefined();
+  expect(truth).toBeDefined();
+  const { lifecycle, ...rest } = published as Node;
+  const { lifecycle: live, ...truthRest } = truth as Node;
+  expect(rest).toEqual(truthRest);
+  expect(lifecycle.state).toBe(live.state);
 }
 
 type RecordedEvent =
@@ -218,7 +231,7 @@ describe('Publisher — notifyMs window', () => {
     expect(h.notifies()).toBe(0);
 
     h.clock.advance(32);
-    expect(h.pub.nodes.get(nid('a'))).toBe(n);
+    expectPublishedFrom(h.pub.nodes.get(nid('a')), n);
     expect(h.notifies()).toBe(1);
   });
 
@@ -235,7 +248,7 @@ describe('Publisher — notifyMs window', () => {
     expect(h.pub.nodes.get(nid('a'))).toBeUndefined();
 
     h.clock.advance(1);
-    expect(h.pub.nodes.get(nid('a'))).toBe(n);
+    expectPublishedFrom(h.pub.nodes.get(nid('a')), n);
     expect(h.notifies()).toBe(1);
   });
 
@@ -259,7 +272,7 @@ describe('Publisher — notifyMs window', () => {
     const latest = makeNode('a');
     h.truth.set(nid('a'), latest);
     h.clock.advance(32);
-    expect(h.pub.nodes.get(nid('a'))).toBe(latest);
+    expectPublishedFrom(h.pub.nodes.get(nid('a')), latest);
   });
 
   it('drops a node deleted from truth before the flush', () => {
@@ -282,7 +295,7 @@ describe('Publisher — notifyMs window', () => {
     h.pub.markDirty(nid('a'));
 
     h.pub.flushNow();
-    expect(h.pub.nodes.get(nid('a'))).toBe(n);
+    expectPublishedFrom(h.pub.nodes.get(nid('a')), n);
     expect(h.notifies()).toBe(1);
     expect(h.clock.pending).toBe(0);
 
@@ -306,7 +319,7 @@ describe('Publisher — notifyMs window', () => {
     h.pub.markDirty(nid('a'));
 
     h.pub.reset();
-    expect(h.pub.nodes.get(nid('a'))).toBe(n);
+    expectPublishedFrom(h.pub.nodes.get(nid('a')), n);
     expect(h.clock.pending).toBe(0);
   });
 
@@ -349,7 +362,7 @@ describe('Publisher — policy present, notifyMs omitted', () => {
     expect(h.notifies()).toBe(0);
 
     await tick();
-    expect(h.pub.nodes.get(nid('a'))).toBe(n);
+    expectPublishedFrom(h.pub.nodes.get(nid('a')), n);
     expect(h.notifies()).toBe(1);
   });
 
@@ -360,7 +373,7 @@ describe('Publisher — policy present, notifyMs omitted', () => {
     h.pub.markDirty(nid('a'));
 
     h.pub.flushNow();
-    expect(h.pub.nodes.get(nid('a'))).toBe(n);
+    expectPublishedFrom(h.pub.nodes.get(nid('a')), n);
     expect(h.notifies()).toBe(1);
 
     await tick();
@@ -400,7 +413,7 @@ describe('Publisher — dwell', () => {
     expect(h.pub.nodes.has(nid('a'))).toBe(false);
 
     h.clock.advance(80);
-    expect(h.pub.nodes.get(nid('a'))).toBe(second);
+    expectPublishedFrom(h.pub.nodes.get(nid('a')), second);
   });
 
   it('forces a publish at maxWaitMs under continuous churn', () => {
@@ -729,7 +742,7 @@ describe('Publisher — dwell debounce restart (Fix 2 regression)', () => {
     expect(h.pub.nodes.has(nid('a'))).toBe(false);
 
     h.clock.advance(80); // t=230 — 150ms after the restart at t=80
-    expect(h.pub.nodes.get(nid('a'))).toBe(second);
+    expectPublishedFrom(h.pub.nodes.get(nid('a')), second);
   });
 
   it('an untagged markDirty does not reset "since", so maxWaitMs still eventually forces a publish', () => {
@@ -1387,7 +1400,7 @@ describe('Publisher — reset drains pending', () => {
     // Nothing is left pending to heal a miss, so the published view must
     // already agree with truth.
     expect(pub.getPending(nid('b'))).toBeNull();
-    expect(pub.nodes.get(nid('b'))).toBe(truth.get(nid('b')));
+    expectPublishedFrom(pub.nodes.get(nid('b')), truth.get(nid('b')));
   });
 
   it('lets a listener re-dirty the id whose published it is handling', () => {
@@ -1421,6 +1434,6 @@ describe('Publisher — reset drains pending', () => {
     // coalescing into an entry about to be destroyed.
     expect(log).toEqual(['p:a', 'P:a', 'p:a']);
     expect(pub.getPending(nid('a'))).not.toBeNull();
-    expect(pub.nodes.get(nid('a'))).toBe(first);
+    expectPublishedFrom(pub.nodes.get(nid('a')), first);
   });
 });

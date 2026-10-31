@@ -333,7 +333,10 @@ undo entry is never the lagged value. `store.flushNow()` collapses
 published up to truth immediately, bypassing every gate. Dwell gates
 **observation, never truth**: only an FSM transition on a configured
 machine starts or restarts a dwell, and only the whole record (not
-individual fields) is held.
+individual fields) is held. Under a throttle a published record's machines
+are frozen at the state they were published with, so a held record reads
+its old `lifecycle.state`; `send`, `can` and `subscribe` on one still act on
+the live machine in truth.
 
 **Pending** is the third observable state: a node whose truth has moved
 but whose published record hasn't caught up yet. `store.getPending(id)`

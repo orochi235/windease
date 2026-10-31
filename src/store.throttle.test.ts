@@ -69,17 +69,18 @@ describe('Store published projection', () => {
     expect(store.getNode(nid('z'))).toBeDefined();
   });
 
-  it('shares one Machine instance between truth and published', () => {
+  it("sends through a published record's machine to truth", () => {
     const clock = new FakeClock();
     const store = new Store({ throttle: { notifyMs: 32 }, clock });
     store.registerNode(zone('z'));
     clock.advance(32);
 
     const published = store.getNode(nid('z'));
-    const truth = store.getNodeTruth(nid('z'));
-    expect(published).toBe(truth);
-    expect(published?.lifecycle).toBe(truth?.lifecycle);
-    expect(typeof published?.lifecycle.send).toBe('function');
+    expect(published?.lifecycle.can('show')).toBe(true);
+    expect(published?.lifecycle.send('show')).toBe(true);
+    expect(store.getNodeTruth(nid('z'))?.lifecycle.state).toBe('visible');
+    // The published record keeps the state it was published with.
+    expect(published?.lifecycle.state).toBe('mounted');
   });
 
   it('projects rootIds on flush', () => {
@@ -197,6 +198,15 @@ describe('Store dwell', () => {
     clock.advance(200);
 
     expect(seen).not.toContain('hidden');
+    expect(store.getNode(nid('p'))?.lifecycle.state).toBe('visible');
+  });
+
+  it('withholds the machine state itself from a direct read during the dwell', () => {
+    const { store, clock } = seeded();
+    store.showNode(nid('p'));
+    expect(store.getNodeTruth(nid('p'))?.lifecycle.state).toBe('visible');
+    expect(store.getNode(nid('p'))?.lifecycle.state).toBe('mounted');
+    clock.advance(200);
     expect(store.getNode(nid('p'))?.lifecycle.state).toBe('visible');
   });
 
