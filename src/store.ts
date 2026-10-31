@@ -1712,6 +1712,19 @@ export class Store {
     }, 'raise');
   }
 
+  /**
+   * Focus `id` without the `raise` a container config would apply: a restored
+   * snapshot already holds the order it was saved with. Called by `deserialize`.
+   *
+   * @internal
+   */
+  restoreFocus(id: NodeId): void {
+    const target = this.requireNode(id);
+    if (!target.focus || target.focus.state === 'focused') return;
+    trace('store', `restoreFocus: ${id} (no raise)`);
+    this.#focusInner(id, target);
+  }
+
   /** Every `(container, child)` pair on `id`'s ancestor path whose container
    *  sets `raise` and would actually reorder, innermost first. */
   #pendingRaises(id: NodeId): [NodeId, NodeId][] {
