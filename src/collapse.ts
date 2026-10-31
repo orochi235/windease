@@ -41,9 +41,11 @@ export type CollapsePolicy = (input: CollapseInput) => CollapseAnswer | null | u
 /** Whether `id` is a container none of whose children would reach layout. */
 export function isEmptyContainer(store: Store, id: NodeId): boolean {
   if (!store.getNode(id)?.container) return false;
-  for (const child of store.getChildren(id)) {
-    const state = child.lifecycle.state;
-    if (state !== 'hidden' && state !== 'destroyed') return false;
+  // Runs for every target under the cursor on each hover sample, so it stops
+  // at the first shown child rather than building the child list.
+  for (const cid of store.getNodeTruth(id)?.container?.childOrder ?? []) {
+    const state = store.getNodeTruth(cid)?.lifecycle.state;
+    if (state !== undefined && state !== 'hidden' && state !== 'destroyed') return false;
   }
   return true;
 }

@@ -245,9 +245,6 @@ differs — which children, which config, which state, and how a point moves.
   puts a `display: contents` div inside every `.windease-panel`, which broke
   `presets-dnd`'s `:scope > div[data-windease-drag-handle]` and would break
   consumer `.windease-panel > x` selectors, so it was left (2026-10-31).
-- **A collapse policy that calls `drag.accepts(id)` costs each hover sample the
-  children of every target under the cursor**, not O(items). No cheap memo key
-  exists: a child change does not replace its parent's record (2026-10-31).
 
 ## Consumer evaluations, both closed
 
