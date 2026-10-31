@@ -51,7 +51,7 @@ import { useReorderSources } from './dnd/useReorderSources.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useFlowGeometry } from './focus/useFlowGeometry.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
-import { useChildren, useFocusedNode } from './hooks.js';
+import { useChildren, useFocusedNode, useNodeSelector } from './hooks.js';
 import {
   type LayoutInfo,
   LayoutScope,
@@ -760,13 +760,17 @@ function makeReconciler(props: CommonBindingProps) {
  *  `lifecycle`, so it runs after commit rather than during render. */
 function lifecycleFor(hidden: boolean | undefined) {
   return (store: Store, id: NodeId) => {
-    const node = store.getNode(id);
-    if (!node) return;
+    // Truth, not the published record: a throttled store can still be
+    // publishing the last transition, and resending it is illegal.
+    const state = store.getNodeTruth(id)?.lifecycle.state;
+    if (state === undefined) return;
     if (hidden) {
-      if (node.lifecycle.state !== 'hidden') store.hideNode(id, { force: true });
-    } else if (hidden === false || node.lifecycle.state === 'mounted') {
+      // The lifecycle reaches `hidden` only through `visible`.
+      if (state === 'mounted') store.showNode(id);
+      if (state !== 'hidden') store.hideNode(id, { force: true });
+    } else if (hidden === false || state === 'mounted') {
       // Unset, it shows the node once and leaves later hides to whoever made them.
-      if (node.lifecycle.state !== 'visible') store.showNode(id);
+      if (state !== 'visible') store.showNode(id);
     }
   };
 }
@@ -904,6 +908,9 @@ function PresetShell({
   // DOM in an absolute-positioned box so we render at the right place.
   const selfRect = useLayoutForSelf(id);
   const withheld = useIsUnplaced(id);
+  // `hidden`, not "not visible": a node is `mounted` until its first layout
+  // effect shows it, and hiding it for that commit would measure it at zero.
+  const hidden = useNodeSelector(id, (n) => n.lifecycle.state) === 'hidden';
   const isPreviewSource = useLayoutContext().previewSourceId === id;
   const armedByParent = useContext(BuryArmContext);
   const parentId = store.getNode(id)?.membership?.parentId;
@@ -996,22 +1003,21 @@ function PresetShell({
     inner
   );
 
-  // A strategy ran and withheld us.
-  if (withheld) return null;
+  // A root is never placed.
+  if (!parentId) return shell;
 
-  // A nested container preset keeps its placement box on every render, empty
-  // or not: appearing on the pass that first places it would change the tree
-  // shape and remount the subtree, and a remounted descendant preset
-  // re-registers under a fresh `useId` owner token while the store still holds
-  // the old one. A leaf owns no descendants, and a root is never placed.
-  if (!selfRect && !(provide && parentId)) return shell;
-
+  // Every child keeps its placement box on every render, placed or not, hidden
+  // or withheld or not: changing the tree shape remounts the subtree, which
+  // reloads an iframe, drops component state, and has a descendant preset
+  // re-register under a fresh `useId` owner token while the store still holds
+  // the old one.
   return (
     <AbsoluteWrapper
       rect={selfRect}
       selfId={id}
       parentId={parentId}
       previewSource={isPreviewSource}
+      hidden={hidden || withheld}
     >
       {shell}
     </AbsoluteWrapper>
@@ -1034,14 +1040,16 @@ function SplitPreview({
 
 /** Absolute-positioned box that places its child at the strategy-computed
  *  rect. Reads `settleMs` from `LayoutContext` so all siblings animate
- *  consistently. Without a rect it collapses to `display: contents` and stamps
- *  no attributes, leaving the child exactly where the JSX put it. */
+ *  consistently. Without a rect it collapses to `display: contents`, leaving
+ *  the child exactly where the JSX put it; `hidden` takes it out of rendering
+ *  without unmounting it. */
 function AbsoluteWrapper({
   rect: placed,
   selfId,
   parentId,
   nodeId,
   previewSource,
+  hidden,
   children,
 }: {
   rect?: Rect | undefined;
@@ -1056,6 +1064,8 @@ function AbsoluteWrapper({
    *  it. Rendered transparent rather than unmounted: a removed subtree drops
    *  the pointer capture the drag is running on. */
   previewSource?: boolean | undefined;
+  /** Hidden or withheld by the strategy: kept mounted, not displayed. */
+  hidden?: boolean | undefined;
   children: ReactNode;
 }) {
   const { settleMs, sticky, scroll } = useLayoutContext();
@@ -1063,10 +1073,19 @@ function AbsoluteWrapper({
   const reorderSource = useReorderSources(nodeId ? parentId : undefined)(selfId);
   const stick = sticky?.get(selfId);
   const rect = placed && stick && scroll ? stuckRect(placed, stick, scroll) : placed;
-  // `display: contents` rather than a class: the box exists only to hold the
-  // tree shape stable, and must vanish from layout even for a consumer who
-  // never loaded the stylesheet.
-  if (!rect) return <div style={{ display: 'contents' }}>{children}</div>;
+  // Inline `display` rather than a class: the box exists only to hold the tree
+  // shape stable, and must vanish from layout even for a consumer who never
+  // loaded the stylesheet.
+  if (hidden) return <div style={{ display: 'none' }}>{children}</div>;
+  // Stamped so the DOM harvest still reads the child as its parent's: it
+  // checks a pane's immediate parent. The hidden box above is left out of it.
+  if (!rect) {
+    return (
+      <div style={{ display: 'contents' }} data-node-container={parentId}>
+        {children}
+      </div>
+    );
+  }
   const style: CSSProperties = {
     position: 'absolute',
     left: rect.x,
