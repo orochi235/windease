@@ -109,6 +109,39 @@ describe('declarative presets', () => {
     expect(store.getNode(asNodeId('p1'))?.lifecycle.state).toBe('visible');
   });
 
+  it('placement and lock prop changes reach the store outside render, so no other component updates mid-render', () => {
+    const store = new Store();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const Tree = ({ size, locked }: { size: number; locked: boolean }) => (
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={{ grid: gridStrategy as never }}>
+          <Zone
+            id={asNodeId('z')}
+            strategyId="grid"
+            config={{ cols: 1 }}
+            viewport={{ w: 100, h: 100 }}
+          >
+            <Panel
+              id={asNodeId('p1')}
+              placement={{ size }}
+              lock={locked ? { destroy: true } : false}
+            />
+          </Zone>
+        </StrategyRegistryProvider>
+      </Provider>
+    );
+    const { rerender } = render(<Tree size={40} locked={false} />);
+    rerender(<Tree size={60} locked={true} />);
+    rerender(<Tree size={60} locked={false} />);
+    const updateWarnings = errors.mock.calls.filter((c) =>
+      String(c[0]).includes('while rendering a different component'),
+    );
+    errors.mockRestore();
+    expect(updateWarnings).toEqual([]);
+    expect(store.getNode(asNodeId('p1'))?.membership?.placement?.size).toBe(60);
+    expect(store.isLocked(asNodeId('p1'), 'destroy')).toBe(false);
+  });
+
   it('reconciles config prop changes on Zone', () => {
     const store = new Store();
     const Tree = ({ cols }: { cols: number }) => (

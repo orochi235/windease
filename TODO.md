@@ -235,14 +235,6 @@ differs — which children, which config, which state, and how a point moves.
   sample**, not per hover transition — the per-frame chatter the tracing tenet
   in `CLAUDE.md` warns against. Left as is: those lines are the whole record of
   why a drop was refused, and `dnd` is off by default.
-- **Four React tests print "Cannot update a component (`ZoneWithLayout`) while
-  rendering a different component (`Panel`)"** (one names `PresetShell`), and
-  still pass: the controlled-placement hide in `seam-bury.test.tsx`,
-  `palette-dock.test.tsx`, `presets-affordances.test.tsx`, and the lock rerender
-  in `lock.test.tsx`. All four printed it when `src/react` ran as a whole on the
-  fleet at `c84beef`. Run alone, `seam-bury.test.tsx` and
-  `palette-dock.test.tsx` print nothing. Something in `Panel`'s render sets its
-  parent's state.
 - `applyReconfigure` merge-patches the container config, so a key from the
   abandoned strategy survives (a `grid` root's `cols` outlives the switch to
   `strip`). Deliberate — replacing wholesale would discard consumer intent like

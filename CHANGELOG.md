@@ -40,6 +40,10 @@ section below.
 
 ### Fixed
 
+- **Changing a preset's `placement`, `lock`, `hints`, `meta`, `pinned` or
+  `config` prop no longer makes React warn "Cannot update a component while
+  rendering a different component".** After mount, presets apply these props
+  to the store in a layout effect instead of during render.
 - **Unregistering a node mid-turn no longer breaks every later frame.**
   `store.tick` threw on each frame afterward and left the `'turn'` transaction
   open, which stopped undo.

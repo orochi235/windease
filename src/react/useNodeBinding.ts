@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useReducer, useRef } from 'react';
 import { type Node, type NodeId, type Store, trace } from '../index.js';
 import { useChildRegistryFromContext, useParentId } from './ParentContext.js';
 import { renderPassOf, useStore } from './Provider.js';
@@ -86,13 +86,14 @@ export interface NodeBindingOptions {
   order?: number;
   /** Build the initial Node to register. Called exactly once per id. */
   factory: (id: NodeId, parentId: NodeId | null) => Node;
-  /** Apply prop-derived state to the already-registered node. Called on every render. */
-  reconcile?: (store: Store, id: NodeId) => void;
   /**
-   * Show or hide the node to match props. Run after every commit rather than
-   * during render: a lifecycle change re-lays-out the parent, and React
-   * refuses an update to another component while this one renders.
+   * Apply prop-derived state to the already-registered node. Run during the
+   * mounting render, then after every commit: a later store write notifies the parent's
+   * layout, and React refuses an update to another component while this one
+   * renders. A write that changes this node's record re-renders the caller.
    */
+  reconcile?: (store: Store, id: NodeId) => void;
+  /** Show or hide the node to match props. Runs after `reconcile`. */
   lifecycle?: (store: Store, id: NodeId) => void;
   /** Hint used by the auto-id minter ("panel-:r1:", "zone-:r2:"). */
   kindHintForAutoId?: string;
@@ -203,6 +204,9 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
       registerWithOwner(opts.factory, parentId);
     }
     registeredRef.current = true;
+    // On the mounting pass nothing has subscribed to this node yet, so its
+    // props land now, before its children render against them.
+    opts.reconcile?.(store, id);
   }
 
   // Report to parent's ChildRegistry every render so the parent always sees
@@ -210,13 +214,14 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   const registry = useChildRegistryFromContext();
   registry.report({ id, order: opts.order });
 
-  // Prop reconciliation every render (after registration).
-  if (opts.reconcile) {
-    opts.reconcile(store, id);
-  }
-
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
   useLayoutEffect(() => {
-    if (store.getNode(id)) latestRef.current.lifecycle?.(store, id);
+    const before = store.getNode(id);
+    if (!before) return;
+    const { reconcile, lifecycle } = latestRef.current;
+    reconcile?.(store, id);
+    lifecycle?.(store, id);
+    if (store.getNode(id) !== before) rerender();
   });
 
   // Unregister on unmount. In StrictMode the effect runs mount → cleanup →
