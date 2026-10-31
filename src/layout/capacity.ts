@@ -2,6 +2,12 @@
 
 import type { LayoutItem } from '../layout-types.js';
 
+/** A config count — `maxItems`, `cols`, `pages` — as a whole number of at
+ *  least 1, or undefined when absent or not a finite number. */
+export function readCount(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? Math.max(1, Math.floor(v)) : undefined;
+}
+
 export interface CapacitySelection {
   placed: LayoutItem[];
   unplaced: string[];

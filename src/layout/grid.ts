@@ -9,6 +9,7 @@ import type {
   StickyInset,
 } from '../layout-types.js';
 import { trace } from '../trace.js';
+import { readCount } from './capacity.js';
 
 interface GridConfig {
   cols?: number;
@@ -215,12 +216,9 @@ interface GridDims {
 function readDims(cfg: GridConfig): GridDims {
   const read = (key: keyof GridDims): number | undefined => {
     const v = cfg[key];
-    if (v === undefined) return undefined;
-    if (typeof v === 'number' && !Number.isFinite(v)) {
-      trace('layout', `grid: config ${key} is ${v}, ignored`);
-      return undefined;
-    }
-    return Math.max(1, Math.floor(v));
+    const n = readCount(v);
+    if (n === undefined && v !== undefined) trace('layout', `grid: config ${key} is ${v}, ignored`);
+    return n;
   };
   const listed = cfg.tracks?.cols;
   const dims: GridDims = {

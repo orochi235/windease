@@ -303,6 +303,33 @@ describe('stripStrategy capacity', () => {
     expect(stripStrategy.canAccept?.(items(50), { axis: 'x' })).toBe(true);
   });
 
+  it('reads a fractional maxItems as its whole part in layout and canAccept alike', () => {
+    const options = { axis: 'x', maxItems: 2.5 };
+    const res = stripStrategy.layout({
+      items: items(3),
+      container: { w: 1000, h: 100 },
+      state: undefined as never,
+      options,
+    });
+    expect(res.unplaced).toEqual(['i2']);
+    expect(stripStrategy.canAccept?.(items(3), options)).toBe(false);
+    expect(stripStrategy.canAccept?.(items(2), options)).toBe(true);
+  });
+
+  it('ignores a non-finite maxItems in layout and canAccept alike', () => {
+    for (const maxItems of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      const options = { axis: 'x', maxItems };
+      const res = stripStrategy.layout({
+        items: items(4),
+        container: { w: 1000, h: 100 },
+        state: undefined as never,
+        options,
+      });
+      expect(res.unplaced).toBeUndefined();
+      expect(stripStrategy.canAccept?.(items(4), options)).toBe(true);
+    }
+  });
+
   it('sizes gaps from the placed count, not the item count', () => {
     // Hintless on w (unlike `items()`, which sets an explicit preferredSize.w
     // that would win over fill and hide a gap-arithmetic bug entirely).
