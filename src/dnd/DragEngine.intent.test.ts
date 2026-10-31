@@ -106,6 +106,43 @@ describe('DragEngine — drop intent', () => {
     expect(order(s, 'z')).toEqual([asNodeId('a'), asNodeId('b')]);
   });
 
+  it.each<DropIntent>([
+    { kind: 'stack', ontoId: 'b' },
+    { kind: 'split', ontoId: 'b', edge: 'end', axis: 'y' },
+  ])('refuses a $kind onto a child of an arrange-locked parent', (intent) => {
+    const s = buildStore();
+    s.setLock(asNodeId('z'), { arrange: true });
+    const e = engineWith(s);
+    e.addDropTarget(asNodeId('z'), target(intent));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(false);
+    e.drop();
+    expect(order(s, 'z')).toEqual([asNodeId('a'), asNodeId('b')]);
+    expect(order(s, 'other')).toEqual([asNodeId('p')]);
+  });
+
+  it('refuses a stack into an arrange-locked stack', () => {
+    const s = buildStore();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('tabs'),
+        parentId: asNodeId('z'),
+      }),
+    );
+    s.registerNode(
+      createNode({ kind: 'panel', focus: true, id: asNodeId('t'), parentId: asNodeId('tabs') }),
+    );
+    s.setLock(asNodeId('tabs'), { arrange: true });
+    const e = engineWith(s);
+    e.addDropTarget(asNodeId('tabs'), target({ kind: 'stack', ontoId: 't' }));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(false);
+  });
+
   it('refuses to stack onto a descendant of the dragged node', () => {
     const s = buildStore();
     // p › mid › deep, so the target is neither the source nor its own child —

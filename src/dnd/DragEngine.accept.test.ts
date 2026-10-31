@@ -552,3 +552,30 @@ describe('DragEngine — config.accepts', () => {
     }
   });
 });
+
+describe('DragEngine — lock.arrange', () => {
+  it('refuses a reorder within an arrange-locked parent', () => {
+    const s = openStore();
+    s.registerNode(
+      createNode({ kind: 'panel', focus: true, id: asNodeId('q'), parentId: asNodeId('z1') }),
+    );
+    s.setLock(asNodeId('z1'), { arrange: true });
+    const e = new DragEngine(s);
+    e.addDropTarget(asNodeId('z1'), at(SQUARE, { getInsertionIndex: () => 1 }));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(false);
+    e.drop();
+    expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p', 'q']);
+  });
+
+  it('still lets the source leave an arrange-locked parent', () => {
+    const s = openStore();
+    s.setLock(asNodeId('z1'), { arrange: true });
+    const e = new DragEngine(s);
+    e.addDropTarget(asNodeId('z2'), at(SQUARE));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(true);
+  });
+});
