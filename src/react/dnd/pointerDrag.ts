@@ -45,7 +45,8 @@ export function trackPress(
   const ours = () => controller.state()?.draggingId === nodeId;
 
   const begin = (): boolean => {
-    if (!controller.tryBegin(nodeId)) return false;
+    const options = start.pointerId === undefined ? undefined : { pointerId: start.pointerId };
+    if (!controller.tryBegin(nodeId, options)) return false;
     begun = true;
     if (hasWindow) {
       window.getSelection?.()?.removeAllRanges();
