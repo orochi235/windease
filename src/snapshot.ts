@@ -219,11 +219,11 @@ export function graft(store: Store, snap: unknown, parentId: NodeId, opts?: Graf
 
   // Within the snapshot the root has no membership. Give it one pointing at
   // the graft target, so the same walk hydrate uses works unchanged.
+  // The pin indexes the parent the subtree came from, so it is re-taken at the
+  // landing slot, as a move does; registering with it would hold a stale slot.
+  const { pinned, ...placement } = parsed.rootPlacement ?? {};
   const rootEntry = byId.get(rootId) as SerializedNode;
-  rootEntry.membership = {
-    parentId,
-    placement: parsed.rootPlacement ?? {},
-  };
+  rootEntry.membership = { parentId, placement };
 
   trace(
     'store',
@@ -242,6 +242,9 @@ export function graft(store: Store, snap: unknown, parentId: NodeId, opts?: Graf
     visit(rootId);
     if (opts?.at !== undefined) {
       store.reorderInParent(rootId, opts.at, { force: opts.force ?? false });
+    }
+    if ((typeof pinned === 'number' || pinned === true) && parent.container?.allowsPinning) {
+      store.setPinned(rootId, undefined, { force: true });
     }
   }, 'graft');
 

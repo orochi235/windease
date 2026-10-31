@@ -312,6 +312,35 @@ describe('graft at an index', () => {
     expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['b', 'a']);
   });
 
+  it('realigns a carried pin to the slot the root lands in', () => {
+    const s = buildTree();
+    s.setPinned(asNodeId('a'), 0);
+    const snap = serialize(s, { root: asNodeId('a') });
+    expect(snap.rootPlacement?.pinned).toBe(0);
+    s.unregisterNode(asNodeId('a'));
+    s.registerNode(createNode({ id: asNodeId('c'), kind: 'panel', parentId: asNodeId('z') }));
+
+    graft(s, snap, asNodeId('z'));
+
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['b', 'c', 'a']);
+    expect(s.getPinnedIndex(asNodeId('a'))).toBe(2);
+    // The stale pin at 0 would have held that slot against this move.
+    s.reorderInParent(asNodeId('c'), 0);
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['c', 'b', 'a']);
+  });
+
+  it('drops a carried pin in a parent that disallows pinning', () => {
+    const s = buildTree();
+    s.setPinned(asNodeId('a'), 0);
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    s.setAllowsPinning(asNodeId('z'), false);
+
+    graft(s, snap, asNodeId('z'));
+
+    expect(s.getPinnedIndex(asNodeId('a'))).toBeNull();
+  });
+
   it('clamps an index past the end to an append', () => {
     const s = buildTree();
     const snap = serialize(s, { root: asNodeId('a') });
