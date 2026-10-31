@@ -823,12 +823,7 @@ export class ContainerHost {
     return this.#store
       .getChildren(this.#parentId)
       .filter((c) => c.lifecycle.state === 'visible')
-      .map((c) => {
-        const item = childToLayoutItem(this.#store, c, this.#drag ?? undefined);
-        const measured = this.#natural.get(String(c.id));
-        if (measured && item.hints?.sizing) item.natural = measured;
-        return item;
-      });
+      .map((c) => childToLayoutItem(this.#store, c, this.#drag ?? undefined, this.#natural));
   }
 
   // Coalesces: a mutation fires a synchronous `node.*` event and then, later,

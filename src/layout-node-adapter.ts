@@ -58,12 +58,20 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
 /**
  * `nodeToLayoutItem`, plus what only the store can say about a child: whether
  * the collapse policy holds it at an extent. `drag` is the drag in flight, for
- * a policy that opens a container to take one.
+ * a policy that opens a container to take one. `natural` reaches only a child
+ * that asked for it via `hints.sizing`.
  */
-export function childToLayoutItem(store: Store, child: Node, drag?: CollapseDrag): LayoutItem {
+export function childToLayoutItem(
+  store: Store,
+  child: Node,
+  drag?: CollapseDrag,
+  natural?: ReadonlyMap<string, Size>,
+): LayoutItem {
   const item = nodeToLayoutItem(child);
   const held = resolveCollapse(drag ? { store, id: child.id, drag } : { store, id: child.id });
   if (held) item.collapse = held;
+  const measured = natural?.get(String(child.id));
+  if (measured && item.hints?.sizing) item.natural = measured;
   return item;
 }
 
@@ -126,10 +134,7 @@ export function runStrategyForContainer<TState>(
   for (const child of children) {
     if (child.lifecycle.state === 'hidden') hidden.push({ id: child.id, before: items.length });
     if (child.lifecycle.state !== 'visible') continue;
-    const item = childToLayoutItem(store, child, drag);
-    const measured = natural?.get(String(child.id));
-    if (measured && item.hints?.sizing) item.natural = measured;
-    items.push(item);
+    items.push(childToLayoutItem(store, child, drag, natural));
   }
   // A split preview inverts the rule below: the group takes the onto-child's
   // slot, so the parent's child count is unchanged, and a same-parent source
