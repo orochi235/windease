@@ -170,8 +170,10 @@ function ImperativeControls(props: {
  * rects to the `GeometryProvider`, which is what directional navigation
  * scores. The left column is a nested `<Zone>`, the right a `<Panel>`
  * promoted to a container, so both layout-hosting presets are exercised.
+ * `settleMs` sets how long a pane moved with Shift+arrow takes to settle, in
+ * both columns.
  */
-export const KeyboardNav: Story = () => {
+export const KeyboardNav: Story<{ settleMs: number }> = ({ settleMs }) => {
   const store = useMemo(() => new Store(), []);
 
   return (
@@ -192,6 +194,7 @@ export const KeyboardNav: Story = () => {
                 config={{ axis: 'y', fill: true, gap: 8, padding: 8 }}
                 sort={preserveStoreOrder}
                 className="kb-col"
+                settleMs={settleMs}
               >
                 <Panel id={asNodeId('kb-a')} className="kb-pane" title="Alpha" />
                 <Panel id={asNodeId('kb-b')} className="kb-pane" title="Bravo" />
@@ -200,6 +203,7 @@ export const KeyboardNav: Story = () => {
               <Panel
                 id={asNodeId('kb-right')}
                 className="kb-col"
+                settleMs={settleMs}
                 container={{
                   strategyId: 'stack',
                   config: { axis: 'y', fill: true, gap: 8, padding: 8 },
@@ -219,4 +223,10 @@ export const KeyboardNav: Story = () => {
       </StrategyRegistryProvider>
     </Provider>
   );
+};
+
+KeyboardNav.args = { settleMs: 150 };
+
+KeyboardNav.argTypes = {
+  settleMs: { control: { type: 'range', min: 0, max: 1000, step: 50 } },
 };

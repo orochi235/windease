@@ -8,6 +8,12 @@ section below.
 
 ## Unreleased
 
+### Added
+
+- **`<Panel settleMs>`** sets the settle duration for the children of a
+  `<Panel>` promoted to a container, as `<Zone>` and `<Container>` already
+  allow. `LayoutInfo` gains `mode` (`'placed' | 'flow'`).
+
 ### Changed
 
 - **Seam join is now called burying a pane.** `overshoot: 'destroy'` replaces
@@ -17,8 +23,103 @@ section below.
   and still work until 3.0. See
   [Breaking changes](README.md#unreleased--seam-join-renamed-bury).
 
+- **A throttled store publishes machine state, not just records.** Under a
+  `throttle` policy, a node held by dwell now reports its published
+  `lifecycle`, `focus` and `transit` state; before, the published record shared
+  truth's machines and showed the new state at once. `send` on a published
+  record still acts on truth. A consequence: under a throttle,
+  `getNode(id) !== getNodeTruth(id)` even after a flush.
+- **`deserialize` and `graft` validate the whole snapshot before changing
+  anything.** A duplicate child, a parent and child that disagree, a root with
+  a membership, two nodes sharing an id, or a node no root reaches throws and
+  leaves the store as it was; before, an in-place `deserialize` could leave it
+  half-restored. `graft` rejects nodes its root does not reach instead of
+  dropping them.
+- **`splitInto` refuses a `resize`-locked pane whose `size` or `share` it
+  would clear**, before changing anything, instead of clearing it.
+
 ### Fixed
 
+- **Unregistering a node mid-turn no longer breaks every later frame.**
+  `store.tick` threw on each frame afterward and left the `'turn'` transaction
+  open, which stopped undo.
+- **`unsplit` works on groups that coalesce.** It threw on any `autoUnsplit` or
+  `autoPrune` group with two or more children, which is every group
+  `splitInto` and `stackNodes` build. `unregisterNode(id, { rehome })` no
+  longer throws when `id` is an `autoPrune` container, and a `moveNode` within
+  one parent no longer dissolves a one-child `autoUnsplit` group.
+- **`stackNodes` and `splitInto` check their locks before changing anything.**
+  Stacking onto an existing stack moved the node and then threw on the stack's
+  `arrange` lock; it now shows the new tab regardless, as `setActiveChild`
+  does. `splitInto` no longer applies a stale pin index when the source's
+  `autoUnsplit` parent dissolves during the split.
+- **A destroy lock holds on a throttled store** when the locked node was
+  registered in the same tick.
+- **Focus leaves a container that is destroyed or hidden.** It now moves
+  outside the container and emits `focus.successor`; before, destroy cleared
+  focus silently and hide left it on a node off screen. The successor also no
+  longer returns `null` when the only focusable nodes sit under a root that was
+  never explicitly shown, and "position N of M" counts only siblings on screen.
+- **`deserialize` keeps child order under `raise: 'focus'`.** Restoring focus
+  raised the focused child, so every undo restacked windows.
+- **`graft` re-pins a pinned subtree root where it lands**, rather than at the
+  index it held in the parent it was serialized out of.
+- **`ContainerHost.layout()` drops a child as soon as it is unregistered**,
+  rather than after the next store notification. `getDropPreview` now passes
+  content-sized panes their measured `natural`, so the preview matches the
+  layout the drop commits.
+- **Drag and drop:**
+  - A browser `pointercancel` (a scroll takeover, a system gesture) cancels
+    the drag instead of committing the drop.
+  - A drag ends only on its own pointer's release; a second finger lifting no
+    longer drops it.
+  - A stack or split onto a child of an `arrange`-locked parent shows as
+    rejected on hover, instead of accepted and then failing on drop.
+  - A drop lands at the slot the preview showed when the container holds
+    hidden or never-shown children; before, a drop after the last pane could
+    land before it.
+  - A drop whose target unregistered mid-drag cancels with `'unregistered'`,
+    and the element loses `data-drop-target`. A drop re-checks `accepts`,
+    `acceptPolicy`, `canAccept` and the locks against the store as it stands.
+- **Layout strategies:**
+  - `pocket` on `shelf`, `column`, `skyline` and `justified`: small items the
+    pocket cannot hold no longer land on top of the flow, and are no longer
+    dropped when there is no pocket. They pack below the rest under the
+    container's `overflowMode`.
+  - `grid` no longer drops a pinned child that fits only when pins are placed
+    first, such as a 2×2 pin under `maxRows: 2`.
+  - `grid`'s `cellAt` measures the grid as shown during a drag, so a visibly
+    empty cell accepts the drop when auto columns would change without the
+    source. Its config check accepts `orientation: 'fit'`.
+  - `strip` reads `maxItems` as a whole count: a fractional cap no longer lets
+    layout keep one more item than `canAccept` allows, and a non-finite cap is
+    ignored rather than sending every item to `unplaced`.
+  - A zoomed `stack` child ignores a negative or non-numeric `padding`, as the
+    unzoomed layout does.
+  - The `LayoutEvent` docs now say gesture deltas are per move, as every
+    shipped `reduce` already treats them, not cumulative.
+- **React bindings:**
+  - Preset panes (`<Panel>`, a nested `<Zone>`) no longer remount their
+    content on first placement, on a tab switch, or on a hide and show, so
+    effects, iframes and component state survive. A withheld or hidden preset
+    pane stays mounted with `display: none`, and drops `data-node` while it is.
+    A root `<Zone hidden>` is now hidden too.
+  - `<Panel hidden>` inside a laid-out zone is no longer drawn in normal flow
+    over the placed panes; `hidden` on first mount no longer throws; and the
+    prop no longer triggers React's "Cannot update a component while rendering
+    a different component" warning.
+  - `<Container>` keeps one box element as it switches between empty, flow and
+    placed, so its ResizeObserver no longer ends up watching a detached
+    element.
+  - A seam or reveal handle that unmounts, or whose pointer is canceled,
+    mid-drag ends the drag, so settle animation resumes and
+    `data-workspace-dragging` clears.
+  - `useChildren` and `useRootNodes` return current records after `setMeta`
+    or a hide.
+  - `<Zone>` and a laid-out `<Panel>` follow `<Container>`'s settle rules: no
+    animation during a resize gesture here or above, under
+    `prefers-reduced-motion` (now followed live, in all three), or on a
+    viewport resize.
 - **Wrapping strategies forward every hook their inner strategy has.**
   `floatingStrategy` and `desktopStrategy` forward `command` and `land`, so a
   `pageStrategy` inside either still pages and still pins arrivals to the page
