@@ -35,6 +35,13 @@ describe('stackStrategy', () => {
     expect(run({ headerSize: 30 }).placements.has('a')).toBe(true);
   });
 
+  it('reads an unusable padding as 0 for a zoomed child too', () => {
+    for (const padding of [-10, Number.NaN, '4']) {
+      const r = run({ zoom: 'b', padding });
+      expect(r.placements.get('b'), String(padding)).toEqual({ x: 0, y: 0, z: 0, w: 400, h: 300 });
+    }
+  });
+
   it('places nothing and reports no unplaced for an empty container', () => {
     const r = run({}, []);
     expect(r.placements.size).toBe(0);
