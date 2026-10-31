@@ -91,6 +91,16 @@ export function RevealHandle({
     [reveal, affordance.kind, gesture],
   );
   const unlisten = useRef<(() => void) | null>(null);
+  // Whether the owner has been told this handle is dragging. Separate from
+  // `last`, which the gesture's own unmount cancel clears first.
+  const active = useRef(false);
+  const setActive = useCallback(
+    (on: boolean) => {
+      active.current = on;
+      onActiveChange(on);
+    },
+    [onActiveChange],
+  );
   const finish = useCallback(
     (target: HTMLButtonElement, pointerId: number, commit: boolean) => {
       unlisten.current?.();
@@ -102,11 +112,19 @@ export function RevealHandle({
         // ignore
       }
       endGesture(commit);
-      if (wasDragging) onActiveChange(false);
+      if (wasDragging) setActive(false);
     },
-    [onActiveChange, endGesture],
+    [setActive, endGesture],
   );
-  useEffect(() => () => unlisten.current?.(), []);
+  const latestActive = useRef(onActiveChange);
+  latestActive.current = onActiveChange;
+  useEffect(
+    () => () => {
+      unlisten.current?.();
+      if (active.current) latestActive.current(false);
+    },
+    [],
+  );
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
@@ -131,19 +149,27 @@ export function RevealHandle({
         trace('dnd', `reveal release: ${affordance.id} travel ${travel.current}`);
         finish(target, pointerId, true);
       };
+      // Read off the window for the same reason, so a lost capture cannot
+      // strand the drag. Losing capture is not itself a cancel: the WebKit
+      // press above may lose it before the release it still has to commit.
+      const onCancel = (c: PointerEvent) => {
+        if (c.pointerId !== pointerId) return;
+        trace('dnd', `reveal cancel: ${affordance.id}`);
+        finish(target, pointerId, false);
+      };
       window.addEventListener('pointerup', onUp, true);
-      unlisten.current = () => window.removeEventListener('pointerup', onUp, true);
-      onActiveChange(true);
+      window.addEventListener('pointercancel', onCancel, true);
+      unlisten.current = () => {
+        window.removeEventListener('pointerup', onUp, true);
+        window.removeEventListener('pointercancel', onCancel, true);
+      };
+      setActive(true);
     },
-    [onActiveChange, step, finish, affordance.id, gesture],
+    [setActive, step, finish, affordance.id, gesture],
   );
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => step(e.clientX, e.clientY),
     [step],
-  );
-  const onPointerCancel = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => finish(e.currentTarget, e.pointerId, false),
-    [finish],
   );
 
   useEffect(() => {
@@ -152,9 +178,9 @@ export function RevealHandle({
       unlisten.current?.();
       unlisten.current = null;
       endGesture(false, 'escape');
-      onActiveChange(false);
+      setActive(false);
     });
-  }, [dragging, endGesture, onActiveChange]);
+  }, [dragging, endGesture, setActive]);
 
   const onKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLButtonElement>) => {
@@ -177,7 +203,6 @@ export function RevealHandle({
         data-reveal-armed={armed !== null ? 'true' : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerCancel={onPointerCancel}
         draggable={false}
         onDragStart={preventNativeDrag}
         onKeyDown={onKeyDown}

@@ -51,7 +51,7 @@ import { useReorderSources } from './dnd/useReorderSources.js';
 import { useFocusBinding } from './focus/FocusProvider.js';
 import { useFlowGeometry } from './focus/useFlowGeometry.js';
 import { usePublishGeometry } from './focus/usePublishGeometry.js';
-import { useChildren, useFocusedNode } from './hooks.js';
+import { useChildren, useFocusedNode, useNodeSelector } from './hooks.js';
 import {
   type LayoutInfo,
   LayoutScope,
@@ -80,6 +80,7 @@ import {
   viewStyle,
 } from './useContainerLayout.js';
 import { JSX_OWNER_META_KEY, useNodeBinding } from './useNodeBinding.js';
+import { useSettle } from './useSettle.js';
 
 interface CommonBindingProps {
   id?: NodeId;
@@ -150,6 +151,9 @@ interface PresentationalProps {
   children?: ReactNode;
   'data-testid'?: string;
 }
+
+/** The scope a container preset placing nothing publishes to its children. */
+const NO_LAYOUT: LayoutInfo = { placements: new Map(), unplaced: [], settleMs: 0 };
 
 /** The pane an armed seam would bury, published by the preset that owns
  *  the affordance layer and read by that pane's own shell. Internal — a preset's
@@ -240,6 +244,12 @@ export interface PanelProps extends CommonBindingProps, PresentationalProps, Aff
    * drag is reverted on the next one — declare one or the other, not both.
    */
   onPlacementChange?: PlacementCommit;
+  /**
+   * Settle animation duration in ms for children moving between placements,
+   * when `container` gives this panel a layout to run. Default 150. Set to 0
+   * to disable.
+   */
+  settleMs?: number;
 }
 
 /** Registers `commit` as `id`'s placement control on whichever container is
@@ -299,6 +309,7 @@ export function Panel(props: PanelProps) {
       rehome: props.rehome,
     }),
     kindHintForAutoId: 'panel',
+    lifecycle: lifecycleFor(props.hidden),
     factory: (id, parentId) => {
       if (!parentId) {
         throw new Error(
@@ -390,8 +401,10 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   useOverflowOrigin(props.scrollRef, layout.overflow);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
-  const settleMs = DEFAULT_SETTLE_MS;
-  const [, setDraggingAffordanceId] = useState<string | null>(null);
+  const { settleMs, resizing, setDraggingAffordanceId } = useSettle(
+    props.settleMs ?? DEFAULT_SETTLE_MS,
+    layout.viewport,
+  );
   const [buryArmedId, setBuryArmedId] = useState<NodeId | null>(null);
   // Sticky children hold against the scroll in layout pixels, inside the view.
   const layoutScroll = toLayoutScroll(layout.scroll, layout.view);
@@ -401,6 +414,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
     settleMs,
     registerPlacementControl: layout.registerPlacementControl,
     observeNatural: layout.observeNatural,
+    mode: layout.mode,
   };
   if (layout.channels) layoutInfo.channels = layout.channels;
   if (layout.sticky) {
@@ -416,43 +430,45 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   };
 
   return (
-    <PresetShell
-      provide={layoutInfo}
-      kind="panel"
-      id={props.id}
-      className={props.className}
-      style={panelStyle}
-      title={props.title}
-      testId={props['data-testid']}
-      innerRef={ref}
-      acceptsDrops={props.acceptsDrops}
-      drop={dropBag(props, layout)}
-      measure={props.measure}
-      buryArmedId={buryArmedId}
-      preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
-    >
-      {props.draggable ? (
-        <DragHandle nodeId={props.id}>{props.children}</DragHandle>
-      ) : (
-        props.children
-      )}
-      <SplitPreview placements={layout.placements} state={dropPreview} />
-      <AffordanceLayer
-        render={props.affordances ?? false}
-        affordances={layout.affordances}
-        dispatch={layout.dispatchAffordance}
-        store={store}
-        hitPad={props.affordanceHitPad ?? 4}
-        keyStep={props.affordanceKeyStep ?? 8}
-        tabStop={props.affordanceTabStops ?? true}
-        onActiveChange={setDraggingAffordanceId}
-        onBuryArmChange={setBuryArmedId}
-        scroll={layoutScroll}
-        placements={layout.placements}
-        sticky={layout.sticky}
-        writePlacement={layout.writePlacement}
-      />
-    </PresetShell>
+    <ResizeGestureContext.Provider value={resizing}>
+      <PresetShell
+        provide={layoutInfo}
+        kind="panel"
+        id={props.id}
+        className={props.className}
+        style={panelStyle}
+        title={props.title}
+        testId={props['data-testid']}
+        innerRef={ref}
+        acceptsDrops={props.acceptsDrops}
+        drop={dropBag(props, layout)}
+        measure={props.measure}
+        buryArmedId={buryArmedId}
+        preview={{ active: layout.isPreview, split: dropPreview.laidOut && layout.isPreview }}
+      >
+        {props.draggable ? (
+          <DragHandle nodeId={props.id}>{props.children}</DragHandle>
+        ) : (
+          props.children
+        )}
+        <SplitPreview placements={layout.placements} state={dropPreview} />
+        <AffordanceLayer
+          render={props.affordances ?? false}
+          affordances={layout.affordances}
+          dispatch={layout.dispatchAffordance}
+          store={store}
+          hitPad={props.affordanceHitPad ?? 4}
+          keyStep={props.affordanceKeyStep ?? 8}
+          tabStop={props.affordanceTabStops ?? true}
+          onActiveChange={setDraggingAffordanceId}
+          onBuryArmChange={setBuryArmedId}
+          scroll={layoutScroll}
+          placements={layout.placements}
+          sticky={layout.sticky}
+          writePlacement={layout.writePlacement}
+        />
+      </PresetShell>
+    </ResizeGestureContext.Provider>
   );
 }
 
@@ -516,6 +532,7 @@ export function Zone(props: ZoneProps) {
       rehome: props.rehome,
     }),
     kindHintForAutoId: 'zone',
+    lifecycle: lifecycleFor(props.hidden),
     factory: (id, parentId) => {
       // A flow zone never runs a strategy, so demanding an id for one would be
       // asking the consumer to name something that is then ignored.
@@ -615,10 +632,10 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   useOverflowOrigin(props.scrollRef, layout.overflow);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
-  const [draggingAffordanceId, setDraggingAffordanceId] = useState<string | null>(null);
-  const ancestorResizing = useContext(ResizeGestureContext);
-  const resizing = draggingAffordanceId !== null || ancestorResizing;
-  const settleMs = resizing ? 0 : (props.settleMs ?? DEFAULT_SETTLE_MS);
+  const { settleMs, resizing, setDraggingAffordanceId } = useSettle(
+    props.settleMs ?? DEFAULT_SETTLE_MS,
+    layout.viewport,
+  );
   const [buryArmedId, setBuryArmedId] = useState<NodeId | null>(null);
   // Sticky children hold against the scroll in layout pixels, inside the view.
   const layoutScroll = toLayoutScroll(layout.scroll, layout.view);
@@ -628,6 +645,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
     settleMs,
     registerPlacementControl: layout.registerPlacementControl,
     observeNatural: layout.observeNatural,
+    mode: layout.mode,
   };
   if (layout.channels) layoutInfo.channels = layout.channels;
   if (layout.sticky) {
@@ -740,13 +758,24 @@ function makeReconciler(props: CommonBindingProps) {
     if (props.placement !== undefined) reconcilePlacement(store, id, props.placement);
     if (props.lock !== undefined) store.setLock(id, props.lock);
     if (props.pinned !== undefined) reconcilePinned(store, id, props.pinned);
-    const node = store.getNode(id);
-    if (!node) return;
-    if (props.hidden) {
-      if (node.lifecycle.state !== 'hidden') store.hideNode(id, { force: true });
-    } else if (props.hidden === false || node.lifecycle.state === 'mounted') {
+  };
+}
+
+/** The `hidden` prop, applied to the store. Passed to `useNodeBinding` as its
+ *  `lifecycle`, so it runs after commit rather than during render. */
+function lifecycleFor(hidden: boolean | undefined) {
+  return (store: Store, id: NodeId) => {
+    // Truth, not the published record: a throttled store can still be
+    // publishing the last transition, and resending it is illegal.
+    const state = store.getNodeTruth(id)?.lifecycle.state;
+    if (state === undefined) return;
+    if (hidden) {
+      // The lifecycle reaches `hidden` only through `visible`.
+      if (state === 'mounted') store.showNode(id);
+      if (state !== 'hidden') store.hideNode(id, { force: true });
+    } else if (hidden === false || state === 'mounted') {
       // Unset, it shows the node once and leaves later hides to whoever made them.
-      if (node.lifecycle.state !== 'visible') store.showNode(id);
+      if (state !== 'visible') store.showNode(id);
     }
   };
 }
@@ -884,7 +913,11 @@ function PresetShell({
   // DOM in an absolute-positioned box so we render at the right place.
   const selfRect = useLayoutForSelf(id);
   const withheld = useIsUnplaced(id);
-  const isPreviewSource = useLayoutContext().previewSourceId === id;
+  // `hidden`, not "not visible": a node is `mounted` until its first layout
+  // effect shows it, and hiding it for that commit would measure it at zero.
+  const hidden = useNodeSelector(id, (n) => n.lifecycle.state) === 'hidden';
+  const parentLayout = useLayoutContext();
+  const isPreviewSource = parentLayout.previewSourceId === id;
   const armedByParent = useContext(BuryArmContext);
   const parentId = store.getNode(id)?.membership?.parentId;
   const reorderSource = useReorderSources(parentId)(id);
@@ -932,7 +965,18 @@ function PresetShell({
     ) : (
       <BuryArmContext.Provider value={buryArmedId}>{body}</BuryArmContext.Provider>
     );
-  const content = provide ? <LayoutScope value={provide}>{armed}</LayoutScope> : armed;
+  // A container placing nothing still scopes its children, so none of them
+  // looks itself up in a grandparent's placements.
+  const scope = provide ?? (ownContainer ? NO_LAYOUT : undefined);
+  const content = scope ? <LayoutScope value={scope}>{armed}</LayoutScope> : armed;
+
+  // Hidden or withheld: kept mounted, not displayed, and out of the DOM
+  // harvests that find panes by `data-node`.
+  const concealed = hidden || withheld;
+  // A root is never placed, and a pane CSS arranges never gains a rect, so
+  // only a pane its parent places keeps a placement box on every render.
+  const boxed = parentId !== undefined && parentLayout.mode === 'placed';
+  const shellStyle = concealed && !boxed ? { ...style, display: 'none' } : style;
 
   const inner = (
     <ChildRegistryContext.Provider value={registry}>
@@ -942,9 +986,9 @@ function PresetShell({
           {...reorderSource}
           ref={wrapperRef}
           className={compose(wrapperClass, className)}
-          style={reorderSource.style ? { ...style, ...reorderSource.style } : style}
+          style={reorderSource.style ? { ...shellStyle, ...reorderSource.style } : shellStyle}
           data-testid={testId}
-          data-node={id}
+          data-node={concealed ? undefined : id}
           data-node-container={id}
           data-preview={preview?.active ? 'true' : undefined}
           data-split-preview={preview?.split ? 'true' : undefined}
@@ -976,22 +1020,19 @@ function PresetShell({
     inner
   );
 
-  // A strategy ran and withheld us.
-  if (withheld) return null;
+  if (!boxed) return shell;
 
-  // A nested container preset keeps its placement box on every render, empty
-  // or not: appearing on the pass that first places it would change the tree
-  // shape and remount the subtree, and a remounted descendant preset
-  // re-registers under a fresh `useId` owner token while the store still holds
-  // the old one. A leaf owns no descendants, and a root is never placed.
-  if (!selfRect && !(provide && parentId)) return shell;
-
+  // Placed or not yet, hidden or withheld or not, the box stays: changing the
+  // tree shape remounts the subtree, which reloads an iframe, drops component
+  // state, and has a descendant preset re-register under a fresh `useId`
+  // owner token while the store still holds the old one.
   return (
     <AbsoluteWrapper
       rect={selfRect}
       selfId={id}
       parentId={parentId}
       previewSource={isPreviewSource}
+      hidden={concealed}
     >
       {shell}
     </AbsoluteWrapper>
@@ -1014,14 +1055,16 @@ function SplitPreview({
 
 /** Absolute-positioned box that places its child at the strategy-computed
  *  rect. Reads `settleMs` from `LayoutContext` so all siblings animate
- *  consistently. Without a rect it collapses to `display: contents` and stamps
- *  no attributes, leaving the child exactly where the JSX put it. */
+ *  consistently. Without a rect it collapses to `display: contents`, leaving
+ *  the child exactly where the JSX put it; `hidden` takes it out of rendering
+ *  without unmounting it. */
 function AbsoluteWrapper({
   rect: placed,
   selfId,
   parentId,
   nodeId,
   previewSource,
+  hidden,
   children,
 }: {
   rect?: Rect | undefined;
@@ -1036,6 +1079,8 @@ function AbsoluteWrapper({
    *  it. Rendered transparent rather than unmounted: a removed subtree drops
    *  the pointer capture the drag is running on. */
   previewSource?: boolean | undefined;
+  /** Hidden or withheld by the strategy: kept mounted, not displayed. */
+  hidden?: boolean | undefined;
   children: ReactNode;
 }) {
   const { settleMs, sticky, scroll } = useLayoutContext();
@@ -1043,10 +1088,19 @@ function AbsoluteWrapper({
   const reorderSource = useReorderSources(nodeId ? parentId : undefined)(selfId);
   const stick = sticky?.get(selfId);
   const rect = placed && stick && scroll ? stuckRect(placed, stick, scroll) : placed;
-  // `display: contents` rather than a class: the box exists only to hold the
-  // tree shape stable, and must vanish from layout even for a consumer who
-  // never loaded the stylesheet.
-  if (!rect) return <div style={{ display: 'contents' }}>{children}</div>;
+  // Inline `display` rather than a class: the box exists only to hold the tree
+  // shape stable, and must vanish from layout even for a consumer who never
+  // loaded the stylesheet.
+  if (hidden) return <div style={{ display: 'none' }}>{children}</div>;
+  // Stamped so the DOM harvest still reads the child as its parent's: it
+  // checks a pane's immediate parent.
+  if (!rect) {
+    return (
+      <div style={{ display: 'contents' }} data-node-container={parentId}>
+        {children}
+      </div>
+    );
+  }
   const style: CSSProperties = {
     position: 'absolute',
     left: rect.x,

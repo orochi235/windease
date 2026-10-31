@@ -75,6 +75,35 @@ export interface ContainerLayout extends HostLayout {
 }
 
 /**
+ * Keep `bind` attached to whatever element `ref` holds after each commit. An
+ * effect keyed on the ref object would never see the element behind it
+ * replaced, and would leave the binding on a detached node. Re-binds only
+ * when the element or `bind` itself changes; `null` binds nothing.
+ */
+function useElementBinding(
+  ref: RefObject<Element | null> | null,
+  bind: ((el: Element) => () => void) | null,
+): void {
+  const bound = useRef<{ el: Element; bind: (el: Element) => () => void; off: () => void } | null>(
+    null,
+  );
+  useEffect(() => {
+    const el = bind ? (ref?.current ?? null) : null;
+    const cur = bound.current;
+    if (cur && cur.el === el && cur.bind === bind) return;
+    cur?.off();
+    bound.current = el && bind ? { el, bind, off: bind(el) } : null;
+  });
+  useEffect(
+    () => () => {
+      bound.current?.off();
+      bound.current = null;
+    },
+    [],
+  );
+}
+
+/**
  * Measure `viewportRef`'s element (or accept an explicit viewport size),
  * resolve the strategy registered for the container's `strategyId`, and
  * return a NodeId-keyed map of placements for the container's visible
@@ -108,15 +137,15 @@ export function useContainerLayout(
 
   const fixedW = fixedViewport?.w;
   const fixedH = fixedViewport?.h;
+  const fixed = fixedW !== undefined && fixedH !== undefined;
   useEffect(() => {
-    if (fixedW !== undefined && fixedH !== undefined) {
-      host.setViewport({ w: fixedW, h: fixedH });
-      return;
-    }
-    const el = viewportRef?.current;
-    if (!el) return;
-    return host.observe(el);
-  }, [host, viewportRef, fixedW, fixedH]);
+    if (fixedW !== undefined && fixedH !== undefined) host.setViewport({ w: fixedW, h: fixedH });
+  }, [host, fixedW, fixedH]);
+  const observeViewport = useMemo(
+    () => (fixed ? null : (el: Element) => host.observe(el)),
+    [host, fixed],
+  );
+  useElementBinding(viewportRef, observeViewport);
 
   // Identity of `preview` changes every pointermove; the host dedupes by value.
   const previewKey = preview
@@ -145,12 +174,11 @@ export function useContainerLayout(
 
   // Opt-in: binding this re-runs the layout on every pointermove, so a
   // container whose strategy does not read `pointer` never pays for it.
-  useEffect(() => {
-    if (!pointer) return;
-    const el = viewportRef?.current;
-    if (!el) return;
-    return host.observePointer(el);
-  }, [host, viewportRef, pointer]);
+  const observePointer = useMemo(
+    () => (pointer ? (el: Element) => host.observePointer(el) : null),
+    [host, pointer],
+  );
+  useElementBinding(viewportRef, observePointer);
 
   const layout = useSyncExternalStore(host.subscribe, host.layout, host.layout);
 

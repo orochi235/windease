@@ -1,11 +1,13 @@
-import { render, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, render, waitFor } from '@testing-library/react';
+import { useRef } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asNodeId, createNode, type NodeHints, Store, stripStrategy } from '../index.js';
 import { Container } from './Container.js';
 import { GeometryProvider } from './focus/useGeometrySource.js';
 import { Provider } from './Provider.js';
 import { Panel, Zone } from './presets.js';
 import { StrategyRegistryProvider } from './strategies.js';
+import { useContainerLayout } from './useContainerLayout.js';
 
 const Z = asNodeId('z');
 
@@ -125,5 +127,101 @@ describe('<Zone hints> — flow mode declaratively', () => {
       expect(a?.parentElement?.style.position).toBe('absolute');
     });
     expect(zonePanes(container)).toEqual([null, null]);
+  });
+});
+
+describe('<Container> — switching between empty, flow, and placed', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** Records which elements are observed, so a test can tell whether the one
+   *  being measured is still in the document. */
+  function stubObserver() {
+    const observed = new Set<Element>();
+    class RO {
+      observe(el: Element) {
+        observed.add(el);
+      }
+      unobserve(el: Element) {
+        observed.delete(el);
+      }
+      disconnect() {
+        observed.clear();
+      }
+    }
+    vi.stubGlobal('ResizeObserver', RO);
+    return observed;
+  }
+
+  const measured = (store: Store) => (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
+        <Container parentId={Z} chrome={{}} />
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+  const box = (root: HTMLElement) => root.querySelector(`[data-node-container="${Z}"]`);
+
+  it('keeps one box element from flow to placed and back', async () => {
+    const observed = stubObserver();
+    const store = makeStore({ render: 'flow' });
+    const { container } = render(measured(store));
+    const first = box(container);
+    await act(async () => store.setHints(Z, { render: undefined }));
+    expect(box(container)).toBe(first);
+    await act(async () => store.setHints(Z, { render: 'flow' }));
+    expect(box(container)).toBe(first);
+    expect([...observed].every((el) => el.isConnected)).toBe(true);
+    expect(observed.has(first as Element)).toBe(true);
+  });
+
+  it('keeps one box element when the container node arrives after mount', async () => {
+    const observed = stubObserver();
+    const store = new Store();
+    const { container } = render(measured(store));
+    const first = box(container);
+    await act(async () => {
+      store.registerNode(
+        createNode({
+          kind: 'zone',
+          id: Z,
+          container: { strategyId: 'strip', config: { axis: 'x', fill: true } },
+        }),
+      );
+      store.showNode(Z);
+    });
+    expect(box(container)).toBe(first);
+    expect(observed.has(first as Element)).toBe(true);
+  });
+
+  it('useContainerLayout follows its ref onto a replacement element', () => {
+    const observed = stubObserver();
+    function Host({ asSection }: { asSection: boolean }) {
+      const ref = useRef<HTMLElement | null>(null);
+      useContainerLayout(Z, ref);
+      return asSection ? (
+        <section ref={ref} data-testid="el" />
+      ) : (
+        <div
+          ref={(el) => {
+            ref.current = el;
+          }}
+          data-testid="el"
+        />
+      );
+    }
+    const store = makeStore();
+    const tree = (asSection: boolean) => (
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
+          <Host asSection={asSection} />
+        </StrategyRegistryProvider>
+      </Provider>
+    );
+    const view = render(tree(false));
+    view.rerender(tree(true));
+    const el = view.getByTestId('el');
+    expect(el.tagName).toBe('SECTION');
+    expect(observed.has(el)).toBe(true);
+    expect([...observed].every((o) => o.isConnected)).toBe(true);
   });
 });

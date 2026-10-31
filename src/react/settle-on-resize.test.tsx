@@ -2,7 +2,9 @@ import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { asNodeId, createNode, Store, stripStrategy } from '../index.js';
 import { Container } from './Container.js';
+import { useLayoutContext } from './LayoutContext.js';
 import { Provider } from './Provider.js';
+import { Panel, Zone } from './presets.js';
 import { StrategyRegistryProvider } from './strategies.js';
 
 const z = asNodeId('z');
@@ -58,5 +60,37 @@ describe('settle transition across a viewport change', () => {
   it('is kept on first render', () => {
     const { container } = render(row(makeStore(), 200));
     expect(child(container, 'a').style.transition).toContain('200ms');
+  });
+});
+
+function SettleProbe() {
+  return <output data-testid="settle">{useLayoutContext().settleMs}</output>;
+}
+
+function zone(w: number) {
+  return (
+    <Provider store={new Store()}>
+      <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
+        <Zone
+          id={z}
+          strategyId="strip"
+          config={{ axis: 'x', fill: true }}
+          viewport={{ w, h: 100 }}
+          settleMs={200}
+        >
+          <Panel id={asNodeId('a')} />
+          <SettleProbe />
+        </Zone>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+}
+
+describe('settle time a Zone hands its children across a viewport change', () => {
+  it('is dropped on the render whose viewport resized', () => {
+    const view = render(zone(200));
+    expect(view.getByTestId('settle').textContent).toBe('200');
+    view.rerender(zone(320));
+    expect(view.getByTestId('settle').textContent).toBe('0');
   });
 });

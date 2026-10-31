@@ -1,8 +1,10 @@
 import { cleanup, render } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
-import { asNodeId, Store } from '../index.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { asNodeId, gridStrategy, Store } from '../index.js';
+import { useNode } from './hooks.js';
 import { Provider } from './Provider.js';
 import { Panel, Zone } from './presets.js';
+import { StrategyRegistryProvider } from './strategies.js';
 
 afterEach(cleanup);
 
@@ -72,6 +74,38 @@ describe('declarative presets', () => {
     rerender(<Tree hidden={true} />);
     expect(store.getNode(asNodeId('p1'))?.lifecycle.state).toBe('hidden');
     rerender(<Tree hidden={false} />);
+    expect(store.getNode(asNodeId('p1'))?.lifecycle.state).toBe('visible');
+  });
+
+  it('hidden prop changes lifecycle outside render, so no other component updates mid-render', () => {
+    const store = new Store();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    function Watcher() {
+      return <output>{useNode(asNodeId('p1'))?.lifecycle.state}</output>;
+    }
+    const Tree = ({ hidden }: { hidden: boolean }) => (
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={{ grid: gridStrategy as never }}>
+          <Watcher />
+          <Zone
+            id={asNodeId('z')}
+            strategyId="grid"
+            config={{ cols: 1 }}
+            viewport={{ w: 100, h: 100 }}
+          >
+            <Panel id={asNodeId('p1')} hidden={hidden} />
+          </Zone>
+        </StrategyRegistryProvider>
+      </Provider>
+    );
+    const { rerender } = render(<Tree hidden={false} />);
+    rerender(<Tree hidden={true} />);
+    rerender(<Tree hidden={false} />);
+    const updateWarnings = errors.mock.calls.filter((c) =>
+      String(c[0]).includes('while rendering a different component'),
+    );
+    errors.mockRestore();
+    expect(updateWarnings).toEqual([]);
     expect(store.getNode(asNodeId('p1'))?.lifecycle.state).toBe('visible');
   });
 

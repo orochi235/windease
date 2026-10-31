@@ -33,6 +33,11 @@ export interface LayoutInfo {
    *  drop is being previewed. That node renders hidden — the drag ghost is what
    *  the user follows — so two copies of one pane are never on screen at once. */
   previewSourceId?: NodeId;
+  /** How the container arranges its children: `'placed'` at these rects, or
+   *  `'flow'`, by the consumer's CSS. Absent when nothing above hosts a layout
+   *  for them. A preset keeps a placement box around itself only under
+   *  `'placed'`, so its pane stays a direct child of the box CSS arranges. */
+  mode?: 'placed' | 'flow';
 }
 
 const EMPTY_LAYOUT: LayoutInfo = { placements: new Map(), unplaced: [], settleMs: 0 };

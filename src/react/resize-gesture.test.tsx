@@ -1,5 +1,6 @@
-import { render } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, fireEvent, render } from '@testing-library/react';
+import { useContext } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { asNodeId, createNode, Store, stripStrategy } from '../index.js';
 import { Container } from './Container.js';
 import { useLayoutContext } from './LayoutContext.js';
@@ -87,5 +88,112 @@ describe('a container inside one being resized by a drag', () => {
 
   it('keeps it in a declarative Zone when no ancestor is resizing', () => {
     expect(settleOf(renderZone(false).container)).toBe('200');
+  });
+});
+
+describe('a seam drag that ends without a pointerup', () => {
+  function renderRow() {
+    const store = makeStore();
+    const b = asNodeId('b');
+    store.registerNode(createNode({ kind: 'panel', focus: true, id: b, parentId: asNodeId('z') }));
+    store.showNode(b);
+    const view = render(
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
+          <Container
+            parentId={asNodeId('z')}
+            chrome={{}}
+            viewport={{ w: 200, h: 100 }}
+            settleMs={200}
+            affordances
+          />
+        </StrategyRegistryProvider>
+      </Provider>,
+    );
+    const seam = view.container.querySelector('[data-affordance-hit]') as HTMLElement;
+    fireEvent.pointerDown(seam, { pointerId: 1, clientX: 100, clientY: 0 });
+    expect(child(view.container).style.transition).toBe('');
+    return { ...view, store, seam };
+  }
+
+  it('restores the settle transition when the seam unmounts mid-drag', async () => {
+    const { container, store } = renderRow();
+    await act(async () => store.hideNode(asNodeId('b')));
+    expect(container.querySelector('[data-affordance-hit]')).toBeNull();
+    expect(child(container).style.transition).toContain('200ms');
+  });
+
+  it('restores it when the seam loses pointer capture', () => {
+    const { container, seam } = renderRow();
+    fireEvent.lostPointerCapture(seam, { pointerId: 1 });
+    expect(child(container).style.transition).toContain('200ms');
+  });
+});
+
+describe('a laid-out Panel', () => {
+  // jsdom lays nothing out; the panel measures its own box for its viewport.
+  class RO {
+    constructor(private cb: ResizeObserverCallback) {}
+    observe(el: Element) {
+      this.cb(
+        [{ target: el, contentRect: { width: 200, height: 100 } } as ResizeObserverEntry],
+        this as never,
+      );
+    }
+    unobserve() {}
+    disconnect() {}
+  }
+  beforeEach(() => vi.stubGlobal('ResizeObserver', RO));
+  afterEach(() => vi.unstubAllGlobals());
+
+  function renderPanel(resizing: boolean) {
+    return render(
+      <Provider store={new Store()}>
+        <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
+          <ResizeGestureContext.Provider value={resizing}>
+            <Zone
+              id={asNodeId('z')}
+              strategyId="strip"
+              config={{ axis: 'x', fill: true }}
+              viewport={{ w: 200, h: 100 }}
+            >
+              <Panel
+                id={asNodeId('p')}
+                container={{ strategyId: 'strip', config: { axis: 'x', fill: true } }}
+                settleMs={250}
+                affordances
+              >
+                <Panel id={asNodeId('a')} />
+                <Panel id={asNodeId('b')} />
+                <SettleProbe />
+                <ResizingProbe />
+              </Panel>
+            </Zone>
+          </ResizeGestureContext.Provider>
+        </StrategyRegistryProvider>
+      </Provider>,
+    );
+  }
+
+  function ResizingProbe() {
+    return <output data-testid="resizing">{String(useContext(ResizeGestureContext))}</output>;
+  }
+
+  it('hands its children its own settleMs', () => {
+    expect(settleOf(renderPanel(false).container)).toBe('250');
+  });
+
+  it('drops it while an ancestor is resizing', () => {
+    expect(settleOf(renderPanel(true).container)).toBe('0');
+  });
+
+  it('drops it and tells its descendants while its own seam is dragged', () => {
+    const { container, getByTestId } = renderPanel(false);
+    const seam = container.querySelector('[data-affordance-hit]') as HTMLElement;
+    fireEvent.pointerDown(seam, { pointerId: 1, clientX: 100, clientY: 0 });
+    expect(settleOf(container)).toBe('0');
+    expect(getByTestId('resizing').textContent).toBe('true');
+    fireEvent.pointerUp(seam, { pointerId: 1, clientX: 100, clientY: 0 });
+    expect(settleOf(container)).toBe('250');
   });
 });
