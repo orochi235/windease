@@ -60,7 +60,8 @@ export function resolveLock(node: Node, input: boolean | LockSet): LockSet {
  * by a lock they already decided to ignore.
  */
 export function destroyBlockedBy(store: Store, id: NodeId): NodeId | null {
-  const node = store.getNode(id);
+  // Truth: under a throttle the published tree can lack a child registered this tick.
+  const node = store.getNodeTruth(id);
   if (!node) return null;
   if (store.isLocked(id, 'destroy')) return id;
   for (const childId of node.container?.childOrder ?? []) {
