@@ -718,7 +718,16 @@ function resolveTiling(
   }
 
   const survivors = items.filter((it) => priorityPlaced.has(it.id));
-  const cells = reserveCells(survivors, cols, rowCap, survivors.length, compact);
+  let cells = reserveCells(survivors, cols, rowCap, survivors.length, compact);
+  // A big pin can fit only where pin-first order put it; never drop a survivor
+  // for the sake of childOrder positions.
+  if (cells.size < survivors.length) {
+    trace(
+      'layout',
+      `grid: childOrder placed ${cells.size}/${survivors.length} survivors, keeping priority cells`,
+    );
+    cells = priorityPlaced;
+  }
 
   let usedRows = 1;
   for (const cell of cells.values()) usedRows = Math.max(usedRows, cell.row + cell.rows);
@@ -1567,7 +1576,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
     maxRows: 'number',
     maxItems: 'number',
     fill: 'boolean',
-    orientation: ['wide', 'tall'],
+    orientation: ['wide', 'tall', 'fit'],
     gap: 'number',
     padding: 'number',
     resizable: 'boolean',
@@ -1746,12 +1755,14 @@ export const gridStrategy: LayoutStrategy<void, string> = {
   },
 
   cellAt({ items, container, options, point, sourceId }) {
-    const rest = sourceId === undefined ? items : items.filter((it) => it.id !== sourceId);
-    const geom = gridGeometry(rest, container, options as GridConfig);
+    // Tracks come from the grid on screen; only occupancy forgets the source,
+    // so it can drop onto a cell of its own.
+    const geom = gridGeometry(items, container, options as GridConfig);
     const col = trackAt(geom.x, point.x);
     const row = trackAt(geom.y, point.y);
     if (col === undefined || row === undefined) return undefined;
-    for (const c of geom.cells.values()) {
+    for (const [id, c] of geom.cells) {
+      if (id === sourceId) continue;
       if (col >= c.col && col < c.col + c.cols && row >= c.row && row < c.row + c.rows) {
         return undefined;
       }
