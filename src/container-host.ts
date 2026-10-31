@@ -184,6 +184,7 @@ export class ContainerHost {
   #naturalObserver: ResizeObserver | null = null;
   readonly #naturalIds = new Map<Element, string>();
   #cache: ContainerLayout | null = null;
+  #cachedChildren: ReadonlySet<NodeId> = new Set();
   #dirty = false;
   #containerRef: ContainerCap | undefined;
   #destroyed = false;
@@ -245,13 +246,20 @@ export class ContainerHost {
     const self = (e: { id: NodeId }) => e.id === this.#parentId;
     const child = (e: { id: NodeId }) =>
       this.#store.getChildren(this.#parentId).some((c) => c.id === e.id);
+    // An unregistered child has already left `childOrder` when its event fires.
+    const formerChild = (e: { id: NodeId }) => this.#cachedChildren.has(e.id);
 
     for (const name of ['container.stateChanged', 'container.configChanged'] as const) {
       this.#unsubs.push(store.events.on(name, (e) => self(e) && this.#invalidate()));
     }
+    this.#unsubs.push(
+      store.events.on(
+        'node.unregistered',
+        (e) => (self(e) || formerChild(e)) && this.#invalidate(),
+      ),
+    );
     for (const name of [
       'node.registered',
-      'node.unregistered',
       'node.placementChanged',
       'node.pinnedChanged',
       'node.metaChanged',
@@ -883,6 +891,7 @@ export class ContainerHost {
 
   #compute(): ContainerLayout {
     this.#collapsed = this.#collapseKey();
+    this.#cachedChildren = new Set(this.#store.getChildren(this.#parentId).map((c) => c.id));
     const node = this.#store.getNode(this.#parentId);
     const container = node?.container;
     const viewport = this.#viewport;

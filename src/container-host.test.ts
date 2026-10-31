@@ -46,6 +46,15 @@ describe('ContainerHost', () => {
     h.destroy();
   });
 
+  it('drops an unregistered child from the very next layout read', () => {
+    const s = build();
+    const h = host(s);
+    expect([...h.layout().placements.keys()]).toEqual(['p1', 'p2']);
+    s.unregisterNode(asNodeId('p2'));
+    expect([...h.layout().placements.keys()]).toEqual(['p1']);
+    h.destroy();
+  });
+
   it('returns an identity-stable snapshot until something invalidates it', () => {
     const h = host(build());
     const a = h.layout();
