@@ -213,7 +213,7 @@ export function graft(store: Store, snap: unknown, parentId: NodeId, opts?: Graf
       throw new DuplicateNodeError(asNodeId(sn.id));
     }
   }
-  validateSnapshotLinks(parsed.nodes);
+  validateSnapshot(parsed.nodes, parsed.rootIds, { strayRoots: false });
 
   const byId = new Map(parsed.nodes.map((sn) => [sn.id, sn] as const));
 
@@ -577,10 +577,25 @@ function parseSnapshot(snap: unknown): SerializedStore {
   return out;
 }
 
-/** Bidirectional parent/child links, and at most one focused node. */
-function validateSnapshotLinks(nodes: SerializedNode[]): void {
+/**
+ * Everything registration would otherwise trip over partway through: unique
+ * ids, parent and child agreeing in both directions, roots without a
+ * membership, every node reachable from a root, and at most one focused node.
+ * Runs before anything is written, because neither the in-place hydrate's
+ * wipe nor `store.transact` can be undone. `strayRoots` admits an unlisted
+ * node with no membership as an extra root, which hydrate does and graft
+ * cannot.
+ */
+function validateSnapshot(
+  nodes: SerializedNode[],
+  rootIds: readonly string[],
+  opts: { strayRoots: boolean },
+): void {
   const byId = new Map<string, SerializedNode>();
-  for (const sn of nodes) byId.set(sn.id, sn);
+  for (const sn of nodes) {
+    if (byId.has(sn.id)) throw new DuplicateNodeError(asNodeId(sn.id));
+    byId.set(sn.id, sn);
+  }
 
   for (const sn of nodes) {
     if (!sn.membership) continue;
@@ -608,6 +623,58 @@ function validateSnapshotLinks(nodes: SerializedNode[]): void {
     }
   }
 
+  for (const sn of nodes) {
+    if (!sn.container) continue;
+    const listed = new Set<string>();
+    for (const cid of sn.container.childOrder) {
+      if (listed.has(cid)) throw new DuplicateNodeError(asNodeId(cid));
+      listed.add(cid);
+      const child = byId.get(cid);
+      if (child && child.membership?.parentId !== sn.id) {
+        throw new InvariantViolationError(
+          'broken-bidi-link',
+          `node ${sn.id} lists child ${cid}, whose parent is ${child.membership?.parentId ?? 'none'}`,
+          { id: cid, parentId: sn.id },
+        );
+      }
+    }
+  }
+
+  const roots = new Set<string>();
+  for (const rid of rootIds) {
+    if (roots.has(rid)) throw new DuplicateNodeError(asNodeId(rid));
+    roots.add(rid);
+    if (byId.get(rid)?.membership) {
+      throw new InvariantViolationError(
+        'root-has-membership',
+        `root ${rid} has a membership in ${byId.get(rid)?.membership?.parentId}`,
+        { id: rid },
+      );
+    }
+  }
+  if (opts.strayRoots) {
+    for (const sn of nodes) if (!sn.membership) roots.add(sn.id);
+  }
+  // Links agree both ways by now, so each node is listed by at most one parent
+  // and a walk from the roots reaches every node exactly once.
+  const reached = new Set<string>();
+  const walk = (id: string): void => {
+    const sn = byId.get(id);
+    if (!sn || reached.has(id)) return;
+    reached.add(id);
+    for (const cid of sn.container?.childOrder ?? []) walk(cid);
+  };
+  for (const rid of roots) walk(rid);
+  for (const sn of nodes) {
+    if (!reached.has(sn.id)) {
+      throw new InvariantViolationError(
+        'unreachable-node',
+        `node ${sn.id} not reachable from rootIds`,
+        { id: sn.id },
+      );
+    }
+  }
+
   let focusedSeen: string | null = null;
   for (const sn of nodes) {
     if (sn.focus?.state === 'focused') {
@@ -625,7 +692,7 @@ function validateSnapshotLinks(nodes: SerializedNode[]): void {
 
 function hydrate(snap: SerializedStore, target?: Store): Store {
   const nodes = snap.nodes;
-  validateSnapshotLinks(nodes);
+  validateSnapshot(nodes, snap.rootIds, { strayRoots: true });
   const byId = new Map<string, SerializedNode>();
   for (const sn of nodes) byId.set(sn.id, sn);
 

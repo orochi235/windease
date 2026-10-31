@@ -199,6 +199,30 @@ describe('graft validation', () => {
   });
 });
 
+describe('graft validates the whole snapshot before registering any of it', () => {
+  it('rejects a child listed twice without partially grafting', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    const a = snap.nodes.find((n) => n.id === 'a');
+    (a?.container as { childOrder: string[] }).childOrder = ['a1', 'a1', 'a2'];
+
+    expect(() => graft(s, snap, asNodeId('z'))).toThrow(DuplicateNodeError);
+    expect(s.getNode(asNodeId('a'))).toBeUndefined();
+    expect(s.getNode(asNodeId('a1'))).toBeUndefined();
+  });
+
+  it('rejects a node the root does not reach instead of dropping it', () => {
+    const s = buildTree();
+    const snap = serialize(s, { root: asNodeId('a') });
+    s.unregisterNode(asNodeId('a'));
+    snap.nodes.push({ id: 'stray', kind: 'panel', lifecycle: 'mounted' });
+
+    expect(() => graft(s, snap, asNodeId('z'))).toThrow(InvariantViolationError);
+    expect(s.getNode(asNodeId('a'))).toBeUndefined();
+  });
+});
+
 describe('graft attaches', () => {
   it('round-trips a subtree back under the same parent', () => {
     const s = buildTree();

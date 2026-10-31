@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createNode } from './constructors.js';
-import { WindeaseError } from './errors.js';
+import { DuplicateNodeError, InvariantViolationError, WindeaseError } from './errors.js';
 import { asNodeId, type NodeHints } from './node.js';
 import { deserialize, type SerializedStore, serialize } from './snapshot.js';
 import { Store } from './store.js';
@@ -742,6 +742,142 @@ describe('deserialize — in-place restore with a destroy-locked root', () => {
     const snap = serialize(store);
     expect(() => deserialize(store, snap)).not.toThrow();
     expect(store.getNode(asNodeId('z'))).toBeDefined();
+  });
+});
+
+describe('deserialize — in-place restore validates before discarding the store', () => {
+  /** A store holding root `z` with child `a`, the state a bad restore must leave alone. */
+  function original(): Store {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'stack', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    s.registerNode(createNode({ kind: 'panel', id: asNodeId('a'), parentId: asNodeId('z') }));
+    return s;
+  }
+
+  /** Root `y` holding `b`; each case below corrupts one link. */
+  function incoming(): SerializedStore {
+    return {
+      version: 5,
+      nodes: [
+        {
+          id: 'y',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: { strategyId: 'stack', config: {}, childOrder: ['b'], allowsPinning: true },
+        },
+        {
+          id: 'b',
+          kind: 'panel',
+          lifecycle: 'mounted',
+          membership: { parentId: 'y', placement: {} },
+        },
+      ],
+      rootIds: ['y'],
+      focusedId: null,
+    };
+  }
+
+  function expectUntouched(s: Store): void {
+    expect(s.rootIds).toEqual(['z']);
+    expect(s.getChildren(asNodeId('z')).map((n) => n.id)).toEqual(['a']);
+    expect(s.getNode(asNodeId('y'))).toBeUndefined();
+    expect(s.getNode(asNodeId('b'))).toBeUndefined();
+  }
+
+  const cases: [string, (snap: SerializedStore) => void, new (...a: never[]) => Error][] = [
+    [
+      'a parent listing a child twice',
+      (snap) => {
+        (snap.nodes[0]?.container as { childOrder: string[] }).childOrder = ['b', 'b'];
+      },
+      DuplicateNodeError,
+    ],
+    [
+      'two nodes sharing an id',
+      (snap) => {
+        snap.nodes.push({ ...(snap.nodes[1] as SerializedStore['nodes'][number]) });
+      },
+      DuplicateNodeError,
+    ],
+    [
+      'a root listed twice',
+      (snap) => {
+        snap.rootIds = ['y', 'y'];
+      },
+      DuplicateNodeError,
+    ],
+    [
+      'a parent listing a child that names another parent',
+      (snap) => {
+        snap.nodes.push({
+          id: 'x',
+          kind: 'zone',
+          lifecycle: 'mounted',
+          container: { strategyId: 'stack', config: {}, childOrder: ['b'], allowsPinning: true },
+        });
+        snap.rootIds.push('x');
+      },
+      InvariantViolationError,
+    ],
+    [
+      'a parent listing a root',
+      (snap) => {
+        (snap.nodes[0]?.container as { childOrder: string[] }).childOrder = ['b', 'y'];
+      },
+      InvariantViolationError,
+    ],
+    [
+      'a root that has a membership',
+      (snap) => {
+        snap.rootIds = ['y', 'b'];
+      },
+      InvariantViolationError,
+    ],
+    [
+      'a membership cycle no root reaches',
+      (snap) => {
+        snap.nodes.push(
+          {
+            id: 'c1',
+            kind: 'group',
+            lifecycle: 'mounted',
+            membership: { parentId: 'c2', placement: {} },
+            container: { strategyId: 'stack', config: {}, childOrder: ['c2'], allowsPinning: true },
+          },
+          {
+            id: 'c2',
+            kind: 'group',
+            lifecycle: 'mounted',
+            membership: { parentId: 'c1', placement: {} },
+            container: { strategyId: 'stack', config: {}, childOrder: ['c1'], allowsPinning: true },
+          },
+        );
+      },
+      InvariantViolationError,
+    ],
+  ];
+
+  for (const [name, corrupt, errorType] of cases) {
+    it(`rejects ${name} and leaves the store as it was`, () => {
+      const s = original();
+      const snap = incoming();
+      corrupt(snap);
+      expect(() => deserialize(s, snap)).toThrow(errorType);
+      expectUntouched(s);
+    });
+  }
+
+  it('still restores the uncorrupted snapshot', () => {
+    const s = original();
+    deserialize(s, incoming());
+    expect(s.rootIds).toEqual(['y']);
+    expect(s.getChildren(asNodeId('y')).map((n) => n.id)).toEqual(['b']);
   });
 });
 
