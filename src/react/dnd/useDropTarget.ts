@@ -14,8 +14,9 @@ export interface UseDropTargetOptions {
    *  order, but registration should depend on a runtime flag. Defaults to
    *  true. */
   enabled?: boolean;
-  /** Map a cursor point (viewport coords) to a prospective insertion index in
-   *  the target's childOrder. Returning undefined leaves `insertIndex` unset
+  /** Map a cursor point (viewport coords) to a prospective insertion index
+   *  among the target's rendered (`visible`) children, the dragged node left
+   *  out. Returning undefined leaves `insertIndex` unset
    *  on the drag state (the strategy then falls back to "append"). */
   getInsertionIndex?: (point: { x: number; y: number }) => number | undefined;
   /** Map a cursor point to what kind of drop it is asking for. Takes

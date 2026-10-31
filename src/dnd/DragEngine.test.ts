@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { asNodeId, createNode, type LayoutStrategy, type Rect, Store } from '../index.js';
+import { captureTrace } from '../test-utils/capture-trace.js';
 import { DragEngine, type DropTarget, type FrameScheduler } from './DragEngine.js';
 
 /** Refuses anything but exactly 2 items. */
@@ -282,6 +283,172 @@ describe('DragEngine', () => {
     off();
     e.updateHoverByPoint(51, 51);
     expect(e.state()?.hover).toBeNull();
+  });
+});
+
+/** Holds hover samples until `run()`, as an animation frame would. */
+function heldFrames(): FrameScheduler & { run(): void } {
+  const frames: (() => void)[] = [];
+  return {
+    request(cb) {
+      frames.push(cb);
+      return frames.length;
+    },
+    cancel() {
+      frames.length = 0;
+    },
+    run() {
+      for (const cb of frames.splice(0)) cb();
+    },
+  };
+}
+
+describe('DragEngine — a hovered target that goes away', () => {
+  it('re-samples at the cursor, so the hover leaves it', () => {
+    const s = buildStore();
+    const e = new DragEngine(s);
+    const off = e.addDropTarget(asNodeId('z2'), at(SQUARE));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    off();
+    expect(e.state()?.hover).toBeNull();
+    e.drop();
+    expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual([]);
+  });
+
+  it('cancels as unregistered on a drop before the re-sample runs', () => {
+    const log = captureTrace('dnd');
+    const s = buildStore();
+    const frames = heldFrames();
+    const e = new DragEngine(s, { schedule: frames });
+    const off = e.addDropTarget(asNodeId('z2'), at(SQUARE));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    frames.run();
+    expect(e.state()?.hover?.accepted).toBe(true);
+    off();
+    e.drop();
+    expect(e.state()).toBeNull();
+    expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p']);
+    expect(log.matching(/cancel \(unregistered\)/)).toHaveLength(1);
+  });
+
+  it('still drops on a target that re-registered in the same frame', () => {
+    const s = buildStore();
+    const frames = heldFrames();
+    const e = new DragEngine(s, { schedule: frames });
+    const off = e.addDropTarget(asNodeId('z2'), at(SQUARE));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    frames.run();
+    off();
+    e.addDropTarget(asNodeId('z2'), at(SQUARE));
+    e.drop();
+    expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['p']);
+  });
+
+  it('keeps a newer queued pointer sample over the cursor it re-samples at', () => {
+    const s = buildStore();
+    const frames = heldFrames();
+    const e = new DragEngine(s, { schedule: frames });
+    const off = e.addDropTarget(asNodeId('z2'), at(SQUARE));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    frames.run();
+    e.updateHoverByPoint(70, 70);
+    off();
+    frames.run();
+    expect(e.state()?.cursor).toEqual({ x: 70, y: 70 });
+  });
+});
+
+describe('DragEngine — drop re-checks the verdict', () => {
+  it('refuses a drop the target stopped accepting since the last sample', () => {
+    const log = captureTrace('dnd');
+    const s = buildStore();
+    s.updateContainerConfig(asNodeId('z2'), { accepts: { max: 1 } });
+    const e = new DragEngine(s);
+    e.addDropTarget(asNodeId('z2'), at(SQUARE));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    expect(e.state()?.hover?.accepted).toBe(true);
+    panel(s, 'q', 'z2');
+    e.drop();
+    expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['q']);
+    expect(log.matching(/cancel \(rejected\)/)).toHaveLength(1);
+  });
+
+  it('refuses a drop onto a target lock.accept now refuses', () => {
+    const s = buildStore();
+    const e = new DragEngine(s);
+    e.addDropTarget(asNodeId('z2'), at(SQUARE));
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    s.setLock(asNodeId('z2'), { accept: true });
+    e.drop();
+    expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p']);
+  });
+});
+
+describe('DragEngine — a seam among hidden children', () => {
+  /** z2 holds `h` (hidden), `a`, `b`, and `m` (never shown) between them. */
+  function withHidden(): Store {
+    const s = buildStore();
+    for (const id of ['h', 'a', 'm', 'b']) panel(s, id, 'z2');
+    for (const id of ['h', 'a', 'b', 'p']) s.showNode(asNodeId(id));
+    s.hideNode(asNodeId('h'));
+    return s;
+  }
+
+  function dropAt(s: Store, source: string, seam: number, onto = 'z2'): DragEngine {
+    const e = new DragEngine(s);
+    e.addDropTarget(asNodeId(onto), at(SQUARE, { getInsertionIndex: () => seam }));
+    e.tryBegin(asNodeId(source));
+    e.updateHoverByPoint(50, 50);
+    return e;
+  }
+
+  it('reports the seam on hover as the rendered children count it', () => {
+    expect(dropAt(withHidden(), 'p', 2).state()?.hover?.insertIndex).toBe(2);
+  });
+
+  it('lands a drop after the last rendered child there', () => {
+    const s = withHidden();
+    dropAt(s, 'p', 2).drop();
+    expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['h', 'a', 'm', 'b', 'p']);
+  });
+
+  it('lands a drop before a rendered child just before it', () => {
+    const s = withHidden();
+    dropAt(s, 'p', 1).drop();
+    expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['h', 'a', 'm', 'p', 'b']);
+  });
+
+  it('counts a reorder without the source', () => {
+    const s = withHidden();
+    dropAt(s, 'a', 1).drop();
+    expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['h', 'm', 'b', 'a']);
+  });
+
+  it('hands a controlled parent the same order', () => {
+    const s = withHidden();
+    const e = dropAt(s, 'p', 2);
+    const commit = vi.fn();
+    e.registerOrderControl(asNodeId('z2'), commit);
+    e.drop();
+    expect(commit.mock.calls[0]?.[0]).toEqual(['h', 'a', 'm', 'b', 'p']);
+  });
+
+  it('reports a pinned slot in rendered children too', () => {
+    const s = withHidden();
+    s.setPinned(asNodeId('a'), 1);
+    // Rendered: a, b. Seam 0 asks for before a, which holds its slot.
+    const e = dropAt(s, 'p', 0);
+    expect(e.state()?.hover?.insertIndex).toBe(1);
+    e.drop();
+    const order = s.getContainerView(asNodeId('z2'))?.childOrder;
+    expect(order?.indexOf(asNodeId('a'))).toBe(1);
+    expect(order?.filter((id) => id !== 'h' && id !== 'm')).toEqual(['a', 'p', 'b']);
   });
 });
 
