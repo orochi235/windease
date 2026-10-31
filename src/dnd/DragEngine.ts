@@ -1,5 +1,4 @@
 import { type CollapseDrag, resolveCollapse } from '../collapse.js';
-import type { AcceptsConfig } from '../container-config.js';
 import { Gesture } from '../gesture.js';
 import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { LayoutItem, LayoutStrategy, Rect, Size } from '../layout-types.js';
@@ -8,8 +7,13 @@ import { placeRespectingPins } from '../pinning.js';
 import { STACK_STRATEGY_ID, type Store } from '../store.js';
 import { containerStateFor, dockNode, floatAncestor, floatNode } from '../tear.js';
 import { trace } from '../trace.js';
+import { acceptsConfigAdmits } from './acceptsConfig.js';
+import { type ChildOrderCommit, commitControlled } from './controlledOrder.js';
 import type { DropIntent } from './dropIntent.js';
 import { type EdgeScrollOptions, edgeScrollDelta } from './edgeScroll.js';
+import { orderIndexOfSeam, seamOfOrderIndex } from './seamIndex.js';
+
+export type { ChildOrderChange, ChildOrderCommit } from './controlledOrder.js';
 
 /** Looks up a strategy by id. The engine uses it to consult
  *  `strategy.canAccept` on the prospective post-drop child list. */
@@ -39,7 +43,10 @@ export interface DragState {
   hover: {
     targetId: NodeId;
     accepted: boolean;
-    /** 0-based prospective insertion index. Undefined when the strategy
+    /** 0-based prospective insertion index, counted among the target's
+     *  `visible` children with the dragged node left out — the children a host
+     *  renders. The drop translates it to a `childOrder` position, past any
+     *  hidden or never-shown children. Undefined when the strategy
      *  gives no positional answer (e.g. splits) or when the target didn't
      *  register a `getInsertionIndex`. */
     insertIndex?: number;
@@ -93,6 +100,7 @@ export interface DropTarget {
    *  `strategy.canAccept`. The first two only refuse, so `true` here cannot
    *  override them. */
   acceptPolicy?: AcceptPolicy;
+  /** The seam under `point`, counted as `DragState.hover.insertIndex` is. */
   getInsertionIndex?(point: Point): number | undefined;
   /** What kind of drop the cursor is asking for. Takes precedence over
    *  `getInsertionIndex`, which stays for targets that answer only "which
@@ -109,25 +117,6 @@ export interface DropTarget {
     options?: EdgeScrollOptions;
   };
 }
-
-/** Defers a hover sample. The DOM host coalesces per animation frame; the
- *  default runs the sample where it was made. */
-/** What changed about a controlled parent's order, alongside the new list. */
-export interface ChildOrderChange {
-  /** The node the gesture moved. */
-  movedId: NodeId;
-  /** Where it came from. Equal to the controlled parent on a reorder. */
-  fromParentId: NodeId;
-  /** Where it is going. Equal to the controlled parent on a reorder. */
-  toParentId: NodeId;
-}
-
-/**
- * Receives the order a drop *would* have produced, for a parent whose order the
- * host owns. Registering one makes that parent controlled: the drop no longer
- * writes to the store, and the host commits by re-rendering.
- */
-export type ChildOrderCommit = (nextChildIds: NodeId[], change: ChildOrderChange) => void;
 
 /** Coalesces hover samples. The DOM host schedules per animation frame; a
  *  headless caller can run them synchronously. */
@@ -271,6 +260,10 @@ export class DragEngine {
       if (at >= 0) layers.splice(at, 1);
       this.mergeTarget(id);
       trace('dnd', `unregisterDropTarget: ${id} (total: ${this.dropTargets.size})`);
+      if (this.active?.hover?.targetId === id && !this.dropTargets.has(id)) {
+        trace('dnd', `hovered target ${id} unregistered mid-drag — re-sampling at the cursor`);
+        this.resample();
+      }
     };
   }
 
@@ -378,6 +371,19 @@ export class DragEngine {
   updateHoverByPoint(x: number, y: number): void {
     if (!this.active) return;
     this.pendingPoint = { x, y };
+    this.requestSample();
+  }
+
+  /** Sample again where the cursor last was, unless a newer point is queued.
+   *  Deferred like any sample, so a target that unregisters and re-registers
+   *  in one render is back before it runs. */
+  private resample(): void {
+    if (!this.active) return;
+    this.pendingPoint ??= this.active.cursor;
+    this.requestSample();
+  }
+
+  private requestSample(): void {
     if (this.scheduled) return;
     this.scheduled = true;
     const handle = this.schedule.request(() => {
@@ -508,6 +514,15 @@ export class DragEngine {
     // A drop within the source's own parent never adds a child, so it cannot
     // make a list the container already holds any worse, even one over capacity.
     const withinParent = this.store.getNode(draggingId)?.membership?.parentId === targetId;
+    // A wrap rearranges the onto-child's parent, which checkIntent has judged.
+    if (
+      withinParent &&
+      !(intent && this.wraps(intent)) &&
+      this.store.isLocked(targetId, 'arrange')
+    ) {
+      trace('dnd', `checkAccept ${targetId}: REJECT (reorder within lock.arrange)`);
+      return false;
+    }
     // Building the prospective child list is O(children) on the pointermove
     // path, so only pay for it when something will actually read it, and once.
     let items: AcceptItem[] | undefined;
@@ -517,14 +532,15 @@ export class DragEngine {
     };
 
     if (
-      !this.checkAcceptsConfig(
+      !acceptsConfigAdmits({
+        store: this.store,
         targetId,
         draggingId,
-        options.accepts,
+        accepts: options.accepts,
         withinParent,
-        prospective,
+        prospectiveCount: () => prospective().length,
         tear,
-      )
+      })
     ) {
       return false;
     }
@@ -564,47 +580,6 @@ export class DragEngine {
       }
     }
 
-    return true;
-  }
-
-  /** Whether the target's `config.accepts` admits this drop. `max` counts the
-   *  same list `canAccept` sees, so a drop that wraps a child adds nothing. */
-  private checkAcceptsConfig(
-    targetId: NodeId,
-    draggingId: NodeId,
-    accepts: unknown,
-    withinParent: boolean,
-    prospective: () => AcceptItem[],
-    tear: boolean,
-  ): boolean {
-    if (accepts === undefined || accepts === null) return true;
-    if (accepts === false) {
-      trace('dnd', `checkAccept ${targetId}: REJECT (accepts: false)`);
-      return false;
-    }
-    if (accepts === 'tear') {
-      if (!tear) trace('dnd', `checkAccept ${targetId}: REJECT (accepts: 'tear', not a tear)`);
-      return tear;
-    }
-    if (typeof accepts !== 'object') return true;
-    const { kinds, max } = accepts as Exclude<AcceptsConfig, false | 'tear'>;
-    if (Array.isArray(kinds)) {
-      const kind = this.store.getNode(draggingId)?.kind;
-      if (kind === undefined || !kinds.includes(kind)) {
-        trace(
-          'dnd',
-          `checkAccept ${targetId}: REJECT (accepts.kinds [${kinds.join(', ')}] has no '${kind ?? '(none)'}' for ${draggingId})`,
-        );
-        return false;
-      }
-    }
-    if (typeof max === 'number' && !withinParent) {
-      const count = prospective().length;
-      if (count > max) {
-        trace('dnd', `checkAccept ${targetId}: REJECT (accepts.max: ${count} > ${max})`);
-        return false;
-      }
-    }
     return true;
   }
 
@@ -655,22 +630,39 @@ export class DragEngine {
   }
 
   /**
-   * The index a drop asked for at `index` in `targetId` will land at once the
+   * The seam a drop asked for at `seam` in `targetId` will land at once the
    * pinned children there have kept their slots. Reported on the hover, so the
    * insertion preview shows the slot the drop takes, not one a pin refuses.
+   * Pins hold `childOrder` slots, so the check runs there and the answer is
+   * counted back in rendered children.
    */
-  private landingIndex(targetId: NodeId, index: number): number {
+  private landingIndex(targetId: NodeId, seam: number): number {
     const dragging = this.active?.draggingId;
     const order = this.store.getNode(targetId)?.container?.childOrder;
-    if (dragging === undefined || !order) return index;
+    if (dragging === undefined || !order) return seam;
     const pinnedIndexOf = (id: NodeId) => this.store.getPinnedIndex(id);
-    if (!order.some((id) => id !== dragging && pinnedIndexOf(id) !== null)) return index;
+    if (!order.some((id) => id !== dragging && pinnedIndexOf(id) !== null)) return seam;
     const spliced = order.filter((id) => id !== dragging);
-    const at = Math.max(0, Math.min(index, spliced.length));
+    const at = Math.max(
+      0,
+      Math.min(orderIndexOfSeam(this.store, targetId, dragging, seam), spliced.length),
+    );
     spliced.splice(at, 0, dragging);
     const landed = placeRespectingPins(spliced, dragging, at, pinnedIndexOf).indexOf(dragging);
-    if (landed !== index) trace('dnd', `hover ${targetId}: index ${index} → ${landed} (pinned)`);
-    return landed;
+    const back = landed === at ? seam : seamOfOrderIndex(this.store, targetId, dragging, landed);
+    if (back !== seam) trace('dnd', `hover ${targetId}: index ${seam} → ${back} (pinned)`);
+    return back;
+  }
+
+  /** Where in `targetId`'s `childOrder` a drop at `seam` inserts. The one
+   *  translation every insert commit goes through. */
+  private orderIndex(targetId: NodeId, seam: number | undefined): number | undefined {
+    const dragging = this.active?.draggingId;
+    if (seam === undefined || dragging === undefined) return seam;
+    const at = orderIndexOfSeam(this.store, targetId, dragging, seam);
+    if (at !== seam)
+      trace('dnd', `drop ${targetId}: seam ${seam} → childOrder ${at} (unrendered children)`);
+    return at;
   }
 
   /** Whether committing `intent` wraps the onto-child in a new group, rather
@@ -708,6 +700,15 @@ export class DragEngine {
       trace(
         'dnd',
         `checkAccept ${targetId}: REJECT (${intent.kind} onto ${ontoId} with lock.move)`,
+      );
+      return false;
+    }
+    // Both a wrap and a stack into a stack rearrange the onto-child's parent.
+    const ontoParent = this.store.getNode(ontoId)?.membership?.parentId;
+    if (ontoParent !== undefined && this.store.isLocked(ontoParent, 'arrange')) {
+      trace(
+        'dnd',
+        `checkAccept ${targetId}: REJECT (${intent.kind} onto ${ontoId} in ${ontoParent} with lock.arrange)`,
       );
       return false;
     }
@@ -791,10 +792,20 @@ export class DragEngine {
     // arrives in the same frame as the pointerup, so its sample is still
     // queued here; dropping it resolves the drop against the frame before,
     // which on a fast drag is a different zone.
+    const before = this.active.hover?.targetId;
     this.flushPending();
-    const { hover } = this.active;
-    if (!hover?.accepted) {
-      this.cancel(hover ? 'rejected' : 'outside');
+    const { hover, cursor } = this.active;
+    const gone = (id: NodeId | undefined) => id !== undefined && !this.dropTargets.has(id);
+    if (!hover || gone(hover.targetId)) {
+      this.cancel(gone(hover?.targetId ?? before) ? 'unregistered' : 'outside');
+      return;
+    }
+    // The verdict is from the last sample; the store may have moved on since,
+    // with no pointermove to re-ask. Once per drop, so the full check is cheap.
+    const { accepted: _, ...candidate } = hover;
+    this.offer(candidate, cursor);
+    if (!this.active?.hover?.accepted) {
+      this.cancel('rejected');
       return;
     }
     this.gesture?.release();
@@ -855,20 +866,21 @@ export class DragEngine {
       }
       return;
     }
-    if (this.commitControlled(draggingId, hover.targetId, hover.insertIndex)) return;
+    const at = this.orderIndex(hover.targetId, hover.insertIndex);
+    if (commitControlled(this.store, this.orderControls, draggingId, hover.targetId, at)) return;
     try {
       const from = this.dockingFrom(draggingId, hover.targetId);
       if (from) {
         dockNode(this.store, draggingId, hover.targetId, {
-          ...(hover.insertIndex !== undefined ? { at: hover.insertIndex } : {}),
+          ...(at !== undefined ? { at } : {}),
           from,
         });
       } else {
-        this.store.moveNode(draggingId, hover.targetId, hover.insertIndex);
+        this.store.moveNode(draggingId, hover.targetId, at);
       }
       trace(
         'dnd',
-        `drop: ${draggingId} → ${hover.targetId}@${hover.insertIndex ?? 'append'}${from ? ' (dock)' : ''}`,
+        `drop: ${draggingId} → ${hover.targetId}@${at ?? 'append'}${from ? ' (dock)' : ''}`,
       );
     } catch (err) {
       trace('dnd', `drop failed: ${(err as Error).message}`);
@@ -939,55 +951,6 @@ export class DragEngine {
     const strategyId = this.store.getNode(parentId)?.container?.strategyId;
     const strategy = strategyId ? this.getStrategy(strategyId) : undefined;
     return strategy?.float ? strategy : undefined;
-  }
-
-  /**
-   * Hand a controlled parent the order this drop would have produced, and
-   * report whether the store write was suppressed.
-   *
-   * Either side of a cross-parent drop may be controlled. If one is, the store
-   * writes nothing at all: committing the move here *and* asking the host to
-   * commit it would apply the same gesture twice. An uncontrolled counterpart
-   * is therefore the host's to update, which is what "controlled" has to mean
-   * for the id to end up in exactly one place.
-   */
-  private commitControlled(
-    movedId: NodeId,
-    toParentId: NodeId,
-    insertIndex: number | undefined,
-  ): boolean {
-    const fromParentId = this.store.getNode(movedId)?.membership?.parentId;
-    if (fromParentId === undefined) return false;
-    const toCommit = this.orderControls.get(toParentId);
-    const fromCommit =
-      fromParentId === toParentId ? undefined : this.orderControls.get(fromParentId);
-    if (!toCommit && !fromCommit) return false;
-
-    const change: ChildOrderChange = { movedId, fromParentId, toParentId };
-    const pinnedIndexOf = (id: NodeId) => this.store.getPinnedIndex(id);
-
-    if (toCommit) {
-      const current = this.store.getNode(toParentId)?.container?.childOrder ?? [];
-      const without = current.filter((cid) => cid !== movedId);
-      const at = Math.max(0, Math.min(insertIndex ?? without.length, without.length));
-      const spliced = [...without];
-      spliced.splice(at, 0, movedId);
-      // Same helper the store uses, so a controlled parent and an uncontrolled
-      // one resolve a pinned prefix identically.
-      toCommit(placeRespectingPins(spliced, movedId, at, pinnedIndexOf), change);
-    }
-    if (fromCommit) {
-      const current = this.store.getNode(fromParentId)?.container?.childOrder ?? [];
-      fromCommit(
-        current.filter((cid) => cid !== movedId),
-        change,
-      );
-    }
-    trace(
-      'dnd',
-      `drop: ${movedId} → ${toParentId}@${insertIndex ?? 'append'} (controlled; store not written)`,
-    );
-    return true;
   }
 
   cancel(reason: DragCancelReason = 'outside'): void {

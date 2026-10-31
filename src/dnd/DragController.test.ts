@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asNodeId, createNode, type LayoutStrategy, Store } from '../index.js';
 import { DragController } from './DragController.js';
 
@@ -311,6 +311,92 @@ describe('DragController — rAF throttle + cursor', () => {
         resolve();
       }, 20);
     });
+  });
+});
+
+/** A window that only dispatches events, enough for the safety-net listeners. */
+function stubWindow(): EventTarget {
+  const win = new EventTarget();
+  vi.stubGlobal('window', win);
+  return win;
+}
+
+function pointer(type: string, pointerId: number): Event {
+  return Object.assign(new Event(type), { pointerId });
+}
+
+/** p in z1, dragged over z2 and hovering it, accepted. */
+async function hoveringZ2(pointerId?: number): Promise<{ s: Store; c: DragController }> {
+  const s = buildStore();
+  const c = new DragController(s);
+  c.registerDropTarget(asNodeId('z2'), makeFakeElement(0, 0, 100, 100));
+  c.tryBegin(asNodeId('p'), pointerId === undefined ? undefined : { pointerId });
+  c.updateHoverByPoint(50, 50);
+  await new Promise((r) => setTimeout(r, 20));
+  expect(c.state()?.hover?.accepted).toBe(true);
+  return { s, c };
+}
+
+describe('DragController — window safety net', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('cancels on a window pointercancel instead of dropping', async () => {
+    const win = stubWindow();
+    const { s, c } = await hoveringZ2(1);
+    win.dispatchEvent(pointer('pointercancel', 1));
+    expect(c.state()).toBeNull();
+    expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p']);
+    expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual([]);
+  });
+
+  it('drops on a window pointerup from the pointer that began the drag', async () => {
+    const win = stubWindow();
+    const { s, c } = await hoveringZ2(1);
+    win.dispatchEvent(pointer('pointerup', 1));
+    expect(c.state()).toBeNull();
+    expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['p']);
+  });
+
+  it("ignores another pointer's pointerup and pointercancel", async () => {
+    const win = stubWindow();
+    const { s, c } = await hoveringZ2(1);
+    win.dispatchEvent(pointer('pointerup', 2));
+    win.dispatchEvent(pointer('pointercancel', 2));
+    expect(c.state()?.draggingId).toBe('p');
+    expect(s.getContainerView(asNodeId('z1'))?.childOrder).toEqual(['p']);
+  });
+
+  it('takes any pointer when the drag began without one', async () => {
+    const win = stubWindow();
+    const { s, c } = await hoveringZ2();
+    win.dispatchEvent(pointer('pointerup', 7));
+    expect(c.state()).toBeNull();
+    expect(s.getContainerView(asNodeId('z2'))?.childOrder).toEqual(['p']);
+  });
+});
+
+describe('DragController — a hovered target that unregisters', () => {
+  it('clears data-drop-target from its element', async () => {
+    const s = buildStore();
+    const c = new DragController(s);
+    const attrs = new Map<string, string>();
+    const el = {
+      ...makeFakeElement(0, 0, 100, 100),
+      getBoundingClientRect: makeFakeElement(0, 0, 100, 100).getBoundingClientRect,
+      setAttribute: (k: string, v: string) => attrs.set(k, v),
+      removeAttribute: (k: string) => attrs.delete(k),
+      parentElement: null,
+    } as unknown as Element;
+    const off = c.registerDropTarget(asNodeId('z2'), el);
+    c.tryBegin(asNodeId('p'));
+    c.updateHoverByPoint(50, 50);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(attrs.get('data-drop-target')).toBe('true');
+    off();
+    expect(attrs.has('data-drop-target')).toBe(false);
+    expect(attrs.has('data-drop-rejected')).toBe(false);
   });
 });
 
