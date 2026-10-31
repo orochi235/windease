@@ -172,3 +172,65 @@ describe('justified — pocket', () => {
     }
   });
 });
+
+const overlapping = (a: Rect, b: Rect) =>
+  a.x + a.w > b.x + 1e-6 &&
+  b.x + b.w > a.x + 1e-6 &&
+  a.y + a.h > b.y + 1e-6 &&
+  b.y + b.h > a.y + 1e-6;
+
+/** Every pair of placements that overlap, as `a/b`. */
+function overlaps(placements: Map<string, Rect>): string[] {
+  const entries = [...placements];
+  const out: string[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      if (overlapping(entries[i]![1], entries[j]![1]))
+        out.push(`${entries[i]![0]}/${entries[j]![0]}`);
+    }
+  }
+  return out;
+}
+
+describe.each([
+  ...PACKERS,
+  ['justified', justifiedStrategy] as [string, LayoutStrategy<void, string>],
+])('%s — pocket spill', (_name, strategy) => {
+  const smalls = Array.from({ length: 6 }, (_, i) => sized(`s${i}`, 30, 30));
+  const tall = { w: 100, h: 200 };
+
+  it('never lays a spilled small item on top of the flow under overflowMode scroll', () => {
+    const out = run(
+      strategy,
+      [sized('a', 60, 100), sized('b', 100, 100), ...smalls],
+      { pocket: POCKET },
+      tall,
+    );
+    expect(overlaps(out.placements)).toEqual([]);
+    expect(out.unplaced ?? []).toEqual([]);
+  });
+
+  it('flows the small items on when the main pass leaves no pocket at all', () => {
+    const out = run(strategy, [sized('a', 100, 200), ...smalls], { pocket: POCKET }, tall);
+    expect(out.unplaced ?? []).toEqual([]);
+    expect(out.placements.size).toBe(7);
+    expect(overlaps(out.placements)).toEqual([]);
+  });
+});
+
+describe.each(PACKERS)('%s — pocket spill, bounded', (_name, strategy) => {
+  it('bins the small items when the main pass fills the container', () => {
+    const smalls = Array.from({ length: 3 }, (_, i) => sized(`s${i}`, 30, 30));
+    const out = run(
+      strategy,
+      [sized('a', 100, 200), ...smalls],
+      { pocket: POCKET, overflowMode: 'unplaced' },
+      {
+        w: 100,
+        h: 200,
+      },
+    );
+    expect(out.unplaced).toEqual(['s0', 's1', 's2']);
+    expect(overlaps(out.placements)).toEqual([]);
+  });
+});
