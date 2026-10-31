@@ -384,7 +384,10 @@ export class Store {
         trace('store', `rehome: ${kids.length} children of ${id} → ${rehome}`);
         this.moveNodes(kids, rehome, undefined, opts);
       }
-      this.#unregisterNodeInner(id, this.requireNode(id));
+      // Rehoming can empty an `autoPrune` node, which settle has then already removed.
+      const live = this.nodesMap.get(id);
+      if (live) this.#unregisterNodeInner(id, live);
+      else trace('store', `unregister: ${id} already pruned after rehome`);
       if (wasIn) this.coalesceParent(wasIn);
     }, 'unregisterNode');
   }
@@ -463,6 +466,10 @@ export class Store {
       if (idx >= 0) this.rootIdsArr.splice(idx, 1);
     }
     this.forgetFocus(node.membership?.parentId, id);
+    if (this.turning.has(id)) {
+      trace('store', `turn: ${id} dropped mid-turn (unregistered)`);
+      this.endTurn(id);
+    }
     this.nodesMap.delete(id);
     this.publisher.markDirty(id, { bypass: true });
     this.publisher.markGlobalsDirty();
@@ -478,9 +485,7 @@ export class Store {
         id,
       });
     }
-    this.assertUnlocked(id, 'move', 'moveNode', opts);
-    this.assertUnlocked(newParentId, 'accept', 'moveNode', opts);
-    this.assertUnlocked(node.membership.parentId, 'dragOut', 'moveNode', opts);
+    this.#assertMoveUnlocked(id, node.membership.parentId, newParentId, 'moveNode', opts);
     const newParent = this.requireNode(newParentId);
     if (id === newParentId || this.isDescendantOf(newParentId, id)) {
       throw new CycleError(id, newParentId);
@@ -571,8 +576,25 @@ export class Store {
     if (fromParentId !== newParentId) {
       this.#fallback(fromParentId, id, fromContainer.childOrder, 'moved');
     }
-    this.settle({ removedFrom: [fromParentId], addedTo: [newParentId], moved: [id] });
+    // A move within one parent removes nothing from it, so nothing there coalesces.
+    const removedFrom = fromParentId === newParentId ? [] : [fromParentId];
+    this.settle({ removedFrom, addedTo: [newParentId], moved: [id] });
     if (fromParentId !== newParentId) this.#showArrival(newParentId, id);
+  }
+
+  /** The locks `moveNode` honors. A move that stays in its parent is a
+   *  reorder, so the parent's `arrange` gates it as it gates `reorderInParent`. */
+  #assertMoveUnlocked(
+    id: NodeId,
+    fromParentId: NodeId,
+    toParentId: NodeId,
+    operation: string,
+    opts?: MutateOptions,
+  ): void {
+    this.assertUnlocked(id, 'move', operation, opts);
+    this.assertUnlocked(toParentId, 'accept', operation, opts);
+    this.assertUnlocked(fromParentId, 'dragOut', operation, opts);
+    if (fromParentId === toParentId) this.assertUnlocked(toParentId, 'arrange', operation, opts);
   }
 
   /**
@@ -688,6 +710,9 @@ export class Store {
     for (const id of run) {
       this.assertUnlocked(id, 'move', 'moveNodes', opts);
       this.assertUnlocked(sourceOf.get(id) as NodeId, 'dragOut', 'moveNodes', opts);
+    }
+    if (run.some((id) => sourceOf.get(id) === toParentId)) {
+      this.assertUnlocked(toParentId, 'arrange', 'moveNodes', opts);
     }
 
     const sources = new Set(sourceOf.values());
@@ -1171,6 +1196,10 @@ export class Store {
   tick(now: number): boolean {
     if (this.turning.size === 0 || !Number.isFinite(now)) return false;
     for (const [id, t] of [...this.turning]) {
+      if (!this.nodesMap.has(id)) {
+        this.endTurn(id);
+        continue;
+      }
       // The first tick establishes the epoch, so a turn registered between
       // frames still gets its whole duration.
       if (t.start === undefined) t.start = now;
@@ -1904,10 +1933,14 @@ export class Store {
     const parent = this.requireNode(parentId);
 
     if (parent.container?.strategyId === STACK_STRATEGY_ID) {
+      // Checked here, not by the move: `transact` does not roll back. The
+      // activeId write is ungated, as `setActiveChild` is.
+      this.#assertMoveUnlocked(sourceId, source.membership.parentId, parentId, 'stackNodes', opts);
       this.transact(() => {
         this.moveNode(sourceId, parentId, undefined, opts);
-        this.updateContainerConfig(parentId, { activeId: sourceId }, opts);
+        this.updateContainerConfig(parentId, { activeId: sourceId }, { ...opts, force: true });
       }, 'stackNodes');
+      trace('store', `stack: ${sourceId} into existing ${parentId}`);
       return;
     }
 
@@ -2011,6 +2044,10 @@ export class Store {
     this.assertUnlocked(parentId, 'accept', 'splitInto', opts);
     this.assertUnlocked(parentId, 'dragOut', 'splitInto', opts);
     this.assertUnlocked(source.membership.parentId, 'dragOut', 'splitInto', opts);
+    for (const n of [source, onto]) {
+      const p = n.membership?.placement ?? {};
+      if ('size' in p || 'share' in p) this.assertUnlocked(n.id, 'resize', 'splitInto', opts);
+    }
     if (opts.strict) {
       assertSplitIntoFits(this, sourceId, ontoId, opts.axis, opts.config, opts.strict);
     }
@@ -2042,11 +2079,18 @@ export class Store {
       // Both sizes were measured against the old parent's axis and mean nothing
       // against this one; the group carries the outer slot's size. A pin index
       // is likewise an index into the old parent's childOrder.
-      this.patchPlacement(sourceId, { size: undefined, share: undefined });
-      this.patchPlacement(ontoId, { size: undefined, share: undefined });
+      const cleared = { size: undefined, share: undefined };
+      this.patchPlacement(sourceId, cleared, { force: true });
+      this.patchPlacement(ontoId, cleared, { force: true });
       this.unpin(sourceId);
       this.unpin(ontoId);
-      if (pinned !== null) this.setPinned(opts.id, pinned);
+      // An autoUnsplit parent the source left may have dissolved, lifting the
+      // group into the grandparent, where `pinned` indexes nothing.
+      if (pinned !== null) {
+        if (this.nodesMap.get(opts.id)?.membership?.parentId === parentId) {
+          this.setPinned(opts.id, pinned);
+        } else trace('store', `splitInto: ${parentId} dissolved, ${opts.id} not re-pinned`);
+      }
     }, 'splitInto');
     trace(
       'store',
