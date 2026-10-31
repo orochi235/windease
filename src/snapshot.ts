@@ -747,7 +747,7 @@ function hydrate(snap: SerializedStore, target?: Store): Store {
   if (snap.focusedId) {
     const focused = store.getNodeTruth(asNodeId(snap.focusedId));
     if (focused?.focus) {
-      store.focusNode(asNodeId(snap.focusedId));
+      store.restoreFocus(asNodeId(snap.focusedId));
     }
   }
 

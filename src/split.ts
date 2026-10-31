@@ -539,16 +539,18 @@ export function unsplitNode(store: Store, groupId: NodeId, opts?: MutateOptions)
 
   store.transact(() => {
     store.withLocksSuspended(() => {
-      children.forEach((childId, i) => {
-        store.moveNode(childId, parentId, at + i);
-      });
+      // One batch, so the group settles once, emptied: moved a child at a time,
+      // an autoUnsplit group dissolves itself after the first.
+      store.moveNodes(children, parentId, at);
       if (children.length === 1 && children[0] !== undefined) {
         const childId = children[0];
         const { pinned: _pinned, ...rest } = groupPlacement;
         if (Object.keys(rest).length > 0) store.patchPlacement(childId, rest);
         if (groupPinnedIndex !== null) store.setPinned(childId, groupPinnedIndex);
       }
-      store.unregisterNode(groupId);
+      // An emptied autoPrune group has already been removed by that settle.
+      if (store.getNodeTruth(groupId)) store.unregisterNode(groupId);
+      else trace('store', `unsplit: ${groupId} pruned when emptied`);
     });
   }, 'unsplit');
 

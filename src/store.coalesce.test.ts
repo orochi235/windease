@@ -51,6 +51,16 @@ describe('Store — autoUnsplit', () => {
     expect(order(s, g)).toEqual([b]);
   });
 
+  it('leaves a one-child group alone when that child moves within it', () => {
+    const { s, r, g, a, b } = seeded();
+    s.setAutoUnsplit(g, false);
+    s.unregisterNode(a);
+    s.setAutoUnsplit(g, true);
+    s.moveNode(b, g, 0);
+    expect(order(s, r)).toEqual([g]);
+    expect(order(s, g)).toEqual([b]);
+  });
+
   it('fires when a child is moved out, not only destroyed', () => {
     const { s, r, g, a, b } = seeded();
     s.moveNode(a, r);

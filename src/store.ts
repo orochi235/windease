@@ -11,7 +11,7 @@ import {
 } from './errors.js';
 import { TypedEmitter } from './events.js';
 import type { NavigationPolicy } from './focus/resolve.js';
-import { chooseSuccessor, isFocusable, type SuccessorPolicy } from './focus/successor.js';
+import { chooseSuccessor, isFocusable, isWithin, type SuccessorPolicy } from './focus/successor.js';
 import { destroyBlockedBy, type LockAxis, type LockSet, resolveLock } from './lock.js';
 import type { ContainerCap, FocusCap, MembershipCap, Node, NodeHints, NodeId } from './node.js';
 import { placeRespectingPins, placeRunRespectingPins } from './pinning.js';
@@ -384,7 +384,10 @@ export class Store {
         trace('store', `rehome: ${kids.length} children of ${id} → ${rehome}`);
         this.moveNodes(kids, rehome, undefined, opts);
       }
-      this.#unregisterNodeInner(id, this.requireNode(id));
+      // Rehoming can empty an `autoPrune` node, which settle has then already removed.
+      const live = this.nodesMap.get(id);
+      if (live) this.#unregisterNodeInner(id, live);
+      else trace('store', `unregister: ${id} already pruned after rehome`);
       if (wasIn) this.coalesceParent(wasIn);
     }, 'unregisterNode');
   }
@@ -408,6 +411,8 @@ export class Store {
   }
 
   #unregisterNodeInner(id: NodeId, node: Node): void {
+    // Before the cascade, so the successor is chosen outside a subtree that still exists.
+    this.#succeedFocusLeaving(id, 'destroyed');
     const descendantIds: NodeId[] = [];
     if (node.container) {
       this.collectDescendants(id, descendantIds);
@@ -421,7 +426,6 @@ export class Store {
       trace('store', `destroy cascade: ${id} → ${descendantIds.length} descendants`);
     }
 
-    if (this.focusedIdValue === id) this.succeedFocus(id, 'destroyed');
     const parentId = node.membership?.parentId;
     const siblings = parentId ? this.nodesMap.get(parentId)?.container?.childOrder : undefined;
     this.detachAndRemove(id);
@@ -463,6 +467,10 @@ export class Store {
       if (idx >= 0) this.rootIdsArr.splice(idx, 1);
     }
     this.forgetFocus(node.membership?.parentId, id);
+    if (this.turning.has(id)) {
+      trace('store', `turn: ${id} dropped mid-turn (unregistered)`);
+      this.endTurn(id);
+    }
     this.nodesMap.delete(id);
     this.publisher.markDirty(id, { bypass: true });
     this.publisher.markGlobalsDirty();
@@ -478,9 +486,7 @@ export class Store {
         id,
       });
     }
-    this.assertUnlocked(id, 'move', 'moveNode', opts);
-    this.assertUnlocked(newParentId, 'accept', 'moveNode', opts);
-    this.assertUnlocked(node.membership.parentId, 'dragOut', 'moveNode', opts);
+    this.#assertMoveUnlocked(id, node.membership.parentId, newParentId, 'moveNode', opts);
     const newParent = this.requireNode(newParentId);
     if (id === newParentId || this.isDescendantOf(newParentId, id)) {
       throw new CycleError(id, newParentId);
@@ -571,8 +577,24 @@ export class Store {
     if (fromParentId !== newParentId) {
       this.#fallback(fromParentId, id, fromContainer.childOrder, 'moved');
     }
-    this.settle({ removedFrom: [fromParentId], addedTo: [newParentId], moved: [id] });
+    // A move within one parent removes nothing from it, so nothing there coalesces.
+    const removedFrom = fromParentId === newParentId ? [] : [fromParentId];
+    this.settle({ removedFrom, addedTo: [newParentId], moved: [id] });
     if (fromParentId !== newParentId) this.#showArrival(newParentId, id);
+  }
+
+  /** The locks `moveNode` honors. Not the parent's `arrange`, even within one
+   *  parent: freezing drag-reordering is `lock.move` on the children. */
+  #assertMoveUnlocked(
+    id: NodeId,
+    fromParentId: NodeId,
+    toParentId: NodeId,
+    operation: string,
+    opts?: MutateOptions,
+  ): void {
+    this.assertUnlocked(id, 'move', operation, opts);
+    this.assertUnlocked(toParentId, 'accept', operation, opts);
+    this.assertUnlocked(fromParentId, 'dragOut', operation, opts);
   }
 
   /**
@@ -1171,6 +1193,10 @@ export class Store {
   tick(now: number): boolean {
     if (this.turning.size === 0 || !Number.isFinite(now)) return false;
     for (const [id, t] of [...this.turning]) {
+      if (!this.nodesMap.has(id)) {
+        this.endTurn(id);
+        continue;
+      }
       // The first tick establishes the epoch, so a turn registered between
       // frames still gets its whole duration.
       if (t.start === undefined) t.start = now;
@@ -1602,13 +1628,28 @@ export class Store {
       const siblings = this.nodesMap.get(parentId)?.container?.childOrder ?? [];
       this.#fallback(parentId, id, siblings, 'hidden');
     }
-    if (this.focusedIdValue === id) this.succeedFocus(id, 'hidden');
+    this.#succeedFocusLeaving(id, 'hidden');
     this.scheduleNotify();
   }
 
   // ===== Focus =====
 
-  private succeedFocus(from: NodeId, reason: 'destroyed' | 'hidden' | 'moved'): void {
+  /** Move focus out of `root`'s subtree when it holds it, choosing from outside. */
+  #succeedFocusLeaving(root: NodeId, reason: 'destroyed' | 'hidden'): void {
+    const focused = this.focusedIdValue;
+    if (focused === null || !isWithin(this, focused, root)) return;
+    if (focused !== root)
+      trace('store', `focus successor: ${root} (${reason}) holds focused ${focused}`);
+    this.succeedFocus(focused, reason, root);
+  }
+
+  /** `scope` is the subtree that is departing: `from` itself, or an ancestor
+   *  of it. Nothing inside it is chosen, from the policy or the built-in. */
+  private succeedFocus(
+    from: NodeId,
+    reason: 'destroyed' | 'hidden' | 'moved',
+    scope: NodeId = from,
+  ): void {
     if (this.focusedIdValue !== from) return;
     let chosen: NodeId | null | undefined;
     try {
@@ -1617,11 +1658,11 @@ export class Store {
       trace('store', `successor policy threw, using built-in: ${err}`);
       chosen = undefined;
     }
-    if (chosen && (chosen === from || !isFocusable(this, chosen))) {
+    if (chosen && (isWithin(this, chosen, scope) || !isFocusable(this, chosen))) {
       trace('store', `successor policy returned unusable ${chosen}, using built-in`);
       chosen = undefined;
     }
-    const to = chosen === undefined ? chooseSuccessor(this, from) : chosen;
+    const to = chosen === undefined ? chooseSuccessor(this, scope) : chosen;
     this.blurAll();
     if (to) this.focusNode(to);
     this.events.emit('focus.successor', { from, to, reason });
@@ -1669,6 +1710,19 @@ export class Store {
       this.#focusInner(id, target);
       for (const [parentId, childId] of raises) this.#raiseIn(parentId, childId);
     }, 'raise');
+  }
+
+  /**
+   * Focus `id` without the `raise` a container config would apply: a restored
+   * snapshot already holds the order it was saved with. Called by `deserialize`.
+   *
+   * @internal
+   */
+  restoreFocus(id: NodeId): void {
+    const target = this.requireNode(id);
+    if (!target.focus || target.focus.state === 'focused') return;
+    trace('store', `restoreFocus: ${id} (no raise)`);
+    this.#focusInner(id, target);
   }
 
   /** Every `(container, child)` pair on `id`'s ancestor path whose container
@@ -1904,10 +1958,14 @@ export class Store {
     const parent = this.requireNode(parentId);
 
     if (parent.container?.strategyId === STACK_STRATEGY_ID) {
+      // Checked here, not by the move: `transact` does not roll back. The
+      // activeId write is ungated, as `setActiveChild` is.
+      this.#assertMoveUnlocked(sourceId, source.membership.parentId, parentId, 'stackNodes', opts);
       this.transact(() => {
         this.moveNode(sourceId, parentId, undefined, opts);
-        this.updateContainerConfig(parentId, { activeId: sourceId }, opts);
+        this.updateContainerConfig(parentId, { activeId: sourceId }, { ...opts, force: true });
       }, 'stackNodes');
+      trace('store', `stack: ${sourceId} into existing ${parentId}`);
       return;
     }
 
@@ -2011,6 +2069,10 @@ export class Store {
     this.assertUnlocked(parentId, 'accept', 'splitInto', opts);
     this.assertUnlocked(parentId, 'dragOut', 'splitInto', opts);
     this.assertUnlocked(source.membership.parentId, 'dragOut', 'splitInto', opts);
+    for (const n of [source, onto]) {
+      const p = n.membership?.placement ?? {};
+      if ('size' in p || 'share' in p) this.assertUnlocked(n.id, 'resize', 'splitInto', opts);
+    }
     if (opts.strict) {
       assertSplitIntoFits(this, sourceId, ontoId, opts.axis, opts.config, opts.strict);
     }
@@ -2042,11 +2104,18 @@ export class Store {
       // Both sizes were measured against the old parent's axis and mean nothing
       // against this one; the group carries the outer slot's size. A pin index
       // is likewise an index into the old parent's childOrder.
-      this.patchPlacement(sourceId, { size: undefined, share: undefined });
-      this.patchPlacement(ontoId, { size: undefined, share: undefined });
+      const cleared = { size: undefined, share: undefined };
+      this.patchPlacement(sourceId, cleared, { force: true });
+      this.patchPlacement(ontoId, cleared, { force: true });
       this.unpin(sourceId);
       this.unpin(ontoId);
-      if (pinned !== null) this.setPinned(opts.id, pinned);
+      // An autoUnsplit parent the source left may have dissolved, lifting the
+      // group into the grandparent, where `pinned` indexes nothing.
+      if (pinned !== null) {
+        if (this.nodesMap.get(opts.id)?.membership?.parentId === parentId) {
+          this.setPinned(opts.id, pinned);
+        } else trace('store', `splitInto: ${parentId} dissolved, ${opts.id} not re-pinned`);
+      }
     }, 'splitInto');
     trace(
       'store',

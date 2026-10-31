@@ -82,6 +82,27 @@ describe('serialize / deserialize — v4 round-trip', () => {
     expect(restored.getNode(asNodeId('p'))?.focus?.state).toBe('focused');
   });
 
+  it("restores focus without raising, keeping a raise: 'focus' container's order", () => {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'desktop', config: { raise: 'focus' } },
+        id: asNodeId('z'),
+      }),
+    );
+    for (const p of ['a', 'b']) {
+      s.registerNode(
+        createNode({ kind: 'panel', focus: true, id: asNodeId(p), parentId: asNodeId('z') }),
+      );
+    }
+    s.focusNode(asNodeId('a'));
+    s.reorderInParent(asNodeId('a'), 0);
+    const restored = deserialize(serialize(s));
+    expect(restored.focusedId).toBe('a');
+    expect(restored.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'b']);
+  });
+
   it('round-trips container state (e.g. a resize ratio)', () => {
     const s = new Store();
     s.registerNode(

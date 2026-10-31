@@ -150,8 +150,14 @@ the `notifyMs` window and is never dwell-gated.
 Once a node **is** dwelling, however, its entire record is held:
 
 ```ts
-publishedMap.set(id, truthNode);   // same object, same Machine instance
+publishedMap.set(id, publishedRecord(truthNode));   // machines frozen as views
 ```
+
+*Superseded (2026-10-31):* sharing the Machine instance, as first built,
+let a held record read truth's state, since `send()` mutates in place. A
+published record now carries a view of each machine: `state` frozen at
+publish, `send` / `can` / `subscribe` forwarded to the live instance. The
+rejected alternatives below still stand.
 
 This is forced by the node shape. `Node.lifecycle` is a live `Machine`
 class instance (`src/node.ts:84`), not a plain object — it owns mutable

@@ -347,6 +347,25 @@ describe('Store — arrange and resize locks', () => {
     expect(z).toBeDefined();
   });
 
+  it('lets a same-parent moveNode through an arrange lock, which never gates the drag', () => {
+    const { s, z, p } = seeded();
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('q'), parentId: z }));
+    s.setLock(z, { arrange: true });
+    s.moveNode(p, z);
+    expect(s.getNode(z)?.container?.childOrder.map(String)).toEqual(['q', 'p']);
+  });
+
+  it('lets a move into an arrange-locked container from elsewhere through', () => {
+    const { s, z } = seeded();
+    s.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'grid', config: {} }, id: id('y') }),
+    );
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('q'), parentId: id('y') }));
+    s.setLock(z, { arrange: true });
+    s.moveNode(id('q'), z);
+    expect(s.getNode(z)?.container?.childOrder.map(String)).toEqual(['p', 'q']);
+  });
+
   it('blocks updateContainerConfig on an arrange-locked container', () => {
     const { s, z } = seeded();
     s.setLock(z, { arrange: true });

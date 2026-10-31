@@ -1,11 +1,28 @@
 import { resolveCollapse } from '../collapse.js';
-import type { NodeId } from '../node.js';
+import type { Node, NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import type { GeometrySource } from './types.js';
 
 /** Below this, a pane is as unreachable as one at zero, and float geometry
  *  makes exact-zero comparisons unreliable. */
 const MIN_NAVIGABLE_PX = 1;
+
+/**
+ * Whether `node` and what is under it can be on screen. A container takes its
+ * subtree out only by being hidden or destroyed: `mounted` still renders —
+ * `<Container>` never checks its parent's lifecycle, so a root nobody called
+ * showNode on is on screen. A leaf still has to be `visible` itself.
+ */
+export function rendersSubtree(node: Node): boolean {
+  return node.lifecycle.state !== 'hidden' && node.lifecycle.state !== 'destroyed';
+}
+
+/** Whether navigation considers `node` at all: a container that renders its
+ *  subtree and has children, or a `visible` leaf. */
+export function isOnScreen(store: Store, node: Node): boolean {
+  if (!rendersSubtree(node)) return false;
+  return store.getChildren(node.id).length > 0 || node.lifecycle.state === 'visible';
+}
 
 /**
  * Every leaf that can currently take focus, in document order. Hidden and
@@ -17,17 +34,12 @@ export function navigableLeaves(store: Store, geometry: GeometrySource): NodeId[
   const walk = (ids: readonly NodeId[]): void => {
     for (const nid of ids) {
       const node = store.getNode(nid);
-      if (!node) continue;
-      // A container only takes its subtree out of the set by being hidden.
-      // `mounted` still renders — `<Container>` never checks its parent's
-      // lifecycle, so a root nobody called showNode on is on screen.
-      if (node.lifecycle.state === 'hidden' || node.lifecycle.state === 'destroyed') continue;
+      if (!node || !isOnScreen(store, node)) continue;
       const children = store.getChildren(nid).map((c) => c.id);
       if (children.length > 0) {
         walk(children);
         continue;
       }
-      if (node.lifecycle.state !== 'visible') continue;
       if (!node.focus) continue;
       // Asked before the rect, which a host may still be reporting from the
       // layout before the container shut.

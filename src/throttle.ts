@@ -10,6 +10,7 @@ import type { CollapsePolicy } from './collapse.js';
 import { InvalidThrottlePolicyError } from './errors.js';
 import type { NavigationPolicy } from './focus/resolve.js';
 import type { SuccessorPolicy } from './focus/successor.js';
+import { viewOf } from './fsm.js';
 import type { Node, NodeId } from './node.js';
 import { trace } from './trace.js';
 
@@ -299,6 +300,20 @@ export interface PublisherDeps {
 }
 
 /**
+ * The record a throttled store publishes for `node`: the same fields, with
+ * each machine frozen at its current state. Truth's machines mutate in place,
+ * so sharing them would let a dwelling record read truth's state.
+ */
+function publishedRecord(node: Node): Node {
+  const out: Node = { ...node, lifecycle: viewOf(node.lifecycle) };
+  if (node.focus) out.focus = viewOf(node.focus);
+  if (node.membership) {
+    out.membership = { ...node.membership, transit: viewOf(node.membership.transit) };
+  }
+  return out;
+}
+
+/**
  * Owns the published projection of the store.
  *
  * With no policy the Publisher is in **passthrough**: `nodes` returns the
@@ -519,7 +534,7 @@ export class Publisher {
     this.globalsDirty = false;
     if (this.publishedNodes) {
       this.publishedNodes.clear();
-      for (const [id, node] of this.truth) this.publishedNodes.set(id, node);
+      for (const [id, node] of this.truth) this.publishedNodes.set(id, publishedRecord(node));
       const g = this.readGlobals();
       this.publishedRootIds = [...g.rootIds];
       this.publishedFocusedId = g.focusedId;
@@ -541,7 +556,7 @@ export class Publisher {
         // published view can't go stale with nothing left pending to heal it.
         const node = this.truth.get(id);
         if (node === undefined) this.publishedNodes?.delete(id);
-        else this.publishedNodes?.set(id, node);
+        else this.publishedNodes?.set(id, publishedRecord(node));
         dirty.delete(id);
         this.emitPublished(id, entry, drainedAt, node === undefined);
       }
@@ -600,7 +615,7 @@ export class Publisher {
       if (entry === undefined) continue;
       const node = this.truth.get(id);
       if (node === undefined) published.delete(id);
-      else published.set(id, node);
+      else published.set(id, publishedRecord(node));
       dirty.delete(id);
       // Emitted after the published view is updated and before notify(),
       // so a listener that reads getNode(id) here already sees the new

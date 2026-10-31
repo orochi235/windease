@@ -133,4 +133,22 @@ describe('unregisterNode with rehome', () => {
     s.unregisterNode(id('empty'), { rehome: id('main') });
     expect(s.getNode(id('empty'))).toBeUndefined();
   });
+
+  it('removes an autoPrune container that rehoming emptied', () => {
+    const s = seeded();
+    s.registerNode(
+      createNode({
+        kind: 'group',
+        id: id('g'),
+        parentId: id('main'),
+        container: { strategyId: 'strip', config: {} },
+      }),
+    );
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('x'), parentId: id('g') }));
+    s.setAutoPrune(id('g'), true);
+    s.unregisterNode(id('g'), { rehome: id('wt') });
+    expect(s.getNode(id('g'))).toBeUndefined();
+    expect(order(s, 'wt')).toEqual(['term', 'log', 'x']);
+    expect(order(s, 'main')).toEqual(['editor']);
+  });
 });

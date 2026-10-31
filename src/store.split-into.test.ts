@@ -159,6 +159,52 @@ describe('Store.splitInto', () => {
     expect(JSON.stringify(serialize(s))).toBe(before);
   });
 
+  it('refuses a resize-locked node whose size it would clear, before mutating anything', () => {
+    const { s, a, b } = seeded();
+    s.patchPlacement(a, { size: 200 });
+    s.setLock(a, { resize: true });
+    const before = JSON.stringify(serialize(s));
+    expect(() => s.splitInto(a, b, { id: id('g1'), axis: 'y', edge: 'start' })).toThrow(
+      LockedError,
+    );
+    expect(JSON.stringify(serialize(s))).toBe(before);
+  });
+
+  it('splits a resize-locked node that carries no size', () => {
+    const { s, a, b } = seeded();
+    s.setLock(a, { resize: true });
+    s.splitInto(a, b, { id: id('g1'), axis: 'y', edge: 'start' });
+    expect(order(s, id('g1'))).toEqual([a, b]);
+  });
+
+  it('does not re-pin into the grandparent when the outer group dissolves mid-split', () => {
+    const s = new Store();
+    s.registerNode(
+      createNode({ kind: 'zone', container: { strategyId: 'strip', config: {} }, id: id('z') }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'group',
+        container: { strategyId: 'strip', config: {} },
+        id: id('G'),
+        parentId: id('z'),
+      }),
+    );
+    s.registerNode(createNode({ kind: 'panel', focus: true, id: id('c'), parentId: id('z') }));
+    for (const p of ['b', 'a']) {
+      s.registerNode(createNode({ kind: 'panel', focus: true, id: id(p), parentId: id('G') }));
+    }
+    s.setAutoUnsplit(id('G'), true);
+    s.setPinned(id('a'), 1);
+
+    s.splitInto(id('b'), id('a'), { id: id('g1'), axis: 'y', edge: 'end' });
+
+    expect(s.getNode(id('G'))).toBeUndefined();
+    expect(order(s, id('z'))).toEqual([id('g1'), id('c')]);
+    expect(order(s, id('g1'))).toEqual([id('a'), id('b')]);
+    expect(s.getPinnedIndex(id('g1'))).toBeNull();
+  });
+
   it('is one undo step', () => {
     const { s, a, b } = seeded();
     let begins = 0;

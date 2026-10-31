@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createNode } from './constructors.js';
+import { LockedError } from './errors.js';
 import { destroyBlockedBy } from './lock.js';
 import { asNodeId } from './node.js';
 import { Store } from './store.js';
+import { FakeClock } from './test-utils/fake-clock.js';
 
 /** root ─ group ─ leaf */
 function tree(locks: { group?: boolean; leaf?: boolean } = {}) {
@@ -43,6 +45,25 @@ describe('destroyBlockedBy', () => {
 
   it('returns null for a node that does not exist', () => {
     expect(destroyBlockedBy(tree(), asNodeId('nope'))).toBeNull();
+  });
+
+  it('reads truth, so a lock registered this tick on a throttled store still blocks', () => {
+    const store = new Store({ throttle: { notifyMs: 32 }, clock: new FakeClock() });
+    store.registerNode(
+      createNode({ id: asNodeId('root'), container: { strategyId: 'strip', config: {} } }),
+    );
+    store.registerNode(
+      createNode({
+        id: asNodeId('group'),
+        container: { strategyId: 'strip', config: {} },
+        parentId: asNodeId('root'),
+      }),
+    );
+    store.registerNode(
+      createNode({ id: asNodeId('leaf'), parentId: asNodeId('group'), lock: { destroy: true } }),
+    );
+    expect(destroyBlockedBy(store, asNodeId('group'))).toBe('leaf');
+    expect(() => store.unregisterNode(asNodeId('group'))).toThrow(LockedError);
   });
 
   it('ignores locks on other axes', () => {

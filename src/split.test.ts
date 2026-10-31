@@ -1235,6 +1235,37 @@ describe('Store.unsplit', () => {
 
     expect(store.getNode(asNodeId('g'))).toBeUndefined();
   });
+
+  /** zone `z` › autoUnsplit strip `g` (from `splitInto`) › `p1`, `p2`; `b` after it. */
+  function autoGroup(): Store {
+    const store = seeded();
+    for (const p of ['p2', 'b']) {
+      store.registerNode(
+        createNode({ kind: 'panel', focus: true, id: asNodeId(p), parentId: asNodeId('z') }),
+      );
+    }
+    store.splitInto(asNodeId('p2'), asNodeId('p1'), { id: asNodeId('g'), axis: 'y', edge: 'end' });
+    return store;
+  }
+
+  it('dissolves an autoUnsplit group with two children', () => {
+    const store = autoGroup();
+    store.patchPlacement(asNodeId('g'), { size: { w: 300 } });
+    store.unsplit(asNodeId('g'));
+    expect(store.getNode(asNodeId('g'))).toBeUndefined();
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2', 'b']);
+    // Several survivors: the group's placement belongs to neither.
+    expect(store.getPlacement(asNodeId('p2')).size).toBeUndefined();
+  });
+
+  it('dissolves an autoPrune group with two children', () => {
+    const store = autoGroup();
+    store.setAutoUnsplit(asNodeId('g'), false);
+    store.setAutoPrune(asNodeId('g'), true);
+    store.unsplit(asNodeId('g'));
+    expect(store.getNode(asNodeId('g'))).toBeUndefined();
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2', 'b']);
+  });
 });
 
 describe('Store.split — locks', () => {

@@ -166,3 +166,34 @@ describe('turnTo', () => {
     expect(back.getNode(ID)?.hints?.turn).toBeCloseTo(45, 5);
   });
 });
+
+describe('turnTo on a node that goes away', () => {
+  it('drops the turn and closes its bracket when the node is unregistered', () => {
+    const s = storeWithCard();
+    const labels: (string | undefined)[] = [];
+    s.events.on('transaction.end', (p) => labels.push(p.label));
+    s.turnTo(ID, 90, { ms: 100 });
+    s.tick(0);
+    s.unregisterNode(ID);
+    expect(labels).toContain('turn');
+    expect(() => s.tick(50)).not.toThrow();
+    expect(s.tick(60)).toBe(false);
+  });
+
+  it('drops the turn of a descendant destroyed in a cascade', () => {
+    const s = new Store();
+    const table = asNodeId('table');
+    s.registerNode(
+      createNode({ kind: 'zone', id: table, container: { strategyId: 'stack', config: {} } }),
+    );
+    s.registerNode(createNode({ kind: 'card', id: ID, parentId: table }));
+    let open = 0;
+    s.events.on('transaction.begin', () => open++);
+    s.events.on('transaction.end', () => open--);
+    s.turnTo(ID, 90, { ms: 100 });
+    s.unregisterNode(table);
+    expect(open).toBe(0);
+    expect(() => s.tick(0)).not.toThrow();
+    expect(s.tick(10)).toBe(false);
+  });
+});

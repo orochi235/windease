@@ -114,6 +114,33 @@ describe('Store.stackNodes', () => {
     expect(JSON.stringify(serialize(s))).toBe(before);
   });
 
+  it('adds to an arrange-locked existing stack and shows the new tab', () => {
+    const { s, a, b, c } = seeded();
+    s.stackNodes(a, b, { id: id('s1') });
+    s.setLock(id('s1'), { arrange: true });
+    s.stackNodes(c, b, { id: id('s2') });
+    expect(order(s, id('s1'))).toEqual([b, a, c]);
+    expect(s.getNode(id('s1'))?.container?.config).toMatchObject({ activeId: c });
+  });
+
+  it('refuses a move-locked source into an existing stack, writing nothing', () => {
+    const { s, a, b, c } = seeded();
+    s.stackNodes(a, b, { id: id('s1') });
+    s.setLock(c, { move: true });
+    const before = JSON.stringify(serialize(s));
+    expect(() => s.stackNodes(c, b, { id: id('s2') })).toThrow(LockedError);
+    expect(JSON.stringify(serialize(s))).toBe(before);
+  });
+
+  it('refuses an accept-locked existing stack, writing nothing', () => {
+    const { s, a, b, c } = seeded();
+    s.stackNodes(a, b, { id: id('s1') });
+    s.setLock(id('s1'), { accept: true });
+    const before = JSON.stringify(serialize(s));
+    expect(() => s.stackNodes(c, b, { id: id('s2') })).toThrow(LockedError);
+    expect(JSON.stringify(serialize(s))).toBe(before);
+  });
+
   it('sets autoUnsplit, so dragging the last tab out dissolves the stack', () => {
     const { s, z, a, b, c } = seeded();
     s.stackNodes(a, b, { id: id('s1') });
