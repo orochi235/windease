@@ -299,6 +299,7 @@ export function Panel(props: PanelProps) {
       rehome: props.rehome,
     }),
     kindHintForAutoId: 'panel',
+    lifecycle: lifecycleFor(props.hidden),
     factory: (id, parentId) => {
       if (!parentId) {
         throw new Error(
@@ -516,6 +517,7 @@ export function Zone(props: ZoneProps) {
       rehome: props.rehome,
     }),
     kindHintForAutoId: 'zone',
+    lifecycle: lifecycleFor(props.hidden),
     factory: (id, parentId) => {
       // A flow zone never runs a strategy, so demanding an id for one would be
       // asking the consumer to name something that is then ignored.
@@ -740,11 +742,18 @@ function makeReconciler(props: CommonBindingProps) {
     if (props.placement !== undefined) reconcilePlacement(store, id, props.placement);
     if (props.lock !== undefined) store.setLock(id, props.lock);
     if (props.pinned !== undefined) reconcilePinned(store, id, props.pinned);
+  };
+}
+
+/** The `hidden` prop, applied to the store. Passed to `useNodeBinding` as its
+ *  `lifecycle`, so it runs after commit rather than during render. */
+function lifecycleFor(hidden: boolean | undefined) {
+  return (store: Store, id: NodeId) => {
     const node = store.getNode(id);
     if (!node) return;
-    if (props.hidden) {
+    if (hidden) {
       if (node.lifecycle.state !== 'hidden') store.hideNode(id, { force: true });
-    } else if (props.hidden === false || node.lifecycle.state === 'mounted') {
+    } else if (hidden === false || node.lifecycle.state === 'mounted') {
       // Unset, it shows the node once and leaves later hides to whoever made them.
       if (node.lifecycle.state !== 'visible') store.showNode(id);
     }

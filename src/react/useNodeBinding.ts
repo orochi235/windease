@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import { type Node, type NodeId, type Store, trace } from '../index.js';
 import { useChildRegistryFromContext, useParentId } from './ParentContext.js';
 import { renderPassOf, useStore } from './Provider.js';
@@ -88,6 +88,12 @@ export interface NodeBindingOptions {
   factory: (id: NodeId, parentId: NodeId | null) => Node;
   /** Apply prop-derived state to the already-registered node. Called on every render. */
   reconcile?: (store: Store, id: NodeId) => void;
+  /**
+   * Show or hide the node to match props. Run after every commit rather than
+   * during render: a lifecycle change re-lays-out the parent, and React
+   * refuses an update to another component while this one renders.
+   */
+  lifecycle?: (store: Store, id: NodeId) => void;
   /** Hint used by the auto-id minter ("panel-:r1:", "zone-:r2:"). */
   kindHintForAutoId?: string;
   /** Where the node's children go when it unmounts, instead of with it. */
@@ -151,12 +157,14 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   const latestRef = useRef({
     factory: opts.factory,
     reconcile: opts.reconcile,
+    lifecycle: opts.lifecycle,
     parentId,
     rehome: opts.rehome,
   });
   latestRef.current = {
     factory: opts.factory,
     reconcile: opts.reconcile,
+    lifecycle: opts.lifecycle,
     parentId,
     rehome: opts.rehome,
   };
@@ -207,6 +215,10 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
     opts.reconcile(store, id);
   }
 
+  useLayoutEffect(() => {
+    if (store.getNode(id)) latestRef.current.lifecycle?.(store, id);
+  });
+
   // Unregister on unmount. In StrictMode the effect runs mount → cleanup →
   // mount, so on the second mount we re-register if the cleanup wiped us out
   // (the render-time guard above stays `true` across the replay because the
@@ -220,9 +232,10 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
     const restore = () => {
       cancelWait = undefined;
       if (store.getNode(id)) return;
-      const { factory, reconcile, parentId } = latestRef.current;
+      const { factory, reconcile, lifecycle, parentId } = latestRef.current;
       registerWithOwner(factory, parentId);
       if (reconcile) reconcile(store, id);
+      lifecycle?.(store, id);
       restoreWaitingChildren(store, id);
     };
     if (!store.getNode(id)) {
