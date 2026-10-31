@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createNode } from '../constructors.js';
 import { stripStrategy } from '../index.js';
@@ -224,6 +224,31 @@ describe('reveal handle — keyboard', () => {
     const store = seed(['side']);
     const { handle } = mount(store, 'side');
     fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    expect(stateOf(store, SIDE)).toBe('hidden');
+  });
+});
+
+describe('reveal handle — a drag that ends without its pointerup', () => {
+  const editor = (c: HTMLElement) => c.querySelector('[data-node="editor"]') as HTMLElement;
+
+  it('restores the settle transition when the handle unmounts mid-drag', async () => {
+    const store = seed(['side']);
+    const { container, handle } = mount(store, 'side');
+    down(handle);
+    expect(editor(container).style.transition).toBe('');
+    await act(async () => store.showNode(SIDE));
+    expect(container.querySelector('[data-affordance-hit="reveal-x-side"]')).toBeNull();
+    expect(editor(container).style.transition).toContain('150ms');
+  });
+
+  it('ends the drag on a pointercancel that lands elsewhere', () => {
+    const store = seed(['side']);
+    const { container, handle } = mount(store, 'side');
+    down(handle);
+    moveTo(handle, 30);
+    fireEvent.pointerCancel(document.body, { pointerId: 1 });
+    expect(editor(container).style.transition).toContain('150ms');
+    expect(armed(handle)).toBeNull();
     expect(stateOf(store, SIDE)).toBe('hidden');
   });
 });

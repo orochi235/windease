@@ -217,3 +217,27 @@ describe('<Workspace>', () => {
     quiet.mockRestore();
   });
 });
+
+describe('<Workspace> seam drag that ends without a pointerup', () => {
+  const dragging = (c: HTMLElement) =>
+    c.querySelector('.windease-workspace')?.getAttribute('data-workspace-dragging');
+
+  it('clears data-workspace-dragging when the seam unmounts mid-drag', async () => {
+    const store = build();
+    const { container } = mount(store);
+    const seam = container.querySelector<HTMLElement>('[role="separator"]')!;
+    fireEvent.pointerDown(seam, { pointerId: 1, clientX: 200, clientY: 0 });
+    expect(dragging(container)).toBe('true');
+    await act(async () => store.hideNode(SIDE));
+    expect(container.querySelector('[role="separator"]')).toBeNull();
+    expect(dragging(container)).toBeNull();
+  });
+
+  it('clears it when the seam loses pointer capture', () => {
+    const { container } = mount(build());
+    const seam = container.querySelector<HTMLElement>('[role="separator"]')!;
+    fireEvent.pointerDown(seam, { pointerId: 1, clientX: 200, clientY: 0 });
+    fireEvent.lostPointerCapture(seam, { pointerId: 1 });
+    expect(dragging(container)).toBeNull();
+  });
+});

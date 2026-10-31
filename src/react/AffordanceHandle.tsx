@@ -19,6 +19,7 @@ import {
   type SeamCapture,
   toLayoutDelta,
   toLocalPoint,
+  trace,
   trackBury,
 } from '../index.js';
 import { buryOf } from '../layout/seam-bury.js';
@@ -198,6 +199,29 @@ export function AffordanceHandle({
     (e: ReactPointerEvent<HTMLDivElement>) => finish(e, false),
     [finish],
   );
+  // Capture lost without a pointerup or pointercancel: no release follows, so
+  // the drag ends here, uncommitted. After a normal release `last` is already null.
+  const onLostPointerCapture = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (!last.current) return;
+      trace('dnd', `seam ${affordance.id}: lost pointer capture mid-drag`);
+      finish(e, false);
+    },
+    [finish, affordance.id],
+  );
+
+  // Unmounted mid-drag — the seam left the layout, or the host stopped
+  // rendering it — the owner would otherwise stay marked as resizing.
+  const latestActive = useRef(onActiveChange);
+  latestActive.current = onActiveChange;
+  useEffect(
+    () => () => {
+      if (last.current === null) return;
+      last.current = null;
+      latestActive.current(false);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!dragging) return;
@@ -315,6 +339,7 @@ export function AffordanceHandle({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        onLostPointerCapture={onLostPointerCapture}
         draggable={false}
         onDragStart={preventNativeDrag}
         onKeyDown={bounds || travel ? onKeyDown : undefined}

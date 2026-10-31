@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { asNodeId, createNode, Store, stripStrategy } from '../index.js';
 import { Container } from './Container.js';
@@ -87,5 +87,44 @@ describe('a container inside one being resized by a drag', () => {
 
   it('keeps it in a declarative Zone when no ancestor is resizing', () => {
     expect(settleOf(renderZone(false).container)).toBe('200');
+  });
+});
+
+describe('a seam drag that ends without a pointerup', () => {
+  function renderRow() {
+    const store = makeStore();
+    const b = asNodeId('b');
+    store.registerNode(createNode({ kind: 'panel', focus: true, id: b, parentId: asNodeId('z') }));
+    store.showNode(b);
+    const view = render(
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
+          <Container
+            parentId={asNodeId('z')}
+            chrome={{}}
+            viewport={{ w: 200, h: 100 }}
+            settleMs={200}
+            affordances
+          />
+        </StrategyRegistryProvider>
+      </Provider>,
+    );
+    const seam = view.container.querySelector('[data-affordance-hit]') as HTMLElement;
+    fireEvent.pointerDown(seam, { pointerId: 1, clientX: 100, clientY: 0 });
+    expect(child(view.container).style.transition).toBe('');
+    return { ...view, store, seam };
+  }
+
+  it('restores the settle transition when the seam unmounts mid-drag', async () => {
+    const { container, store } = renderRow();
+    await act(async () => store.hideNode(asNodeId('b')));
+    expect(container.querySelector('[data-affordance-hit]')).toBeNull();
+    expect(child(container).style.transition).toContain('200ms');
+  });
+
+  it('restores it when the seam loses pointer capture', () => {
+    const { container, seam } = renderRow();
+    fireEvent.lostPointerCapture(seam, { pointerId: 1 });
+    expect(child(container).style.transition).toContain('200ms');
   });
 });
