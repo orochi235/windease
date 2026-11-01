@@ -7,6 +7,17 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
 
 ## Test-harness gaps
 
+- **Duel-board drags run up to 7× slower on CI's Linux WebKit than on the fleet**
+  (2026-11-01). `exotic-board.spec.ts`'s "a card can be dragged back to the
+  hand" timed out at 30s on both tries at `fb260a6` and at `c84beef`, inside
+  its first 24-step `mouse.move` (once in the retry, its `mouse.up`). On the
+  fleet's Macs it takes 3.9–4.8s in every engine (6 repeats each); on CI it
+  took 9.9s on Chromium and 12.3s on Firefox, and its neighbor "the opponent's
+  half refuses your cards" took 20.0s on WebKit. The guess, unverified: Linux
+  WebKit with no GPU is slow at the rotated, animated cards `tapAllLands`
+  leaves behind. Reproducing it needs Linux WebKit; the fleet has none. CI
+  uploads no traces, so the next failure leaves nothing to read either.
+
 - **A geometry read outside a poll can catch a layout that is still arriving.**
   Panes render in flow until their container has measured itself, and animate
   between placements after that, so a box read the instant a story opens or a
