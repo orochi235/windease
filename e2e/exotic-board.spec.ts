@@ -172,6 +172,10 @@ async function dragOnto(page: Page, cardId: string, bandId: string): Promise<voi
 }
 
 test.describe('duel board', () => {
+  // CI's Linux WebKit runs this board's drags up to 7× slower than the fleet
+  // does, past the default 30s (TODO.md, test-harness gaps).
+  test.slow(({ browserName }) => browserName === 'webkit');
+
   test.beforeEach(async ({ page }) => {
     await openStory(page, STORY);
   });

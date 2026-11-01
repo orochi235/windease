@@ -16,7 +16,9 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   half refuses your cards" took 20.0s on WebKit. The guess, unverified: Linux
   WebKit with no GPU is slow at the rotated, animated cards `tapAllLands`
   leaves behind. Reproducing it needs Linux WebKit; the fleet has none. CI
-  uploads no traces, so the next failure leaves nothing to read either.
+  uploads no traces, so the next failure leaves nothing to read either. The
+  duel-board block runs under `test.slow()` on WebKit (90s) until this is
+  understood.
 
 - **A geometry read outside a poll can catch a layout that is still arriving.**
   Panes render in flow until their container has measured itself, and animate
