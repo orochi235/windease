@@ -6,7 +6,7 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
-## Unreleased
+## 2.3.0
 
 ### Added
 
@@ -21,7 +21,7 @@ section below.
   `joinThreshold`, and `trackBury`, `commitBury`, `affordance.bury` and
   `[data-bury-armed]` replace their `join` names. The old names are deprecated
   and still work until 3.0. See
-  [Breaking changes](README.md#unreleased--seam-join-renamed-bury).
+  [Breaking changes](README.md#230--seam-join-renamed-bury).
 
 - **A throttled store publishes machine state, not just records.** Under a
   `throttle` policy, a node held by dwell now reports its published

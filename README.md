@@ -2558,7 +2558,7 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
-### Unreleased — seam join renamed bury
+### 2.3.0 — seam join renamed bury
 
 The gesture that destroys or hides a pane pushed past its floor is now called
 burying it. Every old name still works and is removed in 3.0:
