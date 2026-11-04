@@ -1,0 +1,63 @@
+name: E2E probe
+
+# Runs a slice of the e2e suite on CI's Linux runners with a trace for every
+# test, passing or not, for timing problems the fleet's Macs can't reproduce.
+on:
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: Spec file under e2e/
+        default: exotic-board.spec.ts
+      grep:
+        description: Test title filter (--grep)
+        default: duel board
+      projects:
+        description: Space-separated Playwright projects
+        default: webkit chromium
+      repeat:
+        description: Runs of each test (--repeat-each)
+        default: '2'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install browsers
+        env:
+          PROJECTS: ${{ inputs.projects }}
+        run: npx playwright install --with-deps $PROJECTS
+
+      - name: Probe
+        env:
+          SPEC: ${{ inputs.spec }}
+          GREP: ${{ inputs.grep }}
+          PROJECTS: ${{ inputs.projects }}
+          REPEAT: ${{ inputs.repeat }}
+          PLAYWRIGHT_JSON_OUTPUT_NAME: probe.json
+        run: |
+          args=()
+          for p in $PROJECTS; do args+=(--project "$p"); done
+          npx playwright test "e2e/$SPEC" --grep "$GREP" "${args[@]}" \
+            --repeat-each "$REPEAT" --trace on --retries 0 --reporter list,json \
+            || true
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: e2e-probe
+          path: |
+            test-results/
+            probe.json
+          retention-days: 7
