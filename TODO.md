@@ -10,7 +10,8 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
 - **A foil card still slows input on CI's Linux WebKit** (2026-11-03). With the
   sheen slid by `transform`, a steady-state mouse move on the duel board takes
   117–160ms and a land click 0.7s, against 22–34ms and 0.2s with the foil
-  removed. Every duel-board test is under 15s there, so nothing times out. The
+  removed. Run alone there, no duel-board test passes 15s; in the full CI run
+  at `e424b31` the slowest took 20.6s of its 30s. The
   first ~5s after the story opens also draw almost no frames in WebKit, foil or
   not. To measure either again, dispatch the `E2E probe` workflow; it keeps a
   trace of every test.
