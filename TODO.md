@@ -7,18 +7,13 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
 
 ## Test-harness gaps
 
-- **Duel-board drags run up to 7× slower on CI's Linux WebKit than on the fleet**
-  (2026-11-01). `exotic-board.spec.ts`'s "a card can be dragged back to the
-  hand" timed out at 30s on both tries at `fb260a6` and at `c84beef`, inside
-  its first 24-step `mouse.move` (once in the retry, its `mouse.up`). On the
-  fleet's Macs it takes 3.9–4.8s in every engine (6 repeats each); on CI it
-  took 9.9s on Chromium and 12.3s on Firefox, and its neighbor "the opponent's
-  half refuses your cards" took 20.0s on WebKit. The guess, unverified: Linux
-  WebKit with no GPU is slow at the rotated, animated cards `tapAllLands`
-  leaves behind. Reproducing it needs Linux WebKit; the fleet has none. CI
-  uploads no traces, so the next failure leaves nothing to read either. The
-  duel-board block runs under `test.slow()` on WebKit (90s) until this is
-  understood.
+- **A foil card still slows input on CI's Linux WebKit** (2026-11-03). With the
+  sheen slid by `transform`, a steady-state mouse move on the duel board takes
+  117–160ms and a land click 0.7s, against 22–34ms and 0.2s with the foil
+  removed. Every duel-board test is under 15s there, so nothing times out. The
+  first ~5s after the story opens also draw almost no frames in WebKit, foil or
+  not. To measure either again, dispatch the `E2E probe` workflow; it keeps a
+  trace of every test.
 
 - **A geometry read outside a poll can catch a layout that is still arriving.**
   Panes render in flow until their container has measured itself, and animate
