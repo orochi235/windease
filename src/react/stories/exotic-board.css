@@ -493,12 +493,20 @@
 }
 
 /* Foil: an iridescent sheen over the whole card, drifting slowly. It is a
-   pseudo-element so it sits above the panels without touching their text. */
+   pseudo-element so it sits above the panels without touching their text.
+   The sheen is a strip wider than the card, slid across it by `transform`:
+   animating `background-position` repaints every frame, which without a GPU
+   left Linux WebKit drawing one frame in 9s. Both ends of the strip are clear,
+   so the loop restarts with nothing showing. */
+.xb-card--foil {
+  overflow: hidden;
+}
+
 .xb-card--foil::after {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: 6px;
+  inset: 0 auto 0 0;
+  width: 260%;
   pointer-events: none;
   mix-blend-mode: color-dodge;
   opacity: 0.4;
@@ -511,16 +519,16 @@
     #c2a24a 54%,
     #0000 68%
   );
-  background-size: 260% 260%;
+  will-change: transform;
   animation: xb-foil 7s linear infinite;
 }
 
 @keyframes xb-foil {
   from {
-    background-position: 0% 50%;
+    transform: translateX(27%);
   }
   to {
-    background-position: 200% 50%;
+    transform: translateX(-70%);
   }
 }
 
