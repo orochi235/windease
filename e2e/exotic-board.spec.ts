@@ -172,6 +172,10 @@ async function dragOnto(page: Page, cardId: string, bandId: string): Promise<voi
 }
 
 test.describe('duel board', () => {
+  // The foil sheen's animation costs ~100ms of input latency per move on CI's
+  // GPU-less Linux WebKit and nothing on a Mac; reduced motion stops it.
+  test.use({ reducedMotion: 'reduce' });
+
   test.beforeEach(async ({ page }) => {
     await openStory(page, STORY);
   });
