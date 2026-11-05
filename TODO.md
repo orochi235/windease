@@ -233,10 +233,12 @@ differs — which children, which config, which state, and how a point moves.
 
 - typedoc runs from a pinned `npx` install carrying TypeScript 6.0.3
   (`docs:api`), because it needs the compiler API that TypeScript 7 dropped.
-  Move it back to a devDependency once typedoc supports TS 7.
+  Move it back to a devDependency once typedoc supports TS 7. Still capped
+  at 6.0.x in 0.28.20 (checked 2026-11-04).
 - `scripts/strip-ladle-tsx.sh` (run from `prepare`) works around Ladle shipping
   raw `.tsx` in its typings, which fails typecheck under TS 7. Drop it once
-  Ladle ships only `.d.ts` there.
+  Ladle ships only `.d.ts` there. 5.1.1 is still the latest (checked
+  2026-11-04).
 - **Every `REJECT` trace in `DragEngine.checkAccept` fires per pointermove
   sample**, not per hover transition — the per-frame chatter the tracing tenet
   in `CLAUDE.md` warns against. Left as is: those lines are the whole record of
