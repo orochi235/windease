@@ -271,7 +271,7 @@ describe('desktop zoom box', () => {
   });
 
   it('drops the record when the window is resized by an edge', () => {
-    const s = desktop({ controls: ['zoom'], resize: true }, [
+    const s = desktop({ controls: ['zoom'], resizable: true }, [
       { id: 'a', placement: { x: 30, y: 40 } },
     ]);
     send(s, 'desktop:zoom:a', 'click');

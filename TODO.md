@@ -223,9 +223,11 @@ differs — which children, which config, which state, and how a point moves.
 - **`getDropPreview` is forwarded by no wrapper.** Each wrapper reshapes the
   inner result, so the fast path would answer in the wrong frame; the host
   falls back to `layout({ preview })`, which is correct and slower.
-- **Key-name drift**: desktop's `resize` / `overflow` against strip and grid's
-  `resizable` / `overflowMode`; `handleSize` defaults to 0 on floating and 22
-  on desktop; repel's `gap` defaults to 8, every other strategy's to 0.
+- **Default drift, kept (2026-11-04).** `handleSize` defaults to 0 on
+  floating, where the whole panel is the handle, and 22 on desktop, which
+  draws a title band; repel's `gap` defaults to 8 because its job is spacing.
+  Desktop's `resize` / `overflow` were renamed `resizable` / `overflowMode` the
+  same day, with the old names deprecated until 3.0.
 
 ## Loose ends
 

@@ -1690,9 +1690,9 @@ element being pressed.
 | `minimizable` | off | shorthand for `controls: ['minimize']`; ignored when `controls` is set |
 | `controls` | none | the click boxes each title band carries, in order: any of `'close'`, `'minimize'`, `'zoom'` |
 | `controlsSide` | `'end'` | the end of the title band the `controls` boxes pack against: `'start'` or `'end'` |
-| `overflow` | `'scroll'` | `'scroll'` reports windows past any edge as `overflow`, left and top included; `'clip'` reports none |
-| `resize` | off | `true` resizes a window from its edges and corners |
-| `edgeSize` | `6` | thickness of the edges `resize` grabs; corners are twice it |
+| `overflowMode` | `'scroll'` | `'scroll'` reports windows past any edge as `overflow`, left and top included; `'clip'` reports none |
+| `resizable` | off | `true` resizes a window from its edges and corners; a window's own `placement.resizable` overrides it |
+| `edgeSize` | `6` | thickness of the edges `resizable` grabs; corners are twice it |
 | `wrap` | off | `true` restarts the cascade at the top left once the next window would leave the desktop |
 | `iconFrom` | `'top-left'` | the corner the icon layer fills from: `'top-left'`, `'bottom-left'`, `'top-right'` or `'bottom-right'` |
 | `inner` | — | the icon layer's config, such as `{ gap: 4, padding: 4 }` for a shelf; see [Floating chrome](#floating-chrome-over-a-tiled-zone) for the flat form |
@@ -1764,7 +1764,7 @@ useEffect(
 );
 ```
 
-**Resizing.** With `resize` set, each window gets eight affordances inside its
+**Resizing.** With `resizable` set, each window gets eight affordances inside its
 border: `resize-y` on the top and bottom edges, `resize-x` on the left and right,
 `edgeSize` thick, and `resize-xy` squares twice that on the corners. Dragging one
 writes `placement.size`, and the left and top edges also write `x` / `y`, so the
@@ -1774,7 +1774,7 @@ desktop's edge unless the window is already past it. Each edge's `bounds` is its
 position on its axis, so an arrow key moves it the way the arrow points. A window
 with `lock.resize` does not resize, one with `lock.move` does not resize from its
 left or top edge, and a shaded window has no edges. A window's own
-`placement.resize` overrides the config. The control boxes sit above the edges.
+`placement.resizable` overrides the config. The control boxes sit above the edges.
 
 **Overflow.** Under the default `overflow: 'scroll'`, a window at `x = -1800` is
 reported as `overflow.left`, so a scrolling wrapper can reach it (see
@@ -2566,6 +2566,13 @@ placement travels with it. Focus does not move — call `focusNode` yourself if
 the arriving subtree should take it.
 
 ## Breaking changes
+
+### Unreleased — desktop's `overflow` and `resize` renamed
+
+Desktop's config keys now match strip and grid: `overflow` is `overflowMode`
+and `resize` is `resizable`, and a window's `placement.resize` is
+`placement.resizable`. The old names still work until 3.0; where both are set,
+the new one wins.
 
 ### 2.3.0 — seam join renamed bury
 

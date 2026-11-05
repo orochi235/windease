@@ -79,7 +79,7 @@ function useControlsStore(args: Args): Store {
     store.updateContainerConfig(ZONE, {
       handleSize: BAR,
       drag: true,
-      resize: true,
+      resizable: true,
       clamp: 'bar',
       controls,
       controlsSide: args.side,

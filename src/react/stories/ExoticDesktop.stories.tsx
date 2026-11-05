@@ -204,7 +204,8 @@ function RootFrame({ rootId, children }: { rootId: NodeId; children: ReactNode }
  * is drawn outside the container and would not scale with it.
  */
 function fitOf(preset: Preset): 'width' | undefined {
-  const pans = preset.mechanics.config?.overflow === 'scroll';
+  const pans =
+    (preset.mechanics.config?.overflowMode ?? preset.mechanics.config?.overflow) === 'scroll';
   return pans || preset.mechanics.strategy === 'stack' ? undefined : 'width';
 }
 
@@ -215,7 +216,7 @@ function PresetView({ preset }: { preset: Preset }) {
   const fit = fitOf(preset);
   const mode = fit
     ? ' xd-frame--fit'
-    : preset.mechanics.config?.overflow === 'clip'
+    : (preset.mechanics.config?.overflowMode ?? preset.mechanics.config?.overflow) === 'clip'
       ? ' xd-frame--clip'
       : '';
   return (

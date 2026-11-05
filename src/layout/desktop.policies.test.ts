@@ -256,15 +256,15 @@ describe('desktop overflow', () => {
   });
 
   it('reports the far side of each axis alongside the near one', () => {
-    const s = desktop({ overflow: 'scroll' }, [
+    const s = desktop({ overflowMode: 'scroll' }, [
       { id: 'a', placement: { x: -50, y: 10 } },
       { id: 'b', placement: { x: 350, y: 250 } },
     ]);
     expect(layoutOf(s).overflow).toEqual({ w: 50, h: 30, left: 50 });
   });
 
-  it("reports no overflow at all under overflow: 'clip'", () => {
-    const s = desktop({ overflow: 'clip' }, [
+  it("reports no overflow at all under overflowMode: 'clip'", () => {
+    const s = desktop({ overflowMode: 'clip' }, [
       { id: 'a', placement: { x: -50, y: -10 } },
       { id: 'b', placement: { x: 350, y: 250 } },
     ]);
@@ -276,8 +276,16 @@ describe('desktop overflow', () => {
     expect(layoutOf(s).overflow).toBeUndefined();
   });
 
-  it('declares overflow in its config spec', () => {
-    expect(strategy.configSpec).toMatchObject({ overflow: ['clip', 'scroll'] });
+  it('still reads the deprecated overflow, with overflowMode outranking it', () => {
+    const items = [{ id: 'a', placement: { x: -50, y: -10 } }];
+    expect(layoutOf(desktop({ overflow: 'clip' }, items)).overflow).toBeUndefined();
+    expect(
+      layoutOf(desktop({ overflow: 'clip', overflowMode: 'scroll' }, items)).overflow,
+    ).toBeDefined();
+  });
+
+  it('declares overflowMode in its config spec', () => {
+    expect(strategy.configSpec).toMatchObject({ overflowMode: ['clip', 'scroll'] });
   });
 });
 

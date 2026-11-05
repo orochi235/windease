@@ -36,7 +36,7 @@ export const DESKTOP_MINIMIZE = ['shade', 'icon'] as const;
 /** The values `container.config.clamp` accepts. */
 export const DESKTOP_CLAMP = ['bar', 'all'] as const;
 
-/** The values `container.config.overflow` accepts. */
+/** The values `container.config.overflowMode` accepts. */
 export const DESKTOP_OVERFLOW = ['clip', 'scroll'] as const;
 
 /** The values `drag` accepts, in config or in a window's placement. */
@@ -65,11 +65,15 @@ export interface DesktopConfig extends DesktopControlsConfig {
   clamp?: (typeof DESKTOP_CLAMP)[number];
   /** `'scroll'` (the default) reports windows past any edge as `overflow`, so a
    *  host can scroll to them; `'clip'` reports none. */
+  overflowMode?: (typeof DESKTOP_OVERFLOW)[number];
+  /** @deprecated Renamed `overflowMode`; removed in 3.0. `overflowMode` outranks it. */
   overflow?: (typeof DESKTOP_OVERFLOW)[number];
   /** Resize windows from their edges and corners. A window's own
-   *  `placement.resize` overrides it. */
+   *  `placement.resizable` overrides it. */
+  resizable?: boolean;
+  /** @deprecated Renamed `resizable`, in config and in placement; removed in 3.0. */
   resize?: boolean;
-  /** Thickness of the edges `resize` grabs; corners are twice it. */
+  /** Thickness of the edges `resizable` grabs; corners are twice it. */
   edgeSize?: number;
   /** The corner the icon layer fills from. `inner` lays icons out from the
    *  top-left as usual, and the desktop mirrors its result into this corner. */
@@ -157,8 +161,8 @@ const EDGE_CURSOR: Record<Edge, string> = {
 };
 
 function resizable(item: LayoutItem, cfg: DesktopConfig): boolean {
-  const own = item.meta?.resize;
-  return (own === undefined ? cfg.resize : own) === true;
+  const own = item.meta?.resizable ?? item.meta?.resize;
+  return (own === undefined ? (cfg.resizable ?? cfg.resize) : own) === true;
 }
 
 /** Which side an edge moves on each axis, or null where it moves none. */
@@ -540,10 +544,12 @@ export function desktopStrategy<TInner>(
           drag: DESKTOP_DRAG,
           handleSize: 'number',
           clamp: DESKTOP_CLAMP,
+          overflowMode: DESKTOP_OVERFLOW,
           overflow: DESKTOP_OVERFLOW,
           minimizable: 'boolean',
           controls: listOf(DESKTOP_CONTROLS),
           controlsSide: DESKTOP_CONTROLS_SIDE,
+          resizable: 'boolean',
           resize: 'boolean',
           edgeSize: 'number',
           iconFrom: DESKTOP_ICON_FROM,
@@ -635,7 +641,8 @@ export function desktopStrategy<TInner>(
       delete out.overflow;
       if (unplaced.length > 0) out.unplaced = unplaced;
       const over =
-        cfg.overflow !== 'clip' && (overW > 0 || overH > 0 || overLeft > 0 || overTop > 0);
+        (cfg.overflowMode ?? cfg.overflow) !== 'clip' &&
+        (overW > 0 || overH > 0 || overLeft > 0 || overTop > 0);
       if (over) {
         out.overflow = { w: Math.max(0, overW), h: Math.max(0, overH) };
         if (overLeft > 0) out.overflow.left = overLeft;

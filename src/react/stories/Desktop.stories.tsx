@@ -194,9 +194,9 @@ const BAR_HEIGHT = 26;
 interface BehaviorArgs {
   drag: 'true' | 'x' | 'y' | 'false';
   clamp: 'none' | 'bar' | 'all';
-  overflow: 'scroll' | 'clip';
+  overflowMode: 'scroll' | 'clip';
   minimizable: boolean;
-  resize: boolean;
+  resizable: boolean;
   /** Keep the palette on the top layer, above every window you raise. */
   layer: boolean;
   minimize: 'shade' | 'icon';
@@ -224,9 +224,9 @@ function behaviorConfig(args: BehaviorArgs): Record<string, unknown> {
     handleSize: BAR_HEIGHT,
     drag,
     clamp: args.clamp === 'none' ? undefined : args.clamp,
-    overflow: args.overflow,
+    overflowMode: args.overflowMode,
     minimizable: args.minimizable,
-    resize: args.resize,
+    resizable: args.resizable,
     minimize: args.minimize,
     iconFrom: args.iconFrom,
     wrap: args.wrap,
@@ -340,7 +340,7 @@ function BehaviorZone(args: BehaviorArgs) {
       <StrategyRegistryProvider strategies={BEHAVIOR_STRATEGIES}>
         <div
           ref={scrollRef}
-          className={`desktop-scroller desktop-scroller--${args.overflow}${args.minimizable ? '' : ' desktop-scroller--no-toggle'}`}
+          className={`desktop-scroller desktop-scroller--${args.overflowMode}${args.minimizable ? '' : ' desktop-scroller--no-toggle'}`}
           data-testid="desktop-scroller"
         >
           <Container
@@ -376,9 +376,9 @@ export const Behavior: Story<BehaviorArgs> = (args) => <BehaviorZone {...args} /
 Behavior.args = {
   drag: 'true',
   clamp: 'none',
-  overflow: 'scroll',
+  overflowMode: 'scroll',
   minimizable: true,
-  resize: true,
+  resizable: true,
   layer: true,
   minimize: 'shade',
   iconFrom: 'bottom-left',
@@ -387,7 +387,7 @@ Behavior.args = {
 Behavior.argTypes = {
   drag: { options: ['true', 'x', 'y', 'false'], control: { type: 'radio' } },
   clamp: { options: ['none', 'bar', 'all'], control: { type: 'radio' } },
-  overflow: { options: ['scroll', 'clip'], control: { type: 'radio' } },
+  overflowMode: { options: ['scroll', 'clip'], control: { type: 'radio' } },
   minimize: { options: ['shade', 'icon'], control: { type: 'radio' } },
   iconFrom: {
     options: ['top-left', 'bottom-left', 'top-right', 'bottom-right'],

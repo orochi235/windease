@@ -81,7 +81,7 @@ describe('desktop resize', () => {
   });
 
   it('puts an affordance on each edge and corner of a window', () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
     const kinds = Object.fromEntries(layoutOf(s).affordances.map((a) => [a.id, a.kind]));
     expect(kinds).toEqual({
       'desktop:resize:n:a': 'resize-y',
@@ -96,7 +96,7 @@ describe('desktop resize', () => {
   });
 
   it('lays the edges 6px thick inside the window, with 12px corners between them', () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
     expect(affordance(s, 'desktop:resize:e:a').rect).toEqual({ x: 104, y: 32, z: 1, w: 6, h: 56 });
     expect(affordance(s, 'desktop:resize:n:a').rect).toEqual({ x: 22, y: 20, z: 1, w: 76, h: 6 });
     expect(affordance(s, 'desktop:resize:se:a').rect).toEqual({
@@ -109,13 +109,13 @@ describe('desktop resize', () => {
   });
 
   it('honors edgeSize', () => {
-    const s = desktop({ resize: true, edgeSize: 4 }, [{ id: 'a', placement: { x: 0, y: 0 } }]);
+    const s = desktop({ resizable: true, edgeSize: 4 }, [{ id: 'a', placement: { x: 0, y: 0 } }]);
     expect(affordance(s, 'desktop:resize:s:a').rect).toEqual({ x: 8, y: 76, z: 1, w: 84, h: 4 });
     expect(affordance(s, 'desktop:resize:nw:a').rect).toMatchObject({ w: 8, h: 8 });
   });
 
   it('names the child it resizes, and a cursor for each direction', () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { x: 0, y: 0 } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { x: 0, y: 0 } }]);
     expect(affordance(s, 'desktop:resize:ne:a')).toMatchObject({
       childId: 'a',
       affects: ['a'],
@@ -128,22 +128,32 @@ describe('desktop resize', () => {
   });
 
   it("lets a window's placement override the container's resize", () => {
-    const s = desktop({ resize: true }, [
-      { id: 'a', placement: { resize: false } },
+    const s = desktop({ resizable: true }, [
+      { id: 'a', placement: { resizable: false } },
       { id: 'b', placement: { x: 0, y: 0 } },
     ]);
     expect(ids(s).some((id) => id.endsWith(':a'))).toBe(false);
-    const t = desktop({}, [{ id: 'c', placement: { resize: true } }]);
+    const t = desktop({}, [{ id: 'c', placement: { resizable: true } }]);
     expect(ids(t)).toHaveLength(8);
   });
 
+  it('still reads the deprecated resize, in config and placement, under resizable', () => {
+    expect(ids(desktop({ resize: true }, [{ id: 'a', placement: { x: 0, y: 0 } }]))).toHaveLength(
+      8,
+    );
+    const s = desktop({ resize: true }, [{ id: 'a', placement: { resize: false } }]);
+    expect(ids(s).some((id) => id.endsWith(':a'))).toBe(false);
+    const t = desktop({ resizable: false, resize: true }, [{ id: 'b', placement: { x: 0, y: 0 } }]);
+    expect(ids(t)).toHaveLength(0);
+  });
+
   it('gives a shaded window nothing to resize', () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { minimized: true } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { minimized: true } }]);
     expect(ids(s)).toEqual([]);
   });
 
   it('draws the edges above the title band, and the minimize box above both', () => {
-    const s = desktop({ resize: true, drag: true, minimizable: true }, [
+    const s = desktop({ resizable: true, drag: true, minimizable: true }, [
       { id: 'a', placement: { x: 0, y: 0 } },
     ]);
     const order = ids(s);
@@ -152,7 +162,7 @@ describe('desktop resize', () => {
   });
 
   it('reports each edge as its position, with the range the drag can reach', () => {
-    const s = desktop({ resize: true }, [
+    const s = desktop({ resizable: true }, [
       {
         id: 'a',
         placement: { x: 100, y: 50 },
@@ -181,7 +191,7 @@ describe('desktop resize', () => {
   });
 
   it('flags an edge that sits at the end of its range', () => {
-    const s = desktop({ resize: true }, [
+    const s = desktop({ resizable: true }, [
       { id: 'a', placement: { x: 0, y: 0 }, minSize: { w: 100, h: 10 } },
     ]);
     expect(affordance(s, 'desktop:resize:w:a').bounds).toMatchObject({ atMin: true, atMax: true });
@@ -189,7 +199,7 @@ describe('desktop resize', () => {
   });
 
   it('writes placement.size from the right edge, keeping the other axis', () => {
-    const s = desktop({ resize: true }, [
+    const s = desktop({ resizable: true }, [
       { id: 'a', placement: { x: 10, y: 20, size: { h: 90 } } },
     ]);
     drag(s, 'desktop:resize:e:a', 30, 99);
@@ -198,13 +208,13 @@ describe('desktop resize', () => {
   });
 
   it('moves x with the left edge so the right edge stays put', () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { x: 50, y: 20 } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { x: 50, y: 20 } }]);
     drag(s, 'desktop:resize:w:a', -20, 0);
     expect(placementOf(s, 'a')).toMatchObject({ x: 30, y: 20, size: { w: 120 } });
   });
 
   it('resizes both axes from a corner, moving y from a top corner', () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { x: 50, y: 60 } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { x: 50, y: 60 } }]);
     drag(s, 'desktop:resize:ne:a', 10, -15);
     expect(layoutOf(s).placements.get('a')).toEqual({ x: 50, y: 45, z: 1, w: 110, h: 95 });
     drag(s, 'desktop:resize:se:a', -5, 5);
@@ -212,13 +222,13 @@ describe('desktop resize', () => {
   });
 
   it('writes the position a cascaded window shows at when its left edge moves', () => {
-    const s = desktop({ resize: true, cascade: 30 }, [{ id: 'a' }, { id: 'b' }]);
+    const s = desktop({ resizable: true, cascade: 30 }, [{ id: 'a' }, { id: 'b' }]);
     drag(s, 'desktop:resize:w:b', 10, 0);
     expect(placementOf(s, 'b')).toMatchObject({ x: 40, y: 30, size: { w: 90 } });
   });
 
   it('stops at hints.minSize and hints.maxSize', () => {
-    const s = desktop({ resize: true }, [
+    const s = desktop({ resizable: true }, [
       {
         id: 'a',
         placement: { x: 100, y: 100 },
@@ -233,37 +243,37 @@ describe('desktop resize', () => {
   });
 
   it('keeps a window twice the edge size across with no minSize', () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { x: 0, y: 0 } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { x: 0, y: 0 } }]);
     drag(s, 'desktop:resize:se:a', -500, -500);
     expect(layoutOf(s).placements.get('a')).toMatchObject({ w: 12, h: 12 });
   });
 
   it("stops a growing edge at the container's edge", () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { x: 350, y: 10 } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { x: 350, y: 10 } }]);
     drag(s, 'desktop:resize:e:a', 80, 0);
     // Already past the edge: it may not grow further, and is not pulled back.
     expect(layoutOf(s).placements.get('a')).toMatchObject({ x: 350, w: 100 });
-    const t = desktop({ resize: true }, [{ id: 'b', placement: { x: 30, y: 10 } }]);
+    const t = desktop({ resizable: true }, [{ id: 'b', placement: { x: 30, y: 10 } }]);
     drag(t, 'desktop:resize:w:b', -80, 0);
     expect(layoutOf(t).placements.get('b')).toMatchObject({ x: 0, w: 130 });
   });
 
   it('refuses to resize a window whose lock forbids resizing', () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
     s.setLock(asNodeId('a'), { resize: true });
     drag(s, 'desktop:resize:se:a', 30, 30);
     expect(placementOf(s, 'a')).toEqual({ x: 10, y: 20 });
   });
 
   it('moves no edge that would move a window whose lock forbids moving', () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
     s.setLock(asNodeId('a'), { move: true });
     drag(s, 'desktop:resize:ne:a', 30, -10);
     expect(layoutOf(s).placements.get('a')).toEqual({ x: 10, y: 20, z: 1, w: 130, h: 80 });
   });
 
   it('resizes through a ContainerHost with no DOM', () => {
-    const s = desktop({ resize: true }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
+    const s = desktop({ resizable: true }, [{ id: 'a', placement: { x: 10, y: 20 } }]);
     const host = new ContainerHost(s, Z, new Map([['desktop', strategy as never]]));
     host.setViewport(CONTAINER);
     host.dispatchAffordance({

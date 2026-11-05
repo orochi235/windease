@@ -149,7 +149,7 @@ describe('desktop presets: generic invariants', () => {
         left = Math.max(left, -rect.x);
         top = Math.max(top, -rect.y);
       }
-      const clipped = scenario.options.overflow === 'clip';
+      const clipped = (scenario.options.overflowMode ?? scenario.options.overflow) === 'clip';
       if (clipped || (w <= 0 && h <= 0 && left <= 0 && top <= 0)) {
         expect(r.overflow).toBeUndefined();
       } else {
@@ -177,7 +177,7 @@ describe('desktop presets: behavior as config', () => {
   );
 
   it.each(
-    DESKTOP_PRESETS.filter((p) => p.mechanics.config?.resize === true).map(
+    DESKTOP_PRESETS.filter((p) => p.mechanics.config?.resizable === true).map(
       (p) => [p.id, p] as const,
     ),
   )('%s: every open window resizes from all four edges and corners', (_, preset) => {

@@ -132,7 +132,7 @@ export const MACOS9_WINDOWSHADE: Preset = {
       handleSize: BAR,
       raise: 'click',
       minimizable: true,
-      resize: true,
+      resizable: true,
       // Mac OS 9 resizes only from the grow box; thin edges keep the other seven out of the way.
       edgeSize: 4,
     },
@@ -241,7 +241,7 @@ export const WIN31_ICONS: Preset = {
       handleSize: BAR,
       raise: 'click',
       minimizable: true,
-      resize: true,
+      resizable: true,
       edgeSize: 4,
     },
     item: WINDOW_ITEM,
@@ -304,7 +304,7 @@ export const GIMP_MULTIWINDOW: Preset = {
     id: 'gimp-desktop',
     kind: 'zone',
     strategy: 'desktop',
-    config: { drag: true, handleSize: BAR, raise: 'click', resize: true },
+    config: { drag: true, handleSize: BAR, raise: 'click', resizable: true },
     item: WINDOW_ITEM,
     // GIMP's own utility windows, which it asks the window manager to keep above the images.
     children: [
@@ -363,7 +363,7 @@ export const AMIGA_SCREENS: Preset = {
     kind: 'zone',
     strategy: 'desktop',
     // A screen slides only up and down, never above the display's top, and what hangs below is not shown.
-    config: { drag: 'y', handleSize: BAR, clamp: 'bar', overflow: 'clip' },
+    config: { drag: 'y', handleSize: BAR, clamp: 'bar', overflowMode: 'clip' },
     item: WINDOW_ITEM,
   },
   data: {
@@ -408,7 +408,7 @@ export const FIGMA_CANVAS: Preset = {
     kind: 'zone',
     strategy: 'desktop',
     // No raise: selecting a frame leaves its place in the layer order.
-    config: { drag: true, handleSize: BAR, overflow: 'scroll' },
+    config: { drag: true, handleSize: BAR, overflowMode: 'scroll' },
     item: WINDOW_ITEM,
   },
   data: {
@@ -458,7 +458,7 @@ export const UNPLUGGED_MONITOR: Preset = {
     id: 'laptop-display',
     kind: 'zone',
     strategy: 'desktop',
-    config: { drag: true, handleSize: BAR, raise: 'click', clamp: 'all', resize: true },
+    config: { drag: true, handleSize: BAR, raise: 'click', clamp: 'all', resizable: true },
     item: WINDOW_ITEM,
   },
   data: {
@@ -755,7 +755,7 @@ export const TWM_ICON_MANAGER: Preset = {
       handleSize: BAR,
       raise: 'click',
       minimizable: true,
-      resize: true,
+      resizable: true,
     },
     item: WINDOW_ITEM,
   },

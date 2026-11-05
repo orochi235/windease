@@ -178,8 +178,8 @@ test.describe('desktop behavior keys', () => {
     expect(await othersGap(page)).toEqual(before);
   });
 
-  test("overflow: 'clip' leaves nothing to scroll to", async ({ page }) => {
-    await openStory(page, `${BEHAVIOR}&arg-overflow=clip`);
+  test("overflowMode: 'clip' leaves nothing to scroll to", async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-overflowMode=clip`);
     const scroller = page.getByTestId('desktop-scroller');
     const extent = await scroller.evaluate((el) => ({
       over: el.scrollWidth - el.clientWidth,
@@ -243,8 +243,8 @@ test.describe('desktop resize', () => {
     expect(after.x + after.w).toBeCloseTo(before.x + before.w, 0);
   });
 
-  test('there are no resize edges unless resize is set', async ({ page }) => {
-    await openStory(page, `${BEHAVIOR}&arg-resize=false`);
+  test('there are no resize edges unless resizable is set', async ({ page }) => {
+    await openStory(page, `${BEHAVIOR}&arg-resizable=false`);
     await expect(page.locator('[data-affordance-hit^="desktop:resize:"]')).toHaveCount(0);
   });
 });
