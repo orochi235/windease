@@ -343,9 +343,9 @@ Open, grouped by what they touch:
   is probed; going further needs reach to be bounded or computed lazily.
 - **accepts and locks** — `accepts: false` and `lock.accept` both stay
   (accepts is drag-only); stack/split drops honor `accepts.kinds`, and count
-  toward `accepts.max` only where they add a child. `lock: true` does *not*
-  include the `hide` axis, which protects apps that lock with `true` and still hide via a
-  View menu — making `true` mean every axis needs a README breaking-change note.
+  toward `accepts.max` only where they add a child. `lock: true` leaves out
+  the `hide` axis, so an app that locks with `true` can still hide from a View
+  menu; kept after weighing a breaking change to every axis (2026-11-04).
 - **reorder** — a `<Zone>` whose config sets `reorder` or `raise` keeps the
   store's order unless `sort` is passed, and stays implicit (2026-11-04): opt-in
   would only ever be answered with `preserveStoreOrder`, and forgetting it
