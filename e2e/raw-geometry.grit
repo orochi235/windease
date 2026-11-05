@@ -9,5 +9,13 @@ or {
     $read <: within `test($name, $body)`,
     $read <: not within `expect.poll($poll)`,
     register_diagnostic(span=$read, message="boxOf reads one frame, so in a test it belongs inside expect.poll. Outside one, settledBox.", severity="error")
+  },
+  `expect(await $settled($locator))` as $read where {
+    $settled <: or {
+      `settledBox`,
+      `settledWidth`
+    },
+    $read <: within `test($name, $body)`,
+    register_diagnostic(span=$read, message="Asserting on one settled read: use expect.poll for where something ends up, or expectStill for something a gesture must not move.", severity="error")
   }
 }

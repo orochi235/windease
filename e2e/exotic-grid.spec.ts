@@ -1,7 +1,15 @@
 import { expect, type Page, test } from '@playwright/test';
 import { PRESETS } from '../src/nuts/grid-scenarios.js';
 import { presetTree } from '../src/nuts/preset.js';
-import { type Box, boxOf, centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import {
+  type Box,
+  boxOf,
+  centerOf,
+  dragMouse,
+  expectStill,
+  openStory,
+  settledBox,
+} from './fixtures.js';
 
 /**
  * Grid presets reproduced from real software (`src/nuts/grid-scenarios.ts`),
@@ -61,7 +69,7 @@ test.describe('Android home screen (Pixel Launcher 4×5)', () => {
 
     await dragOnto(page, 'new-app', { frame: 'page' }, 'page', 'reject');
 
-    await expect.poll(() => order(page, 'page')).toEqual(before);
+    await expectStill(page, () => order(page, 'page'), before);
     await expect.poll(() => order(page, 'picker')).toContain('new-app');
   });
 
@@ -239,7 +247,7 @@ test.describe('Grafana dashboard (24 columns)', () => {
     await expect
       .poll(async () => (await boxOf(node(page, 'imported-w30'))).y)
       .toBeCloseTo(wide.y + 38, 0);
-    expect(await settledBox(node(page, 'mem-basic'))).toEqual(mem);
+    await expectStill(page, () => boxOf(node(page, 'mem-basic')), mem);
   });
 
   test('a w:30 panel is clamped to the dashboard width, and the right-edge panel sits flush', async ({

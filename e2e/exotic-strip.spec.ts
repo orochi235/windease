@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { PRESETS } from '../src/nuts/strip-scenarios.js';
-import { boxOf, centerOf, openStory, settledBox } from './fixtures.js';
+import { boxOf, centerOf, expectStill, openStory, settledBox } from './fixtures.js';
 
 /**
  * Real-software strip layouts driven by a real pointer. Each preset is one
@@ -108,7 +108,7 @@ test.describe('blender layout workspace', () => {
     await expect
       .poll(async () => (await boxOf(pane(page, 'bl-outliner'))).h)
       .toBeCloseTo(before.h + 40, 0);
-    expect(await settledBox(pane(page, 'bl-viewport'))).toEqual(viewport);
+    await expectStill(page, () => boxOf(pane(page, 'bl-viewport')), viewport);
   });
 });
 
@@ -138,7 +138,7 @@ test.describe('bloomberg four-panel', () => {
     await dragSeam(page, 'resize-x-bbg-1', 120, 'x', false);
     await expect(page.locator('[data-node][data-bury-armed]')).toHaveCount(0);
     await page.mouse.up();
-    expect(await settledBox(pane(page, 'bbg-1'))).toEqual(before);
+    await expectStill(page, () => boxOf(pane(page, 'bbg-1')), before);
   });
 });
 
@@ -183,7 +183,7 @@ test.describe('vscode at its minimum width with every sidebar open', () => {
     await seam(page, 'resize-x-vs-sidebar').focus();
     const before = await settledBox(pane(page, 'vs-sidebar'));
     await page.keyboard.press('ArrowLeft');
-    expect(await settledBox(pane(page, 'vs-sidebar'))).toEqual(before);
+    await expectStill(page, () => boxOf(pane(page, 'vs-sidebar')), before);
   });
 });
 

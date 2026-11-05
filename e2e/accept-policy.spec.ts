@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { centerOf, openStory, settledBox } from './fixtures.js';
+import { boxOf, centerOf, expectStill, openStory, settledBox } from './fixtures.js';
 
 /**
  * `acceptPolicy` overrides the strategy's own answer, and the only place that
@@ -62,7 +62,7 @@ test.describe('acceptPolicy', () => {
 
     await expect.poll(() => childIds(page, 'zone-strict')).toEqual(['strict-1', 'strict-2']);
     await expect.poll(() => childIds(page, 'zone-lenient')).toEqual(['lenient-1']);
-    expect(await settledBox(page.locator('[data-node="lenient-1"]'))).toEqual(before);
+    await expectStill(page, () => boxOf(page.locator('[data-node="lenient-1"]')), before);
   });
 
   test('a fourth item hands the answer back to the strategy', async ({ page }) => {

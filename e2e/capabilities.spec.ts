@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { boxOf, openStory, settledBox } from './fixtures.js';
+import { boxOf, expectStill, openStory, settledBox } from './fixtures.js';
 
 /**
  * Browser coverage for the capability stories. Each of these is a gesture the
@@ -35,8 +35,7 @@ test.describe('keyboard move', () => {
     await page.locator('[data-node="charlie"]').click();
     const before = await orders(page);
     await page.keyboard.press('Shift+ArrowUp');
-    await page.waitForTimeout(200);
-    expect(await orders(page)).toEqual(before);
+    await expectStill(page, () => orders(page), before);
     expect(errors).toEqual([]);
   });
 });

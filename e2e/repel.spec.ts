@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { type Box, boxOf, settledBox } from './fixtures.js';
+import { type Box, boxOf, expectStill, settledBox } from './fixtures.js';
 
 /** `repelStrategy` with spots from `anchorOrigin`: windows asking for one spot are pushed apart. */
 
@@ -52,7 +52,7 @@ test.describe('repel', () => {
     await add(page, 'center', 2);
     await expect.poll(async () => apart(first, await boxOf(win(page, 2)), 8)).toBe(true);
     // Placing the second never moves the first.
-    expect(await settledBox(win(page, 1))).toEqual(first);
+    await expectStill(page, () => boxOf(win(page, 1)), first);
   });
 
   test('a corner anchor asks for the corner, inset', async ({ page }) => {

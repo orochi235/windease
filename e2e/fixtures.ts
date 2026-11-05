@@ -110,3 +110,40 @@ export async function settledWidth(locator: Locator, holds = 4): Promise<number>
   }
   throw new Error(`width never settled (last ${last})`);
 }
+
+/**
+ * Resolve once `n` animation frames have rendered. A `requestAnimationFrame`
+ * callback runs only when the page draws, so under a starved renderer this
+ * waits for real frames where a timeout would not.
+ */
+export function framesRendered(page: Page, n = 2): Promise<void> {
+  return page.evaluate(
+    (count) =>
+      new Promise<void>((resolve) => {
+        let left = count;
+        const tick = () => (--left <= 0 ? resolve() : requestAnimationFrame(tick));
+        requestAnimationFrame(tick);
+      }),
+    n,
+  );
+}
+
+/**
+ * Assert that `read` keeps answering `want`: after a gesture, for a thing it
+ * must not have moved. Waits for rendered frames first, so a wrong change has
+ * started before the first read, then holds for `holdMs` past the settle
+ * animation. A single settled read can be taken before a wrong change begins.
+ */
+export async function expectStill<T>(
+  page: Page,
+  read: () => Promise<T>,
+  want: T,
+  holdMs = 300,
+): Promise<void> {
+  await framesRendered(page);
+  const end = Date.now() + holdMs;
+  do {
+    expect(await read()).toEqual(want);
+    await page.waitForTimeout(40);
+  } while (Date.now() < end);
+}

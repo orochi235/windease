@@ -27,17 +27,17 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   or stands as a baseline uses `settledBox`, and an assertion about where
   something ended up goes through `expect.poll`.
 
+  A gesture that must leave something where it was asserts through
+  `expectStill`, which waits for two rendered frames and then holds the
+  answer for 300ms (2026-11-04).
+
   `e2e/raw-geometry.grit`, a Biome plugin, fails the lint on a `boundingBox()`
-  outside `fixtures.ts` and on an awaited `boxOf` in a test body outside
-  `expect.poll`.
+  outside `fixtures.ts`, on an awaited `boxOf` in a test body outside
+  `expect.poll`, and on `expect(await settledBox(…))` in a test body.
 
-  Still short of it:
-
-  - Assertions about the layout a story opens with read `settledBox` and then
-    `expect`. The lint cannot tell one from a baseline.
-  - An assertion that a gesture moved nothing reads a settled box, since a poll
-    would pass at once. It still passes on a read taken before a wrong change
-    starts; only a separate signal that the gesture landed would close that.
+  Still short of it: a settled read stored in a variable and asserted on
+  later, or `expect.poll(…).toEqual(before)` standing in for "nothing moved",
+  which passes at once. The lint cannot tell either from a legitimate use.
 
 - **The suite fails under machine load, and the failing specs move between
   runs.** Reproduces readily once the load average passes roughly twice the

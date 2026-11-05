@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { type Box, boxOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { type Box, boxOf, dragMouse, expectStill, openStory, settledBox } from './fixtures.js';
 
 const SHADE = 'desktop--shade';
 const ICON = 'desktop--icon-minimize';
@@ -174,8 +174,7 @@ test.describe('desktop behavior keys', () => {
     const before = await othersGap(page);
     const { at } = await barOf(page, 'win-1');
     await dragMouse(page, at, { x: at.x - 150, y: at.y });
-    await settledBox(node(page, 'win-1'));
-    expect(await othersGap(page)).toEqual(before);
+    await expectStill(page, () => othersGap(page), before);
   });
 
   test("overflowMode: 'clip' leaves nothing to scroll to", async ({ page }) => {
