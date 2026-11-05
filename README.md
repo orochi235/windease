@@ -1293,9 +1293,9 @@ moved 4px, so a click on a tab still selects it. The drag reorders the child
 within its container or moves it to another container that accepts it, and
 honors the same locks, `accepts` and `acceptPolicy` as any other drag. Both
 `<Container>` and the `<Zone>` / `<Panel>` presets wire it onto the wrapper
-they render for each child. A preset zone declaring `reorder` keeps the user's
-order rather than reverting to JSX order, as if `sort={preserveStoreOrder}`
-were set.
+they render for each child. A preset zone whose config sets `reorder` or
+`raise` keeps the user's order rather than reverting to JSX order, as if
+`sort={preserveStoreOrder}` were set; a `sort` you pass replaces it.
 
 `reorder: 'handle'` starts a drag only from an element inside the child marked
 with the `data-windease-handle` attribute — a grip you draw:
