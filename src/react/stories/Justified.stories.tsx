@@ -123,7 +123,7 @@ export const Photos: Story = () => {
                 store.updateContainerConfig(ZONE_ID, { minRowHeight: next > 0 ? next : undefined });
               }}
             />{' '}
-            <output>{minRowHeight > 0 ? minRowHeight : 'off'}</output>
+            <output>{minRowHeight > 0 ? minRowHeight : `default (${rowHeight / 2})`}</output>
           </label>
           <label>
             <input

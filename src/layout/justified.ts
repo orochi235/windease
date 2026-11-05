@@ -37,6 +37,7 @@ function aspectOf(item: LayoutItem): number | null {
  * fill the width stays ragged at `rowHeight`; one below `minRowHeight`, as a
  * lone panorama is, still fills the width. A `maxRowHeight` below
  * `rowHeight`, or a `minRowHeight` above it, reads as `rowHeight`.
+ * `minRowHeight` defaults to half of `rowHeight`; `0` removes the floor.
  *
  * The last row stays at `rowHeight`, ragged, unless `justifyLast` is set or it
  * is too wide to fit at that height. Rows grow down past `container.h`, and
@@ -71,7 +72,12 @@ export const justifiedStrategy: LayoutStrategy<void, string> = {
     const maxRowHeight = positive(cfg.maxRowHeight)
       ? Math.max(cfg.maxRowHeight, target)
       : Number.POSITIVE_INFINITY;
-    const minRowHeight = positive(cfg.minRowHeight) ? Math.min(cfg.minRowHeight, target) : 0;
+    const minRowHeight =
+      cfg.minRowHeight === 0
+        ? 0
+        : positive(cfg.minRowHeight)
+          ? Math.min(cfg.minRowHeight, target)
+          : target / 2;
     const justifyLast = cfg.justifyLast === true;
     const width = container.w;
 

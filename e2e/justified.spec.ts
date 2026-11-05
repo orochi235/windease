@@ -112,13 +112,13 @@ test.describe('justified rows', () => {
     await expect.poll(() => faults(page)).toEqual([]);
   });
 
-  test('a taller target makes fewer rows', async ({ page }) => {
+  test('a taller target makes more rows, each holding fewer photos', async ({ page }) => {
     const rowCount = async () =>
       new Set((await measure(page)).photos.map((p) => Math.round(p.top))).size;
     await slide(page, 'justified-row-height', 80);
     await expect.poll(() => faults(page)).toEqual([]);
     const short = await rowCount();
     await slide(page, 'justified-row-height', 300);
-    await expect.poll(rowCount).toBeLessThan(short);
+    await expect.poll(rowCount).toBeGreaterThan(short);
   });
 });

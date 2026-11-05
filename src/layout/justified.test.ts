@@ -129,14 +129,27 @@ describe('justifiedStrategy', () => {
       expect(r.placements.get('b')).toEqual({ x: 0, y: 50, z: 0, w: 100, h: 100 });
     });
 
-    it('reads a floor above rowHeight as rowHeight, and ignores an unusable one', () => {
+    it('reads a floor above rowHeight as rowHeight, and an unusable one as the default', () => {
       const options = { rowHeight: 100, justifyLast: true };
       expect(heights({ ...options, minRowHeight: 300 })).toEqual(
         heights({ ...options, minRowHeight: 100 }),
       );
-      for (const minRowHeight of [0, -5, Number.NaN, 'tall']) {
+      for (const minRowHeight of [-5, Number.NaN, 'tall']) {
         expect(heights({ ...options, minRowHeight })).toEqual(heights(options));
       }
+    });
+
+    it('floors rows at half of rowHeight by default, and not at all under 0', () => {
+      // Apart, each row is 50 and deviates 50; together one 16.7 row deviates less in sum.
+      const three = [shaped('a', 20), shaped('b', 20), shaped('c', 20)];
+      const options = { rowHeight: 100, justifyLast: true };
+      const run = (o: Record<string, unknown>) =>
+        rows(runPack(justifiedStrategy, three, container, o).placements).map((row) =>
+          row.map((r) => r.h),
+        );
+      expect(run(options)).toEqual([[50], [50], [50]]);
+      expect(run({ ...options, minRowHeight: 50 })).toEqual(run(options));
+      expect(run({ ...options, minRowHeight: 0 })).toEqual([[1000 / 60, 1000 / 60, 1000 / 60]]);
     });
   });
 

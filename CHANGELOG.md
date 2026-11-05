@@ -17,6 +17,13 @@ section below.
   third argument, `{ state, sourceId }`, and `cellAt`'s input gains `state`;
   both are optional. The **Paged grid / Cell drop** story shows it.
 
+### Changed
+
+- **Justified rows have a floor by default.** `minRowHeight` defaults to half
+  of `rowHeight`, so the row breaks no longer crush a run of panoramas into
+  one row a few pixels tall. A layout whose rows all stay above half the
+  target is unchanged; `minRowHeight: 0` restores the old breaks.
+
 ## 2.3.0
 
 ### Added

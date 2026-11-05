@@ -745,6 +745,8 @@ createNode({ kind: 'panel', id, parentId: galleryId, hints: { aspect: 3 / 2 } })
   width, as a lone portrait in a wide container would; a row shorter than
   `minRowHeight` still fills the width, as a panorama too wide to reach it
   does. A floor above `rowHeight`, or a cap below it, reads as `rowHeight`.
+  The floor defaults to half of `rowHeight`, so a feed of panoramas is never
+  crushed into one sliver of a row; `minRowHeight: 0` removes it.
 
 Rows grow down past `container.h`, and the excess is reported as `overflow`,
 as with the packers. No other built-in strategy reads `hints.aspect`: a strip
