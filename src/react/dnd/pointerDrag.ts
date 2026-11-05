@@ -1,4 +1,5 @@
 import type { DragController } from '../../dnd/DragController.js';
+import { watchRelease } from '../../gesture-dom.js';
 import type { NodeId } from '../../index.js';
 import { trace } from '../../index.js';
 
@@ -55,11 +56,12 @@ export function trackPress(
     return true;
   };
 
+  let unbindRelease: (() => void) | null = null;
   const stop = () => {
     if (!hasWindow) return;
     window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp);
-    window.removeEventListener('pointercancel', onCancel);
+    unbindRelease?.();
+    unbindRelease = null;
     window.removeEventListener('selectstart', preventDefault);
   };
 
@@ -83,7 +85,6 @@ export function trackPress(
   };
 
   const onUp = (e: PointerEvent) => {
-    if (!same(e)) return;
     stop();
     if (!begun) {
       trace('dnd', `press on ${nodeId} released under the threshold — left as a click`);
@@ -95,8 +96,7 @@ export function trackPress(
     swallowNextClick();
   };
 
-  const onCancel = (e: PointerEvent) => {
-    if (!same(e)) return;
+  const onCancel = () => {
     stop();
     if (begun && ours()) {
       trace('dnd', 'pointerCancel — dispatching cancel');
@@ -107,6 +107,5 @@ export function trackPress(
   if (threshold <= 0 && !begin()) return;
   if (!hasWindow) return;
   window.addEventListener('pointermove', onMove);
-  window.addEventListener('pointerup', onUp);
-  window.addEventListener('pointercancel', onCancel);
+  unbindRelease = watchRelease(start.pointerId, { up: onUp, cancel: onCancel });
 }

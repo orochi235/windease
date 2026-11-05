@@ -1,5 +1,5 @@
 import type { CollapseDrag } from '../collapse.js';
-import { cancelOnEscape } from '../gesture-dom.js';
+import { cancelOnEscape, watchRelease } from '../gesture-dom.js';
 import type { NodeId } from '../node.js';
 import type { Store } from '../store.js';
 import { trace } from '../trace.js';
@@ -101,7 +101,7 @@ export class DragController {
   private readonly elements = new Map<NodeId, Element>();
   private stamped: NodeId | null = null;
   private unbindEscape: (() => void) | null = null;
-  private windowUpBound = false;
+  private unbindRelease: (() => void) | null = null;
   /** The pointer that began the drag, when the host said which. The safety
    *  net ignores every other pointer's release. */
   private pointerId: number | undefined;
@@ -135,7 +135,8 @@ export class DragController {
       } else {
         this.unbindEscape?.();
         this.unbindEscape = null;
-        this.unbindWindowUp();
+        this.unbindRelease?.();
+        this.unbindRelease = null;
         this.pointerId = undefined;
       }
     });
@@ -194,9 +195,11 @@ export class DragController {
   /** Start dragging `sourceId`. Pass the `pointerId` of the press that began
    *  it, so another pointer's release elsewhere does not end it. */
   tryBegin(sourceId: NodeId, options?: { pointerId?: number }): boolean {
-    if (!this.engine.tryBegin(sourceId)) return false;
+    // Set first: the engine notifies subscribers, which bind the safety net, inside tryBegin.
     this.pointerId = options?.pointerId;
-    return true;
+    if (this.engine.tryBegin(sourceId)) return true;
+    if (!this.state()) this.pointerId = undefined;
+    return false;
   }
 
   /** The drag in flight as a collapse policy is told about it. See
@@ -246,39 +249,19 @@ export class DragController {
    *  browser edge cases). Without this fallback, a missed pointerup leaves
    *  the controller permanently active — ghost stuck, future drags rejected. */
   private bindWindowUp(): void {
-    if (this.windowUpBound || typeof window === 'undefined') return;
-    window.addEventListener('pointerup', this.onWindowPointerUp);
-    window.addEventListener('pointercancel', this.onWindowPointerCancel);
-    this.windowUpBound = true;
+    this.unbindRelease ??= watchRelease(this.pointerId, {
+      up: () => {
+        if (!this.state()) return;
+        trace('dnd', 'window pointerup safety net fired — dispatching drop');
+        this.drop();
+      },
+      // The browser took the pointer away (a scroll, a system gesture), which
+      // the user did not mean as a release, so nothing commits.
+      cancel: () => {
+        if (!this.state()) return;
+        trace('dnd', 'window pointercancel safety net fired — dispatching cancel');
+        this.cancel('outside');
+      },
+    });
   }
-
-  private unbindWindowUp(): void {
-    if (!this.windowUpBound || typeof window === 'undefined') return;
-    window.removeEventListener('pointerup', this.onWindowPointerUp);
-    window.removeEventListener('pointercancel', this.onWindowPointerCancel);
-    this.windowUpBound = false;
-  }
-
-  /** Whether `e` comes from the pointer driving the drag. Either side not
-   *  naming one counts as a match. */
-  private ours(e: Event): boolean {
-    const id = (e as Partial<PointerEvent>).pointerId;
-    if (this.pointerId === undefined || id === undefined || id === this.pointerId) return true;
-    trace('dnd', `window ${e.type} from pointer ${id} ignored (drag is pointer ${this.pointerId})`);
-    return false;
-  }
-
-  private onWindowPointerUp = (e: Event): void => {
-    if (!this.state() || !this.ours(e)) return;
-    trace('dnd', 'window pointerup safety net fired — dispatching drop');
-    this.drop();
-  };
-
-  /** The browser took the pointer away (a scroll, a system gesture), which
-   *  the user did not mean as a release, so nothing commits. */
-  private onWindowPointerCancel = (e: Event): void => {
-    if (!this.state() || !this.ours(e)) return;
-    trace('dnd', 'window pointercancel safety net fired — dispatching cancel');
-    this.cancel('outside');
-  };
 }

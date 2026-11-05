@@ -147,8 +147,8 @@ Still open:
   checks, `trackBury`, `trackReveal`. `DragEngine` runs every pane drag through
   a `Gesture`. `AffordanceHandle` and `RevealHandle` bind one with `useGesture`
   (`src/react/useGesture.ts`). `cancelOnEscape` (`src/gesture-dom.ts`) is the
-  window Escape binding all three use. The window `pointerup` safety net is
-  still written twice, in `DragController` and `RevealHandle`. `Gesture` is not
+  window Escape binding all three use, and `watchRelease` beside it the window
+  `pointerup` / `pointercancel` safety net (2026-11-04). `Gesture` is not
   exported: a consumer writing a function-form `affordances` renderer still
   rebuilds the lifecycle by hand.
 

@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { cancelOnEscape } from '../gesture-dom.js';
+import { cancelOnEscape, watchRelease } from '../gesture-dom.js';
 import {
   type Affordance,
   type AxisScale,
@@ -143,26 +143,24 @@ export function RevealHandle({
       unlisten.current?.();
       const target = e.currentTarget;
       const { pointerId } = e;
-      const onUp = (up: PointerEvent) => {
-        if (up.pointerId !== pointerId) return;
-        step(up.clientX, up.clientY);
-        trace('dnd', `reveal release: ${affordance.id} travel ${travel.current}`);
-        finish(target, pointerId, true);
-      };
       // Read off the window for the same reason, so a lost capture cannot
       // strand the drag. Losing capture is not itself a cancel: the WebKit
       // press above may lose it before the release it still has to commit.
-      const onCancel = (c: PointerEvent) => {
-        if (c.pointerId !== pointerId) return;
-        trace('dnd', `reveal cancel: ${affordance.id}`);
-        finish(target, pointerId, false);
-      };
-      window.addEventListener('pointerup', onUp, true);
-      window.addEventListener('pointercancel', onCancel, true);
-      unlisten.current = () => {
-        window.removeEventListener('pointerup', onUp, true);
-        window.removeEventListener('pointercancel', onCancel, true);
-      };
+      unlisten.current = watchRelease(
+        pointerId,
+        {
+          up: (up) => {
+            step(up.clientX, up.clientY);
+            trace('dnd', `reveal release: ${affordance.id} travel ${travel.current}`);
+            finish(target, pointerId, true);
+          },
+          cancel: () => {
+            trace('dnd', `reveal cancel: ${affordance.id}`);
+            finish(target, pointerId, false);
+          },
+        },
+        { capture: true },
+      );
       setActive(true);
     },
     [setActive, step, finish, affordance.id, gesture],
