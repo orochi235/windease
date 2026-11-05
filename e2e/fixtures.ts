@@ -143,7 +143,8 @@ export async function expectStill<T>(
   await framesRendered(page);
   const end = Date.now() + holdMs;
   do {
-    expect(await read()).toEqual(want);
+    const got: unknown = await read();
+    expect(got).toEqual(want);
     await page.waitForTimeout(40);
   } while (Date.now() < end);
 }
