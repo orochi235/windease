@@ -234,3 +234,43 @@ describe('pageStrategy — delegation', () => {
     expect(pageStrategy(gridStrategy).name).toBe('page(grid)');
   });
 });
+
+describe('pageStrategy — drops under assigned', () => {
+  /** A 2×2 grid of 50×50 cells: four to a page. */
+  const GRID = { inner: { cols: 2, rows: 2, maxItems: 4, cell: { w: 50, h: 50 } } };
+  const s = pageStrategy(gridStrategy);
+  const state = (page: number) => ({ ...s.initialState([], GRID), page });
+  const full = [win('a', 1), win('b', 1), win('c', 1), win('d', 1)];
+
+  it('refuses a drop onto a full page, and takes one onto a page with room', () => {
+    const items = [...full, win('new')];
+    expect(s.canAccept?.(items, GRID, { state: state(1), sourceId: 'new' })).toBe(false);
+    expect(s.canAccept?.(items, GRID, { state: state(0), sourceId: 'new' })).toBe(true);
+  });
+
+  it('counts the dropped child on the shown page, whatever page it carries', () => {
+    const items = [...full, win('new', 0)];
+    expect(s.canAccept?.(items, GRID, { state: state(1), sourceId: 'new' })).toBe(false);
+  });
+
+  it('accepts everything under flowed, where a full page spills onto the next', () => {
+    const flowed = { ...GRID, mode: 'flowed' };
+    expect(s.canAccept?.([...full, win('new')], flowed, { state: state(0) })).toBe(true);
+  });
+
+  it("finds a free cell among the shown page's children only", () => {
+    const items = [
+      { id: 'a', meta: { page: 1 }, placement: { cell: { col: 0, row: 0 } } },
+      win('new'),
+    ];
+    const at = { x: 10, y: 10 };
+    const input = { items, container, options: GRID, point: at, sourceId: 'new' };
+    expect(s.cellAt?.({ ...input, state: state(1) })).toBeUndefined();
+    expect(s.cellAt?.({ ...input, state: state(0) })).toEqual({ col: 0, row: 0 });
+  });
+
+  it('answers no cell under flowed', () => {
+    const input = { items: [win('new')], container, point: { x: 10, y: 10 } };
+    expect(s.cellAt?.({ ...input, options: { ...GRID, mode: 'flowed' } })).toBeUndefined();
+  });
+});

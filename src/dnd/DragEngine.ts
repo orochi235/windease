@@ -558,7 +558,10 @@ export class DragEngine {
         verdict !== true &&
         !withinParent &&
         strategy?.canAccept &&
-        !strategy.canAccept(items, options)
+        !strategy.canAccept(items, options, {
+          state: this.store.getContainerState(targetId),
+          sourceId: draggingId,
+        })
       ) {
         trace(
           'dnd',

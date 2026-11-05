@@ -1864,6 +1864,13 @@ mode page writes the page shown onto it instead, in the same undo step as the
 move. That happens only while the container is rendered (or has a
 `ContainerHost`); a child registered with a `page` keeps it.
 
+**Drops in assigned mode** are judged against the page shown. `inner`'s
+`canAccept` sees that page's children plus the one arriving, so a full page of
+a capped grid turns a drop away while another page has room, and with
+`drop: { cell: true }` the card lands in the free cell under the pointer on
+that page. In flowed mode a drop is a position in the order, so neither
+applies; `accepts.max` still caps the total in both.
+
 | Config | Default | Meaning |
 | --- | --- | --- |
 | `mode` | `'assigned'` | `'assigned'` reads `placement.page`; `'flowed'` fills pages in child order |

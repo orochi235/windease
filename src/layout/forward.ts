@@ -8,7 +8,7 @@ type Point = { x: number; y: number };
  * inner strategy's. `container` is absent where the hook is not handed one
  * (`canAccept`, `navigate`, a `land` with no host size), and `state` is the
  * wrapper's own: handed to `reduce`, `command` and `land`, read from the store
- * for `dispatchAffordance`, absent elsewhere.
+ * for `dispatchAffordance`, `canAccept` and `cellAt`, absent elsewhere.
  */
 export interface ViewContext<TState> {
   items: LayoutItem[];
@@ -150,8 +150,13 @@ export function forwardInner<TState, TInner>(
     };
   }
   if (canAccept && has('canAccept')) {
-    out.canAccept = (all, o) =>
-      canAccept.call(inner, items({ items: all, options: o }), options(o));
+    out.canAccept = (all, o, context) => {
+      const state = context?.state;
+      return canAccept.call(inner, items({ items: all, options: o, state }), options(o), {
+        ...(state !== undefined ? { state: unwrap(state) } : {}),
+        ...(context?.sourceId !== undefined ? { sourceId: context.sourceId } : {}),
+      });
+    };
   }
   if (navigate && has('navigate')) {
     out.navigate = (input) =>
@@ -170,6 +175,7 @@ export function forwardInner<TState, TInner>(
         options: options(input.options),
         container: container(input.container, input.options),
         point: point(input.point, input),
+        state: input.state === undefined ? undefined : unwrap(input.state),
       });
   }
   return out;

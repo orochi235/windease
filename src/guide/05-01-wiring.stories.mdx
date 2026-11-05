@@ -58,7 +58,7 @@ Six answers, in order:
 - `lock.move` on the source — per-node drag suppression
 - `lock.dragOut` on the source's parent — zone-level
 - `lock.accept` on the target — zone-level refusal
-- the destination strategy's `canAccept(items, options)`
+- the destination strategy's `canAccept(items, options, { state, sourceId })`
 - `acceptPolicy` on the container, which overrides that answer
 
 A `lock.accept` refuses regardless of any policy. See

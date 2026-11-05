@@ -163,8 +163,7 @@ describe('every wrapper forwards every hook its inner strategy has', () => {
   ][] = [
     ['floating', (i) => floatingStrategy(i) as never, []],
     ['desktop', (i) => desktopStrategy(i) as never, []],
-    // Neither hook is handed container state, so page cannot tell which page shows.
-    ['page', (i) => pageStrategy(i) as never, ['canAccept', 'cellAt']],
+    ['page', (i) => pageStrategy(i) as never, []],
     ['warp', (i) => warp(i, [shiftX]) as never, []],
   ];
   for (const [name, wrap, withheld] of wrappers) {

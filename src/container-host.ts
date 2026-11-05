@@ -677,6 +677,7 @@ export class ContainerHost {
       options: (container.config ?? {}) as Record<string, unknown>,
       point,
       ...(sourceId !== undefined ? { sourceId } : {}),
+      state: this.#store.getContainerState(this.#parentId),
     });
   }
 

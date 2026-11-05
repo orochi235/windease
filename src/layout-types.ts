@@ -553,9 +553,14 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
   /**
    * Optional hook used by DnD to reject drops the strategy can't lay out.
    * Receives the prospective post-drop items list. Return false to reject.
-   * Strategies that don't implement it are treated as accept-all.
+   * Strategies that don't implement it are treated as accept-all. `context`
+   * carries the container's persisted state and the child being dropped.
    */
-  canAccept?(items: LayoutItem[], options: Record<string, unknown>): boolean;
+  canAccept?(
+    items: LayoutItem[],
+    options: Record<string, unknown>,
+    context?: { state?: TState | undefined; sourceId?: TId },
+  ): boolean;
   /**
    * Optional override for directional keyboard navigation within this
    * container. Return an item id to win, `undefined` to fall through to
@@ -582,6 +587,8 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
     options: Record<string, unknown>;
     point: { x: number; y: number };
     sourceId?: string;
+    /** The container's persisted state, when it has any. */
+    state?: TState | undefined;
   }): { col: number; row: number } | undefined;
   /**
    * Optional fast-path preview. When defined and returns non-null, the host

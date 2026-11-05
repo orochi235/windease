@@ -220,11 +220,6 @@ differs — which children, which config, which state, and how a point moves.
 `wrapper-forwarding.test.ts` fails when a wrapper drops a hook in
 `FORWARDED_HOOKS` (2026-10-27). Still open:
 
-- **`cellAt` and `canAccept` under `page`.** Neither is handed container state,
-  so page cannot know which page shows; grid's `drop.cell` does nothing under
-  `pageStrategy(gridStrategy)`. Closing it means adding `state` to both hooks'
-  input. Whether a paged inner's capacity should count per page or not at all
-  is undecided either way.
 - **`getDropPreview` is forwarded by no wrapper.** Each wrapper reshapes the
   inner result, so the fast path would answer in the wrong frame; the host
   falls back to `layout({ preview })`, which is correct and slower.

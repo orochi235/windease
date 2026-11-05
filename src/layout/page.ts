@@ -86,6 +86,37 @@ function clampPage(page: number, count: number): number {
   return Math.max(0, Math.min(p, count - 1));
 }
 
+/** Each page's items under `mode: 'assigned'`, with no layout run. */
+function assignedPages(items: LayoutItem[], cfg: PageConfig): LayoutItem[][] {
+  const pages: LayoutItem[][] = [];
+  const min = readCount(cfg.pages) ?? 1;
+  for (let k = 0; k < min; k++) pages.push([]);
+  for (const item of items) {
+    const p = assignedPage(item);
+    while (pages.length <= p) pages.push([]);
+    pages[p]?.push(item);
+  }
+  return pages;
+}
+
+/**
+ * The shown page's items under `mode: 'assigned'`, with the dragged child
+ * counted on it: the page it carries is another container's, or the one it is
+ * leaving.
+ */
+function shownWithSource(
+  items: LayoutItem[],
+  cfg: PageConfig,
+  page: number | undefined,
+  sourceId: string | undefined,
+): LayoutItem[] {
+  const staying = sourceId === undefined ? items : items.filter((i) => i.id !== sourceId);
+  const pages = assignedPages(staying, cfg);
+  const onPage = pages[clampPage(page ?? 0, pages.length)] ?? [];
+  const source = sourceId === undefined ? undefined : items.find((i) => i.id === sourceId);
+  return source ? [...onPage, source] : onPage;
+}
+
 function paginate<TInner>(
   inner: LayoutStrategy<TInner, string, unknown>,
   items: LayoutItem[],
@@ -138,14 +169,7 @@ function paginate<TInner>(
     return { pages, shown, result };
   }
 
-  const pages: LayoutItem[][] = [];
-  const min = readCount(cfg.pages) ?? 1;
-  for (let k = 0; k < min; k++) pages.push([]);
-  for (const item of items) {
-    const p = assignedPage(item);
-    while (pages.length <= p) pages.push([]);
-    pages[p]?.push(item);
-  }
+  const pages = assignedPages(items, cfg);
   const shown = clampPage(state.page, pages.length);
   const result = inner.layout({
     items: pages[shown] ?? [],
@@ -263,7 +287,8 @@ export function pageStrategy<TInner>(
     return state;
   };
 
-  // canAccept and cellAt are not handed container state, so they cannot know which page shows.
+  // Written below rather than forwarded: under `flowed` a drop is a position in
+  // the order, so neither a cell nor one page's capacity applies.
   const fwd = forwardInner<PageState<TInner>, TInner>(
     inner,
     {
@@ -373,6 +398,41 @@ export function pageStrategy<TInner>(
     },
 
     ...(inner.float ? { float: pageFloat(inner.float) } : {}),
+
+    ...(inner.canAccept
+      ? {
+          canAccept(items, options, context) {
+            const cfg = options as PageConfig;
+            if (cfg.mode === 'flowed') return true;
+            const onPage = shownWithSource(items, cfg, context?.state?.page, context?.sourceId);
+            const ok =
+              inner.canAccept?.call(inner, onPage, innerOptions(options), {
+                ...(context?.state ? { state: context.state.inner } : {}),
+                ...(context?.sourceId !== undefined ? { sourceId: context.sourceId } : {}),
+              }) ?? true;
+            if (!ok) trace('layout', `page: page ${context?.state?.page ?? 0} is full`);
+            return ok;
+          },
+        }
+      : {}),
+
+    ...(inner.cellAt
+      ? {
+          cellAt({ items, container, options, point, sourceId, state }) {
+            const cfg = options as PageConfig;
+            if (cfg.mode === 'flowed') return undefined;
+            const { size, dy } = areaOf(container, cfg);
+            return inner.cellAt?.call(inner, {
+              items: shownWithSource(items, cfg, state?.page, sourceId),
+              container: size,
+              options: innerOptions(options),
+              point: { x: point.x, y: point.y - dy },
+              ...(sourceId !== undefined ? { sourceId } : {}),
+              state: state?.inner,
+            });
+          },
+        }
+      : {}),
 
     navigate(input) {
       if (!inner.navigate || (input.options as PageConfig).mode === 'flowed') return undefined;

@@ -6,6 +6,17 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
+## Unreleased
+
+### Added
+
+- **Drops onto a paged grid target the page shown.** Under
+  `pageStrategy(inner)` in `'assigned'` mode, `inner.canAccept` is judged
+  against the page shown, so a full page refuses a drop, and `drop.cell` lands
+  a child in the free cell under the pointer. Strategy `canAccept` takes a
+  third argument, `{ state, sourceId }`, and `cellAt`'s input gains `state`;
+  both are optional. The **Paged grid / Cell drop** story shows it.
+
 ## 2.3.0
 
 ### Added
