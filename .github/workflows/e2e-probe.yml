@@ -46,6 +46,7 @@ jobs:
           PROJECTS: ${{ inputs.projects }}
           REPEAT: ${{ inputs.repeat }}
           PLAYWRIGHT_JSON_OUTPUT_NAME: probe.json
+          WINDEASE_PROBE: '1'
         run: |
           args=()
           for p in $PROJECTS; do args+=(--project "$p"); done
