@@ -7,14 +7,15 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
 
 ## Test-harness gaps
 
-- **A foil card still slows input on CI's Linux WebKit** (2026-11-03). With the
-  sheen slid by `transform`, a steady-state mouse move on the duel board takes
-  117–160ms and a land click 0.7s, against 22–34ms and 0.2s with the foil
-  removed. Run alone there, no duel-board test passes 15s; in the full CI run
-  at `e424b31` the slowest took 20.6s of its 30s. The
-  first ~5s after the story opens also draw almost no frames in WebKit, foil or
-  not. To measure either again, dispatch the `E2E probe` workflow; it keeps a
-  trace of every test.
+- **Duel-board drag tests still take 12–22s on CI's Linux WebKit**
+  (2026-11-04). The foil was not the main cost. `e2e/foil-probe.spec.ts`
+  showed its sheen animation alone added ~100ms to every mouse move there
+  (median 118ms, 16ms without the animation; blend mode and `will-change`
+  made no difference to the median), so the duel-board block now runs under
+  reduced motion. That cut the slowest test from 27s to 22s and the others by
+  2–3s; the first ~5s after the story opens still draw almost no frames. To
+  measure again, dispatch the `E2E probe` workflow, which keeps a trace of
+  every test; `spec=foil-probe.spec.ts` reruns the foil variants.
 
 - **A geometry read outside a poll can catch a layout that is still arriving.**
   Panes render in flow until their container has measured itself, and animate
