@@ -47,6 +47,11 @@ section below.
   window released over a zone fills it, as FancyZones does, and takes its own
   size back when dragged off.
 
+- **The Launchpad presets page their apps.** `lp-page` is a flowed
+  `pageStrategy(grid)`, so the 40-app preset shows 35 on its first page and the
+  other five on a second, behind page dots, and an app dropped on a full page
+  pushes the last one onto the next rather than being refused.
+
 ### Fixed
 
 - **A drop onto a later page of a paged container lands on that page.** The

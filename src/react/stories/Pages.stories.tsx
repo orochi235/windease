@@ -8,7 +8,6 @@ import {
   desktopStrategy,
   gridStrategy,
   type NodeId,
-  type PageAffordanceMeta,
   pageStrategy,
   Store,
   stripStrategy,
@@ -25,6 +24,7 @@ import {
   StrategyRegistryProvider,
   useStore,
 } from '../index.js';
+import { PageDots } from './PageDots.js';
 import './pages.css';
 import './windease.css';
 
@@ -40,9 +40,8 @@ const DESK = asNodeId('desk');
 const INBOX = asNodeId('inbox');
 const TILES = asNodeId('tiles');
 
-/** The switcher's dots, drawn under the strategy's invisible page buttons. */
+/** The switcher's dots, and Page Up / Page Down to flip pages. */
 function PageBar({ layout }: { layout: OverlayContext }) {
-  const pages = layout.affordances.filter((a) => a.id.startsWith('page:'));
   const { command } = layout;
   // Page Up / Page Down flip pages from anywhere but a form control, which has
   // its own use for them.
@@ -57,25 +56,7 @@ function PageBar({ layout }: { layout: OverlayContext }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [command]);
-  return (
-    <>
-      {pages.map((a) => {
-        const meta = a.meta as PageAffordanceMeta;
-        return (
-          <div
-            key={a.id}
-            className={meta.current ? 'pages-dot pages-dot--current' : 'pages-dot'}
-            data-testid={`dot-${meta.page}`}
-            data-current={meta.current ? 'true' : undefined}
-            aria-hidden="true"
-            style={{ left: a.rect.x, top: a.rect.y, width: a.rect.w, height: a.rect.h }}
-          >
-            {meta.page + 1}
-          </div>
-        );
-      })}
-    </>
-  );
+  return <PageDots layout={layout} />;
 }
 
 function PageSelect({ id, page }: { id: NodeId; page: unknown }) {

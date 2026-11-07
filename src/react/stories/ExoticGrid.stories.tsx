@@ -8,6 +8,7 @@ import {
   type Node,
   type NodeId,
   nodeToLayoutItem,
+  pageStrategy,
   stripStrategy,
 } from '../../index.js';
 import { PRESETS } from '../../nuts/grid-scenarios.js';
@@ -16,6 +17,7 @@ import {
   type ChromeHandler,
   Container,
   DragProvider,
+  type OverlayContext,
   Provider,
   StrategyRegistryProvider,
   useChildren,
@@ -24,12 +26,17 @@ import {
 } from '../index.js';
 import '../styles.css';
 import './exotic-grid.css';
+import { PageDots } from './PageDots.js';
 import { PresetInfo } from './PresetInfo.js';
 import { PresetPicker, usePresetPick } from './PresetPicker.js';
 import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
 
-const STRATEGIES = { grid: gridStrategy as never, strip: stripStrategy as never };
+const STRATEGIES = {
+  grid: gridStrategy as never,
+  'page-grid': pageStrategy(gridStrategy) as never,
+  strip: stripStrategy as never,
+};
 
 const titleOf = (node: Node) => String(node.meta?.title ?? node.id);
 
@@ -46,13 +53,23 @@ function useVerdictClass(id: NodeId, base: string): string {
   return `${base} ${drag.hover.accepted ? 'xg-frame--accept' : 'xg-frame--reject'}`;
 }
 
+const paged = (node: { container?: { strategyId: string } | undefined }) =>
+  node.container?.strategyId.startsWith('page-') === true;
+
 function GroupFrame({ node }: { node: Node }) {
   const className = useVerdictClass(node.id, withMetaClass('xg-group xg-frame', node));
   return (
     <section className={className} data-testid={`frame-${node.id}`}>
       <header className="xg-group__title">{titleOf(node)}</header>
       <div className="xg-group__body">
-        <Container parentId={node.id} chrome={chrome} affordances />
+        <Container
+          parentId={node.id}
+          chrome={chrome}
+          affordances
+          {...(paged(node)
+            ? { overlay: (layout: OverlayContext) => <PageDots layout={layout} /> }
+            : {})}
+        />
       </div>
     </section>
   );
@@ -80,6 +97,23 @@ const chrome: ChromeHandler = ({ node }) =>
 function Readout({ id, title }: { id: NodeId; title: string }) {
   const parent = useNode(id);
   const visible = useChildren(id).filter((c) => c.lifecycle.state === 'visible');
+  const order = (
+    <output className="xg-readout__order" data-testid={`order-${id}`}>
+      {visible.map((c) => c.id).join(',')}
+    </output>
+  );
+  // A paged grid flows what one page cannot hold onto the next: its dots are the readout.
+  if (parent && paged(parent)) {
+    return (
+      <div className="xg-readout__row">
+        <dt>{title}</dt>
+        <dd>
+          {visible.length} children, paged
+          {order}
+        </dd>
+      </div>
+    );
+  }
   // `unplaced` in squeeze mode depends on the container only through a fixed
   // `cell.w` with no `cols`, which no preset uses.
   const unplaced =
@@ -97,9 +131,7 @@ function Readout({ id, title }: { id: NodeId; title: string }) {
         <output data-testid={`unplaced-${id}`}>
           {unplaced.length ? unplaced.join(',') : '(none)'}
         </output>
-        <output className="xg-readout__order" data-testid={`order-${id}`}>
-          {visible.map((c) => c.id).join(',')}
-        </output>
+        {order}
       </dd>
     </div>
   );
@@ -129,7 +161,7 @@ function PresetView({ preset }: { preset: Preset }) {
   const store = useMemo(() => presetToStore(preset), [preset]);
   const grids = presetNodes(preset)
     .map(({ node }) => node)
-    .filter((n) => n.strategy === 'grid');
+    .filter((n) => n.strategy === 'grid' || n.strategy === 'page-grid');
   const rootId = asNodeId(preset.mechanics.id);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const scrolls = preset.mechanics.config?.overflowMode === 'scroll';

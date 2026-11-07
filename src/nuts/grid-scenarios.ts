@@ -192,11 +192,14 @@ const MAC_APPS = Array.from({ length: 40 }, (_, i) => `App ${i + 1}`);
 
 /** A Launchpad cell at 1440×900: a 96px icon over its label. */
 const LAUNCHPAD_CELL = { w: 112, h: 124 };
+/** The page dots under a Launchpad page. */
+const LAUNCHPAD_DOTS = 28;
 
 /**
- * One Launchpad page above a Dock to drag apps in from; the apps are the
- * user's. Launchpad keeps every icon one size and spreads the 7×5 page across
- * the screen, so the page has fixed cells spaced evenly.
+ * Launchpad's pages above a Dock to drag apps in from; the apps are the
+ * user's. Launchpad keeps every icon one size and spreads each 7×5 page across
+ * the screen, so a page has fixed cells spaced evenly, and the apps past 35
+ * go on to the next page.
  */
 function launchpad(n: number): Halves {
   return {
@@ -208,15 +211,20 @@ function launchpad(n: number): Halves {
         {
           id: 'lp-page',
           kind: 'group',
-          strategy: 'grid',
+          // Apps fill a page in order and spill onto the next, under the dots.
+          strategy: 'page-grid',
           config: {
-            cols: 7,
-            maxRows: 5,
-            gap: 16,
-            padding: 24,
-            cell: LAUNCHPAD_CELL,
-            justify: 'evenly',
+            mode: 'flowed',
+            bar: LAUNCHPAD_DOTS,
             reorder: true,
+            inner: {
+              cols: 7,
+              maxRows: 5,
+              gap: 16,
+              padding: 24,
+              cell: LAUNCHPAD_CELL,
+              justify: 'evenly',
+            },
           },
           item: APP,
         },
@@ -231,7 +239,7 @@ function launchpad(n: number): Halves {
       ],
     },
     data: {
-      nodes: titles({ 'lp-page': `Launchpad page, ${n} apps`, 'mac-dock': 'Dock' }),
+      nodes: titles({ 'lp-page': `Launchpad, ${n} apps`, 'mac-dock': 'Dock' }),
       children: {
         'lp-page': icons('lp-app', n, MAC_APPS),
         'mac-dock': icons('dock-app', 3, ['Finder', 'Safari', 'Mail']),
@@ -916,7 +924,7 @@ export const PRESETS: Preset[] = [
     {
       id: 'launchpad-overflow',
       source: 'macOS Launchpad, 40 apps against a fixed 7×5 page',
-      stress: 'exactly 35 placed and the other 5 in `unplaced`, the pagination signal',
+      stress: 'exactly 35 on the first page and the other 5 flowed onto a second',
       description:
         'macOS Launchpad with 40 apps, more than one seven-by-five page holds. Launchpad fills the first page and puts the rest on a second page, shown by the dots at the bottom of the screen.',
       viewport: { w: 1440, h: 900 },

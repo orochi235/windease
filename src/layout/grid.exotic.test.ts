@@ -22,6 +22,7 @@ import {
 import { type Preset, presetScenario, presetToStore } from '../nuts/preset.js';
 import type { Store } from '../store.js';
 import { gridStrategy, gridTiling } from './grid.js';
+import { pageStrategy } from './page.js';
 import { stripStrategy } from './strip.js';
 
 type Check =
@@ -301,24 +302,56 @@ describe('iPhone dock: fixed icon cells spaced evenly', () => {
 });
 
 describe('capacity under maxCols × maxRows', () => {
-  it('a full 7×5 Launchpad page places all 35 at one fixed size', () => {
-    const r = run(scenario('launchpad-full', 'lp-page'));
+  const paged = pageStrategy(gridStrategy);
+  /** Launchpad's `lp-page`, laid out at the page shown. */
+  const launchpad = (presetId: string, page = 0, extra: LayoutItem[] = []) => {
+    const s = scenario(presetId, 'lp-page');
+    const items = [...s.items, ...extra];
+    return paged.layout({
+      items,
+      container: s.container,
+      state: { page, inner: undefined },
+      options: s.options,
+    });
+  };
+  const dots = (r: LayoutResult<string>) =>
+    (r.affordances ?? []).filter((a) => a.id.startsWith('page:')).length;
+
+  it('a full 7×5 Launchpad page places all 35 at one fixed size, on one page', () => {
+    const r = launchpad('launchpad-full');
     expect(r.placements.size).toBe(35);
+    expect(dots(r)).toBe(1);
     for (const rect of r.placements.values())
       expect({ w: rect.w, h: rect.h }).toEqual({ w: 112, h: 124 });
   });
 
-  it('a fixed 7×5 Launchpad page places 35 of 40 and reports the last 5 as the next page', () => {
-    const r = run(scenario('launchpad-overflow', 'lp-page'));
-    expect(r.placements.size).toBe(35);
-    expect(r.unplaced).toEqual(['lp-app-36', 'lp-app-37', 'lp-app-38', 'lp-app-39', 'lp-app-40']);
+  it('40 Launchpad apps fill the first page and flow the last 5 onto a second', () => {
+    const first = launchpad('launchpad-overflow');
+    expect(first.placements.size).toBe(35);
+    expect(dots(first)).toBe(2);
+    expect([...launchpad('launchpad-overflow', 1).placements.keys()]).toEqual([
+      'lp-app-36',
+      'lp-app-37',
+      'lp-app-38',
+      'lp-app-39',
+      'lp-app-40',
+    ]);
   });
 
-  it('a fixed 7×5 page holding 30 accepts a 31st', () => {
-    const s = scenario('launchpad-thirty', 'lp-page');
-    const grown = [...s.items, { id: 'dock-app-1' }];
-    expect(run({ ...s, items: grown }).placements.size).toBe(31);
-    expect(gridStrategy.canAccept?.(grown, s.options)).toBe(true);
+  it('an app added to a full Launchpad page pushes the last one onto a new page', () => {
+    const first = launchpad('launchpad-full', 0, [{ id: 'dock-app-1' }]);
+    expect(first.placements.size).toBe(35);
+    expect(dots(first)).toBe(2);
+    expect(first.placements.has('dock-app-1')).toBe(false);
+    expect([...launchpad('launchpad-full', 1, [{ id: 'dock-app-1' }]).placements.keys()]).toEqual([
+      'dock-app-1',
+    ]);
+  });
+
+  it('a Launchpad page holding 30 takes a 31st without starting a page', () => {
+    const r = launchpad('launchpad-thirty', 0, [{ id: 'dock-app-1' }]);
+    expect(r.placements.size).toBe(31);
+    expect(dots(r)).toBe(1);
   });
 
   it('a Windows 11 snap layout refuses a fourth window into its 2×2', () => {

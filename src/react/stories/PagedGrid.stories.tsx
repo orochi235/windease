@@ -7,7 +7,6 @@ import {
   createNode,
   gridStrategy,
   type NodeId,
-  type PageAffordanceMeta,
   pageStrategy,
   Store,
   stripStrategy,
@@ -18,10 +17,10 @@ import {
   DragHandle,
   DragProvider,
   GeometryProvider,
-  type OverlayContext,
   Provider,
   StrategyRegistryProvider,
 } from '../index.js';
+import { PageDots } from './PageDots.js';
 import './pages.css';
 import './windease.css';
 
@@ -32,28 +31,6 @@ const STRATEGIES = {
 
 const BOARD = asNodeId('board');
 const INBOX = asNodeId('inbox');
-
-function PageDots({ layout }: { layout: OverlayContext }) {
-  return (
-    <>
-      {layout.affordances
-        .filter((a) => a.id.startsWith('page:'))
-        .map((a) => {
-          const meta = a.meta as PageAffordanceMeta;
-          return (
-            <div
-              key={a.id}
-              className={meta.current ? 'pages-dot pages-dot--current' : 'pages-dot'}
-              aria-hidden="true"
-              style={{ left: a.rect.x, top: a.rect.y, width: a.rect.w, height: a.rect.h }}
-            >
-              {meta.page + 1}
-            </div>
-          );
-        })}
-    </>
-  );
-}
 
 function makeBoard(): Store {
   const s = new Store();

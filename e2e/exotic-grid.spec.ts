@@ -41,6 +41,19 @@ async function order(page: Page, gridId: string): Promise<string[]> {
 }
 
 const unplaced = (page: Page, gridId: string) => page.getByTestId(`unplaced-${gridId}`);
+/** A paged grid's switcher dots. */
+const dots = (page: Page, gridId: string) => frame(page, gridId).locator('[data-testid^="dot-"]');
+
+/** The children a container renders, which for a paged one is the page shown. */
+function shown(page: Page, containerId: string) {
+  return page.evaluate(
+    (id) =>
+      [...document.querySelectorAll(`[data-node-container="${id}"] > [data-node]`)].map((el) =>
+        el.getAttribute('data-node'),
+      ),
+    containerId,
+  );
+}
 
 /** Drag `sourceId` onto the center of `target` (a tile or a group frame),
  *  asserting `zoneId`'s verdict before the release. */
@@ -145,22 +158,27 @@ test.describe('iPhone dock (fixed icon cells, spaced evenly)', () => {
 });
 
 test.describe('macOS Launchpad (7×5 pages)', () => {
-  test('a page of exactly 35 apps shows them all', async ({ page }) => {
+  test('a page of exactly 35 apps shows them all, on one page', async ({ page }) => {
     await pick(page, 'launchpad-full', 'lp-app-1');
-    await expect(unplaced(page, 'lp-page')).toHaveText('(none)');
+    await expect.poll(() => shown(page, 'lp-page')).toHaveLength(35);
+    await expect(dots(page, 'lp-page')).toHaveCount(1);
   });
 
-  test('40 apps: the last five are reported for the next page, and a 36th is refused', async ({
+  test('40 apps: the last five flow onto a second page, and a Dock app dropped in joins them', async ({
     page,
   }) => {
     await pick(page, 'launchpad-overflow', 'lp-app-1');
-    await expect(unplaced(page, 'lp-page')).toHaveText(
-      'lp-app-36,lp-app-37,lp-app-38,lp-app-39,lp-app-40',
-    );
+    await expect.poll(() => shown(page, 'lp-page')).toHaveLength(35);
+    await expect(dots(page, 'lp-page')).toHaveCount(2);
 
-    await dragOnto(page, 'dock-app-1', { frame: 'lp-page' }, 'lp-page', 'reject');
+    await page.getByRole('button', { name: 'Page 2 of 2' }).click();
+    await expect
+      .poll(() => shown(page, 'lp-page'))
+      .toEqual(['lp-app-36', 'lp-app-37', 'lp-app-38', 'lp-app-39', 'lp-app-40']);
 
-    await expect.poll(() => order(page, 'mac-dock')).toContain('dock-app-1');
+    await dragOnto(page, 'dock-app-1', { frame: 'lp-page' }, 'lp-page', 'accept');
+    await expect.poll(() => order(page, 'mac-dock')).not.toContain('dock-app-1');
+    await expect.poll(() => shown(page, 'lp-page')).toContain('dock-app-1');
   });
 
   test('reordering an app within a page moves it', async ({ page }) => {
@@ -192,7 +210,7 @@ test.describe('macOS Launchpad (7×5 pages)', () => {
     await dragOnto(page, 'dock-app-1', { frame: 'lp-page' }, 'lp-page', 'accept');
 
     await expect.poll(() => order(page, 'lp-page')).toContain('dock-app-1');
-    await expect(unplaced(page, 'lp-page')).toHaveText('(none)');
+    await expect(dots(page, 'lp-page')).toHaveCount(1);
   });
 });
 
