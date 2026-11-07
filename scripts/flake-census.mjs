@@ -75,6 +75,7 @@ function record(report) {
   const failures = [];
   for (const suite of report.suites ?? []) {
     walk(suite, suite.file, null, ({ file, title, project, result }) => {
+      if (result.status === 'skipped') return;
       const key = `${project} › ${file} › ${title}`;
       const row = tests.get(key) ?? { key, project, file, title, runs: 0, failures: 0, modes: {} };
       row.runs += 1;
