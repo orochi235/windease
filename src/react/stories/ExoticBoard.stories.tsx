@@ -27,7 +27,6 @@ import {
 import {
   type ChromeMap,
   Container,
-  DragHandle,
   DragProvider,
   FocusProvider,
   GeometryProvider,
@@ -240,6 +239,7 @@ function cardNode(id: NodeId, parentId: NodeId, card: PoolCard) {
               resizable: false,
               overflowMode: 'overlap',
               peek: 8,
+              reorder: true,
             },
           },
         }
@@ -284,6 +284,8 @@ const bandConfig = (extra: Record<string, unknown> = {}) => ({
   resizable: false,
   overflowMode: 'overlap',
   peek: 34,
+  // A card drags by its whole face.
+  reorder: true,
   ...extra,
 });
 
@@ -350,7 +352,8 @@ function makeStore(): Store {
   // Far to near on one surface, every row the same height so no card is
   // drawn to a different shape than any other.
   const bands: Array<[NodeId, string, Record<string, unknown>, number]> = [
-    [OPP_HAND, "Opponent's hand", bandConfig({ peek: 26 }), OPP_HAND_H],
+    // The far hand is face-down backs, which nothing drags.
+    [OPP_HAND, "Opponent's hand", bandConfig({ peek: 26, reorder: undefined }), OPP_HAND_H],
     [OPP_LAND, "Opponent's lands", bandConfig(), BAND_H],
     [OPP_FIELD, "Opponent's units", bandConfig(), BAND_H],
     [YOUR_FIELD, 'Your units', bandConfig(), BAND_H],
@@ -680,7 +683,7 @@ function AuraTab({ nodeId }: { nodeId: NodeId }) {
   const meta = (node.meta ?? {}) as Record<string, unknown>;
   const mana = (meta.mana ?? 'peat') as Mana;
   return (
-    <DragHandle nodeId={nodeId} className="xb-aura-drag">
+    <div className="xb-aura-drag">
       <button
         type="button"
         className={`xb-aura xb-aura--${mana}`}
@@ -694,7 +697,7 @@ function AuraTab({ nodeId }: { nodeId: NodeId }) {
       >
         {MANA[mana].glyph}
       </button>
-    </DragHandle>
+    </div>
   );
 }
 
@@ -723,7 +726,7 @@ function CardFace({ nodeId }: { nodeId: NodeId }) {
   ]);
 
   return (
-    <DragHandle nodeId={nodeId} className="xb-card-drag">
+    <div className="xb-card-drag">
       <button
         type="button"
         className={className}
@@ -746,7 +749,7 @@ function CardFace({ nodeId }: { nodeId: NodeId }) {
         <CardPrint meta={meta} mana={mana} />
       </button>
       {node.container ? <AuraSlot nodeId={nodeId} /> : null}
-    </DragHandle>
+    </div>
   );
 }
 
