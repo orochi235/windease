@@ -27,7 +27,8 @@ export interface DragProviderProps {
    *  declare. */
   stackConfig?: Record<string, unknown>;
   /** Container config given to the strip a split drop creates, merged over its
-   *  `axis` and `fill`. */
+   *  `axis` and `fill` and over the `reorder`, `touchScroll` and `drop` it
+   *  takes from the container it splits. */
   splitConfig?: Record<string, unknown>;
   /**
    * Pixels a press on a `DragHandle` or a `reorder` child travels before it

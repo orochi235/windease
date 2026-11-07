@@ -41,6 +41,10 @@ export interface DropTargetOptions {
   /** Map cursor → what kind of drop it is asking for. Takes precedence over
    *  `getInsertionIndex`. */
   getDropIntent?: (point: Point) => DropIntent | undefined;
+  /** This target resolves `split` intents; see {@link DropTarget.splits}. */
+  splits?: boolean;
+  /** Gives a point up to an enclosing split; see {@link DropTarget.cedes}. */
+  cedes?: (point: Point) => boolean;
   /**
    * The element that scrolls this target's content — the wrapper carrying
    * `overflow: auto`. Dragging toward its edge scrolls it. Omit and the
@@ -159,6 +163,8 @@ export class DragController {
       ...(options?.acceptPolicy ? { acceptPolicy: options.acceptPolicy } : {}),
       ...(options?.getInsertionIndex ? { getInsertionIndex: options.getInsertionIndex } : {}),
       ...(options?.getDropIntent ? { getDropIntent: options.getDropIntent } : {}),
+      ...(options?.splits ? { splits: true } : {}),
+      ...(options?.cedes ? { cedes: options.cedes } : {}),
       ...(options?.scrollEl
         ? {
             scroll: {

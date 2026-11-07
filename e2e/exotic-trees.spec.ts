@@ -100,6 +100,37 @@ test.describe('exotic trees', () => {
     expectInside(pane, chat);
   });
 
+  test('a Golden Layout tab dropped on the bottom edge of a stack splits it', async ({ page }) => {
+    await openStory(page, GOLDEN);
+    const chat = await settledBox(group(page, 'stack-chat'));
+
+    await drag(page, 'terminal', { x: chat.x + chat.w / 2, y: chat.y + chat.h * 0.9 });
+
+    await expect(group(page, 'stack-chat').locator('[data-node="terminal"]')).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const [c, t] = [
+          await boxOf(group(page, 'stack-chat')),
+          await boxOf(node(page, 'terminal')),
+        ];
+        return t.y >= c.y + c.h - 2 && Math.abs(t.x - c.x) < 4;
+      })
+      .toBe(true);
+    // The split group drags like the row it split: its pane still moves by its title bar.
+    const files = await settledBox(group(page, 'stack-files'));
+    await drag(page, 'terminal', { x: files.x + files.w / 2, y: files.y + files.h / 2 });
+    await landedIn(page, 'terminal', 'stack-files');
+  });
+
+  test('a Golden Layout tab dropped on a stack’s tab strip joins the stack', async ({ page }) => {
+    await openStory(page, GOLDEN);
+    const strip = await settledBox(page.getByTestId('xt-tab-chat'));
+
+    await drag(page, 'terminal', { x: strip.x + strip.w + 20, y: strip.y + strip.h / 2 });
+
+    await landedIn(page, 'terminal', 'stack-chat');
+  });
+
   test('a Golden Layout stack whose last tab is dragged out is removed', async ({ page }) => {
     await openStory(page, GOLDEN);
     const chat = await settledBox(group(page, 'stack-chat'));

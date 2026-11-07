@@ -394,7 +394,9 @@ export function fromGoldenLayout(
       id: mint(item.id ?? `${item.type}`),
       kind: parentAxis ? 'group' : 'zone',
       strategy: 'strip',
-      config: { axis, fill: true },
+      // A tab dropped on a stack's top or bottom edge, in a row, splits that
+      // stack's slot; in a column, its left or right edge does.
+      config: { axis, fill: true, drop: { split: true } },
       // Golden Layout replaces a row or column left with one child by that child.
       ...(parentAxis ? { autoUnsplit: true } : {}),
       allowsPinning: false,
@@ -608,7 +610,8 @@ export function fromDockview(
       id: `branch-${path}`,
       kind: siblingsTotal === undefined ? 'zone' : 'group',
       strategy: 'strip',
-      config: { axis: orientation === 'HORIZONTAL' ? 'x' : 'y', fill: true },
+      // A tab dropped on a group's edge splits it, as in Golden Layout.
+      config: { axis: orientation === 'HORIZONTAL' ? 'x' : 'y', fill: true, drop: { split: true } },
       children: node.data.map((c, i) => walk(c, flip(orientation), total, `${path}.${i}`)),
     };
     return placement ? { ...out, placement } : out;

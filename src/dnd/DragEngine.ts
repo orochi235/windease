@@ -106,6 +106,13 @@ export interface DropTarget {
    *  `getInsertionIndex`, which stays for targets that answer only "which
    *  seam". */
   getDropIntent?(point: Point): DropIntent | undefined;
+  /** This target resolves `split` intents, so an inner target that cedes can
+   *  hand it the hover. */
+  splits?: boolean;
+  /** Whether this target, resolving no split of its own, gives `point` up to
+   *  an enclosing target whose intent there is a split. A stack cedes over
+   *  its body and keeps its tab band. */
+  cedes?(point: Point): boolean;
   /**
    * The scrolling box this target lives in, if it has one. The engine works
    * out the rate and calls `by`; the host does the scrolling, since what
@@ -140,9 +147,13 @@ export interface DragEngineOptions {
    *  any id the store already holds. */
   makeSplitId?: () => NodeId;
   /** Container config for the strip a split drop creates, merged over its
-   *  `axis` and `fill`. */
+   *  `axis` and `fill` and over the `reorder`, `touchScroll` and `drop` it
+   *  takes from the container it splits. */
   splitConfig?: Record<string, unknown>;
 }
+
+/** Container keys a split drop's new group takes from the container it splits. */
+const SPLIT_INHERITS = ['reorder', 'touchScroll', 'drop'] as const;
 
 const immediate: FrameScheduler = {
   request(cb) {
@@ -403,17 +414,33 @@ export class DragEngine {
     if (!this.active) return;
     // Cursor always updates, regardless of hover target. The ghost overlay
     // follows the cursor even when over no drop target.
-    let best: { id: NodeId; depth: number } | null = null;
+    const under: { id: NodeId; depth: number; target: DropTarget }[] = [];
     for (const [id, target] of this.dropTargets) {
       const r = target.bounds();
       if (!r || !contains(r, x, y) || this.shut(id)) continue;
-      const depth = target.depth?.() ?? 0;
-      if (!best || depth > best.depth) best = { id, depth };
+      under.push({ id, depth: target.depth?.() ?? 0, target });
     }
-    if (!best) {
+    if (under.length === 0) {
       this.gesture?.offer(null);
       this.setHover(null, { x, y });
       return;
+    }
+    // Innermost wins; the first of equal depths, as registration order had it.
+    let best = under[0]!;
+    for (const u of under) if (u.depth > best.depth) best = u;
+    let ceded: DropIntent | undefined;
+    if (!best.target.splits && best.target.cedes?.({ x, y })) {
+      const outer = under
+        .filter((u) => u.depth < best.depth && u.target.splits)
+        .sort((a, b) => b.depth - a.depth);
+      for (const u of outer) {
+        const asked = u.target.getDropIntent?.({ x, y });
+        if (asked?.kind !== 'split') continue;
+        trace('dnd', `hover: ${best.id} cedes to ${u.id}'s split of ${asked.ontoId}`);
+        best = u;
+        ceded = asked;
+        break;
+      }
     }
     const target = this.dropTargets.get(best.id);
     this.autoScroll(target, x, y);
@@ -421,7 +448,7 @@ export class DragEngine {
       this.offer({ targetId: best.id, tear: true }, { x, y });
       return;
     }
-    const intent = target?.getDropIntent?.({ x, y });
+    const intent = ceded ?? target?.getDropIntent?.({ x, y });
     // An intent that names a seam is the authority on the index too, so the
     // two answers cannot disagree about where the drop lands.
     const asked =
@@ -831,12 +858,22 @@ export class DragEngine {
     if (hover.intent?.kind === 'split') {
       const { ontoId, edge, axis } = hover.intent;
       const id = this.makeSplitId();
+      // The group takes a slot of the container that split, so its children
+      // drag and split the way that container's did.
+      const from = (this.store.getNode(hover.targetId)?.container?.config ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const inherited = Object.fromEntries(
+        SPLIT_INHERITS.filter((k) => from[k] !== undefined).map((k) => [k, from[k]]),
+      );
+      const config = { ...inherited, ...this.splitConfig };
       try {
         this.store.splitInto(draggingId, ontoId as NodeId, {
           id,
           axis,
           edge,
-          ...(this.splitConfig ? { config: this.splitConfig } : {}),
+          ...(Object.keys(config).length > 0 ? { config } : {}),
         });
         trace('dnd', `drop: split ${draggingId} onto ${ontoId} ${axis}/${edge} as ${id}`);
       } catch (err) {

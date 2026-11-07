@@ -328,15 +328,13 @@ Decided in conversation and recorded nowhere else:
   a scroll box at its viewport.
 
 Everything the design doc names is built, and a preset sets every key but
-`drop.stack` / `drop.split` (2026-11-06). Every grid, tree and desktop preset
+`drop.stack` (2026-11-06). Every grid, tree and desktop preset
 declares its drags with `reorder`, and so do Exotic / Board's bands; Chrome's
 tabs are a stack's band, drawn by the story, so the key does not reach them.
 
-- **`drop.split` cannot reach a tree preset's panes.** Golden Layout and
-  Dockview split a stack when a tab is dropped on its edge, but every pane
-  there sits in a stack, and the stack is the innermost drop target, so it
-  takes the drop before the strip around it can resolve a split band. Needs a
-  decision on whether a stack cedes its edge bands to its parent's `split`.
+- **`drop.split` reaches a stack's body, not its tab band** (2026-11-06). A
+  split drop leaves the dropped pane bare in the new strip, where Golden Layout
+  wraps it in a stack of its own; nothing in config says what to wrap it in.
 
 Open, grouped by what they touch:
 

@@ -339,3 +339,68 @@ describe('DragEngine — drop intent', () => {
     expect(commit).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('DragEngine — an inner target ceding to an enclosing split', () => {
+  const SPLIT: DropIntent = { kind: 'split', ontoId: 'b', edge: 'end', axis: 'y' };
+  const setup = (inner: Partial<DropTarget>, outer: Partial<DropTarget> = {}) => {
+    const s = buildStore();
+    const e = engineWith(s);
+    e.addDropTarget(asNodeId('z'), target(SPLIT, { splits: true, ...outer }));
+    e.addDropTarget(
+      asNodeId('other'),
+      target({ kind: 'insert', index: 0 }, { depth: () => 1, ...inner }),
+    );
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    return e.state()?.hover;
+  };
+
+  it('hands the hover to the enclosing split where the inner target cedes', () => {
+    const hover = setup({ cedes: () => true });
+    expect(hover?.targetId).toBe('z');
+    expect(hover?.intent).toEqual(SPLIT);
+  });
+
+  it('keeps the hover where the inner target does not cede', () => {
+    expect(setup({ cedes: () => false })?.targetId).toBe('other');
+    expect(setup({})?.targetId).toBe('other');
+  });
+
+  it('never takes the hover from an inner target that splits itself', () => {
+    expect(setup({ cedes: () => true, splits: true })?.targetId).toBe('other');
+  });
+
+  it('leaves the hover inside when the enclosing target asks for no split there', () => {
+    const hover = setup(
+      { cedes: () => true },
+      { getDropIntent: () => ({ kind: 'insert', index: 1 }) },
+    );
+    expect(hover?.targetId).toBe('other');
+  });
+});
+
+describe('DragEngine — the group a split drop creates', () => {
+  it('takes reorder and drop from the container it splits, under splitConfig', () => {
+    const s = buildStore();
+    s.updateContainerConfig(asNodeId('z'), {
+      reorder: 'handle',
+      drop: { split: true },
+      gap: 4,
+    });
+    const e = engineWith(s, { splitConfig: { padding: 2 } });
+    e.addDropTarget(
+      asNodeId('z'),
+      target({ kind: 'split', ontoId: 'b', edge: 'end', axis: 'y' }, { splits: true }),
+    );
+    e.tryBegin(asNodeId('p'));
+    e.updateHoverByPoint(50, 50);
+    e.drop();
+    expect(s.getContainerView(asNodeId('g1'))?.config).toEqual({
+      axis: 'y',
+      fill: true,
+      reorder: 'handle',
+      drop: { split: true },
+      padding: 2,
+    });
+  });
+});

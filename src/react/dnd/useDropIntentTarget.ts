@@ -104,6 +104,15 @@ export function useDropIntentTarget(
       scrollEl: scrollRef?.current ?? null,
       ...(acceptPolicy ? { acceptPolicy } : {}),
       ...(edgeScroll ? { edgeScroll } : {}),
+      ...(splitOnDrop ? { splits: true } : {}),
+      // Over a drawn child, rather than this container's own chrome (a stack's
+      // tab band), an enclosing split may claim the drop.
+      cedes: (point) =>
+        !splitOnDrop &&
+        childRectsForContainer(el).some(
+          ({ rect: r }) =>
+            point.x >= r.left && point.x <= r.right && point.y >= r.top && point.y <= r.bottom,
+        ),
       getDropIntent: (point) => {
         const live = childRectsForContainer(el);
         const displaced = el.getAttribute('data-split-preview') === 'true';

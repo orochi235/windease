@@ -1506,6 +1506,17 @@ The seam between the two panes is draggable with no configuration; tell
 <DragProvider splitConfig={{ gap: 6 }}>
 ```
 
+The new strip also takes the `reorder`, `touchScroll` and `drop` keys of the
+container it splits, under `splitConfig`, so its two panes drag and split the
+way their old parent's children did.
+
+A pane that is itself a drop target, such as a stack, would take every drop
+over it before its parent could split it. So a target that does not split
+gives the point up: while the cursor is over one of the children it drew,
+which for a stack is the pane shown, the nearest enclosing container whose
+`splitOnDrop` asks for a split there takes the drop. Over its own chrome, a
+stack's tab band, it keeps the drop, and a tab dropped there joins the stack.
+
 A prospective split lays the destination out as if you had already released:
 the pane under the cursor shrinks to the half it will actually get, the dragged
 pane's rect fills the other, and a `div.windease-split-preview` marks that half.

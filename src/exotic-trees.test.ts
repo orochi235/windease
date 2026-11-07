@@ -412,10 +412,16 @@ describe('Golden Layout configs', () => {
 
 describe('Dockview layouts', () => {
   it('alternates branch orientation and turns pixel sizes into shares of the parent axis', () => {
-    expect(DOCKVIEW_PRESET.mechanics.config).toEqual({ axis: 'x', fill: true, reorder: 'handle' });
+    expect(DOCKVIEW_PRESET.mechanics.config).toEqual({
+      axis: 'x',
+      fill: true,
+      drop: { split: true },
+      reorder: 'handle',
+    });
     expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1')?.config).toEqual({
       axis: 'y',
       fill: true,
+      drop: { split: true },
       reorder: 'handle',
     });
     expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1.1')?.placement).toEqual({

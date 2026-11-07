@@ -20,6 +20,16 @@ section below.
 - **`withReorder(preset, mode)`** (`windease/nuts`) sets `config.reorder` on
   every container of a preset that leaves it unset.
 
+- **A stack inside a splitting container can be split by a drop on its edge.**
+  A drop target that resolves no split itself gives up the point while the
+  cursor is over a child it drew, to the nearest enclosing `splitOnDrop`
+  container asking for a split there; over its own tab band a stack keeps the
+  drop. `DropTarget` gains `splits` and `cedes`.
+
+- **The strip a split drop creates takes `reorder`, `touchScroll` and `drop`**
+  from the container it splits, under `splitConfig`, so a pane dropped into a
+  split can be dragged again.
+
 ### Changed
 
 - **Desktop's `overflow` and `resize` are renamed `overflowMode` and
@@ -58,6 +68,9 @@ section below.
 - **A `tmux-zoomed` strip preset** saves one of three panes zoomed with
   `zoom`, the first preset to set it. The **Exotic / Strip** story's Zoomed
   picker sets or clears any preset's zoom.
+
+- **The Golden Layout and Dockview presets set `drop: { split: true }`** on
+  their rows and columns, so a tab dropped on a stack's edge splits it.
 
 ### Fixed
 
