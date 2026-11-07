@@ -51,3 +51,29 @@ export function seamOfOrderIndex(
   while (seam < at.length && (at[seam] as number) < index) seam++;
   return seam;
 }
+
+/**
+ * A seam counted among `drawn` — the children a host actually drew, in order,
+ * with the dragged node left out — as a seam among `parentId`'s visible
+ * children, which is what a drop's index counts. The two part where a strategy
+ * withholds visible children: other pages of a paged container, a stack's
+ * hidden tabs, a grid's unplaced overflow.
+ */
+export function visibleSeamOf(
+  store: Store,
+  parentId: NodeId,
+  sourceId: NodeId | undefined,
+  drawn: readonly string[],
+  seam: number,
+): number {
+  if (drawn.length === 0) return seam;
+  const visible = (store.getNode(parentId)?.container?.childOrder ?? []).filter(
+    (id) => id !== sourceId && store.getNode(id)?.lifecycle.state === 'visible',
+  );
+  if (visible.length === drawn.length) return seam;
+  const i = Math.max(0, Math.min(seam, drawn.length));
+  const anchor = i < drawn.length ? drawn[i] : drawn[drawn.length - 1];
+  const at = visible.indexOf(anchor as NodeId);
+  if (at < 0) return seam;
+  return i < drawn.length ? at : at + 1;
+}

@@ -47,6 +47,15 @@ section below.
   window released over a zone fills it, as FancyZones does, and takes its own
   size back when dragged off.
 
+### Fixed
+
+- **A drop onto a later page of a paged container lands on that page.** The
+  built-in drop resolver counted its index among the children drawn, while a
+  drop's index counts every visible child, so a drop on page 2 inserted on
+  page 1. The same held for a stack's hidden tabs and a grid's unplaced
+  overflow. A custom `dropIntent` still returns an index among visible
+  children.
+
 ## 2.3.0
 
 ### Added

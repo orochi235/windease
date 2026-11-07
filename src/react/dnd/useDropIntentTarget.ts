@@ -3,14 +3,18 @@ import type { AcceptPolicy, Point } from '../../dnd/DragEngine.js';
 import { type DropIntent, resolveDropIntent } from '../../dnd/dropIntent.js';
 import type { EdgeScrollOptions } from '../../dnd/edgeScroll.js';
 import { axisFromRects, childRectsForContainer } from '../../dnd/insertionIndex.js';
-import type { NodeId, Rect } from '../../index.js';
+import { visibleSeamOf } from '../../dnd/seamIndex.js';
+import { type NodeId, type Rect, trace } from '../../index.js';
 import { layoutPointIn } from '../../view-dom.js';
+import { useStore } from '../Provider.js';
 import { DragContext } from './DragProvider.js';
 
 /** What a `dropIntent` callback is handed. The container has already measured
  *  and inferred the axis; the callback only decides what the drop means. */
 export interface DropIntentContext {
-  /** Direct children in DOM order, with the dragged node removed. */
+  /** Direct children in DOM order, with the dragged node removed. A strategy
+   *  that withholds children (other pages, hidden tabs) draws fewer than are
+   *  visible, while an `insert` index counts every visible child. */
   rects: readonly { id: string; rect: Rect }[];
   /** Cursor, in the space the host samples in. */
   point: Point;
@@ -82,6 +86,7 @@ export function useDropIntentTarget(
     edgeScroll,
   } = opts;
   const controller = useContext(DragContext);
+  const store = useStore();
   // The last harvest taken while nothing was displacing children. A split
   // preview moves a child that is *not* the source, so hit-testing the live
   // DOM would resolve the intent against geometry the preview itself
@@ -120,14 +125,24 @@ export function useDropIntentTarget(
         if (dropIntent && sourceId) {
           return dropIntent({ rects: mapped, point, axis, sourceId });
         }
-        return resolveDropIntent(mapped, point, axis, {
+        const intent = resolveDropIntent(mapped, point, axis, {
           ...(stackOnDrop ? { stack: true } : {}),
           ...(splitOnDrop ? { split: true } : {}),
         });
+        if (intent.kind !== 'insert') return intent;
+        const drawn = mapped.map((r) => r.id);
+        const index = visibleSeamOf(store, parentId, sourceId, drawn, intent.index);
+        if (index !== intent.index)
+          trace(
+            'dnd',
+            `drop ${parentId}: seam ${intent.index} among drawn → ${index} among visible`,
+          );
+        return index === intent.index ? intent : { ...intent, index };
       },
     });
   }, [
     controller,
+    store,
     parentId,
     ref,
     enabled,
