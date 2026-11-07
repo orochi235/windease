@@ -58,8 +58,15 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
 
   `scripts/flake-census.mjs` measures this rather than reasoning about it:
   it repeat-runs the suite in an `idle` and a `loaded` arm and ranks every
-  test by failure rate and mode. The ordering above is a heuristic until a
-  census replaces it.
+  test by failure rate and mode. The first census, at af9b064 (2026-11-07),
+  found nothing to rank: 16 idle runs on teitou (18 cores, 3.7 minutes each)
+  and 5 loaded runs on studio (10 cores, 20 spinners, load average near 59,
+  13.4 minutes each) passed every test every time. The load that once
+  produced wandering failures no longer does, at least on studio. The
+  sixth loaded run lost Ladle's dev server (`ECONNRESET`) and failed 300
+  tests at once. The same load also killed studio's onto agent, which runs
+  as a system daemon and needed a manual restart. The loaded arm now
+  defaults to one spinner per core.
 
   Three distinct modes, and only the first is bounded by anything:
 

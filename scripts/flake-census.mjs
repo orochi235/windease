@@ -31,9 +31,9 @@ const RUNS = Number(flag('runs', '1000'));
 const BUDGET_MS = Number(flag('budget-minutes', '420')) * 60_000;
 const ARMS = flag('arms', 'idle,loaded').split(',');
 const CORES = availableParallelism();
-// TODO.md puts the threshold at roughly twice the core count. The suite's own
-// workers contribute, so the spinners aim at the threshold rather than past it.
-const SPINNERS = Number(flag('spinners', String(CORES * 2)));
+// One spinner per core: with the suite's own workers on top, the load lands
+// near twice the core count. Twice as many spinners took studio's agent down.
+const SPINNERS = Number(flag('spinners', String(CORES)));
 
 const started = Date.now();
 const elapsed = () => Date.now() - started;
