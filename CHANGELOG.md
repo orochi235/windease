@@ -17,6 +17,9 @@ section below.
   third argument, `{ state, sourceId }`, and `cellAt`'s input gains `state`;
   both are optional. The **Paged grid / Cell drop** story shows it.
 
+- **`withReorder(preset, mode)`** (`windease/nuts`) sets `config.reorder` on
+  every container of a preset that leaves it unset.
+
 ### Changed
 
 - **Desktop's `overflow` and `resize` are renamed `overflowMode` and
@@ -28,6 +31,12 @@ section below.
   of `rowHeight`, so the row breaks no longer crush a run of panoramas into
   one row a few pixels tall. A layout whose rows all stay above half the
   target is unchanged; `minRowHeight: 0` restores the old breaks.
+
+- **The Exotic grid and tree presets declare how their panes drag.** The
+  home-screen, Launchpad, and Windows 8 grids set `reorder: true`; Grafana,
+  Windows 11 Snap, and every tree preset set `reorder: 'handle'`, so a pane
+  moves by its title bar. The Excel, periodic-table, and keyboard presets set
+  neither, so their cells no longer drag in the stories, matching the products.
 
 ## 2.3.0
 

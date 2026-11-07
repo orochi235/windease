@@ -5,7 +5,13 @@ import { CycleError, WindeaseError } from './errors.js';
 import type { LayoutStrategy, Rect, Size } from './layout-types.js';
 import { asNodeId, type NodeId } from './node.js';
 import { dropped, EPS, malformedRects } from './nuts/invariants.js';
-import { type Preset, type PresetNode, presetToStore, presetTree } from './nuts/preset.js';
+import {
+  type Preset,
+  type PresetNode,
+  presetToStore,
+  presetTree,
+  withReorder,
+} from './nuts/preset.js';
 import {
   type ContainerPass,
   DOCKVIEW_PRESET,
@@ -136,6 +142,7 @@ describe('i3 / sway trees', () => {
     expect(find(presetTree(I3_PRESET), 'stacked-0-0-1')?.config).toEqual({
       headerSize: 60,
       show: 'dropped',
+      reorder: 'handle',
     });
   });
 
@@ -350,7 +357,7 @@ describe('Golden Layout configs', () => {
       },
       GOLDEN_V1_PRESET,
     );
-    expect(v2.mechanics).toEqual(GOLDEN_V1_PRESET.mechanics);
+    expect(withReorder(v2, 'handle').mechanics).toEqual(GOLDEN_V1_PRESET.mechanics);
     // The exported preset is dressed with product CSS and class names; the
     // translation itself is what both formats must agree on.
     const unstyled = (data: Preset['data']) => {
@@ -390,10 +397,11 @@ describe('Golden Layout configs', () => {
 
 describe('Dockview layouts', () => {
   it('alternates branch orientation and turns pixel sizes into shares of the parent axis', () => {
-    expect(DOCKVIEW_PRESET.mechanics.config).toEqual({ axis: 'x', fill: true });
+    expect(DOCKVIEW_PRESET.mechanics.config).toEqual({ axis: 'x', fill: true, reorder: 'handle' });
     expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1')?.config).toEqual({
       axis: 'y',
       fill: true,
+      reorder: 'handle',
     });
     expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1.1')?.placement).toEqual({
       share: { h: 0.3 },

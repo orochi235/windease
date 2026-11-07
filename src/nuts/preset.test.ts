@@ -7,6 +7,7 @@ import {
   presetToStore,
   presetTree,
   styled,
+  withReorder,
 } from './preset.js';
 
 const PRESET: Preset = {
@@ -270,5 +271,20 @@ describe('styled', () => {
 
   it('adds no data.nodes when there are no classes', () => {
     expect(styled(PRESET, '.x {}').data).toEqual({ css: '.x {}' });
+  });
+});
+
+describe('withReorder', () => {
+  it('sets reorder on every container that leaves it unset, and on no pane', () => {
+    const own: Preset = {
+      ...PRESET,
+      mechanics: { ...PRESET.mechanics, config: { axis: 'x', reorder: true } },
+    };
+    const tree = presetTree(withReorder(own, 'handle'));
+    expect(tree.config).toEqual({ axis: 'x', reorder: true });
+    const [a, inner] = tree.children!;
+    expect(a!.config).toBeUndefined();
+    expect(inner!.config).toEqual({ reorder: 'handle' });
+    expect(own.mechanics.children![1]!.config).toBeUndefined();
   });
 });

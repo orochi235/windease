@@ -11,7 +11,8 @@ const SWAY = 'exotic--trees--sway-workspace';
 const GOLDEN = 'exotic--trees--golden-layout';
 
 const node = (page: Page, id: string) => page.locator(`[data-node="${id}"]`);
-const handle = (page: Page, id: string) => page.locator(`[data-windease-drag-handle="${id}"]`);
+/** A pane's title bar, which its container's `reorder: 'handle'` makes the drag handle. */
+const handle = (page: Page, id: string) => page.getByTestId(`xt-pane-${id}`);
 const group = (page: Page, id: string) => page.getByTestId(`xt-group-${id}`);
 /** `id`'s node sits inside `groupId`'s chrome, so the drop moved it there. */
 const landedIn = (page: Page, id: string, groupId: string) =>

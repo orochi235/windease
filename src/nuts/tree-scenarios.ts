@@ -10,7 +10,14 @@ import { runStrategyForContainer } from '../layout-node-adapter.js';
 import type { LayoutResult, LayoutStrategy, Rect, Size } from '../layout-types.js';
 import { asNodeId, type NodeId } from '../node.js';
 import type { Store } from '../store.js';
-import { type Preset, type PresetData, type PresetNode, styled, titles } from './preset.js';
+import {
+  type Preset,
+  type PresetData,
+  type PresetNode,
+  styled,
+  titles,
+  withReorder,
+} from './preset.js';
 
 type PresetNodeData = NonNullable<PresetData['nodes']>;
 
@@ -268,17 +275,20 @@ const I3_CSS = `
 .i3-focused .xt-pane__title { background: #285577; color: #fff; }
 `;
 
-export const I3_PRESET = styled(
-  fromI3Layout(I3_DEV_WORKSPACE, {
-    id: 'i3-dev-workspace',
-    source: 'i3 4.x / sway append_layout JSON (i3-save-tree), 1920x1080 workspace',
-    stress: 'seven levels of splith/splitv/tabbed/stacked with percent shares as placement.share',
-    description:
-      'i3 and its Wayland counterpart sway are tiling window managers: windows never overlap but divide the screen between them, split side by side or one above the other, and any split can instead hold its windows as tabs or as a stack of title bars. This workspace has monitoring terminals on the left, an editor column with a browser tabbed against a devtools split, and chat apps tabbed on the right. Users resize a split by dragging its border or from the keyboard, and i3-save-tree saves the arrangement as JSON to restore later.',
-    viewport: { w: 1920, h: 1080 },
-  }),
-  I3_CSS,
-  { nvim: 'i3-focused' },
+export const I3_PRESET = withReorder(
+  styled(
+    fromI3Layout(I3_DEV_WORKSPACE, {
+      id: 'i3-dev-workspace',
+      source: 'i3 4.x / sway append_layout JSON (i3-save-tree), 1920x1080 workspace',
+      stress: 'seven levels of splith/splitv/tabbed/stacked with percent shares as placement.share',
+      description:
+        'i3 and its Wayland counterpart sway are tiling window managers: windows never overlap but divide the screen between them, split side by side or one above the other, and any split can instead hold its windows as tabs or as a stack of title bars. This workspace has monitoring terminals on the left, an editor column with a browser tabbed against a devtools split, and chat apps tabbed on the right. Users resize a split by dragging its border or from the keyboard, and i3-save-tree saves the arrangement as JSON to restore later.',
+      viewport: { w: 1920, h: 1080 },
+    }),
+    I3_CSS,
+    { nvim: 'i3-focused' },
+  ),
+  'handle',
 );
 
 // ------------------------------------------------------------ Golden Layout
@@ -470,16 +480,19 @@ const GOLDEN_CSS = `
 .xt-pane__title { border-bottom: 1px solid #333; font: 12px Arial, sans-serif; }
 `;
 
-export const GOLDEN_PRESET = styled(
-  fromGoldenLayout(GOLDEN_IDE_CONFIG, {
-    id: 'golden-layout-ide',
-    source: 'Golden Layout 2.x LayoutConfig (row/column/stack, size percentages), 1600x900',
-    stress: 'percent sizes as shares at every level, bare components wrapped in one-tab stacks',
-    description:
-      'Golden Layout is a JavaScript library that gives web apps IDE-style docking: panels arranged in rows and columns and grouped into tabbed stacks. This app has file and outline tabs above a search panel on the left, editor tabs above a terminal and a problems/output stack in the middle, and chat and preview tabs on the right. Users drag a tab into another stack, or to the edge of one to split it, and drag the dividers to resize; the app saves the arrangement to restore later.',
-    viewport: { w: 1600, h: 900 },
-  }),
-  GOLDEN_CSS,
+export const GOLDEN_PRESET = withReorder(
+  styled(
+    fromGoldenLayout(GOLDEN_IDE_CONFIG, {
+      id: 'golden-layout-ide',
+      source: 'Golden Layout 2.x LayoutConfig (row/column/stack, size percentages), 1600x900',
+      stress: 'percent sizes as shares at every level, bare components wrapped in one-tab stacks',
+      description:
+        'Golden Layout is a JavaScript library that gives web apps IDE-style docking: panels arranged in rows and columns and grouped into tabbed stacks. This app has file and outline tabs above a search panel on the left, editor tabs above a terminal and a problems/output stack in the middle, and chat and preview tabs on the right. Users drag a tab into another stack, or to the edge of one to split it, and drag the dividers to resize; the app saves the arrangement to restore later.',
+      viewport: { w: 1600, h: 900 },
+    }),
+    GOLDEN_CSS,
+  ),
+  'handle',
 );
 
 /** The same IDE saved by Golden Layout 1.x, which spelled shares `width`/`height`. */
@@ -500,16 +513,19 @@ export const GOLDEN_V1_CONFIG: GoldenConfig = {
   },
 };
 
-export const GOLDEN_V1_PRESET = styled(
-  fromGoldenLayout(GOLDEN_V1_CONFIG, {
-    id: 'golden-layout-v1',
-    source: 'Golden Layout 1.5 config (numeric width/height percentages), 1280x720',
-    stress: 'legacy percentage keys and a column nested in a row',
-    description:
-      "A simpler app built on Golden Layout 1.x: a file tree on the left, and an editor above a console on the right. Golden Layout 1.x saved each panel's share of its row or column as a width or height percentage, and apps built on it still have saved layouts in that older format.",
-    viewport: { w: 1280, h: 720 },
-  }),
-  GOLDEN_CSS,
+export const GOLDEN_V1_PRESET = withReorder(
+  styled(
+    fromGoldenLayout(GOLDEN_V1_CONFIG, {
+      id: 'golden-layout-v1',
+      source: 'Golden Layout 1.5 config (numeric width/height percentages), 1280x720',
+      stress: 'legacy percentage keys and a column nested in a row',
+      description:
+        "A simpler app built on Golden Layout 1.x: a file tree on the left, and an editor above a console on the right. Golden Layout 1.x saved each panel's share of its row or column as a width or height percentage, and apps built on it still have saved layouts in that older format.",
+      viewport: { w: 1280, h: 720 },
+    }),
+    GOLDEN_CSS,
+  ),
+  'handle',
 );
 
 // ----------------------------------------------------------------- Dockview
@@ -666,15 +682,19 @@ const DOCKVIEW_CSS = `
 .xt-pane__title { border-bottom: 1px solid #2d2d2d; font-weight: normal; }
 `;
 
-export const DOCKVIEW_PRESET = styled(
-  fromDockview(DOCKVIEW_LAYOUT, {
-    id: 'dockview-vscode',
-    source: 'Dockview 4.x api.toJSON() of a VS Code-shaped workbench, 1600x1000',
-    stress: 'alternating branch orientation with pixel sizes rescaled as shares of the parent axis',
-    description:
-      "Dockview is a JavaScript docking library for web apps; this layout imitates VS Code, with an Explorer on the left, editor tabs in the middle above a terminal and a debug console, and outline and timeline tabs on the right. Each area is a group of tabs: users drag tabs between groups, or to a group's edge to split it, and drag the borders between groups to resize them. The library saves the whole layout, with each area's size in pixels, and scales those sizes in proportion when it restores them into a different-sized window.",
-  }),
-  DOCKVIEW_CSS,
+export const DOCKVIEW_PRESET = withReorder(
+  styled(
+    fromDockview(DOCKVIEW_LAYOUT, {
+      id: 'dockview-vscode',
+      source: 'Dockview 4.x api.toJSON() of a VS Code-shaped workbench, 1600x1000',
+      stress:
+        'alternating branch orientation with pixel sizes rescaled as shares of the parent axis',
+      description:
+        "Dockview is a JavaScript docking library for web apps; this layout imitates VS Code, with an Explorer on the left, editor tabs in the middle above a terminal and a debug console, and outline and timeline tabs on the right. Each area is a group of tabs: users drag tabs between groups, or to a group's edge to split it, and drag the borders between groups to resize them. The library saves the whole layout, with each area's size in pixels, and scales those sizes in proportion when it restores them into a different-sized window.",
+    }),
+    DOCKVIEW_CSS,
+  ),
+  'handle',
 );
 
 // ------------------------------------------------------------------- Emacs
@@ -785,44 +805,47 @@ const EMACS_TREE_CSS = `
 .emacs-active .xt-pane__title { background: #bfbfbf; }
 `;
 
-export const EMACS_PRESET = styled(
-  emacsFrame({
-    id: 'emacs-side-windows',
-    viewport: { w: 1440, h: 900 },
-    left: [
-      { buffer: '*dired*', slot: -1, fraction: 0.2 },
-      { buffer: '*treemacs*', slot: 0 },
-      { buffer: '*imenu-list*', slot: 1 },
-    ],
-    bottom: [
-      { buffer: '*compilation*', slot: 0, fraction: 0.25 },
-      { buffer: '*shell*', slot: 1 },
-    ],
-    main: {
-      id: 'main-area',
-      kind: 'group',
-      strategy: 'strip',
-      config: { axis: 'x', fill: true },
-      children: [
-        { id: 'init-el', kind: 'panel' },
-        {
-          id: 'main-right',
-          kind: 'group',
-          strategy: 'strip',
-          config: { axis: 'y', fill: true },
-          // Deleting one of two windows in an Emacs split leaves the other in its parent.
-          autoUnsplit: true,
-          children: [
-            { id: 'help', kind: 'panel' },
-            { id: 'messages', kind: 'panel' },
-          ],
-        },
+export const EMACS_PRESET = withReorder(
+  styled(
+    emacsFrame({
+      id: 'emacs-side-windows',
+      viewport: { w: 1440, h: 900 },
+      left: [
+        { buffer: '*dired*', slot: -1, fraction: 0.2 },
+        { buffer: '*treemacs*', slot: 0 },
+        { buffer: '*imenu-list*', slot: 1 },
       ],
-    },
-    mainTitles: { 'init-el': 'init.el', help: '*Help*', messages: '*Messages*' },
-  }),
-  EMACS_TREE_CSS,
-  { 'init-el': 'emacs-active' },
+      bottom: [
+        { buffer: '*compilation*', slot: 0, fraction: 0.25 },
+        { buffer: '*shell*', slot: 1 },
+      ],
+      main: {
+        id: 'main-area',
+        kind: 'group',
+        strategy: 'strip',
+        config: { axis: 'x', fill: true },
+        children: [
+          { id: 'init-el', kind: 'panel' },
+          {
+            id: 'main-right',
+            kind: 'group',
+            strategy: 'strip',
+            config: { axis: 'y', fill: true },
+            // Deleting one of two windows in an Emacs split leaves the other in its parent.
+            autoUnsplit: true,
+            children: [
+              { id: 'help', kind: 'panel' },
+              { id: 'messages', kind: 'panel' },
+            ],
+          },
+        ],
+      },
+      mainTitles: { 'init-el': 'init.el', help: '*Help*', messages: '*Messages*' },
+    }),
+    EMACS_TREE_CSS,
+    { 'init-el': 'emacs-active' },
+  ),
+  'handle',
 );
 
 // ------------------------------------------------------------ trading desk
@@ -859,135 +882,138 @@ const TRADING_CSS = `
  * as shares of the 4K extents they held, so a 1366x768 laptop scales them in
  * proportion; the tickets keep their 4K pixel positions.
  */
-export const TRADING_DESK_PRESET: Preset = styled(
-  {
-    id: 'trading-desk-4k',
-    source: 'Refinitiv Eikon / TT desktop workspace saved at 3840x2160',
-    stress: 'shares taken from a 4K monitor, ladder floors and absolute window positions',
-    description:
-      "Trading platforms such as Refinitiv Eikon and Trading Technologies' TT let a trader save a workspace spread across a large monitor: quote boards and news on the left, a grid of price charts, a row of MD Trader price ladders (vertical price columns a trader clicks to place orders) and floating order-ticket windows. The workspace records every window's size and position in pixels, so reopening it on a laptop brings back a layout built for a screen almost three times as wide.",
-    viewport: { w: 3840, h: 2160 },
-    mechanics: {
-      id: 'desk',
-      kind: 'zone',
-      strategy: 'strip',
-      config: { axis: 'x', gap: 4, padding: 4, fill: true },
-      children: [
-        {
-          id: 'quotes-col',
-          kind: 'group',
-          strategy: 'strip',
-          config: { axis: 'y', gap: 4, fill: true },
-          placement: { share: { w: 960 / DESK.row } },
-          children: [
-            { id: 'quote-board', kind: 'panel' },
-            {
-              id: 'time-sales',
-              kind: 'panel',
-              placement: { share: { h: 1200 / DESK.quotes } },
-              hints: { minSize: { w: 200, h: 120 } },
-            },
-            { id: 'news', kind: 'panel' },
-          ],
-        },
-        {
-          id: 'center-col',
-          kind: 'group',
-          strategy: 'strip',
-          config: { axis: 'y', gap: 4, fill: true },
-          children: [
-            {
-              id: 'charts',
-              kind: 'group',
-              strategy: 'grid',
-              config: { cols: 2, gap: 4 },
-              placement: { share: { h: 1440 / DESK.center } },
-              children: [
-                { id: 'chart-es', kind: 'panel' },
-                { id: 'chart-nq', kind: 'panel' },
-                {
-                  id: 'chart-cl',
-                  kind: 'panel',
-                  placement: { span: { cols: 2 } },
-                },
-              ],
-            },
-            {
-              id: 'ladders',
-              kind: 'group',
-              strategy: 'strip',
-              config: { axis: 'x', gap: 4, fill: true },
-              children: [
-                ...['es', 'nq', 'cl'].map((sym) => ({
-                  id: `ladder-${sym}`,
-                  kind: 'panel',
-                  placement: { share: { w: 420 / LADDER_ROW } },
-                  hints: { minSize: { w: 180, h: 200 } },
-                })),
-                {
-                  id: 'order-book',
-                  kind: 'panel',
-                  hints: { minSize: { w: 240, h: 200 } },
-                },
-              ],
-            },
-          ],
-        },
-        {
-          id: 'tickets',
-          kind: 'group',
-          strategy: 'desktop',
-          config: {},
-          placement: { share: { w: 1400 / DESK.row } },
-          children: [
-            {
-              id: 'ticket-es',
-              kind: 'panel',
-              placement: { x: 60, y: 200, size: { w: 520, h: 640 } },
-            },
-            {
-              id: 'ticket-cl',
-              kind: 'panel',
-              placement: { x: 820, y: 1300, size: { w: 520, h: 640 } },
-            },
-            {
-              id: 'positions',
-              kind: 'panel',
-              placement: { x: 40, y: 900, size: { w: 1300, h: 360 } },
-            },
-          ],
-        },
-      ],
+export const TRADING_DESK_PRESET: Preset = withReorder(
+  styled(
+    {
+      id: 'trading-desk-4k',
+      source: 'Refinitiv Eikon / TT desktop workspace saved at 3840x2160',
+      stress: 'shares taken from a 4K monitor, ladder floors and absolute window positions',
+      description:
+        "Trading platforms such as Refinitiv Eikon and Trading Technologies' TT let a trader save a workspace spread across a large monitor: quote boards and news on the left, a grid of price charts, a row of MD Trader price ladders (vertical price columns a trader clicks to place orders) and floating order-ticket windows. The workspace records every window's size and position in pixels, so reopening it on a laptop brings back a layout built for a screen almost three times as wide.",
+      viewport: { w: 3840, h: 2160 },
+      mechanics: {
+        id: 'desk',
+        kind: 'zone',
+        strategy: 'strip',
+        config: { axis: 'x', gap: 4, padding: 4, fill: true },
+        children: [
+          {
+            id: 'quotes-col',
+            kind: 'group',
+            strategy: 'strip',
+            config: { axis: 'y', gap: 4, fill: true },
+            placement: { share: { w: 960 / DESK.row } },
+            children: [
+              { id: 'quote-board', kind: 'panel' },
+              {
+                id: 'time-sales',
+                kind: 'panel',
+                placement: { share: { h: 1200 / DESK.quotes } },
+                hints: { minSize: { w: 200, h: 120 } },
+              },
+              { id: 'news', kind: 'panel' },
+            ],
+          },
+          {
+            id: 'center-col',
+            kind: 'group',
+            strategy: 'strip',
+            config: { axis: 'y', gap: 4, fill: true },
+            children: [
+              {
+                id: 'charts',
+                kind: 'group',
+                strategy: 'grid',
+                config: { cols: 2, gap: 4 },
+                placement: { share: { h: 1440 / DESK.center } },
+                children: [
+                  { id: 'chart-es', kind: 'panel' },
+                  { id: 'chart-nq', kind: 'panel' },
+                  {
+                    id: 'chart-cl',
+                    kind: 'panel',
+                    placement: { span: { cols: 2 } },
+                  },
+                ],
+              },
+              {
+                id: 'ladders',
+                kind: 'group',
+                strategy: 'strip',
+                config: { axis: 'x', gap: 4, fill: true },
+                children: [
+                  ...['es', 'nq', 'cl'].map((sym) => ({
+                    id: `ladder-${sym}`,
+                    kind: 'panel',
+                    placement: { share: { w: 420 / LADDER_ROW } },
+                    hints: { minSize: { w: 180, h: 200 } },
+                  })),
+                  {
+                    id: 'order-book',
+                    kind: 'panel',
+                    hints: { minSize: { w: 240, h: 200 } },
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'tickets',
+            kind: 'group',
+            strategy: 'desktop',
+            config: {},
+            placement: { share: { w: 1400 / DESK.row } },
+            children: [
+              {
+                id: 'ticket-es',
+                kind: 'panel',
+                placement: { x: 60, y: 200, size: { w: 520, h: 640 } },
+              },
+              {
+                id: 'ticket-cl',
+                kind: 'panel',
+                placement: { x: 820, y: 1300, size: { w: 520, h: 640 } },
+              },
+              {
+                id: 'positions',
+                kind: 'panel',
+                placement: { x: 40, y: 900, size: { w: 1300, h: 360 } },
+              },
+            ],
+          },
+        ],
+      },
+      data: {
+        nodes: titles({
+          'quote-board': 'Quote board',
+          'time-sales': 'Time & sales',
+          news: 'News',
+          'chart-es': 'ES 5m',
+          'chart-nq': 'NQ 5m',
+          'chart-cl': 'CL daily',
+          'order-book': 'Order book',
+          'ticket-es': 'Order ticket ES',
+          'ticket-cl': 'Order ticket CL',
+          positions: 'Positions',
+          ...Object.fromEntries(
+            ['es', 'nq', 'cl'].map((sym) => [`ladder-${sym}`, `MD Trader ${sym.toUpperCase()}`]),
+          ),
+        }),
+      },
     },
-    data: {
-      nodes: titles({
-        'quote-board': 'Quote board',
-        'time-sales': 'Time & sales',
-        news: 'News',
-        'chart-es': 'ES 5m',
-        'chart-nq': 'NQ 5m',
-        'chart-cl': 'CL daily',
-        'order-book': 'Order book',
-        'ticket-es': 'Order ticket ES',
-        'ticket-cl': 'Order ticket CL',
-        positions: 'Positions',
-        ...Object.fromEntries(
-          ['es', 'nq', 'cl'].map((sym) => [`ladder-${sym}`, `MD Trader ${sym.toUpperCase()}`]),
-        ),
-      }),
+    TRADING_CSS,
+    {
+      'chart-es': 'td-chart',
+      'chart-nq': 'td-chart',
+      'chart-cl': 'td-chart',
+      'ladder-es': 'td-ladder',
+      'ladder-nq': 'td-ladder',
+      'ladder-cl': 'td-ladder',
+      'ticket-es': 'td-ticket',
+      'ticket-cl': 'td-ticket',
     },
-  },
-  TRADING_CSS,
-  {
-    'chart-es': 'td-chart',
-    'chart-nq': 'td-chart',
-    'chart-cl': 'td-chart',
-    'ladder-es': 'td-ladder',
-    'ladder-nq': 'td-ladder',
-    'ladder-cl': 'td-ladder',
-    'ticket-es': 'td-ticket',
-    'ticket-cl': 'td-ticket',
-  },
+  ),
+  'handle',
 );
 
 /** The laptop the 4K desk gets restored on. */

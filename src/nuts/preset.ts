@@ -111,6 +111,23 @@ export function styled(preset: Preset, css: string, classes: Record<string, stri
 }
 
 /**
+ * `preset` with `config.reorder: mode` on every container of its mechanics
+ * that does not set `reorder` itself, for a product whose panes all move the
+ * same way.
+ */
+export function withReorder(preset: Preset, mode: true | 'handle'): Preset {
+  const walk = (node: PresetNode): PresetNode => {
+    const out: PresetNode = { ...node };
+    if (node.strategy && node.config?.reorder === undefined) {
+      out.config = { ...node.config, reorder: mode };
+    }
+    if (node.children) out.children = node.children.map(walk);
+    return out;
+  };
+  return { ...preset, mechanics: walk(preset.mechanics) };
+}
+
+/**
  * The preset's full node tree: its mechanics with `data.nodes` merged onto the
  * matching nodes and `data.children` appended to the matching containers.
  * Throws when a data key names no node, or `data.children` names a non-container.

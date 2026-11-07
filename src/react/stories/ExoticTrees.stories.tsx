@@ -8,7 +8,6 @@ import { GOLDEN_PRESET, I3_PRESET, PRESETS, TREE_STRATEGIES } from '../../nuts/t
 import {
   type ChromeMap,
   Container,
-  DragHandle,
   DragProvider,
   Provider,
   StrategyRegistryProvider,
@@ -68,14 +67,14 @@ const chrome: ChromeMap = {
   panel: ({ node }) => {
     const share = shareLabel(node.membership?.placement?.share);
     return (
-      <DragHandle nodeId={node.id} className={withMetaClass('xt-pane', node)}>
-        <header className="xt-pane__title" data-testid={`xt-pane-${node.id}`}>
+      <div className={withMetaClass('xt-pane', node)}>
+        <header className="xt-pane__title" data-testid={`xt-pane-${node.id}`} data-windease-handle>
           {String(node.meta?.title ?? node.id)}
         </header>
         <p className="xt-pane__size">
           {share === undefined ? 'no placement.share' : `placement.share ${share}`}
         </p>
-      </DragHandle>
+      </div>
     );
   },
 };

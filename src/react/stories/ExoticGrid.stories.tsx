@@ -2,7 +2,6 @@ export default { title: 'Exotic / Grid' };
 
 import type { Story } from '@ladle/react';
 import { type ReactNode, useMemo, useRef } from 'react';
-import { readReorderConfig } from '../../container-config.js';
 import {
   asNodeId,
   gridStrategy,
@@ -16,7 +15,6 @@ import { type Preset, presetNodes, presetToStore } from '../../nuts/preset.js';
 import {
   type ChromeHandler,
   Container,
-  DragHandle,
   DragProvider,
   Provider,
   StrategyRegistryProvider,
@@ -60,23 +58,17 @@ function GroupFrame({ node }: { node: Node }) {
   );
 }
 
-/** A tile drags by a `DragHandle` unless its container declares `reorder`,
- *  which makes the wrapper the library renders the drag source instead. */
+/** A tile drags only where its container declares `reorder`; under `'handle'`
+ *  its title is the handle. */
 function Tile({ node }: { node: Node }) {
-  const parent = useNode(node.membership?.parentId ?? node.id);
   const span = spanLabel(node);
-  const className = withMetaClass('xg-tile', node);
-  const body = (
-    <>
-      <span className="xg-tile__title">{titleOf(node)}</span>
-      {span ? <span className="xg-tile__span">{span}</span> : null}
-    </>
-  );
-  if (readReorderConfig(parent?.container?.config)) return <div className={className}>{body}</div>;
   return (
-    <DragHandle nodeId={node.id} className={className}>
-      {body}
-    </DragHandle>
+    <div className={withMetaClass('xg-tile', node)}>
+      <span className="xg-tile__title" data-windease-handle>
+        {titleOf(node)}
+      </span>
+      {span ? <span className="xg-tile__span">{span}</span> : null}
+    </div>
   );
 }
 
