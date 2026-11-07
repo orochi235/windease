@@ -600,6 +600,20 @@ describe('strip under the other overflow modes', () => {
     expect(r.unplaced).toHaveLength(90);
   });
 
+  it('tmux: a zoomed pane fills the window and withholds the others with their sizes kept', () => {
+    const s = at(PRESETS.find((p) => p.id === 'tmux-zoomed')!, {});
+    const r = runScenario(stripStrategy, s);
+    expect([...r.placements.keys()]).toEqual(['tz-vim']);
+    expect(r.placements.get('tz-vim')).toMatchObject({ x: 0, y: 0, w: 1366, h: 768 });
+    expect(r.unplaced).toEqual(['tz-shell', 'tz-logs']);
+    const unzoomed = runScenario(stripStrategy, {
+      ...s,
+      options: { ...s.options, zoom: undefined },
+    });
+    expect(unzoomed.placements.get('tz-shell')?.w).toBe(320);
+    expect(unzoomed.placements.get('tz-vim')?.w).toBe(640);
+  });
+
   it('tmux: forty panes in whole cells and one-cell borders end exactly at the right edge', () => {
     const r = runScenario(
       stripStrategy,

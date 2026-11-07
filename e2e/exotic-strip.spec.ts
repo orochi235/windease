@@ -142,6 +142,35 @@ test.describe('bloomberg four-panel', () => {
   });
 });
 
+test.describe('tmux, one pane zoomed', () => {
+  test('the zoomed pane fills the window, and unzooming gives every pane its width back', async ({
+    page,
+  }) => {
+    await openPreset(page, 'tmux-zoomed');
+    const zone = await settledBox(page.locator('[data-node-container="tmux-z"]'));
+    await expect
+      .poll(async () => {
+        const b = await boxOf(pane(page, 'tz-vim'));
+        return [Math.round(b.x - zone.x), Math.round(b.w - zone.w)];
+      })
+      .toEqual([0, 0]);
+    await expect(pane(page, 'tz-shell')).toHaveCount(0);
+
+    await page.getByTestId('xs-zoom').selectOption('');
+    await expect(pane(page, 'tz-shell')).toHaveCount(1);
+    // Saved at 40 and 80 cells, so the shell comes back half the editor's width.
+    await expect
+      .poll(async () => {
+        const [shell, vim] = [
+          await boxOf(pane(page, 'tz-shell')),
+          await boxOf(pane(page, 'tz-vim')),
+        ];
+        return Math.round((shell.w / vim.w) * 100) / 100;
+      })
+      .toBe(0.5);
+  });
+});
+
 test.describe('tmux even-horizontal, 40 panes', () => {
   test('forty panes and thirty-nine borders end at the right edge', async ({ page }) => {
     await openPreset(page, 'tmux-even-horizontal-40');

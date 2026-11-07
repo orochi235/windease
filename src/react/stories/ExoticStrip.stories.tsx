@@ -55,6 +55,37 @@ function Hidden({ preset }: { preset: Preset }) {
   );
 }
 
+/** The root strip's `zoom`: the pane that fills it while the rest wait, as tmux's prefix-z does. */
+function Zoom({ preset }: { preset: Preset }) {
+  const store = useStore();
+  const rootId = asNodeId(preset.mechanics.id);
+  const zoomed = useSyncExternalStore(
+    (cb) => store.subscribe(cb),
+    () => (store.getNode(rootId)?.container?.config as { zoom?: string } | undefined)?.zoom ?? '',
+  );
+  const panes = useSyncExternalStore(
+    (cb) => store.subscribe(cb),
+    () => store.getNode(rootId)?.container?.childOrder,
+  );
+  return (
+    <label className="xs-zoom">
+      Zoomed:{' '}
+      <select
+        data-testid="xs-zoom"
+        value={zoomed}
+        onChange={(e) => store.updateContainerConfig(rootId, { zoom: e.target.value || undefined })}
+      >
+        <option value="">(none)</option>
+        {(panes ?? []).map((id) => (
+          <option key={id} value={id}>
+            {titleOf(store.getNode(id)!)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function PresetView({ preset }: { preset: Preset }) {
   const store = useMemo(() => presetToStore(preset), [preset]);
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -75,6 +106,7 @@ function PresetView({ preset }: { preset: Preset }) {
         </div>
       </DragProvider>
       <Hidden preset={preset} />
+      <Zoom preset={preset} />
       <PresetCode preset={preset} />
     </Provider>
   );

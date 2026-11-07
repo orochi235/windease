@@ -48,7 +48,8 @@
   border-bottom: 1px solid #cbd5e1;
 }
 
-.xs-hidden {
+.xs-hidden,
+.xs-zoom {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

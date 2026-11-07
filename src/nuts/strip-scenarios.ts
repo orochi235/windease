@@ -172,6 +172,21 @@ const TMUX_CSS = `
 .xs-pane__title { background: none; border: 0; color: #0c0; font-weight: normal; }
 `;
 
+const TMUX_ZOOMED_CSS = `
+& { width: fit-content; font: 12px 'DejaVu Sans Mono', Menlo, monospace; }
+&::after {
+  content: '[0] 0:dev*Z';
+  display: block;
+  padding: 0 4px;
+  background: #00b000;
+  color: #000;
+}
+.xs-zone { background: #000; }
+[data-affordance] { background: #444; }
+.xs-pane { border: 0; background: #000; color: #ccc; font: inherit; }
+.xs-pane__title { background: none; border: 0; color: #0c0; font-weight: normal; }
+`;
+
 const EMACS_CSS = `
 .xs-zone, [data-affordance] { background: #7f7f7f; }
 .xs-pane {
@@ -568,6 +583,45 @@ export const PRESETS: Preset[] = [
       },
     },
     TMUX_CSS,
+  ),
+  styled(
+    {
+      id: 'tmux-zoomed',
+      source:
+        'tmux with one of three panes zoomed (resize-pane -Z, prefix-z), on a 1366px-wide terminal',
+      stress:
+        'a zoomed pane fills the window while its siblings are withheld, keeping the sizes they return to',
+      description:
+        'tmux can zoom one pane to fill its whole window with resize-pane -Z, bound to prefix z, and the same keys unzoom it. The other panes keep running and keep their sizes, hidden until the zoom ends, and the status line marks the window with a Z. Here an editor between two shells is zoomed.',
+      viewport: { w: 1366, h: 768 },
+      mechanics: {
+        id: 'tmux-z',
+        strategy: 'strip',
+        config: {
+          axis: 'x',
+          gap: TMUX_CELL,
+          step: TMUX_CELL,
+          fill: true,
+          resizeMode: 'neighbor',
+          zoom: 'tz-vim',
+        },
+        item: { hints: { minSize: w(TMUX_CELL) } },
+      },
+      data: {
+        children: {
+          'tmux-z': [
+            {
+              id: 'tz-shell',
+              meta: { title: '%0 bash' },
+              placement: { size: { w: 40 * TMUX_CELL } },
+            },
+            { id: 'tz-vim', meta: { title: '%1 vim' }, placement: { size: { w: 80 * TMUX_CELL } } },
+            { id: 'tz-logs', meta: { title: '%2 tail' } },
+          ],
+        },
+      },
+    },
+    TMUX_ZOOMED_CSS,
   ),
   styled(
     {

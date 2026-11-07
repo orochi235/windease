@@ -52,6 +52,10 @@ section below.
   other five on a second, behind page dots, and an app dropped on a full page
   pushes the last one onto the next rather than being refused.
 
+- **A `tmux-zoomed` strip preset** saves one of three panes zoomed with
+  `zoom`, the first preset to set it. The **Exotic / Strip** story's Zoomed
+  picker sets or clears any preset's zoom.
+
 ### Fixed
 
 - **A drop onto a later page of a paged container lands on that page.** The
