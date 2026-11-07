@@ -1,4 +1,7 @@
-import type { LayoutItem } from '../layout-types.js';
+import { gridStrategy } from '../layout/grid.js';
+import { pageStrategy } from '../layout/page.js';
+import { stripStrategy } from '../layout/strip.js';
+import type { LayoutItem, LayoutStrategy } from '../layout-types.js';
 import type { Scenario } from './invariants.js';
 import {
   type Preset,
@@ -659,6 +662,13 @@ const WIN11_SNAP_CSS = `
  * Real-software layouts whose containers run `grid`. Spans are in the
  * product's own cell units; viewports are CSS pixels.
  */
+/** Every `strategyId` a grid preset names: `page-grid` pages a grid, as Launchpad does. */
+export const GRID_STRATEGIES: Record<string, LayoutStrategy<unknown, string, unknown>> = {
+  grid: gridStrategy as never,
+  'page-grid': pageStrategy(gridStrategy) as never,
+  strip: stripStrategy as never,
+};
+
 export const PRESETS: Preset[] = [
   styled(
     {

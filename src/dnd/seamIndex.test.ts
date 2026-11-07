@@ -9,7 +9,9 @@ const id = asNodeId;
 /** A parent with children a…f, all visible, and `x` being dragged in from elsewhere. */
 function store(): Store {
   const s = new Store();
-  s.registerNode(createNode({ id: id('p'), kind: 'zone', container: { strategyId: 'grid', config: {} } }));
+  s.registerNode(
+    createNode({ id: id('p'), kind: 'zone', container: { strategyId: 'grid', config: {} } }),
+  );
   for (const c of ['a', 'b', 'c', 'd', 'e', 'f']) {
     s.registerNode(createNode({ id: id(c), kind: 'panel', parentId: id('p') }));
     s.showNode(id(c));

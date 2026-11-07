@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   ALL_NUTS_PRESETS,
   GRID_PRESETS,
+  GRID_STRATEGIES,
   OVERLAP_PRESETS,
+  OVERLAP_STRATEGIES,
   PACK_PRESETS,
   type Preset,
+  presetNodes,
   presetToStore,
   STRIP_PRESETS,
   TREE_PRESETS,
+  TREE_STRATEGIES,
 } from './index.js';
 
 describe('windease/nuts', () => {
@@ -41,6 +45,21 @@ describe('windease/nuts', () => {
   it('builds a store from every preset the entry point ships', () => {
     for (const preset of ALL_NUTS_PRESETS) {
       expect(() => presetToStore(preset), preset.id).not.toThrow();
+    }
+  });
+
+  it('registers every strategy a grid, overlap or tree preset names in that corpus’s registry', () => {
+    for (const [corpus, registry] of [
+      [GRID_PRESETS, GRID_STRATEGIES],
+      [OVERLAP_PRESETS, OVERLAP_STRATEGIES],
+      [TREE_PRESETS, TREE_STRATEGIES],
+    ] as const) {
+      for (const preset of corpus) {
+        for (const { node } of presetNodes(preset)) {
+          if (node.strategy)
+            expect(registry, `${preset.id}/${node.id}`).toHaveProperty([node.strategy]);
+        }
+      }
     }
   });
 

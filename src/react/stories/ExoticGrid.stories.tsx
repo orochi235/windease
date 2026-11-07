@@ -2,16 +2,8 @@ export default { title: 'Exotic / Grid' };
 
 import type { Story } from '@ladle/react';
 import { type ReactNode, useMemo, useRef } from 'react';
-import {
-  asNodeId,
-  gridStrategy,
-  type Node,
-  type NodeId,
-  nodeToLayoutItem,
-  pageStrategy,
-  stripStrategy,
-} from '../../index.js';
-import { PRESETS } from '../../nuts/grid-scenarios.js';
+import { asNodeId, gridStrategy, type Node, type NodeId, nodeToLayoutItem } from '../../index.js';
+import { GRID_STRATEGIES, PRESETS } from '../../nuts/grid-scenarios.js';
 import { type Preset, presetNodes, presetToStore } from '../../nuts/preset.js';
 import {
   type ChromeHandler,
@@ -31,12 +23,6 @@ import { PresetInfo } from './PresetInfo.js';
 import { PresetPicker, usePresetPick } from './PresetPicker.js';
 import { PresetStyle, presetClass, withMetaClass } from './PresetStyle.js';
 import { PresetCode } from './presetCode.js';
-
-const STRATEGIES = {
-  grid: gridStrategy as never,
-  'page-grid': pageStrategy(gridStrategy) as never,
-  strip: stripStrategy as never,
-};
 
 const titleOf = (node: Node) => String(node.meta?.title ?? node.id);
 
@@ -177,7 +163,7 @@ function PresetView({ preset }: { preset: Preset }) {
 
   return (
     <Provider store={store}>
-      <StrategyRegistryProvider strategies={STRATEGIES}>
+      <StrategyRegistryProvider strategies={GRID_STRATEGIES}>
         <DragProvider>
           <PresetInfo preset={preset} />
           <PresetStyle preset={preset} />

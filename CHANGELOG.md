@@ -50,7 +50,10 @@ section below.
 - **The Launchpad presets page their apps.** `lp-page` is a flowed
   `pageStrategy(grid)`, so the 40-app preset shows 35 on its first page and the
   other five on a second, behind page dots, and an app dropped on a full page
-  pushes the last one onto the next rather than being refused.
+  pushes the last one onto the next rather than being refused. A host that
+  renders the grid presets registers `page-grid`; the new `GRID_STRATEGIES`
+  holds every strategy they name. See
+  [Breaking changes](README.md#unreleased--the-launchpad-presets-page).
 
 - **A `tmux-zoomed` strip preset** saves one of three panes zoomed with
   `zoom`, the first preset to set it. The **Exotic / Strip** story's Zoomed

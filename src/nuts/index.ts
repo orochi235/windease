@@ -52,6 +52,7 @@ export {
   presetTree,
   styled,
   titles,
+  withReorder,
 } from './preset.js';
 export { type ContainerPass, LAPTOP, layoutTree, TREE_STRATEGIES } from './tree-scenarios.js';
 /** The five preset corpora, by the shape of layout each one stresses. */
@@ -66,7 +67,11 @@ export const ALL_NUTS_PRESETS: Preset[] = [
   ...TREE_PRESETS,
 ];
 
-export { PATHOLOGICAL as GRID_PATHOLOGY, TEN_THOUSAND } from './grid-scenarios.js';
+export {
+  GRID_STRATEGIES,
+  PATHOLOGICAL as GRID_PATHOLOGY,
+  TEN_THOUSAND,
+} from './grid-scenarios.js';
 export {
   DESKTOP_PATHOLOGY,
   FLOATING_PATHOLOGY,

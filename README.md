@@ -2567,6 +2567,14 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
+### Unreleased — the Launchpad presets page
+
+The three Launchpad grid presets lay out `lp-page` with a `page-grid` strategy,
+`pageStrategy(gridStrategy)`, so a host that renders the grid presets must
+register it. `GRID_STRATEGIES` from `windease/nuts` holds every strategy the
+grid presets name. The 40-app preset no longer reports five apps as `unplaced`:
+they sit on a second page.
+
 ### Unreleased — desktop's `overflow` and `resize` renamed
 
 Desktop's config keys now match strip and grid: `overflow` is `overflowMode`
@@ -2875,7 +2883,7 @@ no migration step to run.
 
 ## The torture suite (`windease/nuts`)
 
-`windease/nuts` — the Novel UI Torture Suite — is 62 layouts taken from real
+`windease/nuts` — the Novel UI Torture Suite — is 63 layouts taken from real
 software, as data: Blender's workspace, i3's tiling, Mac OS 9's desktop,
 Photoshop's panels, Excel's frozen headers, a Flickr photo wall. It ships
 beside the core rather than in it, because most apps want the primitives, not
