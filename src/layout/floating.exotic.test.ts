@@ -103,8 +103,51 @@ describe('floating presets: generic invariants', () => {
   });
 });
 
-describe('FancyZones / Snap Layouts: tiled zones as snap targets', () => {
+describe('FancyZones: a window released over a zone fills it', () => {
   const s = presetScenario(FANCYZONES);
+  const strategy = floatingOver(gridStrategy as never);
+  const first = runScenario(strategy, s).placements;
+  const center = first.get('fz-zone-center')!;
+  const edge = first.get('fz-edge')!;
+  /** Drags fz-edge by its bar so the pointer ends at `to`. */
+  const dragTo = (to: { x: number; y: number }): LayoutEvent => {
+    const from = { x: edge.x + 20, y: edge.y + 10 };
+    return {
+      affordanceId: 'floating:drag:fz-edge',
+      kind: 'drag',
+      payload: { dx: to.x - from.x, dy: to.y - from.y, point: to },
+    };
+  };
+  const layoutWith = (state: State) =>
+    strategy.layout({ items: s.items, container: s.container, state, options: s.options });
+
+  it("fills the zone under the pointer, at the zone's own rect", () => {
+    const over = { x: center.x + center.w / 2, y: center.y + center.h / 2 };
+    const state = dragged(strategy, s.items, s.container, s.options, [dragTo(over)]);
+    expect(state.at['fz-edge']?.fill).toBe('fz-zone-center');
+    expect(layoutWith(state).placements.get('fz-edge')).toMatchObject({
+      x: center.x,
+      y: center.y,
+      w: center.w,
+      h: center.h,
+    });
+  });
+
+  it('takes its own size back when dragged off the zones', () => {
+    const over = { x: center.x + center.w / 2, y: center.y + center.h / 2 };
+    const off = { x: center.x + center.w / 2, y: 2 };
+    const state = dragged(strategy, s.items, s.container, s.options, [dragTo(over), dragTo(off)]);
+    // y 2 is in the desktop's 8px padding, over no zone.
+    expect(state.at['fz-edge']?.fill).toBeUndefined();
+    const r = layoutWith(state).placements.get('fz-edge')!;
+    expect({ w: r.w, h: r.h }).toEqual({ w: edge.w, h: edge.h });
+  });
+});
+
+/** The same zones as corner targets, under `snapToPanes` rather than the preset's `snap: 'fill'`. */
+describe('FancyZones zones as corner targets (snapToPanes)', () => {
+  const base = presetScenario(FANCYZONES);
+  const s = { ...base, options: { ...base.options, snap: 'corner', snapToPanes: true } };
   const strategy = floatingOver(gridStrategy as never);
   const zones = runScenario(strategy, s).placements;
   const center = zones.get('fz-zone-center')!;

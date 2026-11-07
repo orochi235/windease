@@ -677,7 +677,8 @@ const WIN11_ZONES_CSS = `
 export const FANCYZONES: Preset = {
   id: 'fancyzones-priority-grid',
   source: 'Windows 11 Snap Layouts / PowerToys FancyZones "priority grid"',
-  stress: 'snap targets are the tiled zones, not only the container; windows float over them',
+  stress:
+    'a window released over a tiled zone fills it, and takes its own size back when dragged off',
   description:
     'PowerToys FancyZones, Microsoft\'s free window-arranging utility for Windows, divides the screen into zones; its "priority grid" template makes three columns. Holding Shift while dragging a window shows the zones, and releasing over one snaps the window to fill it. Windows 11\'s Snap Layouts offer similar arrangements built in.',
   viewport: { w: 960, h: 560 },
@@ -687,7 +688,7 @@ export const FANCYZONES: Preset = {
     strategy: 'floating-grid',
     config: {
       inner: { cols: 3, gap: 8, padding: 8 },
-      snapToPanes: true,
+      snap: 'fill',
       snapThreshold: 24,
       handleSize: 24,
     },

@@ -367,19 +367,13 @@ test.describe('Photoshop panel groups', () => {
 });
 
 test.describe('FancyZones', () => {
-  test('a window dropped near a zone corner snaps inside that zone', async ({ page }) => {
-    const scale = await pick(page, 'fancyzones-priority-grid', 'fz-desktop');
+  test('a window released over a zone fills it', async ({ page }) => {
+    await pick(page, 'fancyzones-priority-grid', 'fz-desktop');
     const zone = await settledBox(node(page, 'fz-zone-center'));
-    const win = await settledBox(node(page, 'fz-edge'));
     const from = centerOf(await settledBox(handle(page, 'fz-edge')));
-    const inset = 12 * scale;
 
-    // Aim the window's origin 10px past the zone's inset top-left; the 24px threshold captures it.
-    await dragMouse(page, from, {
-      x: from.x + (zone.x + inset - win.x) + 10,
-      y: from.y + (zone.y + inset - win.y) + 10,
-    });
+    await dragMouse(page, from, centerOf(zone));
 
-    await expectBoxSoon(node(page, 'fz-edge'), { x: zone.x + inset, y: zone.y + inset });
+    await expectBoxSoon(node(page, 'fz-edge'), { x: zone.x, y: zone.y, w: zone.w, h: zone.h });
   });
 });

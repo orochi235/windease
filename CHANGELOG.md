@@ -43,6 +43,10 @@ section below.
   fixed `headerSize`, so a window moved into one adds a 20px title bar, as i3
   does.
 
+- **The FancyZones preset sets `snap: 'fill'`** in place of `snapToPanes`, so a
+  window released over a zone fills it, as FancyZones does, and takes its own
+  size back when dragged off.
+
 ## 2.3.0
 
 ### Added
