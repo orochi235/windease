@@ -8,7 +8,6 @@ import { type Preset, presetToStore } from '../../nuts/preset.js';
 import {
   type ChromeMap,
   Container,
-  DragHandle,
   DragProvider,
   Provider,
   StrategyRegistryProvider,
@@ -116,15 +115,16 @@ function TabStrip({ node }: { node: Node }) {
   );
 }
 
-/** A torn-out panel: the bar over it moves it, and its tab drags back into a group. */
+/** A torn-out panel: the bar over it moves it, and its tab, the workspace's
+ *  `reorder: 'handle'`, drags it back into a group. */
 function FloatingTab({ node }: { node: Node }) {
   return (
     <div className={withMetaClass('xd-palette', node)} data-testid={`palette-${node.id}`}>
       <header className="xd-palette__bar" />
       <div className="xd-palette__tabs">
-        <DragHandle nodeId={node.id} className="xd-palette__tab">
-          <span data-testid={`chip-${node.id}`}>{titleOf(node)}</span>
-        </DragHandle>
+        <span className="xd-palette__tab" data-testid={`chip-${node.id}`} data-windease-handle>
+          {titleOf(node)}
+        </span>
       </div>
       <div className="xd-palette__body" />
     </div>

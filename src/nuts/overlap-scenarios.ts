@@ -599,6 +599,8 @@ export const PHOTOSHOP_PANELS: Preset = {
       handleSize: 22,
       defaultAnchor: 'top-left',
       accepts: 'tear',
+      // A floating panel drags back into a group by its tab.
+      reorder: 'handle',
     },
     children: [
       { id: 'ps-canvas', kind: 'canvas' },

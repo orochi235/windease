@@ -34,8 +34,9 @@ section below.
 
 - **The Exotic grid and tree presets declare how their panes drag.** The
   home-screen, Launchpad, and Windows 8 grids set `reorder: true`; Grafana,
-  Windows 11 Snap, and every tree preset set `reorder: 'handle'`, so a pane
-  moves by its title bar. The Excel, periodic-table, and keyboard presets set
+  Windows 11 Snap, every tree preset, and Photoshop's workspace set
+  `reorder: 'handle'`, so a pane moves by its title bar, or a floating panel
+  by its tab. The Excel, periodic-table, and keyboard presets set
   neither, so their cells no longer drag in the stories, matching the products.
 
 ## 2.3.0
