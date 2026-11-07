@@ -321,7 +321,7 @@ Decided in conversation and recorded nowhere else:
   of `test-utils`, is undecided.
 - Sample data (titles, content sizes, generated items, CSS) stays separate from
   mechanics, in code and in the story tabs.
-- Desktop `overflow` defaults to `'scroll'`, today's behavior; presets opt into
+- Desktop `overflowMode` defaults to `'scroll'`, today's behavior; presets opt into
   `'clip'`.
 - Excel's preset scrolls both ways behind `sticky` headings (2026-10-26); the
   Exotic grid story gives any preset whose root sets `overflowMode: 'scroll'`
