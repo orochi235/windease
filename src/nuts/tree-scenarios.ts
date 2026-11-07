@@ -163,7 +163,6 @@ export function fromI3Layout(
     out.id = mint(`${layout}-${path}`);
     out.kind = parent ? 'group' : 'zone';
     nodes[out.id] = { meta: { title: `${layout} ${path}`, i3Layout: layout } };
-    const n = node.nodes.length;
     if (layout === 'splith' || layout === 'splitv') {
       out.strategy = 'strip';
       out.config = { axis: layout === 'splith' ? 'x' : 'y', fill: true };
@@ -172,10 +171,12 @@ export function fromI3Layout(
       // shows after the focused one closes is its focus history, which no
       // `fallback` rule names.
       out.strategy = 'stack';
-      out.config = {
-        headerSize: layout === 'tabbed' ? I3_TITLE_BAR : I3_TITLE_BAR * n,
-        show: 'dropped',
-      };
+      // A stacked container draws one title bar per window, so its band grows
+      // with every window moved in.
+      out.config =
+        layout === 'tabbed'
+          ? { headerSize: I3_TITLE_BAR, show: 'dropped' }
+          : { tabs: 'stacked', tabSize: I3_TITLE_BAR, show: 'dropped' };
     }
     out.children = node.nodes.map((child, i) => walk(child, node, `${path}.${i}`));
     return out;

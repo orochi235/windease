@@ -140,7 +140,8 @@ describe('i3 / sway trees', () => {
     expect(find(presetTree(I3_PRESET), 'splitv-0-0')?.placement).toEqual({ share: { w: 0.25 } });
     expect(find(presetTree(I3_PRESET), 'nvim')?.placement).toEqual({ share: { w: 0.4 } });
     expect(find(presetTree(I3_PRESET), 'stacked-0-0-1')?.config).toEqual({
-      headerSize: 60,
+      tabs: 'stacked',
+      tabSize: 20,
       show: 'dropped',
       reorder: 'handle',
     });
@@ -203,6 +204,20 @@ describe('i3 / sway trees', () => {
       expect(r.x).toBeGreaterThanOrEqual(moved.x - EPS);
       expect(r.x + r.w).toBeLessThanOrEqual(moved.x + moved.w + EPS);
     }
+  });
+
+  it('gives a stacked container one title bar per window, so a window moved in grows the band', () => {
+    const bodyTop = (store: Store) => {
+      const { rects, passes } = laidOut(I3_PRESET, store);
+      const pass = passes.find((p) => p.id === 'stacked-0-0-1')!;
+      const [shown] = [...pass.result.placements.keys()];
+      return rectOf(rects, String(shown)).y - rectOf(rects, 'stacked-0-0-1').y;
+    };
+    const store = presetToStore(I3_PRESET);
+    const n = store.getNode(id('stacked-0-0-1'))!.container!.childOrder.length;
+    expect(bodyTop(store)).toBeCloseTo(20 * n, 6);
+    store.moveNode(id('htop'), id('stacked-0-0-1'), 0);
+    expect(bodyTop(store)).toBeCloseTo(20 * (n + 1), 6);
   });
 
   it('fills a tabbed body whatever size a pane arrives carrying', () => {

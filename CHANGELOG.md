@@ -39,6 +39,10 @@ section below.
   by its tab. The Excel, periodic-table, and keyboard presets set
   neither, so their cells no longer drag in the stories, matching the products.
 
+- **The i3 preset's stacked containers set `tabs: 'stacked'`** rather than a
+  fixed `headerSize`, so a window moved into one adds a 20px title bar, as i3
+  does.
+
 ## 2.3.0
 
 ### Added

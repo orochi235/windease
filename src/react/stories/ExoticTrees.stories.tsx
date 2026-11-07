@@ -45,11 +45,11 @@ function TabStrip({ id, stacked }: { id: NodeId; stacked: boolean }) {
 const chrome: ChromeMap = {
   group: ({ node }) => {
     const stack = node.container?.strategyId === 'stack';
-    const header = (node.container?.config as { headerSize?: number } | undefined)?.headerSize;
+    const tabs = (node.container?.config as { tabs?: string } | undefined)?.tabs;
     if (stack) {
       return (
         <div className={withMetaClass('xt-stack', node)} data-testid={`xt-group-${node.id}`}>
-          <TabStrip id={node.id} stacked={(header ?? 0) > 30} />
+          <TabStrip id={node.id} stacked={tabs === 'stacked'} />
           <Container parentId={node.id} chrome={chrome} className="xt-fill" />
         </div>
       );
