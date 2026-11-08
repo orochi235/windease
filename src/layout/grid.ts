@@ -282,12 +282,6 @@ function requestedArea(
 }
 
 /**
- * The column count a layout starts from, the most it may grow to, and the row
- * cap. `colLimit` is Infinity when nothing caps the columns — a fixed `rows`
- * or a lone `maxRows` — so a grid whose rows are full grows sideways instead
- * of dropping items.
- */
-/**
  * The column count that makes the biggest square cell for `container`, which
  * is what `orientation: 'fit'` asks for.
  *
@@ -312,6 +306,12 @@ function fittedCols(count: number, container: Size, gap: number, padding: number
   return best;
 }
 
+/**
+ * The column count a layout starts from, the most it may grow to, and the row
+ * cap. `colLimit` is Infinity when nothing caps the columns — a fixed `rows`
+ * or a lone `maxRows` — so a grid whose rows are full grows sideways instead
+ * of dropping items.
+ */
 function resolveDims(
   items: LayoutItem[],
   dims: GridDims,
@@ -382,10 +382,6 @@ function byCapacityPriority(items: LayoutItem[]): LayoutItem[] {
   return [...pinned, ...unpinned];
 }
 
-/**
- * Row-major first-fit over a `cols`-wide lattice. Every cell before `cursor`
- * is taken, so no block can start there and each search begins at it.
- */
 /** Taken cells by index, as a byte map grown on demand. A `Set` here made
  *  span-reach probes several times slower. */
 class CellSet {
@@ -414,6 +410,10 @@ class CellSet {
   }
 }
 
+/**
+ * Row-major first-fit over a `cols`-wide lattice. Every cell before `cursor`
+ * is taken, so no block can start there and each search begins at it.
+ */
 class CellPacker {
   readonly cols: number;
   readonly rowCap: number | undefined;
@@ -1364,7 +1364,6 @@ function pixelTotal(tracks: Track[]): number {
   return px;
 }
 
-/** The seams of a tracked axis, one after each track that has one. */
 /** Which axes a cell's `placement.sticky` holds it on: `'y'` at the top edge
  *  (a column heading), `'x'` at the left (a row number), `true` both. */
 function stickyAxes(item: LayoutItem): { x: boolean; y: boolean } | undefined {
@@ -1450,6 +1449,7 @@ function trackAt(axis: Axis, p: number): number | undefined {
   return undefined;
 }
 
+/** The seams of a tracked axis, one after each track that has one. */
 function trackSeams(geom: GridGeometry, axis: 'cols' | 'rows', cfg: GridConfig): Affordance[] {
   const tracks = (axis === 'cols' ? geom.colTracks : geom.rowTracks) ?? [];
   const across = axis === 'cols' ? geom.y : geom.x;

@@ -61,8 +61,8 @@ import './exotic-board.css';
  * `pointer` input, so it fans and parts under the cursor.
  */
 
-/** The camera the whole table shares, so the four bands agree on one horizon. */
 /**
+ * The camera the whole table shares, so the four bands agree on one horizon.
  * A gentle camera on purpose. `tilt` is perspective strength, and `horizon`
  * is how far the far edge converges: push the horizon up and the projection
  * compresses height much harder than it scales width, which leaves each row
@@ -80,7 +80,6 @@ const STRATEGIES = {
    * card smaller than a near one without being a different shape.
    */
   tableau: warp(stripStrategy, [tilt(CAMERA)]) as never,
-  /** The near player's hand: bent onto a curve, then parted under the cursor. */
   /**
    * The near player's hand: bent onto a curve, then magnified under the cursor.
    * Measured, not guessed — `reach` is what decides how many cards the cursor
@@ -149,9 +148,9 @@ const BAND_W = 700;
  */
 const HAND_PEEK = 26;
 
-/** How many cards each band is dealt, far to near. The rest stay in the deck,
- *  which is what the library pile counts. */
-/** What each band will take, far to near. A hand takes anything. */
+/** How many cards each band is dealt, far to near, and what it will take. The
+ *  rest stay in the deck, which is what the library pile counts. A hand takes
+ *  anything. */
 const DEAL: Array<[NodeId, number, CardKind[] | 'any']> = [
   [OPP_FIELD, 3, ['unit', 'artifact']],
   [OPP_LAND, 4, ['land']],
@@ -499,8 +498,6 @@ function CardArt({ meta, land }: { meta: Record<string, unknown>; land: boolean 
   );
 }
 
-/** The printed face, with no drag handle and no store behind it, so the table
- *  and the lightbox draw exactly the same card. */
 /** The size a short name is set at, and the count that fits one line at it. */
 const NAME_CQH = 7.6;
 /* Measured: 19 average characters fill the line, so 17 is the margin a name
@@ -565,6 +562,8 @@ function SetSymbol({ id }: { id: string }) {
   );
 }
 
+/** The printed face, with no drag handle and no store behind it, so the table
+ *  and the lightbox draw exactly the same card. */
 function CardPrint({ meta, mana }: { meta: Record<string, unknown>; mana: Mana }) {
   const land = meta.land === true;
   const cost = Number(meta.cost ?? 0);

@@ -21,12 +21,11 @@ section below.
   every container of a preset that leaves it unset.
 
 - **A stack inside a splitting container can be split by a drop on its edge.**
-  A drop target that resolves no split itself gives up the point while the
-  cursor is over a child it drew, to the nearest enclosing `splitOnDrop`
-  container asking for a split there; over its own tab band a stack keeps the
-  drop. `DropTarget` gains `splits` and `cedes`.
+  While the cursor is over the pane a stack shows, the nearest enclosing
+  `splitOnDrop` container asking for a split there takes the drop; over its
+  tab band the stack keeps it. Other nested containers keep their own seams. `DropTarget` gains `splits` and `cedes`.
 
-- **The strip a split drop creates takes `reorder`, `touchScroll` and `drop`**
+- **The strip a split drop creates takes `reorder`, `touchScroll`, and `drop`**
   from the container it splits, under `splitConfig`, so a pane dropped into a
   split can be dragged again.
 

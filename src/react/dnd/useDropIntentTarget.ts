@@ -105,9 +105,10 @@ export function useDropIntentTarget(
       ...(acceptPolicy ? { acceptPolicy } : {}),
       ...(edgeScroll ? { edgeScroll } : {}),
       ...(splitOnDrop ? { splits: true } : {}),
-      // Over a drawn child, rather than this container's own chrome (a stack's
-      // tab band), an enclosing split may claim the drop.
+      // Over its shown pane, rather than its tab band, a stack lets an
+      // enclosing split claim the drop. Other containers keep their seams.
       cedes: (point) =>
+        strategyId === 'stack' &&
         !splitOnDrop &&
         childRectsForContainer(el).some(
           ({ rect: r }) =>

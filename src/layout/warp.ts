@@ -515,23 +515,6 @@ function invertEvent(passes: Pass[], event: LayoutEvent, args: PassArgs): Layout
 }
 
 /**
- * `strategy` with `passes` run over its result, in order, as one strategy.
- *
- * ```ts
- * const hand = warp(stripStrategy, [bow(0.4), swell({ reach: 160, lift: 28 })]);
- * ```
- *
- * The composed `configSpec` is the base's keys plus each pass's, so a typo in
- * a camera key is caught like any other. Gestures run the passes' inverses in
- * reverse, so `reduce` and `dispatchAffordance` reach the base strategy in the
- * space it laid out in.
- *
- * Throws a `WindeaseError` at composition time — not at gesture time — for a
- * pass that moves rects without supplying an inverse.
- *
- * @group Layout
- */
-/**
  * Fold the extent the passes deformed into over whatever the base strategy
  * reported. A pass that moves rects can put a child past an edge the base had
  * no reason to mention — `swell` parts a run by `(gain - 1) · reach / 2` on
@@ -574,6 +557,23 @@ function withDeformedOverflow(result: LayoutResult<string>, container: Size): La
   return { ...result, overflow };
 }
 
+/**
+ * `strategy` with `passes` run over its result, in order, as one strategy.
+ *
+ * ```ts
+ * const hand = warp(stripStrategy, [bow(0.4), swell({ reach: 160, lift: 28 })]);
+ * ```
+ *
+ * The composed `configSpec` is the base's keys plus each pass's, so a typo in
+ * a camera key is caught like any other. Gestures run the passes' inverses in
+ * reverse, so `reduce` and `dispatchAffordance` reach the base strategy in the
+ * space it laid out in.
+ *
+ * Throws a `WindeaseError` at composition time — not at gesture time — for a
+ * pass that moves rects without supplying an inverse.
+ *
+ * @group Layout
+ */
 export function warp<TState, TMeta = unknown>(
   strategy: LayoutStrategy<TState, string, TMeta>,
   passes: Pass[],

@@ -147,7 +147,7 @@ export interface DragEngineOptions {
    *  any id the store already holds. */
   makeSplitId?: () => NodeId;
   /** Container config for the strip a split drop creates, merged over its
-   *  `axis` and `fill` and over the `reorder`, `touchScroll` and `drop` it
+   *  `axis` and `fill` and over the `reorder`, `touchScroll`, and `drop` it
    *  takes from the container it splits. */
   splitConfig?: Record<string, unknown>;
 }

@@ -658,10 +658,6 @@ const WIN11_SNAP_CSS = `
 }
 `;
 
-/**
- * Real-software layouts whose containers run `grid`. Spans are in the
- * product's own cell units; viewports are CSS pixels.
- */
 /** Every `strategyId` a grid preset names: `page-grid` pages a grid, as Launchpad does. */
 export const GRID_STRATEGIES: Record<string, LayoutStrategy<unknown, string, unknown>> = {
   grid: gridStrategy as never,
@@ -669,6 +665,10 @@ export const GRID_STRATEGIES: Record<string, LayoutStrategy<unknown, string, unk
   strip: stripStrategy as never,
 };
 
+/**
+ * Real-software layouts whose containers run `grid`. Spans are in the
+ * product's own cell units; viewports are CSS pixels.
+ */
 export const PRESETS: Preset[] = [
   styled(
     {

@@ -6,6 +6,9 @@ interface Entry {
   fn: () => void;
 }
 
+/** Runaway guard for `advance()`. See class doc. */
+const MAX_ADVANCE_FIRES = 10_000;
+
 /**
  * Deterministic `Clock` for tests. `advance(ms)` fires every timer due in
  * the window, in due order (ties broken by creation order), setting `now()`
@@ -16,9 +19,6 @@ interface Entry {
  * Timers scheduled from within a callback are picked up by the same
  * `advance` call if they come due inside the window.
  */
-/** Runaway guard for `advance()`. See class doc. */
-const MAX_ADVANCE_FIRES = 10_000;
-
 export class FakeClock implements Clock {
   private t = 0;
   private seq = 0;

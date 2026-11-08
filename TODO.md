@@ -343,6 +343,14 @@ tabs are a stack's band, drawn by the story, so the key does not reach them.
   split drop leaves the dropped pane bare in the new strip, where Golden Layout
   wraps it in a stack of its own; nothing in config says what to wrap it in.
 
+- **A custom `dropIntent` cannot place a drop on a later page** (2026-11-07).
+  `DropIntentContext.rects` holds only the children a strategy drew, while an
+  `insert` index counts every visible child. The built-in resolver converts
+  with `visibleSeamOf` (`src/dnd/seamIndex.ts`); a consumer's resolver has no
+  public way to, so on a paged container it inserts on page 1. Either hand the
+  context a converter or apply it to custom intents too, which means telling
+  resolvers that count visible children themselves to stop.
+
 Open, grouped by what they touch:
 
 - **strip** — under `justify: 'between'` only the first seam follows the
