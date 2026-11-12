@@ -1,7 +1,7 @@
 export default { title: 'Reorder' };
 
 import type { Story } from '@ladle/react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   asNodeId,
   createNode,
@@ -220,12 +220,14 @@ const TOUCH_MODES: Array<{ value: string; label: string; mode: TouchScrollMode |
 /**
  * A phone playlist whose every row reorders, in a list taller than its
  * screen. Under `touchScroll: 'hold'` a swipe scrolls the list, and a finger
- * held still on a row for a moment picks it up. Open it with touch emulation
- * on; a mouse drags on travel in every mode.
+ * held still on a row for a moment picks it up; carried to the list's top or
+ * bottom edge, the row scrolls the list through `scrollRef`. Open it with touch
+ * emulation on; a mouse drags on travel in every mode.
  */
 export const TouchHold: Story = () => {
   const store = useMemo(() => makePhoneStore(), []);
   const [mode, setMode] = useState('hold');
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const pick = (value: string) => {
     setMode(value);
     const next = TOUCH_MODES.find((m) => m.value === value)?.mode;
@@ -245,9 +247,9 @@ export const TouchHold: Story = () => {
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
         <DragProvider>
-          <div className="ro-phone" data-testid="phone">
+          <div className="ro-phone" data-testid="phone" ref={scrollRef}>
             <div className="ro-phone__content">
-              <Container parentId={PHONE} chrome={chrome} />
+              <Container parentId={PHONE} chrome={chrome} scrollRef={scrollRef} />
             </div>
           </div>
           <label className="ro-hint">

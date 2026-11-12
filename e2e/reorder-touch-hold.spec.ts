@@ -21,8 +21,9 @@ async function touch(
   });
 }
 
-/** Press at `from`, wait `holdMs`, slide to `to` in steps, lift. */
-async function finger(page: Page, from: Pt, to: Pt, holdMs: number): Promise<void> {
+/** Press at `from`, wait `holdMs`, and slide to `to` in steps, leaving the
+ *  finger down. Returns the lift. */
+async function press(page: Page, from: Pt, to: Pt, holdMs: number): Promise<() => Promise<void>> {
   const cdp = await page.context().newCDPSession(page);
   await touch(cdp, 'touchStart', from);
   await page.waitForTimeout(holdMs);
@@ -34,18 +35,29 @@ async function finger(page: Page, from: Pt, to: Pt, holdMs: number): Promise<voi
     });
     await page.waitForTimeout(16);
   }
-  await touch(cdp, 'touchEnd');
-  await cdp.detach();
+  return async () => {
+    await touch(cdp, 'touchEnd');
+    await cdp.detach();
+  };
 }
 
-function order(page: Page) {
+/** Press at `from`, wait `holdMs`, slide to `to` in steps, lift. */
+async function finger(page: Page, from: Pt, to: Pt, holdMs: number): Promise<void> {
+  await (await press(page, from, to, holdMs))();
+}
+
+/** Every row, top to bottom. */
+function rows(page: Page) {
   return page.evaluate(() =>
     [...document.querySelectorAll('[data-node-container="phone-list"] > [data-node]')]
       .map((el) => ({ id: el.getAttribute('data-node'), y: el.getBoundingClientRect().y }))
       .sort((a, b) => a.y - b.y)
-      .map((k) => k.id)
-      .slice(0, 4),
+      .map((k) => k.id),
   );
+}
+
+async function order(page: Page) {
+  return (await rows(page)).slice(0, 4);
 }
 
 const scrollTop = (page: Page) => page.getByTestId('phone').evaluate((el) => el.scrollTop);
@@ -68,6 +80,21 @@ test.describe("touchScroll: 'hold' — a phone list", () => {
     await finger(page, alpha, { x: alpha.x, y: charlie.y + charlie.h * 0.75 }, 700);
     await expect.poll(() => order(page)).toEqual(['bravo', 'charlie', 'alpha', 'delta']);
     expect(await scrollTop(page)).toBe(0);
+  });
+
+  test('a held row carried to the bottom edge scrolls the list and lands lower', async ({
+    page,
+  }) => {
+    await openStory(page, STORY);
+    await expect.poll(() => order(page)).toEqual(['alpha', 'bravo', 'charlie', 'delta']);
+    const phone = await settledBox(page.getByTestId('phone'));
+    const alpha = centerOf(await settledBox(page.getByTestId('song-alpha')));
+    // Inside the default 48px edge margin; the finger then stays put, so the
+    // scroll has to keep going without further touch input.
+    const lift = await press(page, alpha, { x: alpha.x, y: phone.y + phone.h - 20 }, 700);
+    await expect.poll(() => scrollTop(page)).toBeGreaterThan(100);
+    await lift();
+    await expect.poll(async () => (await rows(page)).indexOf('alpha')).toBeGreaterThan(5);
   });
 
   test('under touchScroll: true the same hold scrolls instead', async ({ page }) => {

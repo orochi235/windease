@@ -1336,6 +1336,9 @@ config: { axis: 'y', reorder: true, touchScroll: true }
 Under `true`, a touch scrolls and only a mouse or pen drags. `'hold'` keeps
 touch drags: a swipe scrolls, and a finger held still on a source for 450ms
 (drifting no more than 8px) picks it up, the way a phone's lists reorder.
+Carried to the edge of a container with a `scrollRef`, the held row scrolls the
+list as a mouse drag does (see
+[Telling windease where the scroll got to](#telling-windease-where-the-scroll-got-to)).
 
 ```tsx
 config: { axis: 'y', reorder: true, touchScroll: 'hold' }
