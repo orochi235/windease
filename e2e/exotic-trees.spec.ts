@@ -116,6 +116,8 @@ test.describe('exotic trees', () => {
         return t.y >= c.y + c.h - 2 && Math.abs(t.x - c.x) < 4;
       })
       .toBe(true);
+    // Golden Layout puts the dropped tab in a one-tab stack of its own, whose strip draws it.
+    await expect(page.getByTestId('xt-tab-terminal')).toHaveCount(1);
     // The split group drags like the row it split: its pane still moves by its title bar.
     const files = await settledBox(group(page, 'stack-files'));
     await drag(page, 'terminal', { x: files.x + files.w / 2, y: files.y + files.h / 2 });

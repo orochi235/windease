@@ -339,10 +339,6 @@ Everything the design doc names is built, and a preset sets every key but
 declares its drags with `reorder`, and so do Exotic / Board's bands; Chrome's
 tabs are a stack's band, drawn by the story, so the key does not reach them.
 
-- **`drop.split` reaches a stack's body, not its tab band** (2026-11-06). A
-  split drop leaves the dropped pane bare in the new strip, where Golden Layout
-  wraps it in a stack of its own; nothing in config says what to wrap it in.
-
 Open, grouped by what they touch:
 
 - **strip** — under `justify: 'between'` only the first seam follows the

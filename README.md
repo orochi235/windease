@@ -1516,6 +1516,23 @@ The new strip also takes the `reorder`, `touchScroll`, and `drop` keys of the
 container it splits, under `splitConfig`, so its two panes drag and split the
 way their old parent's children did.
 
+A dropped pane lands bare in the new strip. To put it in a container of its own,
+as Golden Layout puts a dropped tab in a one-tab stack, name that container in
+the splitting container's `drop.wrap`:
+
+```ts
+config: {
+  drop: {
+    split: true,
+    wrap: { strategyId: 'stack', config: { headerSize: 24 }, autoPrune: true },
+  },
+}
+```
+
+A pane that already has that strategy, such as a whole stack dragged by its
+band, is placed as it is. The wrap is part of the drop's one undo step, and its
+id comes from `makeStackId`.
+
 A stack is itself a drop target, so it would take every drop over it before
 its parent could split it. So a stack that does not split gives the point up:
 while the cursor is over the pane it shows, the nearest enclosing container

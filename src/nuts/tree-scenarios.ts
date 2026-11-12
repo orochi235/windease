@@ -395,8 +395,16 @@ export function fromGoldenLayout(
       kind: parentAxis ? 'group' : 'zone',
       strategy: 'strip',
       // A tab dropped on a stack's top or bottom edge, in a row, splits that
-      // stack's slot; in a column, its left or right edge does.
-      config: { axis, fill: true, drop: { split: true } },
+      // stack's slot; in a column, its left or right edge does. The tab lands
+      // in a one-tab stack of its own.
+      config: {
+        axis,
+        fill: true,
+        drop: {
+          split: true,
+          wrap: { strategyId: 'stack', config: stack, autoPrune: true, allowsPinning: false },
+        },
+      },
       // Golden Layout replaces a row or column left with one child by that child.
       ...(parentAxis ? { autoUnsplit: true } : {}),
       allowsPinning: false,
@@ -610,8 +618,18 @@ export function fromDockview(
       id: `branch-${path}`,
       kind: siblingsTotal === undefined ? 'zone' : 'group',
       strategy: 'strip',
-      // A tab dropped on a group's edge splits it, as in Golden Layout.
-      config: { axis: orientation === 'HORIZONTAL' ? 'x' : 'y', fill: true, drop: { split: true } },
+      // A tab dropped on a group's edge splits it into a group of its own, as in Golden Layout.
+      config: {
+        axis: orientation === 'HORIZONTAL' ? 'x' : 'y',
+        fill: true,
+        drop: {
+          split: true,
+          wrap: {
+            strategyId: 'stack',
+            config: { headerSize: DOCKVIEW_TAB_HEIGHT, show: 'dropped' },
+          },
+        },
+      },
       children: node.data.map((c, i) => walk(c, flip(orientation), total, `${path}.${i}`)),
     };
     return placement ? { ...out, placement } : out;

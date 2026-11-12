@@ -12,6 +12,7 @@ import { type ChildOrderCommit, commitControlled } from './controlledOrder.js';
 import type { DropIntent } from './dropIntent.js';
 import { type EdgeScrollOptions, edgeScrollDelta } from './edgeScroll.js';
 import { orderIndexOfSeam, seamOfOrderIndex } from './seamIndex.js';
+import { dropSplit, dropStack } from './structuralDrop.js';
 
 export type { ChildOrderChange, ChildOrderCommit } from './controlledOrder.js';
 
@@ -136,8 +137,9 @@ export interface FrameScheduler {
 export interface DragEngineOptions {
   getStrategy?: StrategyLookup;
   schedule?: FrameScheduler;
-  /** Id for a container a stack drop creates. Defaults to `stack-N`, skipping
-   *  any id the store already holds. */
+  /** Id for a container a stack drop creates, or `drop.wrap` puts a
+   *  split-dropped pane in. Defaults to `stack-N`, skipping any id the store
+   *  already holds. */
   makeStackId?: () => NodeId;
   /** Container config for a stack a drop creates — `headerSize` above all,
    *  since the strip it reserves room for is the host's to draw and its height
@@ -151,9 +153,6 @@ export interface DragEngineOptions {
    *  takes from the container it splits. */
   splitConfig?: Record<string, unknown>;
 }
-
-/** Container keys a split drop's new group takes from the container it splits. */
-const SPLIT_INHERITS = ['reorder', 'touchScroll', 'drop'] as const;
 
 const immediate: FrameScheduler = {
   request(cb) {
@@ -842,43 +841,27 @@ export class DragEngine {
       return;
     }
     if (hover.intent?.kind === 'stack') {
-      const ontoId = hover.intent.ontoId as NodeId;
-      const id = this.makeStackId();
-      try {
-        this.store.stackNodes(draggingId, ontoId, {
-          id,
-          ...(this.stackConfig ? { config: this.stackConfig } : {}),
-        });
-        trace('dnd', `drop: stack ${draggingId} onto ${ontoId} as ${id}`);
-      } catch (err) {
-        trace('dnd', `drop failed: ${(err as Error).message}`);
-      }
+      dropStack(
+        this.store,
+        draggingId,
+        hover.intent.ontoId as NodeId,
+        this.makeStackId(),
+        this.stackConfig,
+      );
       return;
     }
     if (hover.intent?.kind === 'split') {
       const { ontoId, edge, axis } = hover.intent;
-      const id = this.makeSplitId();
-      // The group takes a slot of the container that split, so its children
-      // drag and split the way that container's did.
-      const from = (this.store.getNode(hover.targetId)?.container?.config ?? {}) as Record<
-        string,
-        unknown
-      >;
-      const inherited = Object.fromEntries(
-        SPLIT_INHERITS.filter((k) => from[k] !== undefined).map((k) => [k, from[k]]),
-      );
-      const config = { ...inherited, ...this.splitConfig };
-      try {
-        this.store.splitInto(draggingId, ontoId as NodeId, {
-          id,
-          axis,
-          edge,
-          ...(Object.keys(config).length > 0 ? { config } : {}),
-        });
-        trace('dnd', `drop: split ${draggingId} onto ${ontoId} ${axis}/${edge} as ${id}`);
-      } catch (err) {
-        trace('dnd', `drop failed: ${(err as Error).message}`);
-      }
+      dropSplit(this.store, {
+        draggingId,
+        targetId: hover.targetId,
+        ontoId: ontoId as NodeId,
+        axis,
+        edge,
+        id: this.makeSplitId(),
+        wrapId: () => this.makeStackId(),
+        splitConfig: this.splitConfig,
+      });
       return;
     }
     if (hover.intent?.kind === 'cell') {

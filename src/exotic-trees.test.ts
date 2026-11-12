@@ -411,17 +411,22 @@ describe('Golden Layout configs', () => {
 });
 
 describe('Dockview layouts', () => {
+  const drop = {
+    split: true,
+    wrap: { strategyId: 'stack', config: { headerSize: 35, show: 'dropped' } },
+  };
+
   it('alternates branch orientation and turns pixel sizes into shares of the parent axis', () => {
     expect(DOCKVIEW_PRESET.mechanics.config).toEqual({
       axis: 'x',
       fill: true,
-      drop: { split: true },
+      drop,
       reorder: 'handle',
     });
     expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1')?.config).toEqual({
       axis: 'y',
       fill: true,
-      drop: { split: true },
+      drop,
       reorder: 'handle',
     });
     expect(find(presetTree(DOCKVIEW_PRESET), 'branch-0.1.1')?.placement).toEqual({

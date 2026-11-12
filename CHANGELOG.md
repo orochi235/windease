@@ -24,6 +24,12 @@ section below.
   stack, and a grid's overflow do. The tiles in **Pages / Flowed** drag with a
   resolver that uses it.
 
+- **`drop.wrap` puts a split-dropped pane in a container of its own.** A
+  splitting container that names one, `{ strategyId, kind?, config?,
+  allowsPinning?, autoPrune? }`, wraps the pane a split drop places, unless the
+  pane already has that strategy. The Golden Layout and Dockview presets wrap
+  in a one-tab stack, as both products do.
+
 - **`withReorder(preset, mode)`** (`windease/nuts`) sets `config.reorder` on
   every container of a preset that leaves it unset.
 

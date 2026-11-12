@@ -21,6 +21,7 @@ export type {
   ContainerConfigKeys,
   DropConfig,
   ReorderMode,
+  WrapConfig,
 } from './container-config.js';
 export {
   ContainerHost,

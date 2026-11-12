@@ -39,6 +39,24 @@ export interface DropConfig {
   /** A drop on an empty cell of a grid places the child in that cell, as
    *  `placement.cell`, instead of at an index. */
   cell?: boolean;
+  /** Under `split`, the pane a split drop places goes in a new container of
+   *  this shape, as Golden Layout puts a dropped tab in a stack of its own. A
+   *  pane that already has this strategy is placed as it is. */
+  wrap?: WrapConfig;
+}
+
+/**
+ * The container `drop.wrap` puts a split-dropped pane in.
+ *
+ * @group Drag and drop
+ */
+export interface WrapConfig {
+  strategyId: string;
+  /** Defaults to `'group'`. */
+  kind?: string;
+  config?: Record<string, unknown>;
+  allowsPinning?: boolean;
+  autoPrune?: boolean;
 }
 
 /**
