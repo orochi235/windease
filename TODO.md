@@ -29,8 +29,10 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   | + 8-step drags                        | 48.2s   |
 
   The drag tests went from 8–11s to 2.7–3.6s there. 72 runs passed in Docker,
-  and 144 on the Mac across WebKit, Chromium, and Firefox. To confirm on CI,
-  dispatch `E2E probe` on the branch with `projects=webkit`.
+  and 144 on the Mac across WebKit, Chromium, and Firefox. CI confirmed it
+  (2026-11-12): on Linux WebKit the block's 24 tests took 132.2s before
+  (probe run 43310987042) and 87.4s after (run 43321191057), the slowest test
+  17.9s before and 8.8s after, all passing.
 
   What else was ruled out, measured in Docker unless stated: every other CSS
   effect (filters, gradients, masks, card art, corner radii, container
