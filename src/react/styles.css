@@ -24,6 +24,9 @@
  *     height: 100% chain the consumer's own layout depends on.
  *   - A data-windease-handle grip under reorder: 'handle' claims touches, so
  *     a finger drags it; the wrapper itself sets this inline under reorder: true.
+ *     Under touchScroll: 'hold' a source keeps the page's touch-action, so a
+ *     swipe scrolls, and turns off the long-press callout and text selection
+ *     the hold would otherwise trigger.
  *
  * Cosmetics (colors, borders, transitions, drop-state styling) are left to
  * consumers — style off [data-drop-target], [data-drop-rejected], etc.
@@ -128,6 +131,14 @@
 
 [data-windease-reorder="handle"]:not([data-windease-touch-scroll]) [data-windease-handle] {
   touch-action: none;
+}
+
+[data-windease-reorder="true"][data-windease-touch-scroll="hold"],
+[data-windease-reorder="handle"][data-windease-touch-scroll="hold"] [data-windease-handle],
+[data-windease-drag-handle][data-windease-touch-scroll="hold"] {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 [data-node][data-bury-armed] {

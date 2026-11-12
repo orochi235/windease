@@ -1333,9 +1333,26 @@ config: { axis: 'y', reorder: true, touchScroll: true }
 <DragHandle nodeId={id} touchScroll>…</DragHandle>
 ```
 
-Under it, a touch scrolls and only a mouse or pen drags. `useDragHandle` sets
-nothing, since you own the element, so give that element `touch-action: none`
-yourself.
+Under `true`, a touch scrolls and only a mouse or pen drags. `'hold'` keeps
+touch drags: a swipe scrolls, and a finger held still on a source for 450ms
+(drifting no more than 8px) picks it up, the way a phone's lists reorder.
+
+```tsx
+config: { axis: 'y', reorder: true, touchScroll: 'hold' }
+<DragHandle nodeId={id} touchScroll="hold">…</DragHandle>
+useDragHandle(id, { touchScroll: 'hold' })
+```
+
+A hold source leaves the page's `touch-action` alone, and the shipped
+stylesheet turns off its long-press callout and text selection. While one is
+mounted, a non-passive `touchmove` listener sits on `window`, canceling moves
+only once a hold has armed. `TOUCH_HOLD_DELAY`, `TOUCH_HOLD_SLOP`, and the
+DOM-free `startTouchHold` are exported for a host driving `DragController`
+itself. See the **Reorder / Touch Hold** story.
+
+`useDragHandle` sets no `touch-action`, since you own the element: give it
+`touch-action: none` yourself for an immediate touch drag, or leave it alone
+under `'hold'`.
 
 ### Drop intent
 

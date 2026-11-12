@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **`touchScroll: 'hold'` drags by touch after a press and hold**, so a swipe
+  still scrolls a list whose every row reorders. A finger held within 8px for
+  450ms picks the source up; moving sooner leaves the touch to the page. It is
+  a `reorder` container config key, a `<DragHandle touchScroll>` value, and a
+  `useDragHandle(id, { touchScroll })` option. The **Reorder / Touch Hold**
+  story shows it.
+
 - **Drops onto a paged grid target the page shown.** Under
   `pageStrategy(inner)` in `'assigned'` mode, `inner.canAccept` is judged
   against the page shown, so a full page refuses a drop, and `drop.cell` lands

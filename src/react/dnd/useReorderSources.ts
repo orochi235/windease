@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { readReorderConfig, readTouchScroll } from '../../container-config.js';
+import { retainTouchMoveGuard } from '../../dnd/touchHold-dom.js';
 import type { NodeId } from '../../index.js';
 import { trace } from '../../index.js';
 import { useStore } from '../Provider.js';
@@ -21,12 +22,13 @@ export interface ReorderSourceProps {
   draggable?: false;
   onDragStart?: (e: DragEvent<HTMLElement>) => void;
   'data-windease-reorder'?: 'true' | 'handle';
-  'data-windease-touch-scroll'?: 'true';
+  'data-windease-touch-scroll'?: 'true' | 'hold';
   /** Merged into the wrapper's own style by whoever renders it. */
   style?: CSSProperties;
 }
 
 const NONE: ReorderSourceProps = {};
+const HOLD = { touchHold: {} } as const;
 // A finger that presses and moves is a scroll unless the element claims the
 // touch; the browser then sends `pointercancel` and the drag never starts.
 const CLAIM_TOUCH: CSSProperties = { touchAction: 'none' };
@@ -60,8 +62,14 @@ export function useReorderSources(
   );
   const touchScroll = useSyncExternalStore(
     (cb) => store.subscribe(cb),
-    () => parentId !== undefined && readTouchScroll(store.getNode(parentId)?.container?.config),
+    () =>
+      parentId === undefined
+        ? undefined
+        : readTouchScroll(store.getNode(parentId)?.container?.config),
   );
+  const holds = Boolean(mode && controller && touchScroll === 'hold');
+
+  useEffect(() => (holds ? retainTouchMoveGuard() : undefined), [holds]);
 
   useEffect(() => {
     if (mode && !controller) {
@@ -82,9 +90,9 @@ export function useReorderSources(
       if (within(target, EDITABLE, wrapper)) return;
       if (mode === 'handle' && !within(target, '[data-windease-handle]', wrapper)) return;
       trace('dnd', `pointerDown on reorder child ${childId} at (${e.clientX},${e.clientY})`);
-      trackPress(controller, childId, e, threshold);
+      trackPress(controller, childId, e, threshold, touchScroll === 'hold' ? HOLD : undefined);
     },
-    [controller, threshold, mode],
+    [controller, threshold, mode, touchScroll],
   );
 
   return useCallback(
@@ -96,7 +104,7 @@ export function useReorderSources(
             onDragStart: preventNativeDrag,
             'data-windease-reorder': mode === true ? 'true' : 'handle',
             ...(touchScroll
-              ? { 'data-windease-touch-scroll': 'true' as const }
+              ? { 'data-windease-touch-scroll': touchScroll === true ? 'true' : 'hold' }
               : mode === true
                 ? { style: CLAIM_TOUCH }
                 : {}),
