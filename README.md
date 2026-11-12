@@ -1386,6 +1386,12 @@ add quadrant zones, or refuse a split on a small pane:
 />
 ```
 
+`rects` holds only the children the strategy drew, but an `insert` index counts
+every visible child, and the two part on a paged container, a stack, or a grid
+with overflow. A resolver that counts its own seam among `rects` returns
+`{ kind: 'insert', index: visibleIndex(seam) }`, which the context also hands
+it; the built-in resolver's answer is converted already.
+
 ### Tab stacking
 
 With `stackOnDrop` on, a drop in the middle of a pane puts both panes in one

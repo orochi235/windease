@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { centerOf, dragMouse, openStory, settledBox } from './fixtures.js';
+import { centerOf, dragMouse, dropAt, openStory, settledBox } from './fixtures.js';
 
 const DESKTOPS = 'pages--desktops';
 const FLOWED = 'pages--flowed';
@@ -82,5 +82,21 @@ test.describe('pages — flowed', () => {
     const add = page.getByRole('button', { name: 'Add a tile' });
     for (let n = 23; n < perPage * 2 + 1; n++) await add.click();
     await expect(pageButton(page, 3, 3)).toBeVisible();
+  });
+
+  test('a tile dropped on page 2 lands before the tile it was dropped on', async ({ page }) => {
+    await openStory(page, FLOWED);
+    await pageButton(page, 2, 2).click();
+    await expect.poll(async () => (await shown(page, 'tiles')).at(-1)).toBe('tile-23');
+    const head = (await shown(page, 'tiles'))[0] as string;
+    const from = centerOf(await settledBox(node(page, 'tile-23')));
+    const onto = await settledBox(node(page, head));
+    await dragMouse(page, from, dropAt({ x: onto.x + onto.w / 4, y: onto.y + onto.h / 2 }));
+    // A seam counted among page 2's tiles alone would put it before tile-1.
+    await expect
+      .poll(async () => (await shown(page, 'tiles')).slice(0, 2))
+      .toEqual(['tile-23', head]);
+    await pageButton(page, 1, 2).click();
+    await expect.poll(async () => (await shown(page, 'tiles'))[0]).toBe('tile-1');
   });
 });

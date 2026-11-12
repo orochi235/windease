@@ -263,6 +263,36 @@ describe('<Container> drop intent', () => {
     // The built-in would have said `split` here; the prop's answer wins.
     expect(controller.state()?.hover?.intent).toEqual({ kind: 'insert', index: 0 });
   });
+
+  it("converts a seam among a dropIntent's rects to one among visible children", async () => {
+    const store = makeStore();
+    const c = asNodeId('c');
+    store.registerNode(createNode({ kind: 'panel', focus: true, id: c, parentId: Z }));
+    store.showNode(c);
+    let controller!: DragController;
+    const seams: number[][] = [];
+    const { container } = render(
+      tree({
+        store,
+        dropIntent: (ctx) => {
+          seams.push([ctx.visibleIndex(0), ctx.visibleIndex(1)]);
+          return { kind: 'insert', index: ctx.visibleIndex(0) };
+        },
+        capture: (cc) => {
+          controller = cc;
+        },
+      }),
+    );
+    // Stands in for a strategy that withholds `b`, as a paged one does: only
+    // `c` is drawn beside the source, while `b` stays visible.
+    container.querySelector('[data-node="b"]')?.remove();
+
+    await hover(controller, container, { x: 150, y: 5 });
+
+    // Before `c` is after `b`; after `c` is the end.
+    expect(seams.at(-1)).toEqual([1, 2]);
+    expect(controller.state()?.hover?.intent).toEqual({ kind: 'insert', index: 1 });
+  });
 });
 
 describe('<Container splitPreview>', () => {

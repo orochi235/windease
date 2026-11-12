@@ -17,6 +17,13 @@ section below.
   third argument, `{ state, sourceId }`, and `cellAt`'s input gains `state`;
   both are optional. The **Paged grid / Cell drop** story shows it.
 
+- **A custom `dropIntent` can place a drop on a later page.** Its context
+  gains `visibleIndex(seam)`, which turns a seam counted among the `rects` it
+  was handed into the `insert` index a drop expects; the two differ wherever a
+  strategy draws fewer children than are visible, as a paged container, a
+  stack, and a grid's overflow do. The tiles in **Pages / Flowed** drag with a
+  resolver that uses it.
+
 - **`withReorder(preset, mode)`** (`windease/nuts`) sets `config.reorder` on
   every container of a preset that leaves it unset.
 
