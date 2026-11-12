@@ -330,7 +330,6 @@ function StoreContainer({
   useFlowGeometry(parentId, ref, isFlow, childKey);
 
   useScrollOffset(scrollRef, layout.observeScroll);
-  useOverflowOrigin(scrollRef, layout.overflow);
 
   useEffect(() => {
     if (!dragController || !onChildOrderChange) return;
@@ -388,6 +387,7 @@ function StoreContainer({
         ...viewStyle(layout.view),
         ...style,
       };
+  useOverflowOrigin(scrollRef, containerStyle);
   const framed = (box: ReactNode) =>
     fit ? (
       <div

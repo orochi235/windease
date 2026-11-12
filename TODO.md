@@ -42,15 +42,14 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
   animation about 3%.
 
   The cost that remains is the drag itself: each pointermove spends 60–130ms
-  in script and forced layout in Docker, against 10–28ms on a Mac. The
-  largest single item in a Chromium profile is `useOverflowOrigin` (in
-  `src/react/useContainerLayout.ts`), whose `scrollLeft +=` / `scrollTop +=`
-  forces a layout on most moves because the hand's overflow origin moves
-  with the swell. Whether that layout would happen at the next frame anyway,
-  and so whether removing the read saves anything, is not measured. Its
-  `scrollTop` writes also go negative (logged during a drag), so the
-  `applied` offset it tracks can drift from the element's real scroll. Not
-  yet checked for a visible effect.
+  in script and forced layout in Docker, against 10–28ms on a Mac. The layout
+  `useOverflowOrigin` forces is not an extra one (2026-11-12, measured on a
+  Mac in Chromium with `e2e/overflow-origin-probe.spec.ts`): a 24-move sweep
+  over the hand counts 23 layouts whether the hook writes 29 times or 6, with
+  layout and script time unchanged within noise. It moves the frame's one
+  layout earlier, so removing it would save nothing. What it did cost was
+  correctness, now fixed: it scrolled for the hand's pinned top margin, and
+  double-compensated a shrinking left margin at the far end of the scroll.
 
 - **A geometry read outside a poll can catch a layout that is still arriving.**
   Panes render in flow until their container has measured itself, and animate

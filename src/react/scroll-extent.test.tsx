@@ -1,5 +1,5 @@
 import { act, cleanup, render } from '@testing-library/react';
-import { useRef } from 'react';
+import { type CSSProperties, useRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { asNodeId, createNode, desktopStrategy, Store, stripStrategy } from '../index.js';
 import { Container } from './Container.js';
@@ -162,5 +162,127 @@ describe('scroll extent past the left and top edges', () => {
     expect(scroller.scrollLeft).toBe(160);
     act(() => store.patchPlacement(W, { x: 10 }));
     expect(scroller.scrollLeft).toBe(0);
+  });
+});
+
+describe('overflow origin against a scroller that clamps', () => {
+  const W = asNodeId('w');
+  const CLIENT_W = 150;
+  let topWrites: number[] = [];
+
+  function desktopAt(x: number, y: number): Store {
+    const s = new Store();
+    s.registerNode(
+      createNode({ kind: 'zone', id: Z, container: { strategyId: 'desktop', config: {} } }),
+    );
+    s.registerNode(
+      createNode({
+        kind: 'window',
+        id: W,
+        parentId: Z,
+        placement: { x, y },
+        hints: { preferredSize: { w: 50, h: 50 } },
+      }),
+    );
+    s.showNode(W);
+    return s;
+  }
+
+  /**
+   * jsdom neither lays out nor clamps a scroll offset. A browser holds it inside
+   * `[0, scrollWidth - clientWidth]` and re-clamps as soon as the extent shrinks,
+   * which this models with the extent as the box's left margin plus its width.
+   * Nothing extends below the box, so there is no vertical range at all.
+   */
+  function clampLikeABrowser(scroller: HTMLElement) {
+    let left = 0;
+    const box = () => scroller.firstElementChild as HTMLElement | null;
+    const extent = () => {
+      const b = box();
+      if (!b) return CLIENT_W;
+      const w = (Number.parseFloat(b.style.marginLeft) || 0) + Number.parseFloat(b.style.width);
+      return Math.max(CLIENT_W, w);
+    };
+    const maxLeft = () => extent() - CLIENT_W;
+    const clamp = (v: number, max: number) => Math.min(Math.max(0, v), max);
+    Object.defineProperty(scroller, 'clientWidth', { configurable: true, get: () => CLIENT_W });
+    Object.defineProperty(scroller, 'scrollWidth', { configurable: true, get: extent });
+    Object.defineProperty(scroller, 'scrollLeft', {
+      configurable: true,
+      get: () => {
+        left = clamp(left, maxLeft());
+        return left;
+      },
+      set: (v: number) => {
+        left = clamp(v, maxLeft());
+      },
+    });
+    Object.defineProperty(scroller, 'scrollTop', {
+      configurable: true,
+      get: () => 0,
+      set: (v: number) => {
+        topWrites.push(v);
+      },
+    });
+  }
+
+  function Scrolled({ style }: { style?: CSSProperties }) {
+    const scrollRef = useRef<HTMLDivElement | null>(null);
+    return (
+      <div
+        ref={(el) => {
+          if (el && scrollRef.current !== el) clampLikeABrowser(el);
+          scrollRef.current = el;
+        }}
+        data-testid="scroller"
+      >
+        <Container
+          parentId={Z}
+          chrome={{}}
+          viewport={{ w: 200, h: 100 }}
+          scrollRef={scrollRef}
+          {...(style ? { style } : {})}
+        />
+      </div>
+    );
+  }
+
+  function mount(store: Store, style?: CSSProperties) {
+    topWrites = [];
+    return render(
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={{ desktop: desktopStrategy() as never }}>
+          <Scrolled {...(style ? { style } : {})} />
+        </StrategyRegistryProvider>
+      </Provider>,
+    );
+  }
+
+  it('keeps the origin still when the margin shrinks under a scroll at its far end', () => {
+    // A 100px margin before a 200px box, in a 150px window: 150px of scroll.
+    const store = desktopAt(-100, 0);
+    const scroller = mount(store).getByTestId('scroller');
+    expect(scroller.scrollLeft).toBe(100);
+    scroller.scrollLeft = 150;
+    scroller.dispatchEvent(new Event('scroll'));
+    const origin = () =>
+      (Number.parseFloat((scroller.firstElementChild as HTMLElement).style.marginLeft) || 0) -
+      scroller.scrollLeft;
+    expect(origin()).toBe(-50);
+
+    // The margin goes and the range drops to 50, so the browser has clamped
+    // the scroll to 50 before the hook can read it.
+    act(() => store.patchPlacement(W, { x: 10 }));
+    expect(origin()).toBe(-50);
+    expect(scroller.scrollLeft).toBe(50);
+  });
+
+  it('does not scroll for a margin the style prop overrides', () => {
+    const store = desktopAt(0, -30);
+    const scroller = mount(store, { marginTop: 0 }).getByTestId('scroller');
+    expect((scroller.firstElementChild as HTMLElement).style.marginTop).toBe('0px');
+    act(() => store.patchPlacement(W, { y: -80 }));
+    act(() => store.patchPlacement(W, { y: 0 }));
+    expect(topWrites).toEqual([]);
   });
 });
