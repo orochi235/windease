@@ -1003,11 +1003,25 @@ function steppedTarget(
 ): number {
   const base = sizes[index] ?? 0;
   if (stepOf(cfg) === undefined || !point) return base + delta;
-  const used = sizes.reduce((s, v) => s + v, 0);
-  const { lead, spacing } = justified(cfg, usableMain - used, cfg.gap ?? 0, sizes.length);
-  let start = (cfg.padding ?? 0) + lead;
+  return (
+    (axis === 'x' ? point.x : point.y) -
+    (cfg.padding ?? 0) -
+    paneStart(cfg, sizes, index, usableMain)
+  );
+}
+
+/** Where pane `index` starts along the row, inside the padding, once panes of
+ *  `sizes` are laid out. */
+function paneStart(cfg: StripConfig, sizes: number[], index: number, usableMain: number): number {
+  const overlapped = overlapSpacing(cfg, sizes, usableMain);
+  const free = overlapped === undefined ? usableMain - sizes.reduce((s, v) => s + v, 0) : 0;
+  const { lead, spacing } =
+    overlapped === undefined
+      ? justified(cfg, free, cfg.gap ?? 0, sizes.length)
+      : { lead: 0, spacing: overlapped };
+  let start = lead;
   for (let i = 0; i < index; i++) start += (sizes[i] ?? 0) + spacing;
-  return (axis === 'x' ? point.x : point.y) - start;
+  return start;
 }
 
 /** A child collapsed to nothing, and how many placed panes precede it. It is
@@ -1415,6 +1429,7 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       axis,
       usableMain,
     );
+    const seamAt = (s: number[]) => paneStart(cfg, s, index, usableMain) + (s[index] ?? 0);
     if (roomy) {
       // Growth the free space cannot cover comes out of the other panes.
       const over = next - base - free;
@@ -1424,14 +1439,19 @@ export const stripStrategy: LayoutStrategy<void, string> = {
         }
       }
       pinRest(placedItems, sizes, writes, cfg, axis, usableMain);
-    } else if (Math.abs((landed[index] ?? 0) - next) > 1e-6) {
-      // Nothing absorbs the change — every other pane holds a stored size, or
-      // the row was squeezed — so the new size alone would rescale the row and
-      // move the seam by some other amount, even backward. The others give up
-      // the delta instead, in proportion to where they render.
-      for (const [id, size] of shareOut(placedItems, sizes, index, next - base, axis)) {
-        writes.set(id, size);
-      }
+    } else if (
+      Math.abs((landed[index] ?? 0) - next) > 1e-6 ||
+      (!spreads && Math.abs(seamAt(landed) - seamAt(sizes) - (next - base)) > 1e-6)
+    ) {
+      // The seam would miss the pointer: a squeezed row rescales, a pane before
+      // it sized to fill takes up the change, or `end` opens it before the row.
+      // The panes after the seam take the delta instead, and the rest hold.
+      const out = shareOut(placedItems, sizes, index, next - base, axis);
+      placedItems.forEach((it, i) => {
+        const v = out.get(it.id);
+        if (v !== undefined && Math.abs(v - (sizes[i] ?? 0)) > 1e-6) writes.set(it.id, v);
+      });
+      pinRest(placedItems, sizes, writes, cfg, axis, usableMain);
       trace('layout', `strip: ${childId} took ${next - base} from ${writes.size - 1} panes`);
     }
     storeWrites(store, placedItems, writes, cfg, axis, usableMain);

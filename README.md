@@ -513,7 +513,10 @@ it, the last seam of four three times. Under `'end'` the row is anchored at its 
 resizes the pane *after* it: its `affects` names that pane, and its `bounds`
 are the seam's offset along the row rather than a pane's extent. Once the row
 is full `'end'` goes back to resizing the pane before the seam. A pane the drag
-does not touch keeps the size it rendered at, stored as `placement.size`.
+does not touch keeps the size it rendered at, stored as `placement.size`. In a
+full row the panes after the seam take what the dragged pane gives up or gains,
+and the ones before it hold, even those sized by `placement.share` or left to
+fill.
 `resizeMode: 'neighbor'` trades between the two panes beside the seam instead,
 leaving the gaps alone, under every `justify`.
 

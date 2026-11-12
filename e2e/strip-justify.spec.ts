@@ -67,6 +67,30 @@ test.describe('strip justify', () => {
     await expect.poll(() => lefts(page)).toEqual([6, 350, 634]);
   });
 
+  // A full row is 776px of tabs: 256, 264, 256.
+  test('end: shrinking a tab in a full row keeps its seam under the pointer', async ({ page }) => {
+    await openStory(page, STORY);
+    await page.getByTestId('justify').selectOption('end');
+    await page.getByTestId('row').selectOption('full');
+    await expect.poll(() => lefts(page)).toEqual([6, 268, 538]);
+    const to = await dragSeam(page, -30, 'docs');
+    await expect.poll(seamX(page, 'docs')).toBeCloseTo(to, 0);
+    await expect.poll(() => lefts(page)).toEqual([6, 268, 508]);
+  });
+
+  for (const justify of ['start', 'end'] as const) {
+    test(`${justify}: a share before the dragged tab holds its width`, async ({ page }) => {
+      await openStory(page, STORY);
+      await page.getByTestId('justify').selectOption(justify);
+      await page.getByTestId('row').selectOption('shared');
+      // docs holds 256, and inbox and music split the other 520.
+      await expect.poll(() => lefts(page)).toEqual([6, 272, 534]);
+      const to = await dragSeam(page, -30, 'docs');
+      await expect.poll(seamX(page, 'docs')).toBeCloseTo(to, 0);
+      await expect.poll(() => lefts(page)).toEqual([6, 272, 504]);
+    });
+  }
+
   // 800 wide, padding 6, gap 6, three tabs capped at 160: 800 - 12 - 12 - 480
   // leaves 296 over.
   test('places the leftover space as the select says', async ({ page }) => {
