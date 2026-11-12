@@ -505,15 +505,17 @@ Panes held at a `hints.maxSize` cap, or sized by `preferredSize` under
 move the whole row. `'between'` widens the gaps, leaving a lone pane at the
 start. It does nothing when the panes fill or overflow the row.
 
-A dragged seam stays under the pointer in each of the first three. Under
-`'center'` the pane grows on both sides, so it gains twice the drag while the
-row has room. Under `'end'` the row is anchored at its trailing edge, so a seam
+A dragged seam stays under the pointer under each. Under `'center'` the pane
+grows on both sides, so it gains twice the drag while the row has room. Under
+`'between'` the gaps before the seam narrow as the pane grows, so the pane
+gains more than the drag: the seam after the second of three panes takes twice
+it, the last seam of four three times. Under `'end'` the row is anchored at its trailing edge, so a seam
 resizes the pane *after* it: its `affects` names that pane, and its `bounds`
 are the seam's offset along the row rather than a pane's extent. Once the row
-is full both go back to resizing the pane before the seam. A pane the drag does
-not touch keeps the size it rendered at, stored as `placement.size`. Under
-`'between'` only the first seam tracks the pointer; use
-`resizeMode: 'neighbor'`, which tracks it under every `justify`.
+is full `'end'` goes back to resizing the pane before the seam. A pane the drag
+does not touch keeps the size it rendered at, stored as `placement.size`.
+`resizeMode: 'neighbor'` trades between the two panes beside the seam instead,
+leaving the gaps alone, under every `justify`.
 
 ## When panes don't fit
 
