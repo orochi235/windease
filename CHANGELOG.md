@@ -93,10 +93,13 @@ section below.
 
 ### Fixed
 
-- **A resizable grid of flowed items under a row cap lays out about 12× faster.**
+- **A resizable grid of flowed items under a row cap lays out 18–28× faster.**
   200 panels of 6×8 cells in 24 columns under `maxRows: 420` took 1.97s per
-  layout and now take 0.16s; 100 under `maxRows: 220`, 0.39s to 0.04s. The
-  seams' reported ranges are unchanged.
+  layout and now take 0.07s; 100 under `maxRows: 220`, 0.39s to 0.02s. Grids
+  whose panels leave columns empty in every row were slowest and gain most:
+  100 panels 7 cells wide under `maxRows: 272` now take 0.07s, and 100
+  alternating 10 and 8 wide under `maxRows: 400`, 0.65s. The seams' reported
+  ranges are unchanged.
 
 - **A drop onto a later page of a paged container lands on that page.** The
   built-in drop resolver counted its index among the children drawn, while a

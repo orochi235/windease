@@ -15,12 +15,20 @@ const flag = (name: string, fallback: string) => {
 const RUNS = Number(flag('runs', '5'));
 const OUT = flag('out', '');
 
-const panels = (n: number): LayoutItem[] =>
-  Array.from({ length: n }, (_, i) => ({ id: `p${i}`, placement: { span: { cols: 6, rows: 8 } } }));
+const panels = (n: number, ...widths: number[]): LayoutItem[] =>
+  Array.from({ length: n }, (_, i) => ({
+    id: `p${i}`,
+    placement: { span: { cols: widths[i % widths.length] ?? 6, rows: 8 } },
+  }));
 
+// Both wasteful cases leave columns empty in every band, so the reach sits far
+// below the span that starves the rest. 7-wide panels can never fill a 24-wide
+// row; 10- and 8-wide ones could, but first-fit order leaves 6 columns over.
 const cases = [
   { name: 'flow-100/maxRows-220', items: panels(100), maxRows: 220 },
   { name: 'flow-200/maxRows-420', items: panels(200), maxRows: 420 },
+  { name: 'flow-100x7/maxRows-272', items: panels(100, 7), maxRows: 272 },
+  { name: 'flow-100x10,8/maxRows-400', items: panels(100, 10, 8), maxRows: 400 },
 ];
 
 const records: Record<string, unknown>[] = [];
@@ -38,15 +46,19 @@ for (const c of cases) {
       options,
     });
     const ms = performance.now() - t;
+    // Sums every handle's ceiling, so a change that moves any reach shows here.
+    let reach = 0;
+    for (const a of r.affordances) reach += a.bounds?.valueMax ?? 0;
     done++;
     console.log(
-      `${String(done).padStart(pad)}/${total}  ${c.name.padEnd(22)} run ${run}  ${ms.toFixed(1).padStart(8)} ms  ${String(r.affordances.length).padStart(4)} affordances`,
+      `${String(done).padStart(pad)}/${total}  ${c.name.padEnd(26)} run ${run}  ${ms.toFixed(1).padStart(8)} ms  ${String(r.affordances.length).padStart(4)} affordances  reach sum ${String(reach).padStart(6)}`,
     );
     records.push({
       case: c.name,
       run,
       ms,
       affordances: r.affordances.length,
+      reach,
       at: new Date().toISOString(),
       host: hostname(),
       cpu: cpus()[0]?.model,

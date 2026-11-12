@@ -383,11 +383,16 @@ Open, grouped by what they touch:
   both.
 - **grid** — capacity by width under fixed cells; pinned vs celled
   priority. Resize reach for flowed items under a row cap scans down from the
-  span that starves the rest, so it repacks once per span above the answer —
-  200 panels under `maxRows: 420` take 0.16s a layout, down from 1.97s
-  (2026-11-12, `scripts/bench-grid-reach.ts`). A dashboard whose reach sits far
-  below that bound still repacks for every span between them; first-fit is not
-  monotone in span, so only a tighter bound or lazy reach cuts that.
+  span that starves the rest, and skips without repacking every span at which
+  the free runs of each row and column, filled only as the rest's widths and
+  heights can fill them, hold too little (`grid-room.ts`). That catches waste
+  from sizes that don't tile the grid, not waste from first-fit order: 100
+  panels alternating 10 and 8 wide in 24 columns still repack once per span
+  between reach and bound, 0.65s a layout (2026-11-12,
+  `scripts/bench-grid-reach.ts`). Lazy reach doesn't help while
+  `AffordanceHandle` renders every handle's `aria-valuemax`, and whether a
+  handle is emitted at all depends on reach. Next lever is constant-factor:
+  row bitmasks in `CellPacker` (cell writes and reads are most of the time).
 - **accepts and locks** — `accepts: false` and `lock.accept` both stay
   (accepts is drag-only); stack/split drops honor `accepts.kinds`, and count
   toward `accepts.max` only where they add a child. `lock: true` leaves out

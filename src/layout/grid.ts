@@ -10,6 +10,7 @@ import type {
 } from '../layout-types.js';
 import { trace } from '../trace.js';
 import { readCount } from './capacity.js';
+import { type GridRoom, gridRoom } from './grid-room.js';
 
 interface GridConfig {
   cols?: number;
@@ -420,6 +421,12 @@ class CellPacker {
   private readonly taken = new CellSet();
   private cursor = 0;
   private journal: number[] | undefined;
+  /**
+   * Per block size, the cell its last search stopped at, or Infinity when it
+   * fit nowhere. Taking cells never opens a start before that, so the next
+   * search of that size begins there; freeing cells has to drop these.
+   */
+  private starts = new Map<number, number>();
 
   constructor(cols: number, rowCap: number | undefined) {
     this.cols = cols;
@@ -428,16 +435,18 @@ class CellPacker {
 
   /** Runs `probe` against this packer, then undoes every cell it took. */
   trial<T>(probe: (packer: CellPacker) => T): T {
-    const cursor = this.cursor;
+    const { cursor, starts } = this;
     const outer = this.journal;
     const journal: number[] = [];
     this.journal = journal;
+    this.starts = new Map(starts);
     try {
       return probe(this);
     } finally {
       this.journal = outer;
       for (const cell of journal) this.taken.delete(cell);
       this.cursor = cursor;
+      this.starts = starts;
     }
   }
 
@@ -452,18 +461,20 @@ class CellPacker {
 
   /** Runs `probe` with a block this packer holds freed, then takes it back. */
   without<T>(block: ReservedCell, probe: (packer: CellPacker) => T): T {
-    const { cols, taken, cursor } = this;
+    const { cols, taken, cursor, starts } = this;
     const cells: number[] = [];
     for (let dr = 0; dr < block.rows; dr++) {
       for (let dc = 0; dc < block.cols; dc++) cells.push((block.row + dr) * cols + block.col + dc);
     }
     for (const cell of cells) taken.delete(cell);
     this.cursor = Math.min(cursor, block.row * cols + block.col);
+    this.starts = new Map();
     try {
       return probe(this);
     } finally {
       for (const cell of cells) taken.add(cell);
       this.cursor = cursor;
+      this.starts = starts;
     }
   }
 
@@ -474,13 +485,12 @@ class CellPacker {
 
   /** Reserves the first block a `cSpan × rSpan` item fits, if any. */
   place(cSpan: number, rSpan: number): { col: number; row: number } | undefined {
-    const { cols, rowCap, taken } = this;
-    let col = this.cursor % cols;
-    for (
-      let row = Math.floor(this.cursor / cols);
-      rowCap === undefined || row + rSpan <= rowCap;
-      row++
-    ) {
+    const { cols, rowCap, taken, starts } = this;
+    const size = cSpan <= cols && rSpan >= 1 ? cSpan + rSpan * (cols + 1) : -1;
+    const from = Math.max(this.cursor, (size >= 0 && starts.get(size)) || 0);
+    if (from === Number.POSITIVE_INFINITY) return undefined;
+    let col = from % cols;
+    for (let row = Math.floor(from / cols); rowCap === undefined || row + rSpan <= rowCap; row++) {
       while (col + cSpan <= cols) {
         const blocked = this.blockedAt(col, row, cSpan, rSpan);
         if (blocked < 0) {
@@ -488,6 +498,7 @@ class CellPacker {
             for (let dc = 0; dc < cSpan; dc++) this.take((row + dr) * cols + col + dc);
           }
           while (taken.has(this.cursor)) this.cursor++;
+          if (size >= 0) starts.set(size, row * cols + col);
           return { col, row };
         }
         // Every start from `col` through `blocked` covers the taken cell.
@@ -495,6 +506,7 @@ class CellPacker {
       }
       col = 0;
     }
+    if (size >= 0) starts.set(size, Number.POSITIVE_INFINITY);
     return undefined;
   }
 
@@ -1188,6 +1200,23 @@ function spanReacher(
       }
       return placed >= baseline;
     };
+    // The fewest cells the rest must still cover for a probe to fit.
+    const need = cellsNeeded(rest, baseline - before - 1, cols, rowCap);
+    // Built from `prefix` alone, so before any probe takes a cell, and only
+    // under a row cap: without one the rest always has room below.
+    let room: GridRoom | undefined;
+    const roomFor = (): GridRoom => {
+      room ??=
+        rowCap === undefined
+          ? { admits: () => true }
+          : gridRoom(
+              (col, row) => prefix.free(col, row, 1, 1),
+              cols,
+              rowCap,
+              rest.map((it) => clampSpan(it, cols, rowCap)),
+            );
+      return room;
+    };
     // A celled block that collides or leaves the grid at one span does so at
     // every larger span, and each span adds one strip to the block before it,
     // so the probe checks only that strip and stops at the first taken cell.
@@ -1208,7 +1237,8 @@ function spanReacher(
         const fits =
           rest.length === 0
             ? before + 1 >= baseline
-            : prefix.trial((packer) => {
+            : roomFor().admits(at.col, at.row, span.cols, span.rows, need) &&
+              prefix.trial((packer) => {
                 packer.reserve(at.col, at.row, span.cols, span.rows);
                 return packRest(packer, before + 1);
               });
@@ -1229,18 +1259,18 @@ function spanReacher(
       // Packing is not monotone in span, so every span below the stop is a
       // candidate; scanning down from the stop, the first that fits is the reach.
       const largestFit = (top: number): number => {
+        if (top > 1) roomFor();
         for (let v = top; v > 1; v--) {
           const span = spanAt(v);
           const fits = prefix.trial((packer) => {
-            packer.place(span.cols, span.rows);
+            const at = packer.place(span.cols, span.rows);
+            if (at && !roomFor().admits(at.col, at.row, span.cols, span.rows, need)) return false;
             return packRest(packer, before + 1);
           });
           if (fits) return v;
         }
         return 1;
       };
-      // The fewest cells the rest must still cover for a probe to fit.
-      const need = cellsNeeded(rest, baseline - before - 1, cols, rowCap);
       const room =
         rowCap === undefined ? Number.POSITIVE_INFINITY : cols * rowCap - prefix.takenCount;
       const across = axis === 'cols' ? own.rows : own.cols;
