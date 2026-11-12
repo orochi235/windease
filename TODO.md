@@ -349,10 +349,12 @@ Open, grouped by what they touch:
   pointer, since every pane's size moves every gap; `resizeMode: 'neighbor'`
   is the answer today.
 - **grid** — capacity by width under fixed cells; pinned vs celled
-  priority. Flowed items under a row cap still cost O(items² × span) in resize
-  reach — 200 panels under `maxRows: 420` take 2.0s a layout, measured
-  2026-10-26 — because first-fit packing is not monotone in span, so every span
-  is probed; going further needs reach to be bounded or computed lazily.
+  priority. Resize reach for flowed items under a row cap scans down from the
+  span that starves the rest, so it repacks once per span above the answer —
+  200 panels under `maxRows: 420` take 0.16s a layout, down from 1.97s
+  (2026-11-12, `scripts/bench-grid-reach.ts`). A dashboard whose reach sits far
+  below that bound still repacks for every span between them; first-fit is not
+  monotone in span, so only a tighter bound or lazy reach cuts that.
 - **accepts and locks** — `accepts: false` and `lock.accept` both stay
   (accepts is drag-only); stack/split drops honor `accepts.kinds`, and count
   toward `accepts.max` only where they add a child. `lock: true` leaves out
