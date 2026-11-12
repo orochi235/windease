@@ -152,3 +152,22 @@ describe('ContainerHost land', () => {
     expect(store.getNode(asNodeId('stray'))?.membership?.placement.page).toBe(2);
   });
 });
+
+describe('a drop previewed into a paged container', () => {
+  for (const fast of [true, false]) {
+    it(`previews an arrival on the page shown${fast ? '' : ', without the fast path'}`, () => {
+      const store = build();
+      const strategy = pageStrategy(gridStrategy);
+      const { getDropPreview: _fast, ...slow } = strategy;
+      const registry: StrategyRegistry = new Map([['page', (fast ? strategy : slow) as never]]);
+      const h = new ContainerHost(store, DESK, registry);
+      h.setViewport({ w: 200, h: 200 });
+      h.command({ type: 'page', to: 1 });
+      h.setPreview({ insertId: 'stray', insertIndex: 0, cursor: { x: 10, y: 10 } });
+      const layout = h.layout();
+      expect([...layout.placements.keys()]).toEqual(['stray', 'b']);
+      expect(layout.isPreview).toBe(true);
+      h.destroy();
+    });
+  }
+});

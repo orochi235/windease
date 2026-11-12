@@ -902,30 +902,6 @@ export class ContainerHost {
     this.#checkConfig(strategy, container.config);
 
     const preview = this.#preview;
-    if (preview && !preview.split && strategy.getDropPreview) {
-      const fast = strategy.getDropPreview({
-        items: this.#visibleItems(),
-        container: viewport,
-        options: (container.config ?? {}) as Record<string, unknown>,
-        insertId: preview.insertId,
-        insertIndex: preview.insertIndex,
-        cursor: preview.cursor,
-        ...(preview.cell ? { cell: preview.cell } : {}),
-      });
-      if (fast) {
-        return {
-          placements: fast.placements as Map<NodeId, PlacedRect>,
-          affordances: [],
-          unplaced: [],
-          viewport,
-          isPreview: fast.accepted,
-          mode: 'placed',
-          scroll: this.#scroll,
-          view: this.#view,
-        };
-      }
-    }
-
     const persisted = this.#store.getContainerState(this.#parentId);
     const state =
       persisted ??
@@ -938,6 +914,36 @@ export class ContainerHost {
             (container.config ?? {}) as Record<string, unknown>,
           )
         : undefined);
+    if (preview && !preview.split && strategy.getDropPreview) {
+      const fast = strategy.getDropPreview({
+        items: this.#visibleItems(),
+        container: viewport,
+        options: (container.config ?? {}) as Record<string, unknown>,
+        insertId: preview.insertId,
+        insertIndex: preview.insertIndex,
+        cursor: preview.cursor,
+        state,
+        ...(preview.cell ? { cell: preview.cell } : {}),
+        ...(this.#pointer ? { pointer: this.#pointer } : {}),
+      });
+      if (fast) {
+        const out: ContainerLayout = {
+          placements: fast.placements as Map<NodeId, PlacedRect>,
+          affordances: [],
+          unplaced: (fast.unplaced ?? []) as NodeId[],
+          viewport,
+          isPreview: fast.accepted,
+          mode: 'placed',
+          scroll: this.#scroll,
+          view: this.#view,
+        };
+        if (fast.overflow) out.overflow = fast.overflow;
+        if (fast.channels) out.channels = fast.channels as Map<NodeId, Record<string, number>>;
+        if (fast.sticky) out.sticky = fast.sticky as Map<NodeId, StickyInset>;
+        return out;
+      }
+    }
+
     const result: LayoutResult<NodeId, unknown> = runStrategyForContainer(
       this.#store,
       this.#parentId,

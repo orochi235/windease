@@ -2,6 +2,7 @@ import type {
   Affordance,
   FloatHook,
   LayoutItem,
+  LayoutPreview,
   LayoutResult,
   LayoutStrategy,
   Rect,
@@ -12,7 +13,7 @@ import type {
 import type { NodeId } from '../node.js';
 import { trace } from '../trace.js';
 import { readCount } from './capacity.js';
-import { forwardInner } from './forward.js';
+import { forwardInner, forwardPreview, type LayoutInput, type RunInner } from './forward.js';
 import { innerConfig } from './inner-config.js';
 
 /** Where a child's page comes from: its own `placement.page`, or the order
@@ -123,6 +124,8 @@ function paginate<TInner>(
   size: Size,
   state: PageState<TInner>,
   options: Record<string, unknown>,
+  run: RunInner<TInner> = (input) => inner.layout(input),
+  preview?: LayoutPreview,
 ): Paged {
   const cfg = options as PageConfig;
   const innerOpts = innerOptions(options);
@@ -169,14 +172,24 @@ function paginate<TInner>(
     return { pages, shown, result };
   }
 
-  const pages = assignedPages(items, cfg);
+  // The dragged child previews on the page shown, where `land` will pin it.
+  const ghost = preview?.insertId;
+  const pages = assignedPages(
+    ghost === undefined ? items : items.filter((i) => i.id !== ghost),
+    cfg,
+  );
   const shown = clampPage(state.page, pages.length);
-  const result = inner.layout({
+  if (ghost !== undefined) {
+    const onPage = new Set(pages[shown]);
+    pages[shown] = items.filter((i) => i.id === ghost || onPage.has(i));
+  }
+  const input = {
     items: pages[shown] ?? [],
     container: size,
     state: state.inner,
     options: innerOpts,
-  });
+  };
+  const result = run(preview ? { ...input, preview } : input);
   return { pages, shown, result };
 }
 
@@ -312,6 +325,49 @@ export function pageStrategy<TInner>(
     ['canAccept', 'cellAt'],
   );
 
+  const initialState = (
+    items: LayoutItem[],
+    options: Record<string, unknown> = {},
+  ): PageState<TInner> => ({ page: 0, inner: initialInner(items, options) });
+
+  const compose = (
+    { items, container, state, options, preview }: LayoutInput<PageState<TInner>>,
+    run: RunInner<TInner>,
+  ): LayoutResult<string> => {
+    const cfg = options as PageConfig;
+    const { size, dy } = areaOf(container, cfg);
+    const safe = state ?? { page: 0, inner: initialInner(items, options) };
+    const { pages, shown, result } = paginate(inner, items, size, safe, options, run, preview);
+
+    const placements = new Map<string, Rect>();
+    for (const [id, rect] of result.placements) placements.set(id, shift(rect, dy));
+    const affordances: Affordance[] = result.affordances.map((a) =>
+      dy === 0 ? a : { ...a, rect: shift(a.rect, dy) },
+    );
+    affordances.push(...switchers(pages.length, shown, container, cfg));
+
+    const unplaced = new Set(result.unplaced ?? []);
+    const channels = new Map<string, Record<string, number>>();
+    pages.forEach((page, k) => {
+      for (const item of page) {
+        if (k !== shown) unplaced.add(item.id);
+        channels.set(item.id, { ...(k === shown ? result.channels?.get(item.id) : {}), page: k });
+      }
+    });
+    for (const id of placements.keys()) unplaced.delete(id);
+
+    trace(
+      'layout',
+      `page: ${cfg.mode ?? 'assigned'} page ${shown + 1}/${pages.length}, ` +
+        `${placements.size} placed, ${unplaced.size} withheld`,
+    );
+    const out: LayoutResult<string> = { ...result, placements, affordances, channels };
+    delete out.unplaced;
+    if (unplaced.size > 0) out.unplaced = [...unplaced];
+    if (cfg.mode === 'flowed') delete out.isPreview;
+    return out;
+  };
+
   return {
     name: `page(${inner.name})`,
 
@@ -323,44 +379,11 @@ export function pageStrategy<TInner>(
       inner: inner.configSpec ?? 'object',
     },
 
-    initialState(items, options = {}) {
-      return { page: 0, inner: initialInner(items, options) };
-    },
+    initialState,
 
-    layout({ items, container, state, options }) {
-      const cfg = options as PageConfig;
-      const { size, dy } = areaOf(container, cfg);
-      const safe = state ?? { page: 0, inner: initialInner(items, options) };
-      const { pages, shown, result } = paginate(inner, items, size, safe, options);
+    layout: (input) => compose(input, (i) => inner.layout(i)),
 
-      const placements = new Map<string, Rect>();
-      for (const [id, rect] of result.placements) placements.set(id, shift(rect, dy));
-      const affordances: Affordance[] = result.affordances.map((a) =>
-        dy === 0 ? a : { ...a, rect: shift(a.rect, dy) },
-      );
-      affordances.push(...switchers(pages.length, shown, container, cfg));
-
-      const unplaced = new Set(result.unplaced ?? []);
-      const channels = new Map<string, Record<string, number>>();
-      pages.forEach((page, k) => {
-        for (const item of page) {
-          if (k !== shown) unplaced.add(item.id);
-          channels.set(item.id, { ...(k === shown ? result.channels?.get(item.id) : {}), page: k });
-        }
-      });
-      for (const id of placements.keys()) unplaced.delete(id);
-
-      trace(
-        'layout',
-        `page: ${cfg.mode ?? 'assigned'} page ${shown + 1}/${pages.length}, ` +
-          `${placements.size} placed, ${unplaced.size} withheld`,
-      );
-      const out: LayoutResult<string> = { ...result, placements, affordances, channels };
-      delete out.unplaced;
-      if (unplaced.size > 0) out.unplaced = [...unplaced];
-      delete out.isPreview;
-      return out;
-    },
+    ...forwardPreview(inner, compose, initialState),
 
     ...fwd,
 

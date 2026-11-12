@@ -1,4 +1,5 @@
 import { type CollapseDrag, resolveCollapse } from './collapse.js';
+import { withPreviewItem } from './layout/preview-items.js';
 import type {
   HiddenItem,
   LayoutItem,
@@ -129,45 +130,22 @@ export function runStrategyForContainer<TState>(
   const parent = store.getNode(parentId);
   const config = (parent?.container?.config ?? {}) as Record<string, unknown>;
   const children = store.getChildren(parentId);
-  const items: LayoutItem[] = [];
+  let items: LayoutItem[] = [];
   const hidden: HiddenItem[] = [];
   for (const child of children) {
     if (child.lifecycle.state === 'hidden') hidden.push({ id: child.id, before: items.length });
     if (child.lifecycle.state !== 'visible') continue;
     items.push(childToLayoutItem(store, child, drag, natural));
   }
-  // A split preview inverts the rule below: the group takes the onto-child's
+  // A split preview inverts an insert's rule: the group takes the onto-child's
   // slot, so the parent's child count is unchanged, and a same-parent source
   // is one the drop will move *out*. Splicing it in would narrow every slot.
   if (preview?.split) {
     const from = items.findIndex((it) => it.id === preview.insertId);
     if (from !== -1) items.splice(from, 1);
   }
-  // When previewing an insert, splice the source in at the requested index
-  // (or append) so strategies that don't read `preview` still get the right
-  // item count. We pass `preview` through so strategies that DO read it can
-  // use the cursor for sub-index positioning.
-  else if (preview) {
-    const alreadyPresent = items.some((it) => it.id === preview.insertId);
-    if (!alreadyPresent) {
-      const ghostItem: LayoutItem = { id: preview.insertId };
-      if (
-        preview.insertIndex !== undefined &&
-        preview.insertIndex >= 0 &&
-        preview.insertIndex <= items.length
-      ) {
-        items.splice(preview.insertIndex, 0, ghostItem);
-      } else {
-        items.push(ghostItem);
-      }
-    } else if (preview.insertIndex !== undefined) {
-      // Same-parent reorder: move the existing entry to the preview index.
-      const from = items.findIndex((it) => it.id === preview.insertId);
-      const [picked] = items.splice(from, 1);
-      const to = Math.max(0, Math.min(items.length, preview.insertIndex));
-      items.splice(to, 0, picked!);
-    }
-  }
+  // Strategies that do read `preview` use the cursor for sub-index positioning.
+  else if (preview) items = withPreviewItem(items, preview);
   const input: {
     items: LayoutItem[];
     container: Size;

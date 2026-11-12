@@ -25,7 +25,7 @@ import {
   withControlConflicts,
   ZOOM_RECORD_KEY,
 } from './desktop-controls.js';
-import { forwardInner } from './forward.js';
+import { forwardInner, forwardPreview, type LayoutInput, type RunInner } from './forward.js';
 import { compositeSpec, innerConfig } from './inner-config.js';
 import { dragDelta, itemSize, itemWant } from './item-place.js';
 import { onTopLayer } from './layer.js';
@@ -529,6 +529,104 @@ export function desktopStrategy<TInner>(
     },
     state: { inner: (s) => s.inner as TInner, wrap: (s, next) => ({ ...s, inner: next }) },
   });
+  const initialState = (
+    items: LayoutItem[],
+    options?: Record<string, unknown>,
+  ): DesktopState<TInner | undefined> => {
+    const icons = layers(items, options, hasInner).icons;
+    return { inner: inner?.initialState?.(icons, innerConfig(options, true)) };
+  };
+
+  const compose = (
+    { items, container, state, options, preview }: LayoutInput<DesktopState<TInner | undefined>>,
+    run: RunInner<TInner>,
+  ): LayoutResult<string> => {
+    const cfg = options as DesktopConfig;
+    const handleSize = cfg.handleSize ?? DEFAULT_HANDLE_SIZE;
+    const { icons, windows } = layers(items, options, hasInner);
+
+    const mirror = mirrorOf(cfg);
+    const innerInput = {
+      items: icons,
+      container,
+      state: state.inner as TInner,
+      options: innerConfig(options, true),
+    };
+    const innerPreview = preview && {
+      ...preview,
+      cursor: flipPoint(preview.cursor, mirror, container),
+    };
+    const result: LayoutResult<string> = inner
+      ? flipResult(
+          run(innerPreview ? { ...innerInput, preview: innerPreview } : innerInput),
+          mirror,
+          container,
+        )
+      : { placements: new Map(), affordances: [] };
+
+    const placements = new Map(result.placements);
+    const affordances: Affordance[] = [...result.affordances];
+    const unplaced = [...(result.unplaced ?? [])];
+    if (!inner) for (const icon of icons) unplaced.push(icon.id);
+    for (const icon of icons) {
+      if (icon.meta?.icon === true || icon.meta?.minimized !== true) continue;
+      const rect = placements.get(icon.id);
+      if (rect && windowControls(icon, cfg).includes('minimize')) {
+        affordances.push(iconRestore(icon, rect));
+      }
+    }
+
+    const edgeSize = cfg.edgeSize ?? DEFAULT_EDGE_SIZE;
+    const placed = placeWindows(windows, cfg, container);
+    unplaced.push(...placed.unplaced);
+    let overW = result.overflow?.w ?? 0;
+    let overH = result.overflow?.h ?? 0;
+    let overLeft = result.overflow?.left ?? 0;
+    let overTop = result.overflow?.top ?? 0;
+    for (const { item, rect, minimized } of placed.windows) {
+      placements.set(item.id, rect);
+      const axes = dragAxes(item, cfg);
+      if (axes) {
+        affordances.push({
+          id: `${DESKTOP_DRAG_PREFIX}${item.id}`,
+          kind: DRAG_KIND[axes],
+          rect: { ...rect, h: Math.min(handleSize, rect.h) },
+          cursor: 'grab',
+          label: 'move',
+          childId: item.id,
+          travel: { x: axes !== 'y', y: axes !== 'x' },
+        });
+      }
+      if (!minimized && resizable(item, cfg)) {
+        affordances.push(...resizeAffordances(item, rect, container, edgeSize));
+      }
+      affordances.push(...controlAffordances(item, rect, minimized, cfg, handleSize));
+      overW = Math.max(overW, rect.x + rect.w - container.w);
+      overH = Math.max(overH, rect.y + rect.h - container.h);
+      overLeft = Math.max(overLeft, -rect.x);
+      overTop = Math.max(overTop, -rect.y);
+    }
+    const rank = placed.windows.length;
+
+    trace(
+      'layout',
+      `desktop: ${rank} windows over ${icons.length} icons in ${inner?.name ?? 'nothing'}`,
+    );
+    const out: LayoutResult<string> = { ...result, placements, affordances };
+    delete out.unplaced;
+    delete out.overflow;
+    if (unplaced.length > 0) out.unplaced = unplaced;
+    const over =
+      (cfg.overflowMode ?? cfg.overflow) !== 'clip' &&
+      (overW > 0 || overH > 0 || overLeft > 0 || overTop > 0);
+    if (over) {
+      out.overflow = { w: Math.max(0, overW), h: Math.max(0, overH) };
+      if (overLeft > 0) out.overflow.left = overLeft;
+      if (overTop > 0) out.overflow.top = overTop;
+    }
+    return out;
+  };
+
   return {
     name: inner ? `desktop(${inner.name})` : 'desktop',
 
@@ -559,97 +657,11 @@ export function desktopStrategy<TInner>(
       ),
     ),
 
-    initialState(items, options) {
-      const icons = layers(items, options, hasInner).icons;
-      return { inner: inner?.initialState?.(icons, innerConfig(options, true)) };
-    },
+    initialState,
 
-    layout({ items, container, state, options, preview }) {
-      const cfg = options as DesktopConfig;
-      const handleSize = cfg.handleSize ?? DEFAULT_HANDLE_SIZE;
-      const { icons, windows } = layers(items, options, hasInner);
+    layout: (input) => compose(input, (i) => inner!.layout(i)),
 
-      const mirror = mirrorOf(cfg);
-      const innerInput = {
-        items: icons,
-        container,
-        state: state.inner as TInner,
-        options: innerConfig(options, true),
-      };
-      const innerPreview = preview && {
-        ...preview,
-        cursor: flipPoint(preview.cursor, mirror, container),
-      };
-      const result: LayoutResult<string> = inner
-        ? flipResult(
-            inner.layout(innerPreview ? { ...innerInput, preview: innerPreview } : innerInput),
-            mirror,
-            container,
-          )
-        : { placements: new Map(), affordances: [] };
-
-      const placements = new Map(result.placements);
-      const affordances: Affordance[] = [...result.affordances];
-      const unplaced = [...(result.unplaced ?? [])];
-      if (!inner) for (const icon of icons) unplaced.push(icon.id);
-      for (const icon of icons) {
-        if (icon.meta?.icon === true || icon.meta?.minimized !== true) continue;
-        const rect = placements.get(icon.id);
-        if (rect && windowControls(icon, cfg).includes('minimize')) {
-          affordances.push(iconRestore(icon, rect));
-        }
-      }
-
-      const edgeSize = cfg.edgeSize ?? DEFAULT_EDGE_SIZE;
-      const placed = placeWindows(windows, cfg, container);
-      unplaced.push(...placed.unplaced);
-      let overW = result.overflow?.w ?? 0;
-      let overH = result.overflow?.h ?? 0;
-      let overLeft = result.overflow?.left ?? 0;
-      let overTop = result.overflow?.top ?? 0;
-      for (const { item, rect, minimized } of placed.windows) {
-        placements.set(item.id, rect);
-        const axes = dragAxes(item, cfg);
-        if (axes) {
-          affordances.push({
-            id: `${DESKTOP_DRAG_PREFIX}${item.id}`,
-            kind: DRAG_KIND[axes],
-            rect: { ...rect, h: Math.min(handleSize, rect.h) },
-            cursor: 'grab',
-            label: 'move',
-            childId: item.id,
-            travel: { x: axes !== 'y', y: axes !== 'x' },
-          });
-        }
-        if (!minimized && resizable(item, cfg)) {
-          affordances.push(...resizeAffordances(item, rect, container, edgeSize));
-        }
-        affordances.push(...controlAffordances(item, rect, minimized, cfg, handleSize));
-        overW = Math.max(overW, rect.x + rect.w - container.w);
-        overH = Math.max(overH, rect.y + rect.h - container.h);
-        overLeft = Math.max(overLeft, -rect.x);
-        overTop = Math.max(overTop, -rect.y);
-      }
-      const rank = placed.windows.length;
-
-      trace(
-        'layout',
-        `desktop: ${rank} windows over ${icons.length} icons in ${inner?.name ?? 'nothing'}`,
-      );
-      const out: LayoutResult<string> = { ...result, placements, affordances };
-      delete out.unplaced;
-      delete out.overflow;
-      if (unplaced.length > 0) out.unplaced = unplaced;
-      const over =
-        (cfg.overflowMode ?? cfg.overflow) !== 'clip' &&
-        (overW > 0 || overH > 0 || overLeft > 0 || overTop > 0);
-      if (over) {
-        out.overflow = { w: Math.max(0, overW), h: Math.max(0, overH) };
-        if (overLeft > 0) out.overflow.left = overLeft;
-        if (overTop > 0) out.overflow.top = overTop;
-      }
-      return out;
-    },
+    ...forwardPreview(inner, compose, initialState),
 
     ...fwd,
 

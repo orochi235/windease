@@ -58,4 +58,26 @@ test.describe('paged grid — drops', () => {
     await page.getByRole('button', { name: 'Page 1 of 2' }).click();
     await expect.poll(() => shown(page, 'board')).not.toContain('new-1');
   });
+
+  test('mid-drag, the preview holds the cell under the pointer on the page shown', async ({
+    page,
+  }) => {
+    await openStory(page, STORY);
+    await page.getByRole('button', { name: 'Page 2 of 2' }).click();
+    await expect.poll(() => shown(page, 'board')).toEqual(['room-1', 'room-2']);
+    const from = centerOf(await settledBox(card(page, 'new-1').locator('.pages-window__bar')));
+    const to = await cellCenter(page, 0, 1);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 12 });
+    const ghost = board(page).locator('[data-node="new-1"][data-preview-source]');
+    await expect(ghost).toHaveCount(1);
+    const b = await settledBox(board(page));
+    const c = centerOf(await settledBox(ghost));
+    expect([
+      Math.floor(((c.x - b.x) / b.w) * 3),
+      Math.floor(((c.y - b.y) / (b.h - BAR)) * 2),
+    ]).toEqual([0, 1]);
+    await page.mouse.up();
+  });
 });

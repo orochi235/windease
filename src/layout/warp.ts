@@ -24,7 +24,7 @@ import type {
 } from '../layout-types.js';
 import { trace } from '../trace.js';
 import type { ConfigSpec } from './config-check.js';
-import { forwardInner } from './forward.js';
+import { forwardInner, forwardPreview, type LayoutInput, type RunInner } from './forward.js';
 
 /** A point in a container's coordinate space. */
 export interface Point {
@@ -594,38 +594,38 @@ export function warp<TState, TMeta = unknown>(
   const name = `warp(${[strategy.name, ...passes.map((p) => p.name)].join(', ')})`;
   trace('layout', `${name}: composed over ${passes.length} pass(es)`);
 
+  const compose = (input: LayoutInput<TState>, run: RunInner<TState>): LayoutResult<string> => {
+    const args: PassArgs = {
+      items: input.items,
+      container: input.container,
+      state: input.state,
+      options: input.options,
+      ...(input.pointer ? { pointer: input.pointer } : {}),
+    };
+    const pointers = pointersFor(passes, input.pointer, args);
+    const { pointer: _screen, ...rest } = input;
+    const inner = pointers[0];
+    let result = run(inner ? { ...rest, pointer: inner } : rest);
+    passes.forEach((pass, i) => {
+      result = pass.apply(result, { ...args, pointer: pointers[i] });
+    });
+    return movesRects ? withDeformedOverflow(result, input.container) : result;
+  };
+
   const composed: LayoutStrategy<TState, string, TMeta> = {
     name,
     configSpec,
     ...(strategy.configConflicts ? { configConflicts: strategy.configConflicts } : {}),
-    layout(input) {
-      const args: PassArgs = {
-        items: input.items,
-        container: input.container,
-        state: input.state,
-        options: input.options,
-        ...(input.pointer ? { pointer: input.pointer } : {}),
-      };
-      const pointers = pointersFor(passes, input.pointer, args);
-      const { pointer: _screen, ...rest } = input;
-      const inner = pointers[0];
-      let result = strategy.layout(inner ? { ...rest, pointer: inner } : rest) as LayoutResult<
+    layout: (input) =>
+      compose(input, (i) => strategy.layout(i) as LayoutResult<string>) as LayoutResult<
         string,
         TMeta
-      >;
-      passes.forEach((pass, i) => {
-        result = pass.apply(result as LayoutResult<string>, {
-          ...args,
-          pointer: pointers[i],
-        }) as LayoutResult<string, TMeta>;
-      });
-      return movesRects
-        ? (withDeformedOverflow(result as LayoutResult<string>, input.container) as LayoutResult<
-            string,
-            TMeta
-          >)
-        : result;
-    },
+      >,
+    ...forwardPreview(
+      strategy as LayoutStrategy<TState, string, unknown>,
+      compose,
+      (items, options) => strategy.initialState?.(items, options) as TState,
+    ),
   };
 
   if (strategy.initialState) {

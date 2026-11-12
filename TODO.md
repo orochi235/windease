@@ -226,11 +226,20 @@ all. Reflow coverage has to use a ref-measured fixture.
 through `forwardInner` (`src/layout/forward.ts`), each describing how its frame
 differs — which children, which config, which state, and how a point moves.
 `wrapper-forwarding.test.ts` fails when a wrapper drops a hook in
-`FORWARDED_HOOKS` (2026-10-27). Still open:
+`FORWARDED_HOOKS` (2026-10-27). `getDropPreview` goes through `forwardPreview`
+instead, which runs the wrapper's own layout with the inner fast path swapped in
+for `inner.layout` (2026-11-12). Still open:
 
-- **`getDropPreview` is forwarded by no wrapper.** Each wrapper reshapes the
-  inner result, so the fast path would answer in the wrong frame; the host
-  falls back to `layout({ preview })`, which is correct and slower.
+- **Grid's two preview paths disagree on a cell.** `gridStrategy.getDropPreview`
+  places the dragged child at `cell`, and moves a celled child dragged within
+  its grid to the new index; `gridStrategy.layout({ preview })` does neither.
+  `wrapper-preview.test.ts` leaves `cell` out of its oracle for this reason.
+  Fold both into one projection in `grid.ts`.
+- **No inner fast path is cheaper than its layout yet.** Grid's
+  `getDropPreview` runs `gridStrategy.layout`, so through every wrapper the fast
+  path measured within noise of the fallback (14–30 µs per preview layout, 40
+  children, 2026-11-12). Forwarding pays off only once an inner strategy answers
+  a preview with less work than a layout.
 - **Default drift, kept (2026-11-04).** `handleSize` defaults to 0 on
   floating, where the whole panel is the handle, and 22 on desktop, which
   draws a title band; repel's `gap` defaults to 8 because its job is spacing.

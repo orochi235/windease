@@ -30,6 +30,12 @@ section below.
   from the container it splits, under `splitConfig`, so a pane dropped into a
   split can be dragged again.
 
+- **`floating`, `desktop`, `page` and `warp` forward `getDropPreview`** when
+  their inner strategy has one, reshaping its answer as their own layout does.
+  `getDropPreview`'s input gains `state` and `pointer`, and its answer may carry
+  `unplaced`, `overflow`, `channels` and `sticky`, which the host now keeps;
+  the answer's type is exported as `DropPreview`.
+
 ### Changed
 
 - **Desktop's `overflow` and `resize` are renamed `overflowMode` and
@@ -73,6 +79,11 @@ section below.
   their rows and columns, so a tab dropped on a stack's edge splits it.
 
 ### Fixed
+
+- **A drop previewed into a paged container shows on the page shown.** Under
+  `pageStrategy`'s `'assigned'` mode the dragged child was counted on page 0,
+  so its preview showed only there, and the layout never reported
+  `isPreview`; it now previews where `land` puts it.
 
 - **A drop onto a later page of a paged container lands on that page.** The
   built-in drop resolver counted its index among the children drawn, while a

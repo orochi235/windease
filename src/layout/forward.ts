@@ -1,4 +1,15 @@
-import type { Affordance, LayoutEvent, LayoutItem, LayoutStrategy, Size } from '../layout-types.js';
+import type {
+  Affordance,
+  DropPreview,
+  LayoutEvent,
+  LayoutItem,
+  LayoutPreview,
+  LayoutResult,
+  LayoutStrategy,
+  Size,
+} from '../layout-types.js';
+import { trace } from '../trace.js';
+import { withPreviewItem } from './preview-items.js';
 
 type Direction = 'left' | 'right' | 'up' | 'down';
 type Point = { x: number; y: number };
@@ -41,8 +52,9 @@ export interface InnerView<TState, TInner> {
   state?: { inner(state: TState): TInner; wrap(state: TState, inner: TInner): TState };
 }
 
-/** The hooks `forwardInner` can forward. `layout`, `initialState`, `getDropPreview` and
- *  `float` answer about the wrapper's own output, so each wrapper writes its own. */
+/** The hooks `forwardInner` can forward. `layout`, `initialState` and `float` answer
+ *  about the wrapper's own output, so each wrapper writes its own; `getDropPreview`
+ *  goes through `forwardPreview`, since only the wrapper's layout can reshape it. */
 export const FORWARDED_HOOKS = [
   'reduce',
   'dispatchAffordance',
@@ -179,4 +191,89 @@ export function forwardInner<TState, TInner>(
       });
   }
   return out;
+}
+
+/** What a wrapper's layout is handed, and what it hands its inner strategy. */
+export interface LayoutInput<TState> {
+  items: LayoutItem[];
+  container: Size;
+  state: TState;
+  options: Record<string, unknown>;
+  preview?: LayoutPreview;
+  pointer?: Point;
+}
+
+/** How a wrapper's layout runs its inner strategy: `inner.layout`, or the
+ *  inner preview's fast path when the wrapper is answering `getDropPreview`. */
+export type RunInner<TInner> = (input: LayoutInput<TInner>) => LayoutResult<string>;
+
+/**
+ * `getDropPreview` for a wrapper whose `layout` is `compose` over `inner`, when
+ * `inner` has one. The wrapper's own layout runs unchanged; only its call into
+ * `inner` takes the inner fast path, so the answer is reshaped exactly as
+ * `layout({ preview })` reshapes it. An inner call whose children do not hold
+ * the dragged one — a child the wrapper keeps for itself — runs `inner.layout`.
+ */
+export function forwardPreview<TState, TInner>(
+  inner: LayoutStrategy<TInner, string, unknown> | undefined,
+  compose: (input: LayoutInput<TState>, run: RunInner<TInner>) => LayoutResult<string>,
+  seed: (items: LayoutItem[], options: Record<string, unknown>) => TState,
+): Partial<Pick<LayoutStrategy<TState, string, unknown>, 'getDropPreview'>> {
+  const fast = inner?.getDropPreview;
+  if (!inner || !fast) return {};
+  const run: RunInner<TInner> = (input) => {
+    const { preview } = input;
+    const at = preview ? input.items.findIndex((i) => i.id === preview.insertId) : -1;
+    const answer =
+      preview && at >= 0
+        ? fast.call(inner, {
+            items: input.items,
+            container: input.container,
+            options: input.options,
+            state: input.state,
+            insertId: preview.insertId,
+            insertIndex: at,
+            cursor: preview.cursor,
+            ...(preview.cell ? { cell: preview.cell } : {}),
+            ...(input.pointer ? { pointer: input.pointer } : {}),
+          })
+        : null;
+    if (!answer) return inner.layout(input);
+    const { accepted, ...rest } = answer;
+    return { ...rest, affordances: [], isPreview: accepted };
+  };
+  return {
+    getDropPreview(input) {
+      const preview: LayoutPreview = {
+        insertId: input.insertId,
+        cursor: input.cursor,
+        ...(input.insertIndex !== undefined ? { insertIndex: input.insertIndex } : {}),
+        ...(input.cell ? { cell: input.cell } : {}),
+      };
+      const result = compose(
+        {
+          items: withPreviewItem(input.items, preview),
+          container: input.container,
+          state: input.state ?? seed(input.items, input.options),
+          options: input.options,
+          preview,
+          ...(input.pointer ? { pointer: input.pointer } : {}),
+        },
+        run,
+      );
+      trace(
+        'layout',
+        `preview: ${input.insertId}@${input.insertIndex ?? 'end'} through ${inner.name}`,
+      );
+      const out: DropPreview = {
+        placements: result.placements,
+        accepted: result.isPreview ?? false,
+      };
+      if (result.unplaced) out.unplaced = result.unplaced;
+      if (result.overflow) out.overflow = result.overflow;
+      if (result.channels) out.channels = result.channels;
+      if (result.sticky) out.sticky = result.sticky;
+      return out;
+    },
+  };
 }

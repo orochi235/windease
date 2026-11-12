@@ -397,6 +397,15 @@ export interface LayoutResult<TId extends string = string, TMeta = unknown> {
 }
 
 /**
+ * What `getDropPreview` answers: the preview's placements, whether the drop
+ * would be taken, and whichever of `layout`'s other outputs the strategy has.
+ */
+export type DropPreview<TId extends string = string> = Pick<
+  LayoutResult<TId>,
+  'placements' | 'unplaced' | 'overflow' | 'channels' | 'sticky'
+> & { accepted: boolean };
+
+/**
  * A gesture on an affordance, fed back to the strategy through `reduce` and
  * `dispatchAffordance`. Coordinates are container-relative and deltas are
  * per move: each event carries the distance since the previous one, not since
@@ -595,6 +604,11 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
    * uses this instead of calling `.layout({ preview })`. Useful when preview
    * placements are cheap to compute directly (e.g. grid cells given an index).
    * Return null to delegate to the canonical `.layout()` path.
+   *
+   * `items` are the current children, without the dragged one spliced in.
+   * `state` and `pointer` are what `layout` would be handed; the host always
+   * passes `state`. The optional result fields carry through to the host as
+   * `layout`'s do, so a wrapping strategy's preview keeps its deformation.
    */
   getDropPreview?(input: {
     items: LayoutItem[];
@@ -604,7 +618,9 @@ export interface LayoutStrategy<TState = void, TId extends string = string, TMet
     insertIndex: number | undefined;
     cursor: { x: number; y: number };
     cell?: { col: number; row: number };
-  }): { placements: Map<TId, Rect>; accepted: boolean } | null;
+    state?: TState | undefined;
+    pointer?: { x: number; y: number };
+  }): DropPreview<TId> | null;
   /**
    * Present on a strategy that places children free of any tiling — floating,
    * desktop. A stack's `tear: 'float'` looks for it on an ancestor, and

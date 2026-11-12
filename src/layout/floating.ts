@@ -9,7 +9,7 @@ import type {
 } from '../layout-types.js';
 import { RAISE_MODES } from '../policies.js';
 import { trace } from '../trace.js';
-import { forwardInner } from './forward.js';
+import { forwardInner, forwardPreview, type LayoutInput, type RunInner } from './forward.js';
 import { compositeSpec, innerConfig } from './inner-config.js';
 import { dragDelta } from './item-place.js';
 import { onTopLayer } from './layer.js';
@@ -286,6 +286,74 @@ export function floatingStrategy<TInner>(
     owns: (id) => id.startsWith(FLOATING_DRAG_PREFIX),
     state: { inner: (s) => s.inner as TInner, wrap: (s, next) => ({ ...s, inner: next }) },
   });
+  const initialState = (
+    items: LayoutItem[],
+    options?: Record<string, unknown>,
+  ): FloatingState<TInner | undefined> => {
+    const at: Record<string, FloatingPlacement> = {};
+    for (const item of items) if (floats(item)) at[item.id] = seed(options);
+    const tiled = items.filter((i) => !floats(i));
+    return { at, inner: inner?.initialState?.(tiled, innerConfig(options, true)) };
+  };
+
+  const compose = (
+    { items, container, state, options, preview }: LayoutInput<FloatingState<TInner | undefined>>,
+    run: RunInner<TInner>,
+  ): LayoutResult<string> => {
+    const cfg = options as FloatingConfig;
+    const inset = cfg.inset ?? DEFAULT_INSET;
+    const handleSize = cfg.handleSize ?? 0;
+    const floating = items.filter(floats);
+    const tiled = items.filter((i) => !floats(i));
+
+    const innerInput = {
+      items: tiled,
+      container,
+      state: state.inner as TInner,
+      options: innerConfig(options, true),
+    };
+    const result: LayoutResult<string> = inner
+      ? run(preview ? { ...innerInput, preview } : innerInput)
+      : { placements: new Map(), affordances: [] };
+
+    const placements = new Map(result.placements);
+    // The panes are the inner strategy's own placements; a floating item is
+    // never one of them, so this cannot anchor an item to itself.
+    const panes = cfg.snapToPanes || cfg.snap === 'fill' ? result.placements : undefined;
+    const affordances: Affordance[] = [...result.affordances];
+    const unplaced = [...(result.unplaced ?? [])];
+    let topRank = 0;
+    for (const item of floating) {
+      const size = sizeOf(item);
+      // A 0x0 rect renders as a panel that vanished. `natural` arrives only
+      // after a measurement, so withhold it until one does.
+      if (!usableSize(size)) {
+        trace('layout', `floating: ${item.id} has no usable size (${size.w}x${size.h}), withheld`);
+        unplaced.push(item.id);
+        continue;
+      }
+      const rect = rectOf(item, state.at[item.id] ?? seed(options), container, inset, panes);
+      // From 2: a host draws every drag band at 1 or above, the others' included.
+      if (onTopLayer(item)) rect.z = 1 + ++topRank;
+      placements.set(item.id, rect);
+      affordances.push({
+        id: `${FLOATING_DRAG_PREFIX}${item.id}`,
+        kind: 'drag-xy',
+        rect: handleSize > 0 ? { ...rect, h: Math.min(handleSize, rect.h) } : rect,
+        cursor: 'grab',
+        label: 'move',
+        childId: item.id,
+        affects: [item.id],
+        travel: { x: true, y: true },
+      });
+    }
+
+    trace('layout', `floating: ${floating.length} over ${inner?.name ?? 'nothing'}`);
+    const out: LayoutResult<string> = { ...result, placements, affordances };
+    if (unplaced.length > 0) out.unplaced = unplaced;
+    return out;
+  };
+
   return {
     name: inner ? `floating(${inner.name})` : 'floating',
 
@@ -302,70 +370,11 @@ export function floatingStrategy<TInner>(
       inner,
     ),
 
-    initialState(items, options) {
-      const at: Record<string, FloatingPlacement> = {};
-      for (const item of items) if (floats(item)) at[item.id] = seed(options);
-      const tiled = items.filter((i) => !floats(i));
-      return { at, inner: inner?.initialState?.(tiled, innerConfig(options, true)) };
-    },
+    initialState,
 
-    layout({ items, container, state, options, preview }) {
-      const cfg = options as FloatingConfig;
-      const inset = cfg.inset ?? DEFAULT_INSET;
-      const handleSize = cfg.handleSize ?? 0;
-      const floating = items.filter(floats);
-      const tiled = items.filter((i) => !floats(i));
+    layout: (input) => compose(input, (i) => inner!.layout(i)),
 
-      const innerInput = {
-        items: tiled,
-        container,
-        state: state.inner as TInner,
-        options: innerConfig(options, true),
-      };
-      const result: LayoutResult<string> = inner
-        ? inner.layout(preview ? { ...innerInput, preview } : innerInput)
-        : { placements: new Map(), affordances: [] };
-
-      const placements = new Map(result.placements);
-      // The panes are the inner strategy's own placements; a floating item is
-      // never one of them, so this cannot anchor an item to itself.
-      const panes = cfg.snapToPanes || cfg.snap === 'fill' ? result.placements : undefined;
-      const affordances: Affordance[] = [...result.affordances];
-      const unplaced = [...(result.unplaced ?? [])];
-      let topRank = 0;
-      for (const item of floating) {
-        const size = sizeOf(item);
-        // A 0x0 rect renders as a panel that vanished. `natural` arrives only
-        // after a measurement, so withhold it until one does.
-        if (!usableSize(size)) {
-          trace(
-            'layout',
-            `floating: ${item.id} has no usable size (${size.w}x${size.h}), withheld`,
-          );
-          unplaced.push(item.id);
-          continue;
-        }
-        const rect = rectOf(item, state.at[item.id] ?? seed(options), container, inset, panes);
-        // From 2: a host draws every drag band at 1 or above, the others' included.
-        if (onTopLayer(item)) rect.z = 1 + ++topRank;
-        placements.set(item.id, rect);
-        affordances.push({
-          id: `${FLOATING_DRAG_PREFIX}${item.id}`,
-          kind: 'drag-xy',
-          rect: handleSize > 0 ? { ...rect, h: Math.min(handleSize, rect.h) } : rect,
-          cursor: 'grab',
-          label: 'move',
-          childId: item.id,
-          affects: [item.id],
-          travel: { x: true, y: true },
-        });
-      }
-
-      trace('layout', `floating: ${floating.length} over ${inner?.name ?? 'nothing'}`);
-      const out: LayoutResult<string> = { ...result, placements, affordances };
-      if (unplaced.length > 0) out.unplaced = unplaced;
-      return out;
-    },
+    ...forwardPreview(inner, compose, initialState),
 
     ...fwd,
 

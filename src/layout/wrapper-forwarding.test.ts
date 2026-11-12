@@ -141,6 +141,7 @@ function probe() {
     canAccept: log('canAccept', false),
     navigate: log('navigate', 'n1'),
     cellAt: log('cellAt', { col: 7, row: 7 }),
+    getDropPreview: log('getDropPreview', null),
   };
   return { strategy, calls };
 }
@@ -169,7 +170,8 @@ describe('every wrapper forwards every hook its inner strategy has', () => {
   for (const [name, wrap, withheld] of wrappers) {
     it(name, () => {
       const strategy = wrap(probe().strategy);
-      const missing = FORWARDED_HOOKS.filter((h) => !withheld.includes(h) && !strategy[h]);
+      const hooks = [...FORWARDED_HOOKS, 'getDropPreview'] as const;
+      const missing = hooks.filter((h) => !withheld.includes(h as ForwardedHook) && !strategy[h]);
       expect(missing).toEqual([]);
     });
   }

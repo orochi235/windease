@@ -211,6 +211,7 @@ export type {
   AffordanceJoin,
   AffordanceReveal,
   BuiltinAffordanceKind,
+  DropPreview,
   FloatHook,
   HiddenItem,
   ItemId,
