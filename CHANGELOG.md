@@ -112,6 +112,13 @@ section below.
   same holds when shrinking a pane in a full `'center'` or `'between'` row,
   where the free space it opened moved the seam half the drag.
 
+- **A strip seam follows the pointer in a full row whose panes fill around it.**
+  A pane before the seam sized by `placement.share`, or left to fill, took up
+  half of what the dragged pane gave or gained, so the seam moved half the
+  drag, under every `justify`. And shrinking a pane in a full `justify: 'end'`
+  row opened the space before the row, leaving the seam where it was. The
+  panes after the seam now take the change and the ones before it hold.
+
 ## 2.3.0
 
 ### Added
