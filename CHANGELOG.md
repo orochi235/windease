@@ -33,8 +33,9 @@ section below.
 - **`floating`, `desktop`, `page` and `warp` forward `getDropPreview`** when
   their inner strategy has one, reshaping its answer as their own layout does.
   `getDropPreview`'s input gains `state` and `pointer`, and its answer may carry
-  `unplaced`, `overflow`, `channels` and `sticky`, which the host now keeps;
-  the answer's type is exported as `DropPreview`.
+  `affordances`, `unplaced`, `overflow`, `channels` and `sticky`, which the host
+  now keeps, so handles and page switchers stay up during a drag. Grid's answer
+  carries all of them. The answer's type is exported as `DropPreview`.
 
 ### Changed
 

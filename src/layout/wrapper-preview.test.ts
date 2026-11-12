@@ -52,6 +52,8 @@ interface Case {
   movable: string[];
   /** Whether some preview reaches the inner grid's fast path. */
   reachesInner: boolean;
+  /** Whether the wrapper draws handles of its own, which a drag must keep. */
+  handles?: true;
 }
 
 const VIEWPORT = { w: 400, h: 300 };
@@ -71,11 +73,17 @@ const CASES: Case[] = [
     state: { at: { f1: { x: 30, y: 40, anchor: null }, f2: { x: 0, y: 0, anchor: 'top-right' } } },
     movable: ['t1', 't4'],
     reachesInner: true,
+    handles: true,
   },
   {
     name: 'desktop(grid), mirrored',
     make: (g) => desktopStrategy(g) as never,
-    config: { iconFrom: 'top-right', inner: { cols: 4, cell: { h: 50 }, gap: 4 } },
+    config: {
+      iconFrom: 'top-right',
+      drag: true,
+      resizable: true,
+      inner: { cols: 4, cell: { h: 50 }, gap: 4 },
+    },
     children: [
       ...tiles(4, { icon: true }),
       { id: 'w1', placement: { x: 40, y: 30, size: { w: 160, h: 120 } } },
@@ -83,6 +91,7 @@ const CASES: Case[] = [
     ],
     movable: ['t0', 't2', 'w1'],
     reachesInner: true,
+    handles: true,
   },
   {
     name: 'page(grid), assigned',
@@ -96,6 +105,7 @@ const CASES: Case[] = [
     state: { page: 1 },
     movable: ['p1a', 'p1b'],
     reachesInner: true,
+    handles: true,
   },
   {
     name: 'page(grid), flowed',
@@ -109,13 +119,14 @@ const CASES: Case[] = [
   {
     name: 'page(desktop(grid))',
     make: (g) => pageStrategy(desktopStrategy(g)) as never,
-    config: { bar: 20, inner: { inner: { cols: 3 } } },
+    config: { bar: 20, inner: { drag: true, inner: { cols: 3 } } },
     children: [
       ...tiles(3, { icon: true, page: 0 }),
       { id: 'w1', placement: { x: 10, y: 10, page: 0, size: { w: 100, h: 80 } } },
     ],
     movable: ['t1', 'w1'],
     reachesInner: true,
+    handles: true,
   },
   {
     name: 'warp(grid, tilt, swell)',
@@ -134,6 +145,7 @@ const CASES: Case[] = [
     state: { at: { f1: { x: 100, y: 90, anchor: null } } },
     movable: ['t1'],
     reachesInner: true,
+    handles: true,
   },
 ];
 
@@ -169,12 +181,13 @@ function host(c: Case, strategy: LayoutStrategy<never, string, unknown>): Contai
 }
 
 /**
- * Everything a fast-path layout carries; affordances are dropped mid-drag by design.
+ * Everything a layout carries that a drag shows.
  * No preview below names a `cell`: grid's own `layout({ preview })` ignores one
  * where its `getDropPreview` honors it, so the oracle would disagree with itself.
  */
 const comparable = (l: ContainerLayout) => ({
   placements: l.placements,
+  affordances: l.affordances.map((a) => ({ id: a.id, rect: a.rect })),
   isPreview: l.isPreview,
   unplaced: l.unplaced,
   overflow: l.overflow,
@@ -208,13 +221,16 @@ describe('a wrapper forwards getDropPreview into its own frame', () => {
       const { getDropPreview: _fast, ...slow } = strategy;
       const fastHost = host(c, strategy);
       const slowHost = host(c, slow);
+      let handles = 0;
       for (const preview of previews(c, rng(index + 1))) {
         fastHost.setPreview(preview);
         slowHost.setPreview(preview);
         const fast = comparable(fastHost.layout());
         const slowLayout = comparable(slowHost.layout());
         expect(fast, JSON.stringify(preview)).toEqual(slowLayout);
+        handles += fast.affordances.length;
       }
+      if (c.handles) expect(handles).toBeGreaterThan(0);
       if (c.reachesInner) expect(counter.calls).toBeGreaterThan(0);
       else expect(counter.calls).toBe(0);
       fastHost.destroy();

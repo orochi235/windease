@@ -885,6 +885,17 @@ export class ContainerHost {
     return true;
   }
 
+  /**
+   * Suppress affordances the lock forbids so a gutter the user can see but
+   * not drag never renders. Complements the dispatch guard, which also covers
+   * a custom affordance renderer bypassing this path.
+   */
+  #permitted(affordances: Affordance[]): Affordance[] {
+    return this.#store.isLocked(this.#parentId, 'arrange')
+      ? []
+      : affordances.filter((a) => !affectsResizeLocked(this.#store, a.affects));
+  }
+
   #compute(): ContainerLayout {
     this.#collapsed = this.#collapseKey();
     this.#cachedChildren = new Set(this.#store.getChildren(this.#parentId).map((c) => c.id));
@@ -929,7 +940,7 @@ export class ContainerHost {
       if (fast) {
         const out: ContainerLayout = {
           placements: fast.placements as Map<NodeId, PlacedRect>,
-          affordances: [],
+          affordances: this.#permitted(fast.affordances ?? []),
           unplaced: (fast.unplaced ?? []) as NodeId[],
           viewport,
           isPreview: fast.accepted,
@@ -955,12 +966,7 @@ export class ContainerHost {
       this.#pointer ?? undefined,
       this.#drag ?? undefined,
     );
-    // Suppress affordances the lock forbids so a gutter the user can see but
-    // not drag never renders. Complements the dispatch guard, which also
-    // covers a custom affordance renderer bypassing this path.
-    const affordances = this.#store.isLocked(this.#parentId, 'arrange')
-      ? []
-      : result.affordances.filter((a) => !affectsResizeLocked(this.#store, a.affects));
+    const affordances = this.#permitted(result.affordances);
     const split = preview?.split
       ? this.#applySplitPreview(result.placements, preview.insertId, preview.split)
       : true;

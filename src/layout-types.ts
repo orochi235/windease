@@ -398,12 +398,13 @@ export interface LayoutResult<TId extends string = string, TMeta = unknown> {
 
 /**
  * What `getDropPreview` answers: the preview's placements, whether the drop
- * would be taken, and whichever of `layout`'s other outputs the strategy has.
+ * would be taken, and whichever of `layout`'s other outputs the strategy has,
+ * affordances included: a host shows them during the drag as it would `layout`'s.
  */
-export type DropPreview<TId extends string = string> = Pick<
-  LayoutResult<TId>,
+export type DropPreview<TId extends string = string, TMeta = unknown> = Pick<
+  LayoutResult<TId, TMeta>,
   'placements' | 'unplaced' | 'overflow' | 'channels' | 'sticky'
-> & { accepted: boolean };
+> & { accepted: boolean; affordances?: Affordance<TMeta>[] };
 
 /**
  * A gesture on an affordance, fed back to the strategy through `reduce` and

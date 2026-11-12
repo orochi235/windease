@@ -72,6 +72,9 @@ test.describe('paged grid — drops', () => {
     await page.mouse.move(to.x, to.y, { steps: 12 });
     const ghost = board(page).locator('[data-node="new-1"][data-preview-source]');
     await expect(ghost).toHaveCount(1);
+    // The page switchers are the wrapper's affordances; a preview keeps them.
+    await expect(page.getByRole('button', { name: 'Page 1 of 2' })).toBeVisible();
+    await expect(page.getByTestId('dot-1')).toHaveAttribute('data-current', 'true');
     const b = await settledBox(board(page));
     const c = centerOf(await settledBox(ghost));
     expect([

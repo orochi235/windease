@@ -239,8 +239,8 @@ export function forwardPreview<TState, TInner>(
           })
         : null;
     if (!answer) return inner.layout(input);
-    const { accepted, ...rest } = answer;
-    return { ...rest, affordances: [], isPreview: accepted };
+    const { accepted, affordances = [], ...rest } = answer;
+    return { ...rest, affordances, isPreview: accepted };
   };
   return {
     getDropPreview(input) {
@@ -267,6 +267,7 @@ export function forwardPreview<TState, TInner>(
       );
       const out: DropPreview = {
         placements: result.placements,
+        affordances: result.affordances,
         accepted: result.isPreview ?? false,
       };
       if (result.unplaced) out.unplaced = result.unplaced;

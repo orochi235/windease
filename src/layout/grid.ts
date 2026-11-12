@@ -1595,7 +1595,7 @@ export const gridStrategy: LayoutStrategy<void, string> = {
   canAccept(items, options): boolean {
     return fitsCapacity(options as GridConfig, items);
   },
-  getDropPreview({ items, container, options, insertId, insertIndex, cursor: _cursor, cell }) {
+  getDropPreview({ items, container, options, insertId, insertIndex, cursor, cell }) {
     const cfg = options as GridConfig;
     // Splice ghost in if not already present. A celled child dragged within
     // its own grid is previewed as the reorder will leave it: its cell
@@ -1624,24 +1624,22 @@ export const gridStrategy: LayoutStrategy<void, string> = {
             ? [...items.slice(0, insertIndex), { id: insertId }, ...items.slice(insertIndex)]
             : [...items, { id: insertId }];
     }
-    if (!fitsCapacity(cfg, projected)) {
-      // Still produce placements (using normal layout) so the host can show
-      // the rejection overlay against the current grid.
-      const fallback = gridStrategy.layout({
-        items,
-        container,
-        state: undefined,
-        options,
-      });
-      return { placements: fallback.placements, accepted: false };
-    }
-    const lay = gridStrategy.layout({
-      items: projected,
+    const preview = {
+      insertId,
+      cursor,
+      ...(insertIndex !== undefined ? { insertIndex } : {}),
+    };
+    // A rejected drop still lays out the current grid, so the host can show
+    // the rejection overlay against it.
+    const accepted = fitsCapacity(cfg, projected);
+    const { isPreview: _shown, ...lay } = gridStrategy.layout({
+      items: accepted ? projected : items,
       container,
       state: undefined,
       options,
+      preview,
     });
-    return { placements: lay.placements, accepted: true };
+    return { ...lay, accepted };
   },
   layout({
     items,
