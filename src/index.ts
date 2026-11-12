@@ -21,6 +21,7 @@ export type {
   ContainerConfigKeys,
   DropConfig,
   ReorderMode,
+  TouchScrollMode,
 } from './container-config.js';
 export {
   ContainerHost,
@@ -57,6 +58,15 @@ export {
   childRectsForContainer,
   insertionIndexByMidpoint,
 } from './dnd/insertionIndex.js';
+export {
+  startTouchHold,
+  TOUCH_HOLD_DELAY,
+  TOUCH_HOLD_SLOP,
+  type TouchHold,
+  type TouchHoldOptions,
+  type TouchHoldPhase,
+} from './dnd/touchHold.js';
+export { claimTouchMoves, retainTouchMoveGuard } from './dnd/touchHold-dom.js';
 export {
   CapabilityMissingError,
   CycleError,

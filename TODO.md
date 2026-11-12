@@ -361,9 +361,9 @@ Open, grouped by what they touch:
 - **reorder** — a `<Zone>` whose config sets `reorder` or `raise` keeps the
   store's order unless `sort` is passed, and stays implicit (2026-11-04): opt-in
   would only ever be answered with `preserveStoreOrder`, and forgetting it
-  reverts every drag. Press-and-hold to start a touch drag, so a swipe still
-  scrolls a list of `reorder` rows, would beat `touchScroll` turning touch
-  drags off; it is a new gesture mode in `DragController`.
+  reverts every drag. Press-and-hold to start a touch drag is
+  `touchScroll: 'hold'` (2026-11-12); its 450ms delay and 8px slop are fixed,
+  with no `DragProvider` prop to tune them yet.
 - **stack** — Stacked with `side` left/right gives vertical
   columns, which i3 has no equivalent for. `strict` never applies to
   drop-splits, since `DragProvider` carries no size.

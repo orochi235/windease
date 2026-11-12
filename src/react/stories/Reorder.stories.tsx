@@ -2,7 +2,14 @@ export default { title: 'Reorder' };
 
 import type { Story } from '@ladle/react';
 import { useMemo, useState } from 'react';
-import { asNodeId, createNode, type NodeId, Store, stripStrategy } from '../../index.js';
+import {
+  asNodeId,
+  createNode,
+  type NodeId,
+  Store,
+  stripStrategy,
+  type TouchScrollMode,
+} from '../../index.js';
 import {
   type ChromeMap,
   Container,
@@ -158,6 +165,105 @@ export const Handle: Story = () => {
           <p className="ro-hint">
             Selected: <output data-testid="selected">{selected}</output>. Drag a row by its grip.
           </p>
+        </DragProvider>
+      </StrategyRegistryProvider>
+    </Provider>
+  );
+};
+
+const PHONE = asNodeId('phone-list');
+const SONGS = [
+  'Alpha',
+  'Bravo',
+  'Charlie',
+  'Delta',
+  'Echo',
+  'Foxtrot',
+  'Golf',
+  'Hotel',
+  'India',
+  'Juliett',
+  'Kilo',
+  'Lima',
+  'Mike',
+  'November',
+  'Oscar',
+  'Papa',
+];
+
+function makePhoneStore(): Store {
+  const s = new Store();
+  s.registerNode(
+    createNode({
+      kind: 'zone',
+      id: PHONE,
+      container: {
+        strategyId: 'strip',
+        config: { axis: 'y', defaultItemSize: 44, gap: 4, reorder: true, touchScroll: 'hold' },
+      },
+    }),
+  );
+  for (const title of SONGS) {
+    const nid = asNodeId(title.toLowerCase());
+    s.registerNode(createNode({ kind: 'song', id: nid, parentId: PHONE, meta: { title } }));
+    s.showNode(nid);
+  }
+  return s;
+}
+
+const TOUCH_MODES: Array<{ value: string; label: string; mode: TouchScrollMode | undefined }> = [
+  { value: 'hold', label: "'hold': swipe scrolls, press and hold drags", mode: 'hold' },
+  { value: 'true', label: 'true: swipe scrolls, touch never drags', mode: true },
+  { value: 'off', label: 'unset: touch drags, the list cannot scroll by touch', mode: undefined },
+];
+
+/**
+ * A phone playlist whose every row reorders, in a list taller than its
+ * screen. Under `touchScroll: 'hold'` a swipe scrolls the list, and a finger
+ * held still on a row for a moment picks it up. Open it with touch emulation
+ * on; a mouse drags on travel in every mode.
+ */
+export const TouchHold: Story = () => {
+  const store = useMemo(() => makePhoneStore(), []);
+  const [mode, setMode] = useState('hold');
+  const pick = (value: string) => {
+    setMode(value);
+    const next = TOUCH_MODES.find((m) => m.value === value)?.mode;
+    store.updateContainerConfig(PHONE, { touchScroll: next });
+  };
+  const chrome: ChromeMap = useMemo(
+    () => ({
+      song: ({ node }) => (
+        <div className="ro-row" data-testid={`song-${node.id}`}>
+          {String(node.meta?.title ?? node.id)}
+        </div>
+      ),
+    }),
+    [],
+  );
+  return (
+    <Provider store={store}>
+      <StrategyRegistryProvider strategies={STRATEGIES}>
+        <DragProvider>
+          <div className="ro-phone" data-testid="phone">
+            <div className="ro-phone__content">
+              <Container parentId={PHONE} chrome={chrome} />
+            </div>
+          </div>
+          <label className="ro-hint">
+            <code>touchScroll</code>{' '}
+            <select
+              data-testid="touch-mode"
+              value={mode}
+              onChange={(e) => pick(e.currentTarget.value)}
+            >
+              {TOUCH_MODES.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </DragProvider>
       </StrategyRegistryProvider>
     </Provider>
