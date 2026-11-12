@@ -16,12 +16,13 @@ async function lefts(page: Page): Promise<number[]> {
   return out;
 }
 
-const seam = (page: Page) => page.locator('[data-affordance-hit="resize-x-tab-inbox"]');
+const seam = (page: Page, after = 'inbox') =>
+  page.locator(`[data-affordance-hit="resize-x-tab-${after}"]`);
 
-/** Drags the seam after the first tab `dx` px and answers how far it should
+/** Drags the seam after tab `after` `dx` px and answers how far it should
  *  have gone. */
-async function dragSeam(page: Page, dx: number): Promise<number> {
-  const from = centerOf(await settledBox(seam(page)));
+async function dragSeam(page: Page, dx: number, after = 'inbox'): Promise<number> {
+  const from = centerOf(await settledBox(seam(page, after)));
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(from.x + dx, from.y, { steps: 8 });
@@ -29,7 +30,10 @@ async function dragSeam(page: Page, dx: number): Promise<number> {
   return from.x + dx;
 }
 
-const seamX = (page: Page) => async () => centerOf(await boxOf(seam(page))).x;
+const seamX =
+  (page: Page, after = 'inbox') =>
+  async () =>
+    centerOf(await boxOf(seam(page, after))).x;
 
 test.describe('strip justify', () => {
   test('center: a dragged seam stays under the pointer', async ({ page }) => {
@@ -51,6 +55,16 @@ test.describe('strip justify', () => {
     const to = await dragSeam(page, 30);
     await expect.poll(seamX(page)).toBeCloseTo(to, 0);
     await expect.poll(() => lefts(page)).toEqual([332, 498, 634]);
+  });
+
+  test('between: a dragged middle seam stays under the pointer', async ({ page }) => {
+    await openStory(page, STORY);
+    await page.getByTestId('justify').selectOption('between');
+    await expect.poll(() => lefts(page)).toEqual([6, 320, 634]);
+    const to = await dragSeam(page, -30, 'docs');
+    await expect.poll(seamX(page, 'docs')).toBeCloseTo(to, 0);
+    // docs gives up 60px, and half of it comes back as the gap before it.
+    await expect.poll(() => lefts(page)).toEqual([6, 350, 634]);
   });
 
   // 800 wide, padding 6, gap 6, three tabs capped at 160: 800 - 12 - 12 - 480

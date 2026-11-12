@@ -93,6 +93,13 @@ section below.
   overflow. A custom `dropIntent` still returns an index among visible
   children.
 
+- **Every strip seam follows the pointer under `justify: 'between'`.** Only the
+  first did: a pane's growth narrows every gap, so in three 100px panes in a
+  600px row a 40px drag on the second seam moved it 20px. The pane now grows by
+  as much as it takes for its seam to land under the pointer, here 80px. The
+  same holds when shrinking a pane in a full `'center'` or `'between'` row,
+  where the free space it opened moved the seam half the drag.
+
 ## 2.3.0
 
 ### Added

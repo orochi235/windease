@@ -341,9 +341,13 @@ tabs are a stack's band, drawn by the story, so the key does not reach them.
 
 Open, grouped by what they touch:
 
-- **strip** — under `justify: 'between'` only the first seam follows the
-  pointer, since every pane's size moves every gap; `resizeMode: 'neighbor'`
-  is the answer today.
+- **strip** — two default-mode seam drags still miss the pointer (measured
+  2026-11-12). Shrinking a pane in a full `justify: 'end'` row leaves its seam
+  where it was: the free space opens before the seam, so only the panes after
+  it can move it, and nothing grows them. And a `share` pane before a dragged
+  `placement.size` pane takes half the drag under every `justify`, since it
+  fills what the dragged pane gives up. `resizeMode: 'neighbor'` tracks in
+  both.
 - **grid** — capacity by width under fixed cells; pinned vs celled
   priority. Flowed items under a row cap still cost O(items² × span) in resize
   reach — 200 panels under `maxRows: 420` take 2.0s a layout, measured
