@@ -10,6 +10,7 @@ import type {
 } from '../layout-types.js';
 import { trace } from '../trace.js';
 import { readCount } from './capacity.js';
+import { type GridRoom, gridRoom } from './grid-room.js';
 
 interface GridConfig {
   cols?: number;
@@ -282,12 +283,6 @@ function requestedArea(
 }
 
 /**
- * The column count a layout starts from, the most it may grow to, and the row
- * cap. `colLimit` is Infinity when nothing caps the columns — a fixed `rows`
- * or a lone `maxRows` — so a grid whose rows are full grows sideways instead
- * of dropping items.
- */
-/**
  * The column count that makes the biggest square cell for `container`, which
  * is what `orientation: 'fit'` asks for.
  *
@@ -312,6 +307,12 @@ function fittedCols(count: number, container: Size, gap: number, padding: number
   return best;
 }
 
+/**
+ * The column count a layout starts from, the most it may grow to, and the row
+ * cap. `colLimit` is Infinity when nothing caps the columns — a fixed `rows`
+ * or a lone `maxRows` — so a grid whose rows are full grows sideways instead
+ * of dropping items.
+ */
 function resolveDims(
   items: LayoutItem[],
   dims: GridDims,
@@ -382,10 +383,6 @@ function byCapacityPriority(items: LayoutItem[]): LayoutItem[] {
   return [...pinned, ...unpinned];
 }
 
-/**
- * Row-major first-fit over a `cols`-wide lattice. Every cell before `cursor`
- * is taken, so no block can start there and each search begins at it.
- */
 /** Taken cells by index, as a byte map grown on demand. A `Set` here made
  *  span-reach probes several times slower. */
 class CellSet {
@@ -414,12 +411,22 @@ class CellSet {
   }
 }
 
+/**
+ * Row-major first-fit over a `cols`-wide lattice. Every cell before `cursor`
+ * is taken, so no block can start there and each search begins at it.
+ */
 class CellPacker {
   readonly cols: number;
   readonly rowCap: number | undefined;
   private readonly taken = new CellSet();
   private cursor = 0;
   private journal: number[] | undefined;
+  /**
+   * Per block size, the cell its last search stopped at, or Infinity when it
+   * fit nowhere. Taking cells never opens a start before that, so the next
+   * search of that size begins there; freeing cells has to drop these.
+   */
+  private starts = new Map<number, number>();
 
   constructor(cols: number, rowCap: number | undefined) {
     this.cols = cols;
@@ -428,16 +435,18 @@ class CellPacker {
 
   /** Runs `probe` against this packer, then undoes every cell it took. */
   trial<T>(probe: (packer: CellPacker) => T): T {
-    const cursor = this.cursor;
+    const { cursor, starts } = this;
     const outer = this.journal;
     const journal: number[] = [];
     this.journal = journal;
+    this.starts = new Map(starts);
     try {
       return probe(this);
     } finally {
       this.journal = outer;
       for (const cell of journal) this.taken.delete(cell);
       this.cursor = cursor;
+      this.starts = starts;
     }
   }
 
@@ -452,18 +461,20 @@ class CellPacker {
 
   /** Runs `probe` with a block this packer holds freed, then takes it back. */
   without<T>(block: ReservedCell, probe: (packer: CellPacker) => T): T {
-    const { cols, taken, cursor } = this;
+    const { cols, taken, cursor, starts } = this;
     const cells: number[] = [];
     for (let dr = 0; dr < block.rows; dr++) {
       for (let dc = 0; dc < block.cols; dc++) cells.push((block.row + dr) * cols + block.col + dc);
     }
     for (const cell of cells) taken.delete(cell);
     this.cursor = Math.min(cursor, block.row * cols + block.col);
+    this.starts = new Map();
     try {
       return probe(this);
     } finally {
       for (const cell of cells) taken.add(cell);
       this.cursor = cursor;
+      this.starts = starts;
     }
   }
 
@@ -474,13 +485,12 @@ class CellPacker {
 
   /** Reserves the first block a `cSpan × rSpan` item fits, if any. */
   place(cSpan: number, rSpan: number): { col: number; row: number } | undefined {
-    const { cols, rowCap, taken } = this;
-    let col = this.cursor % cols;
-    for (
-      let row = Math.floor(this.cursor / cols);
-      rowCap === undefined || row + rSpan <= rowCap;
-      row++
-    ) {
+    const { cols, rowCap, taken, starts } = this;
+    const size = cSpan <= cols && rSpan >= 1 ? cSpan + rSpan * (cols + 1) : -1;
+    const from = Math.max(this.cursor, (size >= 0 && starts.get(size)) || 0);
+    if (from === Number.POSITIVE_INFINITY) return undefined;
+    let col = from % cols;
+    for (let row = Math.floor(from / cols); rowCap === undefined || row + rSpan <= rowCap; row++) {
       while (col + cSpan <= cols) {
         const blocked = this.blockedAt(col, row, cSpan, rSpan);
         if (blocked < 0) {
@@ -488,6 +498,7 @@ class CellPacker {
             for (let dc = 0; dc < cSpan; dc++) this.take((row + dr) * cols + col + dc);
           }
           while (taken.has(this.cursor)) this.cursor++;
+          if (size >= 0) starts.set(size, row * cols + col);
           return { col, row };
         }
         // Every start from `col` through `blocked` covers the taken cell.
@@ -495,6 +506,7 @@ class CellPacker {
       }
       col = 0;
     }
+    if (size >= 0) starts.set(size, Number.POSITIVE_INFINITY);
     return undefined;
   }
 
@@ -1188,6 +1200,23 @@ function spanReacher(
       }
       return placed >= baseline;
     };
+    // The fewest cells the rest must still cover for a probe to fit.
+    const need = cellsNeeded(rest, baseline - before - 1, cols, rowCap);
+    // Built from `prefix` alone, so before any probe takes a cell, and only
+    // under a row cap: without one the rest always has room below.
+    let room: GridRoom | undefined;
+    const roomFor = (): GridRoom => {
+      room ??=
+        rowCap === undefined
+          ? { admits: () => true }
+          : gridRoom(
+              (col, row) => prefix.free(col, row, 1, 1),
+              cols,
+              rowCap,
+              rest.map((it) => clampSpan(it, cols, rowCap)),
+            );
+      return room;
+    };
     // A celled block that collides or leaves the grid at one span does so at
     // every larger span, and each span adds one strip to the block before it,
     // so the probe checks only that strip and stops at the first taken cell.
@@ -1208,7 +1237,8 @@ function spanReacher(
         const fits =
           rest.length === 0
             ? before + 1 >= baseline
-            : prefix.trial((packer) => {
+            : roomFor().admits(at.col, at.row, span.cols, span.rows, need) &&
+              prefix.trial((packer) => {
                 packer.reserve(at.col, at.row, span.cols, span.rows);
                 return packRest(packer, before + 1);
               });
@@ -1218,36 +1248,48 @@ function spanReacher(
     };
     const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
       if (ownCell && before < itemCap) return cellReach(ownCell, axis, cap);
-      // The fewest cells the rest must still cover for a probe to fit.
-      const need = cellsNeeded(rest, baseline - before - 1, cols, rowCap);
+      const restFits = () => prefix.trial((packer) => packRest(packer, before));
+      // Past the cap `id` places nowhere, whatever its span.
+      if (ownCell || before >= itemCap) return restFits() ? cap : 1;
+      const spanAt = (v: number): Reach => ({ ...own, [axis]: v });
+      const places = (v: number) => {
+        const span = spanAt(v);
+        return prefix.trial((packer) => packer.place(span.cols, span.rows) !== undefined);
+      };
+      // Packing is not monotone in span, so every span below the stop is a
+      // candidate; scanning down from the stop, the first that fits is the reach.
+      const largestFit = (top: number): number => {
+        if (top > 1) roomFor();
+        for (let v = top; v > 1; v--) {
+          const span = spanAt(v);
+          const fits = prefix.trial((packer) => {
+            const at = packer.place(span.cols, span.rows);
+            if (at && !roomFor().admits(at.col, at.row, span.cols, span.rows, need)) return false;
+            return packRest(packer, before + 1);
+          });
+          if (fits) return v;
+        }
+        return 1;
+      };
       const room =
         rowCap === undefined ? Number.POSITIVE_INFINITY : cols * rowCap - prefix.takenCount;
-      let best = 1;
-      for (let v = 1; v <= cap; v++) {
-        const span = { ...own, [axis]: v };
-        if (before < itemCap && span.cols * span.rows > room - need) {
-          // From here `id` either places and starves the rest or places
-          // nowhere, and placing nowhere is the same for every larger span.
-          if (!prefix.trial((packer) => packRest(packer, before))) return best;
-          const atCap = { ...own, [axis]: cap };
-          return prefix.trial((packer) => packer.place(atCap.cols, atCap.rows)) ? best : cap;
-        }
-        let ownPlaced = false;
-        const fits = prefix.trial((packer) => {
-          let placed = before;
-          // Past the cap `id` places nowhere, whatever its span.
-          if (placed < itemCap && !ownCell) {
-            ownPlaced = packer.place(span.cols, span.rows) !== undefined;
-            if (ownPlaced) placed++;
-          }
-          return packRest(packer, placed);
-        });
-        if (fits) best = v;
-        // A block that fits nowhere at `v` fits nowhere at a larger span, and
-        // with `id` unplaced the rest pack the same, so every later probe agrees.
-        if (!ownPlaced) return fits ? cap : best;
+      const across = axis === 'cols' ? own.rows : own.cols;
+      // From `starved` on, `id` either places and starves the rest or places nowhere.
+      const starved = Math.min(cap + 1, Math.max(1, Math.floor((room - need) / across) + 1));
+      // A block that fits nowhere at one span fits nowhere at a larger one, and
+      // with `id` unplaced the rest pack the same at every span from there.
+      let lo = 1;
+      let hi = starved;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (places(mid)) lo = mid + 1;
+        else hi = mid;
       }
-      return best;
+      const homeless = lo;
+      if (homeless < starved) return restFits() ? cap : largestFit(homeless - 1);
+      if (starved > cap) return largestFit(cap);
+      if (restFits() && !places(cap)) return cap;
+      return largestFit(starved - 1);
     };
     return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap ?? items.length) };
   }
@@ -1364,7 +1406,6 @@ function pixelTotal(tracks: Track[]): number {
   return px;
 }
 
-/** The seams of a tracked axis, one after each track that has one. */
 /** Which axes a cell's `placement.sticky` holds it on: `'y'` at the top edge
  *  (a column heading), `'x'` at the left (a row number), `true` both. */
 function stickyAxes(item: LayoutItem): { x: boolean; y: boolean } | undefined {
@@ -1450,6 +1491,7 @@ function trackAt(axis: Axis, p: number): number | undefined {
   return undefined;
 }
 
+/** The seams of a tracked axis, one after each track that has one. */
 function trackSeams(geom: GridGeometry, axis: 'cols' | 'rows', cfg: GridConfig): Affordance[] {
   const tracks = (axis === 'cols' ? geom.colTracks : geom.rowTracks) ?? [];
   const across = axis === 'cols' ? geom.y : geom.x;

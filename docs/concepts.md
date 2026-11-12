@@ -630,7 +630,8 @@ begins only after the press travels `<DragProvider dragThreshold>` pixels
 cancels the drag: a `DragHandle` and a `reorder: true` wrapper set it inline,
 and under `'handle'` the shipped stylesheet sets it on the marked grip only.
 `touchScroll` (a `DragHandle` prop, a container config key beside `reorder`)
-turns it off.
+turns it off: `true` leaves every touch to the page, and `'hold'` lets a swipe
+scroll and starts a touch drag after a press held still.
 
 Pass `affordances` to `<Container>`, `<Zone>` or a `<Panel>` promoted to a
 container to render the strategy's interactive gutters; all three share one

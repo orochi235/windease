@@ -505,15 +505,20 @@ Panes held at a `hints.maxSize` cap, or sized by `preferredSize` under
 move the whole row. `'between'` widens the gaps, leaving a lone pane at the
 start. It does nothing when the panes fill or overflow the row.
 
-A dragged seam stays under the pointer in each of the first three. Under
-`'center'` the pane grows on both sides, so it gains twice the drag while the
-row has room. Under `'end'` the row is anchored at its trailing edge, so a seam
+A dragged seam stays under the pointer under each. Under `'center'` the pane
+grows on both sides, so it gains twice the drag while the row has room. Under
+`'between'` the gaps before the seam narrow as the pane grows, so the pane
+gains more than the drag: the seam after the second of three panes takes twice
+it, the last seam of four three times. Under `'end'` the row is anchored at its trailing edge, so a seam
 resizes the pane *after* it: its `affects` names that pane, and its `bounds`
 are the seam's offset along the row rather than a pane's extent. Once the row
-is full both go back to resizing the pane before the seam. A pane the drag does
-not touch keeps the size it rendered at, stored as `placement.size`. Under
-`'between'` only the first seam tracks the pointer; use
-`resizeMode: 'neighbor'`, which tracks it under every `justify`.
+is full `'end'` goes back to resizing the pane before the seam. A pane the drag
+does not touch keeps the size it rendered at, stored as `placement.size`. In a
+full row the panes after the seam take what the dragged pane gives up or gains,
+and the ones before it hold, even those sized by `placement.share` or left to
+fill.
+`resizeMode: 'neighbor'` trades between the two panes beside the seam instead,
+leaving the gaps alone, under every `justify`.
 
 ## When panes don't fit
 
@@ -1331,9 +1336,29 @@ config: { axis: 'y', reorder: true, touchScroll: true }
 <DragHandle nodeId={id} touchScroll>…</DragHandle>
 ```
 
-Under it, a touch scrolls and only a mouse or pen drags. `useDragHandle` sets
-nothing, since you own the element, so give that element `touch-action: none`
-yourself.
+Under `true`, a touch scrolls and only a mouse or pen drags. `'hold'` keeps
+touch drags: a swipe scrolls, and a finger held still on a source for 450ms
+(drifting no more than 8px) picks it up, the way a phone's lists reorder.
+Carried to the edge of a container with a `scrollRef`, the held row scrolls the
+list as a mouse drag does (see
+[Telling windease where the scroll got to](#telling-windease-where-the-scroll-got-to)).
+
+```tsx
+config: { axis: 'y', reorder: true, touchScroll: 'hold' }
+<DragHandle nodeId={id} touchScroll="hold">…</DragHandle>
+useDragHandle(id, { touchScroll: 'hold' })
+```
+
+A hold source leaves the page's `touch-action` alone, and the shipped
+stylesheet turns off its long-press callout and text selection. While one is
+mounted, a non-passive `touchmove` listener sits on `window`, canceling moves
+only once a hold has armed. `TOUCH_HOLD_DELAY`, `TOUCH_HOLD_SLOP`, and the
+DOM-free `startTouchHold` are exported for a host driving `DragController`
+itself. See the **Reorder / Touch Hold** story.
+
+`useDragHandle` sets no `touch-action`, since you own the element: give it
+`touch-action: none` yourself for an immediate touch drag, or leave it alone
+under `'hold'`.
 
 ### Drop intent
 
@@ -1385,6 +1410,12 @@ add quadrant zones, or refuse a split on a small pane:
     resolveDropIntent(rects, point, axis, { split: true, band: 0.4 })}
 />
 ```
+
+`rects` holds only the children the strategy drew, but an `insert` index counts
+every visible child, and the two part on a paged container, a stack, or a grid
+with overflow. A resolver that counts its own seam among `rects` returns
+`{ kind: 'insert', index: visibleIndex(seam) }`, which the context also hands
+it; the built-in resolver's answer is converted already.
 
 ### Tab stacking
 
@@ -1506,16 +1537,34 @@ The seam between the two panes is draggable with no configuration; tell
 <DragProvider splitConfig={{ gap: 6 }}>
 ```
 
-The new strip also takes the `reorder`, `touchScroll` and `drop` keys of the
+The new strip also takes the `reorder`, `touchScroll`, and `drop` keys of the
 container it splits, under `splitConfig`, so its two panes drag and split the
 way their old parent's children did.
 
-A pane that is itself a drop target, such as a stack, would take every drop
-over it before its parent could split it. So a target that does not split
-gives the point up: while the cursor is over one of the children it drew,
-which for a stack is the pane shown, the nearest enclosing container whose
-`splitOnDrop` asks for a split there takes the drop. Over its own chrome, a
-stack's tab band, it keeps the drop, and a tab dropped there joins the stack.
+A dropped pane lands bare in the new strip. To put it in a container of its own,
+as Golden Layout puts a dropped tab in a one-tab stack, name that container in
+the splitting container's `drop.wrap`:
+
+```ts
+config: {
+  drop: {
+    split: true,
+    wrap: { strategyId: 'stack', config: { headerSize: 24 }, autoPrune: true },
+  },
+}
+```
+
+A pane that already has that strategy, such as a whole stack dragged by its
+band, is placed as it is. The wrap is part of the drop's one undo step, and its
+id comes from `makeStackId`.
+
+A stack is itself a drop target, so it would take every drop over it before
+its parent could split it. So a stack that does not split gives the point up:
+while the cursor is over the pane it shows, the nearest enclosing container
+whose `splitOnDrop` asks for a split there takes the drop. Over its tab band it
+keeps the drop, and a tab dropped there joins the stack. Other nested
+containers keep their own seams, so a reorder strip inside a splitting one
+still takes an insert at either end.
 
 A prospective split lays the destination out as if you had already released:
 the pane under the cursor shrinks to the half it will actually get, the dragged

@@ -7,15 +7,49 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
 
 ## Test-harness gaps
 
-- **Duel-board drag tests still take 12–22s on CI's Linux WebKit**
-  (2026-11-04). The foil was not the main cost. `e2e/foil-probe.spec.ts`
-  showed its sheen animation alone added ~100ms to every mouse move there
-  (median 118ms, 16ms without the animation; blend mode and `will-change`
-  made no difference to the median), so the duel-board block now runs under
-  reduced motion. That cut the slowest test from 27s to 22s and the others by
-  2–3s; the first ~5s after the story opens still draw almost no frames. To
-  measure again, dispatch the `E2E probe` workflow, which keeps a trace of
-  every test; `spec=foil-probe.spec.ts` reruns the foil variants.
+- **Duel-board drag tests are slow on CI's Linux WebKit: unconfirmed fix
+  pending a CI run** (2026-11-12). On `main`, the drag tests took 11–18s each
+  there (measured, `E2E probe` run 43310987042). In the traces, each Playwright
+  click spent ~0.8s of its ~1s waiting for the land to read as stable, a
+  single hover over the hand took 0.25–0.5s, a 24-step drag took ~2s, and the
+  first hover over the hand in a test sometimes took 5–6s. That last is the
+  "first ~5s with no frames" recorded on 2026-11-04: the stall comes with the
+  first hover, not with a time after the story opens.
+
+  The spec now strips box-shadows inside `.xb-root`, sets up mana with
+  in-page clicks the way `draw` does, and drags in 8 steps instead of 24.
+  Measured in Linux WebKit in Docker on a Mac (Playwright 1.64.1, arm64, 4
+  CPUs), which reproduces CI's shape at about two-thirds of its times:
+
+  | Block total (24 tests)                | Docker  |
+  | ------------------------------------- | ------: |
+  | `main`                                | 85.1s   |
+  | shadows stripped                      | 67.4s   |
+  | + in-page land clicks                 | 56.3s   |
+  | + 8-step drags                        | 48.2s   |
+
+  The drag tests went from 8–11s to 2.7–3.6s there. 72 runs passed in Docker,
+  and 144 on the Mac across WebKit, Chromium, and Firefox. CI confirmed it
+  (2026-11-12): on Linux WebKit the block's 24 tests took 132.2s before
+  (probe run 43310987042) and 87.4s after (run 43321191057), the slowest test
+  17.9s before and 8.8s after, all passing.
+
+  What else was ruled out, measured in Docker unless stated: every other CSS
+  effect (filters, gradients, masks, card art, corner radii, container
+  queries) changed hover cost within noise; any blurred shadow, even 4px,
+  costs as much as the full set, while a zero-blur shadow costs nothing. A
+  production Ladle build cut only 8% of the block, and an instant turn
+  animation about 3%.
+
+  The cost that remains is the drag itself: each pointermove spends 60–130ms
+  in script and forced layout in Docker, against 10–28ms on a Mac. The layout
+  `useOverflowOrigin` forces is not an extra one (2026-11-12, measured on a
+  Mac in Chromium with `e2e/overflow-origin-probe.spec.ts`): a 24-move sweep
+  over the hand counts 23 layouts whether the hook writes 29 times or 6, with
+  layout and script time unchanged within noise. It moves the frame's one
+  layout earlier, so removing it would save nothing. What it did cost was
+  correctness, now fixed: it scrolled for the hand's pinned top margin, and
+  double-compensated a shrinking left margin at the far end of the scroll.
 
 - **A geometry read outside a poll can catch a layout that is still arriving.**
   Panes render in flow until their container has measured itself, and animate
@@ -348,20 +382,20 @@ Everything the design doc names is built, and a preset sets every key but
 declares its drags with `reorder`, and so do Exotic / Board's bands; Chrome's
 tabs are a stack's band, drawn by the story, so the key does not reach them.
 
-- **`drop.split` reaches a stack's body, not its tab band** (2026-11-06). A
-  split drop leaves the dropped pane bare in the new strip, where Golden Layout
-  wraps it in a stack of its own; nothing in config says what to wrap it in.
-
 Open, grouped by what they touch:
 
-- **strip** — under `justify: 'between'` only the first seam follows the
-  pointer, since every pane's size moves every gap; `resizeMode: 'neighbor'`
-  is the answer today.
 - **grid** — capacity by width under fixed cells; pinned vs celled
-  priority. Flowed items under a row cap still cost O(items² × span) in resize
-  reach — 200 panels under `maxRows: 420` take 2.0s a layout, measured
-  2026-10-26 — because first-fit packing is not monotone in span, so every span
-  is probed; going further needs reach to be bounded or computed lazily.
+  priority. Resize reach for flowed items under a row cap scans down from the
+  span that starves the rest, and skips without repacking every span at which
+  the free runs of each row and column, filled only as the rest's widths and
+  heights can fill them, hold too little (`grid-room.ts`). That catches waste
+  from sizes that don't tile the grid, not waste from first-fit order: 100
+  panels alternating 10 and 8 wide in 24 columns still repack once per span
+  between reach and bound, 0.65s a layout (2026-11-12,
+  `scripts/bench-grid-reach.ts`). Lazy reach doesn't help while
+  `AffordanceHandle` renders every handle's `aria-valuemax`, and whether a
+  handle is emitted at all depends on reach. Next lever is constant-factor:
+  row bitmasks in `CellPacker` (cell writes and reads are most of the time).
 - **accepts and locks** — `accepts: false` and `lock.accept` both stay
   (accepts is drag-only); stack/split drops honor `accepts.kinds`, and count
   toward `accepts.max` only where they add a child. `lock: true` leaves out
@@ -370,9 +404,11 @@ Open, grouped by what they touch:
 - **reorder** — a `<Zone>` whose config sets `reorder` or `raise` keeps the
   store's order unless `sort` is passed, and stays implicit (2026-11-04): opt-in
   would only ever be answered with `preserveStoreOrder`, and forgetting it
-  reverts every drag. Press-and-hold to start a touch drag, so a swipe still
-  scrolls a list of `reorder` rows, would beat `touchScroll` turning touch
-  drags off; it is a new gesture mode in `DragController`.
+  reverts every drag. Press-and-hold to start a touch drag is
+  `touchScroll: 'hold'` (2026-11-12); its 450ms delay and 8px slop are fixed,
+  with no `DragProvider` prop to tune them yet. A held drag edge-scrolls its
+  list through `scrollRef` with no touch-specific code: the gap was the story
+  passing none (2026-11-12, e2e in `reorder-touch-hold.spec.ts`).
 - **stack** — Stacked with `side` left/right gives vertical
   columns, which i3 has no equivalent for. `strict` never applies to
   drop-splits, since `DragProvider` carries no size.

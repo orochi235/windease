@@ -2,14 +2,15 @@
 
 For whoever extends windease's layout vocabulary, and for anyone turning the Exotic presets into
 canned presets a consumer can load.
-**Status, 2026-11-06, read from the code: every key in the phase table is built, and every one
+**Status, 2026-11-12, read from the code: every key in the phase table is built, and every one
 but `drop.stack` has a preset setting it. Grafana drops onto a chosen cell
 (`drop.cell`); Excel scrolls both ways behind `sticky` headings; Launchpad pages with a flowed
 `pageStrategy(grid)`; i3's stacked containers set `tabs: 'stacked'`; FancyZones sets
 `snap: 'fill'`; `tmux-zoomed` sets `zoom`. Every grid, tree and desktop preset declares how its
 panes drag with `reorder`, as do Exotic / Board's bands, so no Exotic story wraps a pane in
 `DragHandle`; a stack's tab band, which the story draws, still binds `useDragHandle`. Golden Layout and Dockview set `drop.split`: a stack gives the drop
-up to its row's split while the cursor is over its body, and keeps it over its tab band.** The phase table at the end is the record of what exists.
+up to its row's split while the cursor is over its body, and keeps it over its tab band, and
+`drop.wrap` puts the split-dropped tab in a one-tab stack of its own.** The phase table at the end is the record of what exists.
 
 An Exotic preset (`src/nuts/`) reproduces a real product's layout: Blender, Grafana,
 Launchpad, Mac OS 9, i3, 75 in all. Today a preset states the layout as data and the story around
@@ -121,7 +122,7 @@ These are config or placement keys on one strategy each.
   stacks, so a stack emptied by a drag is removed and the row it leaves with one child collapses
   (2026-10-26).
 - Drop behavior now set by React props (`stackOnDrop`, `splitOnDrop`) moves into config as
-  `drop: { stack?, split?, cell? }`, so a preset can say a group stacks on drop. The props stay and win. Built; Grafana's preset sets `cell`, and Golden Layout's and Dockview's rows and columns set `split`, which a stack's body cedes to (2026-11-06). No preset sets `stack`.
+  `drop: { stack?, split?, cell?, wrap? }`, so a preset can say a group stacks on drop. The props stay and win. Built; Grafana's preset sets `cell`, and Golden Layout's and Dockview's rows and columns set `split`, which a stack's body cedes to (2026-11-06), and `wrap`, the container a split-dropped pane goes in (2026-11-12). No preset sets `stack`.
 - Per-view state (page) lives in container `state`, which snapshots already carry. Scroll and
   pan/zoom are the exception: they live on `ContainerHost`, because `state` belongs to the
   strategy (`setStrategy` drops it, `reduce` replaces it) and a fitted view is a fact about the

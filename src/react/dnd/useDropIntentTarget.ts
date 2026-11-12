@@ -14,7 +14,8 @@ import { DragContext } from './DragProvider.js';
 export interface DropIntentContext {
   /** Direct children in DOM order, with the dragged node removed. A strategy
    *  that withholds children (other pages, hidden tabs) draws fewer than are
-   *  visible, while an `insert` index counts every visible child. */
+   *  visible, while an `insert` index counts every visible child: pass a seam
+   *  counted among these through `visibleIndex`. */
   rects: readonly { id: string; rect: Rect }[];
   /** Cursor, in the space the host samples in. */
   point: Point;
@@ -22,6 +23,10 @@ export interface DropIntentContext {
   axis: 'x' | 'y';
   /** The node being dragged. */
   sourceId: NodeId;
+  /** The `insert` index for a drop at `seam`, a seam counted among `rects`
+   *  (0 is before the first). The identity unless the strategy drew fewer
+   *  children than are visible. */
+  visibleIndex: (seam: number) => number;
 }
 
 export interface DropIntentTargetOptions {
@@ -105,9 +110,10 @@ export function useDropIntentTarget(
       ...(acceptPolicy ? { acceptPolicy } : {}),
       ...(edgeScroll ? { edgeScroll } : {}),
       ...(splitOnDrop ? { splits: true } : {}),
-      // Over a drawn child, rather than this container's own chrome (a stack's
-      // tab band), an enclosing split may claim the drop.
+      // Over its shown pane, rather than its tab band, a stack lets an
+      // enclosing split claim the drop. Other containers keep their seams.
       cedes: (point) =>
+        strategyId === 'stack' &&
         !splitOnDrop &&
         childRectsForContainer(el).some(
           ({ rect: r }) =>
@@ -131,21 +137,22 @@ export function useDropIntentTarget(
         const axis: 'x' | 'y' =
           declaredAxis ?? (isFlow ? axisFromRects(filtered) : strategyId === 'strip' ? 'x' : 'y');
         const mapped = filtered.map((r) => ({ id: r.id, rect: domRectToRect(r.rect) }));
+        const drawn = mapped.map((r) => r.id);
+        const visibleIndex = (seam: number): number => {
+          const index = visibleSeamOf(store, parentId, sourceId, drawn, seam);
+          if (index !== seam)
+            trace('dnd', `drop ${parentId}: seam ${seam} among drawn → ${index} among visible`);
+          return index;
+        };
         if (dropIntent && sourceId) {
-          return dropIntent({ rects: mapped, point, axis, sourceId });
+          return dropIntent({ rects: mapped, point, axis, sourceId, visibleIndex });
         }
         const intent = resolveDropIntent(mapped, point, axis, {
           ...(stackOnDrop ? { stack: true } : {}),
           ...(splitOnDrop ? { split: true } : {}),
         });
         if (intent.kind !== 'insert') return intent;
-        const drawn = mapped.map((r) => r.id);
-        const index = visibleSeamOf(store, parentId, sourceId, drawn, intent.index);
-        if (index !== intent.index)
-          trace(
-            'dnd',
-            `drop ${parentId}: seam ${intent.index} among drawn → ${index} among visible`,
-          );
+        const index = visibleIndex(intent.index);
         return index === intent.index ? intent : { ...intent, index };
       },
     });

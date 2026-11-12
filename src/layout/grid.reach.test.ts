@@ -251,4 +251,73 @@ describe('grid spanReach', () => {
     }
     expect(probes).toBeGreaterThan(20000);
   });
+
+  // Flowed grids whose row cap leaves only a few spare rows, so most spans
+  // starve the rest or place nowhere: the cases the reach search cuts short.
+  it('reaches the same spans as the oracle over 400 nearly full flowed grids', () => {
+    let probes = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      const rand = prng(seed * 7919);
+      const cols = rand(2, 12);
+      const count = rand(4, 30);
+      const items: LayoutItem[] = [];
+      let area = 0;
+      for (let i = 0; i < count; i++) {
+        const span = { cols: rand(1, Math.max(1, cols >> 1)), rows: rand(1, 4) };
+        area += span.cols * span.rows;
+        items.push({ id: `i${i}`, placement: { span } });
+      }
+      const rowCap = Math.ceil(area / cols) + rand(0, 4);
+      const itemCap = rand(0, 5) === 0 ? rand(1, count) : Number.POSITIVE_INFINITY;
+      for (const { id } of items) {
+        const want = oracleReach(items, id, cols, rowCap, itemCap);
+        const got = spanReach(items, id, cols, rowCap, itemCap);
+        if (got.cols !== want.cols || got.rows !== want.rows) {
+          expect({ seed, id, got }).toEqual({ seed, id, got: want });
+        }
+        probes++;
+      }
+    }
+    expect(probes).toBeGreaterThan(5000);
+  });
+
+  // Few distinct sizes that don't tile the width or the cap, so whole runs of
+  // free cells are too narrow or too short for anything: the room bound prunes
+  // most spans here, celled items included.
+  it('reaches the same spans as the oracle over 400 nearly full fragmented grids', () => {
+    let probes = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      const rand = prng(seed * 104729);
+      const cols = rand(5, 13);
+      const count = rand(4, 24);
+      const widths = [rand(2, 5), rand(2, 5)];
+      const heights = [rand(1, 4), rand(2, 5)];
+      const items: LayoutItem[] = [];
+      let area = 0;
+      for (let i = 0; i < count; i++) {
+        const span = { cols: widths[rand(0, 1)] as number, rows: heights[rand(0, 1)] as number };
+        area += span.cols * span.rows;
+        items.push({ id: `i${i}`, placement: { span } });
+      }
+      const rowCap = Math.ceil(area / cols) + rand(0, 6);
+      for (const item of items) {
+        if (rand(0, 5) === 0) {
+          item.placement = {
+            ...item.placement,
+            cell: { col: rand(0, cols - 1), row: rand(0, rowCap - 1) },
+          };
+        }
+      }
+      const itemCap = rand(0, 5) === 0 ? rand(1, count) : Number.POSITIVE_INFINITY;
+      for (const { id } of items) {
+        const want = oracleReach(items, id, cols, rowCap, itemCap);
+        const got = spanReach(items, id, cols, rowCap, itemCap);
+        if (got.cols !== want.cols || got.rows !== want.rows) {
+          expect({ seed, id, got }).toEqual({ seed, id, got: want });
+        }
+        probes++;
+      }
+    }
+    expect(probes).toBeGreaterThan(4000);
+  });
 });

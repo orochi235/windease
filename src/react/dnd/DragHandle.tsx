@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import type { TouchScrollMode } from '../../container-config.js';
 import type { NodeId } from '../../index.js';
 import { preventNativeDrag } from './nativeDrag.js';
 import { useDragHandle } from './useDragHandle.js';
@@ -9,9 +10,10 @@ export interface DragHandleProps {
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
-  /** Let a touch on the handle scroll the page instead of dragging. Off by
-   *  default: the handle sets `touch-action: none` so a finger drags. */
-  touchScroll?: boolean;
+  /** Let a touch on the handle scroll the page: `true` never drags by touch,
+   *  `'hold'` drags after a press and hold. Off by default: the handle sets
+   *  `touch-action: none` so a finger drags. */
+  touchScroll?: boolean | TouchScrollMode;
 }
 
 /**
@@ -27,13 +29,14 @@ export function DragHandle({
   style,
   touchScroll = false,
 }: DragHandleProps) {
-  const handlers = useDragHandle(nodeId);
+  const handlers = useDragHandle(nodeId, { touchScroll });
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: a drag grip carries a pointer gesture rather than acting as a control; the keyboard route to the same move is Shift+arrow on the pane.
     <div
       className={className}
       style={touchScroll ? style : { touchAction: 'none', ...style }}
       data-windease-drag-handle={nodeId}
+      data-windease-touch-scroll={touchScroll === 'hold' ? 'hold' : undefined}
       onPointerDown={handlers.onPointerDown}
       draggable={false}
       onDragStart={preventNativeDrag}

@@ -1,4 +1,6 @@
-import { type PointerEvent as ReactPointerEvent, useCallback, useContext } from 'react';
+import { type PointerEvent as ReactPointerEvent, useCallback, useContext, useEffect } from 'react';
+import type { TouchScrollMode } from '../../container-config.js';
+import { retainTouchMoveGuard } from '../../dnd/touchHold-dom.js';
 import type { NodeId } from '../../index.js';
 import { trace } from '../../index.js';
 import { useNode } from '../hooks.js';
@@ -19,7 +21,16 @@ export interface DragHandleHandlers {
   onPointerCancel: (e: ReactPointerEvent<Element>) => void;
 }
 
+/** Options for {@link useDragHandle}. */
+export interface DragHandleOptions {
+  /** `'hold'` makes a touch press hold still before it drags, so a swipe on
+   *  the element scrolls. The hook sets no `touch-action`; leave the element's
+   *  default so the swipe can scroll. Other values change nothing here. */
+  touchScroll?: boolean | TouchScrollMode;
+}
+
 const noop = () => {};
+const HOLD = { touchHold: {} } as const;
 
 const NOOP_HANDLERS: DragHandleHandlers = {
   onPointerDown: noop,
@@ -35,19 +46,22 @@ const NOOP_HANDLERS: DragHandleHandlers = {
  * so a click on the element still clicks.
  * @group Hooks
  */
-export function useDragHandle(nodeId: NodeId): DragHandleHandlers {
+export function useDragHandle(nodeId: NodeId, options?: DragHandleOptions): DragHandleHandlers {
   const controller = useDragController();
   const threshold = useContext(DragThresholdContext);
   const node = useNode(nodeId);
   const store = useStore();
+  const holds = options?.touchScroll === 'hold';
+
+  useEffect(() => (holds ? retainTouchMoveGuard() : undefined), [holds]);
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<Element>) => {
       if (e.button > 0) return;
       trace('dnd', `pointerDown on handle for ${nodeId} at (${e.clientX},${e.clientY})`);
-      trackPress(controller, nodeId, e, threshold);
+      trackPress(controller, nodeId, e, threshold, holds ? HOLD : undefined);
     },
-    [controller, nodeId, threshold],
+    [controller, nodeId, threshold, holds],
   );
 
   if (store.isLocked(nodeId, 'move')) {

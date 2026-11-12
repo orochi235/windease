@@ -115,3 +115,21 @@
     sans-serif;
   color: #6b7280;
 }
+
+.ro-phone {
+  width: 280px;
+  height: 320px;
+  overflow-y: auto;
+  border: 1px solid #d1d5db;
+  border-radius: 16px;
+  padding: 8px;
+  background: #f9fafb;
+  font:
+    14px / 1 system-ui,
+    sans-serif;
+}
+
+/* 16 rows of 44px with 4px gaps. */
+.ro-phone__content {
+  height: 764px;
+}

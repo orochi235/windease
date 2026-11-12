@@ -10,6 +10,13 @@ section below.
 
 ### Added
 
+- **`touchScroll: 'hold'` drags by touch after a press and hold**, so a swipe
+  still scrolls a list whose every row reorders. A finger held within 8px for
+  450ms picks the source up; moving sooner leaves the touch to the page. It is
+  a `reorder` container config key, a `<DragHandle touchScroll>` value, and a
+  `useDragHandle(id, { touchScroll })` option. The **Reorder / Touch Hold**
+  story shows it.
+
 - **Drops onto a paged grid target the page shown.** Under
   `pageStrategy(inner)` in `'assigned'` mode, `inner.canAccept` is judged
   against the page shown, so a full page refuses a drop, and `drop.cell` lands
@@ -17,16 +24,28 @@ section below.
   third argument, `{ state, sourceId }`, and `cellAt`'s input gains `state`;
   both are optional. The **Paged grid / Cell drop** story shows it.
 
+- **A custom `dropIntent` can place a drop on a later page.** Its context
+  gains `visibleIndex(seam)`, which turns a seam counted among the `rects` it
+  was handed into the `insert` index a drop expects; the two differ wherever a
+  strategy draws fewer children than are visible, as a paged container, a
+  stack, and a grid's overflow do. The tiles in **Pages / Flowed** drag with a
+  resolver that uses it.
+
+- **`drop.wrap` puts a split-dropped pane in a container of its own.** A
+  splitting container that names one, `{ strategyId, kind?, config?,
+  allowsPinning?, autoPrune? }`, wraps the pane a split drop places, unless the
+  pane already has that strategy. The Golden Layout and Dockview presets wrap
+  in a one-tab stack, as both products do.
+
 - **`withReorder(preset, mode)`** (`windease/nuts`) sets `config.reorder` on
   every container of a preset that leaves it unset.
 
 - **A stack inside a splitting container can be split by a drop on its edge.**
-  A drop target that resolves no split itself gives up the point while the
-  cursor is over a child it drew, to the nearest enclosing `splitOnDrop`
-  container asking for a split there; over its own tab band a stack keeps the
-  drop. `DropTarget` gains `splits` and `cedes`.
+  While the cursor is over the pane a stack shows, the nearest enclosing
+  `splitOnDrop` container asking for a split there takes the drop; over its
+  tab band the stack keeps it. Other nested containers keep their own seams. `DropTarget` gains `splits` and `cedes`.
 
-- **The strip a split drop creates takes `reorder`, `touchScroll` and `drop`**
+- **The strip a split drop creates takes `reorder`, `touchScroll`, and `drop`**
   from the container it splits, under `splitConfig`, so a pane dropped into a
   split can be dragged again.
 
@@ -86,12 +105,41 @@ section below.
   so its preview showed only there, and the layout never reported
   `isPreview`; it now previews where `land` puts it.
 
+- **A scrolled container stays where it was when content past its left or top
+  edge comes and goes.** The compensating scroll counted a margin the `style`
+  prop had pinned (or `fit` had left off), so it scrolled for a margin the box
+  never got, and at the far end of the scroll it compensated a shrinking margin
+  twice, after the browser had already clamped it. Sweeping the cursor across
+  the duel board's hand while it was scrolled to its end left it 88px short.
+
+- **A resizable grid of flowed items under a row cap lays out 18–28× faster.**
+  200 panels of 6×8 cells in 24 columns under `maxRows: 420` took 1.97s per
+  layout and now take 0.07s; 100 under `maxRows: 220`, 0.39s to 0.02s. Grids
+  whose panels leave columns empty in every row were slowest and gain most:
+  100 panels 7 cells wide under `maxRows: 272` now take 0.07s, and 100
+  alternating 10 and 8 wide under `maxRows: 400`, 0.65s. The seams' reported
+  ranges are unchanged.
+
 - **A drop onto a later page of a paged container lands on that page.** The
   built-in drop resolver counted its index among the children drawn, while a
   drop's index counts every visible child, so a drop on page 2 inserted on
   page 1. The same held for a stack's hidden tabs and a grid's unplaced
   overflow. A custom `dropIntent` still returns an index among visible
   children.
+
+- **Every strip seam follows the pointer under `justify: 'between'`.** Only the
+  first did: a pane's growth narrows every gap, so in three 100px panes in a
+  600px row a 40px drag on the second seam moved it 20px. The pane now grows by
+  as much as it takes for its seam to land under the pointer, here 80px. The
+  same holds when shrinking a pane in a full `'center'` or `'between'` row,
+  where the free space it opened moved the seam half the drag.
+
+- **A strip seam follows the pointer in a full row whose panes fill around it.**
+  A pane before the seam sized by `placement.share`, or left to fill, took up
+  half of what the dragged pane gave or gained, so the seam moved half the
+  drag, under every `justify`. And shrinking a pane in a full `justify: 'end'`
+  row opened the space before the row, leaving the seam where it was. The
+  panes after the seam now take the change and the ones before it hold.
 
 ## 2.3.0
 

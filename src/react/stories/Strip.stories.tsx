@@ -224,13 +224,39 @@ function makeJustifyStore(): Store {
   return s;
 }
 
+type JustifyRow = 'capped' | 'full' | 'shared';
+const JUSTIFY_TABS = ['inbox', 'docs', 'music'].map((name) => asNodeId(`tab-${name}`));
+
+/** Restates every tab for `row`: capped at 160px, filling the 776px row with
+ *  pixel sizes, or a 256px docs between two shares. */
+function setJustifyRow(store: Store, row: JustifyRow): void {
+  JUSTIFY_TABS.forEach((id, i) => {
+    store.setHints(id, {
+      maxSize: row === 'capped' ? { w: 160, h: 0 } : undefined,
+    });
+    const middle = i === 1;
+    store.patchPlacement(id, {
+      size:
+        row === 'full'
+          ? { w: middle ? 264 : 256 }
+          : row === 'shared' && middle
+            ? { w: 256 }
+            : undefined,
+      share: row === 'shared' && !middle ? 1 : undefined,
+    });
+  });
+}
+
 /**
  * Three tabs held at a 160px cap leave most of the row empty; `justify` says
  * where that space goes. Drag a seam under each: it stays under the pointer.
+ * The row select fills the row instead, with pixel sizes or with shares on
+ * either side of docs.
  */
 export const Justify: Story = () => {
   const store = useMemo(makeJustifyStore, []);
   const [justify, setJustify] = useState<Justify>('start');
+  const [row, setRow] = useState<JustifyRow>('capped');
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
@@ -250,6 +276,22 @@ export const Justify: Story = () => {
               <option value="center">center</option>
               <option value="end">end</option>
               <option value="between">between</option>
+            </select>
+          </label>
+          <label>
+            row{' '}
+            <select
+              value={row}
+              data-testid="row"
+              onChange={(e) => {
+                const next = e.target.value as JustifyRow;
+                setRow(next);
+                setJustifyRow(store, next);
+              }}
+            >
+              <option value="capped">capped at 160px</option>
+              <option value="full">full</option>
+              <option value="shared">shares around docs</option>
             </select>
           </label>
         </div>

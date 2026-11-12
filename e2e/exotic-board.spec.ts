@@ -23,10 +23,17 @@ async function bandUnder(page: Page, cardId: string): Promise<string | null> {
  *  A costed card dropped with no mana is refused — the board is a game, not a
  *  free-move surface — so a spec about where a card lands has to pay for it
  *  first. What each card costs moves with the pool, so this pays the maximum
- *  rather than naming a number. */
+ *  rather than naming a number.
+ *
+ *  Dispatched in the page, as `draw` is: each Playwright click waits out an
+ *  actionability check that took 1–2s per land on CI's WebKit. Turning a land
+ *  by click is asserted where it is the subject. */
 async function tapAllLands(page: Page): Promise<number> {
-  const lands = await page.locator('[data-testid^="xb-card-your-land-"]').count();
-  for (let i = 0; i < lands; i++) await card(page, `your-land-${i}`).click();
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('[data-testid^="xb-card-your-land-"]')) {
+      (el as HTMLButtonElement).click();
+    }
+  });
   return Number(await page.getByTestId('xb-mana-total').innerText());
 }
 
@@ -167,7 +174,7 @@ async function dragOnto(page: Page, cardId: string, bandId: string): Promise<voi
   );
   await hoverCard(page, cardId);
   await page.mouse.down();
-  await page.mouse.move(dst.x, dst.y, { steps: 24 });
+  await page.mouse.move(dst.x, dst.y, { steps: 8 });
   await page.mouse.up();
 }
 
@@ -178,6 +185,12 @@ test.describe('duel board', () => {
 
   test.beforeEach(async ({ page }) => {
     await openStory(page, STORY);
+    // Blurred card shadows are most of what a frame costs on that same WebKit,
+    // and stalled the first hover over the hand for seconds. No shadow moves a
+    // box or takes a hit-test, so these specs lose nothing by dropping them.
+    await page.addStyleTag({
+      content: '.xb-root *, .xb-root *::before, .xb-root *::after { box-shadow: none !important; }',
+    });
   });
 
   test('renders both halves of the table', async ({ page }) => {
@@ -224,7 +237,7 @@ test.describe('duel board', () => {
     const src = centerOf(await settledBox(card(page, 'your-hand-2')));
     await page.mouse.move(src.x, src.y);
     await page.mouse.down();
-    await page.mouse.move(rail.x, rail.y, { steps: 24 });
+    await page.mouse.move(rail.x, rail.y, { steps: 8 });
     await page.mouse.up();
     await expect.poll(() => bandUnder(page, 'your-hand-2')).toBe('your-hand');
   });
@@ -376,6 +389,44 @@ test.describe('duel board', () => {
     expect(await scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
   });
 
+  // The swell lifts a card above the hand and can push the first one past its
+  // left edge. The lift's top margin is pinned off, so it must not scroll the
+  // surface; the left margin comes and goes, and must leave the scroll where
+  // the hand had it — including at the far end, where the browser clamps.
+  test('sweeping across the hand leaves its scroll where it was', async ({ page }) => {
+    const scroller = page.getByTestId('xb-hand-surface');
+    await scroller.evaluate((el) => {
+      const seen = { maxTop: 0 };
+      (window as unknown as { __seen: typeof seen }).__seen = seen;
+      el.addEventListener('scroll', () => {
+        seen.maxTop = Math.max(seen.maxTop, el.scrollTop);
+      });
+    });
+    const sweep = async () => {
+      const dock = await settledBox(page.getByTestId('xb-hand-dock'));
+      const y = dock.y + dock.h - 60;
+      await page.mouse.move(dock.x + 8, y);
+      await page.mouse.move(dock.x + dock.w - 8, y, { steps: 24 });
+      await page.mouse.move(4, 4);
+    };
+
+    await sweep();
+    await draw(page, 30);
+    await expect
+      .poll(() => scroller.evaluate((el) => el.scrollWidth - el.clientWidth))
+      .toBeGreaterThan(0);
+    const start = await scroller.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth;
+      return el.scrollLeft;
+    });
+    await sweep();
+
+    await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeCloseTo(start, 0);
+    expect(
+      await page.evaluate(() => (window as unknown as { __seen: { maxTop: number } }).__seen),
+    ).toEqual({ maxTop: 0 });
+  });
+
   test('drawing never stops, because the hand is no longer capped', async ({ page }) => {
     await draw(page, 30);
     await expect(page.getByTestId('xb-draw')).toBeEnabled();
@@ -446,7 +497,7 @@ test.describe('duel board', () => {
     // reads a box the held card was covering, and the drag lands beside it.
     const host = centerOf(await settledBox(card(page, hostId)));
     await page.mouse.down();
-    await page.mouse.move(host.x, host.y, { steps: 24 });
+    await page.mouse.move(host.x, host.y, { steps: 8 });
     await page.mouse.up();
 
     // It now belongs to the creature, and is drawn as a tab rather than a card.

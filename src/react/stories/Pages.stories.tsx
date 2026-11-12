@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   asNodeId,
   createNode,
+  type DropIntent,
   desktopStrategy,
   gridStrategy,
   type NodeId,
@@ -17,6 +18,7 @@ import {
   Container,
   DragHandle,
   DragProvider,
+  type DropIntentContext,
   FocusProvider,
   GeometryProvider,
   type OverlayContext,
@@ -196,26 +198,46 @@ function addTile(s: Store, n: number): void {
   s.showNode(id);
 }
 
+/** A launcher drops a tile before the one under the cursor, reading rows and
+ *  then columns; the built-in resolver reads one axis only. */
+function beforeTileUnder({ rects, point, visibleIndex }: DropIntentContext): DropIntent {
+  const seam = rects.filter(
+    ({ rect: r }) => r.y + r.h <= point.y || (r.y <= point.y && r.x + r.w / 2 < point.x),
+  ).length;
+  return { kind: 'insert', index: visibleIndex(seam) };
+}
+
 /** Tiles fill a page in order and spill onto the next, like a launcher's app grid. */
 export const Flowed: Story = () => {
   const [store] = useState(() => makeTiles(23));
   const [next, setNext] = useState(24);
   const chrome: ChromeMap = useMemo(
-    () => ({ tile: ({ node }) => <div className="pages-tile">{String(node.id).slice(5)}</div> }),
+    () => ({
+      tile: ({ node }) => (
+        <DragHandle nodeId={node.id} className="pages-tile">
+          {String(node.id).slice(5)}
+        </DragHandle>
+      ),
+    }),
     [],
   );
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
-        <div className="pages-tiles">
-          <Container
-            parentId={TILES}
-            chrome={chrome}
-            className="pages-fill"
-            affordances
-            overlay={(layout) => <PageBar layout={layout} />}
-          />
-        </div>
+        <DragProvider>
+          <GeometryProvider>
+            <div className="pages-tiles">
+              <Container
+                parentId={TILES}
+                chrome={chrome}
+                className="pages-fill"
+                affordances
+                dropIntent={beforeTileUnder}
+                overlay={(layout) => <PageBar layout={layout} />}
+              />
+            </div>
+          </GeometryProvider>
+        </DragProvider>
         <button
           type="button"
           className="pages-add"
@@ -228,7 +250,8 @@ export const Flowed: Story = () => {
         </button>
         <p className="pages-hint">
           Tiles flow onto a new page when this one is full. Click a page number, or press{' '}
-          <kbd>Page Up</kbd> / <kbd>Page Down</kbd>, to turn the page.
+          <kbd>Page Up</kbd> / <kbd>Page Down</kbd>, to turn the page. Drag a tile to move it: it
+          lands before the tile you drop it on, on whichever page is shown.
         </p>
       </StrategyRegistryProvider>
     </Provider>

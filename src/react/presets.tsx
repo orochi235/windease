@@ -398,7 +398,6 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
   const layout = useContainerLayout(props.id, ref, undefined, dropPreview.preview);
   usePublishGeometry(props.id, ref, layout);
   useScrollOffset(props.scrollRef, layout.observeScroll);
-  useOverflowOrigin(props.scrollRef, layout.overflow);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
   const { settleMs, resizing, setDraggingAffordanceId } = useSettle(
@@ -428,6 +427,7 @@ function PanelWithLayout(props: PanelWithLayoutProps) {
     ...scrollExtentStyle(layout),
     ...props.style,
   };
+  useOverflowOrigin(props.scrollRef, panelStyle);
 
   return (
     <ResizeGestureContext.Provider value={resizing}>
@@ -629,7 +629,6 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
   useViewBinding(layout.setView, props.view, props.fit, frameRef, props.viewport);
   usePublishGeometry(props.id, ref, layout);
   useScrollOffset(props.scrollRef, layout.observeScroll);
-  useOverflowOrigin(props.scrollRef, layout.overflow);
   useFlowChildGeometry(props.id, ref, layout.mode === 'flow');
   const store = useStore();
   const { settleMs, resizing, setDraggingAffordanceId } = useSettle(
@@ -666,6 +665,7 @@ function ZoneWithLayout(props: ZoneWithLayoutProps) {
     ...viewStyle(layout.view),
     ...props.style,
   };
+  useOverflowOrigin(props.scrollRef, zoneStyle);
 
   // Render store-only (imperative) children if the consumer provided a
   // renderer. We subscribe to children here AND in PresetShell (the latter

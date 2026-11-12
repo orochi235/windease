@@ -39,6 +39,24 @@ export interface DropConfig {
   /** A drop on an empty cell of a grid places the child in that cell, as
    *  `placement.cell`, instead of at an index. */
   cell?: boolean;
+  /** Under `split`, the pane a split drop places goes in a new container of
+   *  this shape, as Golden Layout puts a dropped tab in a stack of its own. A
+   *  pane that already has this strategy is placed as it is. */
+  wrap?: WrapConfig;
+}
+
+/**
+ * The container `drop.wrap` puts a split-dropped pane in.
+ *
+ * @group Drag and drop
+ */
+export interface WrapConfig {
+  strategyId: string;
+  /** Defaults to `'group'`. */
+  kind?: string;
+  config?: Record<string, unknown>;
+  allowsPinning?: boolean;
+  autoPrune?: boolean;
 }
 
 /**
@@ -52,6 +70,15 @@ export interface DropConfig {
 export type ReorderMode = true | 'handle';
 
 /**
+ * How a touch on a drag source behaves. `true` leaves every touch to the page,
+ * so only a mouse or pen drags; `'hold'` lets a swipe scroll and starts a drag
+ * once a finger presses and holds still.
+ *
+ * @group Drag and drop
+ */
+export type TouchScrollMode = true | 'hold';
+
+/**
  * The container-level keys of `node.container.config`.
  *
  * @group Drag and drop
@@ -63,9 +90,10 @@ export interface ContainerConfigKeys {
   raise?: RaiseMode;
   /** Makes every child a drag source without a `DragHandle` in its chrome. */
   reorder?: ReorderMode;
-  /** Under `reorder`, let a touch on a child scroll the page instead of
-   *  dragging it. Off by default, so a finger drags. */
-  touchScroll?: boolean;
+  /** Under `reorder`, let a touch on a child scroll the page: `true` never
+   *  drags by touch, `'hold'` drags after a press and hold. Off by default, so
+   *  a finger drags. */
+  touchScroll?: boolean | TouchScrollMode;
 }
 
 /** Keys every strategy's config check accepts without declaring them. */
@@ -89,9 +117,10 @@ export function readRaiseConfig(config: unknown): RaiseMode | undefined {
   return raise === 'click' || raise === 'focus' ? raise : undefined;
 }
 
-/** Whether `config.touchScroll` leaves a reorder child's touches to the page. */
-export function readTouchScroll(config: unknown): boolean {
-  return (config as { touchScroll?: unknown } | null | undefined)?.touchScroll === true;
+/** `config.touchScroll` when it names a mode, else undefined. */
+export function readTouchScroll(config: unknown): TouchScrollMode | undefined {
+  const mode = (config as { touchScroll?: unknown } | null | undefined)?.touchScroll;
+  return mode === true || mode === 'hold' ? mode : undefined;
 }
 
 /** `config.drop`, or an empty rule when it is absent or not an object. */

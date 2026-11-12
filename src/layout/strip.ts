@@ -841,11 +841,39 @@ function resizesTrailing(cfg: StripConfig, free: number): boolean {
   return cfg.justify === 'end' && cfg.resizeMode !== 'neighbor' && free > PACK_EPSILON;
 }
 
-/** How much a pane in a `center` row grows for its trailing seam to travel
- *  `travel`. While the row has room, half of any growth goes to the far side. */
-function centeredGrowth(travel: number, free: number): number {
-  if (travel <= 0) return 2 * travel;
-  return travel <= free / 2 ? 2 * travel : travel + free / 2;
+/** The fraction of the row's free space `justify` places before the seam after
+ *  pane `index`: how far that seam falls back for each pixel its pane takes
+ *  from the free space, or gains for each pixel the pane gives back. */
+function leadShare(cfg: StripConfig, index: number, count: number): number {
+  switch (cfg.justify) {
+    case 'center':
+      return 1 / 2;
+    case 'end':
+      return 1;
+    case 'between':
+      return count > 1 ? index / (count - 1) : 0;
+    default:
+      return 0;
+  }
+}
+
+/** The main axis `items` leave unused once laid out. */
+function freeOf(
+  items: LayoutItem[],
+  cfg: StripConfig,
+  axis: 'x' | 'y',
+  usableMain: number,
+): number {
+  return usableMain - mainSizes(items, cfg, axis, usableMain).reduce((s, v) => s + v, 0);
+}
+
+/** How much a pane grows for its trailing seam to travel `travel` while every
+ *  other pane holds, `share` of each free pixel landing before the seam. Past
+ *  the free space the row is full, and growth goes one for one. */
+function seamGrowth(travel: number, free: number, share: number): number {
+  const k = 1 - share;
+  if (travel <= 0) return travel / k;
+  return travel <= k * free ? travel / k : travel + share * free;
 }
 
 /** Bounds for a seam that resizes the pane after it, as the seam's offset along
@@ -975,11 +1003,25 @@ function steppedTarget(
 ): number {
   const base = sizes[index] ?? 0;
   if (stepOf(cfg) === undefined || !point) return base + delta;
-  const used = sizes.reduce((s, v) => s + v, 0);
-  const { lead, spacing } = justified(cfg, usableMain - used, cfg.gap ?? 0, sizes.length);
-  let start = (cfg.padding ?? 0) + lead;
+  return (
+    (axis === 'x' ? point.x : point.y) -
+    (cfg.padding ?? 0) -
+    paneStart(cfg, sizes, index, usableMain)
+  );
+}
+
+/** Where pane `index` starts along the row, inside the padding, once panes of
+ *  `sizes` are laid out. */
+function paneStart(cfg: StripConfig, sizes: number[], index: number, usableMain: number): number {
+  const overlapped = overlapSpacing(cfg, sizes, usableMain);
+  const free = overlapped === undefined ? usableMain - sizes.reduce((s, v) => s + v, 0) : 0;
+  const { lead, spacing } =
+    overlapped === undefined
+      ? justified(cfg, free, cfg.gap ?? 0, sizes.length)
+      : { lead: 0, spacing: overlapped };
+  let start = lead;
   for (let i = 0; i < index; i++) start += (sizes[i] ?? 0) + spacing;
-  return (axis === 'x' ? point.x : point.y) - start;
+  return start;
 }
 
 /** A child collapsed to nothing, and how many placed panes precede it. It is
@@ -1341,8 +1383,6 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       return;
     }
 
-    const grow = cfg.justify === 'center' && roomy ? centeredGrowth(travel, free) : travel;
-    let next = step === undefined ? base + grow : Math.round((base + grow) / step) * step;
     const min = effectiveMinAxis(item, axis);
     const max = effectiveMaxAxis(item, axis);
     const otherMinSum = placedItems
@@ -1351,9 +1391,32 @@ export const stripStrategy: LayoutStrategy<void, string> = {
     // A sibling ceiling tighter than this child's own min must not win: floor
     // last, so the row overflows rather than writing a size the child forbids.
     const ceiling = usableMain - otherMinSum;
-    if (next > ceiling) next = down(ceiling);
-    if (next < min) next = up(min);
-    if (max !== undefined && next > max) next = down(max);
+    const sizeFor = (grow: number): number => {
+      let v = step === undefined ? base + grow : Math.round((base + grow) / step) * step;
+      if (v > ceiling) v = down(ceiling);
+      if (v < min) v = up(min);
+      if (max !== undefined && v > max) v = down(max);
+      return v;
+    };
+    const share = leadShare(cfg, index, placedItems.length);
+    // `justify` re-spreads whatever free space the pane takes or gives back, so
+    // the pane must move further than the seam. A full row only opens free
+    // space when the others hold rather than fill what the pane gives up.
+    const opens = (size: number) =>
+      freeOf(
+        withWrites(placedItems, new Map([[childId as string, size]]), cfg, axis, usableMain),
+        cfg,
+        axis,
+        usableMain,
+      ) > PACK_EPSILON;
+    const spreads = share > 0 && share < 1 && (roomy || (travel < 0 && opens(sizeFor(travel))));
+    const grow = spreads ? seamGrowth(travel, free, share) : travel;
+    if (spreads)
+      trace(
+        'layout',
+        `strip: ${cfg.justify} seam after ${childId} (${index + 1}/${placedItems.length}) travels ${travel}, pane grows ${grow} with ${free} free`,
+      );
+    const next = sizeFor(grow);
     // A pane stored under its floor (a minimized group) sits outside the range
     // above; clamping into it would move the seam against the pointer.
     if ((next - base) * delta < 0) return;
@@ -1366,7 +1429,8 @@ export const stripStrategy: LayoutStrategy<void, string> = {
       axis,
       usableMain,
     );
-    if (roomy && cfg.justify !== 'between') {
+    const seamAt = (s: number[]) => paneStart(cfg, s, index, usableMain) + (s[index] ?? 0);
+    if (roomy) {
       // Growth the free space cannot cover comes out of the other panes.
       const over = next - base - free;
       if (over > 1e-6) {
@@ -1375,14 +1439,19 @@ export const stripStrategy: LayoutStrategy<void, string> = {
         }
       }
       pinRest(placedItems, sizes, writes, cfg, axis, usableMain);
-    } else if (Math.abs((landed[index] ?? 0) - next) > 1e-6) {
-      // Nothing absorbs the change — every other pane holds a stored size, or
-      // the row was squeezed — so the new size alone would rescale the row and
-      // move the seam by some other amount, even backward. The others give up
-      // the delta instead, in proportion to where they render.
-      for (const [id, size] of shareOut(placedItems, sizes, index, next - base, axis)) {
-        writes.set(id, size);
-      }
+    } else if (
+      Math.abs((landed[index] ?? 0) - next) > 1e-6 ||
+      (!spreads && Math.abs(seamAt(landed) - seamAt(sizes) - (next - base)) > 1e-6)
+    ) {
+      // The seam would miss the pointer: a squeezed row rescales, a pane before
+      // it sized to fill takes up the change, or `end` opens it before the row.
+      // The panes after the seam take the delta instead, and the rest hold.
+      const out = shareOut(placedItems, sizes, index, next - base, axis);
+      placedItems.forEach((it, i) => {
+        const v = out.get(it.id);
+        if (v !== undefined && Math.abs(v - (sizes[i] ?? 0)) > 1e-6) writes.set(it.id, v);
+      });
+      pinRest(placedItems, sizes, writes, cfg, axis, usableMain);
       trace('layout', `strip: ${childId} took ${next - base} from ${writes.size - 1} panes`);
     }
     storeWrites(store, placedItems, writes, cfg, axis, usableMain);

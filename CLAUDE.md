@@ -156,3 +156,25 @@ What this means when you design against it:
 - Every user-visible change gets a `CHANGELOG.md` entry under `## Unreleased`, which
   is retitled to the version at release. `scripts/check-changelog.sh` fails a release
   whose version has no section, or where an `Unreleased` heading survived the bump.
+
+## Traps
+
+- **`npm version` pushes.** `postversion` runs `git push --follow-tags`, and npm
+  runs it even under `--no-git-tag-version`.
+- **The store notifies on a microtask**, so synchronous `act()` returns before
+  React re-renders. Use `await act(async () => …)`.
+- **Any node the store creates needs `showNode`.** A container that renders as
+  nothing is this bug.
+- **A declared `config` is diffed against what the last render declared, never
+  against the store**, whose copy also holds keys a gesture wrote (a stack's
+  `activeId`); re-asserting it would snap the tab back.
+- **A stack's body is a full-box `<Container>` overlapping its `headerSize`
+  band**, so a tab strip drawn before it in DOM order swallows its own clicks
+  without a `z-index`.
+- **`onto test` refuses a sync that would delete files the node holds**, even
+  byte-identical tracked ones. Check with `onto fetch <node>:windease/<path>`
+  before reaching for `--force`.
+- **Mutation-check every negative assertion**: break it on purpose and watch it
+  fail. A sweep once found four tests passing vacuously.
+- **A story that demonstrates a workaround outlives the defect**, and then
+  asserts the bug. Drop the workaround when the defect is fixed.

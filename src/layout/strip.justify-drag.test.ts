@@ -69,6 +69,69 @@ describe('stripStrategy seam drag in a row with room to spare', () => {
     }
   });
 
+  it.each([
+    ['stored', (n: number) => ['a', 'b', 'c', 'd'].slice(0, n).map((id) => sized(id, 100))],
+    ['preferred', (n: number) => ['a', 'b', 'c', 'd'].slice(0, n).map((id) => pref(id, 100))],
+  ] as const)('between: every seam travels the drag (%s sizes)', (_, make) => {
+    for (const n of [3, 4]) {
+      for (const id of ['a', 'b', 'c'].slice(0, n - 1)) {
+        for (const dx of [30, -30]) {
+          expect(dragSeam(make(n), id, dx, { justify: 'between' }).travel).toBeCloseTo(dx, 9);
+        }
+      }
+    }
+  });
+
+  it('between: the pane grows by the drag over its share of the gaps after it', () => {
+    // b's seam sits after one of two gaps, so half of b's growth comes back as
+    // narrower gaps before it.
+    const r = dragSeam([sized('a', 100), sized('b', 100), sized('c', 100)], 'b', 40, {
+      justify: 'between',
+    });
+    expect(r.widths).toEqual({ a: 100, b: 180, c: 100 });
+    expect(r.starts).toEqual({ a: 0, b: 210, c: 500 });
+  });
+
+  it('between: growth past the free space goes one for one', () => {
+    // 150 free and b's seam keeps half of it: the first 75 of travel takes it
+    // all, and the last 25 comes out of c.
+    const r = dragSeam([sized('a', 150), sized('b', 150), sized('c', 150)], 'b', 100, {
+      justify: 'between',
+    });
+    expect(r.travel).toBeCloseTo(100, 9);
+    expect(r.widths).toEqual({ a: 150, b: 325, c: 125 });
+  });
+
+  it("between: stops at the pane's floor", () => {
+    const floored = [
+      sized('a', 100),
+      sized('b', 100, { minSize: { w: 80, h: 0 } }),
+      sized('c', 100),
+    ];
+    const r = dragSeam(floored, 'b', -30, { justify: 'between' });
+    expect(r.widths.b).toBe(80);
+    expect(r.travel).toBeCloseTo(-10, 9);
+  });
+
+  it.each(['center', 'between'] as const)(
+    '%s: shrinking a pane in a full row still travels the drag',
+    (justify) => {
+      const full = () => [sized('a', 200), sized('b', 200), sized('c', 200)];
+      for (const id of ['a', 'b']) {
+        expect(dragSeam(full(), id, -30, { justify }).travel).toBeCloseTo(-30, 9);
+      }
+    },
+  );
+
+  it('between: a full row whose other panes fill what is given up resizes one for one', () => {
+    const shared = (id: string): LayoutItem => ({ id, placement: { share: 1 } });
+    const r = dragSeam([sized('a', 200), sized('b', 200), shared('c')], 'b', -30, {
+      justify: 'between',
+    });
+    expect(r.travel).toBeCloseTo(-30, 9);
+    expect(r.widths.b).toBe(170);
+  });
+
   it('start: a pane sized by preferredSize holds when its neighbor is dragged', () => {
     const r = dragSeam([pref('a', 100), pref('b', 100)], 'a', 40, {});
     expect(r.widths).toEqual({ a: 140, b: 100 });
@@ -142,5 +205,57 @@ describe('stripStrategy seam drag in a row with room to spare', () => {
   it('end: lands on whole steps', () => {
     const r = dragSeam(two(), 'a', 37, { justify: 'end', step: 20 });
     expect(r.widths.b).toBe(60);
+  });
+});
+
+describe('stripStrategy seam drag in a full row', () => {
+  const full = () => [sized('a', 200), sized('b', 200), sized('c', 200)];
+  const shared = (id: string): LayoutItem => ({ id, placement: { share: 1 } });
+  const flanked = {
+    shares: () => [shared('a'), sized('b', 200), shared('c')],
+    'fill panes': () => [{ id: 'a' }, sized('b', 200), { id: 'c' }],
+  };
+  const JUSTIFY = ['start', 'center', 'end', 'between'] as const;
+
+  it('end: shrinking a pane travels the drag, and the panes after it take the space', () => {
+    for (const id of ['a', 'b']) {
+      const r = dragSeam(full(), id, -30, { justify: 'end' });
+      expect(r.travel).toBeCloseTo(-30, 9);
+      expect(r.starts.a).toBe(0);
+    }
+    expect(dragSeam(full(), 'b', -30, { justify: 'end' }).widths).toEqual({
+      a: 200,
+      b: 170,
+      c: 230,
+    });
+  });
+
+  it.each(Object.entries(flanked))(
+    'a pane sized to fill before the dragged pane holds (%s)',
+    (_, make) => {
+      for (const justify of JUSTIFY) {
+        for (const dx of [30, -30]) {
+          const r = dragSeam(make(), 'b', dx, { justify });
+          expect(r.travel, `${justify} ${dx}`).toBeCloseTo(dx, 9);
+          expect(r.widths.a, `${justify} ${dx}`).toBeCloseTo(200, 9);
+        }
+      }
+    },
+  );
+
+  it("'neighbor' tracks the pointer in both", () => {
+    for (const make of [full, ...Object.values(flanked)]) {
+      for (const justify of JUSTIFY) {
+        for (const dx of [30, -30]) {
+          const r = dragSeam(make(), 'b', dx, {
+            justify,
+            resizeMode: 'neighbor',
+          });
+          expect(r.travel, `${justify} ${dx}`).toBeCloseTo(dx, 9);
+          expect(r.widths.a).toBeCloseTo(200, 9);
+          expect(r.widths.c).toBeCloseTo(200 - dx, 9);
+        }
+      }
+    }
   });
 });
