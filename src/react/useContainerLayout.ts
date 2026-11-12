@@ -14,7 +14,6 @@ import type {
   LayoutEvent,
   LayoutPreview,
   NodeId,
-  Overflow,
   PlacedRect,
   PlacementCommit,
   StrategyCommand,
@@ -363,26 +362,67 @@ export function scrollExtentStyle(
 }
 
 /**
- * Hold the container's origin still on screen while the margin
- * {@link scrollExtentStyle} adds for `overflow.left` / `top` changes, by scrolling
- * `scrollRef` by the same amount. Without it, dragging a window past the left
- * edge would push every other window right. Starts from no margin, so a layout
- * that opens with one scrolls to its origin.
+ * Hold the container's origin still on screen while its box's left / top margin
+ * changes, by scrolling `scrollRef` by the same amount. Without it, dragging a
+ * window past the left edge would push every other window right. Starts from no
+ * margin, so a layout that opens with one scrolls to its origin.
+ *
+ * `style` is the style the box was finally given, not what
+ * {@link scrollExtentStyle} asked for: a margin the consumer pinned, or one
+ * `fit` left off, moves nothing and must not be scrolled for. A margin that is
+ * not a number is the consumer's and stays put, so it counts as none.
  */
 export function useOverflowOrigin(
   scrollRef: RefObject<Element | null> | undefined,
-  overflow: Overflow | undefined,
+  style: Pick<CSSProperties, 'marginLeft' | 'marginTop'>,
 ): void {
-  const left = overflow?.left ?? 0;
-  const top = overflow?.top ?? 0;
+  const left = typeof style.marginLeft === 'number' ? style.marginLeft : 0;
+  const top = typeof style.marginTop === 'number' ? style.marginTop : 0;
   const applied = useRef({ left: 0, top: 0 });
+  // Where the browser last left the scroll. A shrinking margin shrinks the
+  // extent, and the browser clamps a scroll at the far end before this hook can
+  // read it, so the read alone would compensate twice.
+  const known = useRef<{ el: Element; left: number; top: number } | null>(null);
+
+  useEffect(() => {
+    const el = scrollRef?.current;
+    if (!el) return;
+    const note = () => {
+      known.current = { el, left: el.scrollLeft, top: el.scrollTop };
+    };
+    note();
+    el.addEventListener('scroll', note, { passive: true });
+    return () => el.removeEventListener('scroll', note);
+  }, [scrollRef]);
+
   useLayoutEffect(() => {
     const el = scrollRef?.current;
     if (!el) return;
     const dx = left - applied.current.left;
     const dy = top - applied.current.top;
     applied.current = { left, top };
-    if (dx !== 0) el.scrollLeft += dx;
-    if (dy !== 0) el.scrollTop += dy;
+    if (dx === 0 && dy === 0) return;
+    const k = known.current?.el === el ? known.current : null;
+    if (dx !== 0) {
+      const from = unclamped(el.scrollLeft, k?.left, el.scrollWidth - el.clientWidth, dx);
+      el.scrollLeft = from + dx;
+    }
+    if (dy !== 0) {
+      const from = unclamped(el.scrollTop, k?.top, el.scrollHeight - el.clientHeight, dy);
+      el.scrollTop = from + dy;
+    }
+    known.current = { el, left: el.scrollLeft, top: el.scrollTop };
+    trace(
+      'zone',
+      `overflow origin: margin Δ(${dx}, ${dy}) → scroll (${known.current.left}, ${known.current.top})`,
+    );
   }, [scrollRef, left, top]);
+}
+
+/** The scroll offset to compensate from: `now`, unless the margin shrank and
+ *  the browser has since clamped a scroll that was further along to the new
+ *  far end, in which case where it was. */
+function unclamped(now: number, was: number | undefined, max: number, delta: number): number {
+  if (delta >= 0 || was === undefined || now >= was) return now;
+  return now >= max - 1 ? was : now;
 }

@@ -389,6 +389,44 @@ test.describe('duel board', () => {
     expect(await scroller.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
   });
 
+  // The swell lifts a card above the hand and can push the first one past its
+  // left edge. The lift's top margin is pinned off, so it must not scroll the
+  // surface; the left margin comes and goes, and must leave the scroll where
+  // the hand had it — including at the far end, where the browser clamps.
+  test('sweeping across the hand leaves its scroll where it was', async ({ page }) => {
+    const scroller = page.getByTestId('xb-hand-surface');
+    await scroller.evaluate((el) => {
+      const seen = { maxTop: 0 };
+      (window as unknown as { __seen: typeof seen }).__seen = seen;
+      el.addEventListener('scroll', () => {
+        seen.maxTop = Math.max(seen.maxTop, el.scrollTop);
+      });
+    });
+    const sweep = async () => {
+      const dock = await settledBox(page.getByTestId('xb-hand-dock'));
+      const y = dock.y + dock.h - 60;
+      await page.mouse.move(dock.x + 8, y);
+      await page.mouse.move(dock.x + dock.w - 8, y, { steps: 24 });
+      await page.mouse.move(4, 4);
+    };
+
+    await sweep();
+    await draw(page, 30);
+    await expect
+      .poll(() => scroller.evaluate((el) => el.scrollWidth - el.clientWidth))
+      .toBeGreaterThan(0);
+    const start = await scroller.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth;
+      return el.scrollLeft;
+    });
+    await sweep();
+
+    await expect.poll(() => scroller.evaluate((el) => el.scrollLeft)).toBeCloseTo(start, 0);
+    expect(
+      await page.evaluate(() => (window as unknown as { __seen: { maxTop: number } }).__seen),
+    ).toEqual({ maxTop: 0 });
+  });
+
   test('drawing never stops, because the hand is no longer capped', async ({ page }) => {
     await draw(page, 30);
     await expect(page.getByTestId('xb-draw')).toBeEnabled();

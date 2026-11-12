@@ -93,6 +93,13 @@ section below.
 
 ### Fixed
 
+- **A scrolled container stays where it was when content past its left or top
+  edge comes and goes.** The compensating scroll counted a margin the `style`
+  prop had pinned (or `fit` had left off), so it scrolled for a margin the box
+  never got, and at the far end of the scroll it compensated a shrinking margin
+  twice, after the browser had already clamped it. Sweeping the cursor across
+  the duel board's hand while it was scrolled to its end left it 88px short.
+
 - **A resizable grid of flowed items under a row cap lays out about 12× faster.**
   200 panels of 6×8 cells in 24 columns under `maxRows: 420` took 1.97s per
   layout and now take 0.16s; 100 under `maxRows: 220`, 0.39s to 0.04s. The
