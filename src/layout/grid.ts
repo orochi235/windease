@@ -1218,36 +1218,48 @@ function spanReacher(
     };
     const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
       if (ownCell && before < itemCap) return cellReach(ownCell, axis, cap);
+      const restFits = () => prefix.trial((packer) => packRest(packer, before));
+      // Past the cap `id` places nowhere, whatever its span.
+      if (ownCell || before >= itemCap) return restFits() ? cap : 1;
+      const spanAt = (v: number): Reach => ({ ...own, [axis]: v });
+      const places = (v: number) => {
+        const span = spanAt(v);
+        return prefix.trial((packer) => packer.place(span.cols, span.rows) !== undefined);
+      };
+      // Packing is not monotone in span, so every span below the stop is a
+      // candidate; scanning down from the stop, the first that fits is the reach.
+      const largestFit = (top: number): number => {
+        for (let v = top; v > 1; v--) {
+          const span = spanAt(v);
+          const fits = prefix.trial((packer) => {
+            packer.place(span.cols, span.rows);
+            return packRest(packer, before + 1);
+          });
+          if (fits) return v;
+        }
+        return 1;
+      };
       // The fewest cells the rest must still cover for a probe to fit.
       const need = cellsNeeded(rest, baseline - before - 1, cols, rowCap);
       const room =
         rowCap === undefined ? Number.POSITIVE_INFINITY : cols * rowCap - prefix.takenCount;
-      let best = 1;
-      for (let v = 1; v <= cap; v++) {
-        const span = { ...own, [axis]: v };
-        if (before < itemCap && span.cols * span.rows > room - need) {
-          // From here `id` either places and starves the rest or places
-          // nowhere, and placing nowhere is the same for every larger span.
-          if (!prefix.trial((packer) => packRest(packer, before))) return best;
-          const atCap = { ...own, [axis]: cap };
-          return prefix.trial((packer) => packer.place(atCap.cols, atCap.rows)) ? best : cap;
-        }
-        let ownPlaced = false;
-        const fits = prefix.trial((packer) => {
-          let placed = before;
-          // Past the cap `id` places nowhere, whatever its span.
-          if (placed < itemCap && !ownCell) {
-            ownPlaced = packer.place(span.cols, span.rows) !== undefined;
-            if (ownPlaced) placed++;
-          }
-          return packRest(packer, placed);
-        });
-        if (fits) best = v;
-        // A block that fits nowhere at `v` fits nowhere at a larger span, and
-        // with `id` unplaced the rest pack the same, so every later probe agrees.
-        if (!ownPlaced) return fits ? cap : best;
+      const across = axis === 'cols' ? own.rows : own.cols;
+      // From `starved` on, `id` either places and starves the rest or places nowhere.
+      const starved = Math.min(cap + 1, Math.max(1, Math.floor((room - need) / across) + 1));
+      // A block that fits nowhere at one span fits nowhere at a larger one, and
+      // with `id` unplaced the rest pack the same at every span from there.
+      let lo = 1;
+      let hi = starved;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (places(mid)) lo = mid + 1;
+        else hi = mid;
       }
-      return best;
+      const homeless = lo;
+      if (homeless < starved) return restFits() ? cap : largestFit(homeless - 1);
+      if (starved > cap) return largestFit(cap);
+      if (restFits() && !places(cap)) return cap;
+      return largestFit(starved - 1);
     };
     return { cols: reachOn('cols', cols), rows: reachOn('rows', rowCap ?? items.length) };
   }
