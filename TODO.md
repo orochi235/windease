@@ -7,15 +7,48 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
 
 ## Test-harness gaps
 
-- **Duel-board drag tests still take 12–22s on CI's Linux WebKit**
-  (2026-11-04). The foil was not the main cost. `e2e/foil-probe.spec.ts`
-  showed its sheen animation alone added ~100ms to every mouse move there
-  (median 118ms, 16ms without the animation; blend mode and `will-change`
-  made no difference to the median), so the duel-board block now runs under
-  reduced motion. That cut the slowest test from 27s to 22s and the others by
-  2–3s; the first ~5s after the story opens still draw almost no frames. To
-  measure again, dispatch the `E2E probe` workflow, which keeps a trace of
-  every test; `spec=foil-probe.spec.ts` reruns the foil variants.
+- **Duel-board drag tests are slow on CI's Linux WebKit: unconfirmed fix
+  pending a CI run** (2026-11-12). On `main`, the drag tests took 11–18s each
+  there (measured, `E2E probe` run 43310987042). In the traces, each Playwright
+  click spent ~0.8s of its ~1s waiting for the land to read as stable, a
+  single hover over the hand took 0.25–0.5s, a 24-step drag took ~2s, and the
+  first hover over the hand in a test sometimes took 5–6s. That last is the
+  "first ~5s with no frames" recorded on 2026-11-04: the stall comes with the
+  first hover, not with a time after the story opens.
+
+  The spec now strips box-shadows inside `.xb-root`, sets up mana with
+  in-page clicks the way `draw` does, and drags in 8 steps instead of 24.
+  Measured in Linux WebKit in Docker on a Mac (Playwright 1.64.1, arm64, 4
+  CPUs), which reproduces CI's shape at about two-thirds of its times:
+
+  | Block total (24 tests)                | Docker  |
+  | ------------------------------------- | ------: |
+  | `main`                                | 85.1s   |
+  | shadows stripped                      | 67.4s   |
+  | + in-page land clicks                 | 56.3s   |
+  | + 8-step drags                        | 48.2s   |
+
+  The drag tests went from 8–11s to 2.7–3.6s there. 72 runs passed in Docker,
+  and 144 on the Mac across WebKit, Chromium, and Firefox. To confirm on CI,
+  dispatch `E2E probe` on the branch with `projects=webkit`.
+
+  What else was ruled out, measured in Docker unless stated: every other CSS
+  effect (filters, gradients, masks, card art, corner radii, container
+  queries) changed hover cost within noise; any blurred shadow, even 4px,
+  costs as much as the full set, while a zero-blur shadow costs nothing. A
+  production Ladle build cut only 8% of the block, and an instant turn
+  animation about 3%.
+
+  The cost that remains is the drag itself: each pointermove spends 60–130ms
+  in script and forced layout in Docker, against 10–28ms on a Mac. The
+  largest single item in a Chromium profile is `useOverflowOrigin` (in
+  `src/react/useContainerLayout.ts`), whose `scrollLeft +=` / `scrollTop +=`
+  forces a layout on most moves because the hand's overflow origin moves
+  with the swell. Whether that layout would happen at the next frame anyway,
+  and so whether removing the read saves anything, is not measured. Its
+  `scrollTop` writes also go negative (logged during a drag), so the
+  `applied` offset it tracks can drift from the element's real scroll. Not
+  yet checked for a visible effect.
 
 - **A geometry read outside a poll can catch a layout that is still arriving.**
   Panes render in flow until their container has measured itself, and animate
