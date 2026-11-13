@@ -10,7 +10,9 @@ import type {
 } from '../layout-types.js';
 import { trace } from '../trace.js';
 import { readCount } from './capacity.js';
+import { projectGridDrop } from './grid-drop.js';
 import { type GridRoom, gridRoom } from './grid-room.js';
+import { withPreviewItem } from './preview-items.js';
 
 interface GridConfig {
   cols?: number;
@@ -1595,6 +1597,106 @@ function draggedTracks(
   return out as TrackSize[];
 }
 
+/** Lay `items` out in the grid; a preview draws no resize handles. */
+function layoutGrid(
+  items: LayoutItem[],
+  container: Size,
+  cfg: GridConfig,
+  previewing: boolean,
+): LayoutResult<string> {
+  const placements = new Map<string, PlacedRect>();
+  if (items.length === 0) {
+    const empty: LayoutResult<string> = { placements, affordances: [] };
+    return empty;
+  }
+
+  const geom = gridGeometry(items, container, cfg);
+  const { cols, rowCap, itemCap, cells, unplaced, x, y } = geom;
+  traceCells(items, cells, cols, rowCap);
+
+  for (const item of items) {
+    const cell = cells.get(item.id);
+    if (!cell) continue;
+    const rect: PlacedRect = {
+      x: x.start(cell.col),
+      y: y.start(cell.row),
+      z: 0,
+      w: x.length(cell.col, cell.cols),
+      h: y.length(cell.row, cell.rows),
+    };
+    if (
+      item.collapse !== undefined &&
+      (geom.heldCols?.[cell.col] !== undefined || geom.heldRows?.[cell.row] !== undefined)
+    ) {
+      rect.collapsed = true;
+    }
+    placements.set(item.id, rect);
+  }
+
+  const affordances: Affordance[] = [];
+  if (cfg.resizable && !previewing) {
+    if (geom.colTracks) affordances.push(...trackSeams(geom, 'cols', cfg));
+    if (geom.rowTracks) affordances.push(...trackSeams(geom, 'rows', cfg));
+    const reachOf = spanReacher(items, cols, rowCap, itemCap, cfg.compact === 'up');
+    for (const item of items) {
+      const cell = cells.get(item.id);
+      const rect = placements.get(item.id);
+      if (!cell || !rect) continue;
+      const reach = reachOf(item.id);
+      // Emit when the span can move at all, in either direction. Keying on
+      // "a cell follows this one" instead would drop the handle from an item
+      // spanning to the edge, leaving it grown with no way back.
+      if (!geom.colTracks && !geom.heldCols && (reach.cols > 1 || cell.cols > 1)) {
+        affordances.push({
+          id: `resize-x-${item.id}`,
+          kind: 'resize-x',
+          rect: { x: rect.x + rect.w - 2, y: rect.y, z: 0, w: 4, h: rect.h },
+          cursor: 'ew-resize',
+          childId: item.id,
+          affects: [item.id],
+          bounds: {
+            orientation: 'horizontal',
+            valueNow: cell.cols,
+            valueMin: 1,
+            valueMax: reach.cols,
+            atMin: cell.cols <= 1,
+            atMax: cell.cols >= reach.cols,
+            step: 1,
+          },
+        });
+      }
+      if (!geom.rowTracks && !geom.heldRows && (reach.rows > 1 || cell.rows > 1)) {
+        affordances.push({
+          id: `resize-y-${item.id}`,
+          kind: 'resize-y',
+          rect: { x: rect.x, y: rect.y + rect.h - 2, z: 0, w: rect.w, h: 4 },
+          cursor: 'ns-resize',
+          childId: item.id,
+          affects: [item.id],
+          bounds: {
+            orientation: 'vertical',
+            valueNow: cell.rows,
+            valueMin: 1,
+            valueMax: reach.rows,
+            atMin: cell.rows <= 1,
+            atMax: cell.rows >= reach.rows,
+            step: 1,
+          },
+        });
+      }
+    }
+  }
+
+  const result: LayoutResult<string> = { placements, affordances };
+  const sticky = stickCells(items, geom, placements, affordances);
+  if (sticky.size > 0) result.sticky = sticky;
+  if (geom.excessW > 0 || geom.excessH > 0) {
+    result.overflow = { w: geom.excessW, h: geom.excessH };
+  }
+  if (unplaced.length > 0) result.unplaced = unplaced;
+  return result;
+}
+
 /**
  * Lays children out in a uniform grid, filling rows left to right. Config
  * takes `cols` / `rows`, `gap` and `padding`; capping either dimension makes
@@ -1637,157 +1739,21 @@ export const gridStrategy: LayoutStrategy<void, string> = {
   canAccept(items, options): boolean {
     return fitsCapacity(options as GridConfig, items);
   },
-  getDropPreview({ items, container, options, insertId, insertIndex, cursor, cell }) {
+  getDropPreview({ items, container, options, insertIndex, insertId, cell }) {
     const cfg = options as GridConfig;
-    // Splice ghost in if not already present. A celled child dragged within
-    // its own grid is previewed as the reorder will leave it: its cell
-    // cleared, flowing from the new index.
-    const ghostAt = items.findIndex((it) => it.id === insertId);
-    const ghost = ghostAt >= 0 ? items[ghostAt] : undefined;
-    let projected: LayoutItem[];
-    if (cell) {
-      // A drop to a cell lands there, whatever index it came from.
-      const rest = items.filter((_, i) => i !== ghostAt);
-      projected = [
-        ...rest,
-        { ...(ghost ?? { id: insertId }), placement: { ...ghost?.placement, cell } },
-      ];
-    } else if (ghost && explicitCell(ghost)) {
-      const { cell: _cell, ...placement } = ghost.placement ?? {};
-      const rest = items.filter((_, i) => i !== ghostAt);
-      const index = Math.max(0, Math.min(insertIndex ?? rest.length, rest.length));
-      rest.splice(index, 0, { ...ghost, placement });
-      projected = rest;
-    } else {
-      projected =
-        ghostAt >= 0
-          ? items
-          : insertIndex !== undefined && insertIndex >= 0 && insertIndex <= items.length
-            ? [...items.slice(0, insertIndex), { id: insertId }, ...items.slice(insertIndex)]
-            : [...items, { id: insertId }];
-    }
-    const preview = {
+    const spliced = withPreviewItem(items, {
       insertId,
-      cursor,
       ...(insertIndex !== undefined ? { insertIndex } : {}),
-    };
+    });
+    const projected = projectGridDrop(spliced, { insertId, ...(cell ? { cell } : {}) });
     // A rejected drop still lays out the current grid, so the host can show
     // the rejection overlay against it.
     const accepted = fitsCapacity(cfg, projected);
-    const { isPreview: _shown, ...lay } = gridStrategy.layout({
-      items: accepted ? projected : items,
-      container,
-      state: undefined,
-      options,
-      preview,
-    });
-    return { ...lay, accepted };
+    return { ...layoutGrid(accepted ? projected : items, container, cfg, true), accepted };
   },
-  layout({
-    items,
-    container,
-    options,
-    preview,
-  }: {
-    items: LayoutItem[];
-    container: Size;
-    state: void;
-    options: Record<string, unknown>;
-    preview?: { insertId: string; insertIndex?: number; cursor: { x: number; y: number } };
-  }): LayoutResult<string> {
-    const cfg = options as GridConfig;
-
-    const placements = new Map<string, PlacedRect>();
-    if (items.length === 0) {
-      const empty: LayoutResult<string> = { placements, affordances: [] };
-      if (preview) empty.isPreview = true;
-      return empty;
-    }
-
-    const geom = gridGeometry(items, container, cfg);
-    const { cols, rowCap, itemCap, cells, unplaced, x, y } = geom;
-    traceCells(items, cells, cols, rowCap);
-
-    for (const item of items) {
-      const cell = cells.get(item.id);
-      if (!cell) continue;
-      const rect: PlacedRect = {
-        x: x.start(cell.col),
-        y: y.start(cell.row),
-        z: 0,
-        w: x.length(cell.col, cell.cols),
-        h: y.length(cell.row, cell.rows),
-      };
-      if (
-        item.collapse !== undefined &&
-        (geom.heldCols?.[cell.col] !== undefined || geom.heldRows?.[cell.row] !== undefined)
-      ) {
-        rect.collapsed = true;
-      }
-      placements.set(item.id, rect);
-    }
-
-    const affordances: Affordance[] = [];
-    if (cfg.resizable && !preview) {
-      if (geom.colTracks) affordances.push(...trackSeams(geom, 'cols', cfg));
-      if (geom.rowTracks) affordances.push(...trackSeams(geom, 'rows', cfg));
-      const reachOf = spanReacher(items, cols, rowCap, itemCap, cfg.compact === 'up');
-      for (const item of items) {
-        const cell = cells.get(item.id);
-        const rect = placements.get(item.id);
-        if (!cell || !rect) continue;
-        const reach = reachOf(item.id);
-        // Emit when the span can move at all, in either direction. Keying on
-        // "a cell follows this one" instead would drop the handle from an item
-        // spanning to the edge, leaving it grown with no way back.
-        if (!geom.colTracks && !geom.heldCols && (reach.cols > 1 || cell.cols > 1)) {
-          affordances.push({
-            id: `resize-x-${item.id}`,
-            kind: 'resize-x',
-            rect: { x: rect.x + rect.w - 2, y: rect.y, z: 0, w: 4, h: rect.h },
-            cursor: 'ew-resize',
-            childId: item.id,
-            affects: [item.id],
-            bounds: {
-              orientation: 'horizontal',
-              valueNow: cell.cols,
-              valueMin: 1,
-              valueMax: reach.cols,
-              atMin: cell.cols <= 1,
-              atMax: cell.cols >= reach.cols,
-              step: 1,
-            },
-          });
-        }
-        if (!geom.rowTracks && !geom.heldRows && (reach.rows > 1 || cell.rows > 1)) {
-          affordances.push({
-            id: `resize-y-${item.id}`,
-            kind: 'resize-y',
-            rect: { x: rect.x, y: rect.y + rect.h - 2, z: 0, w: rect.w, h: 4 },
-            cursor: 'ns-resize',
-            childId: item.id,
-            affects: [item.id],
-            bounds: {
-              orientation: 'vertical',
-              valueNow: cell.rows,
-              valueMin: 1,
-              valueMax: reach.rows,
-              atMin: cell.rows <= 1,
-              atMax: cell.rows >= reach.rows,
-              step: 1,
-            },
-          });
-        }
-      }
-    }
-
-    const result: LayoutResult<string> = { placements, affordances };
-    const sticky = stickCells(items, geom, placements, affordances);
-    if (sticky.size > 0) result.sticky = sticky;
-    if (geom.excessW > 0 || geom.excessH > 0) {
-      result.overflow = { w: geom.excessW, h: geom.excessH };
-    }
-    if (unplaced.length > 0) result.unplaced = unplaced;
+  layout({ items, container, options, preview }): LayoutResult<string> {
+    const laid = preview ? projectGridDrop(items, preview) : items;
+    const result = layoutGrid(laid, container, options as GridConfig, preview !== undefined);
     if (preview) result.isPreview = true;
     return result;
   },

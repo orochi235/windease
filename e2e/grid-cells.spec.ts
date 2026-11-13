@@ -134,6 +134,21 @@ test.describe('grid fixed cells — dock', () => {
     expect(Math.round(news.y - mail.y)).toBe(68);
   });
 
+  test('a drag within the library previews the reorder before the drop', async ({ page }) => {
+    await openStory(page, DOCK);
+    const mail = await settledBox(element(page, 'mail'));
+    const from = centerOf(mail);
+    const to = centerOf(await settledBox(element(page, 'music')));
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 12 });
+    // Maps slides into the slot Mail left while the pointer is still down.
+    await expect
+      .poll(async () => Math.round((await boxOf(element(page, 'maps'))).x))
+      .toBe(Math.round(mail.x));
+    await page.mouse.up();
+  });
+
   test('an icon dropped on the dock joins it, and a sixth is refused', async ({ page }) => {
     await openStory(page, DOCK);
     await dragInto(page, 'mail', 'dock');

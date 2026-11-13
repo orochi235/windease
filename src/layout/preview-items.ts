@@ -9,7 +9,7 @@ import type { LayoutItem, LayoutPreview } from '../layout-types.js';
  */
 export function withPreviewItem(
   items: readonly LayoutItem[],
-  preview: LayoutPreview,
+  preview: Pick<LayoutPreview, 'insertId' | 'insertIndex'>,
 ): LayoutItem[] {
   const out = [...items];
   const from = out.findIndex((it) => it.id === preview.insertId);

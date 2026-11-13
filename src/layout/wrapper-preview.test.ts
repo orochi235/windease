@@ -62,6 +62,18 @@ const tiles = (n: number, extra: Record<string, unknown> = {}): Child[] =>
 
 const CASES: Case[] = [
   {
+    name: 'grid, celled',
+    make: (g) => g,
+    config: { cols: 4, gap: 4 },
+    children: [
+      { id: 'c0', placement: { cell: { col: 3, row: 0 } } },
+      ...tiles(3),
+      { id: 'c1', placement: { cell: { col: 1, row: 2 } } },
+    ],
+    movable: ['c0', 't1', 'c1'],
+    reachesInner: true,
+  },
+  {
     name: 'floating(grid)',
     make: (g) => floatingStrategy(g) as never,
     config: { snapToPanes: true, inner: { cols: 3, gap: 6 } },
@@ -180,11 +192,7 @@ function host(c: Case, strategy: LayoutStrategy<never, string, unknown>): Contai
   return h;
 }
 
-/**
- * Everything a layout carries that a drag shows.
- * No preview below names a `cell`: grid's own `layout({ preview })` ignores one
- * where its `getDropPreview` honors it, so the oracle would disagree with itself.
- */
+/** Everything a layout carries that a drag shows. */
 const comparable = (l: ContainerLayout) => ({
   placements: l.placements,
   affordances: l.affordances.map((a) => ({ id: a.id, rect: a.rect })),
@@ -207,12 +215,15 @@ function previews(c: Case, random: () => number): LayoutPreview[] {
       cursor: { x: Math.round(random() * VIEWPORT.w), y: Math.round(random() * VIEWPORT.h) },
     };
     if (at > 0.15) preview.insertIndex = Math.floor(random() * (n + 1));
+    if (random() < 0.3) {
+      preview.cell = { col: Math.floor(random() * 4), row: Math.floor(random() * 3) };
+    }
     out.push(preview);
   }
   return out;
 }
 
-describe('a wrapper forwards getDropPreview into its own frame', () => {
+describe('getDropPreview matches layout({ preview }), bare and through a wrapper', () => {
   CASES.forEach((c, index) => {
     it(`${c.name}: matches layout({ preview })`, () => {
       const { grid, counter } = countingGrid();

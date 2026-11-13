@@ -100,6 +100,12 @@ section below.
 
 ### Fixed
 
+- **A drag within a grid previews the reorder.** The other children used to
+  hold still until the drop, because grid's drop preview left a child dragged
+  within its own grid at its old index; the **Grid / Dock** library now makes
+  room while the pointer is down. Grid's `layout({ preview })` also applies a
+  previewed `cell` now, as its `getDropPreview` already did, so the two agree.
+
 - **A drop previewed into a paged container shows on the page shown.** Under
   `pageStrategy`'s `'assigned'` mode the dragged child was counted on page 0,
   so its preview showed only there, and the layout never reported

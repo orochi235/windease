@@ -264,11 +264,6 @@ differs — which children, which config, which state, and how a point moves.
 instead, which runs the wrapper's own layout with the inner fast path swapped in
 for `inner.layout` (2026-11-12). Still open:
 
-- **Grid's two preview paths disagree on a cell.** `gridStrategy.getDropPreview`
-  places the dragged child at `cell`, and moves a celled child dragged within
-  its grid to the new index; `gridStrategy.layout({ preview })` does neither.
-  `wrapper-preview.test.ts` leaves `cell` out of its oracle for this reason.
-  Fold both into one projection in `grid.ts`.
 - **No inner fast path is cheaper than its layout yet.** Grid's
   `getDropPreview` runs `gridStrategy.layout`, so through every wrapper the fast
   path measured within noise of the fallback (14–30 µs per preview layout, 40
