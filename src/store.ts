@@ -124,8 +124,13 @@ export interface StoreEvents {
    * changes.
    */
   'transaction.begin': { label?: string };
-  /** Closes a `transaction.begin`. Fires even when the callback threw. */
-  'transaction.end': { label?: string };
+  /**
+   * Closes a `transaction.begin`. Fires even when the callback threw, with
+   * `threw: true`: the store keeps whatever the callback mutated before the
+   * throw, so a history listener that commits here records that partial
+   * state, and one undo still returns to the state before the transaction.
+   */
+  'transaction.end': { label?: string; threw?: true };
   /**
    * A turn was registered and is waiting for `tick`. A driver listens for this
    * to know it has frames to schedule; nothing moves until it ticks.
@@ -1882,7 +1887,8 @@ export class Store {
     } finally {
       this.txnDepth -= 1;
       if (outermost) {
-        const endPayload = label === undefined ? {} : { label };
+        const endPayload: { label?: string; threw?: true } = label === undefined ? {} : { label };
+        if (threw) endPayload.threw = true;
         this.events.emit('transaction.end', endPayload);
         trace('store', `transact: ${label ?? '(unlabeled)'}${threw ? ' (threw)' : ''}`);
       }

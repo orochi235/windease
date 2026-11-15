@@ -10,6 +10,10 @@ section below.
 
 ### Added
 
+- **`transaction.end` carries `threw: true` when the callback threw**, so a
+  history listener can tell a transaction that finished from one that left a
+  partial mutation behind. The payload is unchanged otherwise.
+
 - **`touchScroll: 'hold'` drags by touch after a press and hold**, so a swipe
   still scrolls a list whose every row reorders. A finger held within 8px for
   450ms picks the source up; moving sooner leaves the touch to the page. It is
@@ -99,6 +103,11 @@ section below.
   their rows and columns, so a tab dropped on a stack's edge splits it.
 
 ### Fixed
+
+- **`HistoryController` rejects a `NaN` capacity.** It used to slip past the
+  clamp and disable eviction, so the stack grew without limit; it now throws a
+  `WindeaseError` with code `invalid-history-capacity`. A fractional capacity
+  rounds down, and `Infinity` still keeps everything.
 
 - **The types load under `moduleResolution: NodeNext`.** `dist/layout/turn.d.ts`
   imported `../layout-types` with no extension, so a NodeNext project checking

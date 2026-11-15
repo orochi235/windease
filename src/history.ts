@@ -1,7 +1,9 @@
+import { WindeaseError } from './errors.js';
 import { trace } from './trace.js';
 
 /** Options for {@link HistoryController}. */
 export interface HistoryControllerOptions {
+  /** Entries kept before the oldest is evicted, at least 1; `Infinity` keeps everything. Default 100. */
   capacity?: number;
 }
 
@@ -15,6 +17,10 @@ const DEFAULT_CAPACITY = 100;
  * redo tail, and the oldest entry is evicted past `capacity`. Pushes between
  * `beginTransaction` and `endTransaction` collapse into one entry, so a
  * multi-step operation undoes as a unit.
+ *
+ * Snapshots are kept and returned by reference, never copied: a caller that
+ * mutates one after pushing it rewrites that undo step. `serialize` returns a
+ * fresh object each call, so pairing with it is safe.
  */
 export class HistoryController<TSnapshot> {
   private stack: TSnapshot[] = [];
@@ -23,7 +29,11 @@ export class HistoryController<TSnapshot> {
   private txnDepth = 0;
 
   constructor(opts: HistoryControllerOptions = {}) {
-    this.capacity = Math.max(1, opts.capacity ?? DEFAULT_CAPACITY);
+    const capacity = opts.capacity ?? DEFAULT_CAPACITY;
+    if (Number.isNaN(capacity)) {
+      throw new WindeaseError('invalid-history-capacity', 'HistoryController: capacity is NaN');
+    }
+    this.capacity = Math.max(1, Math.floor(capacity));
   }
 
   push(snapshot: TSnapshot): void {

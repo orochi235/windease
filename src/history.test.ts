@@ -82,4 +82,23 @@ describe('HistoryController', () => {
     expect(h.canRedo()).toBe(false);
     expect(h.current()).toBeUndefined();
   });
+
+  it('rejects a NaN capacity, which would disable eviction', () => {
+    expect(() => new HistoryController<number>({ capacity: Number.NaN })).toThrow(/capacity is NaN/);
+  });
+
+  it('keeps everything with an Infinity capacity and evicts past an integer one', () => {
+    const unbounded = new HistoryController<number>({ capacity: Infinity });
+    const bounded = new HistoryController<number>({ capacity: 3 });
+    for (let i = 0; i < 10; i++) {
+      unbounded.push(i);
+      bounded.push(i);
+    }
+    let undos = 0;
+    while (unbounded.undo() !== undefined) undos++;
+    expect(undos).toBe(9);
+    undos = 0;
+    while (bounded.undo() !== undefined) undos++;
+    expect(undos).toBe(2);
+  });
 });

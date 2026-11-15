@@ -68,6 +68,7 @@ describe('Store.transact', () => {
       }),
     ).toThrow('boom');
     expect(end).toHaveBeenCalledTimes(1);
+    expect(end).toHaveBeenCalledWith({ threw: true });
   });
 
   it('does not stick the depth counter after a throw', () => {

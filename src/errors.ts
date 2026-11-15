@@ -34,6 +34,8 @@ export type WindeaseErrorCode =
   | 'no-space'
   // codes (throttling)
   | 'invalid-throttle-policy'
+  // codes (history)
+  | 'invalid-history-capacity'
   // Free-form code surface for InvariantViolationError.
   | (string & {});
 
