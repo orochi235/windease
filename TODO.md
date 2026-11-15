@@ -277,16 +277,6 @@ for `inner.layout` (2026-11-12). Still open:
 
 ## Loose ends
 
-- **[MED] The published declarations break under `moduleResolution: NodeNext`**
-  (2026-11-15). `dist/layout/turn.d.ts` imports `../layout-types` with no
-  extension, so a NodeNext consumer with `skipLibCheck: false` gets TS2834 and
-  the types behind it go `any`. Found by weasel's `scripts/smoke-consumer-types.mjs`,
-  which reaches windease through its packed packages. `tsc -b` keeps relative
-  specifiers as written, so either write `.js` in source imports or rewrite the
-  emitted `.d.ts` (weasel's `scripts/dts-extensions.mjs` does the latter).
-  Closes when a packed windease typechecks in a NodeNext consumer with library
-  checking on.
-
 - typedoc runs from a pinned `npx` install carrying TypeScript 6.0.3
   (`docs:api`), because it needs the compiler API that TypeScript 7 dropped.
   Move it back to a devDependency once typedoc supports TS 7. Still capped

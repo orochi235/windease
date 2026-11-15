@@ -1,4 +1,4 @@
-import type { Size } from '../layout-types';
+import type { Size } from '../layout-types.js';
 
 /** Degrees to radians. */
 const RAD = Math.PI / 180;

@@ -65,6 +65,19 @@
       // own called describe.
       "includes": ["src/**"],
       "linter": { "rules": { "correctness": { "usePlaywrightValidDescribeCallback": "off" } } }
+    },
+    {
+      // tsc copies relative specifiers into dist's .d.ts verbatim, and a NodeNext consumer cannot
+      // resolve one without its extension. Scoped to what the build emits, since the rule would
+      // also rename the stories' .css imports to .js.
+      "includes": ["src/**", "!src/guide/**", "!src/react/stories/**", "!src/test-utils/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useImportExtensions": { "level": "error", "options": { "forceJsExtensions": true } }
+          }
+        }
+      }
     }
   ],
   "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "always" } }

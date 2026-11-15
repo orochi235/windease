@@ -100,6 +100,10 @@ section below.
 
 ### Fixed
 
+- **The types load under `moduleResolution: NodeNext`.** `dist/layout/turn.d.ts`
+  imported `../layout-types` with no extension, so a NodeNext project checking
+  library types got TS2835, and the layout types behind it fell back to `any`.
+
 - **A drag within a grid previews the reorder.** The other children used to
   hold still until the drop, because grid's drop preview left a child dragged
   within its own grid at its old index; the **Grid / Dock** library now makes
