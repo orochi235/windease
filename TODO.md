@@ -300,6 +300,25 @@ for `inner.layout` (2026-11-12). Still open:
   `presets-dnd`'s `:scope > div[data-windease-drag-handle]` and would break
   consumer `.windease-panel > x` selectors, so it was left (2026-10-31).
 
+## API vocabulary
+
+- **`meta` means two scopes at the custom-strategy boundary.** `LayoutItem.meta`
+  in `src/layout-types.ts` is the whole per-membership placement bag, while
+  `LayoutNode.meta` (and `node.meta`) is node-intrinsic; `LayoutItem.placement`
+  is a typed view of the same reserved keys. A strategy author has to remember
+  the inversion that `docs/concepts.md` explains. Worth exposing the whole bag
+  as `placement` (typed reserved keys plus open custom keys) with `meta` kept
+  for intrinsic data only, aliased for a release so persisted data is not
+  changed blindly, plus one public-only custom-strategy story using custom keys,
+  drag acceptance, serialization, and a React host. Breaking, so it waits for a
+  major. (filed 2026-11-15 from automated review)
+- **`transact` is a notification batch, not an atomic command.**
+  `Store.transact` in `src/store.ts` never rolls back, and `transaction.end`
+  now says `threw: true` when the callback threw, but there is still no
+  surface for an operation that must apply wholly or not at all. Renaming the
+  primitive `batch` and adding a validated command surface for atomic
+  operations is a design call. (filed 2026-11-15 from automated review)
+
 ## Consumer evaluations, both closed
 
 Two hosts were evaluated against windease and every gap either found has
