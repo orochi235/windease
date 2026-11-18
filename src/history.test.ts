@@ -84,7 +84,9 @@ describe('HistoryController', () => {
   });
 
   it('rejects a NaN capacity, which would disable eviction', () => {
-    expect(() => new HistoryController<number>({ capacity: Number.NaN })).toThrow(/capacity is NaN/);
+    expect(() => new HistoryController<number>({ capacity: Number.NaN })).toThrow(
+      /capacity is NaN/,
+    );
   });
 
   it('keeps everything with an Infinity capacity and evicts past an integer one', () => {
