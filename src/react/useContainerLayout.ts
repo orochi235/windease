@@ -29,6 +29,7 @@ import {
 } from '../index.js';
 import { DragContext } from './dnd/DragProvider.js';
 import { useStore } from './Provider.js';
+import { notifyOrHold } from './renderWrites.js';
 import { useStrategyRegistry } from './strategies.js';
 
 /** The core's `ContainerLayout` plus the React-side dispatchers a host needs
@@ -179,7 +180,11 @@ export function useContainerLayout(
   );
   useElementBinding(viewportRef, observePointer);
 
-  const layout = useSyncExternalStore(host.subscribe, host.layout, host.layout);
+  const subscribe = useCallback(
+    (onChange: () => void) => host.subscribe(() => notifyOrHold(onChange)),
+    [host],
+  );
+  const layout = useSyncExternalStore(subscribe, host.layout, host.layout);
 
   const dispatchAffordance = useCallback(
     (event: LayoutEvent) => host.dispatchAffordance(event),

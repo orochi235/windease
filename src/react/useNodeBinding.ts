@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useReducer, useRef } from 'react';
 import { type Node, type NodeId, type Store, trace } from '../index.js';
 import { useChildRegistryFromContext, useParentId } from './ParentContext.js';
 import { renderPassOf, useStore } from './Provider.js';
+import { releaseHeld, writeDuringRender } from './renderWrites.js';
 
 /** Ids whose JSX registration has committed, per store. */
 const committedByStore = new WeakMap<Store, Set<NodeId>>();
@@ -181,32 +182,34 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
   // Render-time registration, guarded so re-renders don't re-register.
   const registeredRef = useRef(false);
   if (!registeredRef.current) {
-    const existing = store.getNode(id);
-    if (existing) {
-      const owner = (existing.meta as Record<string, unknown> | undefined)?.[JSX_OWNER_META_KEY];
-      if (owner === undefined || owner === null) {
-        throw new Error(
-          `windease: node "${id}" is already registered imperatively; remove the imperative ` +
-            `registerNode call or change the ${opts.kindHintForAutoId ?? 'preset'}'s id.`,
-        );
+    writeDuringRender(() => {
+      const existing = store.getNode(id);
+      if (existing) {
+        const owner = (existing.meta as Record<string, unknown> | undefined)?.[JSX_OWNER_META_KEY];
+        if (owner === undefined || owner === null) {
+          throw new Error(
+            `windease: node "${id}" is already registered imperatively; remove the imperative ` +
+              `registerNode call or change the ${opts.kindHintForAutoId ?? 'preset'}'s id.`,
+          );
+        }
+        if (owner !== ownerToken && abandoned(store, id)) {
+          trace('store', `register: ${id} taken over from an abandoned render`);
+          store.setMeta(id, { [JSX_OWNER_META_KEY]: ownerToken });
+          registrationPasses(store).set(id, renderPassOf(store));
+        } else if (owner !== ownerToken) {
+          throw new Error(
+            `windease: node "${id}" is already mounted by another ${opts.kindHintForAutoId ?? 'preset'}; ids must be unique within a Provider.`,
+          );
+        }
+        // StrictMode replay path: same owner, already registered. No-op.
+      } else {
+        registerWithOwner(opts.factory, parentId);
       }
-      if (owner !== ownerToken && abandoned(store, id)) {
-        trace('store', `register: ${id} taken over from an abandoned render`);
-        store.setMeta(id, { [JSX_OWNER_META_KEY]: ownerToken });
-        registrationPasses(store).set(id, renderPassOf(store));
-      } else if (owner !== ownerToken) {
-        throw new Error(
-          `windease: node "${id}" is already mounted by another ${opts.kindHintForAutoId ?? 'preset'}; ids must be unique within a Provider.`,
-        );
-      }
-      // StrictMode replay path: same owner, already registered. No-op.
-    } else {
-      registerWithOwner(opts.factory, parentId);
-    }
-    registeredRef.current = true;
-    // On the mounting pass nothing has subscribed to this node yet, so its
-    // props land now, before its children render against them.
-    opts.reconcile?.(store, id);
+      registeredRef.current = true;
+      // On the mounting pass nothing has subscribed to this node yet, so its
+      // props land now, before its children render against them.
+      opts.reconcile?.(store, id);
+    });
   }
 
   // Report to parent's ChildRegistry every render so the parent always sees
@@ -216,6 +219,7 @@ export function useNodeBinding(opts: NodeBindingOptions): NodeBindingResult {
 
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   useLayoutEffect(() => {
+    releaseHeld();
     const before = store.getNode(id);
     if (!before) return;
     const { reconcile, lifecycle } = latestRef.current;

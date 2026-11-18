@@ -104,6 +104,12 @@ section below.
 
 ### Fixed
 
+- **A panel added under a mounted zone no longer updates the zone mid-render.**
+  Registering the new node during its first render invalidated the zone's
+  layout, and React warned "Cannot update a component (`ZoneWithLayout`) while
+  rendering a different component (`Panel`)". The zone now hears of the change
+  from the panel's layout effect.
+
 - **`HistoryController` rejects a `NaN` capacity.** It used to slip past the
   clamp and disable eviction, so the stack grew without limit; it now throws a
   `WindeaseError` with code `invalid-history-capacity`. A fractional capacity

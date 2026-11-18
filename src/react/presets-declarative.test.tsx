@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asNodeId, gridStrategy, Store } from '../index.js';
 import { useNode } from './hooks.js';
@@ -140,6 +140,36 @@ describe('declarative presets', () => {
     expect(updateWarnings).toEqual([]);
     expect(store.getNode(asNodeId('p1'))?.membership?.placement?.size).toBe(60);
     expect(store.isLocked(asNodeId('p1'), 'destroy')).toBe(false);
+  });
+
+  it('a panel added under a mounted zone registers without updating the zone mid-render', async () => {
+    const store = new Store();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const Tree = ({ ids }: { ids: string[] }) => (
+      <Provider store={store}>
+        <StrategyRegistryProvider strategies={{ grid: gridStrategy as never }}>
+          <Zone
+            id={asNodeId('z')}
+            strategyId="grid"
+            config={{ cols: 3 }}
+            viewport={{ w: 300, h: 100 }}
+          >
+            {ids.map((id) => (
+              <Panel key={id} id={asNodeId(id)} />
+            ))}
+          </Zone>
+        </StrategyRegistryProvider>
+      </Provider>
+    );
+    const { rerender } = render(<Tree ids={['p1', 'p2']} />);
+    await act(async () => {});
+    await act(async () => rerender(<Tree ids={['p1', 'p2', 'p3']} />));
+    const updateWarnings = errors.mock.calls.filter((c) =>
+      String(c[0]).includes('while rendering a different component'),
+    );
+    errors.mockRestore();
+    expect(updateWarnings).toEqual([]);
+    expect(store.getContainerView(asNodeId('z'))?.childOrder).toEqual(['p1', 'p2', 'p3']);
   });
 
   it('reconciles config prop changes on Zone', () => {
