@@ -121,7 +121,7 @@ describe('turnTo', () => {
     expect(store.tick(50)).toBe(false);
   });
 
-  it('writes an instant turn\'s angle before closing the bracket it cuts short', () => {
+  it("writes an instant turn's angle before closing the bracket it cuts short", () => {
     store.turnTo(ID, 90, { ms: 100, ease: (p) => p });
     store.tick(0);
     store.tick(50);
