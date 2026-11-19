@@ -250,6 +250,60 @@ describe('declarative presets', () => {
     expect(store.getNode(asNodeId('z'))?.container?.config).toMatchObject({ cols: 1 });
   });
 
+  it('applies a config skipped under the lock once the Zone is unlocked', async () => {
+    const store = new Store();
+    const z = asNodeId('z');
+    const Tree = ({ cols }: { cols: number }) => (
+      <Provider store={store}>
+        <Zone id={z} strategyId="grid" config={{ cols }} />
+      </Provider>
+    );
+    const { rerender } = render(<Tree cols={1} />);
+    store.setLock(z, { arrange: true });
+    rerender(<Tree cols={3} />);
+    expect(store.getNode(z)?.container?.config).toMatchObject({ cols: 1 });
+    await act(async () => store.setLock(z, false));
+    expect(store.getNode(z)?.container?.config).toMatchObject({ cols: 3 });
+  });
+
+  it('applies a config skipped under the lock once the Panel is unlocked', async () => {
+    const store = new Store();
+    const p = asNodeId('p1');
+    const Tree = ({ cols }: { cols: number }) => (
+      <Provider store={store}>
+        <Zone id={asNodeId('z')} strategyId="grid" config={{ cols: 1 }}>
+          <Panel id={p} container={{ strategyId: 'grid', config: { cols } }} />
+        </Zone>
+      </Provider>
+    );
+    const { rerender } = render(<Tree cols={1} />);
+    store.setLock(p, { arrange: true });
+    rerender(<Tree cols={4} />);
+    expect(store.getNode(p)?.container?.config).toMatchObject({ cols: 1 });
+    await act(async () => store.setLock(p, false));
+    expect(store.getNode(p)?.container?.config).toMatchObject({ cols: 4 });
+  });
+
+  it('keeps a tab a gesture chose when an unrelated config key changes', () => {
+    const store = new Store();
+    const z = asNodeId('z');
+    const Tree = ({ headerSize }: { headerSize: number }) => (
+      <Provider store={store}>
+        <Zone id={z} strategyId="stack" config={{ activeId: asNodeId('p1'), headerSize }}>
+          <Panel id={asNodeId('p1')} />
+          <Panel id={asNodeId('p2')} />
+        </Zone>
+      </Provider>
+    );
+    const { rerender } = render(<Tree headerSize={24} />);
+    store.setActiveChild(z, asNodeId('p2'));
+    rerender(<Tree headerSize={32} />);
+    expect(store.getNode(z)?.container?.config).toEqual({
+      headerSize: 32,
+      activeId: asNodeId('p2'),
+    });
+  });
+
   it('names a focusable pane for a screen reader that lands on it', () => {
     const store = new Store();
     const { getByTestId } = render(

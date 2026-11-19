@@ -75,31 +75,36 @@ export function reconcileHints(store: Store, id: NodeId, hints: NodeHints): void
  * Diffed against `prev` rather than against the store, because the store's copy
  * also holds keys a gesture wrote — a stack's `activeId` moves on every tab
  * click, and re-asserting the declared config on the next render would snap the
- * tab back. A key `prev` declared and `next` drops is deleted, so the prop still
- * reads declaratively for the keys it names.
+ * tab back. Only keys whose declared value changed are written, and a key
+ * `prev` declared and `next` drops is deleted.
+ *
+ * Returns the declaration the next call should diff against: `prev` when the
+ * lock skipped the write, so the skipped change still applies after unlock.
  */
 export function reconcileContainerConfig(
   store: Store,
   id: NodeId,
   next: unknown,
   prev: unknown,
-): void {
-  if (sameConfig(next, prev)) return;
+): unknown {
+  if (sameConfig(next, prev)) return next;
   if (store.isLocked(id, 'arrange')) {
     trace('layout', `config reconcile skipped for ${id}: locked (arrange)`);
-    return;
+    return prev;
   }
   store.updateContainerConfig(id, configPatch(next, prev));
+  return next;
 }
 
-/** The patch that takes `prev` to `next`: every key `next` names, plus
- *  `undefined` for one `prev` named and `next` dropped. */
+/** The patch that takes `prev` to `next`: each key whose declared value
+ *  changed, plus `undefined` for one `prev` named and `next` dropped. */
 function configPatch(next: unknown, prev: unknown): unknown {
-  if (!isRecord(next)) return next;
-  const patch: Record<string, unknown> = { ...next };
-  if (isRecord(prev)) {
-    for (const key of Object.keys(prev)) if (!(key in next)) patch[key] = undefined;
+  if (!isRecord(next) || !isRecord(prev)) return next;
+  const patch: Record<string, unknown> = {};
+  for (const key of Object.keys(next)) {
+    if (!(key in prev) || !sameConfig(next[key], prev[key])) patch[key] = next[key];
   }
+  for (const key of Object.keys(prev)) if (!(key in next)) patch[key] = undefined;
   return patch;
 }
 

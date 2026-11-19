@@ -338,16 +338,22 @@ export function Panel(props: PanelProps) {
     reconcile: (store, id) => {
       makeReconciler(props)(store, id);
       if (props.container) {
-        reconcileContainerConfig(store, id, props.container.config ?? {}, declaredConfig.current);
-        declaredConfig.current = props.container.config ?? {};
+        declaredConfig.current = reconcileContainerConfig(
+          store,
+          id,
+          props.container.config ?? {},
+          declaredConfig.current,
+        );
       }
     },
   });
 
   // A pending `pinned` prop that skipped because the parent was arrange-
-  // locked needs a re-render on unlock to re-run the reconcile above.
+  // locked, or a container config skipped under this node's own lock, needs a
+  // re-render on unlock to re-run the reconcile above.
   const store = useStore();
   useForceRerenderOnLockChange(store, store.getNode(id)?.membership?.parentId);
+  useForceRerenderOnLockChange(store, props.container ? id : undefined);
   usePlacementControl(id, props.onPlacementChange);
   // Read the parent's scope here, before PanelWithLayout provides its own.
   const measure = useMeasure(store, id, useLayoutContext());
@@ -554,8 +560,12 @@ export function Zone(props: ZoneProps) {
       const base = makeReconciler(props);
       base(store, id);
       if (props.state !== undefined) reconcileContainerState(store, id, props.state);
-      reconcileContainerConfig(store, id, props.config, declaredConfig.current);
-      declaredConfig.current = props.config;
+      declaredConfig.current = reconcileContainerConfig(
+        store,
+        id,
+        props.config,
+        declaredConfig.current,
+      );
     },
   });
 
@@ -575,6 +585,8 @@ export function Zone(props: ZoneProps) {
     !!registry &&
     registry.has(props.strategyId);
   const store = useStore();
+  // A config skipped under this zone's arrange lock applies on the unlock render.
+  useForceRerenderOnLockChange(store, id);
   // Read the parent's scope here, before ZoneWithLayout provides its own.
   const measure = useMeasure(store, id, useLayoutContext());
 

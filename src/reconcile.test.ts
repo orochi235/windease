@@ -4,6 +4,7 @@ import { createNode } from './constructors.js';
 import { asNodeId } from './node.js';
 import {
   reconcileChildOrder,
+  reconcileContainerConfig,
   reconcileContainerState,
   reconcilePinned,
   reconcilePlacement,
@@ -62,6 +63,36 @@ describe('reconcile decisions, with no binding present', () => {
       reconcileChildOrder(s, Z, seen(['a']), { sort: preserveStoreOrder });
       // b went unobserved, so it keeps its store position rather than vanishing.
       expect(order(s)).toEqual(['a', 'b']);
+    });
+  });
+
+  describe('container config — diffed against the last declaration', () => {
+    const config = (s: Store) => s.getNode(Z)?.container?.config;
+
+    it('writes only the keys whose declared value changed', () => {
+      const s = build();
+      let declared = reconcileContainerConfig(s, Z, { activeId: 'a', gap: 0 }, {});
+      s.setActiveChild(Z, asNodeId('b'));
+      declared = reconcileContainerConfig(s, Z, { activeId: 'a', gap: 1 }, declared);
+      expect(config(s)).toEqual({ activeId: 'b', gap: 1 });
+    });
+
+    it('deletes a key the declaration dropped', () => {
+      const s = build();
+      const declared = reconcileContainerConfig(s, Z, { gap: 1, headerSize: 24 }, {});
+      reconcileContainerConfig(s, Z, { gap: 1 }, declared);
+      expect(config(s)).toEqual({ gap: 1 });
+    });
+
+    it('applies a declaration skipped under arrange once the lock lifts', () => {
+      const s = build();
+      let declared = reconcileContainerConfig(s, Z, { gap: 0 }, {});
+      s.setLock(Z, { arrange: true });
+      declared = reconcileContainerConfig(s, Z, { gap: 10 }, declared);
+      expect(config(s)).toEqual({ gap: 0 });
+      s.setLock(Z, false);
+      reconcileContainerConfig(s, Z, { gap: 10 }, declared);
+      expect(config(s)).toEqual({ gap: 10 });
     });
   });
 

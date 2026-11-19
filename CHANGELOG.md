@@ -104,6 +104,16 @@ section below.
 
 ### Fixed
 
+- **Changing one key of a declared container config no longer rewrites the
+  others.** The whole declaration was re-sent whenever any key changed, so
+  changing a stack's `headerSize` snapped its tab back to the declared
+  `activeId`. Only the keys whose declared value changed are written now.
+
+- **A config change made while a `<Zone>` or container `<Panel>` is
+  arrange-locked applies when the lock lifts.** It was recorded as applied and
+  then lost until the prop changed again. `reconcileContainerConfig` now
+  returns the declaration its next call should diff against.
+
 - **A forced `stackNodes` or `splitInto` that builds a new group no longer
   throws halfway.** `force: true` passed the lock checks but was dropped on the
   inner moves, so a move-locked source threw `LockedError` after the group was
