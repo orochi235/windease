@@ -5,7 +5,7 @@ import type { NodeId } from '../../index.js';
 import { trace } from '../../index.js';
 import { useNode } from '../hooks.js';
 import { useStore } from '../Provider.js';
-import { DragThresholdContext, useDragController } from './DragProvider.js';
+import { DragThresholdContext, DragTouchHoldContext, useDragController } from './DragProvider.js';
 import { trackPress } from './pointerDrag.js';
 
 /**
@@ -30,7 +30,6 @@ export interface DragHandleOptions {
 }
 
 const noop = () => {};
-const HOLD = { touchHold: {} } as const;
 
 const NOOP_HANDLERS: DragHandleHandlers = {
   onPointerDown: noop,
@@ -49,6 +48,7 @@ const NOOP_HANDLERS: DragHandleHandlers = {
 export function useDragHandle(nodeId: NodeId, options?: DragHandleOptions): DragHandleHandlers {
   const controller = useDragController();
   const threshold = useContext(DragThresholdContext);
+  const touchHold = useContext(DragTouchHoldContext);
   const node = useNode(nodeId);
   const store = useStore();
   const holds = options?.touchScroll === 'hold';
@@ -59,9 +59,9 @@ export function useDragHandle(nodeId: NodeId, options?: DragHandleOptions): Drag
     (e: ReactPointerEvent<Element>) => {
       if (e.button > 0) return;
       trace('dnd', `pointerDown on handle for ${nodeId} at (${e.clientX},${e.clientY})`);
-      trackPress(controller, nodeId, e, threshold, holds ? HOLD : undefined);
+      trackPress(controller, nodeId, e, threshold, holds ? { touchHold } : undefined);
     },
-    [controller, nodeId, threshold, holds],
+    [controller, nodeId, threshold, touchHold, holds],
   );
 
   if (store.isLocked(nodeId, 'move')) {

@@ -10,6 +10,11 @@ section below.
 
 ### Added
 
+- **`<DragProvider touchHold={{ delay, slop }}>` tunes the touch hold.** The
+  450ms a `touchScroll: 'hold'` press holds still and the 8px it may drift were
+  fixed; both now take the provider's values, for reorder children and
+  `DragHandle` alike. The **Reorder / Touch Hold** story picks the delay.
+
 - **`transaction.end` carries `threw: true` when the callback threw**, so a
   history listener can tell a transaction that finished from one that left a
   partial mutation behind. The payload is unchanged otherwise.

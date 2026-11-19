@@ -428,8 +428,8 @@ Open, grouped by what they touch:
   store's order unless `sort` is passed, and stays implicit (2026-11-04): opt-in
   would only ever be answered with `preserveStoreOrder`, and forgetting it
   reverts every drag. Press-and-hold to start a touch drag is
-  `touchScroll: 'hold'` (2026-11-12); its 450ms delay and 8px slop are fixed,
-  with no `DragProvider` prop to tune them yet. A held drag edge-scrolls its
+  `touchScroll: 'hold'` (2026-11-12); `<DragProvider touchHold>` tunes its
+  450ms delay and 8px slop (2026-11-19). A held drag edge-scrolls its
   list through `scrollRef` with no touch-specific code: the gap was the story
   passing none (2026-11-12, e2e in `reorder-touch-hold.spec.ts`).
 - **stack** — Stacked with `side` left/right gives vertical

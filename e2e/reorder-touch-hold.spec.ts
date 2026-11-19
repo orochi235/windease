@@ -105,4 +105,13 @@ test.describe("touchScroll: 'hold' — a phone list", () => {
     await expect.poll(() => scrollTop(page)).toBeGreaterThan(50);
     await expect.poll(() => order(page)).toEqual(['alpha', 'bravo', 'charlie', 'delta']);
   });
+
+  test('a longer touchHold.delay turns the same 700ms hold into a scroll', async ({ page }) => {
+    await openStory(page, STORY);
+    await page.getByTestId('touch-hold-delay').selectOption('800');
+    const charlie = centerOf(await settledBox(page.getByTestId('song-charlie')));
+    await finger(page, charlie, { x: charlie.x, y: charlie.y - 150 }, 700);
+    await expect.poll(() => scrollTop(page)).toBeGreaterThan(50);
+    await expect.poll(() => order(page)).toEqual(['alpha', 'bravo', 'charlie', 'delta']);
+  });
 });

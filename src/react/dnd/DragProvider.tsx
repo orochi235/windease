@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DragController, type DragState } from '../../dnd/DragController.js';
+import type { TouchHoldOptions } from '../../dnd/touchHold.js';
 import { useStore } from '../Provider.js';
 import { useOptionalStrategyRegistry } from '../strategies.js';
 import { type DragOverlayRenderer, defaultDragOverlay } from './defaultDragOverlay.js';
@@ -13,6 +14,12 @@ export const DEFAULT_DRAG_THRESHOLD = 4;
 
 /** The nearest `DragProvider`'s `dragThreshold`. */
 export const DragThresholdContext = createContext(DEFAULT_DRAG_THRESHOLD);
+
+/** How long a `touchScroll: 'hold'` press holds still, and how far it may drift. */
+export type TouchHoldTiming = Pick<TouchHoldOptions, 'delay' | 'slop'>;
+
+/** The nearest `DragProvider`'s `touchHold`. */
+export const DragTouchHoldContext = createContext<TouchHoldTiming>({});
 
 export interface DragProviderProps {
   children: ReactNode;
@@ -36,6 +43,12 @@ export interface DragProviderProps {
    * press. Default 4.
    */
   dragThreshold?: number;
+  /**
+   * How a `touchScroll: 'hold'` press becomes a drag: `delay` is the
+   * milliseconds the finger holds still (default 450), `slop` the pixels it
+   * may drift meanwhile before the press counts as a scroll (default 8).
+   */
+  touchHold?: TouchHoldTiming;
 }
 
 /**
@@ -50,6 +63,7 @@ export function DragProvider({
   stackConfig,
   splitConfig,
   dragThreshold = DEFAULT_DRAG_THRESHOLD,
+  touchHold,
 }: DragProviderProps) {
   const store = useStore();
   const registry = useOptionalStrategyRegistry();
@@ -64,14 +78,25 @@ export function DragProvider({
     [store, registry, stackConfig, splitConfig],
   );
 
+  const delay = touchHold?.delay;
+  const slop = touchHold?.slop;
+  const holdTiming = useMemo(() => {
+    const timing: TouchHoldTiming = {};
+    if (delay !== undefined) timing.delay = delay;
+    if (slop !== undefined) timing.slop = slop;
+    return timing;
+  }, [delay, slop]);
+
   const [state, setState] = useState<DragState | null>(null);
   useEffect(() => controller.subscribe(setState), [controller]);
 
   return (
     <DragContext.Provider value={controller}>
       <DragThresholdContext.Provider value={dragThreshold}>
-        {children}
-        {dragOverlay && state ? <DragOverlayPortal state={state} render={dragOverlay} /> : null}
+        <DragTouchHoldContext.Provider value={holdTiming}>
+          {children}
+          {dragOverlay && state ? <DragOverlayPortal state={state} render={dragOverlay} /> : null}
+        </DragTouchHoldContext.Provider>
       </DragThresholdContext.Provider>
     </DragContext.Provider>
   );

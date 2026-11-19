@@ -45,7 +45,7 @@ function makeStore(touchScroll: unknown): Store {
   return s;
 }
 
-function tree(touchScroll: unknown = 'hold') {
+function tree(touchScroll: unknown = 'hold', touchHold?: { delay?: number; slop?: number }) {
   let controller!: DragController;
   function Capture() {
     controller = useDragController();
@@ -54,7 +54,7 @@ function tree(touchScroll: unknown = 'hold') {
   const utils = render(
     <Provider store={makeStore(touchScroll)}>
       <StrategyRegistryProvider strategies={{ strip: stripStrategy as never }}>
-        <DragProvider dragOverlay={null}>
+        <DragProvider dragOverlay={null} {...(touchHold ? { touchHold } : {})}>
           <Capture />
           <Container
             parentId={Z}
@@ -197,5 +197,25 @@ describe("touchScroll: 'hold'", () => {
     move(10, 30);
     expect(controller().state()?.draggingId).toBe('a');
     up(10, 30);
+  });
+
+  it("takes the DragProvider's touchHold delay and slop for a reorder child", () => {
+    const { getByTestId, controller } = tree('hold', { delay: 100, slop: 30 });
+    down(getByTestId('row-a'), 'touch');
+    move(10 + 20, 10);
+    wait(99);
+    expect(controller().state()).toBeNull();
+    wait(1);
+    expect(controller().state()?.draggingId).toBe('a');
+    up();
+  });
+
+  it("takes the DragProvider's touchHold for a DragHandle too", () => {
+    const { getByTestId, controller } = tree('hold', { delay: 100, slop: 2 });
+    down(getByTestId('grip'), 'touch');
+    move(10 + 4, 10);
+    wait(TOUCH_HOLD_DELAY + 50);
+    expect(controller().state()).toBeNull();
+    up();
   });
 });

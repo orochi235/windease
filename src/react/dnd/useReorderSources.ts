@@ -12,7 +12,7 @@ import { retainTouchMoveGuard } from '../../dnd/touchHold-dom.js';
 import type { NodeId } from '../../index.js';
 import { trace } from '../../index.js';
 import { useStore } from '../Provider.js';
-import { DragContext, DragThresholdContext } from './DragProvider.js';
+import { DragContext, DragThresholdContext, DragTouchHoldContext } from './DragProvider.js';
 import { preventNativeDrag } from './nativeDrag.js';
 import { trackPress } from './pointerDrag.js';
 
@@ -28,7 +28,6 @@ export interface ReorderSourceProps {
 }
 
 const NONE: ReorderSourceProps = {};
-const HOLD = { touchHold: {} } as const;
 // A finger that presses and moves is a scroll unless the element claims the
 // touch; the browser then sends `pointercancel` and the drag never starts.
 const CLAIM_TOUCH: CSSProperties = { touchAction: 'none' };
@@ -53,6 +52,7 @@ export function useReorderSources(
   const store = useStore();
   const controller = useContext(DragContext);
   const threshold = useContext(DragThresholdContext);
+  const touchHold = useContext(DragTouchHoldContext);
   const mode = useSyncExternalStore(
     (cb) => store.subscribe(cb),
     () =>
@@ -90,9 +90,15 @@ export function useReorderSources(
       if (within(target, EDITABLE, wrapper)) return;
       if (mode === 'handle' && !within(target, '[data-windease-handle]', wrapper)) return;
       trace('dnd', `pointerDown on reorder child ${childId} at (${e.clientX},${e.clientY})`);
-      trackPress(controller, childId, e, threshold, touchScroll === 'hold' ? HOLD : undefined);
+      trackPress(
+        controller,
+        childId,
+        e,
+        threshold,
+        touchScroll === 'hold' ? { touchHold } : undefined,
+      );
     },
-    [controller, threshold, mode, touchScroll],
+    [controller, threshold, touchHold, mode, touchScroll],
   );
 
   return useCallback(

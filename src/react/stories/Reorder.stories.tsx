@@ -8,6 +8,7 @@ import {
   type NodeId,
   Store,
   stripStrategy,
+  TOUCH_HOLD_DELAY,
   type TouchScrollMode,
 } from '../../index.js';
 import {
@@ -211,6 +212,8 @@ function makePhoneStore(): Store {
   return s;
 }
 
+const HOLD_DELAYS = [200, TOUCH_HOLD_DELAY, 800];
+
 const TOUCH_MODES: Array<{ value: string; label: string; mode: TouchScrollMode | undefined }> = [
   { value: 'hold', label: "'hold': swipe scrolls, press and hold drags", mode: 'hold' },
   { value: 'true', label: 'true: swipe scrolls, touch never drags', mode: true },
@@ -227,6 +230,7 @@ const TOUCH_MODES: Array<{ value: string; label: string; mode: TouchScrollMode |
 export const TouchHold: Story = () => {
   const store = useMemo(() => makePhoneStore(), []);
   const [mode, setMode] = useState('hold');
+  const [delay, setDelay] = useState(TOUCH_HOLD_DELAY);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const pick = (value: string) => {
     setMode(value);
@@ -246,7 +250,7 @@ export const TouchHold: Story = () => {
   return (
     <Provider store={store}>
       <StrategyRegistryProvider strategies={STRATEGIES}>
-        <DragProvider>
+        <DragProvider touchHold={{ delay }}>
           <div className="ro-phone" data-testid="phone" ref={scrollRef}>
             <div className="ro-phone__content">
               <Container parentId={PHONE} chrome={chrome} scrollRef={scrollRef} />
@@ -262,6 +266,20 @@ export const TouchHold: Story = () => {
               {TOUCH_MODES.map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="ro-hint">
+            <code>touchHold.delay</code>{' '}
+            <select
+              data-testid="touch-hold-delay"
+              value={delay}
+              onChange={(e) => setDelay(Number(e.currentTarget.value))}
+            >
+              {HOLD_DELAYS.map((ms) => (
+                <option key={ms} value={ms}>
+                  {ms}ms
                 </option>
               ))}
             </select>
