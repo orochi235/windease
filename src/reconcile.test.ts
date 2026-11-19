@@ -64,6 +64,18 @@ describe('reconcile decisions, with no binding present', () => {
       // b went unobserved, so it keeps its store position rather than vanishing.
       expect(order(s)).toEqual(['a', 'b']);
     });
+    it('keeps an unobserved child in its store slot between observed ones', () => {
+      const s = build();
+      reconcileChildOrder(s, Z, seen(['b']), { sort: preserveStoreOrder });
+      expect(order(s)).toEqual(['a', 'b', 'c']);
+    });
+
+    it("keeps a user's reorder of an observed child past an unobserved one", () => {
+      const s = build();
+      s.reorderInParent(asNodeId('c'), 0);
+      reconcileChildOrder(s, Z, seen(['a', 'c']), { sort: preserveStoreOrder });
+      expect(order(s)).toEqual(['c', 'a', 'b']);
+    });
   });
 
   describe('container config — diffed against the last declaration', () => {

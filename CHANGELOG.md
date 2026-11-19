@@ -114,6 +114,12 @@ section below.
   then lost until the prop changed again. `reconcileContainerConfig` now
   returns the declaration its next call should diff against.
 
+- **`preserveStoreOrder` keeps children the binding never observed in their
+  store slots.** They were moved after the observed ones, so a pane registered
+  imperatively between two JSX panes jumped to the end on the next render. A
+  `ChildSort` may now place imperative ids itself; ones it leaves out are still
+  appended.
+
 - **A forced `stackNodes` or `splitInto` that builds a new group no longer
   throws halfway.** `force: true` passed the lock checks but was dropped on the
   inner moves, so a move-locked source threw `LockedError` after the group was

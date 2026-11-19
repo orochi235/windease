@@ -10,7 +10,8 @@ export interface ChildSortEntry {
 /** A custom sort callback for a parent preset. Receives the parent's observed
  *  children (with their optional `order`) plus the full current child id list
  *  (including imperative ones, in store order). Returns the FINAL ordered id
- *  list — JSX ids only; imperative ids will be appended in store order. */
+ *  list. Imperative ids it includes go where it put them; the ones it leaves
+ *  out are appended in store order. */
 export type ChildSort = (
   observed: readonly ChildSortEntry[],
   currentChildIds: readonly NodeId[],
@@ -37,9 +38,6 @@ export const defaultChildSort: ChildSort = (observed) => {
  * survives the host's next render instead of being reverted to declared
  * order. Reconcile short-circuits, so no `setChildOrder` runs and no
  * `arrange` lock is needed. Children the binding did not observe keep their
- * store positions, as with any sort.
+ * store positions too.
  */
-export const preserveStoreOrder: ChildSort = (observed, currentChildIds) => {
-  const ids = new Set(observed.map((e) => e.id));
-  return currentChildIds.filter((id) => ids.has(id));
-};
+export const preserveStoreOrder: ChildSort = (_observed, currentChildIds) => [...currentChildIds];

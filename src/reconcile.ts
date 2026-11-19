@@ -123,9 +123,10 @@ export function reconcileContainerState(store: Store, id: NodeId, state: unknown
  *
  * `observed` is whatever the binding saw — JSX children for React, DOM child
  * order for custom elements. Ids that are not currently children of `parentId`
- * are dropped; children the binding did not observe (registered imperatively)
- * keep their relative store order and fill in after the observed ones. Pinned
- * children are excluded from sorting entirely and hold their exact index.
+ * are dropped. Children the binding did not observe (registered imperatively)
+ * go where the sort placed them, or, if it left them out, keep their relative
+ * store order and fill in after the ones it ordered. Pinned children are
+ * excluded from sorting entirely and hold their exact index.
  */
 export function reconcileChildOrder(
   store: Store,
@@ -156,11 +157,16 @@ export function reconcileChildOrder(
   const pinnedIds = new Set(currentIds.filter((cid) => store.getPinnedIndex(cid) !== null));
 
   const sortFn = opts?.sort ?? defaultChildSort;
-  const ordered = sortFn(
-    entries.filter((e) => !pinnedIds.has(e.id)).map((e) => ({ id: e.id, order: e.order })),
-    currentIds,
+  const ordered = new Set(
+    sortFn(
+      entries.filter((e) => !pinnedIds.has(e.id)).map((e) => ({ id: e.id, order: e.order })),
+      currentIds,
+    ).filter((cid) => currentSet.has(cid) && !pinnedIds.has(cid)),
   );
-  const fillQueue = [...ordered, ...imperativeIds.filter((cid) => !pinnedIds.has(cid))];
+  const fillQueue = [
+    ...ordered,
+    ...imperativeIds.filter((cid) => !pinnedIds.has(cid) && !ordered.has(cid)),
+  ];
   let fillIndex = 0;
   // A permutation of currentIds: pinned ids keep their slot, fillQueue takes
   // the rest in order.
