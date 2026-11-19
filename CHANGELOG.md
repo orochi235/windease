@@ -6,7 +6,7 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
-## Unreleased
+## 2.4.0
 
 ### Added
 
@@ -65,7 +65,7 @@ section below.
 - **Desktop's `overflow` and `resize` are renamed `overflowMode` and
   `resizable`**, as strip and grid already call them, along with
   `placement.resize`. The old names are deprecated and still work until 3.0.
-  See [Breaking changes](README.md#unreleased--desktops-overflow-and-resize-renamed).
+  See [Breaking changes](README.md#240--desktops-overflow-and-resize-renamed).
 
 - **Justified rows have a floor by default.** `minRowHeight` defaults to half
   of `rowHeight`, so the row breaks no longer crush a run of panoramas into

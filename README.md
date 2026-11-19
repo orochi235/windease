@@ -2627,7 +2627,7 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
-### Unreleased — desktop's `overflow` and `resize` renamed
+### 2.4.0 — desktop's `overflow` and `resize` renamed
 
 Desktop's config keys now match strip and grid: `overflow` is `overflowMode`
 and `resize` is `resizable`, and a window's `placement.resize` is
