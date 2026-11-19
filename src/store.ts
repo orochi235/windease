@@ -1994,7 +1994,7 @@ export class Store {
 
     const at = parent.container.childOrder.indexOf(ontoId);
     const placement = { ...onto.membership.placement };
-    const force: MutateOptions = { force: opts.force };
+    const force: MutateOptions = { force: opts.force === true };
 
     this.transact(() => {
       this.registerNode(
@@ -2088,7 +2088,7 @@ export class Store {
     const placement = { ...onto.membership.placement };
     delete placement.pinned;
     const pinned = this.getPinnedIndex(ontoId);
-    const force: MutateOptions = { force: opts.force };
+    const force: MutateOptions = { force: opts.force === true };
 
     this.transact(() => {
       this.registerNode(
