@@ -300,6 +300,15 @@ for `inner.layout` (2026-11-12). Still open:
   `presets-dnd`'s `:scope > div[data-windease-drag-handle]` and would break
   consumer `.windease-panel > x` selectors, so it was left (2026-10-31).
 
+- **A `mounted` child is laid out but not counted as visible** (2026-11-19).
+  `runStrategyForContainer` (`src/layout-node-adapter.ts`) skips only `hidden`
+  and `destroyed`, while `ContainerHost`'s own item lists keep only `visible`,
+  and the lifecycle has no `hide` from `mounted`. A consumer that hides only
+  what is `visible` (as `portfolio`'s filter did) leaves never-shown children
+  taking cells: a filtered first load packed 4 tiles into a 25-tile grid. Pick
+  one rule for which children a layout sees, and either allow `mounted → hidden`
+  or say in the docs that a child must be shown before it can be hidden.
+
 ## API vocabulary
 
 - **`meta` means two scopes at the custom-strategy boundary.** `LayoutItem.meta`
