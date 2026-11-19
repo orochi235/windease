@@ -6,7 +6,7 @@ Migration steps for breaking changes live in the README under
 repeating them. `scripts/check-changelog.sh` fails a release whose version has no
 section below.
 
-## 2.4.0
+## Unreleased
 
 ### Added
 
@@ -14,6 +14,22 @@ section below.
   450ms a `touchScroll: 'hold'` press holds still and the 8px it may drift were
   fixed; both now take the provider's values, for reorder children and
   `DragHandle` alike. The **Reorder / Touch Hold** story picks the delay.
+
+### Changed
+
+- **`LayoutItem.placement` carries the whole placement bag**, custom keys
+  included, so a strategy reads `item.placement.pinned` or a key of its own
+  from the same field as `size`. `LayoutItem.meta` is deprecated: it is the
+  same object until 3.0, when it carries the node's own `node.meta` instead.
+  Built-in strategies still read `meta` from an item built by hand. The
+  **Custom Strategy / Placement Keys** story is a strategy written against the
+  public API, reading its own key through a drag, a drop refusal, and a
+  save and restore. See
+  [Breaking changes](README.md#unreleased--layoutitemmeta-renamed-placement).
+
+## 2.4.0
+
+### Added
 
 - **`transaction.end` carries `threw: true` when the callback threw**, so a
   history listener can tell a transaction that finished from one that left a

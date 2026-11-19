@@ -1,0 +1,54 @@
+.cs-root {
+  display: grid;
+  grid-template-columns: 200px 420px;
+  gap: 16px;
+  font:
+    13px / 1.3 system-ui,
+    sans-serif;
+}
+
+.cs-frame {
+  height: 300px;
+  padding: 8px;
+  border: 1px solid #c7c7cc;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.cs-frame__inner {
+  height: 100%;
+}
+
+.cs-frame__inner[data-drop-target] {
+  background: rgba(0, 96, 223, 0.08);
+}
+
+.cs-lanes {
+  display: flex;
+  justify-content: space-around;
+  color: #6e6e73;
+}
+
+.cs-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border: 1px solid #d1d1d6;
+  border-radius: 6px;
+  background: #fff;
+  user-select: none;
+}
+
+.cs-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.cs-readout {
+  margin-top: 8px;
+  color: #3a3a3c;
+}

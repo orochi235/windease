@@ -12,6 +12,7 @@ import { trace } from '../trace.js';
 import { readCount } from './capacity.js';
 import { projectGridDrop } from './grid-drop.js';
 import { type GridRoom, gridRoom } from './grid-room.js';
+import { placementOf, withPlacement } from './placement-of.js';
 import { withPreviewItem } from './preview-items.js';
 
 interface GridConfig {
@@ -373,7 +374,7 @@ interface ReservedCell {
 }
 
 function isPinned(item: LayoutItem): boolean {
-  return typeof item.meta?.pinned === 'number';
+  return typeof placementOf(item).pinned === 'number';
 }
 
 /** Pinned items win the capacity race, in childOrder; unpinned fill what's
@@ -1319,9 +1320,7 @@ function compactReach(
   const baseline = reserveCells(items, cols, rowCap, itemCap, true).size;
   const fits = (axis: 'cols' | 'rows', value: number): boolean => {
     const span = { ...own, [axis]: value };
-    const probe = items.map((it) =>
-      it === item ? { ...it, placement: { ...it.placement, span } } : it,
-    );
+    const probe = items.map((it) => (it === item ? withPlacement(it, { span }) : it));
     return reserveCells(probe, cols, rowCap, itemCap, true).size >= baseline;
   };
   const reachOn = (axis: 'cols' | 'rows', cap: number): number => {
@@ -1411,7 +1410,7 @@ function pixelTotal(tracks: Track[]): number {
 /** Which axes a cell's `placement.sticky` holds it on: `'y'` at the top edge
  *  (a column heading), `'x'` at the left (a row number), `true` both. */
 function stickyAxes(item: LayoutItem): { x: boolean; y: boolean } | undefined {
-  const v = item.meta?.sticky;
+  const v = placementOf(item).sticky;
   if (v === true) return { x: true, y: true };
   if (v === 'x') return { x: true, y: false };
   if (v === 'y') return { x: false, y: true };

@@ -106,6 +106,8 @@ export {
   type ZoomRecord,
 } from './desktop-controls.js';
 
+import { placementOf } from './placement-of.js';
+
 /** Affordance id prefixes, so dispatch can route without knowing the inner strategy. */
 export const DESKTOP_DRAG_PREFIX = 'desktop:drag:';
 export const DESKTOP_RESIZE_PREFIX = 'desktop:resize:';
@@ -113,7 +115,7 @@ export const DESKTOP_RESIZE_PREFIX = 'desktop:resize:';
 const DRAG_KIND = { xy: 'drag-xy', x: 'drag-x', y: 'drag-y' } as const;
 
 function dragAxes(item: LayoutItem, cfg: DesktopConfig): keyof typeof DRAG_KIND | null {
-  const own = item.meta?.drag;
+  const own = placementOf(item).drag;
   const drag = own === undefined ? cfg.drag : own;
   if (drag === true) return 'xy';
   return drag === 'x' || drag === 'y' ? drag : null;
@@ -161,7 +163,7 @@ const EDGE_CURSOR: Record<Edge, string> = {
 };
 
 function resizable(item: LayoutItem, cfg: DesktopConfig): boolean {
-  const own = item.meta?.resizable ?? item.meta?.resize;
+  const own = placementOf(item).resizable ?? placementOf(item).resize;
   return (own === undefined ? (cfg.resizable ?? cfg.resize) : own) === true;
 }
 
@@ -363,11 +365,20 @@ function layers(
   };
   const out: Layers = { icons: [], windows: [] };
   for (const item of items) {
-    if (item.meta?.icon === true) out.icons.push(item);
-    else if (iconify && item.meta?.minimized === true) {
+    if (placementOf(item).icon === true) out.icons.push(item);
+    else if (iconify && placementOf(item).minimized === true) {
       // Its own size is the window's; only the icon size applies down there.
       const asIcon: LayoutItem = { id: item.id, natural: icon };
-      if (item.meta) asIcon.meta = item.meta;
+      if (item.placement || item.meta) {
+        const {
+          size: _size,
+          span: _span,
+          share: _share,
+          cell: _cell,
+          ...flags
+        } = placementOf(item);
+        asIcon.placement = flags;
+      }
       out.icons.push(asIcon);
     } else out.windows.push(item);
   }
@@ -400,7 +411,7 @@ function placeWindows(
       unplaced.push(item.id);
       continue;
     }
-    const minimized = item.meta?.minimized === true;
+    const minimized = placementOf(item).minimized === true;
     if (minimized && cfg.minimize === 'icon') {
       trace('layout', `desktop: ${item.id} minimized to an icon with no icon layer, shaded`);
     }
@@ -409,7 +420,7 @@ function placeWindows(
     let at: Point;
     if (wanted) at = wanted;
     else {
-      const { x, y } = item.meta ?? {};
+      const { x, y } = placementOf(item);
       const bad = (n: unknown) => typeof n === 'number' && !Number.isFinite(n);
       if (bad(x) || bad(y)) {
         trace('layout', `desktop: ${item.id} at non-finite (${x}, ${y}), cascaded`);
@@ -569,7 +580,8 @@ export function desktopStrategy<TInner>(
     const unplaced = [...(result.unplaced ?? [])];
     if (!inner) for (const icon of icons) unplaced.push(icon.id);
     for (const icon of icons) {
-      if (icon.meta?.icon === true || icon.meta?.minimized !== true) continue;
+      const flags = placementOf(icon);
+      if (flags.icon === true || flags.minimized !== true) continue;
       const rect = placements.get(icon.id);
       if (rect && windowControls(icon, cfg).includes('minimize')) {
         affordances.push(iconRestore(icon, rect));
@@ -704,7 +716,7 @@ export function desktopStrategy<TInner>(
       const size = unzoom ? unzoom.size : item && itemSize(item);
       if (cfg.clamp && item && size) {
         const h =
-          item.meta?.minimized === true ? (cfg.shadeHeight ?? DEFAULT_SHADE_HEIGHT) : size.h;
+          placementOf(item).minimized === true ? (cfg.shadeHeight ?? DEFAULT_SHADE_HEIGHT) : size.h;
         const band = cfg.handleSize ?? DEFAULT_HANDLE_SIZE;
         next = clampWindow(next, { w: size.w, h }, ctx.container, cfg.clamp, band);
       }

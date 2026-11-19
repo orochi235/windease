@@ -5,6 +5,7 @@ import type { Store } from '../store.js';
 import { trace } from '../trace.js';
 import type { ConfigConflict } from './config-check.js';
 import { itemSize } from './item-place.js';
+import { placementOf, withPlacement } from './placement-of.js';
 
 /** The boxes `controls` can list, in config or in a window's placement. */
 export const DESKTOP_CONTROLS = ['close', 'minimize', 'zoom'] as const;
@@ -84,7 +85,7 @@ function validList(value: unknown): DesktopControl[] | null {
 
 /** The controls `item`'s title band carries, in order. */
 export function windowControls(item: LayoutItem, cfg: DesktopControlsConfig): DesktopControl[] {
-  const own = validList(item.meta?.controls);
+  const own = validList(placementOf(item).controls);
   if (own) return own;
   const shared = validList(cfg.controls);
   if (shared) return shared;
@@ -122,7 +123,7 @@ function controlBox(
     control === 'close'
       ? 'close'
       : control === 'zoom'
-        ? zoomOf(item.meta)
+        ? zoomOf(placementOf(item))
           ? 'restore size'
           : 'zoom'
         : minimized
@@ -235,8 +236,8 @@ export function unzoomForDrag(
   at: { x: number; y: number },
   point: { x: number; y: number } | undefined,
 ): { at: { x: number; y: number }; size: Size | null; patch: Record<string, unknown> } | null {
-  const placement = item.meta;
-  if (!placement || placement[ZOOM_RECORD_KEY] === undefined) return null;
+  const placement = placementOf(item);
+  if (placement[ZOOM_RECORD_KEY] === undefined) return null;
   const clear = { [ZOOM_RECORD_KEY]: undefined };
   const zoomed = zoomOf(placement);
   if (!zoomed) return { at, size: itemSize(item), patch: clear };
@@ -245,7 +246,7 @@ export function unzoomForDrag(
     return null;
   }
   const prior = zoomed.prior.size;
-  const restored: LayoutItem = { ...item, placement: { ...item.placement } };
+  const restored = withPlacement(item, {});
   if (prior) restored.placement = { ...restored.placement, size: prior };
   else delete restored.placement?.size;
   const size = itemSize(restored);

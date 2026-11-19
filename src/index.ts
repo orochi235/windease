@@ -229,6 +229,7 @@ export type {
   LayoutEvent,
   LayoutItem,
   LayoutNode,
+  LayoutPlacement,
   LayoutPreview,
   LayoutResult,
   LayoutStrategy,

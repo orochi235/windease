@@ -13,6 +13,7 @@ import { forwardInner, forwardPreview, type LayoutInput, type RunInner } from '.
 import { compositeSpec, innerConfig } from './inner-config.js';
 import { dragDelta } from './item-place.js';
 import { onTopLayer } from './layer.js';
+import { placementOf } from './placement-of.js';
 
 /** The four corners a floating item can anchor to. */
 export const FLOATING_CORNERS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const;
@@ -120,11 +121,11 @@ export interface FloatingPlacement {
 }
 
 export function isFloating(item: LayoutItem): boolean {
-  return item.meta?.floating === true;
+  return placementOf(item).floating === true;
 }
 
 export function eligibleCorners(item: LayoutItem): readonly Corner[] {
-  const raw = item.meta?.snapCorners;
+  const raw = placementOf(item).snapCorners;
   if (!Array.isArray(raw)) return FLOATING_CORNERS;
   const kept = raw.filter((c): c is Corner =>
     (FLOATING_CORNERS as readonly string[]).includes(c as string),

@@ -384,9 +384,11 @@ placement it writes joins the move's undo step. It runs only while a host is
 attached.
 
 `items` are `LayoutItem`s, projected from each child by `nodeToLayoutItem`.
-It splits `membership.placement` two ways: the whole bag lands in `meta`, and
-`size` alone is re-surfaced as the typed `placement.size`. So a strategy reads
-`pinned` from `item.meta`, never from `item.placement`. Both entry points —
+The whole `membership.placement` bag lands in `item.placement`, its reserved
+keys typed (`size`, `span`, `share`, `cell`) and every other key, `pinned` or
+your own, beside them. `item.meta` is the same object under its old name,
+deprecated: in 3.0 it carries the node's own `node.meta`, as `LayoutNode.meta`
+already does. Both entry points —
 `runStrategyForContainer(store, parentId, viewport, strategy, state)` and the
 React `useContainerLayout` — feed strategies through that adapter. The exported
 `LayoutNode` shape is a separate projection (`nodeToLayoutNode`) that no
@@ -456,7 +458,7 @@ Built-ins:
   `container.state` for the reason `activeId` is: it names which child shows,
   a preset declares it, and `configSpec` checks it.
 - **`floatingStrategy(inner?)`** — wraps another strategy. Items whose
-  `meta.floating` is true are placed free and corner-snapped; the rest are
+  `placement.floating` is true are placed free and corner-snapped; the rest are
   tiled by `inner`. Config: `inset`, `snapThreshold`, `defaultAnchor`,
   `handleSize`, `snapToPanes`, `snap`, and `inner`'s own config under `inner`
   (or flat beside these, the older form). Called with no argument, everything

@@ -1,5 +1,6 @@
 import { type CollapseDrag, resolveCollapse } from '../collapse.js';
 import { Gesture } from '../gesture.js';
+import { placementOf } from '../layout/placement-of.js';
 import { nodeToLayoutItem } from '../layout-node-adapter.js';
 import type { LayoutItem, LayoutStrategy, Rect, Size } from '../layout-types.js';
 import type { NodeId } from '../node.js';
@@ -642,7 +643,8 @@ export class DragEngine {
           state: containerStateFor(this.store, targetId, strategy),
           options,
         });
-        item.meta = { ...item.meta, ...placement };
+        item.placement = { ...placementOf(item), ...placement };
+        item.meta = item.placement;
       }
       items.push(item);
     }

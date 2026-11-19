@@ -27,16 +27,17 @@ describe('nodeToLayoutItem', () => {
     });
   });
 
-  it('projects placement → meta', () => {
+  it('projects the whole placement bag into placement, with meta as the same object', () => {
     const n = createNode({
       kind: 'panel',
       focus: true,
       id: asNodeId('p'),
       parentId: asNodeId('z'),
-      placement: { pinned: true, locked: false },
+      placement: { pinned: 0, column: 'left' },
     });
     const item = nodeToLayoutItem(n);
-    expect(item.meta).toEqual({ pinned: true, locked: false });
+    expect(item.placement).toEqual({ pinned: 0, column: 'left' });
+    expect(item.meta).toBe(item.placement);
   });
 
   it('omits meta when placement is empty', () => {
@@ -82,21 +83,17 @@ describe('nodeToLayoutItem', () => {
       placement: { pinned: true, size: { h: 180 } },
     });
     const item = nodeToLayoutItem(n);
-    expect(item.placement?.size).toEqual({ h: 180 });
-    // size lives under placement, not duplicated into the meta flag bag.
-    expect(item.meta).toEqual({ pinned: true, size: { h: 180 } });
+    expect(item.placement).toEqual({ pinned: true, size: { h: 180 } });
   });
 
-  it('omits placement when there is no size', () => {
+  it('omits placement when the bag is empty', () => {
     const n = createNode({
       kind: 'panel',
       focus: true,
       id: asNodeId('p'),
       parentId: asNodeId('z'),
-      placement: { pinned: true },
     });
-    const item = nodeToLayoutItem(n);
-    expect(item.placement).toBeUndefined();
+    expect(nodeToLayoutItem(n).placement).toBeUndefined();
   });
 });
 

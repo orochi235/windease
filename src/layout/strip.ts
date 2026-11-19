@@ -13,6 +13,7 @@ import type {
 import { trace } from '../trace.js';
 import { readCount, selectByCapacity } from './capacity.js';
 import { PACK_EPSILON } from './pack.js';
+import { placementOf, withPlacement } from './placement-of.js';
 import { clampExplicitSizes } from './resize.js';
 import { DEFAULT_BURY_THRESHOLD, SEAM_SIZE } from './seam-bury.js';
 import { turnedExtent, turns } from './turn.js';
@@ -728,13 +729,10 @@ function applyStored(
     const v = stored.get(it.id);
     if (v === undefined) return it;
     if ('share' in v) {
-      return {
-        ...it,
-        placement: { ...it.placement, share: withShare(it.placement?.share, axis, v.share) },
-      };
+      return withPlacement(it, { share: withShare(it.placement?.share, axis, v.share) });
     }
     const size = { ...it.placement?.size, [axis === 'x' ? 'w' : 'h']: v.size };
-    return { ...it, placement: { ...it.placement, size } };
+    return withPlacement(it, { size });
   });
 }
 
@@ -974,7 +972,7 @@ function stickTo(
   const seams = new Map(affordances.map((a) => [a.childId, a]));
   let at = padding;
   items.forEach((it, i) => {
-    if (it.meta?.sticky !== true) return;
+    if (placementOf(it).sticky !== true) return;
     const size = sizes[i] ?? 0;
     const rect = placements.get(it.id);
     if (rect) placements.set(it.id, { ...rect, z: STICKY_Z });

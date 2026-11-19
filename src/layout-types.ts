@@ -44,6 +44,15 @@ export type PlacedRect = Rect & {
  * `nodeToLayoutItem`, but constructible by hand — strategies are pure
  * functions over these and never touch a store or the DOM.
  */
+/** A child's placement in one parent, as {@link LayoutItem.placement} carries it. */
+export interface LayoutPlacement {
+  size?: { w?: number; h?: number };
+  span?: { cols?: number; rows?: number };
+  share?: number | { w?: number; h?: number };
+  cell?: { col: number; row: number };
+  [key: string]: unknown;
+}
+
 export interface LayoutItem {
   id: ItemId;
   hints?: {
@@ -70,7 +79,9 @@ export interface LayoutItem {
    */
   natural?: Size;
   /**
-   * Per-membership placement intent projected from `node.membership.placement`.
+   * The node's whole `membership.placement` bag, projected by
+   * `nodeToLayoutItem`: the reserved keys below, typed, plus any custom key a
+   * strategy reads (`pinned`, `x`, `floating`, your own).
    * `size` is the public "fixed-px pane" API: set it via `store.patchPlacement`
    * to pin a pane's main-axis extent. `stripStrategy` honors it, and its
    * gutter drag clears it. Either `Size` dimension is optional.
@@ -87,16 +98,11 @@ export interface LayoutItem {
    * `cell` is the zero-based grid cell an item's top-left corner sits in,
    * instead of wherever the flow puts it. Only `gridStrategy` reads it.
    */
-  placement?: {
-    size?: { w?: number; h?: number };
-    span?: { cols?: number; rows?: number };
-    share?: number | { w?: number; h?: number };
-    cell?: { col: number; row: number };
-  };
+  placement?: LayoutPlacement;
   /**
-   * The node's whole `membership.placement` bag, projected by
-   * `nodeToLayoutItem`. Strategies read flags like `pinned` here rather than
-   * from `placement`, which surfaces only the typed `size` key.
+   * @deprecated The same bag as `placement`, which now carries every key. In
+   * 3.0 `meta` carries the node's own `node.meta` instead, as `LayoutNode.meta`
+   * does.
    */
   meta?: Record<string, unknown>;
   /** The node's `lock`, projected by `nodeToLayoutItem` when any axis is set.

@@ -15,6 +15,7 @@ import { trace } from '../trace.js';
 import { readCount } from './capacity.js';
 import { forwardInner, forwardPreview, type LayoutInput, type RunInner } from './forward.js';
 import { innerConfig } from './inner-config.js';
+import { placementOf } from './placement-of.js';
 
 /** Where a child's page comes from: its own `placement.page`, or the order
  *  children fill pages in. */
@@ -66,7 +67,7 @@ function areaOf(container: Size, cfg: PageConfig): { size: Size; dy: number } {
 }
 
 function assignedPage(item: LayoutItem): number {
-  const page = item.meta?.page;
+  const page = placementOf(item).page;
   if (page === undefined) return 0;
   if (typeof page === 'number' && Number.isInteger(page) && page >= 0) return page;
   trace('layout', `page: ${item.id} has page ${JSON.stringify(page)}, shown on page 0`);

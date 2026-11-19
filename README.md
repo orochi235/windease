@@ -2628,6 +2628,18 @@ the arriving subtree should take it.
 
 ## Breaking changes
 
+### Unreleased — `LayoutItem.meta` renamed `placement`
+
+A custom strategy reads a child's placement from `item.placement`, which now
+holds every key — `pinned`, `x`, `floating`, your own — beside the typed
+`size`, `span`, `share`, and `cell`. `item.meta` is the same object until 3.0,
+when it carries the node's own `node.meta`, as `LayoutNode.meta` does.
+
+```diff
+- if (typeof item.meta?.pinned === 'number') …
++ if (typeof item.placement?.pinned === 'number') …
+```
+
 ### 2.4.0 — desktop's `overflow` and `resize` renamed
 
 Desktop's config keys now match strip and grid: `overflow` is `overflowMode`

@@ -13,12 +13,9 @@ import type { Node, NodeId } from './node.js';
 import type { Store } from './store.js';
 
 /**
- * Convert a Node into the legacy LayoutItem shape consumed by existing
- * strategies. `placement` (per-membership) projects into `meta` because that
- * is the field strategies read for flags like `pinned` today.
- *
- * Phase 7 may collapse LayoutItem and LayoutNode; until then this adapter
- * lets nodes flow through unchanged strategy code.
+ * Convert a Node into the LayoutItem shape strategies consume. The node's
+ * `membership.placement` projects whole into `placement`, and into the
+ * deprecated `meta` as the same object.
  */
 export function nodeToLayoutItem(node: Node): LayoutItem {
   const item: LayoutItem = { id: node.id };
@@ -40,17 +37,8 @@ export function nodeToLayoutItem(node: Node): LayoutItem {
   }
   const placement = node.membership?.placement;
   if (placement && Object.keys(placement).length > 0) {
-    item.meta = { ...placement };
-    // Surface `size`/`span`/`share`/`cell` as the typed, public placement intent
-    // strategies read (the `meta` projection above still carries flags like `pinned`).
-    const { size, span, share, cell } = placement as NonNullable<LayoutItem['placement']>;
-    if (size || span || share !== undefined || cell) {
-      item.placement = {};
-      if (size) item.placement.size = size;
-      if (span) item.placement.span = span;
-      if (share !== undefined) item.placement.share = share;
-      if (cell) item.placement.cell = cell;
-    }
+    item.placement = { ...placement };
+    item.meta = item.placement;
   }
   if (node.lock && Object.values(node.lock).some((v) => v === true)) item.lock = { ...node.lock };
   return item;

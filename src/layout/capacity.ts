@@ -1,6 +1,7 @@
 // src/layout/capacity.ts
 
 import type { LayoutItem } from '../layout-types.js';
+import { placementOf } from './placement-of.js';
 
 /** A config count — `maxItems`, `cols`, `pages` — as a whole number of at
  *  least 1, or undefined when absent or not a finite number. */
@@ -27,7 +28,7 @@ export interface CapacitySelection {
  *     survives, not layout order.
  */
 export function selectByCapacity(items: LayoutItem[], capacity: number): CapacitySelection {
-  const isPinned = (it: LayoutItem) => typeof it.meta?.pinned === 'number';
+  const isPinned = (it: LayoutItem) => typeof placementOf(it).pinned === 'number';
   const keep = new Set<string>();
   for (const it of items) if (isPinned(it) && keep.size < capacity) keep.add(it.id);
   for (const it of items) if (!keep.has(it.id) && keep.size < capacity) keep.add(it.id);
