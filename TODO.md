@@ -113,6 +113,10 @@ them. Tag major items with `[HIGH]`, and ones worth doing but not next with
     never resolves — `keyboard.press`, a drop — and the test hits Playwright's
     own 30s. Nothing bounds this; it is starvation, and raising the budget only
     trades a red run for a slow one.
+  - **A navigation that fails outright**: Firefox's `page.goto` threw
+    `NS_ERROR_FAILURE` opening `grid--dock` in `openStory` once, in a full run
+    at ad3e041 on the fleet (2026-11-19), and passed on retry. Seen once, so
+    nothing yet says whether it is load or Ladle's dev server.
   - **A geometry assertion read mid-layout**, the entry above — a real
     `toBeGreaterThan` failure rather than a timeout, so it is the one mode that
     can be mistaken for a genuine regression.
