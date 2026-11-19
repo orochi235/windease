@@ -121,6 +121,16 @@ describe('turnTo', () => {
     expect(store.tick(50)).toBe(false);
   });
 
+  it('writes an instant turn\'s angle before closing the bracket it cuts short', () => {
+    store.turnTo(ID, 90, { ms: 100, ease: (p) => p });
+    store.tick(0);
+    store.tick(50);
+    const seen: (number | undefined)[] = [];
+    store.events.on('transaction.end', () => seen.push(turnOf(store)));
+    store.turnTo(ID, 180);
+    expect(seen).toEqual([180]);
+  });
+
   it('announces a pending turn so a driver knows to schedule frames', () => {
     const started = vi.fn();
     store.events.on('turn.started', started);

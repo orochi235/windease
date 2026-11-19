@@ -1171,8 +1171,8 @@ export class Store {
     const ms = Number.isFinite(opts.ms) && (opts.ms ?? 0) > 0 ? (opts.ms as number) : 0;
     const existing = this.turning.get(id);
     if (ms === 0) {
-      if (existing) this.endTurn(id);
       this.setHints(id, { turn: deg });
+      if (existing) this.endTurn(id);
       return;
     }
     if (!existing) this.events.emit('transaction.begin', { label: 'turn' });

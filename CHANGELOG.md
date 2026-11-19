@@ -104,6 +104,11 @@ section below.
 
 ### Fixed
 
+- **An instant `turnTo` that cuts a running turn short lands inside its
+  history bracket.** The bracket closed first, so a history integration
+  snapshotting on `transaction.end` recorded the mid-turn angle and missed the
+  final one.
+
 - **Changing one key of a declared container config no longer rewrites the
   others.** The whole declaration was re-sent whenever any key changed, so
   changing a stack's `headerSize` snapped its tab back to the declared
