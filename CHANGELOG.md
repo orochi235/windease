@@ -104,6 +104,11 @@ section below.
 
 ### Fixed
 
+- **A forced `stackNodes` or `splitInto` that builds a new group no longer
+  throws halfway.** `force: true` passed the lock checks but was dropped on the
+  inner moves, so a move-locked source threw `LockedError` after the group was
+  built and the onto-child moved into it, leaving a half-built group.
+
 - **A panel added under a mounted zone no longer updates the zone mid-render.**
   Registering the new node during its first render invalidated the zone's
   layout, and React warned "Cannot update a component (`ZoneWithLayout`) while

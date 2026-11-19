@@ -1994,6 +1994,7 @@ export class Store {
 
     const at = parent.container.childOrder.indexOf(ontoId);
     const placement = { ...onto.membership.placement };
+    const force: MutateOptions = { force: opts.force };
 
     this.transact(() => {
       this.registerNode(
@@ -2011,9 +2012,9 @@ export class Store {
       );
       this.showNode(opts.id);
       this.setAutoUnsplit(opts.id, true);
-      this.reorderInParent(opts.id, at);
-      this.moveNode(ontoId, opts.id);
-      this.moveNode(sourceId, opts.id);
+      this.reorderInParent(opts.id, at, force);
+      this.moveNode(ontoId, opts.id, undefined, force);
+      this.moveNode(sourceId, opts.id, undefined, force);
     }, 'stackNodes');
     trace('store', `stack: ${sourceId} onto ${ontoId} in new ${opts.id}@${at}`);
   }
@@ -2087,6 +2088,7 @@ export class Store {
     const placement = { ...onto.membership.placement };
     delete placement.pinned;
     const pinned = this.getPinnedIndex(ontoId);
+    const force: MutateOptions = { force: opts.force };
 
     this.transact(() => {
       this.registerNode(
@@ -2103,23 +2105,23 @@ export class Store {
       );
       this.showNode(opts.id);
       this.setAutoUnsplit(opts.id, true);
-      this.reorderInParent(opts.id, at);
+      this.reorderInParent(opts.id, at, force);
       const [first, second] = opts.edge === 'start' ? [sourceId, ontoId] : [ontoId, sourceId];
-      this.moveNode(first, opts.id);
-      this.moveNode(second, opts.id);
+      this.moveNode(first, opts.id, undefined, force);
+      this.moveNode(second, opts.id, undefined, force);
       // Both sizes were measured against the old parent's axis and mean nothing
       // against this one; the group carries the outer slot's size. A pin index
       // is likewise an index into the old parent's childOrder.
       const cleared = { size: undefined, share: undefined };
       this.patchPlacement(sourceId, cleared, { force: true });
       this.patchPlacement(ontoId, cleared, { force: true });
-      this.unpin(sourceId);
-      this.unpin(ontoId);
+      this.unpin(sourceId, force);
+      this.unpin(ontoId, force);
       // An autoUnsplit parent the source left may have dissolved, lifting the
       // group into the grandparent, where `pinned` indexes nothing.
       if (pinned !== null) {
         if (this.nodesMap.get(opts.id)?.membership?.parentId === parentId) {
-          this.setPinned(opts.id, pinned);
+          this.setPinned(opts.id, pinned, force);
         } else trace('store', `splitInto: ${parentId} dissolved, ${opts.id} not re-pinned`);
       }
     }, 'splitInto');

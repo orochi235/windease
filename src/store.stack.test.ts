@@ -114,6 +114,21 @@ describe('Store.stackNodes', () => {
     expect(JSON.stringify(serialize(s))).toBe(before);
   });
 
+  it.each([
+    ['source move', 'a', { move: true }],
+    ['onto move', 'b', { move: true }],
+    ['parent arrange', 'z', { arrange: true }],
+    ['parent accept', 'z', { accept: true }],
+    ['parent dragOut', 'z', { dragOut: true }],
+  ] as const)('stacks under force past a %s lock', (_, target, lock) => {
+    const { s, z, a, b, c } = seeded();
+    s.setPinned(c);
+    s.setLock(id(target), lock);
+    s.stackNodes(a, b, { id: id('s1'), force: true });
+    expect(order(s, z)).toEqual([id('s1'), c]);
+    expect(order(s, id('s1'))).toEqual([b, a]);
+  });
+
   it('adds to an arrange-locked existing stack and shows the new tab', () => {
     const { s, a, b, c } = seeded();
     s.stackNodes(a, b, { id: id('s1') });

@@ -170,6 +170,24 @@ describe('Store.splitInto', () => {
     expect(JSON.stringify(serialize(s))).toBe(before);
   });
 
+  it.each([
+    ['source move', 'a', { move: true }],
+    ['onto move', 'b', { move: true }],
+    ['parent arrange', 'z', { arrange: true }],
+    ['parent accept', 'z', { accept: true }],
+    ['parent dragOut', 'z', { dragOut: true }],
+    ['source resize', 'a', { resize: true }],
+  ] as const)('splits under force past a %s lock', (_, target, lock) => {
+    const { s, z, a, b, c } = seeded();
+    s.patchPlacement(a, { size: 200 });
+    s.setPinned(b);
+    s.setLock(id(target), lock);
+    s.splitInto(a, b, { id: id('g1'), axis: 'y', edge: 'end', force: true });
+    expect(order(s, z)).toEqual([c, id('g1')]);
+    expect(order(s, id('g1'))).toEqual([b, a]);
+    expect(s.getPinnedIndex(id('g1'))).toBe(1);
+  });
+
   it('splits a resize-locked node that carries no size', () => {
     const { s, a, b } = seeded();
     s.setLock(a, { resize: true });
