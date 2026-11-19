@@ -280,11 +280,11 @@ for `inner.layout` (2026-11-12). Still open:
 - typedoc runs from a pinned `npx` install carrying TypeScript 6.0.3
   (`docs:api`), because it needs the compiler API that TypeScript 7 dropped.
   Move it back to a devDependency once typedoc supports TS 7. Still capped
-  at 6.0.x in 0.28.20 (checked 2026-11-04).
+  at 6.0.x in 0.28.20 (checked 2026-11-19).
 - `scripts/strip-ladle-tsx.sh` (run from `prepare`) works around Ladle shipping
   raw `.tsx` in its typings, which fails typecheck under TS 7. Drop it once
   Ladle ships only `.d.ts` there. 5.1.1 is still the latest (checked
-  2026-11-04).
+  2026-11-19).
 - **Every `REJECT` trace in `DragEngine.checkAccept` fires per pointermove
   sample**, not per hover transition — the per-frame chatter the tracing tenet
   in `CLAUDE.md` warns against. Left as is: those lines are the whole record of
@@ -409,11 +409,12 @@ Open, grouped by what they touch:
   heights can fill them, hold too little (`grid-room.ts`). That catches waste
   from sizes that don't tile the grid, not waste from first-fit order: 100
   panels alternating 10 and 8 wide in 24 columns still repack once per span
-  between reach and bound, 0.65s a layout (2026-11-12,
-  `scripts/bench-grid-reach.ts`). Lazy reach doesn't help while
-  `AffordanceHandle` renders every handle's `aria-valuemax`, and whether a
-  handle is emitted at all depends on reach. Next lever is constant-factor:
-  row bitmasks in `CellPacker` (cell writes and reads are most of the time).
+  between reach and bound. `CellPacker` (`cell-packer.ts`) keeps a bitmask per
+  row since 2026-11-19, which halved that case from 360ms to 170ms a layout on
+  teitou, with every reach unchanged (`scripts/bench-grid-reach.ts`, median of
+  5). Lazy reach doesn't help while `AffordanceHandle` renders every handle's
+  `aria-valuemax`, and whether a handle is emitted at all depends on reach.
+  What is left is the repacking itself: one pack per candidate span.
 - **accepts and locks** — `accepts: false` and `lock.accept` both stay
   (accepts is drag-only); stack/split drops honor `accepts.kinds`, and count
   toward `accepts.max` only where they add a child. `lock: true` leaves out

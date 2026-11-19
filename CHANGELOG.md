@@ -17,6 +17,11 @@ section below.
 
 ### Changed
 
+- **A resizable grid finds its seams' reach about twice as fast.** Its cell
+  packer keeps one bitmask per row instead of a byte per cell; the worst
+  measured case, 100 panels alternating 10 and 8 wide, went from 360ms to
+  170ms a layout. Every layout and reach is unchanged.
+
 - **`LayoutItem.placement` carries the whole placement bag**, custom keys
   included, so a strategy reads `item.placement.pinned` or a key of its own
   from the same field as `size`. `LayoutItem.meta` is deprecated: it is the

@@ -10,6 +10,7 @@ import type {
 } from '../layout-types.js';
 import { trace } from '../trace.js';
 import { readCount } from './capacity.js';
+import { CellPacker, type ReservedCell } from './cell-packer.js';
 import { projectGridDrop } from './grid-drop.js';
 import { type GridRoom, gridRoom } from './grid-room.js';
 import { placementOf, withPlacement } from './placement-of.js';
@@ -366,13 +367,6 @@ function fitsCapacity(cfg: GridConfig, items: LayoutItem[]): boolean {
   return requestedArea(items, colLimit, rowCap) <= colLimit * rowCap;
 }
 
-interface ReservedCell {
-  col: number;
-  row: number;
-  cols: number;
-  rows: number;
-}
-
 function isPinned(item: LayoutItem): boolean {
   return typeof placementOf(item).pinned === 'number';
 }
@@ -384,153 +378,6 @@ function byCapacityPriority(items: LayoutItem[]): LayoutItem[] {
   const pinned = items.filter(isPinned);
   const unpinned = items.filter((it) => !isPinned(it));
   return [...pinned, ...unpinned];
-}
-
-/** Taken cells by index, as a byte map grown on demand. A `Set` here made
- *  span-reach probes several times slower. */
-class CellSet {
-  private bits = new Uint8Array(64);
-  size = 0;
-
-  has(cell: number): boolean {
-    return cell < this.bits.length && this.bits[cell] === 1;
-  }
-
-  add(cell: number): void {
-    if (cell >= this.bits.length) {
-      const next = new Uint8Array(Math.max(cell + 1, this.bits.length * 2));
-      next.set(this.bits);
-      this.bits = next;
-    }
-    if (this.bits[cell] === 1) return;
-    this.bits[cell] = 1;
-    this.size++;
-  }
-
-  delete(cell: number): void {
-    if (cell >= this.bits.length || this.bits[cell] === 0) return;
-    this.bits[cell] = 0;
-    this.size--;
-  }
-}
-
-/**
- * Row-major first-fit over a `cols`-wide lattice. Every cell before `cursor`
- * is taken, so no block can start there and each search begins at it.
- */
-class CellPacker {
-  readonly cols: number;
-  readonly rowCap: number | undefined;
-  private readonly taken = new CellSet();
-  private cursor = 0;
-  private journal: number[] | undefined;
-  /**
-   * Per block size, the cell its last search stopped at, or Infinity when it
-   * fit nowhere. Taking cells never opens a start before that, so the next
-   * search of that size begins there; freeing cells has to drop these.
-   */
-  private starts = new Map<number, number>();
-
-  constructor(cols: number, rowCap: number | undefined) {
-    this.cols = cols;
-    this.rowCap = rowCap;
-  }
-
-  /** Runs `probe` against this packer, then undoes every cell it took. */
-  trial<T>(probe: (packer: CellPacker) => T): T {
-    const { cursor, starts } = this;
-    const outer = this.journal;
-    const journal: number[] = [];
-    this.journal = journal;
-    this.starts = new Map(starts);
-    try {
-      return probe(this);
-    } finally {
-      this.journal = outer;
-      for (const cell of journal) this.taken.delete(cell);
-      this.cursor = cursor;
-      this.starts = starts;
-    }
-  }
-
-  /** How many cells are taken. */
-  get takenCount(): number {
-    return this.taken.size;
-  }
-
-  free(col: number, row: number, cSpan: number, rSpan: number): boolean {
-    return this.blockedAt(col, row, cSpan, rSpan) < 0;
-  }
-
-  /** Runs `probe` with a block this packer holds freed, then takes it back. */
-  without<T>(block: ReservedCell, probe: (packer: CellPacker) => T): T {
-    const { cols, taken, cursor, starts } = this;
-    const cells: number[] = [];
-    for (let dr = 0; dr < block.rows; dr++) {
-      for (let dc = 0; dc < block.cols; dc++) cells.push((block.row + dr) * cols + block.col + dc);
-    }
-    for (const cell of cells) taken.delete(cell);
-    this.cursor = Math.min(cursor, block.row * cols + block.col);
-    this.starts = new Map();
-    try {
-      return probe(this);
-    } finally {
-      for (const cell of cells) taken.add(cell);
-      this.cursor = cursor;
-      this.starts = starts;
-    }
-  }
-
-  private take(cell: number): void {
-    this.journal?.push(cell);
-    this.taken.add(cell);
-  }
-
-  /** Reserves the first block a `cSpan × rSpan` item fits, if any. */
-  place(cSpan: number, rSpan: number): { col: number; row: number } | undefined {
-    const { cols, rowCap, taken, starts } = this;
-    const size = cSpan <= cols && rSpan >= 1 ? cSpan + rSpan * (cols + 1) : -1;
-    const from = Math.max(this.cursor, (size >= 0 && starts.get(size)) || 0);
-    if (from === Number.POSITIVE_INFINITY) return undefined;
-    let col = from % cols;
-    for (let row = Math.floor(from / cols); rowCap === undefined || row + rSpan <= rowCap; row++) {
-      while (col + cSpan <= cols) {
-        const blocked = this.blockedAt(col, row, cSpan, rSpan);
-        if (blocked < 0) {
-          for (let dr = 0; dr < rSpan; dr++) {
-            for (let dc = 0; dc < cSpan; dc++) this.take((row + dr) * cols + col + dc);
-          }
-          while (taken.has(this.cursor)) this.cursor++;
-          if (size >= 0) starts.set(size, row * cols + col);
-          return { col, row };
-        }
-        // Every start from `col` through `blocked` covers the taken cell.
-        col = blocked + 1;
-      }
-      col = 0;
-    }
-    if (size >= 0) starts.set(size, Number.POSITIVE_INFINITY);
-    return undefined;
-  }
-
-  /** Reserves the block at `col, row` if every cell of it is free. */
-  reserve(col: number, row: number, cSpan: number, rSpan: number): boolean {
-    if (this.blockedAt(col, row, cSpan, rSpan) >= 0) return false;
-    for (let dr = 0; dr < rSpan; dr++) {
-      for (let dc = 0; dc < cSpan; dc++) this.take((row + dr) * this.cols + col + dc);
-    }
-    while (this.taken.has(this.cursor)) this.cursor++;
-    return true;
-  }
-
-  /** The column of a taken cell inside the block, or -1 when it is free. */
-  private blockedAt(col: number, row: number, cSpan: number, rSpan: number): number {
-    for (let dr = 0; dr < rSpan; dr++) {
-      const base = (row + dr) * this.cols + col;
-      for (let dc = cSpan - 1; dc >= 0; dc--) if (this.taken.has(base + dc)) return col + dc;
-    }
-    return -1;
-  }
 }
 
 /**
