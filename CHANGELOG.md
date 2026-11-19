@@ -104,6 +104,12 @@ section below.
 
 ### Fixed
 
+- **`deserialize` and `graft` reject a snapshot that links to a node it lacks.**
+  A `childOrder` or `rootIds` entry with no node was skipped, so a damaged
+  snapshot loaded as a shorter tree, and an in-place `deserialize` replaced the
+  live tree with it. Both now throw `InvariantViolationError`
+  (`missing-child`, `missing-root`) before touching the store.
+
 - **An instant `turnTo` that cuts a running turn short lands inside its
   history bracket.** The bracket closed first, so a history integration
   snapshotting on `transaction.end` recorded the mid-turn angle and missed the

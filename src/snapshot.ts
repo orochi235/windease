@@ -633,7 +633,14 @@ function validateSnapshot(
       if (listed.has(cid)) throw new DuplicateNodeError(asNodeId(cid));
       listed.add(cid);
       const child = byId.get(cid);
-      if (child && child.membership?.parentId !== sn.id) {
+      if (!child) {
+        throw new InvariantViolationError(
+          'missing-child',
+          `node ${sn.id} lists child ${cid}, which is not in the snapshot`,
+          { id: cid, parentId: sn.id },
+        );
+      }
+      if (child.membership?.parentId !== sn.id) {
         throw new InvariantViolationError(
           'broken-bidi-link',
           `node ${sn.id} lists child ${cid}, whose parent is ${child.membership?.parentId ?? 'none'}`,
@@ -647,6 +654,11 @@ function validateSnapshot(
   for (const rid of rootIds) {
     if (roots.has(rid)) throw new DuplicateNodeError(asNodeId(rid));
     roots.add(rid);
+    if (!byId.has(rid)) {
+      throw new InvariantViolationError('missing-root', `root ${rid} is not in the snapshot`, {
+        id: rid,
+      });
+    }
     if (byId.get(rid)?.membership) {
       throw new InvariantViolationError(
         'root-has-membership',

@@ -152,6 +152,39 @@ describe('deserialize — broken snapshot', () => {
   });
 });
 
+describe('deserialize — a link to a node the snapshot lacks', () => {
+  const live = () => {
+    const s = new Store();
+    s.registerNode(
+      createNode({
+        kind: 'zone',
+        container: { strategyId: 'strip', config: {} },
+        id: asNodeId('z'),
+      }),
+    );
+    for (const p of ['a', 'b', 'c']) {
+      s.registerNode(createNode({ kind: 'panel', id: asNodeId(p), parentId: asNodeId('z') }));
+    }
+    return s;
+  };
+
+  it('throws on a childOrder id with no node, and leaves the target store alone', () => {
+    const target = live();
+    const snap = serialize(target);
+    const z = snap.nodes.find((n) => n.id === 'z');
+    z?.container?.childOrder.push('missing');
+    expect(() => deserialize(snap)).toThrow(/missing/);
+    expect(() => deserialize(target, snap)).toThrow(/missing/);
+    expect(target.getContainerView(asNodeId('z'))?.childOrder).toEqual(['a', 'b', 'c']);
+  });
+
+  it('throws on a root id with no node', () => {
+    const snap = serialize(live());
+    snap.rootIds.push('missing');
+    expect(() => deserialize(snap)).toThrow(/missing/);
+  });
+});
+
 describe('deserialize — back-compat for legacy childIds key', () => {
   it('accepts container.childIds (old shape) as childOrder', () => {
     // Snapshot written by a 0.3.x build, where containers still used `childIds`.
